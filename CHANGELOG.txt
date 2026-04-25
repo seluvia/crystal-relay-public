@@ -3,6 +3,11 @@ Crystal Relay Changelog
 
 Newest updates appear first. This changelog focuses on the changes users will notice most.
 
+v2.8.6
+- Bits and Subs paid overrides now let you set separate amount-based timer ratios, so Bits and Subs can each add their own amount of time.
+- Bits and Subs paid overrides can now optionally cap their total accumulated time, so repeated paid triggers do not keep extending one override forever.
+- Paid override notes were cleaned up so the current release history better matches the actual timer options now in the app.
+
 v2.8.5
 - Dropdown menus with long lists now scroll with the mouse wheel while they are open, including language, avatar, parameter, and chatbox dropdowns.
 - Closed dropdown menus no longer change their selected value from accidental mouse-wheel input.
