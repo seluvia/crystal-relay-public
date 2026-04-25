@@ -97,8 +97,9 @@ $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectPath = Join-Path $root 'VrcTwitchOscBridge\VrcTwitchOscBridge.csproj'
 $localizationAuditProject = Join-Path $root 'LocalizationAudit\LocalizationAudit.csproj'
 $localizationRoot = Join-Path $root 'VrcTwitchOscBridge\Resources\Localization'
-$readmePath = Join-Path $root 'README.txt'
+$readmePath = Join-Path $root 'README.md'
 $changelogPath = Join-Path $root 'CHANGELOG.txt'
+$docsPath = Join-Path $root 'docs'
 $releaseRoot = Join-Path $root 'Releases'
 $publishConfig = 'Release'
 $runtime = 'win-x64'
@@ -179,8 +180,11 @@ if (Test-Path $defaultExe) {
     Rename-Item -Path $defaultExe -NewName (Split-Path -Path $versionedExe -Leaf) -Force
 }
 
-Copy-Item -Path $readmePath -Destination (Join-Path $publishDir 'README.txt') -Force
+Copy-Item -Path $readmePath -Destination (Join-Path $publishDir 'README.md') -Force
 Copy-Item -Path $changelogPath -Destination (Join-Path $publishDir 'CHANGELOG.txt') -Force
+if (Test-Path $docsPath) {
+    Copy-Item -Path $docsPath -Destination (Join-Path $publishDir 'docs') -Recurse -Force
+}
 
 if (Test-Path $zipPath) {
     Remove-Item -Path $zipPath -Force
