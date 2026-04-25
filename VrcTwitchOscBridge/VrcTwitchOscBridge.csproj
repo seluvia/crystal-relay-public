@@ -1,0 +1,114 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <UseWPF>true</UseWPF>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
+    <EnableDefaultPageItems>false</EnableDefaultPageItems>
+    <ApplicationIcon>Assets\crystal-relay-icon.ico</ApplicationIcon>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Version>2.8.5</Version>
+    <AssemblyVersion>2.8.5.0</AssemblyVersion>
+    <FileVersion>2.8.5.0</FileVersion>
+    <InformationalVersion>2.8.5</InformationalVersion>
+    <AssemblyName>CrystalRelayTwitchOsc</AssemblyName>
+    <Product>Crystal Relay</Product>
+    <Title>Crystal Relay - Twitch to OSC</Title>
+    <Description>Crystal Relay Twitch to OSC bridge for VRChat</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <Using Remove="System.Drawing" />
+    <Using Remove="System.Windows.Forms" />
+  </ItemGroup>
+  <ItemGroup>
+    <ApplicationDefinition Include="App.xaml" />
+    <Page Include="MainWindow.xaml" />
+    <Page Include="ThemeBackgrounds\*.xaml" />
+    <Page Include="TwitchChatboxWindow.xaml" />
+    <Page Include="ThemedDialogWindow.xaml" />
+    <Page Include="RuleLockoutPickerWindow.xaml" />
+    <Page Include="AvatarRouletPickerWindow.xaml" />
+    <Page Include="VrChatLoginWindow.xaml" />
+    <Page Include="VrChatTwoFactorWindow.xaml" />
+    <Resource Include="Assets\crystal-relay-icon.ico" />
+    <Resource Include="Assets\crystal-relay-icon.png" />
+    <Resource Include="Assets\bubblegum-cuddles.png" />
+    <Resource Include="Assets\moon-bunny-wink.jpg" />
+    <Resource Include="Assets\rikuknifesticker.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\**\*.mp3" />
+    <EmbeddedResource Include="Assets\**\*.wav" />
+    <EmbeddedResource Include="Assets\**\*.m4a" />
+    <EmbeddedResource Include="Assets\**\*.mp4" />
+    <EmbeddedResource Include="Assets\**\*.mov" />
+    <EmbeddedResource Include="Assets\**\*.webm" />
+    <EmbeddedResource Include="Assets\**\*.avi" />
+    <EmbeddedResource Include="Resources\Localization\*.json" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="App.xaml.cs" />
+    <Compile Include="AssemblyInfo.cs" />
+    <Compile Include="ComboBoxInteraction.cs" />
+    <Compile Include="MainWindow.xaml.cs" />
+    <Compile Include="TwitchChatboxWindow.xaml.cs" />
+    <Compile Include="ThemedDialogWindow.xaml.cs" />
+    <Compile Include="RuleLockoutPickerWindow.xaml.cs" />
+    <Compile Include="AvatarRouletPickerWindow.xaml.cs" />
+    <Compile Include="VrChatLoginWindow.xaml.cs" />
+    <Compile Include="VrChatTwoFactorWindow.xaml.cs" />
+    <Compile Include="Infrastructure\AsyncRelayCommand.cs" />
+    <Compile Include="Infrastructure\ObservableObject.cs" />
+    <Compile Include="Infrastructure\RelayCommand.cs" />
+    <Compile Include="Models\AppTheme.cs" />
+    <Compile Include="Models\AppLanguage.cs" />
+    <Compile Include="Models\AppSettings.cs" />
+    <Compile Include="Models\AvatarTriggerProfile.cs" />
+    <Compile Include="Models\ChatCommandPermission.cs" />
+    <Compile Include="Models\ChatCommandUtility.cs" />
+    <Compile Include="Models\IntZeroDurationMode.cs" />
+    <Compile Include="Models\OscActionType.cs" />
+    <Compile Include="Models\OscParameterType.cs" />
+    <Compile Include="Models\PlayerMovementDirection.cs" />
+    <Compile Include="Models\TriggerRule.cs" />
+    <Compile Include="Models\TwitchAccountSettings.cs" />
+    <Compile Include="Models\TwitchTriggerType.cs" />
+    <Compile Include="Models\VrChatAccountSettings.cs" />
+    <Compile Include="Models\VrChatAvatarSummary.cs" />
+    <Compile Include="Models\VrChatOscParameterSummary.cs" />
+    <Compile Include="Models\VrChatTwoFactorMethod.cs" />
+    <Compile Include="Services\AppDataPaths.cs" />
+    <Compile Include="Services\BridgeAccountRole.cs" />
+    <Compile Include="Services\BridgeCoordinator.cs" />
+    <Compile Include="Services\BridgeRuntimeConfiguration.cs" />
+    <Compile Include="Services\ChatboxRelayModerationFilter.cs" />
+    <Compile Include="Services\CrashLogService.cs" />
+    <Compile Include="Services\DesktopInputLockService.cs" />
+    <Compile Include="Services\EmbeddedMediaCacheService.cs" />
+    <Compile Include="Services\LocalizationService.cs" />
+    <Compile Include="Services\ManagedRewardPresentation.cs" />
+    <Compile Include="Services\OscRouterService.cs" />
+    <Compile Include="Services\RuntimeConfig.cs" />
+    <Compile Include="Services\RuntimeConfigStore.cs" />
+    <Compile Include="Services\ShutdownRecoveryStateStore.cs" />
+    <Compile Include="Services\SettingsStore.cs" />
+    <Compile Include="Services\TwitchApiClient.cs" />
+    <Compile Include="Services\TwitchApiException.cs" />
+    <Compile Include="Services\TwitchEventSubSession.cs" />
+    <Compile Include="Services\TwitchScopes.cs" />
+    <Compile Include="Services\VrChatApiClient.cs" />
+    <Compile Include="Services\VrChatApiException.cs" />
+    <Compile Include="Services\VrChatLocalClientStateService.cs" />
+    <Compile Include="Services\VrChatLocalOscCacheService.cs" />
+    <Compile Include="Services\VrChatOscClient.cs" />
+    <Compile Include="Services\WindowsCredentialStore.cs" />
+    <Compile Include="ViewModels\MainWindowViewModel.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\oscquery-lib\vrc-oscquery-lib\vrc-oscquery-lib.csproj" SetTargetFramework="TargetFramework=net6.0" />
+  </ItemGroup>
+</Project>

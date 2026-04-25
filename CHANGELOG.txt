@@ -1,0 +1,441 @@
+Crystal Relay Changelog
+=======================
+
+Newest updates appear first. This changelog focuses on the changes users will notice most.
+
+v2.8.5
+- Dropdown menus with long lists now scroll with the mouse wheel while they are open, including language, avatar, parameter, and chatbox dropdowns.
+- Closed dropdown menus no longer change their selected value from accidental mouse-wheel input.
+- Reworked non-English language packs for more natural wording and tightened the localization checks so missing or broken translations are caught before packaging.
+
+v2.8.4
+- Added an optional Bot account setting that can post one automatic Bits/Subs override info message when a paid override runs.
+- The automatic paid override message shows who triggered it, the incoming bits/subs amount, the matched override, the time added, and a compact list of configured paid override timer options.
+- When this setting is enabled, paid overrides use the generated info message instead of also sending their normal per-rule Bot Message, so chat does not get duplicate bot posts.
+
+v2.8.3
+- Bits and subs overrides can now use amount-based timers, with separate settings for Bits and Subs so each paid trigger type can add its own amount of time.
+- Amount-based paid override timers now use the actual Twitch event amount: cheers use the bit count, normal subs count as 1, and gift subs use the gift total.
+- The minimize button now minimizes Crystal Relay normally to the taskbar again, while the title-bar X remains the deliberate hide-to-tray action.
+- Added the new Trash Kitty theme with dark grey, charcoal, and light-blue digital alley styling.
+- Added TheRaccoonCat to the About page playtester cards with the same Twitch live-aware behavior as the other tester cards.
+
+v2.8.2
+- Bits and subs overrides now use a priority stack: higher paid triggers can pause lower ones, lower triggers queue, and queued paid overrides resume from highest to lowest until the stack finishes.
+- While a paid override stack is active, Avatar Change and other blocked channel point redeems stay hidden, while avatar parameter redeems and movement redeems can still be used.
+
+v2.8.1
+- Fixed Twitch reward names in the Redeem Editor so they no longer snap back to the old title while you are trying to rename them.
+
+v2.8.0
+- Crystal Relay now hides the main window to the system tray when you minimize it, so it no longer sits minimized on the taskbar.
+- Added a tray icon with quick reopen and quit actions, plus a one-time tip so it is clearer where Crystal Relay went after you hide it.
+- The title-bar power button now asks for confirmation before fully closing the app, while the Twitch Chatbox stays independent for VRChat chat viewing.
+- Channel point redeems can now use their own custom ready and cooldown background colors through the native color picker in Twitch Trigger Settings.
+
+v2.7.9
+- Direct Avatar Change redeems now hide while they target the return avatar you are already using, so viewers cannot waste points on a no-op swap.
+- Permanent Avatar Change redeems set to 0 seconds now re-evaluate that same hide rule after they become the new shared return avatar.
+
+v2.7.8
+- Added 8 more built-in languages: Swedish, Italian, Simplified Chinese, Traditional Chinese, Korean, Russian, Polish, and Thai.
+- Expanded localization coverage across Crystal Relay so more editor text, help popups, status text, and dialog text now translate instead of falling back to English.
+- Fixed localization startup crashes caused by malformed translation files, and added a build check that now catches missing or broken language files before a test or release package is created.
+
+v2.7.7
+- Twitch Chatbox now shows native Twitch emotes inline instead of only showing the emote names as text.
+- Added an optional viewer chat notification sound for the Twitch Chatbox, with bot and broadcaster messages filtered out so it only pings for human chatters.
+
+v2.7.6
+- Added a new MainFrame theme with a darker digital purple, black, and neon-green look across Crystal Relay.
+- Expanded the in-app help popups so the ? buttons explain each section in more useful detail.
+- Fixed visible Avatar Roulette spelling so the new avatar-pool flow reads more cleanly in the editor.
+
+v2.7.5
+- Dream Scape now adds themed background art to the About page, placed so it stays visible behind the page instead of getting buried under the profile cards.
+- Fixed avatar-gated redeem visibility so Avatar Change and Avatar Set redeems now hide and return more reliably based on the avatar you are actually using.
+- Confirmed that Riku Satori Pom is, in fact, a cherry.
+
+v2.7.4
+- Added optional per-rule Twitch chat command fallback triggers, so channels without channel points can still run rules from chat with permission controls.
+- Restyled the checkbox UI to fit Crystal Relay's custom theme better, and fixed the click area so the full checkbox box is easier to hit.
+- Removed bad people who keep eating the Void Crystal Relay servers.
+
+v2.7.3
+- Added a new Streaming Status card on Home so you can quickly see Twitch stream and listener status in one place.
+- Removed the failed stop-input movement options, so Movement Redeems are back to the normal directional movement controls only.
+
+v2.7.2
+- Startup recovery now handles invalid Twitch broadcaster tokens more safely, so Crystal Relay no longer crashes when reward cleanup cannot use an expired or revoked login.
+
+v2.7.1
+- Avatar Change redeems can now use an Active Time of `0` for a permanent switch that becomes the new shared return avatar.
+- Timed avatar-change redeems now switch back to the shared return avatar from Avatar Change Setup instead of using a per-redeem switch-back picker.
+
+v2.7.0
+- Crystal Relay now reuses existing Twitch redeems more reliably instead of repeatedly trying to create duplicate managed rewards.
+- Twitch and VRChat network requests now fail faster when those services stall, so the app is less likely to feel stuck.
+- VRChat avatar refreshes now load faster, and local VRChat tracking does less repeated disk scanning while staying accurate.
+
+v2.6.9
+- Crystal Relay now handles broadcaster accounts without Twitch channel point reward access more gracefully, so startup recovery no longer crashes the app.
+
+v2.6.7
+- Added a new Baked theme with a rich mocha look, warm tan framing, and scarlet accents across the app.
+
+v2.6.6
+- The About page fallback path was hardened so it now uses a more protected live-status check and stricter profile image validation.
+- Crash logs now avoid writing extra machine-identifying details that were not needed for normal troubleshooting.
+
+v2.6.5
+- The About page now uses a more reliable fallback for playtester live markers, profile pictures, and display names when Twitch is not connected.
+
+v2.6.4
+- The About page now loads creator and playtester profile cards more reliably on the first open, even before Twitch is connected.
+- About live markers now have a stronger fallback path, so they can update more reliably without needing a broadcaster login.
+- Test builds now label themselves more clearly in the window title.
+
+v2.6.3
+- Added a setting that lets you turn Crystal Relay's hidden easter egg interactions on or off, and it remembers your choice.
+
+v2.6.2
+- Added a small hidden interaction bonus and tuned its trigger timing so it is easier to activate on purpose.
+
+v2.6.1
+- Fixed the About page so the Made By card now shows the same live indicator styling as the tester cards when the creator is live.
+
+v2.6.0
+- Fixed the Twitch Chatbox timestamp style picker so the current 12-hour or 24-hour selection shows correctly in settings.
+- Added a new Dread Night Bar theme with a darker blood-moon inspired look across Crystal Relay.
+- Added EzekielTyr to the About page tester list.
+
+v2.4.3
+- The About page now refreshes live-status markers while Crystal Relay stays open, so live indicators clear and return more reliably without needing a restart.
+- The About button live marker was polished again so it sits more cleanly on the button corner.
+
+v2.4.2
+- Crystal Relay now always opens back to Home on launch for a more stable startup flow.
+- The About button can now show a small live indicator when someone on the About page is currently live on Twitch.
+- The About page got another layout polish pass, including clearer heading sizes and cleaner badge placement.
+- Updated an existing hidden surprise and added another small hidden joke for the app.
+
+v2.4.1
+- Fixed avatar-set disable pairings so linked redeems stay hidden for the full lockout window instead of popping back early after a short reset.
+- Improved Twitch reward syncing around avatar-set redeems so cooldown and paired redeem availability behave more reliably.
+- Cleaned up reward-sync cancellation handling so Crystal Relay is less noisy when closing or replacing an in-progress sync.
+- Updated an existing easter egg so it scales more cleanly inside the program window.
+
+v2.4.0
+- Added a new Pause Redeems button so you can quickly stop Twitch redeems during a serious moment or stream talk segment.
+- While redeems are paused, Crystal Relay turns managed Twitch redeems off and ignores Twitch-triggered actions until you resume them.
+- The pause state now saves properly, so Crystal Relay remembers if redeems were paused.
+
+v2.3.0
+- Cleaned up a lot of the wording across Crystal Relay so buttons, help text, and setup screens are easier to understand.
+- Help popups were rewritten to explain what nearby buttons do and how each section works in friendlier language.
+- Avatar Rules were renamed to Avatar Sets, and Master Avatar was renamed to Avatar Change so the tabs match what they actually do.
+- Void Crystal borders were polished to feel more like glowing crystal edges.
+- Dropdown styling was cleaned up again so popup scrolling and selection feel more in line with the rest of the custom UI.
+- Rule and workspace spacing were tuned again for a cleaner layout with better breathing room.
+
+v2.2.0
+- Twitch Chatbox settings were reorganized into cleaner grouped sections so the panel is easier to read and use.
+- VRChat OSC Chatbox relay was added to the Twitch Chatbox, with ordered scrolling chat bundles and adjustable 1-6 second pacing between posts.
+- Twitch chat mirrored into VRChat now uses stronger safety filtering to block racial slurs from being forwarded.
+- Managed Twitch reward cooldowns now sync with Crystal Relay cooldown settings, so redeems can be rate-limited on Twitch itself.
+- Avatar Rules were simplified again with a cleaner redeem-management flow and a dedicated Disable Pairing popup for linking sibling redeems.
+- Disable Pairing behavior was improved so linked redeems stay blocked more reliably while the active redeem is in use.
+- Instant bool toggle rules behave more reliably again for both test sends and live Twitch redeems.
+- Crystal Relay now uses the new final icon artwork across the app, and the home card icon frame was polished to fit it better.
+- Added new hidden surprises for the app.
+
+v2.1.0
+- Added two new themes:
+  - Peaches & Cream
+  - Moon Bunny Wink
+- Added Hydie and SinUsagii to the About page tester thank-you section with direct Twitch links.
+- Avatar Rules and Master Avatar lists now stay in sync more reliably when adding, deleting, and switching between rule tabs.
+- Current VRChat avatar tracking and avatar-parameter refreshing were improved again so rule setup follows avatar swaps more reliably.
+- Instant bool toggle rules now behave more consistently when using 0-second toggle actions.
+- Avatar parameter pickers were cleaned up so selected parameters display more reliably in the editor.
+- Avatar name dropdowns now use simpler labels without extra status text.
+- Home screen spacing was rebalanced so the main columns feel more even and easier to scan.
+- Rule card layout was tuned again to reduce clipping and keep status chips inside the card more reliably.
+
+v2.0.2
+- Crash logging is now more reliable, with better saved crash details and a clearer latest-crash file for troubleshooting.
+- Rule Library avatar cards were adjusted again to reduce right-side clipping in the Void Crystal theme.
+
+v2.0.1
+- Added the new Cosmic Puppy Girl theme with a poison-apple inspired purple, green, and red look plus a matching font style.
+- Cosmic Puppy Girl styling now carries through the main app, Twitch Chatbox, popups, and VRChat login windows.
+- Added SeidSaga to the About page tester thank-you section with a direct Twitch link.
+- Avatar rule cards now give their small status badges more room so they are less likely to clip on the right side.
+- Updated an existing easter egg, and cleaned up the Visual Settings card layout with a more centered presentation.
+
+v2.0.0
+- Rule system got a major organization overhaul:
+  - Avatar Rules now focus on avatar-parameter control while that avatar is active.
+  - Master Avatar is now a dedicated rule space for avatar-change redeems.
+  - Movement Redeems are now fully separated into their own global tab.
+  - Bits + Subs remain global paid override rules.
+- Rule Library layout was cleaned up so duplicate action controls were removed and tab actions are easier to understand.
+- Rule Workspace sizing and alignment were tuned for a cleaner centered layout with less empty stretch.
+- Managed Twitch reward logic was improved so reward visibility follows active avatar sets more reliably.
+- Streaming Test Mode behavior was refined so it simulates stream-ready reward activation without turning all rule sets on at once.
+- Current avatar tracking was improved with faster in-memory avatar ID-to-name lookup and better live bridge sync.
+- OSC/VRChat status handling was tightened to reduce misleading fallback errors and keep discovery behavior clearer.
+- Added themed help-button popups to reduce UI clutter while keeping explanations available on demand.
+- App shutdown was upgraded with a safer power-off flow:
+  - title bar close is now a power button.
+  - close paths run managed reward disable cleanup before exit.
+  - if shutdown is interrupted, Crystal Relay runs a reward cleanup recovery check on next launch.
+- Streaming Test Mode now resets to off when Crystal Relay launches.
+
+v1.8.0
+- Twitch Chatbox got a full quality pass for stream and overlay use.
+- Chatbox now remembers its own settings between launches, including font choice, always-on-top, and whether the settings panel was left open.
+- Added a Stream Overlay Mode toggle for a cleaner low-clutter chatbox layout.
+- Improved chat readability so very dark Twitch username colors are automatically lifted to stay readable.
+- Expanded the chatbox font list and gave Bubblegum its own theme-matching font style.
+- Chatbox top styling and frame behavior were polished to better match Crystal Relay's custom window style.
+- Chatbox now stays open on its own when the main Crystal Relay window is minimized.
+- Dropdowns are safer to edit now: mouse wheel scrolling no longer changes selections by accident, and clicking the field or arrow opens and closes the list.
+- Scrollbars were cleaned up again so they behave more like proper in-app scrollbars.
+- The old chatbox alpha control was removed after causing instability, and chatbox opening stability was improved.
+- Crystal Relay now saves crash logs automatically when a real app crash happens.
+- Crystal Relay now keeps local saves, runtime config, secure files, and crash logs together inside one Crystal Relay app folder.
+- The folder shortcut in the app now opens the main Crystal Relay local folder directly.
+
+v1.6.5
+- Bubblegum background art now sits farther right so it stays clearer of the main cards.
+
+v1.6.4
+- About page Twitch profile images now use a sharper frame with a thicker border.
+
+v1.6.3
+- The About page creator and tester entries can now show Twitch profile pictures.
+- About page Twitch names and profile pictures now refresh automatically when Crystal Relay has Twitch account access.
+
+v1.6.2
+- Description and helper text across the app is a little larger for easier reading.
+- The About page description text is now much larger and easier to read.
+
+v1.6.1
+- The Bubblegum background character art was moved farther right so it stays clearer of the cards.
+
+v1.6.0
+- The large About-page backdrop card was removed so more of the background art shows through.
+
+v1.5.9
+- Fixed the About page so Cuddleshy shows in the tester thank-you section instead of the creator section.
+
+v1.5.8
+- Added Cuddleshy to the About page tester list with a direct Twitch link.
+
+v1.5.7
+- Added the new Bubblegum theme with pastel blue, pink, and yellow styling.
+- Bubblegum includes a themed background scene and integrated character art.
+
+v1.5.6
+- Twitch account profile photos now use a sharper framed look with a stronger border.
+
+v1.5.5
+- Twitch account profile photos now sit cleanly inside their rounded frames instead of showing sharp corners.
+
+v1.5.4
+- Connected Twitch broadcaster and bot cards now show the account profile image for a cleaner account view.
+
+v1.5.3
+- Crystal Relay now prevents a second copy from opening. Launching it again will bring the existing window forward instead.
+
+v1.5.2
+- Maximized windows now stay above the Windows taskbar instead of stretching behind it.
+
+v1.5.1
+- Scrollbars now look fuller and behave more like proper app scrollbars.
+- Note: the custom scrollbar still is not fully where it should be yet, and a more complete fix is planned for a future update.
+
+v1.5.0
+- The custom title bar can now drag the window from the full top bar instead of only the title text.
+
+v1.4.8
+- Crystal Relay now uses a fully themed custom title bar with its own minimize, maximize, and close buttons.
+- The top window frame now matches the active Void Crystal or Dream Scape theme.
+
+v1.4.7
+- Twitch activity messages are cleaner and no longer show raw EventSub session IDs.
+
+v1.4.6
+- The Crystal Relay home card in Void Crystal has more room so the title fits better beside the large icon.
+- The vertical scrollbar lane sits inside the panel more cleanly.
+
+v1.4.5
+- The Void Crystal home-card title fits better.
+- Dream Scape delete-all wording was polished.
+
+v1.4.4
+- Warnings and confirmation popups now match the Crystal Relay theme instead of using default Windows popups.
+- A new easter egg was added.
+
+v1.4.3
+- The custom scrollbar lane was widened so it reads more like a real scrollbar.
+
+v1.4.2
+- UI opacity can now go as low as 10%.
+
+v1.4.1
+- The About page now has a cleaner centered layout and a dedicated Crystal Relay intro card.
+
+v1.4.0
+- Scroll areas were restyled so the vertical scrollbar no longer looked clipped or out of place.
+
+v1.3.9
+- The VRChat 2FA window now has a cleaner layout with more room for the code input.
+- The VRChat login and 2FA windows now match the active Crystal Relay theme better.
+
+v1.3.8
+- Dropdowns and scrollbars now use Crystal Relay styling instead of the default Windows look.
+
+v1.3.7
+- The Dream Scape home-card title now stays on one line beside the icon.
+
+v1.3.6
+- About page links now show as `Name - Twitch` instead of long full URLs.
+
+v1.3.5
+- Void Crystal now uses the Star Ledger text style in the live app.
+- Dream Scape now uses the Moon Drift text style in the live app.
+- The temporary Style Test preview tool was removed after the final text styles were applied.
+
+v1.3.4
+- Style Test was refreshed with a new second round of typography previews.
+
+v1.3.3
+- A Style Test button and preview window were added so text styles could be compared side by side.
+
+v1.3.2
+- Theme choice now loads properly on startup, so the app opens on the last theme you used.
+- Dream Scape now applies its own colors more consistently across the full interface.
+- Crystal Relay now uses a temporary crystal icon for the app and packaged executable until the final icon is ready.
+- The home card now shows the icon next to the app name.
+- Media files like the settings Easter egg audio are now embedded into the app instead of shipping as loose files.
+
+v1.3.1
+- Theme dropdown selections are now easier to read.
+- The About tester heading now clearly says these are the people who test the program.
+
+v1.3.0
+- Visual Settings now uses a compact theme dropdown instead of large theme buttons.
+- Theme changes save more reliably.
+- The About page was cleaned up into a more polished layout.
+
+v1.2.9
+- A dedicated About section was added with creator credit, the reason for the project, and clickable Twitch links.
+- About now lives in its own top-level section.
+
+v1.2.8
+- Theme choice now saves correctly when the app closes.
+
+v1.2.7
+- Dream Scape now uses a brighter red-blue-purple palette.
+- Dream Scape background art is more vibrant.
+
+v1.2.6
+- Crystal Relay no longer crashes at startup if an old runtime config file is locked or blocked.
+
+v1.2.5
+- A startup theme crash was fixed.
+- Theme color resources now swap more safely at launch.
+
+v1.2.4
+- A new Visuals section was added inside Settings.
+- Theme switching between Void Crystal and Dream Scape was added.
+- Dream Scape got its own dream-themed background scene.
+- Theme choice now saves with the rest of your app settings.
+
+v1.2.3
+- The launcher is more reliable after fresh builds or renamed releases.
+
+v1.2.2
+- The app was rebranded from Void Hub to Crystal Relay.
+- Launcher, release, and backup names were updated to match the new branding.
+
+v1.2.1
+- Activity now has its own top-level section instead of sharing space with the rule editor.
+
+v1.2.0
+- Twitch setup is now built into the app instead of relying on a visible client ID in the runtime config.
+- Twitch login data now saves in a more protected hidden location.
+- Older visible Twitch account files are migrated automatically.
+
+v1.1.9
+- Trigger-rule buttons were cleaned up into clearer add/delete and enable/disable rows.
+- The per-rule On/Off toggle now stays in a fixed spot on the left.
+
+v1.1.8
+- Avatar change actions no longer mix with other OSC action values.
+- Avatar change now keeps its own saved target and reset selections.
+
+v1.1.7
+- A changelog was added to the project and release package.
+
+v1.1.6
+- Saved avatar selections no longer clear themselves when the app is reopened.
+
+v1.1.5
+- Avatar change rules now show avatar names instead of raw avatar IDs when possible.
+
+v1.1.4
+- Avatar dropdown selection stability was improved.
+
+v1.1.3
+- Avatar change setup was cleaned up into a single searchable dropdown for each avatar field.
+
+v1.1.2
+- Version numbers now roll over more cleanly after `.9`.
+- Example: `1.0.9` rolls to `1.1.0`, and `1.9.9` rolls to `2.0.0`.
+
+v1.0.11
+- VRChat avatar cache refresh no longer fails because of a hidden-file save issue on Windows.
+
+v1.0.10
+- VRChat avatar lists are now cached locally and reused in memory for smoother loading.
+- Avatar lists refresh on demand instead of constantly re-pulling from VRChat.
+
+v1.0.9
+- Avatar change dropdowns gained search support.
+- Avatar target and switch-back selections no longer overwrite each other.
+
+v1.0.8
+- VRChat login with username, password, and 2FA was added.
+- VRChat avatar access was added to Settings.
+- Avatar change rules moved toward picker-based setup instead of manual avatar ID entry.
+
+v1.0.7
+- The Settings test popup no longer triggers the Windows notification sound.
+
+v1.0.6
+- The Settings test button now plays its audio clip before the popup appears.
+
+v1.0.5
+- The readme was cleaned up and made safer for sharing.
+
+v1.0.4
+- Channel point reward matching now requires the exact reward name.
+- Similar reward names no longer trigger the wrong rule.
+- Bits and subs now choose the intended rule more cleanly.
+
+v1.0.3
+- The launcher became more reliable about finding and starting the right version.
+
+v1.0.2
+- Home and Settings tab buttons were fixed.
+- Starting the current app build became easier.
+
+v1.0.1
+- The app version is now shown in the title bar.
+
+v1.0.0
+- First versioned Crystal Relay release.
+- Included the dark crystal UI, Twitch-to-OSC workflow, Twitch broadcaster and bot login, trigger rules, VRChat OSC controls, test tools, release packaging, and backup flow.

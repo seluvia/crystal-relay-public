@@ -1,0 +1,403 @@
+using System.Net;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using VrcTwitchOscBridge.Models;
+
+namespace VrcTwitchOscBridge.Services;
+
+public sealed class VrChatApiClient : IDisposable
+{
+    private static readonly Uri ApiBaseUri = new("https://api.vrchat.cloud/api/1/");
+    private static readonly TimeSpan DefaultRequestTimeout = TimeSpan.FromSeconds(18);
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
+    private readonly HttpClient httpClient = new()
+    {
+        BaseAddress = ApiBaseUri,
+        Timeout = DefaultRequestTimeout
+    };
+
+    public VrChatApiClient()
+    {
+        httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("CrystalRelayTwitchOsc/desktop");
+        httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+    }
+
+    public async Task<VrChatLoginResponse> LoginWithCredentialsAsync(
+        string username,
+        string password,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "auth/user");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Basic", BuildBasicAuthorization(username, password));
+
+        using var response = await SendAsync(request, cancellationToken);
+        var payload = await ReadAsJsonAsync<VrChatCurrentUserEnvelope>(response, cancellationToken);
+        var authCookie = ExtractAuthCookie(response);
+
+        if (string.IsNullOrWhiteSpace(authCookie))
+        {
+            throw new InvalidOperationException("VRChat did not return a reusable auth session.");
+        }
+
+        var methods = ParseTwoFactorMethods(payload.RequiresTwoFactorAuth);
+        if (methods.Count > 0)
+        {
+            return new VrChatLoginResponse(authCookie, null, methods);
+        }
+
+        return new VrChatLoginResponse(authCookie, ToAccountSettings(payload), []);
+    }
+
+    public async Task<VrChatAccountSettings> CompleteTwoFactorAsync(
+        string authCookie,
+        VrChatTwoFactorMethod method,
+        string code,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            throw new InvalidOperationException("Enter the VRChat 2FA code before continuing.");
+        }
+
+        using var request = CreateRequest(HttpMethod.Post, GetTwoFactorVerifyPath(method), authCookie);
+        request.Content = JsonContent.Create(new VrChatCodeRequest
+        {
+            Code = code.Trim()
+        });
+
+        using var response = await SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+
+        return await GetCurrentUserAsync(authCookie, cancellationToken);
+    }
+
+    public async Task<VrChatAccountSettings> GetCurrentUserAsync(
+        string authCookie,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Get, "auth/user", authCookie);
+        using var response = await SendAsync(request, cancellationToken);
+        var payload = await ReadAsJsonAsync<VrChatCurrentUserEnvelope>(response, cancellationToken);
+
+        var methods = ParseTwoFactorMethods(payload.RequiresTwoFactorAuth);
+        if (methods.Count > 0)
+        {
+            throw new InvalidOperationException("VRChat still requires 2FA before the avatar list can load.");
+        }
+
+        return ToAccountSettings(payload, authCookie);
+    }
+
+    public async Task LogoutAsync(string authCookie, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(authCookie))
+        {
+            return;
+        }
+
+        using var request = CreateRequest(HttpMethod.Put, "logout", authCookie);
+        using var response = await SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<VrChatAvatarSummary>> GetSelectableAvatarsAsync(
+        string authCookie,
+        string currentAvatarId,
+        CancellationToken cancellationToken = default)
+    {
+        var merged = new Dictionary<string, MutableAvatar>(StringComparer.Ordinal);
+        var uploadedTask = GetPagedAvatarsAsync("avatars?user=me&releaseStatus=all", authCookie, cancellationToken);
+        var favoritesTask = GetPagedAvatarsAsync("avatars/favorites", authCookie, cancellationToken);
+        var licensedTask = GetPagedAvatarsAsync("avatars/licensed", authCookie, cancellationToken);
+
+        await Task.WhenAll(uploadedTask, favoritesTask, licensedTask);
+
+        MergeAvatars(merged, uploadedTask.Result, "Uploaded", currentAvatarId);
+        MergeAvatars(merged, favoritesTask.Result, "Favorites", currentAvatarId);
+        MergeAvatars(merged, licensedTask.Result, "Licensed", currentAvatarId);
+
+        return merged.Values
+            .OrderByDescending(avatar => avatar.IsCurrentAvatar)
+            .ThenBy(avatar => avatar.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(avatar => new VrChatAvatarSummary(
+                avatar.Id,
+                avatar.Name,
+                string.Join(" / ", avatar.Sources.OrderBy(source => source, StringComparer.OrdinalIgnoreCase)),
+                avatar.IsCurrentAvatar))
+            .ToArray();
+    }
+
+    public void Dispose() => httpClient.Dispose();
+
+    private async Task<IReadOnlyList<VrChatAvatarRecord>> GetPagedAvatarsAsync(
+        string relativePath,
+        string authCookie,
+        CancellationToken cancellationToken)
+    {
+        const int pageSize = 100;
+        const int maxPages = 10;
+
+        var avatars = new List<VrChatAvatarRecord>();
+        for (var page = 0; page < maxPages; page++)
+        {
+            var separator = relativePath.Contains('?', StringComparison.Ordinal) ? '&' : '?';
+            var requestPath = $"{relativePath}{separator}n={pageSize}&offset={page * pageSize}";
+
+            using var request = CreateRequest(HttpMethod.Get, requestPath, authCookie);
+            using var response = await SendAsync(request, cancellationToken);
+            var pageItems = await ReadAsJsonAsync<List<VrChatAvatarRecord>>(response, cancellationToken);
+            if (pageItems.Count == 0)
+            {
+                break;
+            }
+
+            avatars.AddRange(pageItems.Where(avatar => !string.IsNullOrWhiteSpace(avatar.Id)));
+
+            if (pageItems.Count < pageSize)
+            {
+                break;
+            }
+        }
+
+        return avatars;
+    }
+
+    private static void MergeAvatars(
+        IDictionary<string, MutableAvatar> merged,
+        IReadOnlyList<VrChatAvatarRecord> avatars,
+        string sourceLabel,
+        string currentAvatarId)
+    {
+        foreach (var avatar in avatars)
+        {
+            if (!merged.TryGetValue(avatar.Id, out var current))
+            {
+                current = new MutableAvatar
+                {
+                    Id = avatar.Id,
+                    Name = string.IsNullOrWhiteSpace(avatar.Name) ? avatar.Id : avatar.Name,
+                    IsCurrentAvatar = string.Equals(avatar.Id, currentAvatarId, StringComparison.Ordinal)
+                };
+                merged[avatar.Id] = current;
+            }
+
+            current.Sources.Add(sourceLabel);
+            current.IsCurrentAvatar |= string.Equals(avatar.Id, currentAvatarId, StringComparison.Ordinal);
+        }
+    }
+
+    private static HttpRequestMessage CreateRequest(HttpMethod method, string relativePath, string authCookie)
+    {
+        var request = new HttpRequestMessage(method, relativePath);
+        request.Headers.TryAddWithoutValidation("Cookie", $"auth={authCookie.Trim()}");
+        return request;
+    }
+
+    private static string BuildBasicAuthorization(string username, string password)
+    {
+        if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
+        {
+            throw new InvalidOperationException("Enter both the VRChat username and password before continuing.");
+        }
+
+        var raw = $"{username.Trim()}:{password}";
+        return Convert.ToBase64String(Encoding.UTF8.GetBytes(raw));
+    }
+
+    private async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await httpClient.SendAsync(request, cancellationToken);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new VrChatApiException(
+                System.Net.HttpStatusCode.RequestTimeout,
+                "VRChat took too long to respond. Try again in a moment.");
+        }
+    }
+
+    private static string? ExtractAuthCookie(HttpResponseMessage response)
+    {
+        if (!response.Headers.TryGetValues("Set-Cookie", out var values))
+        {
+            return null;
+        }
+
+        foreach (var value in values)
+        {
+            if (!value.StartsWith("auth=", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var separatorIndex = value.IndexOf(';');
+            var cookiePart = separatorIndex >= 0 ? value[..separatorIndex] : value;
+            var equalsIndex = cookiePart.IndexOf('=');
+            if (equalsIndex < 0 || equalsIndex == cookiePart.Length - 1)
+            {
+                continue;
+            }
+
+            return cookiePart[(equalsIndex + 1)..].Trim();
+        }
+
+        return null;
+    }
+
+    private static IReadOnlyList<VrChatTwoFactorMethod> ParseTwoFactorMethods(List<string>? rawMethods)
+    {
+        if (rawMethods is null || rawMethods.Count == 0)
+        {
+            return [];
+        }
+
+        var methods = new List<VrChatTwoFactorMethod>();
+        foreach (var rawMethod in rawMethods)
+        {
+            switch (rawMethod?.Trim().ToLowerInvariant())
+            {
+                case "totp":
+                    methods.Add(VrChatTwoFactorMethod.Totp);
+                    break;
+                case "emailotp":
+                    methods.Add(VrChatTwoFactorMethod.EmailOtp);
+                    break;
+                case "otp":
+                    methods.Add(VrChatTwoFactorMethod.RecoveryCode);
+                    break;
+            }
+        }
+
+        return methods.Distinct().ToArray();
+    }
+
+    private static string GetTwoFactorVerifyPath(VrChatTwoFactorMethod method) => method switch
+    {
+        VrChatTwoFactorMethod.EmailOtp => "auth/twofactorauth/emailotp/verify",
+        VrChatTwoFactorMethod.RecoveryCode => "auth/twofactorauth/otp/verify",
+        _ => "auth/twofactorauth/totp/verify"
+    };
+
+    private static VrChatAccountSettings ToAccountSettings(VrChatCurrentUserEnvelope payload, string authCookie = "")
+    {
+        return new VrChatAccountSettings
+        {
+            AuthCookie = authCookie,
+            UserId = payload.Id ?? string.Empty,
+            DisplayName = payload.DisplayName ?? "VRChat user",
+            CurrentAvatarId = payload.CurrentAvatar ?? string.Empty
+        };
+    }
+
+    private static async Task<T> ReadAsJsonAsync<T>(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        await EnsureSuccessAsync(response, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        var payload = await JsonSerializer.DeserializeAsync<T>(stream, JsonOptions, cancellationToken);
+        if (payload is null)
+        {
+            throw new InvalidOperationException("VRChat returned an empty response.");
+        }
+
+        return payload;
+    }
+
+    private static async Task EnsureSuccessAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        if (response.IsSuccessStatusCode)
+        {
+            return;
+        }
+
+        var message = await ReadErrorMessageAsync(response, cancellationToken);
+        throw new VrChatApiException(response.StatusCode, message);
+    }
+
+    private static async Task<string> ReadErrorMessageAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        var content = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return response.ReasonPhrase ?? $"HTTP {(int)response.StatusCode}";
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(content);
+            if (document.RootElement.TryGetProperty("error", out var errorElement)
+                && errorElement.ValueKind == JsonValueKind.Object
+                && errorElement.TryGetProperty("message", out var nestedMessage))
+            {
+                return nestedMessage.GetString() ?? content;
+            }
+
+            if (document.RootElement.TryGetProperty("message", out var messageElement))
+            {
+                return messageElement.GetString() ?? content;
+            }
+
+            return content;
+        }
+        catch
+        {
+            return content;
+        }
+    }
+
+    public sealed record VrChatLoginResponse(
+        string AuthCookie,
+        VrChatAccountSettings? Account,
+        IReadOnlyList<VrChatTwoFactorMethod> RequiredTwoFactorMethods);
+
+    private sealed class VrChatCodeRequest
+    {
+        [JsonPropertyName("code")]
+        public string Code { get; set; } = string.Empty;
+    }
+
+    private sealed class VrChatCurrentUserEnvelope
+    {
+        [JsonPropertyName("id")]
+        public string? Id { get; set; }
+
+        [JsonPropertyName("displayName")]
+        public string? DisplayName { get; set; }
+
+        [JsonPropertyName("currentAvatar")]
+        public string? CurrentAvatar { get; set; }
+
+        [JsonPropertyName("requiresTwoFactorAuth")]
+        public List<string>? RequiresTwoFactorAuth { get; set; }
+    }
+
+    private sealed class VrChatAvatarRecord
+    {
+        [JsonPropertyName("id")]
+        public string Id { get; set; } = string.Empty;
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; } = string.Empty;
+    }
+
+    private sealed class MutableAvatar
+    {
+        public string Id { get; init; } = string.Empty;
+
+        public string Name { get; init; } = string.Empty;
+
+        public bool IsCurrentAvatar { get; set; }
+
+        public HashSet<string> Sources { get; } = new(StringComparer.OrdinalIgnoreCase);
+    }
+}

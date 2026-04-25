@@ -1,0 +1,24 @@
+.vs/
+.vscode/
+.idea/
+
+.appdata/
+.dotnet/
+.dotnet-home/
+.nuget/
+
+Backups/
+Releases/
+TestBuilds/
+Code Review/
+
+**/bin/
+**/obj/
+
+*.user
+*.suo
+*.cache
+*.tmp
+
+appsettings.Development.json
+secrets.json

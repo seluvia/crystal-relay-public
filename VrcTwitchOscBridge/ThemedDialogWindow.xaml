@@ -1,0 +1,273 @@
+<Window x:Class="VrcTwitchOscBridge.ThemedDialogWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="Crystal Relay"
+        Icon="Assets/crystal-relay-icon.ico"
+        SizeToContent="Height"
+        Width="500"
+        MinWidth="500"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        FontFamily="{DynamicResource BodyFontFamily}"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        BorderThickness="0"
+        Background="{DynamicResource WindowBackgroundBrush}">
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="0"
+                            CornerRadius="0"
+                            GlassFrameThickness="0"
+                            ResizeBorderThickness="0"
+                            UseAeroCaptionButtons="False" />
+    </shell:WindowChrome.WindowChrome>
+    <Window.Resources>
+        <FontFamily x:Key="BodyFontFamily">Verdana</FontFamily>
+        <FontFamily x:Key="HeadingFontFamily">Constantia</FontFamily>
+        <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#130B1E" />
+        <SolidColorBrush x:Key="PanelBrush" Color="#CC1C132B" />
+        <SolidColorBrush x:Key="BorderBrush" Color="#4B2B78" />
+        <SolidColorBrush x:Key="AccentBrush" Color="#A855F7" />
+        <SolidColorBrush x:Key="TextBrush" Color="#F5EEFF" />
+        <SolidColorBrush x:Key="MutedBrush" Color="#C9B8E3" />
+        <SolidColorBrush x:Key="StatusChipBrush" Color="#8E241841" />
+        <SolidColorBrush x:Key="SecondaryButtonBrush" Color="#2C1C48" />
+        <SolidColorBrush x:Key="SecondaryButtonBorderBrush" Color="#6942A7" />
+        <SolidColorBrush x:Key="TitleBarBrush" Color="#20122F" />
+        <SolidColorBrush x:Key="TitleBarTextBrush" Color="#F5EEFF" />
+        <SolidColorBrush x:Key="TitleBarSubTextBrush" Color="#CBB9E5" />
+        <SolidColorBrush x:Key="TitleBarButtonBrush" Color="#00000000" />
+        <SolidColorBrush x:Key="TitleBarButtonHoverBrush" Color="#3B235B" />
+        <SolidColorBrush x:Key="TitleBarButtonPressedBrush" Color="#543183" />
+        <SolidColorBrush x:Key="TitleBarCloseHoverBrush" Color="#B43D62" />
+        <SolidColorBrush x:Key="TitleBarClosePressedBrush" Color="#8C2648" />
+
+        <Style TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{DynamicResource BodyFontFamily}" />
+            <Setter Property="FontSize" Value="13" />
+        </Style>
+
+        <Style x:Key="HeadingTextStyle" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{DynamicResource HeadingFontFamily}" />
+        </Style>
+
+        <Style x:Key="PrimaryButtonStyle" TargetType="Button">
+            <Setter Property="FontFamily" Value="{DynamicResource HeadingFontFamily}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="15,10" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                CornerRadius="14"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SecondaryButtonStyle" TargetType="Button" BasedOn="{StaticResource PrimaryButtonStyle}">
+            <Setter Property="Background" Value="{DynamicResource SecondaryButtonBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SecondaryButtonBorderBrush}" />
+        </Style>
+
+        <Style x:Key="TitleBarButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="40" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="{DynamicResource TitleBarButtonBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TitleBarTextBrush}" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="TitleBarButtonBorder"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="8">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="TitleBarButtonBorder" Property="Background" Value="{DynamicResource TitleBarButtonHoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="TitleBarButtonBorder" Property="Background" Value="{DynamicResource TitleBarButtonPressedBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="TitleBarButtonBorder" Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="TitleBarCloseButtonStyle" TargetType="Button" BasedOn="{StaticResource TitleBarButtonStyle}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="TitleBarCloseBorder"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="8">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="TitleBarCloseBorder" Property="Background" Value="{DynamicResource TitleBarCloseHoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="TitleBarCloseBorder" Property="Background" Value="{DynamicResource TitleBarClosePressedBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="TitleBarCloseBorder" Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Border Margin="1"
+            Background="{DynamicResource WindowBackgroundBrush}"
+            BorderBrush="{DynamicResource BorderBrush}"
+            BorderThickness="1">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="48" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0"
+                    Background="{DynamicResource TitleBarBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="0,0,0,1"
+                    MouseLeftButtonDown="OnTitleBarMouseLeftButtonDown">
+                <Grid Margin="12,0,8,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <DockPanel VerticalAlignment="Center">
+                        <Image Source="Assets/crystal-relay-icon.png"
+                               Width="18"
+                               Height="18"
+                               Margin="0,0,10,0"
+                               Stretch="Uniform" />
+                        <StackPanel Orientation="Horizontal"
+                                    VerticalAlignment="Center">
+                            <TextBlock x:Name="WindowTitleTextBlock"
+                                       FontFamily="{DynamicResource HeadingFontFamily}"
+                                       FontSize="16"
+                                       FontWeight="Bold"
+                                       Foreground="{DynamicResource TitleBarTextBrush}" />
+                            <TextBlock Margin="8,0,0,0"
+                                       Text="Crystal Relay"
+                                       Foreground="{DynamicResource TitleBarSubTextBrush}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DockPanel>
+
+                    <Button Grid.Column="1"
+                            Style="{StaticResource TitleBarCloseButtonStyle}"
+                            Click="OnCloseButtonClicked">
+                        <TextBlock Text="&#x2715;"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TitleBarTextBrush}" />
+                    </Button>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="1"
+                  Margin="22">
+                <Border Background="{DynamicResource PanelBrush}"
+                        BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="22"
+                        Padding="24">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <DockPanel>
+                            <Image Source="Assets/crystal-relay-icon.png"
+                                   Width="36"
+                                   Height="36"
+                                   Margin="0,0,12,0"
+                                   Stretch="Uniform" />
+                            <StackPanel>
+                                <TextBlock x:Name="HeaderTextBlock"
+                                           Style="{StaticResource HeadingTextStyle}"
+                                           FontSize="24"
+                                           FontWeight="Bold"
+                                           Foreground="{DynamicResource TextBrush}" />
+                                <TextBlock Margin="0,6,0,0"
+                                           Text="Crystal Relay"
+                                           Foreground="{DynamicResource MutedBrush}" />
+                            </StackPanel>
+                        </DockPanel>
+
+                        <Border Grid.Row="1"
+                                Margin="0,18,0,0"
+                                Padding="14,12"
+                                Background="{DynamicResource StatusChipBrush}"
+                                BorderBrush="{DynamicResource BorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="16">
+                            <TextBlock x:Name="MessageTextBlock"
+                                       Foreground="{DynamicResource TextBrush}"
+                                       TextWrapping="Wrap" />
+                        </Border>
+
+                        <TextBlock x:Name="FinePrintTextBlock"
+                                   Grid.Row="2"
+                                   Margin="6,10,6,0"
+                                   Foreground="{DynamicResource MutedBrush}"
+                                   FontSize="11"
+                                   TextWrapping="Wrap"
+                                   Visibility="Collapsed" />
+
+                        <StackPanel Grid.Row="3"
+                                    Margin="0,22,0,0"
+                                    Orientation="Horizontal"
+                                    HorizontalAlignment="Right">
+                            <Button x:Name="SecondaryButton"
+                                    Width="98"
+                                    Margin="0,0,10,0"
+                                    Style="{StaticResource SecondaryButtonStyle}"
+                                    Visibility="Collapsed"
+                                    IsCancel="True"
+                                    Click="OnSecondaryClicked" />
+                            <Button x:Name="PrimaryButton"
+                                    Width="116"
+                                    Style="{StaticResource PrimaryButtonStyle}"
+                                    IsDefault="True"
+                                    Click="OnPrimaryClicked" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>
