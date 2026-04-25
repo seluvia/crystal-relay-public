@@ -1,23 +1,12 @@
-Crystal Relay GitHub staging copy
+﻿Crystal Relay private GitHub sync copy
 
-Folder purpose:
-- This folder is a clean staging copy for GitHub upload.
-- Repo metadata, local caches, backups, releases, test builds, and build outputs were excluded.
+Version:
+- v2.8.5
 
-Current status:
-- Safe for a private GitHub repo review.
-- Not yet safe for a public GitHub repo without one more cleanup pass.
+Purpose:
+- Copy this folder's contents into your local private GitHub Desktop repo folder.
+- Commit and push from GitHub Desktop after review.
 
-Public upload blocker:
-- The desktop app still contains the About-page fallback relay wiring in:
-  - VrcTwitchOscBridge\Services\TwitchApiClient.cs
-  - VrcTwitchOscBridge\ViewModels\MainWindowViewModel.cs
-- That code references a personal Cloudflare Worker fallback path and related request header wiring.
-
-Recommended next step before public upload:
-- Remove the personal About fallback relay from the app, or replace it with a public-safe configuration model.
-
-Suggested upload flow:
-1. Create a private GitHub repo first.
-2. Upload this staging folder.
-3. After the About fallback relay is removed, publish the cleaned repo as public.
+Notes:
+- This copy keeps the current internal About fallback implementation intact.
+- Build outputs, backups, test packages, and local cache folders are excluded.
