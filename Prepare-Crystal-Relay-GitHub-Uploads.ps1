@@ -167,6 +167,13 @@ function Apply-PublicUploadCleanup {
 
     $twitchApiClientPath = Join-Path $PublicRoot 'VrcTwitchOscBridge\Services\TwitchApiClient.cs'
     $mainWindowViewModelPath = Join-Path $PublicRoot 'VrcTwitchOscBridge\ViewModels\MainWindowViewModel.cs'
+    $filesToRemove = @(
+        'AGENTS.md',
+        'GITHUB-UPLOAD-NOTES.txt',
+        'Open-Crystal-Relay-GitHub-Desktop-Workflow.ps1',
+        'Prepare-Crystal-Relay-GitHub-Uploads.ps1',
+        'Sync-Crystal-Relay-GitHub-Repos.ps1'
+    )
 
     $twitchApiClient = Get-Content -Path $twitchApiClientPath -Raw
     $twitchApiClient = Replace-RequiredText `
@@ -232,6 +239,13 @@ function Apply-PublicUploadCleanup {
         -Replacement '' `
         -Description 'Supplemental About profile apply helper'
     Set-Utf8File -Path $mainWindowViewModelPath -Content $mainWindowViewModel.TrimEnd()
+
+    foreach ($relativePath in $filesToRemove) {
+        $targetPath = Join-Path $PublicRoot $relativePath
+        if (Test-Path $targetPath) {
+            Remove-Item -LiteralPath $targetPath -Force
+        }
+    }
 }
 
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -277,27 +291,6 @@ Notes:
 Set-Utf8File -Path (Join-Path $privateSyncDir 'GITHUB-UPLOAD-NOTES.txt') -Content $privateNotes.Trim()
 
 Apply-PublicUploadCleanup -PublicRoot $publicSyncDir
-
-$publicNotes = @"
-Crystal Relay public GitHub sync copy
-
-Version:
-- v$targetVersion
-
-Purpose:
-- Copy this folder's contents into your local public GitHub Desktop repo folder.
-- Commit and push from GitHub Desktop after review.
-
-Public-safe change:
-- The no-auth About fallback relay wiring is removed from this copy.
-- Authenticated Twitch About lookups still work normally.
-- No-auth About refresh now uses public profile image lookups only.
-
-Notes:
-- Build outputs, backups, test packages, and local cache folders are excluded.
-- This copy is prepared for the public repo workflow.
-"@
-Set-Utf8File -Path (Join-Path $publicSyncDir 'GITHUB-UPLOAD-NOTES.txt') -Content $publicNotes.Trim()
 
 $workflow = @"
 Crystal Relay GitHub Desktop workflow
