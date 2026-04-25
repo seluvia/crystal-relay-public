@@ -19,8 +19,9 @@ $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectPath = Join-Path $root 'VrcTwitchOscBridge\VrcTwitchOscBridge.csproj'
 $localizationAuditProject = Join-Path $root 'LocalizationAudit\LocalizationAudit.csproj'
 $localizationRoot = Join-Path $root 'VrcTwitchOscBridge\Resources\Localization'
-$readmePath = Join-Path $root 'README.txt'
+$readmePath = Join-Path $root 'README.md'
 $changelogPath = Join-Path $root 'CHANGELOG.txt'
+$docsPath = Join-Path $root 'docs'
 $testRoot = Join-Path $root 'TestBuilds'
 $runtime = 'win-x64'
 
@@ -74,8 +75,11 @@ finally {
     Pop-Location
 }
 
-Copy-Item -Path $readmePath -Destination (Join-Path $packageDir 'README.txt') -Force
+Copy-Item -Path $readmePath -Destination (Join-Path $packageDir 'README.md') -Force
 Copy-Item -Path $changelogPath -Destination (Join-Path $packageDir 'CHANGELOG.txt') -Force
+if (Test-Path $docsPath) {
+    Copy-Item -Path $docsPath -Destination (Join-Path $packageDir 'docs') -Recurse -Force
+}
 Set-Content -Path $testMarkerPath -Value 'test-build' -Encoding ASCII
 
 $wshShell = New-Object -ComObject WScript.Shell

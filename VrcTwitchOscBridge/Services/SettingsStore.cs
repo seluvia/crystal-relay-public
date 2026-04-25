@@ -296,6 +296,9 @@ public sealed class SettingsStore
 
     public async Task<AppSettings> LoadAsync(CancellationToken cancellationToken = default)
     {
+        // Load is intentionally tolerant of mixed storage generations. Crystal Relay rebuilds
+        // the latest settings shape from current files first, then quietly pulls legacy data
+        // forward so upgrades do not force manual repair or credential re-entry.
         MigrateLegacyBrandingFilesIfNeeded();
 
         if (!File.Exists(portableProfilePath)
@@ -1176,6 +1179,8 @@ public sealed class SettingsStore
         CancellationToken cancellationToken,
         bool hiddenResult)
     {
+        // Always write settings through a temp file plus replace/backup swap so an app crash
+        // or sudden shutdown cannot leave the main settings file half-written on disk.
         var directoryPath = Path.GetDirectoryName(path);
         if (!string.IsNullOrWhiteSpace(directoryPath))
         {

@@ -51,7 +51,7 @@ Use these locations only unless a change is explicitly required.
 - Source launcher:
   `C:\Users\screm\Documents\New project\Run-Crystal-Relay-Source.ps1`
 - Root docs:
-  `C:\Users\screm\Documents\New project\README.txt`
+  `C:\Users\screm\Documents\New project\README.md`
   `C:\Users\screm\Documents\New project\CHANGELOG.txt`
 
 ## Canonical Output Paths
@@ -100,13 +100,13 @@ Do not store runtime data in the repo.
 - Use `Build-Crystal-Relay-Test.ps1` for organized test packages
 - Current test package layout should stay:
   - root shortcut: `Crystal Relay Test.lnk`
-  - top-level docs: `README.txt`, `CHANGELOG.txt`
+  - top-level docs: `README.md`, `CHANGELOG.txt`
   - runtime files inside `App`
 - Release packages should stay flat at the top level so the real versioned `.exe` is visible without a launcher script
 
 ## Security Rules
 - Do not write Twitch OAuth tokens, VRChat auth data, cookies, or secrets into repo files
-- Do not expose secrets in `README.txt`, `CHANGELOG.txt`, test data, or examples
+- Do not expose secrets in `README.md`, `CHANGELOG.txt`, test data, or examples
 - Keep account/session data under `AppData\Local\CrystalRelay`
 - Crash logs may include stack traces but should not intentionally dump secrets
 

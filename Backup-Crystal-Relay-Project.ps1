@@ -83,13 +83,14 @@ $rootFiles =
     'Backup-Crystal-Relay-Project.ps1',
     'Launch-Crystal-Relay.bat',
     'NuGet.Config',
-    'README.txt',
+    'README.md',
     'CHANGELOG.txt',
     'VrcTwitchOscBridge.slnx'
 )
 
 $rootDirectories =
 @(
+    'docs',
     'VrcTwitchOscBridge',
     'oscquery-lib'
 )

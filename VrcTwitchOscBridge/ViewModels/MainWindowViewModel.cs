@@ -4481,6 +4481,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 .Where(IsSupportedMovementRule)
                 .ToArray();
 
+            // Build once-per-sync ownership indexes up front. The reconciliation pass uses
+            // them to adopt, recycle, and retire rewards without repeatedly rescanning the
+            // full rule list and reward list inside each per-rule operation.
             var claimedRewardIds = Settings.AvatarProfiles
                 .SelectMany(profile => profile.ChannelPointRules)
                 .Concat(supportedMovementRules)
@@ -7621,6 +7624,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             return;
         }
 
+        // Only flip the old/new current-avatar markers in place. Rebuilding the whole list
+        // creates avoidable UI churn because VRChat can report avatar changes frequently.
         var previousCurrentIndex = -1;
         var nextCurrentIndex = -1;
         for (var index = 0; index < availableVrChatAvatars.Count; index++)
