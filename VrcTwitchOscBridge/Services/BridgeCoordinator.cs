@@ -730,6 +730,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private static bool ShouldBlockRuleDuringSupporterOverride(TriggerRuleSnapshot rule) =>
         rule.TriggerType == TwitchTriggerType.ChannelPoints && !IsAllowedDuringSupporterOverride(rule);
 
+    // This set only changes when the live rule configuration changes, so cache it once
+    // instead of rescanning every rule while the runtime is answering availability checks.
     private void RefreshSupporterOverrideBlockedRuleIds(IReadOnlyList<TriggerRuleSnapshot> rules)
     {
         lock (stateGate)
@@ -1360,6 +1362,9 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         CancellationToken cancellationToken,
         bool queuedReplay)
     {
+        // Timed supporter overrides behave like one shared priority queue. A new paid event
+        // can extend the active override, preempt it, merge into a queued entry, or start
+        // a brand-new suppression sequence when nothing else is running.
         var now = DateTimeOffset.UtcNow;
         if (!queuedReplay)
         {
@@ -1700,6 +1705,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         CancellationTokenSource completionCancellation,
         CancellationToken cancellationToken)
     {
+        // Completion is also the queue handoff point: finish the current reset, start its
+        // cooldown, then resume the highest-priority queued paid override if one is waiting.
         lock (stateGate)
         {
             if (!ReferenceEquals(activeSupporterOverride, activeState)

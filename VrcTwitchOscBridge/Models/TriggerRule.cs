@@ -388,6 +388,8 @@ public sealed class TriggerRule : ObservableObject
         {
             if (SetProperty(ref parameterType, value))
             {
+                // Type switches reset incompatible editor values on purpose so a bool/int/float
+                // rule never carries stale text like True into a numeric field or vice versa.
                 if (value == OscParameterType.Bool)
                 {
                     ParameterValue = "True";
@@ -751,6 +753,8 @@ public sealed class TriggerRule : ObservableObject
     {
         get
         {
+            // This summary is shown on cards, lists, and selectors, so keep it compact while
+            // still exposing the trigger shape reviewers need to recognize at a glance.
             var trigger = TriggerType switch
             {
                 TwitchTriggerType.ChannelPoints => string.IsNullOrWhiteSpace(ChannelPointRewardTitle)

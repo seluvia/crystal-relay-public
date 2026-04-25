@@ -743,6 +743,8 @@ public partial class TwitchChatboxWindow : Window
 
 public static class ChatMessageInlinePresenter
 {
+    // Busy chats reuse the same emotes constantly, so cache decoded images by final URI and
+    // reuse frozen ImageSource instances instead of decoding the same bitmap every message.
     private static readonly object emoteImageCacheGate = new();
     private static readonly Dictionary<string, ImageSource> emoteImagesByUri = new(StringComparer.Ordinal);
 
