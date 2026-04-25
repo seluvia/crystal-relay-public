@@ -359,6 +359,7 @@ public sealed class SettingsStore
             settings.DesktopModeInputLockEnabled = profile.DesktopModeInputLockEnabled ?? settings.DesktopModeInputLockEnabled;
             settings.EasterEggsEnabled = profile.EasterEggsEnabled ?? settings.EasterEggsEnabled;
             settings.MainWindowTrayTipShown = profile.MainWindowTrayTipShown ?? settings.MainWindowTrayTipShown;
+            settings.IgnoredUpdateVersion = profile.IgnoredUpdateVersion ?? settings.IgnoredUpdateVersion;
             settings.AvatarProfiles = new ObservableCollection<AvatarTriggerProfile>((profile.AvatarProfiles ?? []).Select(ToAvatarProfile));
             settings.GlobalMovementRules = new ObservableCollection<TriggerRule>((profile.GlobalMovementRules ?? []).Select(ToRule));
             settings.GlobalOverrideRules = new ObservableCollection<TriggerRule>((profile.GlobalOverrideRules ?? []).Select(ToRule));
@@ -467,6 +468,7 @@ public sealed class SettingsStore
             DesktopModeInputLockEnabled = settings.DesktopModeInputLockEnabled,
             EasterEggsEnabled = settings.EasterEggsEnabled,
             MainWindowTrayTipShown = settings.MainWindowTrayTipShown,
+            IgnoredUpdateVersion = settings.IgnoredUpdateVersion,
             AvatarProfiles = [.. settings.AvatarProfiles.Select(ToPersistedAvatarProfile)],
             GlobalMovementRules = [.. settings.GlobalMovementRules.Select(ToPersistedRule)],
             GlobalOverrideRules = [.. settings.GlobalOverrideRules.Select(ToPersistedRule)]
@@ -1290,6 +1292,8 @@ public sealed class SettingsStore
         public bool? EasterEggsEnabled { get; set; }
 
         public bool? MainWindowTrayTipShown { get; set; }
+
+        public string? IgnoredUpdateVersion { get; set; }
 
         public List<PersistedAvatarTriggerProfile>? AvatarProfiles { get; set; }
 

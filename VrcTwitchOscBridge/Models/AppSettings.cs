@@ -36,6 +36,7 @@ public sealed class AppSettings : ObservableObject
     private bool desktopModeInputLockEnabled;
     private bool easterEggsEnabled = true;
     private bool mainWindowTrayTipShown;
+    private string ignoredUpdateVersion = string.Empty;
     private AppLanguage language = AppLanguage.SystemDefault;
     private AppTheme theme = AppTheme.VoidCrystal;
 
@@ -225,5 +226,11 @@ public sealed class AppSettings : ObservableObject
     {
         get => mainWindowTrayTipShown;
         set => SetProperty(ref mainWindowTrayTipShown, value);
+    }
+
+    public string IgnoredUpdateVersion
+    {
+        get => ignoredUpdateVersion;
+        set => SetProperty(ref ignoredUpdateVersion, string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim());
     }
 }
