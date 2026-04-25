@@ -1,0 +1,59 @@
+<Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid.Background>
+        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#09183F" Offset="0" />
+            <GradientStop Color="#2B1B78" Offset="0.34" />
+            <GradientStop Color="#6A1C5C" Offset="0.68" />
+            <GradientStop Color="#180A2D" Offset="1" />
+        </LinearGradientBrush>
+    </Grid.Background>
+    <Canvas ClipToBounds="True">
+        <Ellipse Width="520" Height="520" Canvas.Left="-160" Canvas.Top="-120" Fill="#25447FFF" />
+        <Ellipse Width="420" Height="420" Canvas.Left="1320" Canvas.Top="40" Fill="#22973A70" />
+        <Ellipse Width="580" Height="580" Canvas.Left="1100" Canvas.Top="480" Fill="#1F6730A3" />
+        <Ellipse Width="240" Height="240" Canvas.Left="810" Canvas.Top="120" Fill="#26777CFF" />
+        <Ellipse Width="180" Height="180" Canvas.Left="600" Canvas.Top="620" Fill="#1F9830A4" />
+
+        <Path Data="M 0,0 A 58,58 0 1 1 0,116 A 44,44 0 1 0 0,0 Z"
+              Fill="#7BE5FFFF"
+              Stretch="Fill"
+              Width="72"
+              Height="116"
+              Canvas.Left="1350"
+              Canvas.Top="110"
+              Opacity="0.82" />
+
+        <Ellipse Width="180" Height="60" Canvas.Left="180" Canvas.Top="138" Fill="#256AAEFF" />
+        <Ellipse Width="124" Height="58" Canvas.Left="232" Canvas.Top="116" Fill="#2CB07CFF" />
+        <Ellipse Width="132" Height="56" Canvas.Left="112" Canvas.Top="122" Fill="#22FF78D9" />
+        <Ellipse Width="104" Height="42" Canvas.Left="268" Canvas.Top="146" Fill="#20C18BFF" />
+
+        <Ellipse Width="220" Height="72" Canvas.Left="1220" Canvas.Top="614" Fill="#2367B8FF" />
+        <Ellipse Width="132" Height="64" Canvas.Left="1308" Canvas.Top="584" Fill="#2AA97DFF" />
+        <Ellipse Width="146" Height="66" Canvas.Left="1172" Canvas.Top="592" Fill="#20FF80C8" />
+        <Ellipse Width="118" Height="46" Canvas.Left="1386" Canvas.Top="626" Fill="#208A70FF" />
+
+        <Ellipse Width="126" Height="126" Canvas.Left="424" Canvas.Top="244" Fill="#188C7CFF" Stroke="#8BDDFF" StrokeThickness="1.2" />
+        <Ellipse Width="74" Height="74" Canvas.Left="544" Canvas.Top="198" Fill="#17705CFF" Stroke="#FF9CE8" StrokeThickness="1.1" />
+        <Ellipse Width="94" Height="94" Canvas.Left="504" Canvas.Top="316" Fill="#16FF6CB7" Stroke="#B094FF" StrokeThickness="1.1" />
+
+        <Ellipse Width="102" Height="102" Canvas.Left="926" Canvas.Top="258" Fill="#17836CFF" Stroke="#91E2FF" StrokeThickness="1.2" />
+        <Ellipse Width="64" Height="64" Canvas.Left="1014" Canvas.Top="218" Fill="#165F4FFF" Stroke="#9CA8FF" StrokeThickness="1.0" />
+        <Ellipse Width="82" Height="82" Canvas.Left="976" Canvas.Top="334" Fill="#17FF72B9" Stroke="#F0A1FF" StrokeThickness="1.0" />
+
+        <Ellipse Width="112" Height="112" Canvas.Left="1460" Canvas.Top="302" Fill="#189674FF" Stroke="#A0E5FF" StrokeThickness="1.2" />
+        <Ellipse Width="56" Height="56" Canvas.Left="1544" Canvas.Top="266" Fill="#16FF8EDB" Stroke="#ECB7FF" StrokeThickness="1.0" />
+        <Ellipse Width="70" Height="70" Canvas.Left="1506" Canvas.Top="386" Fill="#177069FF" Stroke="#94C3FF" StrokeThickness="1.0" />
+
+        <Ellipse Width="10" Height="10" Canvas.Left="344" Canvas.Top="88" Fill="#D9EAFF" />
+        <Ellipse Width="8" Height="8" Canvas.Left="386" Canvas.Top="110" Fill="#FFB9F7" />
+        <Ellipse Width="12" Height="12" Canvas.Left="792" Canvas.Top="74" Fill="#BCE7FF" />
+        <Ellipse Width="6" Height="6" Canvas.Left="856" Canvas.Top="108" Fill="#FFC9E8" />
+        <Ellipse Width="9" Height="9" Canvas.Left="1188" Canvas.Top="182" Fill="#E2D6FF" />
+        <Ellipse Width="7" Height="7" Canvas.Left="1606" Canvas.Top="168" Fill="#FFB4DD" />
+        <Ellipse Width="8" Height="8" Canvas.Left="168" Canvas.Top="690" Fill="#D8ECFF" />
+        <Ellipse Width="10" Height="10" Canvas.Left="1492" Canvas.Top="786" Fill="#E4B8FF" />
+        <Ellipse Width="6" Height="6" Canvas.Left="1148" Canvas.Top="824" Fill="#FFC4F0" />
+    </Canvas>
+</Grid>
