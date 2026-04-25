@@ -1,1 +1,8 @@
-{}
+{
+  "Update Available": "Uppdatering tillgänglig",
+  "A newer Crystal Relay update is available.\n\nCurrent version: {0}\nLatest version: {1}\n\nIf you continue, Crystal Relay will open the GitHub release page in your browser.": "En ny uppdatering av Crystal Relay finns tillgänglig.\n\nNuvarande version: {0}\nSenaste version: {1}\n\nOm du fortsätter öppnar Crystal Relay GitHub-sidan för utgåvan i din webbläsare.",
+  "Open Update Page": "Öppna uppdateringssidan",
+  "Not Now": "Inte nu",
+  "Crystal Relay could not check for updates right now.": "Crystal Relay kunde inte söka efter uppdateringar just nu.",
+  "Crystal Relay skipped the update check because the latest GitHub release version could not be read.": "Crystal Relay hoppade över uppdateringskontrollen eftersom den senaste GitHub-utgåvans version inte kunde läsas."
+}

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -69,6 +70,7 @@ public partial class MainWindow : Window
     private bool isTeapotDialogOpen;
     private bool isTrayHideInProgress;
     private bool isMainWindowHiddenToTray;
+    private CancellationTokenSource? applicationUpdateCheckCancellation;
     private WindowState lastNonMinimizedWindowState = WindowState.Normal;
     private MediaPlayer? homeIconEasterEggPlayer;
     private string? homeIconEasterEggAudioTempPath;
@@ -106,6 +108,7 @@ public partial class MainWindow : Window
     {
         await viewModel.InitializeAsync();
         ApplyTheme(viewModel.SelectedTheme);
+        QueueApplicationUpdateCheck();
     }
 
     private async void OnClosing(object? sender, CancelEventArgs e)
@@ -130,6 +133,9 @@ public partial class MainWindow : Window
         e.Cancel = true;
         isGracefulShutdownInProgress = true;
         IsEnabled = false;
+        applicationUpdateCheckCancellation?.Cancel();
+        applicationUpdateCheckCancellation?.Dispose();
+        applicationUpdateCheckCancellation = null;
 
         SourceInitialized -= OnSourceInitialized;
         Loaded -= OnLoaded;
@@ -884,20 +890,73 @@ public partial class MainWindow : Window
         Resources[resourceKey] = fontFamily;
     }
 
+    // Startup update checks stay in the window layer because the final step is a themed
+    // yes/no dialog tied to the current window chrome and browser-launch path.
+    private void QueueApplicationUpdateCheck()
+    {
+        applicationUpdateCheckCancellation?.Cancel();
+        applicationUpdateCheckCancellation?.Dispose();
+        applicationUpdateCheckCancellation = new CancellationTokenSource();
+        var cancellationToken = applicationUpdateCheckCancellation.Token;
+        _ = CheckForApplicationUpdateAsync(cancellationToken);
+    }
+
+    private async Task CheckForApplicationUpdateAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var availableUpdate = await viewModel.GetPendingApplicationUpdateAsync(cancellationToken);
+            if (availableUpdate is null
+                || cancellationToken.IsCancellationRequested
+                || isGracefulShutdownInProgress
+                || !IsLoaded)
+            {
+                return;
+            }
+
+            var shouldOpenUpdatePage = ThemedDialogWindow.ShowYesNo(
+                this,
+                viewModel.SelectedTheme,
+                LocalizationService.Translate("Update Available"),
+                LocalizationService.Format(
+                    "A newer Crystal Relay update is available.\n\nCurrent version: {0}\nLatest version: {1}\n\nIf you continue, Crystal Relay will open the GitHub release page in your browser.",
+                    availableUpdate.CurrentVersion,
+                    availableUpdate.LatestVersion),
+                LocalizationService.Translate("Open Update Page"),
+                LocalizationService.Translate("Not Now"));
+
+            if (shouldOpenUpdatePage)
+            {
+                OpenExternalUri(availableUpdate.ReleasePageUrl);
+                return;
+            }
+
+            viewModel.IgnoreApplicationUpdate(availableUpdate.LatestVersion);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
     private void OnHyperlinkRequestNavigate(object sender, RequestNavigateEventArgs e)
     {
         try
         {
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = e.Uri.AbsoluteUri,
-                UseShellExecute = true
-            });
+            OpenExternalUri(e.Uri.AbsoluteUri);
             e.Handled = true;
         }
         catch
         {
         }
+    }
+
+    private static void OpenExternalUri(string uri)
+    {
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = uri,
+            UseShellExecute = true
+        });
     }
 
     private void OnStateChanged(object? sender, EventArgs e)

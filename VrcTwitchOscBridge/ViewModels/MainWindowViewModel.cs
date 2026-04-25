@@ -151,6 +151,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private readonly SettingsStore settingsStore = new();
     private readonly RuntimeConfigStore runtimeConfigStore = new();
     private readonly TwitchApiClient twitchApiClient = new();
+    private readonly ApplicationUpdateService applicationUpdateService = new();
     private readonly VrChatApiClient vrChatApiClient = new();
     private readonly VrChatLocalClientStateService vrChatLocalClientStateService = new();
     private readonly VrChatLocalOscCacheService vrChatLocalOscCacheService = new();
@@ -1497,6 +1498,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
         await bridgeCoordinator.DisposeAsync();
         twitchApiClient.Dispose();
+        applicationUpdateService.Dispose();
         vrChatApiClient.Dispose();
         sessionStatusTimer.Stop();
         vrChatLocalStateTimer.Stop();
@@ -3602,6 +3604,39 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 RunOnUi(() => AppendLog($"Could not save settings: {ex.Message}"));
             }
         }, CancellationToken.None);
+    }
+
+    internal async Task<ApplicationUpdateInfo?> GetPendingApplicationUpdateAsync(CancellationToken cancellationToken = default)
+    {
+        ApplicationUpdateCheckResult result;
+        try
+        {
+            result = await applicationUpdateService.CheckForUpdateAsync(AppVersion, Settings.IgnoredUpdateVersion, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            return null;
+        }
+
+        return result.Status switch
+        {
+            ApplicationUpdateCheckStatus.UpdateAvailable => result.Update,
+            ApplicationUpdateCheckStatus.ReleaseVersionUnreadable => LogAndReturnNoUpdate(T("Crystal Relay skipped the update check because the latest GitHub release version could not be read.")),
+            ApplicationUpdateCheckStatus.RequestFailed => LogAndReturnNoUpdate(T("Crystal Relay could not check for updates right now.")),
+            _ => null
+        };
+    }
+
+    internal void IgnoreApplicationUpdate(string version)
+    {
+        var normalizedVersion = string.IsNullOrWhiteSpace(version) ? string.Empty : version.Trim();
+        if (string.Equals(Settings.IgnoredUpdateVersion, normalizedVersion, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        Settings.IgnoredUpdateVersion = normalizedVersion;
+        QueueSave(0);
     }
 
     private void QueueBridgeRefresh()
@@ -6225,6 +6260,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
 
         LogEntries.Insert(0, timestampedMessage);
+    }
+
+    private ApplicationUpdateInfo? LogAndReturnNoUpdate(string message)
+    {
+        AppendLog(message);
+        return null;
     }
 
     private void AppendThrottledLog(string key, string message, TimeSpan throttleWindow)

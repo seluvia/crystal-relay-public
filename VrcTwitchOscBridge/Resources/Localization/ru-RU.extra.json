@@ -1,1 +1,8 @@
-{}
+{
+  "Update Available": "Доступно обновление",
+  "A newer Crystal Relay update is available.\n\nCurrent version: {0}\nLatest version: {1}\n\nIf you continue, Crystal Relay will open the GitHub release page in your browser.": "Доступно новое обновление Crystal Relay.\n\nТекущая версия: {0}\nПоследняя версия: {1}\n\nЕсли вы продолжите, Crystal Relay откроет страницу релиза GitHub в вашем браузере.",
+  "Open Update Page": "Открыть страницу обновления",
+  "Not Now": "Не сейчас",
+  "Crystal Relay could not check for updates right now.": "Crystal Relay сейчас не удалось проверить наличие обновлений.",
+  "Crystal Relay skipped the update check because the latest GitHub release version could not be read.": "Crystal Relay пропустил проверку обновлений, потому что не удалось прочитать версию последнего релиза GitHub."
+}

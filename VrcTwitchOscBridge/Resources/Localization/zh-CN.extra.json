@@ -1,1 +1,8 @@
-{}
+{
+  "Update Available": "有可用更新",
+  "A newer Crystal Relay update is available.\n\nCurrent version: {0}\nLatest version: {1}\n\nIf you continue, Crystal Relay will open the GitHub release page in your browser.": "Crystal Relay 有新版本可用。\n\n当前版本：{0}\n最新版本：{1}\n\n如果继续，Crystal Relay 会在你的浏览器中打开 GitHub 发布页面。",
+  "Open Update Page": "打开更新页面",
+  "Not Now": "暂不",
+  "Crystal Relay could not check for updates right now.": "Crystal Relay 当前无法检查更新。",
+  "Crystal Relay skipped the update check because the latest GitHub release version could not be read.": "由于无法读取 GitHub 上最新发布版本的版本号，Crystal Relay 已跳过此次更新检查。"
+}

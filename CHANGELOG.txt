@@ -3,6 +3,11 @@ Crystal Relay Changelog
 
 Newest updates appear first. This changelog focuses on the changes users will notice most.
 
+v2.8.7
+- Crystal Relay can now check the public GitHub release page on startup and show a themed in-app update popup when a newer version is available.
+- The update popup uses Crystal Relay's custom window style, shows your current version and the latest version, and can open the GitHub release page directly in your browser.
+- If you choose Not Now, Crystal Relay remembers that ignored release and will stay quiet until a newer published version exists.
+
 v2.8.6
 - Bits and Subs paid overrides now let you set separate amount-based timer ratios, so Bits and Subs can each add their own amount of time.
 - Bits and Subs paid overrides can now optionally cap their total accumulated time, so repeated paid triggers do not keep extending one override forever.

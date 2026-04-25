@@ -11,10 +11,10 @@
     <EnableDefaultPageItems>false</EnableDefaultPageItems>
     <ApplicationIcon>Assets\crystal-relay-icon.ico</ApplicationIcon>
     <UseWindowsForms>true</UseWindowsForms>
-    <Version>2.8.6</Version>
-    <AssemblyVersion>2.8.6.0</AssemblyVersion>
-    <FileVersion>2.8.6.0</FileVersion>
-    <InformationalVersion>2.8.6</InformationalVersion>
+    <Version>2.8.7</Version>
+    <AssemblyVersion>2.8.7.0</AssemblyVersion>
+    <FileVersion>2.8.7.0</FileVersion>
+    <InformationalVersion>2.8.7</InformationalVersion>
     <AssemblyName>CrystalRelayTwitchOsc</AssemblyName>
     <Product>Crystal Relay</Product>
     <Title>Crystal Relay - Twitch to OSC</Title>
@@ -82,6 +82,7 @@
     <Compile Include="Models\VrChatOscParameterSummary.cs" />
     <Compile Include="Models\VrChatTwoFactorMethod.cs" />
     <Compile Include="Services\AppDataPaths.cs" />
+    <Compile Include="Services\ApplicationUpdateService.cs" />
     <Compile Include="Services\BridgeAccountRole.cs" />
     <Compile Include="Services\BridgeCoordinator.cs" />
     <Compile Include="Services\BridgeRuntimeConfiguration.cs" />
