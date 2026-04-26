@@ -306,6 +306,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ThemeOptions =
         [
             new ThemeOption(AppTheme.VoidCrystal, "Void Crystal"),
+            new ThemeOption(AppTheme.Custom, "Custom"),
             new ThemeOption(AppTheme.DreamScape, "Dream Scape"),
             new ThemeOption(AppTheme.MainFrame, "MainFrame"),
             new ThemeOption(AppTheme.TrashKitty, "Trash Kitty"),
@@ -347,12 +348,17 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             "Lucida Sans Unicode",
             "Arial"
         ];
+        CustomThemeFontOptions = [.. Fonts.SystemFontFamilies
+            .Select(fontFamily => fontFamily.Source)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)];
         ChatTimestampFormatOptions =
         [
             new ChatTimestampFormatOption(ChatTimestampFormat.TwelveHour, T("12-hour")),
             new ChatTimestampFormatOption(ChatTimestampFormat.TwentyFourHour, T("24-hour"))
         ];
         ChatboxOscDelayOptions = [1, 2, 3, 4, 5, 6];
+        ThemeManager.UpdateTheme(Settings.Theme, Settings.CustomTheme);
         MovementDirections =
         [
             new PlayerMovementOption(PlayerMovementDirection.Forward, T("Move Forward")),
@@ -574,6 +580,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public IReadOnlyList<string> ChatFontOptions { get; }
 
+    public IReadOnlyList<string> CustomThemeFontOptions { get; }
+
     public IReadOnlyList<ChatTimestampFormatOption> ChatTimestampFormatOptions { get; }
 
     public ChatTimestampFormatOption SelectedChatTimestampFormatOption
@@ -637,6 +645,14 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         get => Settings.Theme;
         set
         {
+            if (value == AppTheme.Custom && !Settings.CustomTheme.IsInitialized)
+            {
+                var sourceTheme = Settings.Theme == AppTheme.Custom
+                    ? AppTheme.VoidCrystal
+                    : Settings.Theme;
+                Settings.CustomTheme = ThemeManager.CreateSeededCustomTheme(sourceTheme);
+            }
+
             if (Settings.Theme == value)
             {
                 return;
@@ -1165,6 +1181,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public bool IsVoidCrystalThemeSelected => SelectedTheme == AppTheme.VoidCrystal;
 
+    public bool IsCustomThemeSelected => SelectedTheme == AppTheme.Custom;
+
     public bool IsDreamScapeThemeSelected => SelectedTheme == AppTheme.DreamScape;
 
     public bool IsMainFrameThemeSelected => SelectedTheme == AppTheme.MainFrame;
@@ -1182,6 +1200,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     public bool IsDreadNightBarThemeSelected => SelectedTheme == AppTheme.DreadNightBar;
 
     public bool IsBakedThemeSelected => SelectedTheme == AppTheme.Baked;
+
+    public bool HasCustomThemeBackgroundImage => !string.IsNullOrWhiteSpace(Settings.CustomTheme.BackgroundImageRelativePath);
+
+    public string CustomThemeBackgroundImageStatusText => HasCustomThemeBackgroundImage
+        ? Path.GetFileName(Settings.CustomTheme.BackgroundImageRelativePath)
+        : T("No background image selected.");
 
     public string ChatboxListenerStatus
     {
@@ -1604,6 +1628,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     {
         RaisePropertyChanged(nameof(SelectedTheme));
         RaisePropertyChanged(nameof(IsVoidCrystalThemeSelected));
+        RaisePropertyChanged(nameof(IsCustomThemeSelected));
         RaisePropertyChanged(nameof(IsDreamScapeThemeSelected));
         RaisePropertyChanged(nameof(IsMainFrameThemeSelected));
         RaisePropertyChanged(nameof(IsTrashKittyThemeSelected));
@@ -1613,6 +1638,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RaisePropertyChanged(nameof(IsMoonBunnyWinkThemeSelected));
         RaisePropertyChanged(nameof(IsDreadNightBarThemeSelected));
         RaisePropertyChanged(nameof(IsBakedThemeSelected));
+        RaisePropertyChanged(nameof(HasCustomThemeBackgroundImage));
+        RaisePropertyChanged(nameof(CustomThemeBackgroundImageStatusText));
     }
 
     private async Task ConnectBroadcasterAsync()
@@ -3088,9 +3115,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             return;
         }
 
+        if (appSettings.Theme == AppTheme.Custom && !appSettings.CustomTheme.IsInitialized)
+        {
+            appSettings.CustomTheme = ThemeManager.CreateSeededCustomTheme(AppTheme.VoidCrystal);
+        }
+
         UnwireSettings(Settings);
         Settings = appSettings;
         WireSettings(appSettings);
+        ThemeManager.UpdateTheme(Settings.Theme, Settings.CustomTheme);
         RaisePropertyChanged(nameof(SelectedLanguageOption));
         RaisePropertyChanged(nameof(IsLanguageRestartNoticeVisible));
         RaisePropertyChanged(nameof(LanguageRestartNoticeText));
@@ -3477,10 +3510,14 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         var saveDelayMilliseconds = 500;
 
         if (sender is AppSettings
-            && e.PropertyName == nameof(AppSettings.Theme))
+            && e.PropertyName is nameof(AppSettings.Theme) or nameof(AppSettings.CustomTheme))
         {
+            ThemeManager.UpdateTheme(Settings.Theme, Settings.CustomTheme);
             RaiseThemeStateChanged();
-            saveDelayMilliseconds = 0;
+            if (e.PropertyName == nameof(AppSettings.Theme))
+            {
+                saveDelayMilliseconds = 0;
+            }
         }
 
         if (sender is AppSettings
@@ -3548,7 +3585,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 or nameof(AppSettings.ChatboxViewerSoundEnabled)
                 or nameof(AppSettings.EasterEggsEnabled)
                 or nameof(AppSettings.Language)
-                or nameof(AppSettings.Theme))
+                or nameof(AppSettings.Theme)
+                or nameof(AppSettings.CustomTheme))
         {
             if (e.PropertyName == nameof(AppSettings.InterfaceOpacityPercent))
             {
@@ -8340,29 +8378,43 @@ public sealed class TwitchChatMessageEntry : ObservableObject
                 DarkenChannel(color.B));
         }
 
-        // Near-black Twitch colors disappear on dark chat cards, so lift them.
-        if (color.R <= 72 && color.G <= 72 && color.B <= 72)
+        var referenceColor = theme == AppTheme.Custom
+            ? ThemeManager.CurrentPalette.GetColor("RuleCardBrush")
+            : DarkCardReferenceColor;
+        var referenceIsLight = GetRelativeLuminance(referenceColor) > 0.5d;
+
+        if (!referenceIsLight && color.R <= 72 && color.G <= 72 && color.B <= 72)
         {
             return ((SolidColorBrush)DefaultNameBrush).Color;
         }
 
-        var darkThemeContrast = GetContrastRatio(color, DarkCardReferenceColor);
-        if (darkThemeContrast >= 4.5d)
+        var referenceContrast = GetContrastRatio(color, referenceColor);
+        if (referenceContrast >= 4.5d)
         {
             return color;
         }
 
-        var lifted = color;
-        for (var attempt = 0; attempt < 7 && GetContrastRatio(lifted, DarkCardReferenceColor) < 4.5d; attempt++)
+        var adjusted = color;
+        for (var attempt = 0; attempt < 7 && GetContrastRatio(adjusted, referenceColor) < 4.5d; attempt++)
         {
-            lifted = Color.FromRgb(
-                LiftChannel(lifted.R),
-                LiftChannel(lifted.G),
-                LiftChannel(lifted.B));
+            adjusted = referenceIsLight
+                ? Color.FromRgb(
+                    DarkenChannel(adjusted.R),
+                    DarkenChannel(adjusted.G),
+                    DarkenChannel(adjusted.B))
+                : Color.FromRgb(
+                    LiftChannel(adjusted.R),
+                    LiftChannel(adjusted.G),
+                    LiftChannel(adjusted.B));
         }
 
-        return GetContrastRatio(lifted, DarkCardReferenceColor) >= 4.5d
-            ? lifted
+        if (GetContrastRatio(adjusted, referenceColor) >= 4.5d)
+        {
+            return adjusted;
+        }
+
+        return referenceIsLight
+            ? Colors.Black
             : ((SolidColorBrush)DefaultNameBrush).Color;
     }
 

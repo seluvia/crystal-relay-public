@@ -8,13 +8,15 @@ namespace VrcTwitchOscBridge;
 
 public partial class VrChatTwoFactorWindow : Window
 {
-    private readonly AppTheme currentTheme;
+    private AppTheme currentTheme;
 
     public VrChatTwoFactorWindow(AppTheme theme, IReadOnlyCollection<VrChatTwoFactorMethod> availableMethods)
     {
         InitializeComponent();
         currentTheme = theme;
-        ApplyTheme(theme);
+        ThemeManager.ApplyToResources(Resources, theme);
+        ThemeManager.ThemeChanged += OnThemeManagerThemeChanged;
+        Closed += OnWindowClosed;
 
         var options = availableMethods.Count == 0
             ? [new VrChatTwoFactorMethodOption(VrChatTwoFactorMethod.Totp, LocalizationService.Translate("Authenticator App"), LocalizationService.Translate("Use the 6-digit code from your authenticator app."))]
@@ -48,6 +50,18 @@ public partial class VrChatTwoFactorWindow : Window
             : VrChatTwoFactorMethod.Totp;
 
     public string VerificationCode => CodeTextBox.Text.Trim();
+
+    private void OnWindowClosed(object? sender, EventArgs e)
+    {
+        ThemeManager.ThemeChanged -= OnThemeManagerThemeChanged;
+        Closed -= OnWindowClosed;
+    }
+
+    private void OnThemeManagerThemeChanged(object? sender, EventArgs e)
+    {
+        currentTheme = ThemeManager.CurrentTheme;
+        Dispatcher.BeginInvoke(() => ThemeManager.ApplyToResources(Resources));
+    }
 
     private void OnVerifyClicked(object sender, RoutedEventArgs e)
     {

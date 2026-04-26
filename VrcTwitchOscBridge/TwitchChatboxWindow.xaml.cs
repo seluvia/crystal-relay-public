@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Globalization;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -18,6 +19,8 @@ namespace VrcTwitchOscBridge;
 public partial class TwitchChatboxWindow : Window
 {
     private const string ViewerNotificationAudioRelativePath = "Assets\\twitch-chat-viewer-notification.wav";
+    private const int MinimumChatTextSize = 12;
+    private const int MaximumChatTextSize = 40;
     private readonly MainWindowViewModel viewModel;
     private MediaPlayer? viewerNotificationPlayer;
     private string? viewerNotificationAudioTempPath;
@@ -28,10 +31,11 @@ public partial class TwitchChatboxWindow : Window
         this.viewModel = viewModel;
         DataContext = viewModel;
         Topmost = viewModel.Settings.ChatboxAlwaysOnTop;
-        ApplyTheme(initialTheme);
+        ThemeManager.ApplyToResources(Resources, initialTheme);
         UpdateWindowStateGlyph();
         ApplyChatboxStateFromSettings();
 
+        ThemeManager.ThemeChanged += OnThemeManagerThemeChanged;
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
         viewModel.Settings.PropertyChanged += OnAppSettingsPropertyChanged;
         viewModel.ChatMessages.CollectionChanged += OnChatMessagesCollectionChanged;
@@ -48,6 +52,7 @@ public partial class TwitchChatboxWindow : Window
 
     private void OnClosed(object? sender, EventArgs e)
     {
+        ThemeManager.ThemeChanged -= OnThemeManagerThemeChanged;
         viewModel.PropertyChanged -= OnViewModelPropertyChanged;
         viewModel.Settings.PropertyChanged -= OnAppSettingsPropertyChanged;
         viewModel.ChatMessages.CollectionChanged -= OnChatMessagesCollectionChanged;
@@ -61,10 +66,20 @@ public partial class TwitchChatboxWindow : Window
     {
         if (e.PropertyName == nameof(MainWindowViewModel.SelectedTheme))
         {
-            ApplyTheme(viewModel.SelectedTheme);
+            ThemeManager.ApplyToResources(Resources, viewModel.SelectedTheme);
             ApplyOverlayLayout(viewModel.Settings.ChatboxOverlayMode);
             RefreshVisibleChatNameColors();
         }
+    }
+
+    private void OnThemeManagerThemeChanged(object? sender, EventArgs e)
+    {
+        Dispatcher.BeginInvoke(() =>
+        {
+            ThemeManager.ApplyToResources(Resources);
+            ApplyOverlayLayout(viewModel.Settings.ChatboxOverlayMode);
+            RefreshVisibleChatNameColors();
+        }, DispatcherPriority.Background);
     }
 
     private void OnAppSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -73,7 +88,7 @@ public partial class TwitchChatboxWindow : Window
         {
             Dispatcher.BeginInvoke(() =>
             {
-                ApplyTheme(viewModel.Settings.Theme);
+                ThemeManager.ApplyToResources(Resources, viewModel.Settings.Theme);
                 ApplyOverlayLayout(viewModel.Settings.ChatboxOverlayMode);
                 RefreshVisibleChatNameColors();
             }, DispatcherPriority.Background);
@@ -128,6 +143,60 @@ public partial class TwitchChatboxWindow : Window
     private void OnClearChatClicked(object sender, RoutedEventArgs e)
     {
         viewModel.ClearChatMessages();
+    }
+
+    private void OnChatTextSizePreviewTextInput(object sender, TextCompositionEventArgs e)
+    {
+        foreach (var character in e.Text)
+        {
+            if (!char.IsDigit(character))
+            {
+                e.Handled = true;
+                return;
+            }
+        }
+    }
+
+    private void OnChatTextSizePasting(object sender, DataObjectPastingEventArgs e)
+    {
+        if (!e.DataObject.GetDataPresent(DataFormats.Text))
+        {
+            e.CancelCommand();
+            return;
+        }
+
+        var pastedText = e.DataObject.GetData(DataFormats.Text) as string ?? string.Empty;
+        foreach (var character in pastedText)
+        {
+            if (!char.IsDigit(character))
+            {
+                e.CancelCommand();
+                return;
+            }
+        }
+    }
+
+    private void OnChatTextSizePreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Space)
+        {
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key is not Key.Enter and not Key.Return)
+        {
+            return;
+        }
+
+        NormalizeChatTextSizeInput(sender as TextBox);
+        MoveFocus(new TraversalRequest(FocusNavigationDirection.Next));
+        e.Handled = true;
+    }
+
+    private void OnChatTextSizeLostFocus(object sender, RoutedEventArgs e)
+    {
+        NormalizeChatTextSizeInput(sender as TextBox);
     }
 
     private void OnStateChanged(object? sender, EventArgs e)
@@ -250,6 +319,21 @@ public partial class TwitchChatboxWindow : Window
                 viewModel.SelectedTheme,
                 viewModel.Settings.ChatTimestampFormat);
         }
+    }
+
+    private void NormalizeChatTextSizeInput(TextBox? textBox)
+    {
+        if (textBox is null)
+        {
+            return;
+        }
+
+        var parsed = int.TryParse(textBox.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var requestedValue)
+            ? requestedValue
+            : viewModel.Settings.ChatTextSize;
+        var normalized = Math.Clamp(parsed, MinimumChatTextSize, MaximumChatTextSize);
+        viewModel.Settings.ChatTextSize = normalized;
+        textBox.Text = normalized.ToString(CultureInfo.InvariantCulture);
     }
 
     private bool ShouldPlayViewerNotificationSound(IList? newItems)

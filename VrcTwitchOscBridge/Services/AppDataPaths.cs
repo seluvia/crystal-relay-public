@@ -15,6 +15,8 @@ internal static class AppDataPaths
 
     public static string PortableSaveFolder => Path.Combine(RootFolder, "Crystal Relay Save Transfer");
 
+    public static string ThemeAssetsFolder => Path.Combine(PortableSaveFolder, "ThemeAssets");
+
     public static string SecureFolder => Path.Combine(RootFolder, "Secure");
 
     public static string CrashLogFolder => Path.Combine(RootFolder, "CrashLogs");
@@ -25,6 +27,7 @@ internal static class AppDataPaths
     {
         Directory.CreateDirectory(RootFolder);
         Directory.CreateDirectory(PortableSaveFolder);
+        Directory.CreateDirectory(ThemeAssetsFolder);
         Directory.CreateDirectory(SecureFolder);
         Directory.CreateDirectory(CrashLogFolder);
     }

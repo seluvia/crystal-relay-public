@@ -193,6 +193,30 @@
             <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
 
+        <Style x:Key="ChatboxTextBoxStyle" TargetType="TextBox">
+            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="Margin" Value="0,6,0,0" />
+            <Setter Property="CaretBrush" Value="{DynamicResource TextBrush}" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="12">
+                            <ScrollViewer x:Name="PART_ContentHost"
+                                          Margin="{TemplateBinding Padding}" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="ComboBoxToggleButtonStyle" TargetType="ToggleButton">
             <Setter Property="Focusable" Value="False" />
             <Setter Property="Background" Value="{DynamicResource ComboDropButtonBrush}" />
@@ -414,12 +438,14 @@
         <Style x:Key="ChatboxScrollBarStyle" TargetType="ScrollBar">
             <Setter Property="Width" Value="12" />
             <Setter Property="Height" Value="Auto" />
+            <Setter Property="Margin" Value="10,0,0,0" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="Template" Value="{StaticResource ChatboxVerticalScrollBarTemplate}" />
             <Style.Triggers>
                 <Trigger Property="Orientation" Value="Horizontal">
                     <Setter Property="Width" Value="Auto" />
                     <Setter Property="Height" Value="12" />
+                    <Setter Property="Margin" Value="0,10,0,0" />
                     <Setter Property="Template" Value="{StaticResource ChatboxHorizontalScrollBarTemplate}" />
                 </Trigger>
             </Style.Triggers>
@@ -681,72 +707,67 @@
 
                             <Border Grid.Row="0"
                                     Grid.Column="0"
-                                    Margin="0,0,8,0"
+                                    Margin="0,0,6,0"
                                     Padding="12"
+                                    VerticalAlignment="Top"
                                     Background="{DynamicResource PanelBrush}"
                                     BorderBrush="{DynamicResource InputBorderBrush}"
                                     BorderThickness="1"
                                     CornerRadius="10">
-                                <Grid>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
-                                    </Grid.RowDefinitions>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-
-                                    <TextBlock Grid.Row="0"
-                                               Grid.ColumnSpan="2"
-                                               FontWeight="Bold"
+                                <StackPanel>
+                                    <TextBlock FontWeight="Bold"
                                                Text="{loc:Translate 'Display'}" />
 
-                                    <StackPanel Grid.Row="1"
-                                                Grid.ColumnSpan="2"
-                                                Margin="0,12,0,0">
+                                    <StackPanel Margin="0,12,0,0">
                                         <TextBlock FontWeight="SemiBold"
                                                    Text="{loc:Translate 'Chat Font'}" />
                                         <ComboBox ItemsSource="{Binding ChatFontOptions}"
                                                   SelectedItem="{Binding Settings.ChatFontFamily, UpdateSourceTrigger=PropertyChanged}" />
                                     </StackPanel>
 
-                                    <StackPanel Grid.Row="2"
-                                                Grid.Column="0"
-                                                Margin="0,10,8,0">
+                                    <StackPanel Margin="0,10,0,0">
                                         <TextBlock FontWeight="SemiBold">
                                             <Run Text="{loc:Translate 'Text Size: '}" />
-                                            <Run Text="{Binding Settings.ChatTextSize}" />
                                         </TextBlock>
-                                        <Slider Minimum="12"
-                                                Maximum="40"
-                                                TickFrequency="1"
-                                                IsSnapToTickEnabled="True"
-                                                Value="{Binding Settings.ChatTextSize, UpdateSourceTrigger=PropertyChanged}" />
+                                        <TextBox x:Name="ChatTextSizeTextBox"
+                                                 Width="88"
+                                                 HorizontalAlignment="Left"
+                                                 Style="{StaticResource ChatboxTextBoxStyle}"
+                                                 Text="{Binding Settings.ChatTextSize, UpdateSourceTrigger=PropertyChanged}"
+                                                 PreviewTextInput="OnChatTextSizePreviewTextInput"
+                                                 PreviewKeyDown="OnChatTextSizePreviewKeyDown"
+                                                 LostFocus="OnChatTextSizeLostFocus"
+                                                 DataObject.Pasting="OnChatTextSizePasting" />
                                     </StackPanel>
 
-                                    <StackPanel Grid.Row="2"
-                                                Grid.Column="1"
-                                                Margin="8,10,0,0">
-                                        <TextBlock FontWeight="SemiBold">
-                                            <Run Text="{loc:Translate 'Card Opacity: '}" />
-                                            <Run Text="{Binding Settings.ChatOpacityPercent}" />
-                                            <Run Text="%" />
-                                        </TextBlock>
+                                    <StackPanel Margin="0,10,0,0">
+                                        <Grid Margin="0,0,0,4">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0"
+                                                       FontWeight="SemiBold"
+                                                       Text="{loc:Translate 'Card Opacity: '}" />
+                                            <TextBlock Grid.Column="1"
+                                                       Margin="12,0,0,0"
+                                                       FontWeight="SemiBold"
+                                                       Text="{Binding Settings.ChatOpacityPercent, StringFormat={}{0}%}" />
+                                        </Grid>
                                         <Slider Minimum="25"
                                                 Maximum="100"
                                                 TickFrequency="1"
                                                 IsSnapToTickEnabled="True"
                                                 Value="{Binding Settings.ChatOpacityPercent, UpdateSourceTrigger=PropertyChanged}" />
                                     </StackPanel>
-                                </Grid>
+                                </StackPanel>
                             </Border>
 
                             <Border Grid.Row="0"
                                     Grid.Column="1"
-                                    Margin="8,0,0,0"
+                                    Margin="6,0,0,0"
                                     Padding="12"
+                                    VerticalAlignment="Top"
                                     Background="{DynamicResource PanelBrush}"
                                     BorderBrush="{DynamicResource InputBorderBrush}"
                                     BorderThickness="1"
@@ -754,33 +775,37 @@
                                 <StackPanel>
                                     <TextBlock FontWeight="Bold"
                                                Text="{loc:Translate 'Behavior'}" />
-                                    <ToggleButton Margin="0,12,0,0"
-                                                  Content="{loc:Translate 'Show Timestamps'}"
-                                                  Style="{StaticResource ChatboxOptionToggleStyle}"
-                                                  IsChecked="{Binding Settings.ChatShowTimestamps, UpdateSourceTrigger=PropertyChanged}" />
-                                    <StackPanel Margin="0,10,0,0">
-                                        <TextBlock FontWeight="SemiBold"
-                                                   Text="{loc:Translate 'Timestamp Style'}" />
-                                        <ComboBox Width="170"
-                                                  HorizontalAlignment="Left"
-                                                  Margin="0,6,0,0"
-                                                  ItemsSource="{Binding ChatTimestampFormatOptions}"
-                                                  SelectedItem="{Binding SelectedChatTimestampFormatOption, UpdateSourceTrigger=PropertyChanged}">
-                                            <ComboBox.ItemTemplate>
-                                                <DataTemplate>
-                                                    <TextBlock Text="{Binding Label}" />
-                                                </DataTemplate>
-                                            </ComboBox.ItemTemplate>
-                                        </ComboBox>
+                                    <StackPanel Margin="0,12,0,0">
+                                        <ToggleButton Content="{loc:Translate 'Show Timestamps'}"
+                                                      Style="{StaticResource ChatboxOptionToggleStyle}"
+                                                      IsChecked="{Binding Settings.ChatShowTimestamps, UpdateSourceTrigger=PropertyChanged}" />
+                                        <StackPanel Margin="0,8,0,0">
+                                            <TextBlock FontWeight="SemiBold"
+                                                       Text="{loc:Translate 'Timestamp Style'}" />
+                                            <ComboBox Width="170"
+                                                      HorizontalAlignment="Left"
+                                                      Margin="0,6,0,0"
+                                                      ItemsSource="{Binding ChatTimestampFormatOptions}"
+                                                      SelectedItem="{Binding SelectedChatTimestampFormatOption, UpdateSourceTrigger=PropertyChanged}">
+                                                <ComboBox.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <TextBlock Text="{Binding Label}" />
+                                                    </DataTemplate>
+                                                </ComboBox.ItemTemplate>
+                                            </ComboBox>
+                                        </StackPanel>
                                     </StackPanel>
                                     <ToggleButton x:Name="AlwaysOnTopToggleButton"
+                                                  Margin="0,10,0,0"
                                                   Content="{loc:Translate 'Always On Top'}"
                                                   Style="{StaticResource ChatboxOptionToggleStyle}"
                                                   IsChecked="{Binding Settings.ChatboxAlwaysOnTop, UpdateSourceTrigger=PropertyChanged}" />
-                                    <ToggleButton Content="{loc:Translate 'Overlay Mode'}"
+                                    <ToggleButton Margin="0,10,0,0"
+                                                  Content="{loc:Translate 'Overlay Mode'}"
                                                   Style="{StaticResource ChatboxOptionToggleStyle}"
                                                   IsChecked="{Binding Settings.ChatboxOverlayMode, UpdateSourceTrigger=PropertyChanged}" />
-                                    <ToggleButton Content="{loc:Translate 'Viewer Message Sound'}"
+                                    <ToggleButton Margin="0,10,0,0"
+                                                  Content="{loc:Translate 'Viewer Message Sound'}"
                                                   Style="{StaticResource ChatboxOptionToggleStyle}"
                                                   IsChecked="{Binding Settings.ChatboxViewerSoundEnabled, UpdateSourceTrigger=PropertyChanged}" />
                                 </StackPanel>
@@ -788,38 +813,22 @@
 
                             <Border Grid.Row="1"
                                     Grid.ColumnSpan="2"
-                                    Margin="0,12,0,0"
+                                    Margin="0,10,0,0"
                                     Padding="12"
                                     Background="{DynamicResource PanelBrush}"
                                     BorderBrush="{DynamicResource InputBorderBrush}"
                                     BorderThickness="1"
                                     CornerRadius="10">
-                                <Grid>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
-                                    </Grid.RowDefinitions>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-
-                                    <TextBlock Grid.Row="0"
-                                               Grid.ColumnSpan="2"
-                                               FontWeight="Bold"
+                                <StackPanel>
+                                    <TextBlock FontWeight="Bold"
                                                Text="{loc:Translate 'VRChat Chatbox'}" />
 
-                                    <ToggleButton Grid.Row="1"
-                                                  Grid.ColumnSpan="2"
-                                                  Margin="0,12,0,0"
+                                    <ToggleButton Margin="0,12,0,0"
                                                   Content="{loc:Translate 'Send Chat to VRChat'}"
                                                   Style="{StaticResource ChatboxOptionToggleStyle}"
                                                   IsChecked="{Binding Settings.ChatboxOscEnabled, UpdateSourceTrigger=PropertyChanged}" />
 
-                                    <StackPanel Grid.Row="2"
-                                                Grid.Column="0"
-                                                Margin="0,10,14,0">
+                                    <StackPanel Margin="0,10,0,0">
                                         <TextBlock FontWeight="SemiBold"
                                                    Text="{loc:Translate 'Delay Between Posts'}" />
                                         <ComboBox Width="210"
@@ -832,23 +841,24 @@
                                                 </DataTemplate>
                                             </ComboBox.ItemTemplate>
                                         </ComboBox>
-
-                                        <TextBlock Margin="0,10,0,0"
-                                                   Foreground="{DynamicResource MutedBrush}"
-                                                   TextWrapping="Wrap"
-                                                   Text="{Binding ChatboxOscRelayStatusText}" />
                                     </StackPanel>
 
-                                    <Button Grid.Row="2"
-                                            Grid.Column="1"
-                                            Width="118"
-                                            Margin="12,34,0,0"
-                                            VerticalAlignment="Bottom"
-                                            Style="{StaticResource ChatboxSecondaryButtonStyle}"
-                                            Content="{loc:Translate 'Clear Chat'}"
-                                            Click="OnClearChatClicked" />
-                                </Grid>
+                                    <TextBlock Margin="0,10,0,0"
+                                               Foreground="{DynamicResource MutedBrush}"
+                                               TextWrapping="Wrap"
+                                               Text="{Binding ChatboxOscRelayStatusText}" />
+                                </StackPanel>
                             </Border>
+
+                            <Grid Grid.Row="2"
+                                  Grid.ColumnSpan="2"
+                                  Margin="0,10,0,0">
+                                <Button Width="118"
+                                        HorizontalAlignment="Right"
+                                        Style="{StaticResource ChatboxSecondaryButtonStyle}"
+                                        Content="{loc:Translate 'Clear Chat'}"
+                                        Click="OnClearChatClicked" />
+                            </Grid>
                         </Grid>
                     </Border>
 

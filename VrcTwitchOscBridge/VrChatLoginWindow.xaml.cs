@@ -7,13 +7,15 @@ namespace VrcTwitchOscBridge;
 
 public partial class VrChatLoginWindow : Window
 {
-    private readonly AppTheme currentTheme;
+    private AppTheme currentTheme;
 
     public VrChatLoginWindow(AppTheme theme, string? initialUsername = null)
     {
         InitializeComponent();
         currentTheme = theme;
-        ApplyTheme(theme);
+        ThemeManager.ApplyToResources(Resources, theme);
+        ThemeManager.ThemeChanged += OnThemeManagerThemeChanged;
+        Closed += OnWindowClosed;
         UsernameTextBox.Text = initialUsername ?? string.Empty;
         Loaded += (_, _) =>
         {
@@ -31,6 +33,18 @@ public partial class VrChatLoginWindow : Window
     public string VrChatUsername => UsernameTextBox.Text.Trim();
 
     public string VrChatPassword => PasswordInput.Password;
+
+    private void OnWindowClosed(object? sender, EventArgs e)
+    {
+        ThemeManager.ThemeChanged -= OnThemeManagerThemeChanged;
+        Closed -= OnWindowClosed;
+    }
+
+    private void OnThemeManagerThemeChanged(object? sender, EventArgs e)
+    {
+        currentTheme = ThemeManager.CurrentTheme;
+        Dispatcher.BeginInvoke(() => ThemeManager.ApplyToResources(Resources));
+    }
 
     private void OnContinueClicked(object sender, RoutedEventArgs e)
     {

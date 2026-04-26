@@ -22,7 +22,9 @@ public partial class RuleLockoutPickerWindow : Window
         IReadOnlyList<TriggerRuleReferenceOption> configuredOptions)
     {
         InitializeComponent();
-        ApplyTheme(theme);
+        ThemeManager.ApplyToResources(Resources, theme);
+        ThemeManager.ThemeChanged += OnThemeManagerThemeChanged;
+        Closed += OnWindowClosed;
 
         this.availableOptions = new ObservableCollection<TriggerRuleReferenceOption>(
             availableOptions.OrderBy(option => option.Label, StringComparer.OrdinalIgnoreCase));
@@ -82,6 +84,17 @@ public partial class RuleLockoutPickerWindow : Window
     private void OnCloseButtonClicked(object sender, RoutedEventArgs e)
     {
         DialogResult = false;
+    }
+
+    private void OnWindowClosed(object? sender, EventArgs e)
+    {
+        ThemeManager.ThemeChanged -= OnThemeManagerThemeChanged;
+        Closed -= OnWindowClosed;
+    }
+
+    private void OnThemeManagerThemeChanged(object? sender, EventArgs e)
+    {
+        Dispatcher.BeginInvoke(() => ThemeManager.ApplyToResources(Resources));
     }
 
     private void OnTitleBarMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
