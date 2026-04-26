@@ -170,6 +170,7 @@ function Apply-PublicUploadCleanup {
     $filesToRemove = @(
         'AGENTS.md',
         'GITHUB-UPLOAD-NOTES.txt',
+        'RELEASE-CHANGE-RECORD.txt',
         'Backup-Crystal-Relay-AppData.ps1',
         'Open-Crystal-Relay-GitHub-Desktop-Workflow.ps1',
         'Prepare-Crystal-Relay-GitHub-Uploads.ps1',

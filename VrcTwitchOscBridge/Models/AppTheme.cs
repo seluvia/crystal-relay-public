@@ -14,5 +14,6 @@ public enum AppTheme
     DreadNightBar,
     Baked,
     MainFrame,
-    TrashKitty
+    TrashKitty,
+    TreetendersArm
 }

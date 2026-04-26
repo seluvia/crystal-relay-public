@@ -79,12 +79,20 @@ if (Test-Path $stagingPath) {
 
 $rootFiles =
 @(
+    'AGENTS.md',
+    'Backup-Crystal-Relay-AppData.ps1',
     'Build-Crystal-Relay-Release.ps1',
+    'Build-Crystal-Relay-Test.ps1',
     'Backup-Crystal-Relay-Project.ps1',
     'Launch-Crystal-Relay.bat',
     'NuGet.Config',
+    'Open-Crystal-Relay-GitHub-Desktop-Workflow.ps1',
+    'Prepare-Crystal-Relay-GitHub-Uploads.ps1',
     'README.md',
     'CHANGELOG.txt',
+    'RELEASE-CHANGE-RECORD.txt',
+    'Run-Crystal-Relay-Source.ps1',
+    'Sync-Crystal-Relay-GitHub-Repos.ps1',
     'VrcTwitchOscBridge.slnx'
 )
 
