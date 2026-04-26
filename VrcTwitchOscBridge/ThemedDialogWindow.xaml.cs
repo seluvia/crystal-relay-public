@@ -18,7 +18,9 @@ public partial class ThemedDialogWindow : Window
         string? finePrint = null)
     {
         InitializeComponent();
-        ApplyTheme(theme);
+        ThemeManager.ApplyToResources(Resources, theme);
+        ThemeManager.ThemeChanged += OnThemeManagerThemeChanged;
+        Closed += OnWindowClosed;
         Title = LocalizationService.Format("{0} | Crystal Relay", title);
         HeaderTextBlock.Text = title;
         WindowTitleTextBlock.Text = title;
@@ -76,6 +78,17 @@ public partial class ThemedDialogWindow : Window
     private void OnSecondaryClicked(object sender, RoutedEventArgs e) => DialogResult = false;
 
     private void OnCloseButtonClicked(object sender, RoutedEventArgs e) => DialogResult = false;
+
+    private void OnWindowClosed(object? sender, EventArgs e)
+    {
+        ThemeManager.ThemeChanged -= OnThemeManagerThemeChanged;
+        Closed -= OnWindowClosed;
+    }
+
+    private void OnThemeManagerThemeChanged(object? sender, EventArgs e)
+    {
+        Dispatcher.BeginInvoke(() => ThemeManager.ApplyToResources(Resources));
+    }
 
     private void OnTitleBarMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {

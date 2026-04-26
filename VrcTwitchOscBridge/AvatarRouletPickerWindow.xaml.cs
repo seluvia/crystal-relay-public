@@ -22,7 +22,9 @@ public partial class AvatarRouletPickerWindow : Window
         IReadOnlyList<VrChatAvatarOption> configuredOptions)
     {
         InitializeComponent();
-        ApplyTheme(theme);
+        ThemeManager.ApplyToResources(Resources, theme);
+        ThemeManager.ThemeChanged += OnThemeManagerThemeChanged;
+        Closed += OnWindowClosed;
 
         this.availableOptions = new ObservableCollection<VrChatAvatarOption>(
             availableOptions.OrderBy(option => option.DisplayLabel, StringComparer.OrdinalIgnoreCase));
@@ -82,6 +84,17 @@ public partial class AvatarRouletPickerWindow : Window
     private void OnCloseButtonClicked(object sender, RoutedEventArgs e)
     {
         DialogResult = false;
+    }
+
+    private void OnWindowClosed(object? sender, EventArgs e)
+    {
+        ThemeManager.ThemeChanged -= OnThemeManagerThemeChanged;
+        Closed -= OnWindowClosed;
+    }
+
+    private void OnThemeManagerThemeChanged(object? sender, EventArgs e)
+    {
+        Dispatcher.BeginInvoke(() => ThemeManager.ApplyToResources(Resources));
     }
 
     private void OnTitleBarMouseLeftButtonDown(object sender, MouseButtonEventArgs e)

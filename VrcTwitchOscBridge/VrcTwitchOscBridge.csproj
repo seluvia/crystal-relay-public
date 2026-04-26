@@ -11,10 +11,10 @@
     <EnableDefaultPageItems>false</EnableDefaultPageItems>
     <ApplicationIcon>Assets\crystal-relay-icon.ico</ApplicationIcon>
     <UseWindowsForms>true</UseWindowsForms>
-    <Version>2.8.7</Version>
-    <AssemblyVersion>2.8.7.0</AssemblyVersion>
-    <FileVersion>2.8.7.0</FileVersion>
-    <InformationalVersion>2.8.7</InformationalVersion>
+    <Version>2.8.8</Version>
+    <AssemblyVersion>2.8.8.0</AssemblyVersion>
+    <FileVersion>2.8.8.0</FileVersion>
+    <InformationalVersion>2.8.8</InformationalVersion>
     <AssemblyName>CrystalRelayTwitchOsc</AssemblyName>
     <Product>Crystal Relay</Product>
     <Title>Crystal Relay - Twitch to OSC</Title>
@@ -65,6 +65,7 @@
     <Compile Include="Infrastructure\ObservableObject.cs" />
     <Compile Include="Infrastructure\RelayCommand.cs" />
     <Compile Include="Models\AppTheme.cs" />
+    <Compile Include="Models\CustomThemeSettings.cs" />
     <Compile Include="Models\AppLanguage.cs" />
     <Compile Include="Models\AppSettings.cs" />
     <Compile Include="Models\AvatarTriggerProfile.cs" />
@@ -99,6 +100,7 @@
     <Compile Include="Services\SettingsStore.cs" />
     <Compile Include="Services\TwitchApiClient.cs" />
     <Compile Include="Services\TwitchApiException.cs" />
+    <Compile Include="Services\ThemeManager.cs" />
     <Compile Include="Services\TwitchEventSubSession.cs" />
     <Compile Include="Services\TwitchScopes.cs" />
     <Compile Include="Services\VrChatApiClient.cs" />

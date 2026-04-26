@@ -804,7 +804,7 @@
                             <ScrollBar x:Name="PART_VerticalScrollBar"
                                         Grid.Row="0"
                                         Grid.Column="1"
-                                        Margin="0"
+                                        Margin="10,0,0,0"
                                         VerticalAlignment="Stretch"
                                         Orientation="Vertical"
                                         Minimum="0"
@@ -816,7 +816,7 @@
                             <ScrollBar x:Name="PART_HorizontalScrollBar"
                                        Grid.Row="1"
                                        Grid.Column="0"
-                                       Margin="0,6,0,0"
+                                       Margin="0,10,0,0"
                                        HorizontalAlignment="Stretch"
                                        Orientation="Horizontal"
                                        Minimum="0"
@@ -828,7 +828,7 @@
                             <Border x:Name="ScrollCorner"
                                     Grid.Row="1"
                                     Grid.Column="1"
-                                    Margin="0,6,0,0"
+                                    Margin="10,10,0,0"
                                     Background="{DynamicResource ScrollTrackBrush}"
                                      BorderBrush="{DynamicResource InputBorderBrush}"
                                      BorderThickness="1"
@@ -2287,6 +2287,163 @@
                                               DisplayMemberPath="Label"
                                               SelectedValuePath="Value"
                                               SelectedValue="{Binding SelectedTheme, UpdateSourceTrigger=PropertyChanged}" />
+                                    <Border Margin="0,16,0,0"
+                                            Padding="16"
+                                            Background="{DynamicResource PanelSecondaryBrush}"
+                                            BorderBrush="{DynamicResource BorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="12">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsCustomThemeSelected}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <StackPanel>
+                                            <TextBlock Text="{loc:Translate 'Custom Theme'}"
+                                                       FontSize="18"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource TextBrush}"
+                                                       TextAlignment="Center"
+                                                       HorizontalAlignment="Center" />
+                                            <Grid Margin="0,14,0,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <StackPanel Grid.Column="0"
+                                                            Margin="0,0,12,0">
+                                                    <TextBlock Text="{loc:Translate 'Window Background'}"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource TextBrush}" />
+                                                    <TextBox Margin="0,6,0,0"
+                                                             Text="{Binding Settings.CustomTheme.WindowBackgroundHex, UpdateSourceTrigger=PropertyChanged}" />
+
+                                                    <TextBlock Margin="0,12,0,0"
+                                                               Text="{loc:Translate 'Panel Background'}"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource TextBrush}" />
+                                                    <TextBox Margin="0,6,0,0"
+                                                             Text="{Binding Settings.CustomTheme.PanelBackgroundHex, UpdateSourceTrigger=PropertyChanged}" />
+
+                                                    <TextBlock Margin="0,12,0,0"
+                                                               Text="{loc:Translate 'Border'}"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource TextBrush}" />
+                                                    <TextBox Margin="0,6,0,0"
+                                                             Text="{Binding Settings.CustomTheme.BorderHex, UpdateSourceTrigger=PropertyChanged}" />
+
+                                                    <TextBlock Margin="0,12,0,0"
+                                                               Text="{loc:Translate 'Text'}"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource TextBrush}" />
+                                                    <TextBox Margin="0,6,0,0"
+                                                             Text="{Binding Settings.CustomTheme.TextHex, UpdateSourceTrigger=PropertyChanged}" />
+
+                                                    <TextBlock Margin="0,12,0,0"
+                                                               Text="{loc:Translate 'Input Background'}"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource TextBrush}" />
+                                                    <TextBox Margin="0,6,0,0"
+                                                             Text="{Binding Settings.CustomTheme.InputBackgroundHex, UpdateSourceTrigger=PropertyChanged}" />
+
+                                                    <TextBlock Margin="0,12,0,0"
+                                                               Text="{loc:Translate 'Secondary Button'}"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource TextBrush}" />
+                                                    <TextBox Margin="0,6,0,0"
+                                                             Text="{Binding Settings.CustomTheme.SecondaryButtonHex, UpdateSourceTrigger=PropertyChanged}" />
+
+                                                    <TextBlock Margin="0,12,0,0"
+                                                               Text="{loc:Translate 'Body Font'}"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource TextBrush}" />
+                                                    <ComboBox Margin="0,6,0,0"
+                                                              ItemsSource="{Binding CustomThemeFontOptions}"
+                                                              IsTextSearchEnabled="True"
+                                                              SelectedItem="{Binding Settings.CustomTheme.BodyFontFamily, UpdateSourceTrigger=PropertyChanged}" />
+                                                </StackPanel>
+
+                                                <StackPanel Grid.Column="1"
+                                                            Margin="12,0,0,0">
+                                                    <TextBlock Text="{loc:Translate 'Panel Secondary'}"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource TextBrush}" />
+                                                    <TextBox Margin="0,6,0,0"
+                                                             Text="{Binding Settings.CustomTheme.PanelSecondaryHex, UpdateSourceTrigger=PropertyChanged}" />
+
+                                                    <TextBlock Margin="0,12,0,0"
+                                                               Text="{loc:Translate 'Accent'}"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource TextBrush}" />
+                                                    <TextBox Margin="0,6,0,0"
+                                                             Text="{Binding Settings.CustomTheme.AccentHex, UpdateSourceTrigger=PropertyChanged}" />
+
+                                                    <TextBlock Margin="0,12,0,0"
+                                                               Text="{loc:Translate 'Muted Text'}"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource TextBrush}" />
+                                                    <TextBox Margin="0,6,0,0"
+                                                             Text="{Binding Settings.CustomTheme.MutedTextHex, UpdateSourceTrigger=PropertyChanged}" />
+
+                                                    <TextBlock Margin="0,12,0,0"
+                                                               Text="{loc:Translate 'Input Border'}"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource TextBrush}" />
+                                                    <TextBox Margin="0,6,0,0"
+                                                             Text="{Binding Settings.CustomTheme.InputBorderHex, UpdateSourceTrigger=PropertyChanged}" />
+
+                                                    <TextBlock Margin="0,12,0,0"
+                                                               Text="{loc:Translate 'Title Bar'}"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource TextBrush}" />
+                                                    <TextBox Margin="0,6,0,0"
+                                                             Text="{Binding Settings.CustomTheme.TitleBarHex, UpdateSourceTrigger=PropertyChanged}" />
+
+                                                    <TextBlock Margin="0,12,0,0"
+                                                               Text="{loc:Translate 'Danger'}"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource TextBrush}" />
+                                                    <TextBox Margin="0,6,0,0"
+                                                             Text="{Binding Settings.CustomTheme.DangerHex, UpdateSourceTrigger=PropertyChanged}" />
+
+                                                    <TextBlock Margin="0,12,0,0"
+                                                               Text="{loc:Translate 'Heading Font'}"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource TextBrush}" />
+                                                    <ComboBox Margin="0,6,0,0"
+                                                              ItemsSource="{Binding CustomThemeFontOptions}"
+                                                              IsTextSearchEnabled="True"
+                                                              SelectedItem="{Binding Settings.CustomTheme.HeadingFontFamily, UpdateSourceTrigger=PropertyChanged}" />
+
+                                                    <TextBlock Margin="0,12,0,0"
+                                                               Text="{loc:Translate 'Background Image'}"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource TextBrush}" />
+                                                    <TextBlock Margin="0,6,0,0"
+                                                               Foreground="{DynamicResource MutedBrush}"
+                                                               TextWrapping="Wrap"
+                                                               Text="{Binding CustomThemeBackgroundImageStatusText}" />
+                                                    <WrapPanel Margin="0,8,0,0"
+                                                               HorizontalAlignment="Left">
+                                                        <Button Margin="0,0,8,0"
+                                                                Style="{StaticResource SecondaryButtonStyle}"
+                                                                Content="{loc:Translate 'Choose Image'}"
+                                                                Click="OnChooseCustomThemeBackgroundImageClicked" />
+                                                        <Button Style="{StaticResource SecondaryButtonStyle}"
+                                                                Content="{loc:Translate 'Clear Image'}"
+                                                                IsEnabled="{Binding HasCustomThemeBackgroundImage}"
+                                                                Click="OnClearCustomThemeBackgroundImageClicked" />
+                                                    </WrapPanel>
+                                                </StackPanel>
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
                                     <TextBlock Margin="0,16,0,0"
                                                Text="{loc:Translate 'Language'}"
                                                FontSize="16"

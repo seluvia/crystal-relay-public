@@ -14,6 +14,7 @@ public sealed class AppSettings : ObservableObject
     private TwitchAccountSettings broadcaster = new();
     private TwitchAccountSettings bot = new();
     private VrChatAccountSettings vrChat = new();
+    private CustomThemeSettings customTheme = new();
     private ObservableCollection<AvatarTriggerProfile> avatarProfiles = [];
     private ObservableCollection<TriggerRule> globalMovementRules = [];
     private ObservableCollection<TriggerRule> globalOverrideRules = [];
@@ -40,6 +41,11 @@ public sealed class AppSettings : ObservableObject
     private AppLanguage language = AppLanguage.SystemDefault;
     private AppTheme theme = AppTheme.VoidCrystal;
 
+    public AppSettings()
+    {
+        WireCustomTheme(customTheme);
+    }
+
     public TwitchAccountSettings Broadcaster
     {
         get => broadcaster;
@@ -56,6 +62,24 @@ public sealed class AppSettings : ObservableObject
     {
         get => vrChat;
         set => SetProperty(ref vrChat, value);
+    }
+
+    public CustomThemeSettings CustomTheme
+    {
+        get => customTheme;
+        set
+        {
+            var nextValue = value ?? new CustomThemeSettings();
+            if (ReferenceEquals(customTheme, nextValue))
+            {
+                return;
+            }
+
+            UnwireCustomTheme(customTheme);
+            customTheme = nextValue;
+            WireCustomTheme(customTheme);
+            RaisePropertyChanged();
+        }
     }
 
     public ObservableCollection<AvatarTriggerProfile> AvatarProfiles
@@ -232,5 +256,20 @@ public sealed class AppSettings : ObservableObject
     {
         get => ignoredUpdateVersion;
         set => SetProperty(ref ignoredUpdateVersion, string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim());
+    }
+
+    private void WireCustomTheme(CustomThemeSettings settings)
+    {
+        settings.PropertyChanged += OnCustomThemePropertyChanged;
+    }
+
+    private void UnwireCustomTheme(CustomThemeSettings settings)
+    {
+        settings.PropertyChanged -= OnCustomThemePropertyChanged;
+    }
+
+    private void OnCustomThemePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        RaisePropertyChanged(nameof(CustomTheme));
     }
 }

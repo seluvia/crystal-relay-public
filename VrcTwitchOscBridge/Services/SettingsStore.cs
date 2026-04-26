@@ -360,6 +360,9 @@ public sealed class SettingsStore
             settings.EasterEggsEnabled = profile.EasterEggsEnabled ?? settings.EasterEggsEnabled;
             settings.MainWindowTrayTipShown = profile.MainWindowTrayTipShown ?? settings.MainWindowTrayTipShown;
             settings.IgnoredUpdateVersion = profile.IgnoredUpdateVersion ?? settings.IgnoredUpdateVersion;
+            settings.CustomTheme = profile.CustomTheme is null
+                ? settings.CustomTheme
+                : ToCustomThemeSettings(profile.CustomTheme);
             settings.AvatarProfiles = new ObservableCollection<AvatarTriggerProfile>((profile.AvatarProfiles ?? []).Select(ToAvatarProfile));
             settings.GlobalMovementRules = new ObservableCollection<TriggerRule>((profile.GlobalMovementRules ?? []).Select(ToRule));
             settings.GlobalOverrideRules = new ObservableCollection<TriggerRule>((profile.GlobalOverrideRules ?? []).Select(ToRule));
@@ -469,6 +472,7 @@ public sealed class SettingsStore
             EasterEggsEnabled = settings.EasterEggsEnabled,
             MainWindowTrayTipShown = settings.MainWindowTrayTipShown,
             IgnoredUpdateVersion = settings.IgnoredUpdateVersion,
+            CustomTheme = ToPersistedCustomThemeSettings(settings.CustomTheme),
             AvatarProfiles = [.. settings.AvatarProfiles.Select(ToPersistedAvatarProfile)],
             GlobalMovementRules = [.. settings.GlobalMovementRules.Select(ToPersistedRule)],
             GlobalOverrideRules = [.. settings.GlobalOverrideRules.Select(ToPersistedRule)]
@@ -1251,6 +1255,48 @@ public sealed class SettingsStore
 
     private readonly record struct LoadAttemptResult<T>(bool Success, T? Value, string? ErrorMessage);
 
+    private static CustomThemeSettings ToCustomThemeSettings(PersistedCustomThemeSettings persisted) =>
+        new()
+        {
+            IsInitialized = persisted.IsInitialized ?? false,
+            WindowBackgroundHex = persisted.WindowBackgroundHex ?? string.Empty,
+            PanelBackgroundHex = persisted.PanelBackgroundHex ?? string.Empty,
+            PanelSecondaryHex = persisted.PanelSecondaryHex ?? string.Empty,
+            BorderHex = persisted.BorderHex ?? string.Empty,
+            AccentHex = persisted.AccentHex ?? string.Empty,
+            TextHex = persisted.TextHex ?? string.Empty,
+            MutedTextHex = persisted.MutedTextHex ?? string.Empty,
+            InputBackgroundHex = persisted.InputBackgroundHex ?? string.Empty,
+            InputBorderHex = persisted.InputBorderHex ?? string.Empty,
+            SecondaryButtonHex = persisted.SecondaryButtonHex ?? string.Empty,
+            TitleBarHex = persisted.TitleBarHex ?? string.Empty,
+            DangerHex = persisted.DangerHex ?? string.Empty,
+            BodyFontFamily = persisted.BodyFontFamily ?? "Verdana",
+            HeadingFontFamily = persisted.HeadingFontFamily ?? "Constantia",
+            BackgroundImageRelativePath = persisted.BackgroundImageRelativePath ?? string.Empty
+        };
+
+    private static PersistedCustomThemeSettings ToPersistedCustomThemeSettings(CustomThemeSettings settings) =>
+        new()
+        {
+            IsInitialized = settings.IsInitialized,
+            WindowBackgroundHex = settings.WindowBackgroundHex,
+            PanelBackgroundHex = settings.PanelBackgroundHex,
+            PanelSecondaryHex = settings.PanelSecondaryHex,
+            BorderHex = settings.BorderHex,
+            AccentHex = settings.AccentHex,
+            TextHex = settings.TextHex,
+            MutedTextHex = settings.MutedTextHex,
+            InputBackgroundHex = settings.InputBackgroundHex,
+            InputBorderHex = settings.InputBorderHex,
+            SecondaryButtonHex = settings.SecondaryButtonHex,
+            TitleBarHex = settings.TitleBarHex,
+            DangerHex = settings.DangerHex,
+            BodyFontFamily = settings.BodyFontFamily,
+            HeadingFontFamily = settings.HeadingFontFamily,
+            BackgroundImageRelativePath = settings.BackgroundImageRelativePath
+        };
+
     private sealed class PersistedProfileSettings
     {
         public AppLanguage Language { get; set; }
@@ -1295,6 +1341,8 @@ public sealed class SettingsStore
 
         public string? IgnoredUpdateVersion { get; set; }
 
+        public PersistedCustomThemeSettings? CustomTheme { get; set; }
+
         public List<PersistedAvatarTriggerProfile>? AvatarProfiles { get; set; }
 
         public List<PersistedTriggerRule>? GlobalMovementRules { get; set; }
@@ -1302,6 +1350,41 @@ public sealed class SettingsStore
         public List<PersistedTriggerRule>? GlobalOverrideRules { get; set; }
 
         public List<PersistedTriggerRule>? Rules { get; set; }
+    }
+
+    private sealed class PersistedCustomThemeSettings
+    {
+        public bool? IsInitialized { get; set; }
+
+        public string? WindowBackgroundHex { get; set; }
+
+        public string? PanelBackgroundHex { get; set; }
+
+        public string? PanelSecondaryHex { get; set; }
+
+        public string? BorderHex { get; set; }
+
+        public string? AccentHex { get; set; }
+
+        public string? TextHex { get; set; }
+
+        public string? MutedTextHex { get; set; }
+
+        public string? InputBackgroundHex { get; set; }
+
+        public string? InputBorderHex { get; set; }
+
+        public string? SecondaryButtonHex { get; set; }
+
+        public string? TitleBarHex { get; set; }
+
+        public string? DangerHex { get; set; }
+
+        public string? BodyFontFamily { get; set; }
+
+        public string? HeadingFontFamily { get; set; }
+
+        public string? BackgroundImageRelativePath { get; set; }
     }
 
     private sealed class PersistedSecureSettings

@@ -3,6 +3,11 @@ Crystal Relay Changelog
 
 Newest updates appear first. This changelog focuses on the changes users will notice most.
 
+v2.8.8
+- Added a new app-wide Custom theme slot so you can tune Crystal Relay's colors, heading/body fonts, and overall look without replacing the built-in themes.
+- The Custom theme can now use an optional imported main-window background image while the rest of the app keeps the same live-updating color and font palette.
+- Cleaned up main UI scrollbar spacing so page scrollbars no longer sit flush against nearby cards and panels.
+
 v2.8.7
 - Crystal Relay can now check the public GitHub release page on startup and show a themed in-app update popup when a newer version is available.
 - The update popup uses Crystal Relay's custom window style, shows your current version and the latest version, and can open the GitHub release page directly in your browser.

@@ -10,6 +10,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Navigation;
+using Microsoft.Win32;
 using Drawing = System.Drawing;
 using WinForms = System.Windows.Forms;
 using VrcTwitchOscBridge.Models;
@@ -96,6 +97,7 @@ public partial class MainWindow : Window
         LocationChanged += OnLocationChanged;
         PreviewKeyDown += OnPreviewKeyDown;
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
+        ThemeManager.ThemeChanged += OnThemeManagerThemeChanged;
         AttachSettingsHandlers(viewModel.Settings);
         ApplyTheme(viewModel.SelectedTheme);
         InitializeTrayIcon();
@@ -144,6 +146,7 @@ public partial class MainWindow : Window
         LocationChanged -= OnLocationChanged;
         PreviewKeyDown -= OnPreviewKeyDown;
         viewModel.PropertyChanged -= OnViewModelPropertyChanged;
+        ThemeManager.ThemeChanged -= OnThemeManagerThemeChanged;
         DetachSettingsHandlers();
         windowSource?.RemoveHook(WindowMessageHook);
         try
@@ -188,6 +191,11 @@ public partial class MainWindow : Window
         }
     }
 
+    private void OnThemeManagerThemeChanged(object? sender, EventArgs e)
+    {
+        Dispatcher.BeginInvoke(() => ApplyTheme(ThemeManager.CurrentTheme));
+    }
+
     private bool AreEasterEggsEnabled => viewModel.Settings.EasterEggsEnabled;
 
     private void AttachSettingsHandlers(AppSettings settings)
@@ -221,6 +229,43 @@ public partial class MainWindow : Window
         }
 
         ResetEasterEggState(stopActiveMedia: !AreEasterEggsEnabled);
+    }
+
+    private void OnChooseCustomThemeBackgroundImageClicked(object sender, RoutedEventArgs e)
+    {
+        var fileDialog = new OpenFileDialog
+        {
+            Title = LocalizationService.Translate("Choose Image"),
+            Filter = "Image Files|*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.webp",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+
+        if (fileDialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            viewModel.Settings.CustomTheme.BackgroundImageRelativePath =
+                ThemeAssetStore.ImportBackgroundImage(fileDialog.FileName);
+        }
+        catch (Exception ex)
+        {
+            ThemedDialogWindow.ShowOk(
+                this,
+                viewModel.SelectedTheme,
+                LocalizationService.Translate("Custom Theme"),
+                LocalizationService.Format("Crystal Relay could not import that background image.\n\n{0}", ex.Message),
+                LocalizationService.Translate("OK"));
+        }
+    }
+
+    private void OnClearCustomThemeBackgroundImageClicked(object sender, RoutedEventArgs e)
+    {
+        ThemeAssetStore.ClearBackgroundImage(viewModel.Settings.CustomTheme.BackgroundImageRelativePath);
+        viewModel.Settings.CustomTheme.BackgroundImageRelativePath = string.Empty;
     }
 
     private void ResetEasterEggState(bool stopActiveMedia)
@@ -312,66 +357,18 @@ public partial class MainWindow : Window
     private void ApplyTheme(AppTheme theme)
     {
         ApplyThemeBackground(theme);
-
-        if (theme == AppTheme.Baked)
-        {
-            ApplyBakedTheme();
-            return;
-        }
-
-        if (theme == AppTheme.DreadNightBar)
-        {
-            ApplyDreadNightBarTheme();
-            return;
-        }
-
-        if (theme == AppTheme.MoonBunnyWink)
-        {
-            ApplyMoonBunnyWinkTheme();
-            return;
-        }
-
-        if (theme == AppTheme.PeachesAndCream)
-        {
-            ApplyPeachesAndCreamTheme();
-            return;
-        }
-
-        if (theme == AppTheme.CosmicPuppyGirl)
-        {
-            ApplyCosmicPuppyGirlTheme();
-            return;
-        }
-
-        if (theme == AppTheme.Bubblegum)
-        {
-            ApplyBubblegumTheme();
-            return;
-        }
-
-        if (theme == AppTheme.DreamScape)
-        {
-            ApplyDreamScapeTheme();
-            return;
-        }
-
-        if (theme == AppTheme.MainFrame)
-        {
-            ApplyMainFrameTheme();
-            return;
-        }
-
-        if (theme == AppTheme.TrashKitty)
-        {
-            ApplyTrashKittyTheme();
-            return;
-        }
-
-        ApplyVoidCrystalTheme();
+        ThemeManager.ApplyToResources(Resources, theme);
     }
 
     private void ApplyThemeBackground(AppTheme theme)
     {
+        if (theme == AppTheme.Custom)
+        {
+            ThemeBackgroundHost.Content = ThemeManager.CreateMainWindowBackgroundElement();
+            loadedThemeBackground = AppTheme.Custom;
+            return;
+        }
+
         if (loadedThemeBackground == theme && ThemeBackgroundHost.Content is not null)
         {
             return;
