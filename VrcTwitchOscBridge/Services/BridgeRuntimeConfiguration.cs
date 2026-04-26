@@ -154,6 +154,19 @@ public sealed record BridgeRuntimeConfiguration(
         };
     }
 
+    public static TriggerRuleSnapshot CreateManualTestSnapshot(
+        TriggerRule rule,
+        bool isGlobalOverride,
+        AvatarTriggerProfile? profile)
+    {
+        if (!IsManualTestReady(rule))
+        {
+            throw new InvalidOperationException(GetManualTestReadinessError(rule));
+        }
+
+        return CreateSnapshot(rule, isGlobalOverride, profile);
+    }
+
     private static bool TryToSnapshot(
         TriggerRule rule,
         bool isGlobalOverride,
@@ -162,12 +175,21 @@ public sealed record BridgeRuntimeConfiguration(
     {
         snapshot = default!;
 
-        if (!IsRuntimeReady(rule))
+        if (!IsLiveRuntimeReady(rule))
         {
             return false;
         }
 
-        snapshot = new TriggerRuleSnapshot(
+        snapshot = CreateSnapshot(rule, isGlobalOverride, profile);
+        return true;
+    }
+
+    private static TriggerRuleSnapshot CreateSnapshot(
+        TriggerRule rule,
+        bool isGlobalOverride,
+        AvatarTriggerProfile? profile)
+    {
+        return new TriggerRuleSnapshot(
             rule.Id,
             (profile?.IsEnabled ?? true) && rule.IsEnabled,
             rule.DisplayTitle,
@@ -214,10 +236,9 @@ public sealed record BridgeRuntimeConfiguration(
             rule.CooldownSeconds,
             [.. rule.TemporarilyDisabledRuleIds.Where(ruleId => ruleId != Guid.Empty).Distinct()],
             rule.BotMessageTemplate.Trim());
-        return true;
     }
 
-    private static bool IsRuntimeReady(TriggerRule rule)
+    private static bool IsLiveRuntimeReady(TriggerRule rule)
     {
         var hasChatCommandFallback = rule.ChatCommandEnabled && ChatCommandUtility.IsConfigured(rule.ChatCommandText);
         if (rule.TriggerType == TwitchTriggerType.ChannelPoints
@@ -228,6 +249,11 @@ public sealed record BridgeRuntimeConfiguration(
             return false;
         }
 
+        return IsManualTestReady(rule);
+    }
+
+    private static bool IsManualTestReady(TriggerRule rule)
+    {
         return rule.ActionType switch
         {
             OscActionType.AvatarParameter => HasAvatarParameterPath(rule.ParameterName),
@@ -237,6 +263,15 @@ public sealed record BridgeRuntimeConfiguration(
             _ => false
         };
     }
+
+    private static string GetManualTestReadinessError(TriggerRule rule) => rule.ActionType switch
+    {
+        OscActionType.AvatarParameter => "Pick a valid VRChat parameter first before testing this rule.",
+        OscActionType.AvatarChange => "Pick the avatar target first before testing this rule.",
+        OscActionType.AvatarRoulet => "Pick at least one avatar for the roulette pool before testing this rule.",
+        OscActionType.PlayerMovement => "Pick a supported movement action first before testing this rule.",
+        _ => "Finish the rule action setup before testing this rule."
+    };
 
     private static bool IsSupportedMovementDirection(PlayerMovementDirection direction) => direction is
         PlayerMovementDirection.Forward

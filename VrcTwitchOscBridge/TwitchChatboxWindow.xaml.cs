@@ -66,7 +66,7 @@ public partial class TwitchChatboxWindow : Window
     {
         if (e.PropertyName == nameof(MainWindowViewModel.SelectedTheme))
         {
-            ThemeManager.ApplyToResources(Resources, viewModel.SelectedTheme);
+            ApplyTheme(viewModel.SelectedTheme);
             ApplyOverlayLayout(viewModel.Settings.ChatboxOverlayMode);
             RefreshVisibleChatNameColors();
         }
@@ -76,7 +76,7 @@ public partial class TwitchChatboxWindow : Window
     {
         Dispatcher.BeginInvoke(() =>
         {
-            ThemeManager.ApplyToResources(Resources);
+            ApplyTheme(ThemeManager.CurrentTheme);
             ApplyOverlayLayout(viewModel.Settings.ChatboxOverlayMode);
             RefreshVisibleChatNameColors();
         }, DispatcherPriority.Background);
@@ -88,7 +88,7 @@ public partial class TwitchChatboxWindow : Window
         {
             Dispatcher.BeginInvoke(() =>
             {
-                ThemeManager.ApplyToResources(Resources, viewModel.Settings.Theme);
+                ApplyTheme(viewModel.Settings.Theme);
                 ApplyOverlayLayout(viewModel.Settings.ChatboxOverlayMode);
                 RefreshVisibleChatNameColors();
             }, DispatcherPriority.Background);
@@ -441,6 +441,29 @@ public partial class TwitchChatboxWindow : Window
 
     private void ApplyTheme(AppTheme theme)
     {
+        if (theme == AppTheme.Custom)
+        {
+            ThemeManager.ApplyToResources(Resources, theme);
+            var palette = ThemeManager.CurrentPalette;
+            SetBrushColor("MessageTextBrush", palette.GetColor("TextBrush"));
+            SetBrushColor("MessageCardBrush", palette.GetColor("RuleCardBrush"));
+            SetBrushColor("MessageBorderBrush", palette.GetColor("InputBorderBrush"));
+            SetBrushColor("TimestampBrush", palette.GetColor("MutedBrush"));
+            SetBrushColor("SecondaryButtonTextBrush", palette.GetColor("TextBrush"));
+            return;
+        }
+
+        if (theme == AppTheme.TreetendersArm)
+        {
+            ThemeManager.ApplyToResources(Resources, theme);
+            SetBrushColor("MessageTextBrush", "#F3F8E8");
+            SetBrushColor("MessageCardBrush", "#AA15321D");
+            SetBrushColor("MessageBorderBrush", "#5FA9F2");
+            SetBrushColor("TimestampBrush", "#C2D9B5");
+            SetBrushColor("SecondaryButtonTextBrush", "#F6FAED");
+            return;
+        }
+
         if (theme == AppTheme.Baked)
         {
             Resources["BodyFontFamily"] = new FontFamily("Cambria");
@@ -815,6 +838,11 @@ public partial class TwitchChatboxWindow : Window
     private void SetBrushColor(string resourceKey, string colorText)
     {
         var color = (Color)ColorConverter.ConvertFromString(colorText);
+        SetBrushColor(resourceKey, color);
+    }
+
+    private void SetBrushColor(string resourceKey, Color color)
+    {
         if (Resources[resourceKey] is SolidColorBrush brush && !brush.IsFrozen)
         {
             brush.Color = color;
@@ -827,10 +855,13 @@ public partial class TwitchChatboxWindow : Window
 
 public static class ChatMessageInlinePresenter
 {
+    private const int MaxCachedEmoteImages = 512;
+
     // Busy chats reuse the same emotes constantly, so cache decoded images by final URI and
     // reuse frozen ImageSource instances instead of decoding the same bitmap every message.
     private static readonly object emoteImageCacheGate = new();
-    private static readonly Dictionary<string, ImageSource> emoteImagesByUri = new(StringComparer.Ordinal);
+    private static readonly Dictionary<string, LinkedListNode<CachedEmoteImage>> emoteImagesByUri = new(StringComparer.Ordinal);
+    private static readonly LinkedList<CachedEmoteImage> emoteImageRecency = new();
 
     public static readonly DependencyProperty FragmentsProperty =
         DependencyProperty.RegisterAttached(
@@ -914,9 +945,11 @@ public static class ChatMessageInlinePresenter
         var imageKey = imageUri.ToString();
         lock (emoteImageCacheGate)
         {
-            if (emoteImagesByUri.TryGetValue(imageKey, out var cachedImage))
+            if (emoteImagesByUri.TryGetValue(imageKey, out var cachedImageNode))
             {
-                return cachedImage;
+                emoteImageRecency.Remove(cachedImageNode);
+                emoteImageRecency.AddFirst(cachedImageNode);
+                return cachedImageNode.Value.Image;
             }
         }
 
@@ -931,7 +964,22 @@ public static class ChatMessageInlinePresenter
 
             lock (emoteImageCacheGate)
             {
-                emoteImagesByUri[imageKey] = bitmap;
+                if (emoteImagesByUri.TryGetValue(imageKey, out var existingNode))
+                {
+                    emoteImageRecency.Remove(existingNode);
+                    emoteImageRecency.AddFirst(existingNode);
+                    return existingNode.Value.Image;
+                }
+
+                var node = new LinkedListNode<CachedEmoteImage>(new CachedEmoteImage(imageKey, bitmap));
+                emoteImageRecency.AddFirst(node);
+                emoteImagesByUri[imageKey] = node;
+                while (emoteImagesByUri.Count > MaxCachedEmoteImages && emoteImageRecency.Last is not null)
+                {
+                    var removedNode = emoteImageRecency.Last;
+                    emoteImageRecency.RemoveLast();
+                    emoteImagesByUri.Remove(removedNode.Value.Uri);
+                }
             }
 
             return bitmap;
@@ -941,4 +989,6 @@ public static class ChatMessageInlinePresenter
             return null;
         }
     }
+
+    private sealed record CachedEmoteImage(string Uri, ImageSource Image);
 }

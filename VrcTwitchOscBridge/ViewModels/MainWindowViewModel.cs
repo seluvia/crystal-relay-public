@@ -307,6 +307,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         [
             new ThemeOption(AppTheme.VoidCrystal, "Void Crystal"),
             new ThemeOption(AppTheme.Custom, "Custom"),
+            new ThemeOption(AppTheme.TreetendersArm, "Treetender's Arm"),
             new ThemeOption(AppTheme.DreamScape, "Dream Scape"),
             new ThemeOption(AppTheme.MainFrame, "MainFrame"),
             new ThemeOption(AppTheme.TrashKitty, "Trash Kitty"),
@@ -1183,6 +1184,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public bool IsCustomThemeSelected => SelectedTheme == AppTheme.Custom;
 
+    public bool IsTreetendersArmThemeSelected => SelectedTheme == AppTheme.TreetendersArm;
+
     public bool IsDreamScapeThemeSelected => SelectedTheme == AppTheme.DreamScape;
 
     public bool IsMainFrameThemeSelected => SelectedTheme == AppTheme.MainFrame;
@@ -1629,6 +1632,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RaisePropertyChanged(nameof(SelectedTheme));
         RaisePropertyChanged(nameof(IsVoidCrystalThemeSelected));
         RaisePropertyChanged(nameof(IsCustomThemeSelected));
+        RaisePropertyChanged(nameof(IsTreetendersArmThemeSelected));
         RaisePropertyChanged(nameof(IsDreamScapeThemeSelected));
         RaisePropertyChanged(nameof(IsMainFrameThemeSelected));
         RaisePropertyChanged(nameof(IsTrashKittyThemeSelected));
@@ -3914,9 +3918,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         {
             await EnsureBridgeStateAsync(CancellationToken.None, allowOscOnly: true);
 
-            var configuration = BridgeRuntimeConfiguration.FromSettings(Settings, runtimeConfig);
-            var ruleSnapshot = configuration.Rules.FirstOrDefault(rule => rule.Id == SelectedRule.Id)
-                ?? throw new InvalidOperationException("Crystal Relay could not find the selected rule to test.");
+            var selectedRule = SelectedRule;
+            var (isGlobalOverride, profile) = ResolveRuleRuntimeContext(selectedRule);
+            var ruleSnapshot = BridgeRuntimeConfiguration.CreateManualTestSnapshot(selectedRule, isGlobalOverride, profile);
             await bridgeCoordinator.SendTestRuleAsync(ruleSnapshot, CancellationToken.None);
 
             BridgeStatus = $"Sent test for '{ruleSnapshot.Name}'.";
@@ -3930,6 +3934,17 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         {
             bridgeRefreshGate.Release();
         }
+    }
+
+    private (bool IsGlobalOverride, AvatarTriggerProfile? Profile) ResolveRuleRuntimeContext(TriggerRule rule)
+    {
+        if (Settings.GlobalOverrideRules.Contains(rule) || Settings.GlobalMovementRules.Contains(rule))
+        {
+            return (true, null);
+        }
+
+        var profile = Settings.AvatarProfiles.FirstOrDefault(candidate => candidate.ChannelPointRules.Contains(rule));
+        return (false, profile);
     }
 
     private async Task QueueRewardRefreshAsync()

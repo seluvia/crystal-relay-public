@@ -2808,7 +2808,10 @@
 
                     <Grid Margin="0,22,0,0">
                         <ListBox ItemsSource="{Binding AvatarRuleProfiles}"
-                                 SelectedItem="{Binding SelectedAvatarProfile}">
+                                 SelectedItem="{Binding SelectedAvatarProfile}"
+                                 ScrollViewer.CanContentScroll="True"
+                                 VirtualizingStackPanel.IsVirtualizing="True"
+                                 VirtualizingStackPanel.VirtualizationMode="Recycling">
                             <ListBox.Style>
                                 <Style TargetType="ListBox" BasedOn="{StaticResource {x:Type ListBox}}">
                                     <Setter Property="Visibility" Value="Visible" />
@@ -2828,7 +2831,10 @@
                         </ListBox>
 
                         <ListBox ItemsSource="{Binding MasterAvatarRules}"
-                                 SelectedItem="{Binding SelectedRule}">
+                                 SelectedItem="{Binding SelectedRule}"
+                                 ScrollViewer.CanContentScroll="True"
+                                 VirtualizingStackPanel.IsVirtualizing="True"
+                                 VirtualizingStackPanel.VirtualizationMode="Recycling">
                             <ListBox.Style>
                                 <Style TargetType="ListBox" BasedOn="{StaticResource {x:Type ListBox}}">
                                     <Setter Property="Visibility" Value="Collapsed" />
@@ -2842,7 +2848,10 @@
                         </ListBox>
 
                         <ListBox ItemsSource="{Binding Settings.GlobalMovementRules}"
-                                 SelectedItem="{Binding SelectedRule}">
+                                 SelectedItem="{Binding SelectedRule}"
+                                 ScrollViewer.CanContentScroll="True"
+                                 VirtualizingStackPanel.IsVirtualizing="True"
+                                 VirtualizingStackPanel.VirtualizationMode="Recycling">
                             <ListBox.Style>
                                 <Style TargetType="ListBox" BasedOn="{StaticResource {x:Type ListBox}}">
                                     <Setter Property="Visibility" Value="Collapsed" />
@@ -2856,7 +2865,10 @@
                         </ListBox>
 
                         <ListBox ItemsSource="{Binding Settings.GlobalOverrideRules}"
-                                 SelectedItem="{Binding SelectedRule}">
+                                 SelectedItem="{Binding SelectedRule}"
+                                 ScrollViewer.CanContentScroll="True"
+                                 VirtualizingStackPanel.IsVirtualizing="True"
+                                 VirtualizingStackPanel.VirtualizationMode="Recycling">
                             <ListBox.Style>
                                 <Style TargetType="ListBox" BasedOn="{StaticResource {x:Type ListBox}}">
                                     <Setter Property="Visibility" Value="Collapsed" />
@@ -3141,6 +3153,9 @@
                                             Padding="14">
                                         <ListBox ItemsSource="{Binding SelectedAvatarProfile.ChannelPointRules}"
                                                  SelectedItem="{Binding SelectedRule}"
+                                                 ScrollViewer.CanContentScroll="True"
+                                                 VirtualizingStackPanel.IsVirtualizing="True"
+                                                 VirtualizingStackPanel.VirtualizationMode="Recycling"
                                                  ItemTemplate="{StaticResource AvatarRedeemListItemTemplate}" />
                                     </Border>
                                 </StackPanel>
@@ -4103,7 +4118,11 @@
                                 CommandParameter="Activity"
                                 Tag="Activity is Crystal Relay's running event log. It shows Twitch connection changes, reward sync results, VRChat avatar detection, OSC events, chat-command triggers, and errors so you can see what the app is doing without guessing. If something behaves strangely, this is usually the first place to check." />
                     </DockPanel>
-                    <ListBox Margin="0,18,0,0" ItemsSource="{Binding LogEntries}" />
+                    <ListBox Margin="0,18,0,0"
+                             ItemsSource="{Binding LogEntries}"
+                             ScrollViewer.CanContentScroll="True"
+                             VirtualizingStackPanel.IsVirtualizing="True"
+                             VirtualizingStackPanel.VirtualizationMode="Recycling" />
                 </DockPanel>
             </Border>
 

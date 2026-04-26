@@ -383,6 +383,7 @@ public partial class MainWindow : Window
         var componentPath = theme switch
         {
             AppTheme.VoidCrystal => "ThemeBackgrounds/VoidCrystalThemeBackground.xaml",
+            AppTheme.TreetendersArm => "ThemeBackgrounds/TreetendersArmThemeBackground.xaml",
             AppTheme.DreamScape => "ThemeBackgrounds/DreamScapeThemeBackground.xaml",
             AppTheme.MainFrame => "ThemeBackgrounds/MainFrameThemeBackground.xaml",
             AppTheme.TrashKitty => "ThemeBackgrounds/TrashKittyThemeBackground.xaml",

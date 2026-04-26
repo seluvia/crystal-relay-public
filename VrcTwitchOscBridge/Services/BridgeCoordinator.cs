@@ -24,9 +24,13 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private static readonly TimeSpan ChatboxRelayBlockedLogThrottle = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan RedeemPauseLogThrottle = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan MovementSoftLockPulseInterval = TimeSpan.FromMilliseconds(200);
+    private static readonly TimeSpan RecentMessageRetention = TimeSpan.FromMinutes(30);
+    private static readonly TimeSpan RecentMessagePruneInterval = TimeSpan.FromMinutes(1);
     private const int TwitchChatMessageMaxCharacters = 450;
     private const int VrChatChatboxMaxCharacters = 144;
     private const int VrChatChatboxMaxLines = 9;
+    private const int MaxChatEmoteImageUrlCacheEntries = 2048;
+    private const int MaxCachedChatEmoteSetIds = 512;
     private static readonly string[] ManagedSubscriptionTypes =
     [
         "channel.channel_points_custom_reward_redemption.add",
@@ -64,7 +68,9 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private readonly Dictionary<string, bool> localInstantToggleStates = [];
     private readonly Dictionary<string, string> chatBadgeImageUrls = [];
     private readonly Dictionary<string, string> chatEmoteImageUrls = [];
+    private readonly Queue<string> chatEmoteImageUrlInsertionOrder = [];
     private readonly HashSet<string> cachedChatEmoteSetIds = [];
+    private readonly Queue<string> cachedChatEmoteSetIdInsertionOrder = [];
     private readonly Dictionary<Guid, ActiveRuleLockoutState> activeRuleLockouts = [];
     private readonly Dictionary<Guid, ActiveRuleLockoutState> activeAvatarSwitchRuleLockouts = [];
     private readonly Dictionary<Guid, string> lastAvatarRouletResultIds = [];
@@ -81,6 +87,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private Task? chatboxRelayTask;
     private OscSessionMode oscSessionMode = OscSessionMode.Stopped;
     private BridgeRuntimeConfiguration? activeConfiguration;
+    private RuntimeRuleIndex activeRuleIndex = RuntimeRuleIndex.Empty;
     private TwitchAccountSnapshot? broadcaster;
     private TwitchAccountSnapshot? bot;
     private string currentVrChatAvatarId = string.Empty;
@@ -89,6 +96,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private DateTimeOffset nextChatboxRelayUnavailableLogAt = DateTimeOffset.MinValue;
     private DateTimeOffset nextChatboxRelayBlockedLogAt = DateTimeOffset.MinValue;
     private DateTimeOffset nextRedeemPauseLogAt = DateTimeOffset.MinValue;
+    private DateTimeOffset nextRecentMessagePruneAt = DateTimeOffset.MinValue;
     private ActiveSupporterOverrideState? activeSupporterOverride;
     private long nextSupporterOverrideQueueOrder;
 
@@ -222,7 +230,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         ValidateConfiguration(configuration);
         var upgradingOscOnlySession = oscSessionMode == OscSessionMode.OscOnly && oscRouterService.IsRunning;
 
-        activeConfiguration = configuration;
+        SetActiveConfiguration(configuration);
         RefreshSupporterOverrideBlockedRuleIds(configuration.Rules);
         SetCurrentVrChatAvatar(configuration.CurrentVrChatAvatarId, notify: false);
         SetSharedReturnAvatar(configuration.SharedReturnAvatarId, configuration.SharedReturnAvatarName, notify: false);
@@ -257,7 +265,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     public async Task StartOscOnlyAsync(BridgeRuntimeConfiguration configuration, CancellationToken cancellationToken = default)
     {
         var wasAlreadyRunning = oscRouterService.IsRunning;
-        activeConfiguration = configuration;
+        SetActiveConfiguration(configuration);
         RefreshSupporterOverrideBlockedRuleIds(configuration.Rules);
         SetCurrentVrChatAvatar(configuration.CurrentVrChatAvatarId, notify: false);
         SetSharedReturnAvatar(configuration.SharedReturnAvatarId, configuration.SharedReturnAvatarName, notify: false);
@@ -283,12 +291,24 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         return StringComparer.Ordinal.Equals(activeConfiguration.Broadcaster.UserId, configuration.Broadcaster.UserId);
     }
 
+    private void SetActiveConfiguration(BridgeRuntimeConfiguration configuration)
+    {
+        activeConfiguration = configuration;
+        activeRuleIndex = RuntimeRuleIndex.Create(configuration.Rules);
+    }
+
+    private void ClearActiveConfiguration()
+    {
+        activeConfiguration = null;
+        activeRuleIndex = RuntimeRuleIndex.Empty;
+    }
+
     public void ApplyConfiguration(BridgeRuntimeConfiguration configuration)
     {
         ValidateConfiguration(configuration);
 
         var wasPaused = activeConfiguration?.EmergencyRedeemStopEnabled == true;
-        activeConfiguration = configuration;
+        SetActiveConfiguration(configuration);
         RefreshSupporterOverrideBlockedRuleIds(configuration.Rules);
         broadcaster = configuration.Broadcaster;
         bot = configuration.Bot;
@@ -369,7 +389,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             runtimeCancellation?.Dispose();
             runtimeCancellation = null;
             await StopOscRouterSafelyAsync();
-            activeConfiguration = null;
+            ClearActiveConfiguration();
             broadcaster = null;
             bot = null;
             currentVrChatAvatarId = string.Empty;
@@ -383,7 +403,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         if (runtimeCancellation is null)
         {
             await StopOscRouterSafelyAsync();
-            activeConfiguration = null;
+            ClearActiveConfiguration();
             broadcaster = null;
             bot = null;
             currentVrChatAvatarId = string.Empty;
@@ -409,7 +429,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             runtimeCancellation = null;
             runtimeTask = null;
             await StopOscRouterSafelyAsync();
-            activeConfiguration = null;
+            ClearActiveConfiguration();
             broadcaster = null;
             bot = null;
             currentVrChatAvatarId = string.Empty;
@@ -632,7 +652,9 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         }
 
         var bridgeEvent = chatCommandEvent ?? ParseEvent(notification);
-        if (bridgeEvent is null || activeConfiguration is null)
+        var configuration = activeConfiguration;
+        var ruleIndex = activeRuleIndex;
+        if (bridgeEvent is null || configuration is null)
         {
             return;
         }
@@ -642,13 +664,13 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         var avatarChangeTransitionActive = IsAvatarChangeTransitionActive();
         var matchingRules = bridgeEvent.IsChatCommandTrigger
             ? SelectMatchingChatCommandRules(
-                activeConfiguration.Rules,
+                ruleIndex,
                 bridgeEvent,
                 currentAvatarId,
                 avatarChangeTransitionActive,
                 temporarilyDisabledRuleIds)
             : SelectMatchingRules(
-                activeConfiguration.Rules,
+                ruleIndex,
                 bridgeEvent,
                 currentAvatarId,
                 avatarChangeTransitionActive,
@@ -986,7 +1008,9 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             {
                 chatBadgeImageUrls.Clear();
                 chatEmoteImageUrls.Clear();
+                chatEmoteImageUrlInsertionOrder.Clear();
                 cachedChatEmoteSetIds.Clear();
+                cachedChatEmoteSetIdInsertionOrder.Clear();
             }
 
             return;
@@ -2924,8 +2948,11 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             queuedLaneActions.Clear();
             drainingQueuedLanes.Clear();
             recentMessageIds.Clear();
+            nextRecentMessagePruneAt = DateTimeOffset.MinValue;
             chatEmoteImageUrls.Clear();
+            chatEmoteImageUrlInsertionOrder.Clear();
             cachedChatEmoteSetIds.Clear();
+            cachedChatEmoteSetIdInsertionOrder.Clear();
             lockoutsWereActive = activeRuleLockouts.Count > 0
                 || activeAvatarSwitchRuleLockouts.Count > 0
                 || activeSupporterOverride is not null
@@ -3756,12 +3783,18 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         var now = DateTimeOffset.UtcNow;
         lock (stateGate)
         {
-            foreach (var expiredKey in recentMessageIds
-                         .Where(pair => pair.Value < now.AddMinutes(-30))
-                         .Select(pair => pair.Key)
-                         .ToArray())
+            if (now >= nextRecentMessagePruneAt)
             {
-                recentMessageIds.Remove(expiredKey);
+                var expiresBefore = now - RecentMessageRetention;
+                foreach (var expiredKey in recentMessageIds
+                             .Where(pair => pair.Value < expiresBefore)
+                             .Select(pair => pair.Key)
+                             .ToArray())
+                {
+                    recentMessageIds.Remove(expiredKey);
+                }
+
+                nextRecentMessagePruneAt = now.Add(RecentMessagePruneInterval);
             }
 
             if (recentMessageIds.ContainsKey(messageId))
@@ -3775,42 +3808,36 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     }
 
     private static TriggerRuleSnapshot[] SelectMatchingRules(
-        IReadOnlyList<TriggerRuleSnapshot> rules,
+        RuntimeRuleIndex ruleIndex,
         BridgeIncomingEvent bridgeEvent,
         string currentAvatarId,
         bool avatarChangeTransitionActive,
         IReadOnlyCollection<Guid> temporarilyDisabledRuleIds)
     {
-        var enabledRules = rules
-            .Where(rule =>
-                rule.IsEnabled
-                && rule.TriggerType == bridgeEvent.TriggerType
-                && !temporarilyDisabledRuleIds.Contains(rule.Id))
-            .ToArray();
-
-        if (enabledRules.Length == 0)
-        {
-            return [];
-        }
-
         return bridgeEvent.TriggerType switch
         {
             TwitchTriggerType.ChannelPoints => SelectExactChannelPointMatch(
-                enabledRules,
+                ruleIndex,
                 bridgeEvent.RewardId,
                 bridgeEvent.RewardTitle,
                 currentAvatarId,
+                temporarilyDisabledRuleIds,
                 avatarChangeTransitionActive),
-            TwitchTriggerType.Bits or TwitchTriggerType.Subscriptions => SelectBestThresholdMatch(enabledRules.Where(rule => rule.IsGlobalOverride).ToArray(), bridgeEvent.Amount),
+            TwitchTriggerType.Bits or TwitchTriggerType.Subscriptions => SelectBestThresholdMatch(
+                ruleIndex.GetGlobalOverrideRulesByTriggerType(bridgeEvent.TriggerType)
+                    .Where(rule => rule.IsEnabled && !temporarilyDisabledRuleIds.Contains(rule.Id))
+                    .ToArray(),
+                bridgeEvent.Amount),
             _ => []
         };
     }
 
     private static TriggerRuleSnapshot[] SelectExactChannelPointMatch(
-        IReadOnlyList<TriggerRuleSnapshot> rules,
+        RuntimeRuleIndex ruleIndex,
         string? rewardId,
         string? rewardTitle,
         string currentAvatarId,
+        IReadOnlyCollection<Guid> temporarilyDisabledRuleIds,
         bool avatarChangeTransitionActive)
     {
         var normalizedRewardId = rewardId?.Trim() ?? string.Empty;
@@ -3821,17 +3848,9 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             return [];
         }
 
-        foreach (var rule in rules)
+        foreach (var rule in ruleIndex.GetChannelPointCandidates(normalizedRewardId, normalizedRewardTitle))
         {
-            var normalizedRuleId = rule.ChannelPointRewardId?.Trim() ?? string.Empty;
-            var normalizedRuleTitle = NormalizeRewardTitle(rule.ChannelPointRewardTitle);
-            var matchesId = !string.IsNullOrWhiteSpace(normalizedRewardId)
-                && !string.IsNullOrWhiteSpace(normalizedRuleId)
-                && string.Equals(normalizedRuleId, normalizedRewardId, StringComparison.Ordinal);
-            var matchesTitle = !string.IsNullOrWhiteSpace(normalizedRewardTitle)
-                && ManagedRewardPresentation.TitleMatches(normalizedRewardTitle, normalizedRuleTitle);
-
-            if (!matchesId && !matchesTitle)
+            if (!rule.IsEnabled || temporarilyDisabledRuleIds.Contains(rule.Id))
             {
                 continue;
             }
@@ -3855,7 +3874,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     }
 
     private static TriggerRuleSnapshot[] SelectMatchingChatCommandRules(
-        IReadOnlyList<TriggerRuleSnapshot> rules,
+        RuntimeRuleIndex ruleIndex,
         BridgeIncomingEvent bridgeEvent,
         string currentAvatarId,
         bool avatarChangeTransitionActive,
@@ -3867,13 +3886,10 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             return [];
         }
 
-        foreach (var rule in rules)
+        foreach (var rule in ruleIndex.GetChatCommandCandidates(bridgeEvent.ChatCommandText))
         {
             if (!rule.IsEnabled
-                || !rule.ChatCommandEnabled
-                || !ChatCommandUtility.IsConfigured(rule.ChatCommandText)
                 || temporarilyDisabledRuleIds.Contains(rule.Id)
-                || !ChatCommandUtility.MessageMatches(rule.ChatCommandText, bridgeEvent.ChatCommandText)
                 || !UserCanTriggerChatCommand(rule.ChatCommandPermission, bridgeEvent))
             {
                 continue;
@@ -4333,15 +4349,59 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                     var imageUrl = BuildChatEmoteImageUrl(payload.Template, emote);
                     if (!string.IsNullOrWhiteSpace(imageUrl))
                     {
-                        chatEmoteImageUrls[emoteId] = imageUrl;
+                        RememberChatEmoteImageUrlLocked(emoteId, imageUrl);
                     }
                 }
 
                 foreach (var emoteSetId in batch)
                 {
-                    cachedChatEmoteSetIds.Add(emoteSetId);
+                    RememberChatEmoteSetIdLocked(emoteSetId);
                 }
             }
+        }
+    }
+
+    private void RememberChatEmoteImageUrlLocked(string emoteId, string imageUrl)
+    {
+        if (!chatEmoteImageUrls.ContainsKey(emoteId))
+        {
+            chatEmoteImageUrlInsertionOrder.Enqueue(emoteId);
+        }
+
+        chatEmoteImageUrls[emoteId] = imageUrl;
+        PruneBoundedDictionaryLocked(chatEmoteImageUrls, chatEmoteImageUrlInsertionOrder, MaxChatEmoteImageUrlCacheEntries);
+    }
+
+    private void RememberChatEmoteSetIdLocked(string emoteSetId)
+    {
+        if (cachedChatEmoteSetIds.Add(emoteSetId))
+        {
+            cachedChatEmoteSetIdInsertionOrder.Enqueue(emoteSetId);
+        }
+
+        PruneBoundedSetLocked(cachedChatEmoteSetIds, cachedChatEmoteSetIdInsertionOrder, MaxCachedChatEmoteSetIds);
+    }
+
+    private static void PruneBoundedDictionaryLocked<TKey, TValue>(
+        IDictionary<TKey, TValue> values,
+        Queue<TKey> insertionOrder,
+        int maxEntries)
+        where TKey : notnull
+    {
+        while (values.Count > maxEntries && insertionOrder.Count > 0)
+        {
+            values.Remove(insertionOrder.Dequeue());
+        }
+    }
+
+    private static void PruneBoundedSetLocked<T>(
+        ISet<T> values,
+        Queue<T> insertionOrder,
+        int maxEntries)
+    {
+        while (values.Count > maxEntries && insertionOrder.Count > 0)
+        {
+            values.Remove(insertionOrder.Dequeue());
         }
     }
 
@@ -5115,11 +5175,14 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             drainingQueuedLanes.Clear();
             pendingResets.Clear();
             recentMessageIds.Clear();
+            nextRecentMessagePruneAt = DateTimeOffset.MinValue;
             avatarParameterValues.Clear();
             localInstantToggleStates.Clear();
             chatBadgeImageUrls.Clear();
             chatEmoteImageUrls.Clear();
+            chatEmoteImageUrlInsertionOrder.Clear();
             cachedChatEmoteSetIds.Clear();
+            cachedChatEmoteSetIdInsertionOrder.Clear();
             activeRuleLockouts.Clear();
             activeAvatarSwitchRuleLockouts.Clear();
             supporterOverrideBlockedRuleIds.Clear();
@@ -5727,6 +5790,139 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         public long QueueOrder { get; }
 
         public CancellationTokenSource CompletionCancellation { get; set; }
+    }
+
+    private sealed class RuntimeRuleIndex
+    {
+        public static RuntimeRuleIndex Empty { get; } = new([]);
+
+        private readonly Dictionary<TwitchTriggerType, List<IndexedRule>> rulesByTriggerType = [];
+        private readonly Dictionary<TwitchTriggerType, List<IndexedRule>> globalOverrideRulesByTriggerType = [];
+        private readonly Dictionary<string, List<IndexedRule>> channelPointRulesByRewardId = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, List<IndexedRule>> channelPointRulesByRewardTitle = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, List<IndexedRule>> chatCommandRulesByCommand = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<Guid, List<IndexedRule>> rulesByAvatarProfileId = [];
+
+        private RuntimeRuleIndex(IReadOnlyList<TriggerRuleSnapshot> rules)
+        {
+            for (var index = 0; index < rules.Count; index++)
+            {
+                var indexedRule = new IndexedRule(rules[index], index);
+                Add(rulesByTriggerType, indexedRule.Rule.TriggerType, indexedRule);
+
+                if (indexedRule.Rule.IsGlobalOverride)
+                {
+                    Add(globalOverrideRulesByTriggerType, indexedRule.Rule.TriggerType, indexedRule);
+                }
+
+                if (indexedRule.Rule.AvatarProfileId != Guid.Empty)
+                {
+                    Add(rulesByAvatarProfileId, indexedRule.Rule.AvatarProfileId, indexedRule);
+                }
+
+                if (indexedRule.Rule.TriggerType == TwitchTriggerType.ChannelPoints)
+                {
+                    var rewardId = indexedRule.Rule.ChannelPointRewardId?.Trim() ?? string.Empty;
+                    if (!string.IsNullOrWhiteSpace(rewardId))
+                    {
+                        Add(channelPointRulesByRewardId, rewardId, indexedRule);
+                    }
+
+                    AddChannelPointTitleVariants(indexedRule.Rule.ChannelPointRewardTitle, indexedRule);
+                }
+
+                if (indexedRule.Rule.ChatCommandEnabled)
+                {
+                    var normalizedCommand = ChatCommandUtility.Normalize(indexedRule.Rule.ChatCommandText);
+                    if (!string.IsNullOrWhiteSpace(normalizedCommand))
+                    {
+                        Add(chatCommandRulesByCommand, normalizedCommand, indexedRule);
+                    }
+                }
+            }
+        }
+
+        public static RuntimeRuleIndex Create(IReadOnlyList<TriggerRuleSnapshot> rules) => new(rules);
+
+        public IEnumerable<TriggerRuleSnapshot> GetGlobalOverrideRulesByTriggerType(TwitchTriggerType triggerType) =>
+            globalOverrideRulesByTriggerType.TryGetValue(triggerType, out var rules)
+                ? rules.Select(static indexedRule => indexedRule.Rule)
+                : [];
+
+        public IEnumerable<TriggerRuleSnapshot> GetChannelPointCandidates(string rewardId, string rewardTitle)
+        {
+            var candidatesById = new Dictionary<Guid, IndexedRule>();
+            AddCandidates(channelPointRulesByRewardId, rewardId, candidatesById);
+            AddCandidates(channelPointRulesByRewardTitle, rewardTitle, candidatesById);
+
+            return candidatesById.Values
+                .OrderBy(static indexedRule => indexedRule.Order)
+                .Select(static indexedRule => indexedRule.Rule);
+        }
+
+        public IEnumerable<TriggerRuleSnapshot> GetChatCommandCandidates(string messageText)
+        {
+            var normalizedCommand = ChatCommandUtility.Normalize(messageText);
+            return !string.IsNullOrWhiteSpace(normalizedCommand)
+                && chatCommandRulesByCommand.TryGetValue(normalizedCommand, out var rules)
+                    ? rules.Select(static indexedRule => indexedRule.Rule)
+                    : [];
+        }
+
+        public IEnumerable<TriggerRuleSnapshot> GetRulesByAvatarProfileId(Guid avatarProfileId) =>
+            rulesByAvatarProfileId.TryGetValue(avatarProfileId, out var rules)
+                ? rules.Select(static indexedRule => indexedRule.Rule)
+                : [];
+
+        private static void Add<TKey>(
+            Dictionary<TKey, List<IndexedRule>> index,
+            TKey key,
+            IndexedRule indexedRule)
+            where TKey : notnull
+        {
+            if (!index.TryGetValue(key, out var rules))
+            {
+                rules = [];
+                index[key] = rules;
+            }
+
+            rules.Add(indexedRule);
+        }
+
+        private void AddChannelPointTitleVariants(string title, IndexedRule indexedRule)
+        {
+            var strippedTitle = ManagedRewardPresentation.StripPrefix(title);
+            if (string.IsNullOrWhiteSpace(strippedTitle))
+            {
+                return;
+            }
+
+            Add(channelPointRulesByRewardTitle, strippedTitle, indexedRule);
+            var managedTitle = ManagedRewardPresentation.BuildTitle(strippedTitle);
+            if (!string.Equals(managedTitle, strippedTitle, StringComparison.Ordinal))
+            {
+                Add(channelPointRulesByRewardTitle, managedTitle, indexedRule);
+            }
+        }
+
+        private static void AddCandidates(
+            Dictionary<string, List<IndexedRule>> index,
+            string key,
+            IDictionary<Guid, IndexedRule> candidatesById)
+        {
+            if (string.IsNullOrWhiteSpace(key)
+                || !index.TryGetValue(key, out var candidates))
+            {
+                return;
+            }
+
+            foreach (var candidate in candidates)
+            {
+                candidatesById.TryAdd(candidate.Rule.Id, candidate);
+            }
+        }
+
+        private sealed record IndexedRule(TriggerRuleSnapshot Rule, int Order);
     }
 
     private sealed class QueuedSupporterOverrideState

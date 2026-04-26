@@ -788,13 +788,8 @@ public sealed class OscRouterService : IAsyncDisposable
 
     private static float ReadSingleBigEndian(byte[] packet, int index)
     {
-        var bytes = packet.AsSpan(index, 4).ToArray();
-        if (BitConverter.IsLittleEndian)
-        {
-            Array.Reverse(bytes);
-        }
-
-        return BitConverter.ToSingle(bytes, 0);
+        var bits = BinaryPrimitives.ReadInt32BigEndian(packet.AsSpan(index, 4));
+        return BitConverter.Int32BitsToSingle(bits);
     }
 
     private static void CollectAvatarParameters(OSCQueryNode node, ICollection<VrChatOscParameterSummary> parameters)

@@ -84,6 +84,7 @@ Crystal Relay can create and manage Twitch custom rewards for supported broadcas
 Current built-in themes:
 
 - Void Crystal
+- Treetender's Arm
 - Dream Scape
 - Bubblegum
 - Cosmic Puppy Girl

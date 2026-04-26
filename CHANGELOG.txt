@@ -3,6 +3,11 @@ Crystal Relay Changelog
 
 Newest updates appear first. This changelog focuses on the changes users will notice most.
 
+v2.8.9
+- Added the new Treetender's Arm theme with forest greens, bark-brown framing, and soft blue highlights.
+- Manual Test Redeem can now run before a channel point reward name, reward ID, or chat command is filled in, as long as the action setup itself is valid.
+- Reduced runtime overhead with bounded Twitch emote caches, smoother virtualized lists, fewer unnecessary secure credential writes, lighter OSC/EventSub hot paths, and faster indexed rule matching.
+
 v2.8.8
 - Added a new app-wide Custom theme slot so you can tune Crystal Relay's colors, heading/body fonts, and overall look without replacing the built-in themes.
 - The Custom theme can now use an optional imported main-window background image while the rest of the app keeps the same live-updating color and font palette.

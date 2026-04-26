@@ -44,6 +44,7 @@ public sealed class SettingsStore
     // OAuth tokens and the VRChat auth cookie live in Windows Credential Manager
     // instead of plain JSON files inside the app data folder.
     private readonly WindowsCredentialStore credentialStore = new();
+    private readonly Dictionary<string, string> lastSavedSecretsByTarget = new(StringComparer.Ordinal);
 
     // Constructor resolves all app-data paths up front so the rest of the class
     // can read and write from stable locations.
@@ -500,13 +501,38 @@ public sealed class SettingsStore
     {
         SaveTwitchSecrets(settings.Broadcaster, BridgeAccountRole.Broadcaster);
         SaveTwitchSecrets(settings.Bot, BridgeAccountRole.Bot);
-        credentialStore.SaveSecret(VrChatAuthCookieCredential, settings.VrChat.AuthCookie);
+        SaveSecretIfChanged(VrChatAuthCookieCredential, settings.VrChat.AuthCookie);
     }
 
     private void SaveTwitchSecrets(TwitchAccountSettings account, BridgeAccountRole role)
     {
-        credentialStore.SaveSecret(GetTwitchAccessTokenCredential(role), account.AccessToken);
-        credentialStore.SaveSecret(GetTwitchRefreshTokenCredential(role), account.RefreshToken);
+        SaveSecretIfChanged(GetTwitchAccessTokenCredential(role), account.AccessToken);
+        SaveSecretIfChanged(GetTwitchRefreshTokenCredential(role), account.RefreshToken);
+    }
+
+    private void SaveSecretIfChanged(string targetName, string? value)
+    {
+        var normalizedValue = value ?? string.Empty;
+        if (!lastSavedSecretsByTarget.TryGetValue(targetName, out var previousValue))
+        {
+            try
+            {
+                previousValue = credentialStore.LoadSecret(targetName);
+            }
+            catch
+            {
+                previousValue = "\u0000";
+            }
+        }
+
+        if (string.Equals(previousValue, normalizedValue, StringComparison.Ordinal))
+        {
+            lastSavedSecretsByTarget[targetName] = normalizedValue;
+            return;
+        }
+
+        credentialStore.SaveSecret(targetName, normalizedValue);
+        lastSavedSecretsByTarget[targetName] = normalizedValue;
     }
 
     private bool MigrateSecretsFromLegacyPayload(PersistedSecureSettings secure)
@@ -520,7 +546,7 @@ public sealed class SettingsStore
             var authCookie = Unprotect(secure.VrChat.AuthCookie ?? string.Empty);
             if (!string.IsNullOrWhiteSpace(authCookie))
             {
-                credentialStore.SaveSecret(VrChatAuthCookieCredential, authCookie);
+                SaveSecretIfChanged(VrChatAuthCookieCredential, authCookie);
                 migrated = true;
             }
         }
@@ -542,8 +568,8 @@ public sealed class SettingsStore
             return false;
         }
 
-        credentialStore.SaveSecret(GetTwitchAccessTokenCredential(role), accessToken);
-        credentialStore.SaveSecret(GetTwitchRefreshTokenCredential(role), refreshToken);
+        SaveSecretIfChanged(GetTwitchAccessTokenCredential(role), accessToken);
+        SaveSecretIfChanged(GetTwitchRefreshTokenCredential(role), refreshToken);
         return true;
     }
 

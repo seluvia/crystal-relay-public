@@ -343,6 +343,7 @@ static bool IsAllowedEnglishLiteral(string value) => value switch
     or "OK"
     or "MainFrame"
     or "Trash Kitty"
+    or "Treetender's Arm"
     or "Void Crystal"
     or "Dream Scape"
     or "Bubblegum"
