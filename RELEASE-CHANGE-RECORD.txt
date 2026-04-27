@@ -7,7 +7,7 @@ Purpose:
 - This file is for internal release prep and record-keeping. It should stay out of the public repo unless you explicitly choose otherwise.
 
 Current Baseline:
-- Last published version: v2.9.1
+- Last published version: v2.9.2
 - Current working source version: v2.9.2
 
 How To Use:
@@ -19,7 +19,7 @@ How To Use:
 Pending Release Draft
 - Target version: v2.9.2
 - Release date: 2026-04-27
-- Build status: Release package built; GitHub publish pending
+- Build status: Published to GitHub
 
 Added:
 - Added an optional managed reward cleanup setting that deletes inactive Crystal Relay Twitch rewards instead of only hiding them, helping avoid Twitch's 50 custom reward limit.
