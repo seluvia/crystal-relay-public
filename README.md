@@ -106,6 +106,7 @@ Current built-in themes:
 
 - Void Crystal
 - Treetender's Arm
+- Carrot Patch
 - Dream Scape
 - Bubblegum
 - Cosmic Puppy Girl
@@ -115,6 +116,8 @@ Current built-in themes:
 - Baked
 - MainFrame
 - Trash Kitty
+
+`Carrot Patch` is a dessert-style theme with strawberry cream, chocolate brown, waffle-cone tan, and berry-red accents.
 
 ## Local Data and Crash Logs
 

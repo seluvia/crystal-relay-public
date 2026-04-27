@@ -424,6 +424,7 @@ public partial class MainWindow : Window
             AppTheme.DreamScape => "ThemeBackgrounds/DreamScapeThemeBackground.xaml",
             AppTheme.MainFrame => "ThemeBackgrounds/MainFrameThemeBackground.xaml",
             AppTheme.TrashKitty => "ThemeBackgrounds/TrashKittyThemeBackground.xaml",
+            AppTheme.CarrotPatch => "ThemeBackgrounds/CarrotPatchThemeBackground.xaml",
             AppTheme.Bubblegum => "ThemeBackgrounds/BubblegumThemeBackground.xaml",
             AppTheme.CosmicPuppyGirl => "ThemeBackgrounds/CosmicPuppyGirlThemeBackground.xaml",
             AppTheme.PeachesAndCream => "ThemeBackgrounds/PeachesAndCreamThemeBackground.xaml",

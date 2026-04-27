@@ -479,6 +479,17 @@ public partial class TwitchChatboxWindow : Window
             return;
         }
 
+        if (theme == AppTheme.CarrotPatch)
+        {
+            ThemeManager.ApplyToResources(Resources, theme);
+            SetBrushColor("MessageTextBrush", "#FFF3DF");
+            SetBrushColor("MessageCardBrush", "#A63A2117");
+            SetBrushColor("MessageBorderBrush", "#C9894D");
+            SetBrushColor("TimestampBrush", "#F0C99D");
+            SetBrushColor("SecondaryButtonTextBrush", "#3E261F");
+            return;
+        }
+
         if (theme == AppTheme.Baked)
         {
             Resources["BodyFontFamily"] = new FontFamily("Cambria");

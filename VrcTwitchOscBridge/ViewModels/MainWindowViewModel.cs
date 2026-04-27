@@ -342,6 +342,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             new ThemeOption(AppTheme.DreamScape, "Dream Scape"),
             new ThemeOption(AppTheme.MainFrame, "MainFrame"),
             new ThemeOption(AppTheme.TrashKitty, "Trash Kitty"),
+            new ThemeOption(AppTheme.CarrotPatch, "Carrot Patch"),
             new ThemeOption(AppTheme.Bubblegum, "Bubblegum"),
             new ThemeOption(AppTheme.CosmicPuppyGirl, "Cosmic Puppy Girl"),
             new ThemeOption(AppTheme.PeachesAndCream, "Peaches & Cream"),
