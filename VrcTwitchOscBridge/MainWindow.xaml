@@ -2871,9 +2871,20 @@
                                     </Style.Triggers>
                                 </Style>
                             </StackPanel.Style>
-                            <Button Style="{StaticResource RuleLibraryPrimaryButtonStyle}"
-                                    Content="{loc:Translate 'Import Fooma Config'}"
-                                    Command="{Binding ImportFoomaInteractionConfigCommand}" />
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Button Grid.Column="0"
+                                        Style="{StaticResource RuleLibraryPrimaryButtonStyle}"
+                                        Content="{loc:Translate 'Import Fooma Config'}"
+                                        Command="{Binding ImportFoomaInteractionConfigCommand}" />
+                                <Button Grid.Column="1"
+                                        Margin="10,0,0,0"
+                                        Style="{StaticResource HelpIconButtonStyle}"
+                                        Click="OnFoomaHelpButtonClicked" />
+                            </Grid>
                             <UniformGrid Margin="0,10,0,0"
                                          Columns="2">
                                 <Button Style="{StaticResource RuleLibraryPrimaryButtonStyle}"
