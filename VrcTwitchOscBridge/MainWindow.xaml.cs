@@ -312,7 +312,7 @@ public partial class MainWindow : Window
 
     private void OnPickManagedRewardColorClicked(object sender, RoutedEventArgs e)
     {
-        if (sender is not Button button || button.DataContext is not TriggerRule rule)
+        if (sender is not Button button)
         {
             return;
         }
@@ -321,9 +321,20 @@ public partial class MainWindow : Window
         var fallbackColor = isCooldownColor
             ? ManagedRewardPresentation.InUseBackgroundColor
             : ManagedRewardPresentation.ReadyBackgroundColor;
-        var initialColor = isCooldownColor
-            ? rule.ManagedRewardCooldownColor
-            : rule.ManagedRewardReadyColor;
+        var initialColor = button.DataContext switch
+        {
+            TriggerRule rule => isCooldownColor
+                ? rule.ManagedRewardCooldownColor
+                : rule.ManagedRewardReadyColor,
+            UniversalTriggerRule trigger => isCooldownColor
+                ? trigger.ManagedRewardCooldownColor
+                : trigger.ManagedRewardReadyColor,
+            _ => string.Empty
+        };
+        if (string.IsNullOrWhiteSpace(initialColor))
+        {
+            return;
+        }
 
         using var dialog = new WinForms.ColorDialog
         {
@@ -344,13 +355,20 @@ public partial class MainWindow : Window
         }
 
         var selectedColor = ManagedRewardPresentation.ToHex(dialog.Color);
-        if (isCooldownColor)
+        switch (button.DataContext)
         {
-            rule.ManagedRewardCooldownColor = selectedColor;
-        }
-        else
-        {
-            rule.ManagedRewardReadyColor = selectedColor;
+            case TriggerRule rule when isCooldownColor:
+                rule.ManagedRewardCooldownColor = selectedColor;
+                break;
+            case TriggerRule rule:
+                rule.ManagedRewardReadyColor = selectedColor;
+                break;
+            case UniversalTriggerRule trigger when isCooldownColor:
+                trigger.ManagedRewardCooldownColor = selectedColor;
+                break;
+            case UniversalTriggerRule trigger:
+                trigger.ManagedRewardReadyColor = selectedColor;
+                break;
         }
     }
 

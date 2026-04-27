@@ -1340,6 +1340,43 @@
             </Grid>
         </DataTemplate>
 
+        <DataTemplate DataType="{x:Type models:UniversalTriggerRule}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="12" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <ToggleButton Grid.Column="0"
+                                  VerticalAlignment="Top"
+                                  Style="{StaticResource RuleToggleStyle}"
+                                  IsChecked="{Binding IsEnabled, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock Grid.Column="2"
+                               Text="{Binding DisplayTitle}"
+                               FontWeight="SemiBold"
+                               FontSize="15"
+                               Foreground="{DynamicResource TextBrush}"
+                               TextWrapping="Wrap" />
+                </Grid>
+                <TextBlock Grid.Row="1"
+                           Margin="0,8,0,0"
+                           Text="{Binding TriggerSummary}"
+                           Foreground="{DynamicResource MutedBrush}"
+                           TextWrapping="Wrap" />
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate DataType="{x:Type models:UniversalTriggerAction}">
+            <TextBlock Text="{Binding DisplaySummary}"
+                       Foreground="{DynamicResource TextBrush}"
+                       TextWrapping="Wrap" />
+        </DataTemplate>
+
         <DataTemplate x:Key="AvatarRedeemListItemTemplate"
                       DataType="{x:Type models:TriggerRule}">
             <Grid>
@@ -2630,6 +2667,21 @@
                                     </Style>
                                 </Button.Style>
                             </Button>
+                            <Button Content="{loc:Translate 'Universal Triggers'}"
+                                    Command="{Binding ShowUniversalTriggersCommand}">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource RuleLibraryTabButtonStyle}">
+                                        <Setter Property="Margin" Value="0,10,10,0" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsViewingUniversalTriggers}" Value="True">
+                                                <Setter Property="Background" Value="{DynamicResource SectionActiveBrush}" />
+                                                <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                                <Setter Property="Foreground" Value="White" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
                         </UniformGrid>
                         <StackPanel Margin="0,16,0,0"
                                     HorizontalAlignment="Stretch">
@@ -2668,6 +2720,9 @@
                                             <Setter Property="Visibility" Value="Collapsed" />
                                         </DataTrigger>
                                         <DataTrigger Binding="{Binding IsViewingMovementRedeems}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsViewingUniversalTriggers}" Value="True">
                                             <Setter Property="Visibility" Value="Collapsed" />
                                         </DataTrigger>
                                     </Style.Triggers>
@@ -2801,8 +2856,61 @@
                                 <Button Style="{StaticResource RuleLibraryButtonStyle}"
                                         Margin="10,0,0,0"
                                         Content="{loc:Translate 'Disable All'}"
-                                        Command="{Binding DisableAllRulesCommand}" />
+                                Command="{Binding DisableAllRulesCommand}" />
                             </UniformGrid>
+                        </StackPanel>
+
+                        <StackPanel Margin="0,14,0,0">
+                            <StackPanel.Style>
+                                <Style TargetType="StackPanel">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsViewingUniversalTriggers}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </StackPanel.Style>
+                            <Button Style="{StaticResource RuleLibraryPrimaryButtonStyle}"
+                                    Content="{loc:Translate 'Import Fooma Config'}"
+                                    Command="{Binding ImportFoomaInteractionConfigCommand}" />
+                            <UniformGrid Margin="0,10,0,0"
+                                         Columns="2">
+                                <Button Style="{StaticResource RuleLibraryPrimaryButtonStyle}"
+                                        Margin="0,0,10,0"
+                                        Content="{loc:Translate 'Add Universal'}"
+                                        Command="{Binding AddUniversalTriggerCommand}" />
+                                <Button Style="{StaticResource RuleLibraryButtonStyle}"
+                                        Margin="10,0,0,0"
+                                        Content="{loc:Translate 'Enable All'}"
+                                        Command="{Binding EnableAllUniversalTriggersCommand}" />
+                            </UniformGrid>
+                            <Button Style="{StaticResource RuleLibraryButtonStyle}"
+                                    Margin="0,10,0,0"
+                                    Width="188"
+                                    HorizontalAlignment="Center"
+                                    Content="{loc:Translate 'Disable All'}"
+                                    Command="{Binding DisableAllUniversalTriggersCommand}" />
+                            <Border Margin="0,16,0,0"
+                                    Padding="14"
+                                    Background="{DynamicResource NestedPanelBrush}"
+                                    BorderBrush="{DynamicResource HighlightBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="18">
+                                <StackPanel>
+                                    <TextBlock Text="{loc:Translate 'Delete Universal Triggers'}"
+                                               Foreground="{DynamicResource TextBrush}"
+                                               FontWeight="SemiBold"
+                                               TextAlignment="Center"
+                                               TextWrapping="Wrap" />
+                                    <Button Style="{StaticResource RuleLibraryDangerButtonStyle}"
+                                            Margin="0,10,0,0"
+                                            Width="214"
+                                            HorizontalAlignment="Center"
+                                            Content="{loc:Translate 'Delete All Universal'}"
+                                            Command="{Binding DeleteAllUniversalTriggersCommand}" />
+                                </StackPanel>
+                            </Border>
                         </StackPanel>
                     </StackPanel>
 
@@ -2823,6 +2931,9 @@
                                             <Setter Property="Visibility" Value="Collapsed" />
                                         </DataTrigger>
                                         <DataTrigger Binding="{Binding IsViewingMovementRedeems}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsViewingUniversalTriggers}" Value="True">
                                             <Setter Property="Visibility" Value="Collapsed" />
                                         </DataTrigger>
                                     </Style.Triggers>
@@ -2881,6 +2992,23 @@
                             </ListBox.Style>
                         </ListBox>
 
+                        <ListBox ItemsSource="{Binding Settings.UniversalTriggers}"
+                                 SelectedItem="{Binding SelectedUniversalTrigger}"
+                                 ScrollViewer.CanContentScroll="True"
+                                 VirtualizingStackPanel.IsVirtualizing="True"
+                                 VirtualizingStackPanel.VirtualizationMode="Recycling">
+                            <ListBox.Style>
+                                <Style TargetType="ListBox" BasedOn="{StaticResource {x:Type ListBox}}">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsViewingUniversalTriggers}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ListBox.Style>
+                        </ListBox>
+
                         <TextBlock HorizontalAlignment="Center"
                                    VerticalAlignment="Center"
                                    Foreground="{DynamicResource MutedBrush}"
@@ -2916,6 +3044,14 @@
                                             </MultiDataTrigger.Conditions>
                                             <Setter Property="Visibility" Value="Visible" />
                                             <Setter Property="Text" Value="{loc:Translate 'Add a bits or subs override to get started.'}" />
+                                        </MultiDataTrigger>
+                                        <MultiDataTrigger>
+                                            <MultiDataTrigger.Conditions>
+                                                <Condition Binding="{Binding IsViewingUniversalTriggers}" Value="True" />
+                                                <Condition Binding="{Binding Settings.UniversalTriggers.Count}" Value="0" />
+                                            </MultiDataTrigger.Conditions>
+                                            <Setter Property="Visibility" Value="Visible" />
+                                            <Setter Property="Text" Value="{loc:Translate 'Import a Fooma config or add a universal trigger.'}" />
                                         </MultiDataTrigger>
                                     </Style.Triggers>
                                 </Style>
@@ -2963,6 +3099,9 @@
                                                 <Setter Property="Visibility" Value="Collapsed" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsViewingMovementRedeems}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsViewingUniversalTriggers}" Value="True">
                                                 <Setter Property="Visibility" Value="Collapsed" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding SelectedAvatarProfile}" Value="{x:Null}">
@@ -3248,9 +3387,601 @@
                                     Padding="18">
                                 <Border.Style>
                                     <Style TargetType="Border">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsViewingUniversalTriggers}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <StackPanel>
+                                    <DockPanel LastChildFill="False">
+                                        <TextBlock Text="{loc:Translate 'Universal Trigger Editor'}"
+                                                   Style="{StaticResource HeadingTextStyle}"
+                                                   FontSize="22"
+                                                   FontWeight="Bold"
+                                                   Foreground="{DynamicResource TextBrush}" />
+                                        <Button Style="{StaticResource HelpIconButtonStyle}"
+                                                Click="OnHelpButtonClicked"
+                                                CommandParameter="Universal Trigger Editor"
+                                                Tag="{loc:Translate 'Universal Triggers run direct OSC action lists from Twitch events. Use this for imported Fooma Twitch Interaction configs or custom assist-style triggers without changing Avatar Sets, Movement Redeems, Avatar Change, or Bits + Subs overrides.'}" />
+                                    </DockPanel>
+                                    <WrapPanel Margin="0,14,0,0">
+                                        <Button Style="{StaticResource SecondaryButtonStyle}"
+                                                Content="{loc:Translate 'Delete Universal'}"
+                                                Command="{Binding RemoveSelectedUniversalTriggerCommand}" />
+                                        <Button Style="{StaticResource SecondaryButtonStyle}"
+                                                Content="{loc:Translate 'Test Trigger'}"
+                                                Command="{Binding TestSelectedUniversalTriggerCommand}" />
+                                    </WrapPanel>
+
+                                    <Border Margin="0,18,0,0"
+                                            Background="{DynamicResource NestedPanelBrush}"
+                                            BorderBrush="{DynamicResource HighlightBorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="18"
+                                            Padding="16">
+                                        <StackPanel>
+                                            <TextBlock Text="{loc:Translate 'Universal Triggers'}"
+                                                       Foreground="{DynamicResource TextBrush}"
+                                                       FontWeight="SemiBold"
+                                                       FontSize="17" />
+                                            <TextBlock Margin="0,8,0,0"
+                                                       Text="{loc:Translate 'Import a Fooma config or add a universal trigger.'}"
+                                                       Foreground="{DynamicResource MutedBrush}"
+                                                       TextWrapping="Wrap" />
+                                            <StackPanel Margin="0,12,0,0">
+                                                <Expander Margin="0,10,0,8"
+                                                          IsExpanded="{Binding IsUniversalChatCommandsExpanded, Mode=TwoWay}"
+                                                          Foreground="{DynamicResource TextBrush}">
+                                                    <Expander.Header>
+                                                        <Border Padding="10,5"
+                                                                Background="{DynamicResource StatusChipBrush}"
+                                                                BorderBrush="{DynamicResource InputBorderBrush}"
+                                                                BorderThickness="1"
+                                                                CornerRadius="12">
+                                                            <DockPanel LastChildFill="False">
+                                                                <TextBlock Text="{Binding UniversalChatCommandGroupTitle}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold"
+                                                                           FontSize="12" />
+                                                                <TextBlock Margin="10,0,0,0"
+                                                                           Text="{Binding UniversalChatCommandTriggers.Count}"
+                                                                           Foreground="{DynamicResource MutedBrush}"
+                                                                           FontWeight="SemiBold"
+                                                                           FontSize="12" />
+                                                            </DockPanel>
+                                                        </Border>
+                                                    </Expander.Header>
+                                                    <ListBox Margin="0,8,0,0"
+                                                             ItemsSource="{Binding UniversalChatCommandTriggers}"
+                                                             SelectedItem="{Binding SelectedUniversalTrigger}"
+                                                             ScrollViewer.CanContentScroll="True"
+                                                             VirtualizingStackPanel.IsVirtualizing="True"
+                                                             VirtualizingStackPanel.VirtualizationMode="Recycling" />
+                                                </Expander>
+
+                                                <Expander Margin="0,10,0,8"
+                                                          IsExpanded="{Binding IsUniversalChannelPointRewardsExpanded, Mode=TwoWay}"
+                                                          Foreground="{DynamicResource TextBrush}">
+                                                    <Expander.Header>
+                                                        <Border Padding="10,5"
+                                                                Background="{DynamicResource StatusChipBrush}"
+                                                                BorderBrush="{DynamicResource InputBorderBrush}"
+                                                                BorderThickness="1"
+                                                                CornerRadius="12">
+                                                            <DockPanel LastChildFill="False">
+                                                                <TextBlock Text="{Binding UniversalChannelPointRewardGroupTitle}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold"
+                                                                           FontSize="12" />
+                                                                <TextBlock Margin="10,0,0,0"
+                                                                           Text="{Binding UniversalChannelPointRewardTriggers.Count}"
+                                                                           Foreground="{DynamicResource MutedBrush}"
+                                                                           FontWeight="SemiBold"
+                                                                           FontSize="12" />
+                                                            </DockPanel>
+                                                        </Border>
+                                                    </Expander.Header>
+                                                    <ListBox Margin="0,8,0,0"
+                                                             ItemsSource="{Binding UniversalChannelPointRewardTriggers}"
+                                                             SelectedItem="{Binding SelectedUniversalTrigger}"
+                                                             ScrollViewer.CanContentScroll="True"
+                                                             VirtualizingStackPanel.IsVirtualizing="True"
+                                                             VirtualizingStackPanel.VirtualizationMode="Recycling" />
+                                                </Expander>
+
+                                                <Expander Margin="0,10,0,8"
+                                                          IsExpanded="{Binding IsUniversalBitsExpanded, Mode=TwoWay}"
+                                                          Foreground="{DynamicResource TextBrush}">
+                                                    <Expander.Header>
+                                                        <Border Padding="10,5"
+                                                                Background="{DynamicResource StatusChipBrush}"
+                                                                BorderBrush="{DynamicResource InputBorderBrush}"
+                                                                BorderThickness="1"
+                                                                CornerRadius="12">
+                                                            <DockPanel LastChildFill="False">
+                                                                <TextBlock Text="{Binding UniversalBitsGroupTitle}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold"
+                                                                           FontSize="12" />
+                                                                <TextBlock Margin="10,0,0,0"
+                                                                           Text="{Binding UniversalBitsTriggers.Count}"
+                                                                           Foreground="{DynamicResource MutedBrush}"
+                                                                           FontWeight="SemiBold"
+                                                                           FontSize="12" />
+                                                            </DockPanel>
+                                                        </Border>
+                                                    </Expander.Header>
+                                                    <ListBox Margin="0,8,0,0"
+                                                             ItemsSource="{Binding UniversalBitsTriggers}"
+                                                             SelectedItem="{Binding SelectedUniversalTrigger}"
+                                                             ScrollViewer.CanContentScroll="True"
+                                                             VirtualizingStackPanel.IsVirtualizing="True"
+                                                             VirtualizingStackPanel.VirtualizationMode="Recycling" />
+                                                </Expander>
+
+                                                <Expander Margin="0,10,0,8"
+                                                          IsExpanded="{Binding IsUniversalSubscriptionsExpanded, Mode=TwoWay}"
+                                                          Foreground="{DynamicResource TextBrush}">
+                                                    <Expander.Header>
+                                                        <Border Padding="10,5"
+                                                                Background="{DynamicResource StatusChipBrush}"
+                                                                BorderBrush="{DynamicResource InputBorderBrush}"
+                                                                BorderThickness="1"
+                                                                CornerRadius="12">
+                                                            <DockPanel LastChildFill="False">
+                                                                <TextBlock Text="{Binding UniversalSubscriptionGroupTitle}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold"
+                                                                           FontSize="12" />
+                                                                <TextBlock Margin="10,0,0,0"
+                                                                           Text="{Binding UniversalSubscriptionTriggers.Count}"
+                                                                           Foreground="{DynamicResource MutedBrush}"
+                                                                           FontWeight="SemiBold"
+                                                                           FontSize="12" />
+                                                            </DockPanel>
+                                                        </Border>
+                                                    </Expander.Header>
+                                                    <ListBox Margin="0,8,0,0"
+                                                             ItemsSource="{Binding UniversalSubscriptionTriggers}"
+                                                             SelectedItem="{Binding SelectedUniversalTrigger}"
+                                                             ScrollViewer.CanContentScroll="True"
+                                                             VirtualizingStackPanel.IsVirtualizing="True"
+                                                             VirtualizingStackPanel.VirtualizationMode="Recycling" />
+                                                </Expander>
+
+                                                <Expander Margin="0,10,0,8"
+                                                          IsExpanded="{Binding IsUniversalGiftSubscriptionsExpanded, Mode=TwoWay}"
+                                                          Foreground="{DynamicResource TextBrush}">
+                                                    <Expander.Header>
+                                                        <Border Padding="10,5"
+                                                                Background="{DynamicResource StatusChipBrush}"
+                                                                BorderBrush="{DynamicResource InputBorderBrush}"
+                                                                BorderThickness="1"
+                                                                CornerRadius="12">
+                                                            <DockPanel LastChildFill="False">
+                                                                <TextBlock Text="{Binding UniversalGiftSubscriptionGroupTitle}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold"
+                                                                           FontSize="12" />
+                                                                <TextBlock Margin="10,0,0,0"
+                                                                           Text="{Binding UniversalGiftSubscriptionTriggers.Count}"
+                                                                           Foreground="{DynamicResource MutedBrush}"
+                                                                           FontWeight="SemiBold"
+                                                                           FontSize="12" />
+                                                            </DockPanel>
+                                                        </Border>
+                                                    </Expander.Header>
+                                                    <ListBox Margin="0,8,0,0"
+                                                             ItemsSource="{Binding UniversalGiftSubscriptionTriggers}"
+                                                             SelectedItem="{Binding SelectedUniversalTrigger}"
+                                                             ScrollViewer.CanContentScroll="True"
+                                                             VirtualizingStackPanel.IsVirtualizing="True"
+                                                             VirtualizingStackPanel.VirtualizationMode="Recycling" />
+                                                </Expander>
+
+                                                <Expander Margin="0,10,0,8"
+                                                          IsExpanded="{Binding IsUniversalFollowsExpanded, Mode=TwoWay}"
+                                                          Foreground="{DynamicResource TextBrush}">
+                                                    <Expander.Header>
+                                                        <Border Padding="10,5"
+                                                                Background="{DynamicResource StatusChipBrush}"
+                                                                BorderBrush="{DynamicResource InputBorderBrush}"
+                                                                BorderThickness="1"
+                                                                CornerRadius="12">
+                                                            <DockPanel LastChildFill="False">
+                                                                <TextBlock Text="{Binding UniversalFollowGroupTitle}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold"
+                                                                           FontSize="12" />
+                                                                <TextBlock Margin="10,0,0,0"
+                                                                           Text="{Binding UniversalFollowTriggers.Count}"
+                                                                           Foreground="{DynamicResource MutedBrush}"
+                                                                           FontWeight="SemiBold"
+                                                                           FontSize="12" />
+                                                            </DockPanel>
+                                                        </Border>
+                                                    </Expander.Header>
+                                                    <ListBox Margin="0,8,0,0"
+                                                             ItemsSource="{Binding UniversalFollowTriggers}"
+                                                             SelectedItem="{Binding SelectedUniversalTrigger}"
+                                                             ScrollViewer.CanContentScroll="True"
+                                                             VirtualizingStackPanel.IsVirtualizing="True"
+                                                             VirtualizingStackPanel.VirtualizationMode="Recycling" />
+                                                </Expander>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <TextBlock Margin="0,18,0,0"
+                                               Text="{loc:Translate 'Import a Fooma config or add a universal trigger to edit it.'}"
+                                               Foreground="{DynamicResource MutedBrush}"
+                                               TextWrapping="Wrap"
+                                               TextAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding SelectedUniversalTrigger}" Value="{x:Null}">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+
+                                    <ContentControl Margin="0,20,0,0"
+                                                    Content="{Binding SelectedUniversalTrigger}">
+                                    <ContentControl.ContentTemplate>
+                                        <DataTemplate DataType="{x:Type models:UniversalTriggerRule}">
+                                            <StackPanel>
+                                                <WrapPanel Margin="0,14,0,0">
+                                                    <Button Style="{StaticResource SecondaryButtonStyle}"
+                                                            Content="{loc:Translate 'Add Action'}"
+                                                            Command="{Binding DataContext.AddUniversalTriggerActionCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                                    <Button Style="{StaticResource SecondaryButtonStyle}"
+                                                            Content="{loc:Translate 'Delete Action'}"
+                                                            Command="{Binding DataContext.RemoveSelectedUniversalTriggerActionCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                                </WrapPanel>
+
+                                                <Border Margin="0,20,0,0"
+                                                        Background="{DynamicResource NestedPanelBrush}"
+                                                        BorderBrush="{DynamicResource HighlightBorderBrush}"
+                                                        BorderThickness="1"
+                                                        CornerRadius="18"
+                                                        Padding="16">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{loc:Translate 'Trigger Settings'}"
+                                                                   Foreground="{DynamicResource TextBrush}"
+                                                                   FontWeight="SemiBold"
+                                                                   FontSize="17" />
+                                                        <CheckBox Margin="0,10,0,0"
+                                                                  Content="{loc:Translate 'Enabled'}"
+                                                                  IsChecked="{Binding IsEnabled, UpdateSourceTrigger=PropertyChanged}" />
+                                                        <UniformGrid Columns="2"
+                                                                     Margin="0,12,0,0">
+                                                            <StackPanel Margin="0,0,14,0">
+                                                                <TextBlock Text="{loc:Translate 'Display Name'}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                            <StackPanel Margin="14,0,0,0">
+                                                                <TextBlock Text="{loc:Translate 'Trigger Type'}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold" />
+                                                                <ComboBox ItemsSource="{Binding DataContext.UniversalTriggerTypes, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                          SelectedItem="{Binding TriggerType, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                        </UniformGrid>
+
+                                                        <UniformGrid Columns="2"
+                                                                     Margin="0,12,0,0">
+                                                            <StackPanel Margin="0,0,14,0">
+                                                                <TextBlock Text="{loc:Translate 'Global Delay (seconds)'}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding GlobalDelaySeconds, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                            <StackPanel Margin="14,0,0,0">
+                                                                <TextBlock Text="{loc:Translate 'User Delay (seconds)'}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding UserDelaySeconds, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                        </UniformGrid>
+                                                        <CheckBox Margin="0,12,0,0"
+                                                                  Content="{loc:Translate 'Choose one random action instead of running all actions'}"
+                                                                  IsChecked="{Binding ExecuteRandomAction, UpdateSourceTrigger=PropertyChanged}" />
+
+                                                        <StackPanel Margin="0,14,0,0"
+                                                                    Visibility="{Binding UsesChatCommand, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <UniformGrid Columns="2">
+                                                                <StackPanel Margin="0,0,14,0">
+                                                                    <TextBlock Text="{loc:Translate 'Exact Chat Command'}"
+                                                                               Foreground="{DynamicResource TextBrush}"
+                                                                               FontWeight="SemiBold" />
+                                                                    <TextBox Text="{Binding CommandText, UpdateSourceTrigger=PropertyChanged}" />
+                                                                </StackPanel>
+                                                                <StackPanel Margin="14,0,0,0">
+                                                                    <TextBlock Text="{loc:Translate 'Who Can Use It'}"
+                                                                               Foreground="{DynamicResource TextBrush}"
+                                                                               FontWeight="SemiBold" />
+                                                                    <ComboBox ItemsSource="{Binding DataContext.ChatCommandPermissionOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                              DisplayMemberPath="Label"
+                                                                              SelectedValuePath="Value"
+                                                                              SelectedValue="{Binding ChatCommandPermission, UpdateSourceTrigger=PropertyChanged}" />
+                                                                </StackPanel>
+                                                            </UniformGrid>
+                                                        </StackPanel>
+
+                                                        <StackPanel Margin="0,14,0,0"
+                                                                    Visibility="{Binding UsesChannelPointReward, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <DockPanel LastChildFill="False">
+                                                                <TextBlock Text="{loc:Translate 'Twitch Redeem'}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold" />
+                                                                <Button Style="{StaticResource HelpIconButtonStyle}"
+                                                                        Width="24"
+                                                                        Height="24"
+                                                                        MinWidth="24"
+                                                                        MinHeight="24"
+                                                                        Click="OnHelpButtonClicked"
+                                                                        CommandParameter="Twitch Redeem"
+                                                                        Tag="{Binding DataContext.UniversalManagedChannelPointRewardHelpText, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                                            </DockPanel>
+                                                            <UniformGrid Columns="2"
+                                                                         Margin="0,8,0,0">
+                                                                <StackPanel Margin="0,0,14,0">
+                                                                    <TextBlock Text="{loc:Translate 'Reward Name'}"
+                                                                               Foreground="{DynamicResource TextBrush}"
+                                                                               FontWeight="SemiBold" />
+                                                                    <TextBox Text="{Binding RewardTitle, UpdateSourceTrigger=PropertyChanged}" />
+                                                                </StackPanel>
+                                                                <StackPanel Margin="14,0,0,0">
+                                                                    <TextBlock Text="{loc:Translate 'Reward Cost'}"
+                                                                               Foreground="{DynamicResource TextBrush}"
+                                                                               FontWeight="SemiBold" />
+                                                                    <TextBox Text="{Binding RewardCost, UpdateSourceTrigger=PropertyChanged}" />
+                                                                </StackPanel>
+                                                            </UniformGrid>
+                                                             <TextBlock Margin="0,10,0,0"
+                                                                        Text="{Binding DataContext.UniversalManagedRewardStatusText, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                        Foreground="{DynamicResource MutedBrush}"
+                                                                        TextWrapping="Wrap" />
+                                                             <Border Margin="0,12,0,0"
+                                                                     Background="{DynamicResource PanelSecondaryBrush}"
+                                                                     BorderBrush="{DynamicResource InputBorderBrush}"
+                                                                     BorderThickness="1"
+                                                                     CornerRadius="14"
+                                                                     Padding="12">
+                                                                 <StackPanel>
+                                                                     <TextBlock Text="{loc:Translate 'Chat Command Fallback'}"
+                                                                                Foreground="{DynamicResource TextBrush}"
+                                                                                FontWeight="SemiBold" />
+                                                                     <CheckBox Margin="0,8,0,0"
+                                                                               Content="{loc:Translate 'Allow this reward to also run from a ! chat command'}"
+                                                                               IsChecked="{Binding ChatCommandEnabled, UpdateSourceTrigger=PropertyChanged}" />
+                                                                     <UniformGrid Columns="2"
+                                                                                  Margin="0,12,0,0"
+                                                                                  Visibility="{Binding ChatCommandEnabled, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                                         <StackPanel Margin="0,0,14,0">
+                                                                             <TextBlock Text="{loc:Translate 'Command'}"
+                                                                                        Foreground="{DynamicResource TextBrush}"
+                                                                                        FontWeight="SemiBold" />
+                                                                             <TextBox Text="{Binding CommandText, UpdateSourceTrigger=PropertyChanged}" />
+                                                                         </StackPanel>
+                                                                         <StackPanel Margin="14,0,0,0">
+                                                                             <TextBlock Text="{loc:Translate 'Who Can Use It'}"
+                                                                                        Foreground="{DynamicResource TextBrush}"
+                                                                                        FontWeight="SemiBold" />
+                                                                             <ComboBox ItemsSource="{Binding DataContext.ChatCommandPermissionOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                                       DisplayMemberPath="Label"
+                                                                                       SelectedValuePath="Value"
+                                                                                       SelectedValue="{Binding ChatCommandPermission, UpdateSourceTrigger=PropertyChanged}" />
+                                                                         </StackPanel>
+                                                                     </UniformGrid>
+                                                                 </StackPanel>
+                                                             </Border>
+                                                             <StackPanel Margin="0,12,0,0">
+                                                                 <TextBlock Text="{loc:Translate 'Managed Reward Colors'}"
+                                                                            Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold" />
+                                                                <TextBlock Margin="0,6,0,0"
+                                                                           Foreground="{DynamicResource MutedBrush}"
+                                                                           TextWrapping="Wrap"
+                                                                           Text="{Binding DataContext.ManagedRewardColorsDescriptionText, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                                                <StackPanel Margin="0,10,0,0">
+                                                                    <TextBlock Text="{loc:Translate 'Ready Color'}"
+                                                                               Foreground="{DynamicResource TextBrush}"
+                                                                               FontWeight="SemiBold" />
+                                                                    <DockPanel Margin="0,6,0,0"
+                                                                               LastChildFill="False">
+                                                                        <Border Width="28"
+                                                                                Height="28"
+                                                                                CornerRadius="14"
+                                                                                Background="{Binding ManagedRewardReadyColorBrush}"
+                                                                                BorderBrush="{DynamicResource InputBorderBrush}"
+                                                                                BorderThickness="1" />
+                                                                        <TextBlock Margin="12,0,16,0"
+                                                                                   VerticalAlignment="Center"
+                                                                                   Foreground="{DynamicResource TextBrush}"
+                                                                                   FontWeight="SemiBold"
+                                                                                   Text="{Binding ManagedRewardReadyColor}" />
+                                                                        <Button Content="{loc:Translate 'Choose Color'}"
+                                                                                Padding="16,6"
+                                                                                MinWidth="132"
+                                                                                Click="OnPickManagedRewardColorClicked"
+                                                                                Tag="Ready" />
+                                                                    </DockPanel>
+                                                                </StackPanel>
+                                                                <StackPanel Margin="0,12,0,0">
+                                                                    <TextBlock Text="{loc:Translate 'Cooldown Color'}"
+                                                                               Foreground="{DynamicResource TextBrush}"
+                                                                               FontWeight="SemiBold" />
+                                                                    <DockPanel Margin="0,6,0,0"
+                                                                               LastChildFill="False">
+                                                                        <Border Width="28"
+                                                                                Height="28"
+                                                                                CornerRadius="14"
+                                                                                Background="{Binding ManagedRewardCooldownColorBrush}"
+                                                                                BorderBrush="{DynamicResource InputBorderBrush}"
+                                                                                BorderThickness="1" />
+                                                                        <TextBlock Margin="12,0,16,0"
+                                                                                   VerticalAlignment="Center"
+                                                                                   Foreground="{DynamicResource TextBrush}"
+                                                                                   FontWeight="SemiBold"
+                                                                                   Text="{Binding ManagedRewardCooldownColor}" />
+                                                                        <Button Content="{loc:Translate 'Choose Color'}"
+                                                                                Padding="16,6"
+                                                                                MinWidth="132"
+                                                                                Click="OnPickManagedRewardColorClicked"
+                                                                                Tag="Cooldown" />
+                                                                    </DockPanel>
+                                                                </StackPanel>
+                                                            </StackPanel>
+                                                        </StackPanel>
+
+                                                        <StackPanel Margin="0,14,0,0"
+                                                                    Visibility="{Binding UsesBits, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <UniformGrid Columns="2">
+                                                                <StackPanel Margin="0,0,14,0">
+                                                                    <TextBlock Text="{loc:Translate 'Minimum Bits'}"
+                                                                               Foreground="{DynamicResource TextBrush}"
+                                                                               FontWeight="SemiBold" />
+                                                                    <TextBox Text="{Binding MinimumBits, UpdateSourceTrigger=PropertyChanged}" />
+                                                                </StackPanel>
+                                                                <StackPanel Margin="14,0,0,0">
+                                                                    <TextBlock Text="{loc:Translate 'Maximum Bits'}"
+                                                                               Foreground="{DynamicResource TextBrush}"
+                                                                               FontWeight="SemiBold" />
+                                                                    <TextBox Text="{Binding MaximumBits, UpdateSourceTrigger=PropertyChanged}" />
+                                                                </StackPanel>
+                                                            </UniformGrid>
+                                                        </StackPanel>
+
+                                                        <StackPanel Margin="0,14,0,0"
+                                                                    Visibility="{Binding UsesSubscription, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <UniformGrid Columns="3">
+                                                                <StackPanel Margin="0,0,10,0">
+                                                                    <TextBlock Text="{loc:Translate 'Sub Tier'}"
+                                                                               Foreground="{DynamicResource TextBrush}"
+                                                                               FontWeight="SemiBold" />
+                                                                    <TextBox Text="{Binding SubscriptionTier, UpdateSourceTrigger=PropertyChanged}" />
+                                                                </StackPanel>
+                                                                <StackPanel Margin="10,0,10,0">
+                                                                    <TextBlock Text="{loc:Translate 'Min Months'}"
+                                                                               Foreground="{DynamicResource TextBrush}"
+                                                                               FontWeight="SemiBold" />
+                                                                    <TextBox Text="{Binding MinimumMonths, UpdateSourceTrigger=PropertyChanged}" />
+                                                                </StackPanel>
+                                                                <StackPanel Margin="10,0,0,0">
+                                                                    <TextBlock Text="{loc:Translate 'Max Months'}"
+                                                                               Foreground="{DynamicResource TextBrush}"
+                                                                               FontWeight="SemiBold" />
+                                                                    <TextBox Text="{Binding MaximumMonths, UpdateSourceTrigger=PropertyChanged}" />
+                                                                </StackPanel>
+                                                            </UniformGrid>
+                                                        </StackPanel>
+                                                    </StackPanel>
+                                                </Border>
+
+                                                <Border Margin="0,20,0,0"
+                                                        Background="{DynamicResource NestedPanelBrush}"
+                                                        BorderBrush="{DynamicResource HighlightBorderBrush}"
+                                                        BorderThickness="1"
+                                                        CornerRadius="18"
+                                                        Padding="16">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{loc:Translate 'OSC Actions'}"
+                                                                   Foreground="{DynamicResource TextBrush}"
+                                                                   FontWeight="SemiBold"
+                                                                   FontSize="17" />
+                                                        <TextBlock Margin="0,8,0,0"
+                                                                   Text="{loc:Translate 'Run all actions in order, or enable random mode above to pick one action per trigger. Queued actions serialize repeated activations for this trigger.'}"
+                                                                   Foreground="{DynamicResource MutedBrush}"
+                                                                   TextWrapping="Wrap" />
+                                                        <ListBox Margin="0,12,0,0"
+                                                                 MaxHeight="180"
+                                                                 ItemsSource="{Binding Actions}"
+                                                                 SelectedItem="{Binding DataContext.SelectedUniversalTriggerAction, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                                        <ContentControl Margin="0,16,0,0"
+                                                                        Content="{Binding DataContext.SelectedUniversalTriggerAction, RelativeSource={RelativeSource AncestorType=Window}}">
+                                                            <ContentControl.ContentTemplate>
+                                                                <DataTemplate DataType="{x:Type models:UniversalTriggerAction}">
+                                                                    <StackPanel>
+                                                                        <TextBlock Text="{loc:Translate 'Selected Action'}"
+                                                                                   Foreground="{DynamicResource TextBrush}"
+                                                                                   FontWeight="SemiBold" />
+                                                                        <UniformGrid Columns="2"
+                                                                                     Margin="0,10,0,0">
+                                                                            <StackPanel Margin="0,0,14,0">
+                                                                                <TextBlock Text="{loc:Translate 'OSC Address'}"
+                                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                                           FontWeight="SemiBold" />
+                                                                                <TextBox Text="{Binding OscAddress, UpdateSourceTrigger=PropertyChanged}" />
+                                                                            </StackPanel>
+                                                                            <StackPanel Margin="14,0,0,0">
+                                                                                <TextBlock Text="{loc:Translate 'Value Type'}"
+                                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                                           FontWeight="SemiBold" />
+                                                                                <ComboBox ItemsSource="{Binding DataContext.UniversalTriggerValueKinds, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                                          SelectedItem="{Binding ValueKind, UpdateSourceTrigger=PropertyChanged}" />
+                                                                            </StackPanel>
+                                                                        </UniformGrid>
+                                                                        <UniformGrid Columns="3"
+                                                                                     Margin="0,12,0,0">
+                                                                            <StackPanel Margin="0,0,10,0">
+                                                                                <TextBlock Text="{loc:Translate 'Target Value'}"
+                                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                                           FontWeight="SemiBold" />
+                                                                                <TextBox Text="{Binding TargetValue, UpdateSourceTrigger=PropertyChanged}" />
+                                                                            </StackPanel>
+                                                                            <StackPanel Margin="10,0,10,0">
+                                                                                <TextBlock Text="{loc:Translate 'Default Value'}"
+                                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                                           FontWeight="SemiBold" />
+                                                                                <TextBox Text="{Binding DefaultValue, UpdateSourceTrigger=PropertyChanged}" />
+                                                                            </StackPanel>
+                                                                            <StackPanel Margin="10,0,0,0">
+                                                                                <TextBlock Text="{loc:Translate 'Duration'}"
+                                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                                           FontWeight="SemiBold" />
+                                                                                <TextBox Text="{Binding DurationSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                                                                            </StackPanel>
+                                                                        </UniformGrid>
+                                                                        <CheckBox Margin="0,12,0,0"
+                                                                                  Content="{loc:Translate 'Add this action to the trigger queue'}"
+                                                                                  IsChecked="{Binding AddToQueue, UpdateSourceTrigger=PropertyChanged}" />
+                                                                    </StackPanel>
+                                                                </DataTemplate>
+                                                            </ContentControl.ContentTemplate>
+                                                        </ContentControl>
+                                                    </StackPanel>
+                                                </Border>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ContentControl.ContentTemplate>
+                                </ContentControl>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Margin="0,18,0,0"
+                                    Background="{DynamicResource PanelHighlightBrush}"
+                                    BorderBrush="{DynamicResource HighlightBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="18"
+                                    Padding="18">
+                                <Border.Style>
+                                    <Style TargetType="Border">
                                         <Setter Property="Visibility" Value="Visible" />
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding SelectedRule}" Value="{x:Null}">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsViewingUniversalTriggers}" Value="True">
                                                 <Setter Property="Visibility" Value="Collapsed" />
                                             </DataTrigger>
                                         </Style.Triggers>
@@ -4076,8 +4807,10 @@
                             <TextBlock Margin="0,22,0,0"
                                        Text="{Binding SelectedRuleEmptyStateText}"
                                        Foreground="{DynamicResource MutedBrush}"
-                                       HorizontalAlignment="Center"
+                                       HorizontalAlignment="Stretch"
                                        TextAlignment="Center"
+                                       TextWrapping="Wrap"
+                                       MaxWidth="{Binding ElementName=RuleWorkspaceScrollViewer, Path=ActualWidth}"
                                        VerticalAlignment="Center"
                                        FontSize="20">
                                 <TextBlock.Style>
@@ -4087,6 +4820,33 @@
                                             <DataTrigger Binding="{Binding SelectedRule}" Value="{x:Null}">
                                                 <Setter Property="Visibility" Value="Visible" />
                                             </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsViewingUniversalTriggers}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <TextBlock Margin="0,22,0,0"
+                                       Text="{Binding SelectedRuleEmptyStateText}"
+                                       Foreground="{DynamicResource MutedBrush}"
+                                       HorizontalAlignment="Stretch"
+                                       TextAlignment="Center"
+                                       TextWrapping="Wrap"
+                                       MaxWidth="{Binding ElementName=RuleWorkspaceScrollViewer, Path=ActualWidth}"
+                                       VerticalAlignment="Center"
+                                       FontSize="20">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding IsViewingUniversalTriggers}" Value="True" />
+                                                    <Condition Binding="{Binding SelectedUniversalTrigger}" Value="{x:Null}" />
+                                                </MultiDataTrigger.Conditions>
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </MultiDataTrigger>
                                         </Style.Triggers>
                                     </Style>
                                 </TextBlock.Style>

@@ -3,6 +3,13 @@ Crystal Relay Changelog
 
 Newest updates appear first. This changelog focuses on the changes users will notice most.
 
+v2.9.0
+- Added Universal Triggers for broader Twitch interaction setups, including Fooma config import, grouped trigger cards, managed channel point rewards, and optional chat-command fallback on reward cards.
+- Twitch Chatbox emote rendering is more reliable for native Twitch emotes and supported named emotes from Twitch, BetterTTV, FrankerFaceZ, and 7TV.
+- Fixed VRChat LocalLow OSC JSON loading so Crystal Relay reads current-avatar parameter files correctly and Universal rewards can evaluate avatar parameters more reliably.
+- Fixed current-avatar detection so Universal reward checks no longer fall back to the newest LocalLow JSON file or spam avatar swap messages while you stay on one avatar.
+- Added a public tutorial video link to the README so new users can follow a visual setup walkthrough.
+
 v2.8.9
 - Added the new Treetender's Arm theme with forest greens, bark-brown framing, and soft blue highlights.
 - Manual Test Redeem can now run before a channel point reward name, reward ID, or chat command is filled in, as long as the action setup itself is valid.

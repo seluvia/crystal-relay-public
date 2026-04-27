@@ -18,6 +18,7 @@ public sealed class AppSettings : ObservableObject
     private ObservableCollection<AvatarTriggerProfile> avatarProfiles = [];
     private ObservableCollection<TriggerRule> globalMovementRules = [];
     private ObservableCollection<TriggerRule> globalOverrideRules = [];
+    private ObservableCollection<UniversalTriggerRule> universalTriggers = [];
     private ObservableCollection<TriggerRule> rules = [];
     private int interfaceOpacityPercent = 88;
     private int chatTextSize = 20;
@@ -98,6 +99,12 @@ public sealed class AppSettings : ObservableObject
     {
         get => globalMovementRules;
         set => SetProperty(ref globalMovementRules, value ?? []);
+    }
+
+    public ObservableCollection<UniversalTriggerRule> UniversalTriggers
+    {
+        get => universalTriggers;
+        set => SetProperty(ref universalTriggers, value ?? []);
     }
 
     public ObservableCollection<TriggerRule> Rules

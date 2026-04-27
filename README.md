@@ -6,6 +6,12 @@
 
 Crystal Relay is a Windows desktop app that connects Twitch events to VRChat through OSC and OSCQuery. It is built to keep setup cleaner, wording friendlier, and stream control easier to manage while you are live.
 
+## Watch The Tutorial
+
+New to Crystal Relay? Watch the visual walkthrough to see the basic setup flow, Twitch reward testing, and VRChat OSC workflow in action:
+
+[Download the Crystal Relay tutorial video](https://github.com/seluvia/crystal-relay-public/releases/download/v2.9.0/CrystalRelay-Tutorial-v2.9.0.mp4)
+
 ---
 
 ## What Crystal Relay Handles

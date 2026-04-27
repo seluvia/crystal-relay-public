@@ -10,6 +10,11 @@ namespace VrcTwitchOscBridge.Services;
 /// </summary>
 internal sealed class VrChatLocalOscCacheService
 {
+    private static readonly JsonSerializerOptions LocalOscJsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
     private readonly Dictionary<string, CachedAvatarFileEntry> cachedAvatarFilesByPath = new(StringComparer.OrdinalIgnoreCase);
     private string cachedAvatarFolderPath = string.Empty;
 
@@ -83,7 +88,10 @@ internal sealed class VrChatLocalOscCacheService
         }
 
         await using var stream = File.OpenRead(filePath);
-        var payload = await JsonSerializer.DeserializeAsync<LocalOscAvatarFile>(stream, cancellationToken: cancellationToken);
+        var payload = await JsonSerializer.DeserializeAsync<LocalOscAvatarFile>(
+            stream,
+            LocalOscJsonOptions,
+            cancellationToken);
         if (payload?.Parameters is null || payload.Parameters.Count == 0)
         {
             return [];
@@ -233,7 +241,10 @@ internal sealed class VrChatLocalOscCacheService
         try
         {
             await using var stream = File.OpenRead(avatarFilePath);
-            var payload = await JsonSerializer.DeserializeAsync<LocalOscAvatarFile>(stream, cancellationToken: cancellationToken);
+            var payload = await JsonSerializer.DeserializeAsync<LocalOscAvatarFile>(
+                stream,
+                LocalOscJsonOptions,
+                cancellationToken);
             if (payload is null || string.IsNullOrWhiteSpace(payload.Id))
             {
                 return new CachedAvatarFileEntry(lastWriteTimeUtc, null);

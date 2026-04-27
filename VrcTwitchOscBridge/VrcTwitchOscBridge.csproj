@@ -11,10 +11,10 @@
     <EnableDefaultPageItems>false</EnableDefaultPageItems>
     <ApplicationIcon>Assets\crystal-relay-icon.ico</ApplicationIcon>
     <UseWindowsForms>true</UseWindowsForms>
-    <Version>2.8.9</Version>
-    <AssemblyVersion>2.8.9.0</AssemblyVersion>
-    <FileVersion>2.8.9.0</FileVersion>
-    <InformationalVersion>2.8.9</InformationalVersion>
+    <Version>2.9.0</Version>
+    <AssemblyVersion>2.9.0.0</AssemblyVersion>
+    <FileVersion>2.9.0.0</FileVersion>
+    <InformationalVersion>2.9.0</InformationalVersion>
     <AssemblyName>CrystalRelayTwitchOsc</AssemblyName>
     <Product>Crystal Relay</Product>
     <Title>Crystal Relay - Twitch to OSC</Title>
@@ -78,6 +78,10 @@
     <Compile Include="Models\TriggerRule.cs" />
     <Compile Include="Models\TwitchAccountSettings.cs" />
     <Compile Include="Models\TwitchTriggerType.cs" />
+    <Compile Include="Models\UniversalTriggerAction.cs" />
+    <Compile Include="Models\UniversalTriggerRule.cs" />
+    <Compile Include="Models\UniversalTriggerType.cs" />
+    <Compile Include="Models\UniversalTriggerValueKind.cs" />
     <Compile Include="Models\VrChatAccountSettings.cs" />
     <Compile Include="Models\VrChatAvatarSummary.cs" />
     <Compile Include="Models\VrChatOscParameterSummary.cs" />
@@ -91,6 +95,7 @@
     <Compile Include="Services\CrashLogService.cs" />
     <Compile Include="Services\DesktopInputLockService.cs" />
     <Compile Include="Services\EmbeddedMediaCacheService.cs" />
+    <Compile Include="Services\FoomaInteractionConfigImporter.cs" />
     <Compile Include="Services\LocalizationService.cs" />
     <Compile Include="Services\ManagedRewardPresentation.cs" />
     <Compile Include="Services\OscRouterService.cs" />
@@ -103,6 +108,7 @@
     <Compile Include="Services\ThemeManager.cs" />
     <Compile Include="Services\TwitchEventSubSession.cs" />
     <Compile Include="Services\TwitchScopes.cs" />
+    <Compile Include="Services\UniversalTriggerFusionService.cs" />
     <Compile Include="Services\VrChatApiClient.cs" />
     <Compile Include="Services\VrChatApiException.cs" />
     <Compile Include="Services\VrChatLocalClientStateService.cs" />

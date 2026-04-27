@@ -61,6 +61,37 @@ public sealed record TriggerRuleSnapshot(
     IReadOnlyList<Guid> TemporarilyDisabledRuleIds,
     string BotMessageTemplate);
 
+public sealed record UniversalTriggerActionSnapshot(
+    Guid Id,
+    string OscAddress,
+    UniversalTriggerValueKind ValueKind,
+    string TargetValue,
+    string DefaultValue,
+    double DurationSeconds,
+    bool AddToQueue,
+    string ImportGroupKey);
+
+public sealed record UniversalTriggerRuleSnapshot(
+    Guid Id,
+    bool IsEnabled,
+    string Name,
+    UniversalTriggerType TriggerType,
+    bool ChatCommandEnabled,
+    string CommandText,
+    ChatCommandPermission ChatCommandPermission,
+    string RewardId,
+    string RewardTitle,
+    int MinimumBits,
+    int MaximumBits,
+    string SubscriptionTier,
+    int MinimumMonths,
+    int MaximumMonths,
+    int GlobalDelaySeconds,
+    int UserDelaySeconds,
+    bool ExecuteRandomAction,
+    string ImportSource,
+    IReadOnlyList<UniversalTriggerActionSnapshot> Actions);
+
 public sealed record BridgeRuntimeConfiguration(
     string TwitchClientId,
     TwitchAccountSnapshot Broadcaster,
@@ -74,11 +105,13 @@ public sealed record BridgeRuntimeConfiguration(
     bool ChannelPointRewardTestModeEnabled,
     bool EmergencyRedeemStopEnabled,
     bool DesktopModeInputLockEnabled,
-    IReadOnlyList<TriggerRuleSnapshot> Rules)
+    IReadOnlyList<TriggerRuleSnapshot> Rules,
+    IReadOnlyList<UniversalTriggerRuleSnapshot> UniversalTriggers)
 {
     public static BridgeRuntimeConfiguration FromSettings(AppSettings settings, RuntimeConfig runtimeConfig)
     {
         var rules = new List<TriggerRuleSnapshot>();
+        var universalTriggers = new List<UniversalTriggerRuleSnapshot>();
         var masterProfile = settings.AvatarProfiles.FirstOrDefault(profile => profile.IsMasterProfile);
 
         foreach (var profile in settings.AvatarProfiles)
@@ -108,6 +141,14 @@ public sealed record BridgeRuntimeConfiguration(
             }
         }
 
+        foreach (var trigger in settings.UniversalTriggers)
+        {
+            if (TryToUniversalSnapshot(trigger, requireTriggerFilter: true, out var snapshot))
+            {
+                universalTriggers.Add(snapshot);
+            }
+        }
+
         return new BridgeRuntimeConfiguration(
             runtimeConfig.TwitchClientId.Trim(),
             ToSnapshot(settings.Broadcaster),
@@ -121,7 +162,8 @@ public sealed record BridgeRuntimeConfiguration(
             settings.ChannelPointRewardTestModeEnabled,
             settings.EmergencyRedeemStopEnabled,
             settings.DesktopModeInputLockEnabled,
-            rules.ToArray());
+            rules.ToArray(),
+            universalTriggers.ToArray());
     }
 
     public static TwitchAccountSnapshot ToSnapshot(TwitchAccountSettings settings)
@@ -165,6 +207,16 @@ public sealed record BridgeRuntimeConfiguration(
         }
 
         return CreateSnapshot(rule, isGlobalOverride, profile);
+    }
+
+    public static UniversalTriggerRuleSnapshot CreateManualTestSnapshot(UniversalTriggerRule rule)
+    {
+        if (!TryToUniversalSnapshot(rule, requireTriggerFilter: false, out var snapshot))
+        {
+            throw new InvalidOperationException("Add at least one complete OSC action before testing this universal trigger.");
+        }
+
+        return snapshot;
     }
 
     private static bool TryToSnapshot(
@@ -238,6 +290,64 @@ public sealed record BridgeRuntimeConfiguration(
             rule.BotMessageTemplate.Trim());
     }
 
+    private static bool TryToUniversalSnapshot(
+        UniversalTriggerRule rule,
+        bool requireTriggerFilter,
+        out UniversalTriggerRuleSnapshot snapshot)
+    {
+        snapshot = default!;
+        if (requireTriggerFilter && !IsUniversalTriggerFilterReady(rule))
+        {
+            return false;
+        }
+
+        var actions = rule.Actions
+            .Select(ToUniversalActionSnapshot)
+            .Where(action => !string.IsNullOrWhiteSpace(action.OscAddress)
+                && !string.IsNullOrWhiteSpace(action.TargetValue)
+                && (action.DurationSeconds <= 0 || !string.IsNullOrWhiteSpace(action.DefaultValue)))
+            .ToArray();
+        if (actions.Length == 0)
+        {
+            return false;
+        }
+
+        snapshot = new UniversalTriggerRuleSnapshot(
+            rule.Id == Guid.Empty ? Guid.NewGuid() : rule.Id,
+            rule.IsEnabled,
+            string.IsNullOrWhiteSpace(rule.DisplayTitle) ? "Universal Trigger" : rule.DisplayTitle.Trim(),
+            rule.TriggerType,
+            rule.ChatCommandEnabled,
+            ChatCommandUtility.Normalize(rule.CommandText),
+            rule.ChatCommandPermission,
+            rule.RewardId.Trim(),
+            rule.RewardTitle.Trim(),
+            Math.Max(1, rule.MinimumBits),
+            Math.Max(1, rule.MaximumBits),
+            rule.SubscriptionTier.Trim(),
+            rule.MinimumMonths,
+            rule.MaximumMonths,
+            Math.Max(0, rule.GlobalDelaySeconds),
+            Math.Max(0, rule.UserDelaySeconds),
+            rule.ExecuteRandomAction,
+            rule.ImportSource.Trim(),
+            actions);
+        return true;
+    }
+
+    private static UniversalTriggerActionSnapshot ToUniversalActionSnapshot(UniversalTriggerAction action)
+    {
+        return new UniversalTriggerActionSnapshot(
+            action.Id == Guid.Empty ? Guid.NewGuid() : action.Id,
+            action.OscAddress.Trim(),
+            Enum.IsDefined(action.ValueKind) ? action.ValueKind : UniversalTriggerValueKind.Int,
+            action.TargetValue.Trim(),
+            action.DefaultValue.Trim(),
+            Math.Max(0, action.DurationSeconds),
+            action.AddToQueue,
+            action.ImportGroupKey.Trim());
+    }
+
     private static bool IsLiveRuntimeReady(TriggerRule rule)
     {
         var hasChatCommandFallback = rule.ChatCommandEnabled && ChatCommandUtility.IsConfigured(rule.ChatCommandText);
@@ -250,6 +360,19 @@ public sealed record BridgeRuntimeConfiguration(
         }
 
         return IsManualTestReady(rule);
+    }
+
+    private static bool IsUniversalTriggerFilterReady(UniversalTriggerRule rule)
+    {
+        return rule.TriggerType switch
+        {
+            UniversalTriggerType.ChatCommand => ChatCommandUtility.IsConfigured(rule.CommandText),
+            UniversalTriggerType.ChannelPointReward => !string.IsNullOrWhiteSpace(rule.RewardId)
+                || !string.IsNullOrWhiteSpace(rule.RewardTitle),
+            UniversalTriggerType.Bits => Math.Max(1, rule.MaximumBits) >= Math.Max(1, rule.MinimumBits),
+            UniversalTriggerType.Subscription or UniversalTriggerType.GiftSubscription or UniversalTriggerType.Follow => true,
+            _ => false
+        };
     }
 
     private static bool IsManualTestReady(TriggerRule rule)

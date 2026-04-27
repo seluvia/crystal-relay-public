@@ -3,6 +3,7 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Globalization;
 using System.IO;
+using System.Net.Http;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
@@ -36,6 +37,7 @@ public partial class TwitchChatboxWindow : Window
         ApplyChatboxStateFromSettings();
 
         ThemeManager.ThemeChanged += OnThemeManagerThemeChanged;
+        ChatMessageInlinePresenter.DiagnosticWritten += OnChatInlineDiagnosticWritten;
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
         viewModel.Settings.PropertyChanged += OnAppSettingsPropertyChanged;
         viewModel.ChatMessages.CollectionChanged += OnChatMessagesCollectionChanged;
@@ -53,6 +55,7 @@ public partial class TwitchChatboxWindow : Window
     private void OnClosed(object? sender, EventArgs e)
     {
         ThemeManager.ThemeChanged -= OnThemeManagerThemeChanged;
+        ChatMessageInlinePresenter.DiagnosticWritten -= OnChatInlineDiagnosticWritten;
         viewModel.PropertyChanged -= OnViewModelPropertyChanged;
         viewModel.Settings.PropertyChanged -= OnAppSettingsPropertyChanged;
         viewModel.ChatMessages.CollectionChanged -= OnChatMessagesCollectionChanged;
@@ -415,11 +418,23 @@ public partial class TwitchChatboxWindow : Window
         {
             viewerNotificationPlayer.Stop();
             viewerNotificationPlayer.Close();
-            viewerNotificationPlayer = null;
         }
+
+        viewerNotificationPlayer = null;
 
         EmbeddedMediaCacheService.DeleteTemporaryMediaFile(viewerNotificationAudioTempPath);
         viewerNotificationAudioTempPath = null;
+    }
+
+    private void OnChatInlineDiagnosticWritten(string message)
+    {
+        if (Dispatcher.CheckAccess())
+        {
+            viewModel.AppendDiagnosticLog(message);
+            return;
+        }
+
+        Dispatcher.Invoke(() => viewModel.AppendDiagnosticLog(message));
     }
 
     private void ApplyOverlayLayout(bool overlayMode)
@@ -856,12 +871,29 @@ public partial class TwitchChatboxWindow : Window
 public static class ChatMessageInlinePresenter
 {
     private const int MaxCachedEmoteImages = 512;
+    private const int MaxLoggedFailedEmoteImages = 256;
 
     // Busy chats reuse the same emotes constantly, so cache decoded images by final URI and
     // reuse frozen ImageSource instances instead of decoding the same bitmap every message.
+    private static readonly HttpClient emoteImageHttpClient = CreateEmoteImageHttpClient();
     private static readonly object emoteImageCacheGate = new();
     private static readonly Dictionary<string, LinkedListNode<CachedEmoteImage>> emoteImagesByUri = new(StringComparer.Ordinal);
     private static readonly LinkedList<CachedEmoteImage> emoteImageRecency = new();
+    private static readonly HashSet<string> emoteImageLoadsInFlight = new(StringComparer.Ordinal);
+    private static readonly HashSet<string> failedEmoteImageUrls = new(StringComparer.Ordinal);
+    private static readonly Queue<string> failedEmoteImageLogOrder = [];
+
+    public static event Action<string>? DiagnosticWritten;
+
+    private static HttpClient CreateEmoteImageHttpClient()
+    {
+        var client = new HttpClient
+        {
+            Timeout = TimeSpan.FromSeconds(4)
+        };
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("CrystalRelay/2.8.9 (+https://github.com/seluvia/crystal-relay-public)");
+        return client;
+    }
 
     public static readonly DependencyProperty FragmentsProperty =
         DependencyProperty.RegisterAttached(
@@ -913,9 +945,10 @@ public static class ChatMessageInlinePresenter
         {
             if (fragment.Kind == TwitchChatInlineFragmentKind.Emote && fragment.ImageUri is not null)
             {
-                var cachedEmoteImage = GetCachedEmoteImage(fragment.ImageUri);
+                var cachedEmoteImage = TryGetCachedEmoteImage(fragment.ImageUri);
                 if (cachedEmoteImage is null)
                 {
+                    QueueMissingEmoteImageLoad(textBlock, fragment.ImageUri);
                     textBlock.Inlines.Add(new Run(fragment.Text));
                     continue;
                 }
@@ -940,7 +973,7 @@ public static class ChatMessageInlinePresenter
         }
     }
 
-    private static ImageSource? GetCachedEmoteImage(Uri imageUri)
+    private static ImageSource? TryGetCachedEmoteImage(Uri imageUri)
     {
         var imageKey = imageUri.ToString();
         lock (emoteImageCacheGate)
@@ -953,42 +986,108 @@ public static class ChatMessageInlinePresenter
             }
         }
 
+        return null;
+    }
+
+    private static void QueueMissingEmoteImageLoad(TextBlock textBlock, Uri imageUri)
+    {
+        var imageKey = imageUri.ToString();
+        lock (emoteImageCacheGate)
+        {
+            if (emoteImagesByUri.ContainsKey(imageKey)
+                || failedEmoteImageUrls.Contains(imageKey)
+                || !emoteImageLoadsInFlight.Add(imageKey))
+            {
+                return;
+            }
+        }
+
+        _ = LoadEmoteImageAndRebuildAsync(textBlock, imageUri, imageKey);
+    }
+
+    private static async Task LoadEmoteImageAndRebuildAsync(TextBlock textBlock, Uri imageUri, string imageKey)
+    {
+        var loaded = false;
         try
         {
+            using var response = await emoteImageHttpClient.GetAsync(
+                imageUri,
+                HttpCompletionOption.ResponseHeadersRead);
+            response.EnsureSuccessStatusCode();
+            var imageBytes = await response.Content.ReadAsByteArrayAsync();
+            using var imageStream = new MemoryStream(imageBytes);
+
             var bitmap = new BitmapImage();
             bitmap.BeginInit();
             bitmap.CacheOption = BitmapCacheOption.OnLoad;
-            bitmap.UriSource = imageUri;
+            bitmap.StreamSource = imageStream;
             bitmap.EndInit();
             bitmap.Freeze();
 
             lock (emoteImageCacheGate)
             {
-                if (emoteImagesByUri.TryGetValue(imageKey, out var existingNode))
+                if (!emoteImagesByUri.ContainsKey(imageKey))
                 {
-                    emoteImageRecency.Remove(existingNode);
-                    emoteImageRecency.AddFirst(existingNode);
-                    return existingNode.Value.Image;
+                    var node = new LinkedListNode<CachedEmoteImage>(new CachedEmoteImage(imageKey, bitmap));
+                    emoteImageRecency.AddFirst(node);
+                    emoteImagesByUri[imageKey] = node;
+                    while (emoteImagesByUri.Count > MaxCachedEmoteImages && emoteImageRecency.Last is not null)
+                    {
+                        var removedNode = emoteImageRecency.Last;
+                        emoteImageRecency.RemoveLast();
+                        emoteImagesByUri.Remove(removedNode.Value.Uri);
+                    }
                 }
 
-                var node = new LinkedListNode<CachedEmoteImage>(new CachedEmoteImage(imageKey, bitmap));
-                emoteImageRecency.AddFirst(node);
-                emoteImagesByUri[imageKey] = node;
-                while (emoteImagesByUri.Count > MaxCachedEmoteImages && emoteImageRecency.Last is not null)
-                {
-                    var removedNode = emoteImageRecency.Last;
-                    emoteImageRecency.RemoveLast();
-                    emoteImagesByUri.Remove(removedNode.Value.Uri);
-                }
+                loaded = true;
             }
-
-            return bitmap;
         }
-        catch
+        catch (Exception ex)
         {
-            return null;
+            RememberFailedEmoteImage(imageKey, ex);
+        }
+        finally
+        {
+            lock (emoteImageCacheGate)
+            {
+                emoteImageLoadsInFlight.Remove(imageKey);
+            }
+        }
+
+        if (loaded && !textBlock.Dispatcher.HasShutdownStarted)
+        {
+            await textBlock.Dispatcher.InvokeAsync(
+                () => RebuildInlines(textBlock),
+                DispatcherPriority.Background);
         }
     }
+
+    private static void RememberFailedEmoteImage(string imageKey, Exception ex)
+    {
+        var shouldLog = false;
+        lock (emoteImageCacheGate)
+        {
+            shouldLog = failedEmoteImageUrls.Add(imageKey);
+            if (shouldLog)
+            {
+                failedEmoteImageLogOrder.Enqueue(imageKey);
+                while (failedEmoteImageUrls.Count > MaxLoggedFailedEmoteImages && failedEmoteImageLogOrder.Count > 0)
+                {
+                    failedEmoteImageUrls.Remove(failedEmoteImageLogOrder.Dequeue());
+                }
+            }
+        }
+
+        if (shouldLog)
+        {
+            DiagnosticWritten?.Invoke($"Twitch Chatbox could not load emote image {ShortenImageUrlForLog(imageKey)}: {ex.Message}");
+        }
+    }
+
+    private static string ShortenImageUrlForLog(string imageUrl) =>
+        imageUrl.Length <= 96
+            ? imageUrl
+            : $"{imageUrl[..96]}...";
 
     private sealed record CachedEmoteImage(string Uri, ImageSource Image);
 }

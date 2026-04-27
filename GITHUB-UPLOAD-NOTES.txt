@@ -1,7 +1,7 @@
 ﻿Crystal Relay private GitHub sync copy
 
 Version:
-- v2.8.9
+- v2.9.0
 
 Purpose:
 - Copy this folder's contents into your local private GitHub Desktop repo folder.
