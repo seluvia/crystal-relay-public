@@ -33,6 +33,7 @@ public partial class MainWindow : Window
     private const string AdvertisementVideoRelativePath = "Assets\\bean-advertisement.mp4";
     private const string PeekabooEasterEggAudioRelativePath = "Assets\\peekaboo-gif-sound.mp3";
     private const string TeapotEasterEggAudioRelativePath = "Assets\\teapot-boiling-reduce-loud.mp3";
+    private const string FoomaTwitchInteractionUrl = "https://foomaring.gumroad.com/l/lmrjbl";
     private static readonly TimeSpan HomeIconClickWindow = TimeSpan.FromSeconds(4);
     private static readonly TimeSpan PeekabooToggleWindow = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan PeekabooEasterEggCooldown = TimeSpan.FromSeconds(30);
@@ -308,6 +309,24 @@ public partial class MainWindow : Window
         var translatedMessage = LocalizationService.Translate(message);
 
         ThemedDialogWindow.ShowOk(this, viewModel.SelectedTheme, translatedTitle, translatedMessage);
+    }
+
+    private void OnFoomaHelpButtonClicked(object sender, RoutedEventArgs e)
+    {
+        var shouldOpenFoomaPage = ThemedDialogWindow.ShowYesNo(
+            this,
+            viewModel.SelectedTheme,
+            "Fooma Twitch Interaction",
+            "Universal Triggers can import Fooma Twitch Interaction JSON configs for assist-style OSC actions. If you do not have that system yet, Crystal Relay can open its Gumroad page for you.",
+            "Open Fooma Page",
+            "Close");
+
+        if (!shouldOpenFoomaPage)
+        {
+            return;
+        }
+
+        OpenExternalUri(FoomaTwitchInteractionUrl);
     }
 
     private void OnPickManagedRewardColorClicked(object sender, RoutedEventArgs e)

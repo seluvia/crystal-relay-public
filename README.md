@@ -16,9 +16,9 @@ New to Crystal Relay? Watch the visual walkthrough to see the basic setup flow, 
 
 ## What Crystal Relay Handles
 
-- **Twitch triggers:** Channel Points, Bits, and Subscriptions
+- **Twitch triggers:** Channel Points, Chat Commands, Bits, Subscriptions, Gift Subs, and Follows
 - **OSC actions:** Avatar Parameters, Avatar Changes, and Player Movement
-- **Rule areas:** Avatar Sets, Avatar Change, Movement Redeems, and Bits + Subs Overrides
+- **Rule areas:** Avatar Sets, Avatar Change, Movement Redeems, Bits + Subs Overrides, and Universal Triggers
 - **Managed rewards:** Twitch custom reward syncing, cleanup recovery, cooldown-aware state, and per-redeem color support
 - **Chat tools:** Built-in Twitch Chatbox with optional VRChat chat relay
 - **VRChat tools:** Avatar login with 2FA, avatar cache, and OSC parameter cache
@@ -32,6 +32,7 @@ New to Crystal Relay? Watch the visual walkthrough to see the basic setup flow, 
 | **Avatar Change** | Switches to another avatar, then optionally returns after a timer |
 | **Movement Redeems** | Sends timed VRChat movement inputs that are not tied to one avatar |
 | **Bits + Subs Overrides** | Runs global paid override rules that can preempt normal redeems |
+| **Universal Triggers** | Imports or creates general Twitch interactions for commands, rewards, bits, subs, gift subs, and follows |
 
 | Action Type | Result |
 | --- | --- |
@@ -69,6 +70,20 @@ Crystal Relay can create and manage Twitch custom rewards for supported broadcas
 - If the previous session ended badly, Crystal Relay runs a recovery cleanup pass on the next launch
 - Reward availability follows cooldowns, avatar matching, disable-pairing, and Bits/Subs override suppression rules
 - Twitch custom reward management requires a broadcaster account that supports custom rewards
+
+## Universal Triggers
+
+Universal Triggers are for broader Twitch interaction setups that should live outside avatar-specific redeem lists.
+
+- Import **Fooma Twitch Interaction** JSON configs for assist-style OSC actions
+- Supports **Chat Commands**, **Channel Point Rewards**, **Bits**, **Subscriptions**, **Gift Subscriptions**, and **Follows**
+- Fuses matching `!command` entries into their matching channel-point reward so one card can handle both trigger paths
+- Sends direct OSC action lists, with optional random action selection and queued activations
+- Keeps Universal channel-point rewards managed by Crystal Relay while still showing current-avatar parameter readiness
+
+Need the Fooma Twitch Interaction system? Get it here:
+
+[Fooma Twitch Interaction on Gumroad](https://foomaring.gumroad.com/l/lmrjbl)
 
 ## Twitch Chatbox
 
