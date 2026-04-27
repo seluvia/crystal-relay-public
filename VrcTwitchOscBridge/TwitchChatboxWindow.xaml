@@ -654,7 +654,6 @@
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
@@ -694,7 +693,12 @@
                             BorderBrush="{DynamicResource InputBorderBrush}"
                             BorderThickness="1"
                             CornerRadius="12">
-                        <Grid>
+                        <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                                      VerticalScrollBarVisibility="Auto">
+                            <ScrollViewer.Resources>
+                                <Style TargetType="ScrollBar" BasedOn="{StaticResource ChatboxScrollBarStyle}" />
+                            </ScrollViewer.Resources>
+                            <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
@@ -857,13 +861,24 @@
                                         HorizontalAlignment="Right"
                                         Style="{StaticResource ChatboxSecondaryButtonStyle}"
                                         Content="{loc:Translate 'Clear Chat'}"
-                                        Click="OnClearChatClicked" />
+                                Click="OnClearChatClicked" />
                             </Grid>
                         </Grid>
+                        </ScrollViewer>
                     </Border>
 
-                    <Grid Grid.Row="2"
+                    <Grid Grid.Row="1"
                           Margin="0,14,0,0">
+                        <Grid.Style>
+                            <Style TargetType="Grid">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Settings.ChatboxSettingsPanelOpen}" Value="True">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Grid.Style>
                         <TextBlock HorizontalAlignment="Center"
                                    VerticalAlignment="Center"
                                    FontSize="15"

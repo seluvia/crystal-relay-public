@@ -367,6 +367,7 @@ public sealed class SettingsStore
             settings.AvatarProfiles = new ObservableCollection<AvatarTriggerProfile>((profile.AvatarProfiles ?? []).Select(ToAvatarProfile));
             settings.GlobalMovementRules = new ObservableCollection<TriggerRule>((profile.GlobalMovementRules ?? []).Select(ToRule));
             settings.GlobalOverrideRules = new ObservableCollection<TriggerRule>((profile.GlobalOverrideRules ?? []).Select(ToRule));
+            settings.UniversalTriggers = new ObservableCollection<UniversalTriggerRule>((profile.UniversalTriggers ?? []).Select(ToUniversalTriggerRule));
             settings.Rules = new ObservableCollection<TriggerRule>((profile.Rules ?? []).Select(ToRule));
         }
 
@@ -476,7 +477,8 @@ public sealed class SettingsStore
             CustomTheme = ToPersistedCustomThemeSettings(settings.CustomTheme),
             AvatarProfiles = [.. settings.AvatarProfiles.Select(ToPersistedAvatarProfile)],
             GlobalMovementRules = [.. settings.GlobalMovementRules.Select(ToPersistedRule)],
-            GlobalOverrideRules = [.. settings.GlobalOverrideRules.Select(ToPersistedRule)]
+            GlobalOverrideRules = [.. settings.GlobalOverrideRules.Select(ToPersistedRule)],
+            UniversalTriggers = [.. settings.UniversalTriggers.Select(ToPersistedUniversalTriggerRule)]
         };
 
         await SaveTextFileAtomicallyAsync(
@@ -733,6 +735,7 @@ public sealed class SettingsStore
             AvatarProfiles = new ObservableCollection<AvatarTriggerProfile>(),
             GlobalMovementRules = new ObservableCollection<TriggerRule>(),
             GlobalOverrideRules = new ObservableCollection<TriggerRule>(),
+            UniversalTriggers = new ObservableCollection<UniversalTriggerRule>(),
             Rules = new ObservableCollection<TriggerRule>()
         };
     }
@@ -905,6 +908,96 @@ public sealed class SettingsStore
             BotMessageTemplate = string.IsNullOrWhiteSpace(rule.BotMessageTemplate)
                 ? "{user} triggered {rule}. Active for {duration}. Cooldown {cooldown}."
                 : rule.BotMessageTemplate
+        };
+    }
+
+    private static PersistedUniversalTriggerRule ToPersistedUniversalTriggerRule(UniversalTriggerRule rule)
+    {
+        return new PersistedUniversalTriggerRule
+        {
+            Id = rule.Id,
+            IsEnabled = rule.IsEnabled,
+            Name = rule.Name,
+            TriggerType = rule.TriggerType,
+            ChatCommandEnabled = rule.ChatCommandEnabled,
+            CommandText = rule.CommandText,
+            ChatCommandPermission = rule.ChatCommandPermission,
+            RewardId = rule.RewardId,
+            RewardTitle = rule.RewardTitle,
+            RewardCost = rule.RewardCost,
+            ManagedRewardReadyColor = rule.ManagedRewardReadyColor,
+            ManagedRewardCooldownColor = rule.ManagedRewardCooldownColor,
+            MinimumBits = rule.MinimumBits,
+            MaximumBits = rule.MaximumBits,
+            SubscriptionTier = rule.SubscriptionTier,
+            MinimumMonths = rule.MinimumMonths,
+            MaximumMonths = rule.MaximumMonths,
+            GlobalDelaySeconds = rule.GlobalDelaySeconds,
+            UserDelaySeconds = rule.UserDelaySeconds,
+            ExecuteRandomAction = rule.ExecuteRandomAction,
+            ImportSource = rule.ImportSource,
+            Actions = [.. rule.Actions.Select(ToPersistedUniversalTriggerAction)]
+        };
+    }
+
+    private static PersistedUniversalTriggerAction ToPersistedUniversalTriggerAction(UniversalTriggerAction action)
+    {
+        return new PersistedUniversalTriggerAction
+        {
+            Id = action.Id,
+            OscAddress = action.OscAddress,
+            ValueKind = action.ValueKind,
+            TargetValue = action.TargetValue,
+            DefaultValue = action.DefaultValue,
+            DurationSeconds = action.DurationSeconds,
+            AddToQueue = action.AddToQueue,
+            ImportGroupKey = action.ImportGroupKey
+        };
+    }
+
+    private static UniversalTriggerRule ToUniversalTriggerRule(PersistedUniversalTriggerRule rule)
+    {
+        return new UniversalTriggerRule
+        {
+            Id = rule.Id == Guid.Empty ? Guid.NewGuid() : rule.Id,
+            IsEnabled = rule.IsEnabled,
+            Name = string.IsNullOrWhiteSpace(rule.Name) ? "New Universal Trigger" : rule.Name,
+            TriggerType = Enum.IsDefined(rule.TriggerType) ? rule.TriggerType : UniversalTriggerType.ChatCommand,
+            ChatCommandEnabled = rule.ChatCommandEnabled,
+            CommandText = rule.CommandText ?? string.Empty,
+            ChatCommandPermission = Enum.IsDefined(rule.ChatCommandPermission)
+                ? rule.ChatCommandPermission
+                : ChatCommandPermission.Moderators,
+            RewardId = rule.RewardId ?? string.Empty,
+            RewardTitle = rule.RewardTitle ?? string.Empty,
+            RewardCost = rule.RewardCost <= 0 ? 100 : rule.RewardCost,
+            ManagedRewardReadyColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(rule.ManagedRewardReadyColor),
+            ManagedRewardCooldownColor = ManagedRewardPresentation.NormalizeCooldownBackgroundColor(rule.ManagedRewardCooldownColor),
+            MinimumBits = rule.MinimumBits <= 0 ? 1 : rule.MinimumBits,
+            MaximumBits = rule.MaximumBits <= 0 ? Math.Max(1, rule.MinimumBits) : rule.MaximumBits,
+            SubscriptionTier = rule.SubscriptionTier ?? string.Empty,
+            MinimumMonths = rule.MinimumMonths,
+            MaximumMonths = rule.MaximumMonths,
+            GlobalDelaySeconds = Math.Max(0, rule.GlobalDelaySeconds),
+            UserDelaySeconds = Math.Max(0, rule.UserDelaySeconds),
+            ExecuteRandomAction = rule.ExecuteRandomAction,
+            ImportSource = rule.ImportSource ?? string.Empty,
+            Actions = new ObservableCollection<UniversalTriggerAction>((rule.Actions ?? []).Select(ToUniversalTriggerAction))
+        };
+    }
+
+    private static UniversalTriggerAction ToUniversalTriggerAction(PersistedUniversalTriggerAction action)
+    {
+        return new UniversalTriggerAction
+        {
+            Id = action.Id == Guid.Empty ? Guid.NewGuid() : action.Id,
+            OscAddress = action.OscAddress ?? string.Empty,
+            ValueKind = Enum.IsDefined(action.ValueKind) ? action.ValueKind : UniversalTriggerValueKind.Int,
+            TargetValue = action.TargetValue ?? string.Empty,
+            DefaultValue = action.DefaultValue ?? string.Empty,
+            DurationSeconds = Math.Max(0, action.DurationSeconds),
+            AddToQueue = action.AddToQueue,
+            ImportGroupKey = action.ImportGroupKey ?? string.Empty
         };
     }
 
@@ -1375,6 +1468,8 @@ public sealed class SettingsStore
 
         public List<PersistedTriggerRule>? GlobalOverrideRules { get; set; }
 
+        public List<PersistedUniversalTriggerRule>? UniversalTriggers { get; set; }
+
         public List<PersistedTriggerRule>? Rules { get; set; }
     }
 
@@ -1649,5 +1744,71 @@ public sealed class SettingsStore
         public List<Guid>? TemporarilyDisabledRuleIds { get; set; }
 
         public string? BotMessageTemplate { get; set; }
+    }
+
+    private sealed class PersistedUniversalTriggerRule
+    {
+        public Guid Id { get; set; }
+
+        public bool IsEnabled { get; set; }
+
+        public string? Name { get; set; }
+
+        public UniversalTriggerType TriggerType { get; set; }
+
+        public bool ChatCommandEnabled { get; set; }
+
+        public string? CommandText { get; set; }
+
+        public ChatCommandPermission ChatCommandPermission { get; set; }
+
+        public string? RewardId { get; set; }
+
+        public string? RewardTitle { get; set; }
+
+        public int RewardCost { get; set; }
+
+        public string? ManagedRewardReadyColor { get; set; }
+
+        public string? ManagedRewardCooldownColor { get; set; }
+
+        public int MinimumBits { get; set; }
+
+        public int MaximumBits { get; set; }
+
+        public string? SubscriptionTier { get; set; }
+
+        public int MinimumMonths { get; set; }
+
+        public int MaximumMonths { get; set; }
+
+        public int GlobalDelaySeconds { get; set; }
+
+        public int UserDelaySeconds { get; set; }
+
+        public bool ExecuteRandomAction { get; set; }
+
+        public string? ImportSource { get; set; }
+
+        public List<PersistedUniversalTriggerAction>? Actions { get; set; }
+    }
+
+    private sealed class PersistedUniversalTriggerAction
+    {
+        public Guid Id { get; set; }
+
+        public string? OscAddress { get; set; }
+
+        public UniversalTriggerValueKind ValueKind { get; set; }
+
+        public string? TargetValue { get; set; }
+
+        public string? DefaultValue { get; set; }
+
+        public double DurationSeconds { get; set; }
+
+        public bool AddToQueue { get; set; }
+
+        public string? ImportGroupKey { get; set; }
     }
 }

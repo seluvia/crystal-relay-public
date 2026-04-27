@@ -352,6 +352,83 @@ public sealed class TwitchApiClient : IDisposable
         return await ReadAsJsonAsync<ChatEmoteSetListResponse>(response, cancellationToken);
     }
 
+    public async Task<ChatEmoteSetListResponse> GetGlobalChatEmotesAsync(
+        string accessToken,
+        string clientId,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateHelixRequest(
+            HttpMethod.Get,
+            "https://api.twitch.tv/helix/chat/emotes/global",
+            accessToken,
+            clientId);
+
+        using var response = await SendAsync(request, cancellationToken);
+        return await ReadAsJsonAsync<ChatEmoteSetListResponse>(response, cancellationToken);
+    }
+
+    public async Task<ChatEmoteSetListResponse> GetChannelChatEmotesAsync(
+        string accessToken,
+        string clientId,
+        string broadcasterId,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateHelixRequest(
+            HttpMethod.Get,
+            $"https://api.twitch.tv/helix/chat/emotes?broadcaster_id={Uri.EscapeDataString(broadcasterId)}",
+            accessToken,
+            clientId);
+
+        using var response = await SendAsync(request, cancellationToken);
+        return await ReadAsJsonAsync<ChatEmoteSetListResponse>(response, cancellationToken);
+    }
+
+    public async Task<ChatEmoteSetListResponse> GetUserChatEmotesAsync(
+        string accessToken,
+        string clientId,
+        string userId,
+        string broadcasterId,
+        CancellationToken cancellationToken = default)
+    {
+        var combined = new ChatEmoteSetListResponse();
+        var after = string.Empty;
+
+        do
+        {
+            var query = new StringBuilder($"user_id={Uri.EscapeDataString(userId)}");
+            if (!string.IsNullOrWhiteSpace(broadcasterId))
+            {
+                query.Append("&broadcaster_id=");
+                query.Append(Uri.EscapeDataString(broadcasterId));
+            }
+
+            if (!string.IsNullOrWhiteSpace(after))
+            {
+                query.Append("&after=");
+                query.Append(Uri.EscapeDataString(after));
+            }
+
+            using var request = CreateHelixRequest(
+                HttpMethod.Get,
+                $"https://api.twitch.tv/helix/chat/emotes/user?{query}",
+                accessToken,
+                clientId);
+
+            using var response = await SendAsync(request, cancellationToken);
+            var page = await ReadAsJsonAsync<ChatEmoteSetListResponse>(response, cancellationToken);
+            if (string.IsNullOrWhiteSpace(combined.Template))
+            {
+                combined.Template = page.Template;
+            }
+
+            combined.Data.AddRange(page.Data);
+            after = page.Pagination.Cursor;
+        }
+        while (!string.IsNullOrWhiteSpace(after));
+
+        return combined;
+    }
+
     public async Task<IReadOnlyList<EventSubSubscriptionInfo>> GetEventSubSubscriptionsAsync(
         string accessToken,
         string clientId,
@@ -730,6 +807,9 @@ public sealed class TwitchApiClient : IDisposable
 
         [JsonPropertyName("template")]
         public string Template { get; set; } = string.Empty;
+
+        [JsonPropertyName("pagination")]
+        public PaginationResponse Pagination { get; set; } = new();
     }
 
     public sealed class ChatEmoteResponse
@@ -766,6 +846,12 @@ public sealed class TwitchApiClient : IDisposable
 
         [JsonPropertyName("url_4x")]
         public string Url4x { get; set; } = string.Empty;
+    }
+
+    public sealed class PaginationResponse
+    {
+        [JsonPropertyName("cursor")]
+        public string Cursor { get; set; } = string.Empty;
     }
 
     public sealed class ChatBadgeSetResponse

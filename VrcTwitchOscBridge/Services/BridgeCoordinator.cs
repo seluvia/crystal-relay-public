@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Net.Http;
+using System.Text;
 using System.Text.Json;
 using VrcTwitchOscBridge.Models;
 
@@ -26,11 +28,16 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private static readonly TimeSpan MovementSoftLockPulseInterval = TimeSpan.FromMilliseconds(200);
     private static readonly TimeSpan RecentMessageRetention = TimeSpan.FromMinutes(30);
     private static readonly TimeSpan RecentMessagePruneInterval = TimeSpan.FromMinutes(1);
+    private static readonly TimeSpan ThirdPartyChatEmoteRefreshInterval = TimeSpan.FromHours(6);
+    private static readonly TimeSpan ThirdPartyChatEmoteRetryInterval = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan ChatEmoteDiagnosticLogThrottle = TimeSpan.FromSeconds(15);
     private const int TwitchChatMessageMaxCharacters = 450;
     private const int VrChatChatboxMaxCharacters = 144;
     private const int VrChatChatboxMaxLines = 9;
     private const int MaxChatEmoteImageUrlCacheEntries = 2048;
     private const int MaxCachedChatEmoteSetIds = 512;
+    private const int MaxThirdPartyChatEmoteEntries = 8192;
+    private static readonly HttpClient ThirdPartyChatEmoteHttpClient = CreateThirdPartyChatEmoteHttpClient();
     private static readonly string[] ManagedSubscriptionTypes =
     [
         "channel.channel_points_custom_reward_redemption.add",
@@ -38,6 +45,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         "channel.subscribe",
         "channel.subscription.gift",
         "channel.subscription.message",
+        "channel.follow",
         "channel.chat.message",
         "stream.online",
         "stream.offline"
@@ -46,6 +54,16 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private static string T(string sourceText) => LocalizationService.Translate(sourceText);
 
     private static string TF(string sourceFormat, params object[] args) => LocalizationService.Format(sourceFormat, args);
+
+    private static HttpClient CreateThirdPartyChatEmoteHttpClient()
+    {
+        var client = new HttpClient
+        {
+            Timeout = TimeSpan.FromSeconds(4)
+        };
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("CrystalRelay/2.8.9 (+https://github.com/seluvia/crystal-relay-public)");
+        return client;
+    }
 
     private readonly TwitchApiClient twitchApiClient = new();
     private readonly VrChatOscClient vrChatOscClient = new();
@@ -71,6 +89,11 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private readonly Queue<string> chatEmoteImageUrlInsertionOrder = [];
     private readonly HashSet<string> cachedChatEmoteSetIds = [];
     private readonly Queue<string> cachedChatEmoteSetIdInsertionOrder = [];
+    private readonly SemaphoreSlim thirdPartyChatEmoteRefreshGate = new(1, 1);
+    private readonly Dictionary<string, string> thirdPartyChatEmoteImageUrls = new(StringComparer.Ordinal);
+    private readonly Queue<string> thirdPartyChatEmoteCodeInsertionOrder = [];
+    private IReadOnlyDictionary<char, IReadOnlyList<ThirdPartyChatEmoteEntry>> thirdPartyChatEmoteIndex =
+        new Dictionary<char, IReadOnlyList<ThirdPartyChatEmoteEntry>>();
     private readonly Dictionary<Guid, ActiveRuleLockoutState> activeRuleLockouts = [];
     private readonly Dictionary<Guid, ActiveRuleLockoutState> activeAvatarSwitchRuleLockouts = [];
     private readonly Dictionary<Guid, string> lastAvatarRouletResultIds = [];
@@ -80,6 +103,9 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private readonly Queue<QueuedChatboxRelayLine> queuedChatboxRelayMessages = [];
     private readonly List<QueuedSupporterOverrideState> queuedSupporterOverrides = [];
     private readonly HashSet<Guid> supporterOverrideBlockedRuleIds = [];
+    private readonly Dictionary<Guid, DateTimeOffset> universalTriggerGlobalDelays = [];
+    private readonly Dictionary<string, DateTimeOffset> universalTriggerUserDelays = new(StringComparer.Ordinal);
+    private readonly Dictionary<Guid, SemaphoreSlim> universalTriggerQueueGates = [];
 
     private CancellationTokenSource? runtimeCancellation;
     private CancellationTokenSource? chatboxRelayCancellation;
@@ -97,7 +123,10 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private DateTimeOffset nextChatboxRelayBlockedLogAt = DateTimeOffset.MinValue;
     private DateTimeOffset nextRedeemPauseLogAt = DateTimeOffset.MinValue;
     private DateTimeOffset nextRecentMessagePruneAt = DateTimeOffset.MinValue;
+    private DateTimeOffset nextThirdPartyChatEmoteRefreshAt = DateTimeOffset.MinValue;
+    private DateTimeOffset nextChatEmoteDiagnosticLogAt = DateTimeOffset.MinValue;
     private ActiveSupporterOverrideState? activeSupporterOverride;
+    private int suppressedChatEmoteDiagnosticLogs;
     private long nextSupporterOverrideQueueOrder;
 
     public BridgeCoordinator(DesktopInputLockService desktopInputLockService)
@@ -371,6 +400,16 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         await ExecuteRuleActionAsync(rule, null, cancellationToken, isTest: true, queuedReplay: false, allowLaneQueue: true);
     }
 
+    public async Task SendTestUniversalTriggerAsync(UniversalTriggerRuleSnapshot trigger, CancellationToken cancellationToken = default)
+    {
+        if (!IsOscActive)
+        {
+            throw new InvalidOperationException("OSC is not running yet, so Crystal Relay cannot send a test to VRChat.");
+        }
+
+        await ExecuteUniversalTriggerAsync(trigger, UniversalIncomingEvent.Test, isTest: true, cancellationToken);
+    }
+
     public async Task ForceOscRefreshAsync(CancellationToken cancellationToken = default)
     {
         if (!IsOscActive)
@@ -445,6 +484,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         desktopInputLockService.EmergencyUnlockTriggered -= HandleEmergencyDesktopInputUnlock;
         await desktopInputLockService.DisposeAsync();
         twitchApiClient.Dispose();
+        thirdPartyChatEmoteRefreshGate.Dispose();
         await oscRouterService.DisposeAsync();
     }
 
@@ -606,6 +646,20 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 continue;
             }
 
+            if (string.Equals(subscriptionType, "channel.follow", StringComparison.Ordinal))
+            {
+                if (activeConfiguration.UniversalTriggers.All(trigger => trigger.TriggerType != UniversalTriggerType.Follow || !trigger.IsEnabled))
+                {
+                    continue;
+                }
+
+                if (!HasScope(broadcaster, TwitchScopes.FollowRead))
+                {
+                    WriteLog("Follow universal triggers need the broadcaster to reconnect once for Twitch follower-read permission.");
+                    continue;
+                }
+            }
+
             try
             {
                 var condition = BuildSubscriptionCondition(subscriptionType);
@@ -614,7 +668,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                     activeConfiguration.TwitchClientId,
                     sessionId,
                     subscriptionType,
-                    "1",
+                    string.Equals(subscriptionType, "channel.follow", StringComparison.Ordinal) ? "2" : "1",
                     condition,
                     cancellationToken);
 
@@ -652,9 +706,20 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         }
 
         var bridgeEvent = chatCommandEvent ?? ParseEvent(notification);
+        var universalEvent = ParseUniversalEvent(notification, chatCommandEvent);
         var configuration = activeConfiguration;
         var ruleIndex = activeRuleIndex;
-        if (bridgeEvent is null || configuration is null)
+        if (configuration is null)
+        {
+            return;
+        }
+
+        if (universalEvent is not null)
+        {
+            await ExecuteMatchingUniversalTriggersAsync(configuration.UniversalTriggers, universalEvent, cancellationToken);
+        }
+
+        if (bridgeEvent is null)
         {
             return;
         }
@@ -719,6 +784,15 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             };
         }
 
+        if (string.Equals(subscriptionType, "channel.follow", StringComparison.Ordinal))
+        {
+            return new
+            {
+                broadcaster_user_id = broadcaster.UserId,
+                moderator_user_id = broadcaster.UserId
+            };
+        }
+
         return new
         {
             broadcaster_user_id = broadcaster.UserId
@@ -730,6 +804,273 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
     private static bool IsTimedSupporterOverrideRule(TriggerRuleSnapshot rule) =>
         IsSupporterOverrideRule(rule) && (rule.AmountScaledDurationEnabled || rule.DurationSeconds > 0);
+
+    private async Task ExecuteMatchingUniversalTriggersAsync(
+        IReadOnlyList<UniversalTriggerRuleSnapshot> triggers,
+        UniversalIncomingEvent incomingEvent,
+        CancellationToken cancellationToken)
+    {
+        if (triggers.Count == 0)
+        {
+            return;
+        }
+
+        var matches = SelectMatchingUniversalTriggers(triggers, incomingEvent);
+        if (matches.Length == 0)
+        {
+            return;
+        }
+
+        if (AreRedeemsPaused())
+        {
+            LogRedeemsPaused();
+            return;
+        }
+
+        foreach (var trigger in matches)
+        {
+            if (!TryReserveUniversalTriggerDelay(trigger, incomingEvent))
+            {
+                continue;
+            }
+
+            try
+            {
+                await ExecuteUniversalTriggerAsync(trigger, incomingEvent, isTest: false, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                WriteLog($"Universal trigger '{trigger.Name}' failed: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task ExecuteUniversalTriggerAsync(
+        UniversalTriggerRuleSnapshot trigger,
+        UniversalIncomingEvent incomingEvent,
+        bool isTest,
+        CancellationToken cancellationToken)
+    {
+        var actions = trigger.ExecuteRandomAction && trigger.Actions.Count > 1
+            ? [trigger.Actions[Random.Shared.Next(trigger.Actions.Count)]]
+            : trigger.Actions;
+        if (actions.Count == 0)
+        {
+            throw new InvalidOperationException("This universal trigger has no OSC actions.");
+        }
+
+        var shouldQueue = actions.Any(action => action.AddToQueue);
+        if (shouldQueue)
+        {
+            var gate = GetUniversalTriggerQueueGate(trigger.Id);
+            await gate.WaitAsync(cancellationToken);
+            try
+            {
+                await ExecuteUniversalActionsAsync(trigger, actions, cancellationToken);
+            }
+            finally
+            {
+                gate.Release();
+            }
+        }
+        else
+        {
+            await ExecuteUniversalActionsAsync(trigger, actions, cancellationToken);
+        }
+
+        WriteLog(isTest
+            ? $"Sent universal test trigger for '{trigger.Name}'."
+            : $"{incomingEvent.UserDisplayName} triggered universal '{trigger.Name}'.");
+    }
+
+    private async Task ExecuteUniversalActionsAsync(
+        UniversalTriggerRuleSnapshot trigger,
+        IReadOnlyList<UniversalTriggerActionSnapshot> actions,
+        CancellationToken cancellationToken)
+    {
+        var resetTasks = new List<Task>();
+        foreach (var action in actions)
+        {
+            var packet = BuildUniversalOscPacket(action, action.TargetValue);
+            await oscRouterService.SendToVrChatAsync(packet, cancellationToken);
+
+            if (action.DurationSeconds > 0)
+            {
+                resetTasks.Add(SendUniversalActionResetAsync(action, cancellationToken));
+            }
+        }
+
+        if (resetTasks.Count > 0)
+        {
+            await Task.WhenAll(resetTasks);
+        }
+    }
+
+    private async Task SendUniversalActionResetAsync(
+        UniversalTriggerActionSnapshot action,
+        CancellationToken cancellationToken)
+    {
+        await Task.Delay(TimeSpan.FromSeconds(Math.Max(0.001, action.DurationSeconds)), cancellationToken);
+        var resetPacket = BuildUniversalOscPacket(action, action.DefaultValue);
+        await oscRouterService.SendToVrChatAsync(resetPacket, cancellationToken);
+    }
+
+    private byte[] BuildUniversalOscPacket(UniversalTriggerActionSnapshot action, string rawValue)
+    {
+        var parameterType = action.ValueKind switch
+        {
+            UniversalTriggerValueKind.Bool => OscParameterType.Bool,
+            UniversalTriggerValueKind.Float => OscParameterType.Float,
+            UniversalTriggerValueKind.String => OscParameterType.String,
+            _ => OscParameterType.Int
+        };
+
+        return vrChatOscClient.BuildAvatarParameterPacket(action.OscAddress, parameterType, rawValue);
+    }
+
+    private SemaphoreSlim GetUniversalTriggerQueueGate(Guid triggerId)
+    {
+        lock (stateGate)
+        {
+            if (!universalTriggerQueueGates.TryGetValue(triggerId, out var gate))
+            {
+                gate = new SemaphoreSlim(1, 1);
+                universalTriggerQueueGates[triggerId] = gate;
+            }
+
+            return gate;
+        }
+    }
+
+    private bool TryReserveUniversalTriggerDelay(
+        UniversalTriggerRuleSnapshot trigger,
+        UniversalIncomingEvent incomingEvent)
+    {
+        var now = DateTimeOffset.UtcNow;
+        lock (stateGate)
+        {
+            if (trigger.GlobalDelaySeconds > 0)
+            {
+                if (universalTriggerGlobalDelays.TryGetValue(trigger.Id, out var globalUntil) && globalUntil > now)
+                {
+                    return false;
+                }
+
+                universalTriggerGlobalDelays[trigger.Id] = now.AddSeconds(trigger.GlobalDelaySeconds);
+            }
+            else
+            {
+                universalTriggerGlobalDelays.Remove(trigger.Id);
+            }
+
+            if (trigger.UserDelaySeconds > 0)
+            {
+                var userKey = GetUniversalTriggerUserDelayKey(trigger.Id, incomingEvent);
+                if (universalTriggerUserDelays.TryGetValue(userKey, out var userUntil) && userUntil > now)
+                {
+                    return false;
+                }
+
+                universalTriggerUserDelays[userKey] = now.AddSeconds(trigger.UserDelaySeconds);
+            }
+
+            return true;
+        }
+    }
+
+    private static string GetUniversalTriggerUserDelayKey(Guid triggerId, UniversalIncomingEvent incomingEvent)
+    {
+        var userKey = !string.IsNullOrWhiteSpace(incomingEvent.UserId)
+            ? incomingEvent.UserId
+            : !string.IsNullOrWhiteSpace(incomingEvent.UserLogin)
+                ? incomingEvent.UserLogin
+                : incomingEvent.UserDisplayName;
+        return $"{triggerId:N}:{userKey.Trim().ToLowerInvariant()}";
+    }
+
+    private static UniversalTriggerRuleSnapshot[] SelectMatchingUniversalTriggers(
+        IReadOnlyList<UniversalTriggerRuleSnapshot> triggers,
+        UniversalIncomingEvent incomingEvent)
+    {
+        return triggers
+            .Where(trigger => trigger.IsEnabled && UniversalTriggerMatches(trigger, incomingEvent))
+            .ToArray();
+    }
+
+    private static bool UniversalTriggerMatches(
+        UniversalTriggerRuleSnapshot trigger,
+        UniversalIncomingEvent incomingEvent)
+    {
+        if (incomingEvent.TriggerType == UniversalTriggerType.ChatCommand
+            && trigger.TriggerType == UniversalTriggerType.ChannelPointReward
+            && trigger.ChatCommandEnabled)
+        {
+            return ChatCommandUtility.MessageMatches(trigger.CommandText, incomingEvent.ChatMessageText)
+                && UserCanTriggerChatCommand(trigger.ChatCommandPermission, incomingEvent);
+        }
+
+        if (trigger.TriggerType != incomingEvent.TriggerType)
+        {
+            return false;
+        }
+
+        return trigger.TriggerType switch
+        {
+            UniversalTriggerType.ChatCommand => ChatCommandUtility.MessageMatches(trigger.CommandText, incomingEvent.ChatMessageText)
+                && UserCanTriggerChatCommand(trigger.ChatCommandPermission, incomingEvent),
+            UniversalTriggerType.ChannelPointReward => UniversalRewardMatches(trigger, incomingEvent),
+            UniversalTriggerType.Bits => incomingEvent.Amount >= Math.Min(trigger.MinimumBits, trigger.MaximumBits)
+                && incomingEvent.Amount <= Math.Max(trigger.MinimumBits, trigger.MaximumBits),
+            UniversalTriggerType.Subscription or UniversalTriggerType.GiftSubscription => UniversalSubscriptionMatches(trigger, incomingEvent),
+            UniversalTriggerType.Follow => true,
+            _ => false
+        };
+    }
+
+    private static bool UniversalRewardMatches(
+        UniversalTriggerRuleSnapshot trigger,
+        UniversalIncomingEvent incomingEvent)
+    {
+        if (!string.IsNullOrWhiteSpace(trigger.RewardId)
+            && !string.IsNullOrWhiteSpace(incomingEvent.RewardId)
+            && string.Equals(trigger.RewardId, incomingEvent.RewardId, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        if (string.IsNullOrWhiteSpace(trigger.RewardTitle)
+            || string.IsNullOrWhiteSpace(incomingEvent.RewardTitle))
+        {
+            return false;
+        }
+
+        return string.Equals(trigger.RewardTitle, incomingEvent.RewardTitle, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(
+                ManagedRewardPresentation.StripPrefix(trigger.RewardTitle),
+                ManagedRewardPresentation.StripPrefix(incomingEvent.RewardTitle),
+                StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool UniversalSubscriptionMatches(
+        UniversalTriggerRuleSnapshot trigger,
+        UniversalIncomingEvent incomingEvent)
+    {
+        if (!string.IsNullOrWhiteSpace(trigger.SubscriptionTier)
+            && !string.Equals(trigger.SubscriptionTier, incomingEvent.SubscriptionTier, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (trigger.MinimumMonths < 0 && trigger.MaximumMonths < 0)
+        {
+            return true;
+        }
+
+        var minimumMonths = Math.Max(0, Math.Min(trigger.MinimumMonths, trigger.MaximumMonths));
+        var maximumMonths = Math.Max(minimumMonths, Math.Max(trigger.MinimumMonths, trigger.MaximumMonths));
+        return incomingEvent.SubscriptionMonths >= minimumMonths
+            && incomingEvent.SubscriptionMonths <= maximumMonths;
+    }
 
     private static bool IsAllowedDuringSupporterOverride(TriggerRuleSnapshot rule)
     {
@@ -1011,6 +1352,10 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 chatEmoteImageUrlInsertionOrder.Clear();
                 cachedChatEmoteSetIds.Clear();
                 cachedChatEmoteSetIdInsertionOrder.Clear();
+                thirdPartyChatEmoteImageUrls.Clear();
+                thirdPartyChatEmoteCodeInsertionOrder.Clear();
+                thirdPartyChatEmoteIndex = new Dictionary<char, IReadOnlyList<ThirdPartyChatEmoteEntry>>();
+                nextThirdPartyChatEmoteRefreshAt = DateTimeOffset.MinValue;
             }
 
             return;
@@ -1045,6 +1390,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         {
             WriteLog($"Could not refresh Twitch badge catalog yet: {ex.Message}");
         }
+
+        await RefreshThirdPartyChatEmoteCatalogAsync(cancellationToken);
     }
 
     private async Task ExecuteRuleAsync(TriggerRuleSnapshot rule, BridgeIncomingEvent bridgeEvent, CancellationToken cancellationToken)
@@ -2953,6 +3300,10 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             chatEmoteImageUrlInsertionOrder.Clear();
             cachedChatEmoteSetIds.Clear();
             cachedChatEmoteSetIdInsertionOrder.Clear();
+            thirdPartyChatEmoteImageUrls.Clear();
+            thirdPartyChatEmoteCodeInsertionOrder.Clear();
+            thirdPartyChatEmoteIndex = new Dictionary<char, IReadOnlyList<ThirdPartyChatEmoteEntry>>();
+            nextThirdPartyChatEmoteRefreshAt = DateTimeOffset.MinValue;
             lockoutsWereActive = activeRuleLockouts.Count > 0
                 || activeAvatarSwitchRuleLockouts.Count > 0
                 || activeSupporterOverride is not null
@@ -3947,6 +4298,13 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         _ => true
     };
 
+    private static bool UserCanTriggerChatCommand(ChatCommandPermission permission, UniversalIncomingEvent incomingEvent) => permission switch
+    {
+        ChatCommandPermission.Broadcaster => incomingEvent.UserIsBroadcaster,
+        ChatCommandPermission.Moderators => incomingEvent.UserIsModerator || incomingEvent.UserIsBroadcaster,
+        _ => true
+    };
+
     private string GetCurrentVrChatAvatarId()
     {
         lock (stateGate)
@@ -4101,6 +4459,122 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         };
     }
 
+    private UniversalIncomingEvent? ParseUniversalEvent(
+        EventSubNotification notification,
+        BridgeIncomingEvent? chatCommandEvent)
+    {
+        var eventData = notification.EventData;
+        return notification.SubscriptionType switch
+        {
+            "channel.chat.message" when chatCommandEvent is not null => new UniversalIncomingEvent(
+                UniversalTriggerType.ChatCommand,
+                chatCommandEvent.UserDisplayName,
+                chatCommandEvent.UserId,
+                chatCommandEvent.UserLogin,
+                0,
+                null,
+                null,
+                chatCommandEvent.ChatCommandText,
+                string.Empty,
+                0,
+                chatCommandEvent.BadgeSetIds,
+                chatCommandEvent.UserIsModerator,
+                chatCommandEvent.UserIsBroadcaster),
+
+            "channel.channel_points_custom_reward_redemption.add" => new UniversalIncomingEvent(
+                UniversalTriggerType.ChannelPointReward,
+                GetString(eventData, "user_name") ?? "Viewer",
+                GetString(eventData, "user_id") ?? string.Empty,
+                GetString(eventData, "user_login") ?? string.Empty,
+                GetInt(eventData, "reward", "cost"),
+                GetString(eventData, "reward", "id"),
+                GetString(eventData, "reward", "title"),
+                string.Empty,
+                string.Empty,
+                0,
+                [],
+                false,
+                false),
+
+            "channel.cheer" => new UniversalIncomingEvent(
+                UniversalTriggerType.Bits,
+                GetBoolean(eventData, "is_anonymous") ? "Anonymous" : GetString(eventData, "user_name") ?? "Viewer",
+                GetString(eventData, "user_id") ?? string.Empty,
+                GetString(eventData, "user_login") ?? string.Empty,
+                GetInt(eventData, "bits"),
+                null,
+                null,
+                string.Empty,
+                string.Empty,
+                0,
+                [],
+                false,
+                false),
+
+            "channel.subscribe" when !GetBoolean(eventData, "is_gift") => new UniversalIncomingEvent(
+                UniversalTriggerType.Subscription,
+                GetString(eventData, "user_name") ?? "Subscriber",
+                GetString(eventData, "user_id") ?? string.Empty,
+                GetString(eventData, "user_login") ?? string.Empty,
+                1,
+                null,
+                null,
+                string.Empty,
+                GetString(eventData, "tier") ?? string.Empty,
+                0,
+                [],
+                false,
+                false),
+
+            "channel.subscription.message" => new UniversalIncomingEvent(
+                UniversalTriggerType.Subscription,
+                GetString(eventData, "user_name") ?? "Subscriber",
+                GetString(eventData, "user_id") ?? string.Empty,
+                GetString(eventData, "user_login") ?? string.Empty,
+                1,
+                null,
+                null,
+                string.Empty,
+                GetString(eventData, "tier") ?? string.Empty,
+                Math.Max(0, Math.Max(GetInt(eventData, "cumulative_months"), GetInt(eventData, "duration_months"))),
+                [],
+                false,
+                false),
+
+            "channel.subscription.gift" => new UniversalIncomingEvent(
+                UniversalTriggerType.GiftSubscription,
+                GetBoolean(eventData, "is_anonymous") ? "Anonymous" : GetString(eventData, "user_name") ?? "Gifter",
+                GetString(eventData, "user_id") ?? string.Empty,
+                GetString(eventData, "user_login") ?? string.Empty,
+                Math.Max(1, GetInt(eventData, "total")),
+                null,
+                null,
+                string.Empty,
+                GetString(eventData, "tier") ?? string.Empty,
+                0,
+                [],
+                false,
+                false),
+
+            "channel.follow" => new UniversalIncomingEvent(
+                UniversalTriggerType.Follow,
+                GetString(eventData, "user_name") ?? "Follower",
+                GetString(eventData, "user_id") ?? string.Empty,
+                GetString(eventData, "user_login") ?? string.Empty,
+                1,
+                null,
+                null,
+                string.Empty,
+                string.Empty,
+                0,
+                [],
+                false,
+                false),
+
+            _ => null
+        };
+    }
+
     private async Task<BridgeChatMessage?> ParseChatMessageAsync(
         EventSubNotification notification,
         CancellationToken cancellationToken)
@@ -4155,13 +4629,22 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             || fragmentsNode.ValueKind != JsonValueKind.Array)
         {
             var fallbackText = ExtractChatMessageText(eventData);
-            return string.IsNullOrWhiteSpace(fallbackText)
-                ? []
-                : [new BridgeChatFragment(BridgeChatFragmentKind.Text, fallbackText, string.Empty)];
+            if (string.IsNullOrWhiteSpace(fallbackText))
+            {
+                return [];
+            }
+
+            await RefreshThirdPartyChatEmoteCatalogAsync(cancellationToken);
+            var fallbackFragments = new List<BridgeChatFragment>();
+            AddTextOrThirdPartyChatEmoteFragments(
+                fallbackFragments,
+                fallbackText,
+                GetThirdPartyChatEmoteIndexSnapshot());
+            return fallbackFragments;
         }
 
         var parsedFragments = new List<ParsedBridgeChatFragment>();
-        var missingEmoteSetIds = new HashSet<string>(StringComparer.Ordinal);
+        var nativeEmoteFragmentCount = 0;
 
         foreach (var fragmentNode in fragmentsNode.EnumerateArray())
         {
@@ -4179,43 +4662,69 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             }
 
             var emoteId = GetString(fragmentNode, "emote", "id") ?? string.Empty;
-            var emoteSetId = GetString(fragmentNode, "emote", "emote_set_id") ?? string.Empty;
             if (string.IsNullOrWhiteSpace(emoteId))
             {
                 parsedFragments.Add(new ParsedBridgeChatFragment(BridgeChatFragmentKind.Text, text, string.Empty));
                 continue;
             }
 
+            nativeEmoteFragmentCount++;
             parsedFragments.Add(new ParsedBridgeChatFragment(BridgeChatFragmentKind.Emote, text, emoteId));
-
-            if (!string.IsNullOrWhiteSpace(emoteSetId) && !IsChatEmoteSetCached(emoteSetId))
-            {
-                missingEmoteSetIds.Add(emoteSetId);
-            }
         }
 
-        if (missingEmoteSetIds.Count > 0)
-        {
-            await EnsureChatEmoteSetsCachedAsync(missingEmoteSetIds, cancellationToken);
-        }
-
+        await RefreshThirdPartyChatEmoteCatalogAsync(cancellationToken);
+        var thirdPartyEmoteIndex = GetThirdPartyChatEmoteIndexSnapshot();
         var resolvedFragments = new List<BridgeChatFragment>(parsedFragments.Count);
+        var convertedNativeEmoteFragments = 0;
         foreach (var fragment in parsedFragments)
         {
             if (fragment.Kind != BridgeChatFragmentKind.Emote)
             {
-                resolvedFragments.Add(new BridgeChatFragment(fragment.Kind, fragment.Text, string.Empty));
+                AddTextOrThirdPartyChatEmoteFragments(resolvedFragments, fragment.Text, thirdPartyEmoteIndex);
                 continue;
             }
 
-            var imageUrl = ResolveChatEmoteImageUrl(fragment.EmoteId);
+            var imageUrl = BuildTwitchStaticEmoteImageUrl(fragment.EmoteId);
+            convertedNativeEmoteFragments += string.IsNullOrWhiteSpace(imageUrl) ? 0 : 1;
+
             resolvedFragments.Add(new BridgeChatFragment(
                 string.IsNullOrWhiteSpace(imageUrl) ? BridgeChatFragmentKind.Text : BridgeChatFragmentKind.Emote,
                 fragment.Text,
                 imageUrl));
         }
 
+        if (nativeEmoteFragmentCount > 0)
+        {
+            LogChatEmoteFragmentDiagnostic(nativeEmoteFragmentCount, convertedNativeEmoteFragments);
+        }
+
         return resolvedFragments;
+    }
+
+    private void LogChatEmoteFragmentDiagnostic(int nativeEmoteFragmentCount, int convertedNativeEmoteFragments)
+    {
+        var now = DateTimeOffset.UtcNow;
+        string? message = null;
+        lock (stateGate)
+        {
+            if (now < nextChatEmoteDiagnosticLogAt)
+            {
+                suppressedChatEmoteDiagnosticLogs++;
+                return;
+            }
+
+            var suppressedSuffix = suppressedChatEmoteDiagnosticLogs > 0
+                ? $" Suppressed {suppressedChatEmoteDiagnosticLogs} similar chat emote diagnostic(s)."
+                : string.Empty;
+            suppressedChatEmoteDiagnosticLogs = 0;
+            nextChatEmoteDiagnosticLogAt = now.Add(ChatEmoteDiagnosticLogThrottle);
+            message = $"Twitch Chatbox converted {convertedNativeEmoteFragments}/{nativeEmoteFragmentCount} native Twitch emote fragment(s) to image URLs.{suppressedSuffix}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(message))
+        {
+            WriteLog(message);
+        }
     }
 
     private BridgeIncomingEvent? ParseChatCommandEvent(EventSubNotification notification)
@@ -4433,6 +4942,587 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             : !string.IsNullOrWhiteSpace(emote.Images.Url1x)
                 ? emote.Images.Url1x
                 : emote.Images.Url4x ?? string.Empty;
+    }
+
+    private async Task RefreshThirdPartyChatEmoteCatalogAsync(CancellationToken cancellationToken)
+    {
+        if (activeConfiguration is null
+            || broadcaster is null
+            || string.IsNullOrWhiteSpace(broadcaster.UserId))
+        {
+            return;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        if (now < nextThirdPartyChatEmoteRefreshAt)
+        {
+            return;
+        }
+
+        if (!await thirdPartyChatEmoteRefreshGate.WaitAsync(0, cancellationToken))
+        {
+            return;
+        }
+
+        try
+        {
+            now = DateTimeOffset.UtcNow;
+            if (now < nextThirdPartyChatEmoteRefreshAt)
+            {
+                return;
+            }
+
+            var nextCatalog = new Dictionary<string, string>(StringComparer.Ordinal);
+            await AddNativeTwitchNamedChatEmotesAsync(nextCatalog, cancellationToken);
+            await AddBttvChatEmotesAsync(nextCatalog, broadcaster.UserId, cancellationToken);
+            await AddFrankerFaceZChatEmotesAsync(nextCatalog, broadcaster.UserId, cancellationToken);
+            await AddSevenTvChatEmotesAsync(nextCatalog, broadcaster.UserId, cancellationToken);
+
+            var previousCatalogCount = 0;
+            lock (stateGate)
+            {
+                previousCatalogCount = thirdPartyChatEmoteImageUrls.Count;
+
+                if (nextCatalog.Count > 0)
+                {
+                    thirdPartyChatEmoteImageUrls.Clear();
+                    thirdPartyChatEmoteCodeInsertionOrder.Clear();
+
+                    foreach (var pair in nextCatalog)
+                    {
+                        RememberThirdPartyChatEmoteImageUrlLocked(pair.Key, pair.Value);
+                    }
+
+                    thirdPartyChatEmoteIndex = BuildThirdPartyChatEmoteIndex(thirdPartyChatEmoteImageUrls);
+                    nextThirdPartyChatEmoteRefreshAt = now.Add(ThirdPartyChatEmoteRefreshInterval);
+                }
+                else
+                {
+                    nextThirdPartyChatEmoteRefreshAt = now.Add(ThirdPartyChatEmoteRetryInterval);
+                }
+            }
+
+            if (nextCatalog.Count > 0)
+            {
+                WriteLog($"Loaded {nextCatalog.Count} named chat emotes for Twitch Chatbox image matching.");
+            }
+            else if (previousCatalogCount == 0)
+            {
+                WriteLog("No named chat emote catalog entries loaded yet, so unmatched emote names will stay as text for now.");
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            lock (stateGate)
+            {
+                nextThirdPartyChatEmoteRefreshAt = DateTimeOffset.UtcNow.Add(ThirdPartyChatEmoteRetryInterval);
+            }
+
+            WriteLog($"Could not refresh third-party chat emotes yet: {ex.Message}");
+        }
+        finally
+        {
+            thirdPartyChatEmoteRefreshGate.Release();
+        }
+    }
+
+    private async Task AddNativeTwitchNamedChatEmotesAsync(
+        IDictionary<string, string> catalog,
+        CancellationToken cancellationToken)
+    {
+        if (activeConfiguration is null || broadcaster is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var globalEmotes = await twitchApiClient.GetGlobalChatEmotesAsync(
+                broadcaster.AccessToken,
+                activeConfiguration.TwitchClientId,
+                cancellationToken);
+            AddTwitchNamedChatEmotes(catalog, globalEmotes);
+
+            var channelEmotes = await twitchApiClient.GetChannelChatEmotesAsync(
+                broadcaster.AccessToken,
+                activeConfiguration.TwitchClientId,
+                broadcaster.UserId,
+                cancellationToken);
+            AddTwitchNamedChatEmotes(catalog, channelEmotes);
+
+            if (HasScope(broadcaster, TwitchScopes.UserEmotes))
+            {
+                var userEmotes = await twitchApiClient.GetUserChatEmotesAsync(
+                    broadcaster.AccessToken,
+                    activeConfiguration.TwitchClientId,
+                    broadcaster.UserId,
+                    broadcaster.UserId,
+                    cancellationToken);
+                AddTwitchNamedChatEmotes(catalog, userEmotes);
+            }
+            else
+            {
+                WriteLog("Reconnect broadcaster Twitch login to let Twitch Chatbox resolve subscriber and follower emote names.");
+            }
+        }
+        catch
+        {
+        }
+    }
+
+    private static void AddTwitchNamedChatEmotes(
+        IDictionary<string, string> catalog,
+        TwitchApiClient.ChatEmoteSetListResponse payload)
+    {
+        foreach (var emote in payload.Data)
+        {
+            var code = emote.Name?.Trim() ?? string.Empty;
+            var emoteId = emote.Id?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(emoteId))
+            {
+                continue;
+            }
+
+            var imageUrl = BuildChatEmoteImageUrl(payload.Template, emote);
+            if (string.IsNullOrWhiteSpace(imageUrl))
+            {
+                imageUrl = BuildTwitchStaticEmoteImageUrl(emoteId);
+            }
+
+            if (!string.IsNullOrWhiteSpace(imageUrl))
+            {
+                catalog[code] = imageUrl;
+            }
+        }
+    }
+
+    private async Task AddBttvChatEmotesAsync(
+        IDictionary<string, string> catalog,
+        string broadcasterUserId,
+        CancellationToken cancellationToken)
+    {
+        await AddBttvEmotesFromEndpointAsync(
+            catalog,
+            "https://api.betterttv.net/3/cached/emotes/global",
+            cancellationToken);
+        await AddBttvEmotesFromEndpointAsync(
+            catalog,
+            $"https://api.betterttv.net/3/cached/users/twitch/{Uri.EscapeDataString(broadcasterUserId)}",
+            cancellationToken);
+    }
+
+    private static async Task AddBttvEmotesFromEndpointAsync(
+        IDictionary<string, string> catalog,
+        string endpoint,
+        CancellationToken cancellationToken)
+    {
+        using var document = await TryFetchJsonDocumentAsync(endpoint, cancellationToken);
+        if (document is null)
+        {
+            return;
+        }
+
+        var root = document.RootElement;
+        if (root.ValueKind == JsonValueKind.Array)
+        {
+            AddBttvEmoteArray(catalog, root);
+            return;
+        }
+
+        if (root.ValueKind != JsonValueKind.Object)
+        {
+            return;
+        }
+
+        if (root.TryGetProperty("channelEmotes", out var channelEmotes)
+            && channelEmotes.ValueKind == JsonValueKind.Array)
+        {
+            AddBttvEmoteArray(catalog, channelEmotes);
+        }
+
+        if (root.TryGetProperty("sharedEmotes", out var sharedEmotes)
+            && sharedEmotes.ValueKind == JsonValueKind.Array)
+        {
+            AddBttvEmoteArray(catalog, sharedEmotes);
+        }
+    }
+
+    private static void AddBttvEmoteArray(IDictionary<string, string> catalog, JsonElement emotesNode)
+    {
+        foreach (var emoteNode in emotesNode.EnumerateArray())
+        {
+            var code = GetJsonString(emoteNode, "code");
+            var id = GetJsonString(emoteNode, "id");
+            if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(id))
+            {
+                continue;
+            }
+
+            catalog[code.Trim()] = $"https://cdn.betterttv.net/emote/{Uri.EscapeDataString(id.Trim())}/2x";
+        }
+    }
+
+    private async Task AddFrankerFaceZChatEmotesAsync(
+        IDictionary<string, string> catalog,
+        string broadcasterUserId,
+        CancellationToken cancellationToken)
+    {
+        await AddFrankerFaceZEmotesFromEndpointAsync(
+            catalog,
+            "https://api.frankerfacez.com/v1/set/global",
+            cancellationToken);
+        await AddFrankerFaceZEmotesFromEndpointAsync(
+            catalog,
+            $"https://api.frankerfacez.com/v1/room/id/{Uri.EscapeDataString(broadcasterUserId)}",
+            cancellationToken);
+    }
+
+    private static async Task AddFrankerFaceZEmotesFromEndpointAsync(
+        IDictionary<string, string> catalog,
+        string endpoint,
+        CancellationToken cancellationToken)
+    {
+        using var document = await TryFetchJsonDocumentAsync(endpoint, cancellationToken);
+        if (document is null
+            || !document.RootElement.TryGetProperty("sets", out var setsNode)
+            || setsNode.ValueKind != JsonValueKind.Object)
+        {
+            return;
+        }
+
+        foreach (var setNode in setsNode.EnumerateObject())
+        {
+            if (!setNode.Value.TryGetProperty("emoticons", out var emoticonsNode)
+                || emoticonsNode.ValueKind != JsonValueKind.Array)
+            {
+                continue;
+            }
+
+            foreach (var emoteNode in emoticonsNode.EnumerateArray())
+            {
+                var code = GetJsonString(emoteNode, "name");
+                var imageUrl = ResolveFrankerFaceZImageUrl(emoteNode);
+                if (!string.IsNullOrWhiteSpace(code) && !string.IsNullOrWhiteSpace(imageUrl))
+                {
+                    catalog[code.Trim()] = imageUrl;
+                }
+            }
+        }
+    }
+
+    private async Task AddSevenTvChatEmotesAsync(
+        IDictionary<string, string> catalog,
+        string broadcasterUserId,
+        CancellationToken cancellationToken)
+    {
+        await AddSevenTvEmotesFromEndpointAsync(
+            catalog,
+            "https://7tv.io/v3/emote-sets/global",
+            cancellationToken);
+        await AddSevenTvEmotesFromEndpointAsync(
+            catalog,
+            $"https://7tv.io/v3/users/twitch/{Uri.EscapeDataString(broadcasterUserId)}",
+            cancellationToken);
+    }
+
+    private static async Task AddSevenTvEmotesFromEndpointAsync(
+        IDictionary<string, string> catalog,
+        string endpoint,
+        CancellationToken cancellationToken)
+    {
+        using var document = await TryFetchJsonDocumentAsync(endpoint, cancellationToken);
+        if (document is null)
+        {
+            return;
+        }
+
+        var root = document.RootElement;
+        if (root.TryGetProperty("emote_set", out var emoteSetNode)
+            && emoteSetNode.ValueKind == JsonValueKind.Object)
+        {
+            AddSevenTvEmoteSet(catalog, emoteSetNode);
+            return;
+        }
+
+        AddSevenTvEmoteSet(catalog, root);
+    }
+
+    private static void AddSevenTvEmoteSet(IDictionary<string, string> catalog, JsonElement emoteSetNode)
+    {
+        if (!emoteSetNode.TryGetProperty("emotes", out var emotesNode)
+            || emotesNode.ValueKind != JsonValueKind.Array)
+        {
+            return;
+        }
+
+        foreach (var emoteNode in emotesNode.EnumerateArray())
+        {
+            var code = GetJsonString(emoteNode, "name");
+            var imageUrl = ResolveSevenTvImageUrl(emoteNode);
+            if (!string.IsNullOrWhiteSpace(code) && !string.IsNullOrWhiteSpace(imageUrl))
+            {
+                catalog[code.Trim()] = imageUrl;
+            }
+        }
+    }
+
+    private void RememberThirdPartyChatEmoteImageUrlLocked(string code, string imageUrl)
+    {
+        var normalizedCode = code.Trim();
+        if (normalizedCode.Length == 0 || string.IsNullOrWhiteSpace(imageUrl))
+        {
+            return;
+        }
+
+        if (!thirdPartyChatEmoteImageUrls.ContainsKey(normalizedCode))
+        {
+            thirdPartyChatEmoteCodeInsertionOrder.Enqueue(normalizedCode);
+        }
+
+        thirdPartyChatEmoteImageUrls[normalizedCode] = imageUrl.Trim();
+        PruneBoundedDictionaryLocked(
+            thirdPartyChatEmoteImageUrls,
+            thirdPartyChatEmoteCodeInsertionOrder,
+            MaxThirdPartyChatEmoteEntries);
+    }
+
+    private IReadOnlyDictionary<char, IReadOnlyList<ThirdPartyChatEmoteEntry>> GetThirdPartyChatEmoteIndexSnapshot()
+    {
+        lock (stateGate)
+        {
+            return thirdPartyChatEmoteIndex;
+        }
+    }
+
+    private static IReadOnlyDictionary<char, IReadOnlyList<ThirdPartyChatEmoteEntry>> BuildThirdPartyChatEmoteIndex(
+        IReadOnlyDictionary<string, string> emoteImageUrls)
+    {
+        return emoteImageUrls
+            .Where(pair => !string.IsNullOrWhiteSpace(pair.Key) && !string.IsNullOrWhiteSpace(pair.Value))
+            .Select(pair => new ThirdPartyChatEmoteEntry(pair.Key, pair.Value))
+            .GroupBy(entry => entry.Code[0])
+            .ToDictionary(
+                group => group.Key,
+                group => (IReadOnlyList<ThirdPartyChatEmoteEntry>)[.. group
+                    .OrderByDescending(entry => entry.Code.Length)
+                    .ThenBy(entry => entry.Code, StringComparer.Ordinal)],
+                EqualityComparer<char>.Default);
+    }
+
+    private static void AddTextOrThirdPartyChatEmoteFragments(
+        ICollection<BridgeChatFragment> fragments,
+        string text,
+        IReadOnlyDictionary<char, IReadOnlyList<ThirdPartyChatEmoteEntry>> thirdPartyEmoteIndex)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return;
+        }
+
+        if (thirdPartyEmoteIndex.Count == 0)
+        {
+            fragments.Add(new BridgeChatFragment(BridgeChatFragmentKind.Text, text, string.Empty));
+            return;
+        }
+
+        StringBuilder? pendingText = null;
+        var index = 0;
+        while (index < text.Length)
+        {
+            if (TryFindThirdPartyChatEmote(text, index, thirdPartyEmoteIndex, out var emote))
+            {
+                if (pendingText is { Length: > 0 })
+                {
+                    fragments.Add(new BridgeChatFragment(BridgeChatFragmentKind.Text, pendingText.ToString(), string.Empty));
+                    pendingText.Clear();
+                }
+
+                fragments.Add(new BridgeChatFragment(BridgeChatFragmentKind.Emote, emote.Code, emote.ImageUrl));
+                index += emote.Code.Length;
+                continue;
+            }
+
+            pendingText ??= new StringBuilder();
+            pendingText.Append(text[index]);
+            index++;
+        }
+
+        if (pendingText is { Length: > 0 })
+        {
+            fragments.Add(new BridgeChatFragment(BridgeChatFragmentKind.Text, pendingText.ToString(), string.Empty));
+        }
+    }
+
+    private static bool TryFindThirdPartyChatEmote(
+        string text,
+        int startIndex,
+        IReadOnlyDictionary<char, IReadOnlyList<ThirdPartyChatEmoteEntry>> thirdPartyEmoteIndex,
+        out ThirdPartyChatEmoteEntry emote)
+    {
+        emote = default;
+        if (char.IsWhiteSpace(text[startIndex])
+            || !thirdPartyEmoteIndex.TryGetValue(text[startIndex], out var candidates))
+        {
+            return false;
+        }
+
+        foreach (var candidate in candidates)
+        {
+            if (candidate.Code.Length < 2 || startIndex + candidate.Code.Length > text.Length)
+            {
+                continue;
+            }
+
+            if (string.CompareOrdinal(text, startIndex, candidate.Code, 0, candidate.Code.Length) == 0)
+            {
+                emote = candidate;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static async Task<JsonDocument?> TryFetchJsonDocumentAsync(
+        string endpoint,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var json = await ThirdPartyChatEmoteHttpClient.GetStringAsync(endpoint, cancellationToken);
+            return JsonDocument.Parse(json);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string ResolveFrankerFaceZImageUrl(JsonElement emoteNode)
+    {
+        if (!emoteNode.TryGetProperty("urls", out var urlsNode) || urlsNode.ValueKind != JsonValueKind.Object)
+        {
+            return string.Empty;
+        }
+
+        foreach (var scale in new[] { "2", "1", "4" })
+        {
+            var imageUrl = GetJsonString(urlsNode, scale);
+            if (!string.IsNullOrWhiteSpace(imageUrl))
+            {
+                return NormalizeExternalEmoteImageUrl(imageUrl);
+            }
+        }
+
+        return string.Empty;
+    }
+
+    private static string ResolveSevenTvImageUrl(JsonElement emoteNode)
+    {
+        var emoteId = GetJsonString(emoteNode, "id") ?? GetJsonString(emoteNode, "data", "id") ?? string.Empty;
+        var hostNode = default(JsonElement);
+        var hasHostNode = emoteNode.TryGetProperty("data", out var dataNode)
+            && dataNode.ValueKind == JsonValueKind.Object
+            && dataNode.TryGetProperty("host", out hostNode)
+            && hostNode.ValueKind == JsonValueKind.Object;
+
+        if (!hasHostNode
+            && emoteNode.TryGetProperty("host", out var directHostNode)
+            && directHostNode.ValueKind == JsonValueKind.Object)
+        {
+            hostNode = directHostNode;
+            hasHostNode = true;
+        }
+
+        if (hasHostNode)
+        {
+            var hostUrl = GetJsonString(hostNode, "url") ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(hostUrl)
+                && hostNode.TryGetProperty("files", out var filesNode)
+                && filesNode.ValueKind == JsonValueKind.Array)
+            {
+                var fileName = PickSevenTvImageFileName(filesNode);
+                if (!string.IsNullOrWhiteSpace(fileName))
+                {
+                    return NormalizeExternalEmoteImageUrl($"{hostUrl.TrimEnd('/')}/{fileName}");
+                }
+            }
+        }
+
+        return string.IsNullOrWhiteSpace(emoteId)
+            ? string.Empty
+            : $"https://cdn.7tv.app/emote/{Uri.EscapeDataString(emoteId.Trim())}/2x.webp";
+    }
+
+    private static string PickSevenTvImageFileName(JsonElement filesNode)
+    {
+        var fallback = string.Empty;
+        foreach (var preferredName in new[] { "2x.png", "1x.png", "3x.png", "4x.png", "2x.webp", "1x.webp", "3x.webp", "4x.webp" })
+        {
+            foreach (var fileNode in filesNode.EnumerateArray())
+            {
+                var name = GetJsonString(fileNode, "name") ?? string.Empty;
+                if (string.Equals(name, preferredName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return name;
+                }
+
+                if (string.IsNullOrWhiteSpace(fallback)
+                    && (name.EndsWith(".png", StringComparison.OrdinalIgnoreCase)
+                        || name.EndsWith(".webp", StringComparison.OrdinalIgnoreCase)))
+                {
+                    fallback = name;
+                }
+            }
+        }
+
+        return fallback;
+    }
+
+    private static string NormalizeExternalEmoteImageUrl(string imageUrl)
+    {
+        var normalized = imageUrl.Trim();
+        if (normalized.StartsWith("//", StringComparison.Ordinal))
+        {
+            return $"https:{normalized}";
+        }
+
+        if (normalized.StartsWith("/", StringComparison.Ordinal))
+        {
+            return string.Empty;
+        }
+
+        return normalized.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+            ? normalized
+            : string.Empty;
+    }
+
+    private static string BuildTwitchStaticEmoteImageUrl(string emoteId) =>
+        string.IsNullOrWhiteSpace(emoteId)
+            ? string.Empty
+            : $"https://static-cdn.jtvnw.net/emoticons/v2/{Uri.EscapeDataString(emoteId.Trim())}/static/dark/2.0";
+
+    private static string? GetJsonString(JsonElement element, params string[] path)
+    {
+        var current = element;
+        foreach (var segment in path)
+        {
+            if (current.ValueKind != JsonValueKind.Object || !current.TryGetProperty(segment, out current))
+            {
+                return null;
+            }
+        }
+
+        return current.ValueKind switch
+        {
+            JsonValueKind.String => current.GetString(),
+            JsonValueKind.Number => current.ToString(),
+            _ => null
+        };
     }
 
     private static string ExtractChatMessageText(JsonElement eventData)
@@ -5160,6 +6250,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         CancellationTokenSource[] avatarSwitchLockoutNotifications;
         CancellationTokenSource[] movementLockCancellations;
         CancellationTokenSource[] desktopLockCancellations;
+        SemaphoreSlim[] universalQueueGates;
         CancellationTokenSource? supporterOverrideCancellation = null;
         lock (stateGate)
         {
@@ -5183,6 +6274,10 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             chatEmoteImageUrlInsertionOrder.Clear();
             cachedChatEmoteSetIds.Clear();
             cachedChatEmoteSetIdInsertionOrder.Clear();
+            thirdPartyChatEmoteImageUrls.Clear();
+            thirdPartyChatEmoteCodeInsertionOrder.Clear();
+            thirdPartyChatEmoteIndex = new Dictionary<char, IReadOnlyList<ThirdPartyChatEmoteEntry>>();
+            nextThirdPartyChatEmoteRefreshAt = DateTimeOffset.MinValue;
             activeRuleLockouts.Clear();
             activeAvatarSwitchRuleLockouts.Clear();
             supporterOverrideBlockedRuleIds.Clear();
@@ -5190,6 +6285,10 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             activeSupporterOverride = null;
             queuedSupporterOverrides.Clear();
             nextSupporterOverrideQueueOrder = 0;
+            universalTriggerGlobalDelays.Clear();
+            universalTriggerUserDelays.Clear();
+            universalQueueGates = [.. universalTriggerQueueGates.Values];
+            universalTriggerQueueGates.Clear();
             queuedChatboxRelayMessages.Clear();
             nextChatboxRelayUnavailableLogAt = DateTimeOffset.MinValue;
             relayCancellation = chatboxRelayCancellation;
@@ -5224,6 +6323,10 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
         supporterOverrideCancellation?.Cancel();
         supporterOverrideCancellation?.Dispose();
+        foreach (var universalQueueGate in universalQueueGates)
+        {
+            universalQueueGate.Dispose();
+        }
 
         _ = Task.Run(async () =>
         {
@@ -5684,6 +6787,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         public static SharedReturnAvatarSnapshot Empty { get; } = new(string.Empty, string.Empty);
     }
 
+    private readonly record struct ThirdPartyChatEmoteEntry(string Code, string ImageUrl);
+
     private sealed record ActiveMovementLaneState(
         Guid OwnerId,
         DateTimeOffset BusyUntil,
@@ -5970,6 +7075,37 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         IReadOnlyList<string> BadgeSetIds,
         bool UserIsModerator,
         bool UserIsBroadcaster);
+
+    private sealed record UniversalIncomingEvent(
+        UniversalTriggerType TriggerType,
+        string UserDisplayName,
+        string UserId,
+        string UserLogin,
+        int Amount,
+        string? RewardId,
+        string? RewardTitle,
+        string ChatMessageText,
+        string SubscriptionTier,
+        int SubscriptionMonths,
+        IReadOnlyList<string> BadgeSetIds,
+        bool UserIsModerator,
+        bool UserIsBroadcaster)
+    {
+        public static UniversalIncomingEvent Test { get; } = new(
+            UniversalTriggerType.ChatCommand,
+            "Local Test",
+            string.Empty,
+            string.Empty,
+            0,
+            null,
+            null,
+            string.Empty,
+            string.Empty,
+            0,
+            [],
+            true,
+            true);
+    }
 }
 
 public sealed record BridgeChatMessage(
