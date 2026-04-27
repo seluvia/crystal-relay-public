@@ -3,6 +3,11 @@ Crystal Relay Changelog
 
 Newest updates appear first. This changelog focuses on the changes users will notice most.
 
+v2.9.1
+- Added the new Carrot Patch theme with strawberry cream, chocolate brown, waffle-cone tan, and berry-red dessert styling.
+- Fixed themed dialog action buttons so longer labels like Open Fooma Page no longer clip.
+- Updated the README theme list and Universal Triggers notes so the public repo matches the current app features.
+
 v2.9.0
 - Added Universal Triggers for broader Twitch interaction setups, including Fooma config import, grouped trigger cards, managed channel point rewards, and optional chat-command fallback on reward cards.
 - Twitch Chatbox emote rendering is more reliable for native Twitch emotes and supported named emotes from Twitch, BetterTTV, FrankerFaceZ, and 7TV.

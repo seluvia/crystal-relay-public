@@ -59,6 +59,7 @@
             <Setter Property="Foreground" Value="White" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Padding" Value="15,10" />
+            <Setter Property="MinWidth" Value="116" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Template">
                 <Setter.Value>
@@ -253,14 +254,12 @@
                                     Orientation="Horizontal"
                                     HorizontalAlignment="Right">
                             <Button x:Name="SecondaryButton"
-                                    Width="98"
                                     Margin="0,0,10,0"
                                     Style="{StaticResource SecondaryButtonStyle}"
                                     Visibility="Collapsed"
                                     IsCancel="True"
                                     Click="OnSecondaryClicked" />
                             <Button x:Name="PrimaryButton"
-                                    Width="116"
                                     Style="{StaticResource PrimaryButtonStyle}"
                                     IsDefault="True"
                                     Click="OnPrimaryClicked" />

@@ -7,8 +7,8 @@ Purpose:
 - This file is for internal release prep and record-keeping. It should stay out of the public repo unless you explicitly choose otherwise.
 
 Current Baseline:
-- Last published version: v2.8.9
-- Current working source version: v2.9.0
+- Last published version: v2.9.0
+- Current working source version: v2.9.1
 
 How To Use:
 1. Add new lines under Added, Changed, or Removed while work is happening.
@@ -17,35 +17,16 @@ How To Use:
 4. After the release is published, update the baseline version and clear the pending draft section for the next release.
 
 Pending Release Draft
-- Target version: v2.9.0
-- Release date: 2026-04-26
+- Target version: v2.9.1
+- Release date: 2026-04-27
 - Build status: Release package built; GitHub publish pending
 
 Added:
-- Added a new Universal Triggers tab for Twitch interaction-style OSC triggers outside Avatar Sets, Movement Redeems, Avatar Change, and Bits + Subs overrides.
-- Added Fooma Twitch Interaction JSON import for commands, rewards, bits ranges, subscriptions, gift subscriptions, and follows.
-- Universal Triggers can run multiple OSC actions, choose one random action, and queue repeated activations per trigger.
-- Added optional Twitch follow EventSub support for Universal Follow triggers when the broadcaster reconnects with follower-read permission.
-- Twitch Chatbox can now render supported named emotes from Twitch, BetterTTV, FrankerFaceZ, and 7TV when they appear in chat text.
-- Twitch Chatbox now logs concise emote diagnostics when Twitch sends emote fragments or an emote image fails to load.
+- Added the new Carrot Patch theme with strawberry cream, chocolate brown, waffle-cone tan, and berry-red dessert styling.
 
 Changed:
-- Broadcaster login now requests Twitch follower-read permission for future Universal Follow trigger support without blocking existing logins.
-- Universal Trigger channel-point rewards now use managed Twitch reward sync like Avatar Sets, including automatic reward ID linking and cost/color controls.
-- Universal Trigger channel-point rewards now stay hidden on Twitch only when the current avatar has none of the required `/avatar/parameters/...` actions used by the trigger.
-- Universal Triggers are now managed inside the workspace editor with grouped cards for commands, rewards, bits, subs, gift subs, and follows, while reward IDs stay internal.
-- Universal Trigger groups in the workspace can now be collapsed so large imported trigger lists are easier to browse.
-- Universal Trigger group collapse state now stays stable while Test Mode, reward sync, and trigger counts refresh during the same app session.
-- Universal Trigger cleanup now has its own left-side cleanup box for deleting all Universal triggers intentionally.
-- Universal channel-point rewards can now include an optional `!` chat command fallback on the same reward card, and matching Fooma command/reward imports are fused automatically.
-- Managed Twitch reward recycling now avoids reusing disabled rewards that still match configured Universal reward titles.
-- Twitch Chatbox native Twitch emotes now render directly from Twitch's CDN using EventSub emote IDs instead of waiting on emote-set lookups.
-- Twitch Chatbox emote image loading now downloads and decodes image bytes directly for more reliable rendering.
-- Twitch Chatbox native emotes now fall back to Twitch's static CDN image path when the emote-set lookup does not return an image URL.
-- Twitch Chatbox settings now scroll inside the settings panel so bottom utility actions like Clear Chat stay reachable at smaller window heights.
-- VRChat LocalLow OSC JSON files now load with Twitch/VRChat's lowercase field names so current-avatar parameter checks can read the real avatar parameters.
-- Current-avatar detection no longer falls back to the newest LocalLow avatar JSON, preventing repeated false avatar-swap messages while the user stays on one avatar.
-- Public README now links to the v2.9.0 tutorial video hosted as a GitHub Release asset.
+- Themed dialog action buttons now grow to fit longer labels, fixing the clipped Open Fooma Page button.
+- Public README now lists and describes the current Carrot Patch theme.
 
 Removed:
 - None yet.

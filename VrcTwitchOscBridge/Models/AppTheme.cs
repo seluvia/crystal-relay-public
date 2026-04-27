@@ -15,5 +15,6 @@ public enum AppTheme
     Baked,
     MainFrame,
     TrashKitty,
+    CarrotPatch,
     TreetendersArm
 }
