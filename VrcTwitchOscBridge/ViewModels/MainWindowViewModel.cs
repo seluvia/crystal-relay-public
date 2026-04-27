@@ -114,6 +114,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         nameof(TriggerRule.ChannelPointRewardCost),
         nameof(TriggerRule.ManagedRewardReadyColor),
         nameof(TriggerRule.ManagedRewardCooldownColor),
+        nameof(TriggerRule.DeleteManagedRewardWhenInactive),
         nameof(TriggerRule.ParameterName),
         nameof(TriggerRule.AvatarChangeTargetId),
         nameof(TriggerRule.AvatarRouletAvatarIds),
@@ -142,7 +143,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         nameof(UniversalTriggerRule.RewardTitle),
         nameof(UniversalTriggerRule.RewardCost),
         nameof(UniversalTriggerRule.ManagedRewardReadyColor),
-        nameof(UniversalTriggerRule.ManagedRewardCooldownColor)
+        nameof(UniversalTriggerRule.ManagedRewardCooldownColor),
+        nameof(UniversalTriggerRule.DeleteManagedRewardWhenInactive)
     };
     private static readonly HashSet<string> UniversalTriggerActionPropertiesRequiringManagedRewardSync = new(StringComparer.Ordinal)
     {
@@ -5316,6 +5318,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             rule.CooldownSeconds,
             backgroundColor,
             desiredEnabled,
+            rule.DeleteManagedRewardWhenInactive && !temporarilyDisabledRuleIds.Contains(rule.Id),
             rewardId => rule.ChannelPointRewardId = rewardId);
     }
 
@@ -5338,6 +5341,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             cooldownSeconds: 0,
             ManagedRewardPresentation.NormalizeReadyBackgroundColor(trigger.ManagedRewardReadyColor),
             desiredEnabled,
+            trigger.DeleteManagedRewardWhenInactive,
             rewardId => trigger.RewardId = rewardId);
     }
 
@@ -5798,6 +5802,28 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             : null;
         var changed = false;
 
+        var shouldDeleteInactiveReward = target.DeleteWhenInactive
+            && (!desiredEnabled || string.IsNullOrWhiteSpace(rewardTitle));
+        if (shouldDeleteInactiveReward)
+        {
+            if (existingReward is not null)
+            {
+                return await DeleteInactiveManagedRewardAsync(
+                    target,
+                    existingReward,
+                    rewardCatalog,
+                    ownershipIndex,
+                    cancellationToken);
+            }
+
+            if (!string.IsNullOrWhiteSpace(target.RewardId))
+            {
+                changed |= SetManagedRewardTargetId(target, string.Empty, ownershipIndex);
+            }
+
+            return changed;
+        }
+
         if (existingReward is null && !string.IsNullOrWhiteSpace(rewardTitle))
         {
             var adoptedReward = await FindAdoptableExistingManagedRewardAsync(
@@ -5984,6 +6010,63 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
 
         return changed;
+    }
+
+    private async Task<bool> DeleteInactiveManagedRewardAsync(
+        ManagedRewardSyncTarget target,
+        TwitchApiClient.CustomRewardResponse existingReward,
+        ManagedRewardSyncCatalog rewardCatalog,
+        ManagedRewardRuleOwnershipIndex ownershipIndex,
+        CancellationToken cancellationToken)
+    {
+        var rewardTitle = ManagedRewardPresentation.StripPrefix(existingReward.Title);
+
+        try
+        {
+            await twitchApiClient.DeleteCustomRewardAsync(
+                Settings.Broadcaster.AccessToken,
+                runtimeConfig.TwitchClientId,
+                Settings.Broadcaster.UserId,
+                existingReward.Id,
+                cancellationToken);
+            rewardCatalog.Remove(existingReward.Id);
+            SetManagedRewardTargetId(target, string.Empty, ownershipIndex);
+            RunOnUi(() => AppendThrottledLog(
+                $"managed-reward-delete-inactive:{existingReward.Id}",
+                $"Deleted inactive Twitch reward '{existingReward.Title}' for '{target.DisplayTitle}' to free a reward slot.",
+                ThrottledRewardSyncLogWindow));
+            return true;
+        }
+        catch (TwitchApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            rewardCatalog.Remove(existingReward.Id);
+            SetManagedRewardTargetId(target, string.Empty, ownershipIndex);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            if (ex is OperationCanceledException && cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+
+            if (IsBroadcasterRewardEligibilityFailure(ex))
+            {
+                MarkBroadcasterManagedRewardsUnavailableForSession();
+                throw;
+            }
+
+            if (IsInvalidBroadcasterTokenFailure(ex))
+            {
+                throw;
+            }
+
+            RunOnUi(() => AppendThrottledLog(
+                $"managed-reward-delete-inactive-failed:{existingReward.Id}",
+                $"Could not delete inactive Twitch reward '{rewardTitle}' for '{target.DisplayTitle}': {ex.Message}",
+                ThrottledRewardSyncLogWindow));
+            return false;
+        }
     }
 
     private static bool HasRuntimeReadyAction(TriggerRule rule) => rule.ActionType switch
@@ -6873,6 +6956,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             int cooldownSeconds,
             string backgroundColor,
             bool desiredEnabled,
+            bool deleteWhenInactive,
             Action<string> applyRewardId)
         {
             Id = id;
@@ -6883,6 +6967,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             CooldownSeconds = Math.Max(0, cooldownSeconds);
             BackgroundColor = backgroundColor;
             DesiredEnabled = desiredEnabled;
+            DeleteWhenInactive = deleteWhenInactive;
             ApplyRewardId = applyRewardId;
         }
 
@@ -6901,6 +6986,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         public string BackgroundColor { get; }
 
         public bool DesiredEnabled { get; }
+
+        public bool DeleteWhenInactive { get; }
 
         public Action<string> ApplyRewardId { get; }
     }

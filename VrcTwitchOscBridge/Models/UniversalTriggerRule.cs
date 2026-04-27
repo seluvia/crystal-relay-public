@@ -20,6 +20,7 @@ public sealed class UniversalTriggerRule : ObservableObject
     private int rewardCost = 100;
     private string managedRewardReadyColor = ManagedRewardPresentation.ReadyBackgroundColor;
     private string managedRewardCooldownColor = ManagedRewardPresentation.InUseBackgroundColor;
+    private bool deleteManagedRewardWhenInactive;
     private int minimumBits = 1;
     private int maximumBits = 1_000_000;
     private string subscriptionTier = string.Empty;
@@ -166,6 +167,18 @@ public sealed class UniversalTriggerRule : ObservableObject
             if (SetProperty(ref managedRewardCooldownColor, normalizedValue))
             {
                 RaisePropertyChanged(nameof(ManagedRewardCooldownColorBrush));
+            }
+        }
+    }
+
+    public bool DeleteManagedRewardWhenInactive
+    {
+        get => deleteManagedRewardWhenInactive;
+        set
+        {
+            if (SetProperty(ref deleteManagedRewardWhenInactive, value))
+            {
+                RaiseTitleProperties();
             }
         }
     }

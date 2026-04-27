@@ -3769,6 +3769,23 @@
                                                                      CornerRadius="14"
                                                                      Padding="12">
                                                                  <StackPanel>
+                                                                     <CheckBox IsChecked="{Binding DeleteManagedRewardWhenInactive, UpdateSourceTrigger=PropertyChanged}">
+                                                                         <TextBlock Text="{loc:Translate 'Delete Twitch reward when inactive'}"
+                                                                                    TextWrapping="Wrap" />
+                                                                     </CheckBox>
+                                                                     <TextBlock Margin="26,6,0,0"
+                                                                                Foreground="{DynamicResource MutedBrush}"
+                                                                                TextWrapping="Wrap"
+                                                                                Text="{loc:Translate 'Frees Twitch reward slots. Crystal Relay will recreate or relink this reward when it becomes active again.'}" />
+                                                                 </StackPanel>
+                                                             </Border>
+                                                             <Border Margin="0,12,0,0"
+                                                                     Background="{DynamicResource PanelSecondaryBrush}"
+                                                                     BorderBrush="{DynamicResource InputBorderBrush}"
+                                                                     BorderThickness="1"
+                                                                     CornerRadius="14"
+                                                                     Padding="12">
+                                                                 <StackPanel>
                                                                      <TextBlock Text="{loc:Translate 'Chat Command Fallback'}"
                                                                                 Foreground="{DynamicResource TextBrush}"
                                                                                 FontWeight="SemiBold" />
@@ -4172,6 +4189,23 @@
                                                                     <TextBox Text="{Binding ChannelPointRewardCost, UpdateSourceTrigger=PropertyChanged}" />
                                                                 </StackPanel>
                                                             </UniformGrid>
+                                                            <Border Margin="0,12,0,0"
+                                                                    Background="{DynamicResource PanelSecondaryBrush}"
+                                                                    BorderBrush="{DynamicResource InputBorderBrush}"
+                                                                    BorderThickness="1"
+                                                                    CornerRadius="14"
+                                                                    Padding="12">
+                                                                <StackPanel>
+                                                                    <CheckBox IsChecked="{Binding DeleteManagedRewardWhenInactive, UpdateSourceTrigger=PropertyChanged}">
+                                                                        <TextBlock Text="{loc:Translate 'Delete Twitch reward when inactive'}"
+                                                                                   TextWrapping="Wrap" />
+                                                                    </CheckBox>
+                                                                    <TextBlock Margin="26,6,0,0"
+                                                                               Foreground="{DynamicResource MutedBrush}"
+                                                                               TextWrapping="Wrap"
+                                                                               Text="{loc:Translate 'Frees Twitch reward slots. Crystal Relay will recreate or relink this reward when it becomes active again.'}" />
+                                                                </StackPanel>
+                                                            </Border>
                                                             <StackPanel Margin="0,12,0,0">
                                                                 <TextBlock Text="{loc:Translate 'Managed Reward Colors'}"
                                                                            Foreground="{DynamicResource TextBrush}"

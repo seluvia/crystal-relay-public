@@ -789,6 +789,7 @@ public sealed class SettingsStore
             ChannelPointRewardCost = rule.ChannelPointRewardCost,
             ManagedRewardReadyColor = rule.ManagedRewardReadyColor,
             ManagedRewardCooldownColor = rule.ManagedRewardCooldownColor,
+            DeleteManagedRewardWhenInactive = rule.DeleteManagedRewardWhenInactive,
             ChatCommandEnabled = rule.ChatCommandEnabled,
             ChatCommandText = rule.ChatCommandText,
             ChatCommandPermission = rule.ChatCommandPermission,
@@ -856,6 +857,7 @@ public sealed class SettingsStore
             ChannelPointRewardCost = rule.ChannelPointRewardCost <= 0 ? 100 : rule.ChannelPointRewardCost,
             ManagedRewardReadyColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(rule.ManagedRewardReadyColor),
             ManagedRewardCooldownColor = ManagedRewardPresentation.NormalizeCooldownBackgroundColor(rule.ManagedRewardCooldownColor),
+            DeleteManagedRewardWhenInactive = rule.DeleteManagedRewardWhenInactive,
             ChatCommandEnabled = rule.ChatCommandEnabled,
             ChatCommandText = rule.ChatCommandText ?? string.Empty,
             ChatCommandPermission = Enum.IsDefined(rule.ChatCommandPermission)
@@ -927,6 +929,7 @@ public sealed class SettingsStore
             RewardCost = rule.RewardCost,
             ManagedRewardReadyColor = rule.ManagedRewardReadyColor,
             ManagedRewardCooldownColor = rule.ManagedRewardCooldownColor,
+            DeleteManagedRewardWhenInactive = rule.DeleteManagedRewardWhenInactive,
             MinimumBits = rule.MinimumBits,
             MaximumBits = rule.MaximumBits,
             SubscriptionTier = rule.SubscriptionTier,
@@ -973,6 +976,7 @@ public sealed class SettingsStore
             RewardCost = rule.RewardCost <= 0 ? 100 : rule.RewardCost,
             ManagedRewardReadyColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(rule.ManagedRewardReadyColor),
             ManagedRewardCooldownColor = ManagedRewardPresentation.NormalizeCooldownBackgroundColor(rule.ManagedRewardCooldownColor),
+            DeleteManagedRewardWhenInactive = rule.DeleteManagedRewardWhenInactive,
             MinimumBits = rule.MinimumBits <= 0 ? 1 : rule.MinimumBits,
             MaximumBits = rule.MaximumBits <= 0 ? Math.Max(1, rule.MinimumBits) : rule.MaximumBits,
             SubscriptionTier = rule.SubscriptionTier ?? string.Empty,
@@ -1681,6 +1685,8 @@ public sealed class SettingsStore
 
         public string? ManagedRewardCooldownColor { get; set; }
 
+        public bool DeleteManagedRewardWhenInactive { get; set; }
+
         public bool ChatCommandEnabled { get; set; }
 
         public string? ChatCommandText { get; set; }
@@ -1771,6 +1777,8 @@ public sealed class SettingsStore
         public string? ManagedRewardReadyColor { get; set; }
 
         public string? ManagedRewardCooldownColor { get; set; }
+
+        public bool DeleteManagedRewardWhenInactive { get; set; }
 
         public int MinimumBits { get; set; }
 

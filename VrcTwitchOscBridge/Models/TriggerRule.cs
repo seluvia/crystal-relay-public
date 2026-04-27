@@ -22,6 +22,7 @@ public sealed class TriggerRule : ObservableObject
     private int channelPointRewardCost = 100;
     private string managedRewardReadyColor = ManagedRewardPresentation.ReadyBackgroundColor;
     private string managedRewardCooldownColor = ManagedRewardPresentation.InUseBackgroundColor;
+    private bool deleteManagedRewardWhenInactive;
     private bool chatCommandEnabled;
     private string chatCommandText = string.Empty;
     private ChatCommandPermission chatCommandPermission = ChatCommandPermission.Moderators;
@@ -165,6 +166,18 @@ public sealed class TriggerRule : ObservableObject
             if (SetProperty(ref managedRewardCooldownColor, normalizedValue))
             {
                 RaisePropertyChanged(nameof(ManagedRewardCooldownColorBrush));
+            }
+        }
+    }
+
+    public bool DeleteManagedRewardWhenInactive
+    {
+        get => deleteManagedRewardWhenInactive;
+        set
+        {
+            if (SetProperty(ref deleteManagedRewardWhenInactive, value))
+            {
+                RaisePropertyChanged(nameof(TriggerSummary));
             }
         }
     }
