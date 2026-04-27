@@ -39,6 +39,8 @@
     "Delete Universal":  "Delete Universal",
     "Delete Universal Trigger":  "Delete Universal Trigger",
     "Delete Universal Triggers":  "Delete Universal Triggers",
+    "Delete Twitch reward when inactive":  "비활성 상태일 때 Twitch 보상 삭제",
+    "Frees Twitch reward slots. Crystal Relay will recreate or relink this reward when it becomes active again.":  "Twitch 보상 슬롯을 비웁니다. 다시 활성화되면 Crystal Relay가 이 보상을 다시 만들거나 다시 연결합니다.",
     "Delete every universal trigger? This does not delete Avatar Sets, Movement Redeems, Avatar Change, or Bits + Subs overrides.":  "Delete every universal trigger? This does not delete Avatar Sets, Movement Redeems, Avatar Change, or Bits + Subs overrides.",
     "Duration":  "Duration",
     "Enabled":  "Enabled",

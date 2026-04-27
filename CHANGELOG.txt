@@ -3,6 +3,11 @@ Crystal Relay Changelog
 
 Newest updates appear first. This changelog focuses on the changes users will notice most.
 
+v2.9.2
+- Added an optional managed reward cleanup setting that can delete inactive Crystal Relay Twitch rewards instead of only hiding them, helping avoid Twitch's 50 custom reward limit.
+- The cleanup option is available on Avatar Sets, Avatar Change, Movement Redeems, and Universal channel-point rewards, and Crystal Relay recreates or relinks those rewards when they become active again.
+- Cooldown and temporary in-use reward states are preserved so active reward flows do not churn Twitch rewards.
+
 v2.9.1
 - Added the new Carrot Patch theme with strawberry cream, chocolate brown, waffle-cone tan, and berry-red dessert styling.
 - Fixed themed dialog action buttons so longer labels like Open Fooma Page no longer clip.

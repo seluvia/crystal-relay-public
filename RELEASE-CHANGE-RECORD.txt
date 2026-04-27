@@ -7,8 +7,8 @@ Purpose:
 - This file is for internal release prep and record-keeping. It should stay out of the public repo unless you explicitly choose otherwise.
 
 Current Baseline:
-- Last published version: v2.9.0
-- Current working source version: v2.9.1
+- Last published version: v2.9.1
+- Current working source version: v2.9.2
 
 How To Use:
 1. Add new lines under Added, Changed, or Removed while work is happening.
@@ -17,16 +17,16 @@ How To Use:
 4. After the release is published, update the baseline version and clear the pending draft section for the next release.
 
 Pending Release Draft
-- Target version: v2.9.1
+- Target version: v2.9.2
 - Release date: 2026-04-27
 - Build status: Release package built; GitHub publish pending
 
 Added:
-- Added the new Carrot Patch theme with strawberry cream, chocolate brown, waffle-cone tan, and berry-red dessert styling.
+- Added an optional managed reward cleanup setting that deletes inactive Crystal Relay Twitch rewards instead of only hiding them, helping avoid Twitch's 50 custom reward limit.
 
 Changed:
-- Themed dialog action buttons now grow to fit longer labels, fixing the clipped Open Fooma Page button.
-- Public README now lists and describes the current Carrot Patch theme.
+- The cleanup option is available on Avatar Sets, Avatar Change, Movement Redeems, and Universal channel-point rewards.
+- Cooldown and temporary in-use reward states are preserved so active reward flows do not churn Twitch rewards.
 
 Removed:
 - None yet.
