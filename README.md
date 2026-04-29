@@ -14,6 +14,12 @@ New to Crystal Relay? Watch the visual walkthrough to see the basic setup flow, 
 
 ---
 
+## Open Source and AI Transparency
+
+Crystal Relay was made with help from AI tools, alongside hands-on testing, direction, design choices, and project care from its creator.
+
+That is shared openly because there is nothing to hide here. This project is meant to be transparent, open source, and useful for the VRChat streaming community. Programmers are welcome to study it, improve it properly, or make their own versions so better Twitch-to-VRChat tools can exist for more streamers.
+
 ## What Crystal Relay Handles
 
 - **Twitch triggers:** Channel Points, Chat Commands, Bits, Subscriptions, Gift Subs, and Follows
