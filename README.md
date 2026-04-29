@@ -186,6 +186,14 @@ Packaged Windows builds are published on the public GitHub Releases page:
 
 [Crystal Relay Releases](https://github.com/seluvia/crystal-relay-public/releases)
 
+## License
+
+Crystal Relay is licensed under the **GNU General Public License v3.0 or later** (`GPL-3.0-or-later`).
+
+You are welcome to use, study, share, and modify the source code under the GPL. If you distribute a modified version, you must keep it under the same GPL terms and provide the corresponding source code. See [LICENSE](LICENSE) for the full license text.
+
+The license protects the source code. The Crystal Relay name, project identity, and branding should not be used to imply that an unofficial fork or modified build is the official Crystal Relay release.
+
 ## Versioning
 
 Crystal Relay uses `major.minor.patch` with decimal rollovers per segment.
