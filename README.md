@@ -20,6 +20,17 @@ Crystal Relay was made with help from AI tools, alongside hands-on testing, dire
 
 That is shared openly because there is nothing to hide here. This project is meant to be transparent, open source, and useful for the VRChat streaming community. Programmers are welcome to study it, improve it properly, or make their own versions so better Twitch-to-VRChat tools can exist for more streamers.
 
+## Network and Privacy Basics
+
+Crystal Relay uses standard network connections only for the services needed to run:
+
+- **Twitch:** Outbound HTTPS for Twitch login, Helix API calls, reward management, emote data, and optional bot chat sends. Live Twitch events are received through Twitch EventSub over WebSocket.
+- **VRChat:** Outbound HTTPS for VRChat login, 2FA, logout, and avatar list refreshes. Runtime avatar control uses local OSC and OSCQuery traffic between Crystal Relay and the running VRChat client.
+- **GitHub:** Outbound HTTPS to the public Crystal Relay releases API so the app can check whether a newer version is available.
+- **Local machine:** OSC and OSCQuery use local UDP/TCP ports for VRChat discovery, avatar parameters, movement inputs, avatar changes, and chatbox messages. This is local app-to-VRChat communication, not a public remote-control server.
+
+Crystal Relay does not publish Twitch tokens, VRChat auth cookies, private IP addresses, local usernames, downloaded VRChat avatar files, or runtime app data into the README or public repository. Login/session secrets are stored locally through Windows Credential Manager, and runtime caches stay in the user's local app data folder.
+
 ## What Crystal Relay Handles
 
 - **Twitch triggers:** Channel Points, Chat Commands, Bits, Subscriptions, Gift Subs, and Follows
