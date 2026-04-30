@@ -17,5 +17,6 @@ public enum AppTheme
     TrashKitty,
     CarrotPatch,
     TreetendersArm,
-    Bratwurst
+    Bratwurst,
+    StinkyOnline
 }

@@ -482,6 +482,7 @@ public partial class MainWindow : Window
             AppTheme.MoonBunnyWink => "ThemeBackgrounds/MoonBunnyWinkThemeBackground.xaml",
             AppTheme.DreadNightBar => "ThemeBackgrounds/DreadNightBarThemeBackground.xaml",
             AppTheme.Baked => "ThemeBackgrounds/BakedThemeBackground.xaml",
+            AppTheme.StinkyOnline => "ThemeBackgrounds/StinkyOnlineThemeBackground.xaml",
             _ => "ThemeBackgrounds/VoidCrystalThemeBackground.xaml"
         };
 
