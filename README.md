@@ -98,7 +98,9 @@ Universal Triggers are for broader Twitch interaction setups that should live ou
 - Supports **Chat Commands**, **Channel Point Rewards**, **Bits**, **Subscriptions**, **Gift Subscriptions**, and **Follows**.
 - Fuses matching `!command` entries into their matching Channel Point reward so one card can handle both trigger paths.
 - Sends direct OSC action lists, with optional random action selection and queued activations.
-- Keeps Universal channel-point rewards managed by Crystal Relay while still showing current-avatar parameter readiness.
+- Keeps Universal Channel Point rewards outside Avatar Sets, so they are not tied to a configured avatar profile.
+- For Universal rewards that send `/avatar/parameters/...` actions, Crystal Relay checks the local OSC JSON for the avatar VRChat is currently running. If at least one needed parameter path is found, the reward can be made available on Twitch; if the path is missing or the JSON is not ready, the reward stays hidden/off instead of being offered.
+- Universal actions that do not target avatar-parameter paths do not need this parameter gate.
 
 Need the Fooma Twitch Interaction system? Get it here:
 
