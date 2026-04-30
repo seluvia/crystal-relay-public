@@ -13,6 +13,12 @@ public sealed record TwitchAccountSnapshot(
     DateTimeOffset? SessionRenewalDueAt,
     IReadOnlyList<string> Scopes);
 
+public sealed record SetTriggerActionSnapshot(
+    Guid Id,
+    string ParameterName,
+    OscParameterType ParameterType,
+    string ParameterValue);
+
 public sealed record TriggerRuleSnapshot(
     Guid Id,
     bool IsEnabled,
@@ -22,6 +28,9 @@ public sealed record TriggerRuleSnapshot(
     string AvatarProfileName,
     string RequiredAvatarId,
     string RequiredAvatarName,
+    Guid SupporterAvatarProfileId,
+    string SupporterAvatarId,
+    string SupporterAvatarName,
     bool BelongsToMasterAvatarProfile,
     TwitchTriggerType TriggerType,
     string ChannelPointRewardId,
@@ -58,6 +67,10 @@ public sealed record TriggerRuleSnapshot(
     int RangeMaximum,
     int DurationSeconds,
     int CooldownSeconds,
+    bool SharedRewardChoiceEnabled,
+    int SharedRewardChoiceNumber,
+    string SharedRewardHelpText,
+    IReadOnlyList<SetTriggerActionSnapshot> SetTriggerActions,
     IReadOnlyList<Guid> TemporarilyDisabledRuleIds,
     string BotMessageTemplate);
 
@@ -92,6 +105,59 @@ public sealed record UniversalTriggerRuleSnapshot(
     string ImportSource,
     IReadOnlyList<UniversalTriggerActionSnapshot> Actions);
 
+public sealed record AvatarScaleBitGrowthRangeSnapshot(
+    int MinimumBits,
+    int MaximumBits,
+    double HeightAddedMeters);
+
+public sealed record AvatarScaleMasterRewardSnapshot(
+    bool IsEnabled,
+    string RewardId,
+    string RewardTitle,
+    int UnlockDurationSeconds,
+    int CooldownSeconds,
+    bool PreventAvatarChangesDuringActiveScaling);
+
+public sealed record AvatarScaleRuleSnapshot(
+    Guid Id,
+    bool IsEnabled,
+    string Name,
+    AvatarScaleTriggerType TriggerType,
+    bool ChatCommandEnabled,
+    string CommandText,
+    ChatCommandPermission ChatCommandPermission,
+    string RewardId,
+    string RewardTitle,
+    int MinimumBits,
+    int MaximumBits,
+    string SubscriptionTier,
+    int MinimumMonths,
+    int MaximumMonths,
+    int CooldownSeconds,
+    IReadOnlyList<Guid> TemporarilyDisabledRuleIds,
+    AvatarScaleMode ScaleMode,
+    double TargetHeightMeters,
+    double MinimumHeightMeters,
+    double MaximumHeightMeters,
+    double RelativeHeightMeters,
+    double RelativeMinimumHeightMeters,
+    double RelativeMaximumHeightMeters,
+    double HeightMultiplier,
+    AvatarScalePreset Preset,
+    double ActiveTimeSeconds,
+    AvatarScaleRestoreMode RestoreMode,
+    double RestoreHeightMeters,
+    double SmoothTransitionSeconds,
+    bool AdvancedRangeEnabled,
+    bool BypassVrChatScaleLimits,
+    double SupporterGrowthNormalHeightMeters,
+    double SupporterGrowthMaxAddedHeightMeters,
+    int SupporterGrowthInactivityTimerSeconds,
+    double SupporterGrowthTier1HeightMeters,
+    double SupporterGrowthTier2HeightMeters,
+    double SupporterGrowthTier3HeightMeters,
+    IReadOnlyList<AvatarScaleBitGrowthRangeSnapshot> SupporterGrowthBitRanges);
+
 public sealed record BridgeRuntimeConfiguration(
     string TwitchClientId,
     TwitchAccountSnapshot Broadcaster,
@@ -101,17 +167,23 @@ public sealed record BridgeRuntimeConfiguration(
     string SharedReturnAvatarName,
     bool ChatboxOscEnabled,
     int ChatboxOscDelaySeconds,
+    bool UseBroadcasterAsBotSender,
     bool SupporterOverrideInfoMessageEnabled,
+    bool TriggerInfoAnnouncementsEnabled,
+    int TriggerInfoAnnouncementIntervalMinutes,
     bool ChannelPointRewardTestModeEnabled,
     bool EmergencyRedeemStopEnabled,
     bool DesktopModeInputLockEnabled,
+    AvatarScaleMasterRewardSnapshot AvatarScaleMasterReward,
     IReadOnlyList<TriggerRuleSnapshot> Rules,
-    IReadOnlyList<UniversalTriggerRuleSnapshot> UniversalTriggers)
+    IReadOnlyList<UniversalTriggerRuleSnapshot> UniversalTriggers,
+    IReadOnlyList<AvatarScaleRuleSnapshot> AvatarScaleRules)
 {
     public static BridgeRuntimeConfiguration FromSettings(AppSettings settings, RuntimeConfig runtimeConfig)
     {
         var rules = new List<TriggerRuleSnapshot>();
         var universalTriggers = new List<UniversalTriggerRuleSnapshot>();
+        var avatarScaleRules = new List<AvatarScaleRuleSnapshot>();
         var masterProfile = settings.AvatarProfiles.FirstOrDefault(profile => profile.IsMasterProfile);
 
         foreach (var profile in settings.AvatarProfiles)
@@ -127,7 +199,10 @@ public sealed record BridgeRuntimeConfiguration(
 
         foreach (var rule in settings.GlobalOverrideRules)
         {
-            if (TryToSnapshot(rule, isGlobalOverride: true, profile: null, out var snapshot))
+            var supporterProfile = rule.SupporterAvatarProfileId == Guid.Empty
+                ? null
+                : settings.AvatarProfiles.FirstOrDefault(profile => profile.Id == rule.SupporterAvatarProfileId);
+            if (TryToSnapshot(rule, isGlobalOverride: true, supporterProfile, out var snapshot))
             {
                 rules.Add(snapshot);
             }
@@ -149,6 +224,17 @@ public sealed record BridgeRuntimeConfiguration(
             }
         }
 
+        var configuredScaleRules = settings.AvatarScaleSets.Count > 0
+            ? settings.AvatarScaleSets.SelectMany(set => set.ScaleRules)
+            : settings.AvatarScaleRules;
+        foreach (var scaleRule in configuredScaleRules)
+        {
+            if (TryToAvatarScaleSnapshot(scaleRule, requireTriggerFilter: true, out var snapshot))
+            {
+                avatarScaleRules.Add(snapshot);
+            }
+        }
+
         return new BridgeRuntimeConfiguration(
             runtimeConfig.TwitchClientId.Trim(),
             ToSnapshot(settings.Broadcaster),
@@ -158,12 +244,17 @@ public sealed record BridgeRuntimeConfiguration(
             masterProfile?.AvatarName.Trim() ?? string.Empty,
             settings.ChatboxOscEnabled,
             settings.ChatboxOscDelaySeconds,
+            settings.UseBroadcasterAsBotSender,
             settings.SupporterOverrideInfoMessageEnabled,
+            settings.TriggerInfoAnnouncementsEnabled,
+            Math.Max(1, settings.TriggerInfoAnnouncementIntervalMinutes),
             settings.ChannelPointRewardTestModeEnabled,
             settings.EmergencyRedeemStopEnabled,
             settings.DesktopModeInputLockEnabled,
+            ToAvatarScaleMasterRewardSnapshot(settings.AvatarScaleMasterReward),
             rules.ToArray(),
-            universalTriggers.ToArray());
+            universalTriggers.ToArray(),
+            avatarScaleRules.ToArray());
     }
 
     public static TwitchAccountSnapshot ToSnapshot(TwitchAccountSettings settings)
@@ -219,6 +310,16 @@ public sealed record BridgeRuntimeConfiguration(
         return snapshot;
     }
 
+    public static AvatarScaleRuleSnapshot CreateManualTestSnapshot(AvatarScaleRule rule)
+    {
+        if (!TryToAvatarScaleSnapshot(rule, requireTriggerFilter: false, out var snapshot))
+        {
+            throw new InvalidOperationException("Finish the avatar scale setup before testing this scale redeem.");
+        }
+
+        return snapshot;
+    }
+
     private static bool TryToSnapshot(
         TriggerRule rule,
         bool isGlobalOverride,
@@ -227,7 +328,7 @@ public sealed record BridgeRuntimeConfiguration(
     {
         snapshot = default!;
 
-        if (!IsLiveRuntimeReady(rule))
+        if (!IsLiveRuntimeReady(rule, profile, isGlobalOverride))
         {
             return false;
         }
@@ -241,6 +342,45 @@ public sealed record BridgeRuntimeConfiguration(
         bool isGlobalOverride,
         AvatarTriggerProfile? profile)
     {
+        var usesSetTriggerMasterReward = !isGlobalOverride
+            && rule.ActionType == OscActionType.SetTrigger
+            && profile is not null;
+        var channelPointRewardId = usesSetTriggerMasterReward
+            ? profile!.SetTriggerMasterRewardId.Trim()
+            : rule.ChannelPointRewardId.Trim();
+        var channelPointRewardTitle = usesSetTriggerMasterReward
+            ? profile!.SetTriggerMasterRewardTitle.Trim()
+            : rule.ChannelPointRewardTitle.Trim();
+        var readyColor = usesSetTriggerMasterReward
+            ? profile!.SetTriggerMasterRewardReadyColor
+            : rule.ManagedRewardReadyColor;
+        var cooldownColor = usesSetTriggerMasterReward
+            ? profile!.SetTriggerMasterRewardCooldownColor
+            : rule.ManagedRewardCooldownColor;
+        var cooldownSeconds = usesSetTriggerMasterReward
+            ? profile!.SetTriggerMasterRewardCooldownSeconds
+            : rule.CooldownSeconds;
+        var supporterAvatarId = isGlobalOverride ? rule.SupporterAvatarId.Trim() : string.Empty;
+        var supporterAvatarName = isGlobalOverride ? rule.SupporterAvatarName.Trim() : string.Empty;
+        if (isGlobalOverride
+            && string.IsNullOrWhiteSpace(supporterAvatarId)
+            && profile is not null
+            && !string.IsNullOrWhiteSpace(profile.AvatarId))
+        {
+            supporterAvatarId = profile.AvatarId.Trim();
+            supporterAvatarName = profile.AvatarName.Trim();
+        }
+
+        var avatarScopedSupporterRule = isGlobalOverride
+            && rule.TriggerType is TwitchTriggerType.Bits or TwitchTriggerType.Subscriptions
+            && rule.ActionType is not (OscActionType.AvatarChange or OscActionType.AvatarRoulet);
+        var requiredAvatarId = avatarScopedSupporterRule
+            ? supporterAvatarId
+            : profile?.AvatarId.Trim() ?? string.Empty;
+        var requiredAvatarName = avatarScopedSupporterRule
+            ? supporterAvatarName
+            : profile?.AvatarName.Trim() ?? string.Empty;
+
         return new TriggerRuleSnapshot(
             rule.Id,
             (profile?.IsEnabled ?? true) && rule.IsEnabled,
@@ -248,14 +388,17 @@ public sealed record BridgeRuntimeConfiguration(
             isGlobalOverride,
             profile?.Id ?? Guid.Empty,
             profile?.Name.Trim() ?? string.Empty,
-            profile?.AvatarId.Trim() ?? string.Empty,
-            profile?.AvatarName.Trim() ?? string.Empty,
+            requiredAvatarId,
+            requiredAvatarName,
+            isGlobalOverride ? rule.SupporterAvatarProfileId : Guid.Empty,
+            supporterAvatarId,
+            supporterAvatarName,
             profile?.IsMasterProfile ?? false,
             rule.TriggerType,
-            rule.ChannelPointRewardId.Trim(),
-            rule.ChannelPointRewardTitle.Trim(),
-            ManagedRewardPresentation.NormalizeReadyBackgroundColor(rule.ManagedRewardReadyColor),
-            ManagedRewardPresentation.NormalizeCooldownBackgroundColor(rule.ManagedRewardCooldownColor),
+            channelPointRewardId,
+            channelPointRewardTitle,
+            ManagedRewardPresentation.NormalizeReadyBackgroundColor(readyColor),
+            ManagedRewardPresentation.NormalizeCooldownBackgroundColor(cooldownColor),
             rule.ChatCommandEnabled,
             ChatCommandUtility.Normalize(rule.ChatCommandText),
             rule.ChatCommandPermission,
@@ -285,9 +428,25 @@ public sealed record BridgeRuntimeConfiguration(
             rule.RangeMinimum,
             rule.RangeMaximum,
             rule.DurationSeconds,
-            rule.CooldownSeconds,
+            cooldownSeconds,
+            rule.SharedRewardChoiceEnabled,
+            Math.Max(0, rule.SharedRewardChoiceNumber),
+            rule.SharedRewardHelpText.Trim(),
+            [.. rule.SetTriggerActions.Select(ToSetTriggerActionSnapshot).Where(action => HasAvatarParameterPath(action.ParameterName) && !string.IsNullOrWhiteSpace(action.ParameterValue))],
             [.. rule.TemporarilyDisabledRuleIds.Where(ruleId => ruleId != Guid.Empty).Distinct()],
             rule.BotMessageTemplate.Trim());
+    }
+
+    private static SetTriggerActionSnapshot ToSetTriggerActionSnapshot(SetTriggerAction action)
+    {
+        var normalizedType = action.ParameterType is OscParameterType.Bool or OscParameterType.Int or OscParameterType.Float
+            ? action.ParameterType
+            : OscParameterType.Int;
+        return new SetTriggerActionSnapshot(
+            action.Id == Guid.Empty ? Guid.NewGuid() : action.Id,
+            action.ParameterName.Trim(),
+            normalizedType,
+            action.ParameterValue.Trim());
     }
 
     private static bool TryToUniversalSnapshot(
@@ -348,13 +507,105 @@ public sealed record BridgeRuntimeConfiguration(
             action.ImportGroupKey.Trim());
     }
 
-    private static bool IsLiveRuntimeReady(TriggerRule rule)
+    private static bool TryToAvatarScaleSnapshot(
+        AvatarScaleRule rule,
+        bool requireTriggerFilter,
+        out AvatarScaleRuleSnapshot snapshot)
+    {
+        snapshot = default!;
+        if (requireTriggerFilter && !IsAvatarScaleTriggerFilterReady(rule))
+        {
+            return false;
+        }
+
+        if (!IsAvatarScaleActionReady(rule))
+        {
+            return false;
+        }
+
+        snapshot = new AvatarScaleRuleSnapshot(
+            rule.Id == Guid.Empty ? Guid.NewGuid() : rule.Id,
+            rule.IsEnabled,
+            string.IsNullOrWhiteSpace(rule.DisplayTitle) ? "Avatar Scale" : rule.DisplayTitle.Trim(),
+            rule.TriggerType,
+            rule.ChatCommandEnabled,
+            ChatCommandUtility.Normalize(rule.CommandText),
+            rule.ChatCommandPermission,
+            rule.RewardId.Trim(),
+            rule.RewardTitle.Trim(),
+            Math.Max(1, rule.MinimumBits),
+            Math.Max(1, rule.MaximumBits),
+            rule.SubscriptionTier.Trim(),
+            rule.MinimumMonths,
+            rule.MaximumMonths,
+            Math.Max(0, rule.CooldownSeconds),
+            [.. rule.TemporarilyDisabledScaleRuleIds.Where(ruleId => ruleId != Guid.Empty).Distinct()],
+            rule.ScaleMode,
+            ClampScaleHeight(rule.TargetHeightMeters, rule.AdvancedRangeEnabled),
+            ClampScaleHeight(rule.MinimumHeightMeters, rule.AdvancedRangeEnabled),
+            ClampScaleHeight(rule.MaximumHeightMeters, rule.AdvancedRangeEnabled),
+            ClampRelativeScaleHeight(rule.RelativeHeightMeters, rule.AdvancedRangeEnabled),
+            ClampScaleHeight(rule.RelativeMinimumHeightMeters, rule.AdvancedRangeEnabled),
+            ClampScaleHeight(rule.RelativeMaximumHeightMeters, rule.AdvancedRangeEnabled),
+            Math.Clamp(rule.HeightMultiplier, 0.01, AvatarScaleRule.AdvancedMaximumHeightMeters),
+            rule.Preset,
+            Math.Max(0, rule.ActiveTimeSeconds),
+            AvatarScaleRestoreMode.ConfiguredHeight,
+            ClampScaleHeight(rule.RestoreHeightMeters, rule.AdvancedRangeEnabled),
+            Math.Clamp(rule.SmoothTransitionSeconds, 0, 30),
+            rule.AdvancedRangeEnabled,
+            rule.BypassVrChatScaleLimits,
+            ClampScaleHeight(rule.SupporterGrowthNormalHeightMeters, rule.AdvancedRangeEnabled),
+            ClampRelativeScaleHeight(rule.SupporterGrowthMaxAddedHeightMeters, rule.AdvancedRangeEnabled),
+            Math.Max(1, rule.SupporterGrowthInactivityTimerSeconds),
+            Math.Max(0, rule.SupporterGrowthTier1HeightMeters),
+            Math.Max(0, rule.SupporterGrowthTier2HeightMeters),
+            Math.Max(0, rule.SupporterGrowthTier3HeightMeters),
+            [.. rule.SupporterGrowthBitRanges.Select(ToAvatarScaleBitGrowthRangeSnapshot)]);
+        return true;
+    }
+
+    private static AvatarScaleMasterRewardSnapshot ToAvatarScaleMasterRewardSnapshot(
+        AvatarScaleMasterRewardSettings settings)
+    {
+        return new AvatarScaleMasterRewardSnapshot(
+            settings.IsEnabled,
+            settings.RewardId.Trim(),
+            settings.RewardTitle.Trim(),
+            Math.Max(1, settings.UnlockDurationSeconds),
+            Math.Max(0, settings.CooldownSeconds),
+            settings.PreventAvatarChangesDuringActiveScaling);
+    }
+
+    private static AvatarScaleBitGrowthRangeSnapshot ToAvatarScaleBitGrowthRangeSnapshot(AvatarScaleBitGrowthRange range)
+    {
+        return new AvatarScaleBitGrowthRangeSnapshot(
+            Math.Max(1, range.MinimumBits),
+            Math.Max(0, range.MaximumBits),
+            Math.Max(0, range.HeightAddedMeters));
+    }
+
+    private static bool IsLiveRuntimeReady(TriggerRule rule, AvatarTriggerProfile? profile, bool isGlobalOverride)
     {
         var hasChatCommandFallback = rule.ChatCommandEnabled && ChatCommandUtility.IsConfigured(rule.ChatCommandText);
+        var hasChannelPointRewardIdentity = rule.ActionType == OscActionType.SetTrigger && profile is not null
+            ? !string.IsNullOrWhiteSpace(profile.SetTriggerMasterRewardId)
+                || !string.IsNullOrWhiteSpace(profile.SetTriggerMasterRewardTitle)
+            : !string.IsNullOrWhiteSpace(rule.ChannelPointRewardId)
+                || !string.IsNullOrWhiteSpace(rule.ChannelPointRewardTitle);
+
         if (rule.TriggerType == TwitchTriggerType.ChannelPoints
             && !hasChatCommandFallback
-            && string.IsNullOrWhiteSpace(rule.ChannelPointRewardId)
-            && string.IsNullOrWhiteSpace(rule.ChannelPointRewardTitle))
+            && !hasChannelPointRewardIdentity)
+        {
+            return false;
+        }
+
+        if (isGlobalOverride
+            && rule.TriggerType is TwitchTriggerType.Bits or TwitchTriggerType.Subscriptions
+            && rule.ActionType is not (OscActionType.AvatarChange or OscActionType.AvatarRoulet)
+            && string.IsNullOrWhiteSpace(rule.SupporterAvatarId)
+            && string.IsNullOrWhiteSpace(profile?.AvatarId))
         {
             return false;
         }
@@ -375,11 +626,60 @@ public sealed record BridgeRuntimeConfiguration(
         };
     }
 
+    private static bool IsAvatarScaleTriggerFilterReady(AvatarScaleRule rule)
+    {
+        return rule.TriggerType switch
+        {
+            AvatarScaleTriggerType.ChatCommand => ChatCommandUtility.IsConfigured(rule.CommandText),
+            AvatarScaleTriggerType.ChannelPointReward => !string.IsNullOrWhiteSpace(rule.RewardId)
+                || !string.IsNullOrWhiteSpace(rule.RewardTitle),
+            AvatarScaleTriggerType.Bits => Math.Max(1, rule.MaximumBits) >= Math.Max(1, rule.MinimumBits),
+            AvatarScaleTriggerType.SupporterGrowth => true,
+            AvatarScaleTriggerType.Subscription or AvatarScaleTriggerType.GiftSubscription or AvatarScaleTriggerType.Follow => true,
+            _ => false
+        };
+    }
+
+    private static bool IsAvatarScaleActionReady(AvatarScaleRule rule)
+    {
+        return rule.ScaleMode switch
+        {
+            AvatarScaleMode.RandomHeight => Math.Max(rule.MinimumHeightMeters, rule.MaximumHeightMeters) >= Math.Min(rule.MinimumHeightMeters, rule.MaximumHeightMeters),
+            AvatarScaleMode.Multiplier => rule.HeightMultiplier > 0,
+            _ => true
+        };
+    }
+
+    private static double ClampScaleHeight(double value, bool advancedRangeEnabled)
+    {
+        if (double.IsNaN(value) || double.IsInfinity(value))
+        {
+            return 1.6;
+        }
+
+        return Math.Clamp(
+            value,
+            advancedRangeEnabled ? AvatarScaleRule.AdvancedMinimumHeightMeters : AvatarScaleRule.SafeMinimumHeightMeters,
+            advancedRangeEnabled ? AvatarScaleRule.AdvancedMaximumHeightMeters : AvatarScaleRule.SafeMaximumHeightMeters);
+    }
+
+    private static double ClampRelativeScaleHeight(double value, bool advancedRangeEnabled)
+    {
+        if (double.IsNaN(value) || double.IsInfinity(value))
+        {
+            return 0;
+        }
+
+        var limit = advancedRangeEnabled ? AvatarScaleRule.AdvancedMaximumHeightMeters : AvatarScaleRule.SafeMaximumHeightMeters;
+        return Math.Clamp(value, -limit, limit);
+    }
+
     private static bool IsManualTestReady(TriggerRule rule)
     {
         return rule.ActionType switch
         {
-            OscActionType.AvatarParameter => HasAvatarParameterPath(rule.ParameterName),
+            OscActionType.AvatarParameter => IsAvatarParameterRuleReady(rule),
+            OscActionType.SetTrigger => IsSetTriggerRuleReady(rule),
             OscActionType.AvatarChange => !string.IsNullOrWhiteSpace(rule.AvatarChangeTargetId),
             OscActionType.AvatarRoulet => rule.AvatarRouletAvatarIds.Any(avatarId => !string.IsNullOrWhiteSpace(avatarId)),
             OscActionType.PlayerMovement => IsSupportedMovementDirection(rule.MovementDirection),
@@ -389,18 +689,85 @@ public sealed record BridgeRuntimeConfiguration(
 
     private static string GetManualTestReadinessError(TriggerRule rule) => rule.ActionType switch
     {
-        OscActionType.AvatarParameter => "Pick a valid VRChat parameter first before testing this rule.",
+        OscActionType.AvatarParameter => "Pick a valid VRChat parameter and trigger/reset value before testing this rule.",
+        OscActionType.SetTrigger => "Add at least one complete Set Trigger parameter before testing this rule.",
         OscActionType.AvatarChange => "Pick the avatar target first before testing this rule.",
         OscActionType.AvatarRoulet => "Pick at least one avatar for the roulette pool before testing this rule.",
         OscActionType.PlayerMovement => "Pick a supported movement action first before testing this rule.",
         _ => "Finish the rule action setup before testing this rule."
     };
 
+    private static bool IsAvatarParameterRuleReady(TriggerRule rule)
+    {
+        if (!HasAvatarParameterPath(rule.ParameterName)
+            || string.IsNullOrWhiteSpace(rule.ParameterValue))
+        {
+            return false;
+        }
+
+        try
+        {
+            var oscClient = new VrChatOscClient();
+            _ = oscClient.BuildAvatarParameterPacket(rule.ParameterName, rule.ParameterType, rule.ParameterValue);
+            if (rule.DurationSeconds > 0)
+            {
+                if (string.IsNullOrWhiteSpace(rule.ResetValue))
+                {
+                    return false;
+                }
+
+                _ = oscClient.BuildAvatarParameterPacket(rule.ParameterName, rule.ParameterType, rule.ResetValue);
+            }
+
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool IsSetTriggerRuleReady(TriggerRule rule)
+    {
+        if (!rule.SetTriggerActions.Any(IsSetTriggerActionReady))
+        {
+            return false;
+        }
+
+        return rule.TriggerType switch
+        {
+            TwitchTriggerType.ChannelPoints => rule.SharedRewardChoiceEnabled && rule.SharedRewardChoiceNumber > 0,
+            TwitchTriggerType.Bits => !string.IsNullOrWhiteSpace(rule.SharedRewardHelpText),
+            _ => false
+        };
+    }
+
+    private static bool IsSetTriggerActionReady(SetTriggerAction action)
+    {
+        if (action.ParameterType is not (OscParameterType.Bool or OscParameterType.Int or OscParameterType.Float)
+            || !HasAvatarParameterPath(action.ParameterName)
+            || string.IsNullOrWhiteSpace(action.ParameterValue))
+        {
+            return false;
+        }
+
+        try
+        {
+            _ = new VrChatOscClient().BuildAvatarParameterPacket(action.ParameterName, action.ParameterType, action.ParameterValue);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     private static bool IsSupportedMovementDirection(PlayerMovementDirection direction) => direction is
         PlayerMovementDirection.Forward
         or PlayerMovementDirection.Backward
         or PlayerMovementDirection.Left
         or PlayerMovementDirection.Right
+        or PlayerMovementDirection.Jump
         or PlayerMovementDirection.SpinLeft
         or PlayerMovementDirection.SpinRight;
 

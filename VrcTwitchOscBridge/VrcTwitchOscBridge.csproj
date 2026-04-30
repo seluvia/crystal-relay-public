@@ -69,12 +69,14 @@
     <Compile Include="Models\AppLanguage.cs" />
     <Compile Include="Models\AppSettings.cs" />
     <Compile Include="Models\AvatarTriggerProfile.cs" />
+    <Compile Include="Models\AvatarScaleRule.cs" />
     <Compile Include="Models\ChatCommandPermission.cs" />
     <Compile Include="Models\ChatCommandUtility.cs" />
     <Compile Include="Models\IntZeroDurationMode.cs" />
     <Compile Include="Models\OscActionType.cs" />
     <Compile Include="Models\OscParameterType.cs" />
     <Compile Include="Models\PlayerMovementDirection.cs" />
+    <Compile Include="Models\SetTriggerAction.cs" />
     <Compile Include="Models\TriggerRule.cs" />
     <Compile Include="Models\TwitchAccountSettings.cs" />
     <Compile Include="Models\TwitchTriggerType.cs" />
@@ -111,6 +113,7 @@
     <Compile Include="Services\UniversalTriggerFusionService.cs" />
     <Compile Include="Services\VrChatApiClient.cs" />
     <Compile Include="Services\VrChatApiException.cs" />
+    <Compile Include="Services\VrChatLocalAvatarDataService.cs" />
     <Compile Include="Services\VrChatLocalClientStateService.cs" />
     <Compile Include="Services\VrChatLocalOscCacheService.cs" />
     <Compile Include="Services\VrChatOscClient.cs" />

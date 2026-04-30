@@ -368,6 +368,11 @@ public sealed class SettingsStore
             settings.GlobalMovementRules = new ObservableCollection<TriggerRule>((profile.GlobalMovementRules ?? []).Select(ToRule));
             settings.GlobalOverrideRules = new ObservableCollection<TriggerRule>((profile.GlobalOverrideRules ?? []).Select(ToRule));
             settings.UniversalTriggers = new ObservableCollection<UniversalTriggerRule>((profile.UniversalTriggers ?? []).Select(ToUniversalTriggerRule));
+            settings.AvatarScaleSets = BuildAvatarScaleSets(profile);
+            settings.AvatarScaleRules = [];
+            settings.AvatarScaleMasterReward = profile.AvatarScaleMasterReward is null
+                ? settings.AvatarScaleMasterReward
+                : ToAvatarScaleMasterReward(profile.AvatarScaleMasterReward);
             settings.Rules = new ObservableCollection<TriggerRule>((profile.Rules ?? []).Select(ToRule));
         }
 
@@ -478,7 +483,9 @@ public sealed class SettingsStore
             AvatarProfiles = [.. settings.AvatarProfiles.Select(ToPersistedAvatarProfile)],
             GlobalMovementRules = [.. settings.GlobalMovementRules.Select(ToPersistedRule)],
             GlobalOverrideRules = [.. settings.GlobalOverrideRules.Select(ToPersistedRule)],
-            UniversalTriggers = [.. settings.UniversalTriggers.Select(ToPersistedUniversalTriggerRule)]
+            UniversalTriggers = [.. settings.UniversalTriggers.Select(ToPersistedUniversalTriggerRule)],
+            AvatarScaleSets = [.. settings.AvatarScaleSets.Select(ToPersistedAvatarScaleSet)],
+            AvatarScaleMasterReward = ToPersistedAvatarScaleMasterReward(settings.AvatarScaleMasterReward)
         };
 
         await SaveTextFileAtomicallyAsync(
@@ -736,6 +743,7 @@ public sealed class SettingsStore
             GlobalMovementRules = new ObservableCollection<TriggerRule>(),
             GlobalOverrideRules = new ObservableCollection<TriggerRule>(),
             UniversalTriggers = new ObservableCollection<UniversalTriggerRule>(),
+            AvatarScaleSets = new ObservableCollection<AvatarScaleSet>(),
             Rules = new ObservableCollection<TriggerRule>()
         };
     }
@@ -751,6 +759,13 @@ public sealed class SettingsStore
             Name = profile.Name,
             AvatarId = profile.AvatarId,
             AvatarName = profile.AvatarName,
+            SetTriggerMasterRewardId = profile.SetTriggerMasterRewardId,
+            SetTriggerMasterRewardTitle = profile.SetTriggerMasterRewardTitle,
+            SetTriggerMasterRewardCost = profile.SetTriggerMasterRewardCost,
+            SetTriggerMasterRewardCooldownSeconds = profile.SetTriggerMasterRewardCooldownSeconds,
+            SetTriggerMasterRewardReadyColor = profile.SetTriggerMasterRewardReadyColor,
+            SetTriggerMasterRewardCooldownColor = profile.SetTriggerMasterRewardCooldownColor,
+            DeleteSetTriggerMasterRewardWhenInactive = profile.DeleteSetTriggerMasterRewardWhenInactive,
             ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)]
         };
     }
@@ -766,6 +781,13 @@ public sealed class SettingsStore
             Name = string.IsNullOrWhiteSpace(profile.Name) ? "New Avatar Set" : profile.Name,
             AvatarId = profile.AvatarId ?? string.Empty,
             AvatarName = profile.AvatarName ?? string.Empty,
+            SetTriggerMasterRewardId = profile.SetTriggerMasterRewardId ?? string.Empty,
+            SetTriggerMasterRewardTitle = profile.SetTriggerMasterRewardTitle ?? string.Empty,
+            SetTriggerMasterRewardCost = profile.SetTriggerMasterRewardCost <= 0 ? 100 : profile.SetTriggerMasterRewardCost,
+            SetTriggerMasterRewardCooldownSeconds = Math.Max(0, profile.SetTriggerMasterRewardCooldownSeconds),
+            SetTriggerMasterRewardReadyColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(profile.SetTriggerMasterRewardReadyColor),
+            SetTriggerMasterRewardCooldownColor = ManagedRewardPresentation.NormalizeCooldownBackgroundColor(profile.SetTriggerMasterRewardCooldownColor),
+            DeleteSetTriggerMasterRewardWhenInactive = profile.DeleteSetTriggerMasterRewardWhenInactive,
             ChannelPointRules = new ObservableCollection<TriggerRule>((profile.ChannelPointRules ?? [])
                 .Select(ToRule)
                 .Select(rule =>
@@ -820,10 +842,23 @@ public sealed class SettingsStore
             RangeMaximum = rule.RangeMaximum,
             DurationSeconds = rule.DurationSeconds,
             CooldownSeconds = rule.CooldownSeconds,
+            SharedRewardChoiceEnabled = rule.SharedRewardChoiceEnabled,
+            SharedRewardChoiceNumber = rule.SharedRewardChoiceNumber,
+            SharedRewardHelpText = rule.SharedRewardHelpText,
+            SetTriggerActions = [.. rule.SetTriggerActions.Select(ToPersistedSetTriggerAction)],
             BotMessageTemplate = rule.BotMessageTemplate,
             TemporarilyDisabledRuleIds = [.. rule.TemporarilyDisabledRuleIds]
         };
     }
+
+    private static PersistedSetTriggerAction ToPersistedSetTriggerAction(SetTriggerAction action) =>
+        new()
+        {
+            Id = action.Id,
+            ParameterName = action.ParameterName,
+            ParameterType = action.ParameterType,
+            ParameterValue = action.ParameterValue
+        };
 
     private static TriggerRule ToRule(PersistedTriggerRule rule)
     {
@@ -904,12 +939,31 @@ public sealed class SettingsStore
             RangeMaximum = rule.RangeMaximum == 0 && rule.RangeMinimum == 0 ? 5 : rule.RangeMaximum,
             DurationSeconds = Math.Max(0, rule.DurationSeconds),
             CooldownSeconds = Math.Max(0, rule.CooldownSeconds),
+            SharedRewardChoiceEnabled = rule.SharedRewardChoiceEnabled,
+            SharedRewardChoiceNumber = Math.Max(0, rule.SharedRewardChoiceNumber),
+            SharedRewardHelpText = rule.SharedRewardHelpText ?? string.Empty,
+            SetTriggerActions = new ObservableCollection<SetTriggerAction>((rule.SetTriggerActions ?? [])
+                .Select(ToSetTriggerAction)
+                .Where(action => !string.IsNullOrWhiteSpace(action.ParameterName))),
             TemporarilyDisabledRuleIds = new ObservableCollection<Guid>((rule.TemporarilyDisabledRuleIds ?? [])
                 .Where(ruleId => ruleId != Guid.Empty)
                 .Distinct()),
             BotMessageTemplate = string.IsNullOrWhiteSpace(rule.BotMessageTemplate)
                 ? "{user} triggered {rule}. Active for {duration}. Cooldown {cooldown}."
                 : rule.BotMessageTemplate
+        };
+    }
+
+    private static SetTriggerAction ToSetTriggerAction(PersistedSetTriggerAction action)
+    {
+        return new SetTriggerAction
+        {
+            Id = action.Id == Guid.Empty ? Guid.NewGuid() : action.Id,
+            ParameterName = action.ParameterName ?? string.Empty,
+            ParameterType = action.ParameterType is OscParameterType.Bool or OscParameterType.Int or OscParameterType.Float
+                ? action.ParameterType
+                : OscParameterType.Int,
+            ParameterValue = action.ParameterValue ?? string.Empty
         };
     }
 
@@ -1002,6 +1056,237 @@ public sealed class SettingsStore
             DurationSeconds = Math.Max(0, action.DurationSeconds),
             AddToQueue = action.AddToQueue,
             ImportGroupKey = action.ImportGroupKey ?? string.Empty
+        };
+    }
+
+    private static ObservableCollection<AvatarScaleSet> BuildAvatarScaleSets(PersistedProfileSettings profile)
+    {
+        if (profile.AvatarScaleSets?.Count > 0)
+        {
+            return new ObservableCollection<AvatarScaleSet>(profile.AvatarScaleSets.Select(ToAvatarScaleSet));
+        }
+
+        var legacyRules = (profile.AvatarScaleRules ?? [])
+            .Select(ToAvatarScaleRule)
+            .ToArray();
+        if (legacyRules.Length == 0)
+        {
+            return [];
+        }
+
+        return
+        [
+            new AvatarScaleSet
+            {
+                Name = "Default Scale Set",
+                ScaleRules = new ObservableCollection<AvatarScaleRule>(legacyRules)
+            }
+        ];
+    }
+
+    private static PersistedAvatarScaleSet ToPersistedAvatarScaleSet(AvatarScaleSet set)
+    {
+        return new PersistedAvatarScaleSet
+        {
+            Id = set.Id,
+            Name = set.Name,
+            ScaleRules = [.. set.ScaleRules.Select(ToPersistedAvatarScaleRule)]
+        };
+    }
+
+    private static AvatarScaleSet ToAvatarScaleSet(PersistedAvatarScaleSet set)
+    {
+        return new AvatarScaleSet
+        {
+            Id = set.Id == Guid.Empty ? Guid.NewGuid() : set.Id,
+            Name = string.IsNullOrWhiteSpace(set.Name) ? "Default Scale Set" : set.Name,
+            ScaleRules = new ObservableCollection<AvatarScaleRule>((set.ScaleRules ?? []).Select(ToAvatarScaleRule))
+        };
+    }
+
+    private static PersistedAvatarScaleMasterRewardSettings ToPersistedAvatarScaleMasterReward(
+        AvatarScaleMasterRewardSettings settings)
+    {
+        return new PersistedAvatarScaleMasterRewardSettings
+        {
+            IsEnabled = settings.IsEnabled,
+            RewardId = settings.RewardId,
+            RewardTitle = settings.RewardTitle,
+            RewardCost = settings.RewardCost,
+            UnlockDurationSeconds = settings.UnlockDurationSeconds,
+            CooldownSeconds = settings.CooldownSeconds,
+            ManagedRewardReadyColor = settings.ManagedRewardReadyColor,
+            ManagedRewardCooldownColor = settings.ManagedRewardCooldownColor,
+            DeleteMasterRewardWhenInactive = settings.DeleteMasterRewardWhenInactive,
+            FreeChildRewardSlotsWhenLocked = settings.FreeChildRewardSlotsWhenLocked,
+            PreventAvatarChangesDuringActiveScaling = settings.PreventAvatarChangesDuringActiveScaling
+        };
+    }
+
+    private static AvatarScaleMasterRewardSettings ToAvatarScaleMasterReward(
+        PersistedAvatarScaleMasterRewardSettings settings)
+    {
+        return new AvatarScaleMasterRewardSettings
+        {
+            IsEnabled = settings.IsEnabled,
+            RewardId = settings.RewardId ?? string.Empty,
+            RewardTitle = string.IsNullOrWhiteSpace(settings.RewardTitle)
+                ? "Avatar Scaling"
+                : settings.RewardTitle,
+            RewardCost = settings.RewardCost <= 0 ? 100 : settings.RewardCost,
+            UnlockDurationSeconds = settings.UnlockDurationSeconds <= 0 ? 60 : settings.UnlockDurationSeconds,
+            CooldownSeconds = Math.Max(0, settings.CooldownSeconds),
+            ManagedRewardReadyColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(settings.ManagedRewardReadyColor),
+            ManagedRewardCooldownColor = ManagedRewardPresentation.NormalizeCooldownBackgroundColor(settings.ManagedRewardCooldownColor),
+            DeleteMasterRewardWhenInactive = settings.DeleteMasterRewardWhenInactive,
+            FreeChildRewardSlotsWhenLocked = settings.FreeChildRewardSlotsWhenLocked ?? true,
+            PreventAvatarChangesDuringActiveScaling = settings.PreventAvatarChangesDuringActiveScaling
+        };
+    }
+
+    private static PersistedAvatarScaleRule ToPersistedAvatarScaleRule(AvatarScaleRule rule)
+    {
+        return new PersistedAvatarScaleRule
+        {
+            Id = rule.Id,
+            IsEnabled = rule.IsEnabled,
+            Name = rule.Name,
+            TriggerType = rule.TriggerType,
+            ChatCommandEnabled = rule.ChatCommandEnabled,
+            CommandText = rule.CommandText,
+            ChatCommandPermission = rule.ChatCommandPermission,
+            RewardId = rule.RewardId,
+            RewardTitle = rule.RewardTitle,
+            RewardCost = rule.RewardCost,
+            ManagedRewardReadyColor = rule.ManagedRewardReadyColor,
+            ManagedRewardCooldownColor = rule.ManagedRewardCooldownColor,
+            DeleteManagedRewardWhenInactive = rule.DeleteManagedRewardWhenInactive,
+            MinimumBits = rule.MinimumBits,
+            MaximumBits = rule.MaximumBits,
+            SubscriptionTier = rule.SubscriptionTier,
+            MinimumMonths = rule.MinimumMonths,
+            MaximumMonths = rule.MaximumMonths,
+            CooldownSeconds = rule.CooldownSeconds,
+            TemporarilyDisabledScaleRuleIds = [.. rule.TemporarilyDisabledScaleRuleIds],
+            ScaleMode = rule.ScaleMode,
+            TargetHeightMeters = rule.TargetHeightMeters,
+            MinimumHeightMeters = rule.MinimumHeightMeters,
+            MaximumHeightMeters = rule.MaximumHeightMeters,
+            RelativeHeightMeters = rule.RelativeHeightMeters,
+            RelativeMinimumHeightMeters = rule.RelativeMinimumHeightMeters,
+            RelativeMaximumHeightMeters = rule.RelativeMaximumHeightMeters,
+            HeightMultiplier = rule.HeightMultiplier,
+            Preset = rule.Preset,
+            ActiveTimeSeconds = rule.ActiveTimeSeconds,
+            RestoreMode = rule.RestoreMode,
+            RestoreHeightMeters = rule.RestoreHeightMeters,
+            SmoothTransitionSeconds = rule.SmoothTransitionSeconds,
+            AdvancedRangeEnabled = rule.AdvancedRangeEnabled,
+            BypassVrChatScaleLimits = rule.BypassVrChatScaleLimits,
+            SupporterGrowthNormalHeightMeters = rule.SupporterGrowthNormalHeightMeters,
+            SupporterGrowthMaxAddedHeightMeters = rule.SupporterGrowthMaxAddedHeightMeters,
+            SupporterGrowthInactivityTimerSeconds = rule.SupporterGrowthInactivityTimerSeconds,
+            SupporterGrowthTier1HeightMeters = rule.SupporterGrowthTier1HeightMeters,
+            SupporterGrowthTier2HeightMeters = rule.SupporterGrowthTier2HeightMeters,
+            SupporterGrowthTier3HeightMeters = rule.SupporterGrowthTier3HeightMeters,
+            SupporterGrowthBitRanges = [.. rule.SupporterGrowthBitRanges.Select(ToPersistedAvatarScaleBitGrowthRange)]
+        };
+    }
+
+    private static PersistedAvatarScaleBitGrowthRange ToPersistedAvatarScaleBitGrowthRange(AvatarScaleBitGrowthRange range)
+    {
+        return new PersistedAvatarScaleBitGrowthRange
+        {
+            MinimumBits = range.MinimumBits,
+            MaximumBits = range.MaximumBits,
+            HeightAddedMeters = range.HeightAddedMeters
+        };
+    }
+
+    private static AvatarScaleRule ToAvatarScaleRule(PersistedAvatarScaleRule rule)
+    {
+        var scaleRule = new AvatarScaleRule
+        {
+            Id = rule.Id == Guid.Empty ? Guid.NewGuid() : rule.Id,
+            IsEnabled = rule.IsEnabled,
+            Name = string.IsNullOrWhiteSpace(rule.Name) ? "New Avatar Scale" : rule.Name,
+            TriggerType = Enum.IsDefined(rule.TriggerType) ? rule.TriggerType : AvatarScaleTriggerType.ChannelPointReward,
+            ChatCommandEnabled = rule.ChatCommandEnabled,
+            CommandText = rule.CommandText ?? string.Empty,
+            ChatCommandPermission = Enum.IsDefined(rule.ChatCommandPermission)
+                ? rule.ChatCommandPermission
+                : ChatCommandPermission.Moderators,
+            RewardId = rule.RewardId ?? string.Empty,
+            RewardTitle = rule.RewardTitle ?? string.Empty,
+            RewardCost = rule.RewardCost <= 0 ? 100 : rule.RewardCost,
+            ManagedRewardReadyColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(rule.ManagedRewardReadyColor),
+            ManagedRewardCooldownColor = ManagedRewardPresentation.NormalizeCooldownBackgroundColor(rule.ManagedRewardCooldownColor),
+            DeleteManagedRewardWhenInactive = rule.DeleteManagedRewardWhenInactive,
+            MinimumBits = rule.MinimumBits <= 0 ? 1 : rule.MinimumBits,
+            MaximumBits = rule.MaximumBits <= 0 ? Math.Max(1, rule.MinimumBits) : rule.MaximumBits,
+            SubscriptionTier = rule.SubscriptionTier ?? string.Empty,
+            MinimumMonths = rule.MinimumMonths,
+            MaximumMonths = rule.MaximumMonths,
+            CooldownSeconds = Math.Max(0, rule.CooldownSeconds),
+            TemporarilyDisabledScaleRuleIds = new ObservableCollection<Guid>((rule.TemporarilyDisabledScaleRuleIds ?? [])
+                .Where(ruleId => ruleId != Guid.Empty)
+                .Distinct()),
+            AdvancedRangeEnabled = rule.AdvancedRangeEnabled,
+            BypassVrChatScaleLimits = rule.BypassVrChatScaleLimits,
+            ScaleMode = Enum.IsDefined(rule.ScaleMode) ? rule.ScaleMode : AvatarScaleMode.SetHeight,
+            TargetHeightMeters = rule.TargetHeightMeters <= 0 ? 1.6 : rule.TargetHeightMeters,
+            MinimumHeightMeters = rule.MinimumHeightMeters <= 0 ? 0.5 : rule.MinimumHeightMeters,
+            MaximumHeightMeters = rule.MaximumHeightMeters <= 0 ? 2.5 : rule.MaximumHeightMeters,
+            RelativeHeightMeters = rule.RelativeHeightMeters == 0 ? 0.25 : rule.RelativeHeightMeters,
+            RelativeMinimumHeightMeters = rule.RelativeMinimumHeightMeters <= 0
+                ? AvatarScaleRule.SafeMinimumHeightMeters
+                : rule.RelativeMinimumHeightMeters,
+            RelativeMaximumHeightMeters = rule.RelativeMaximumHeightMeters <= 0
+                ? AvatarScaleRule.SafeMaximumHeightMeters
+                : rule.RelativeMaximumHeightMeters,
+            HeightMultiplier = rule.HeightMultiplier <= 0 ? 1.25 : rule.HeightMultiplier,
+            Preset = Enum.IsDefined(rule.Preset) ? rule.Preset : AvatarScalePreset.Normal,
+            ActiveTimeSeconds = Math.Max(0, rule.ActiveTimeSeconds),
+            RestoreMode = AvatarScaleRestoreMode.ConfiguredHeight,
+            RestoreHeightMeters = rule.RestoreHeightMeters <= 0 ? 1.6 : rule.RestoreHeightMeters,
+            SmoothTransitionSeconds = Math.Max(0, rule.SmoothTransitionSeconds),
+            SupporterGrowthNormalHeightMeters = rule.SupporterGrowthNormalHeightMeters <= 0
+                ? 1.6
+                : rule.SupporterGrowthNormalHeightMeters,
+            SupporterGrowthMaxAddedHeightMeters = Math.Max(0, rule.SupporterGrowthMaxAddedHeightMeters),
+            SupporterGrowthInactivityTimerSeconds = rule.SupporterGrowthInactivityTimerSeconds <= 0
+                ? 60
+                : rule.SupporterGrowthInactivityTimerSeconds,
+            SupporterGrowthTier1HeightMeters = rule.SupporterGrowthTier1HeightMeters <= 0
+                ? 0.10
+                : rule.SupporterGrowthTier1HeightMeters,
+            SupporterGrowthTier2HeightMeters = rule.SupporterGrowthTier2HeightMeters <= 0
+                ? 0.20
+                : rule.SupporterGrowthTier2HeightMeters,
+            SupporterGrowthTier3HeightMeters = rule.SupporterGrowthTier3HeightMeters <= 0
+                ? 0.30
+                : rule.SupporterGrowthTier3HeightMeters,
+            SupporterGrowthBitRanges = new ObservableCollection<AvatarScaleBitGrowthRange>(
+                (rule.SupporterGrowthBitRanges is { Count: > 0 }
+                    ? rule.SupporterGrowthBitRanges.Select(ToAvatarScaleBitGrowthRange)
+                    : [new AvatarScaleBitGrowthRange()]))
+        };
+
+        if (scaleRule.MaximumHeightMeters < scaleRule.MinimumHeightMeters)
+        {
+            scaleRule.MaximumHeightMeters = scaleRule.MinimumHeightMeters;
+        }
+
+        return scaleRule;
+    }
+
+    private static AvatarScaleBitGrowthRange ToAvatarScaleBitGrowthRange(PersistedAvatarScaleBitGrowthRange range)
+    {
+        return new AvatarScaleBitGrowthRange
+        {
+            MinimumBits = range.MinimumBits <= 0 ? 1 : range.MinimumBits,
+            MaximumBits = Math.Max(0, range.MaximumBits),
+            HeightAddedMeters = Math.Max(0, range.HeightAddedMeters)
         };
     }
 
@@ -1474,6 +1759,12 @@ public sealed class SettingsStore
 
         public List<PersistedUniversalTriggerRule>? UniversalTriggers { get; set; }
 
+        public List<PersistedAvatarScaleSet>? AvatarScaleSets { get; set; }
+
+        public PersistedAvatarScaleMasterRewardSettings? AvatarScaleMasterReward { get; set; }
+
+        public List<PersistedAvatarScaleRule>? AvatarScaleRules { get; set; }
+
         public List<PersistedTriggerRule>? Rules { get; set; }
     }
 
@@ -1660,6 +1951,20 @@ public sealed class SettingsStore
 
         public string? AvatarName { get; set; }
 
+        public string? SetTriggerMasterRewardId { get; set; }
+
+        public string? SetTriggerMasterRewardTitle { get; set; }
+
+        public int SetTriggerMasterRewardCost { get; set; }
+
+        public int SetTriggerMasterRewardCooldownSeconds { get; set; }
+
+        public string? SetTriggerMasterRewardReadyColor { get; set; }
+
+        public string? SetTriggerMasterRewardCooldownColor { get; set; }
+
+        public bool DeleteSetTriggerMasterRewardWhenInactive { get; set; }
+
         public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
     }
 
@@ -1747,9 +2052,28 @@ public sealed class SettingsStore
 
         public int CooldownSeconds { get; set; }
 
+        public bool SharedRewardChoiceEnabled { get; set; }
+
+        public int SharedRewardChoiceNumber { get; set; }
+
+        public string? SharedRewardHelpText { get; set; }
+
+        public List<PersistedSetTriggerAction>? SetTriggerActions { get; set; }
+
         public List<Guid>? TemporarilyDisabledRuleIds { get; set; }
 
         public string? BotMessageTemplate { get; set; }
+    }
+
+    private sealed class PersistedSetTriggerAction
+    {
+        public Guid Id { get; set; }
+
+        public string? ParameterName { get; set; }
+
+        public OscParameterType ParameterType { get; set; }
+
+        public string? ParameterValue { get; set; }
     }
 
     private sealed class PersistedUniversalTriggerRule
@@ -1799,6 +2123,136 @@ public sealed class SettingsStore
         public string? ImportSource { get; set; }
 
         public List<PersistedUniversalTriggerAction>? Actions { get; set; }
+    }
+
+    private sealed class PersistedAvatarScaleSet
+    {
+        public Guid Id { get; set; }
+
+        public string? Name { get; set; }
+
+        public List<PersistedAvatarScaleRule>? ScaleRules { get; set; }
+    }
+
+    private sealed class PersistedAvatarScaleMasterRewardSettings
+    {
+        public bool IsEnabled { get; set; }
+
+        public string? RewardId { get; set; }
+
+        public string? RewardTitle { get; set; }
+
+        public int RewardCost { get; set; }
+
+        public int UnlockDurationSeconds { get; set; }
+
+        public int CooldownSeconds { get; set; }
+
+        public string? ManagedRewardReadyColor { get; set; }
+
+        public string? ManagedRewardCooldownColor { get; set; }
+
+        public bool DeleteMasterRewardWhenInactive { get; set; }
+
+        public bool? FreeChildRewardSlotsWhenLocked { get; set; }
+
+        public bool PreventAvatarChangesDuringActiveScaling { get; set; }
+    }
+
+    private sealed class PersistedAvatarScaleRule
+    {
+        public Guid Id { get; set; }
+
+        public bool IsEnabled { get; set; }
+
+        public string? Name { get; set; }
+
+        public AvatarScaleTriggerType TriggerType { get; set; }
+
+        public bool ChatCommandEnabled { get; set; }
+
+        public string? CommandText { get; set; }
+
+        public ChatCommandPermission ChatCommandPermission { get; set; }
+
+        public string? RewardId { get; set; }
+
+        public string? RewardTitle { get; set; }
+
+        public int RewardCost { get; set; }
+
+        public string? ManagedRewardReadyColor { get; set; }
+
+        public string? ManagedRewardCooldownColor { get; set; }
+
+        public bool DeleteManagedRewardWhenInactive { get; set; }
+
+        public int MinimumBits { get; set; }
+
+        public int MaximumBits { get; set; }
+
+        public string? SubscriptionTier { get; set; }
+
+        public int MinimumMonths { get; set; }
+
+        public int MaximumMonths { get; set; }
+
+        public int CooldownSeconds { get; set; }
+
+        public List<Guid>? TemporarilyDisabledScaleRuleIds { get; set; }
+
+        public AvatarScaleMode ScaleMode { get; set; }
+
+        public double TargetHeightMeters { get; set; }
+
+        public double MinimumHeightMeters { get; set; }
+
+        public double MaximumHeightMeters { get; set; }
+
+        public double RelativeHeightMeters { get; set; }
+
+        public double RelativeMinimumHeightMeters { get; set; }
+
+        public double RelativeMaximumHeightMeters { get; set; }
+
+        public double HeightMultiplier { get; set; }
+
+        public AvatarScalePreset Preset { get; set; }
+
+        public double ActiveTimeSeconds { get; set; }
+
+        public AvatarScaleRestoreMode RestoreMode { get; set; }
+
+        public double RestoreHeightMeters { get; set; }
+
+        public double SmoothTransitionSeconds { get; set; }
+
+        public bool AdvancedRangeEnabled { get; set; }
+
+        public bool BypassVrChatScaleLimits { get; set; }
+
+        public double SupporterGrowthNormalHeightMeters { get; set; }
+
+        public double SupporterGrowthMaxAddedHeightMeters { get; set; }
+
+        public int SupporterGrowthInactivityTimerSeconds { get; set; }
+
+        public double SupporterGrowthTier1HeightMeters { get; set; }
+
+        public double SupporterGrowthTier2HeightMeters { get; set; }
+
+        public double SupporterGrowthTier3HeightMeters { get; set; }
+
+        public List<PersistedAvatarScaleBitGrowthRange>? SupporterGrowthBitRanges { get; set; }
+    }
+
+    private sealed class PersistedAvatarScaleBitGrowthRange
+    {
+        public int MinimumBits { get; set; }
+
+        public int MaximumBits { get; set; }
+
+        public double HeightAddedMeters { get; set; }
     }
 
     private sealed class PersistedUniversalTriggerAction

@@ -227,14 +227,16 @@ public sealed class TwitchApiClient : IDisposable
         bool isEnabled,
         int cooldownSeconds,
         string backgroundColor,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string prompt = "",
+        bool isUserInputRequired = false)
     {
         using var request = CreateHelixRequest(
             HttpMethod.Post,
             $"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={Uri.EscapeDataString(broadcasterId)}",
             accessToken,
             clientId);
-        request.Content = JsonContent.Create(BuildCustomRewardPayload(title, cost, isEnabled, cooldownSeconds, backgroundColor));
+        request.Content = JsonContent.Create(BuildCustomRewardPayload(title, cost, isEnabled, cooldownSeconds, backgroundColor, prompt, isUserInputRequired));
 
         using var response = await SendAsync(request, cancellationToken);
         var payload = await ReadAsJsonAsync<CustomRewardListResponse>(response, cancellationToken);
@@ -252,14 +254,16 @@ public sealed class TwitchApiClient : IDisposable
         bool isEnabled,
         int cooldownSeconds,
         string backgroundColor,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string prompt = "",
+        bool isUserInputRequired = false)
     {
         using var request = CreateHelixRequest(
             new HttpMethod("PATCH"),
             $"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={Uri.EscapeDataString(broadcasterId)}&id={Uri.EscapeDataString(rewardId)}",
             accessToken,
             clientId);
-        request.Content = JsonContent.Create(BuildCustomRewardPayload(title, cost, isEnabled, cooldownSeconds, backgroundColor));
+        request.Content = JsonContent.Create(BuildCustomRewardPayload(title, cost, isEnabled, cooldownSeconds, backgroundColor, prompt, isUserInputRequired));
 
         using var response = await SendAsync(request, cancellationToken);
         var payload = await ReadAsJsonAsync<CustomRewardListResponse>(response, cancellationToken);
@@ -553,7 +557,9 @@ public sealed class TwitchApiClient : IDisposable
         int cost,
         bool isEnabled,
         int cooldownSeconds,
-        string backgroundColor)
+        string backgroundColor,
+        string prompt,
+        bool isUserInputRequired)
     {
         var normalizedCooldown = Math.Max(0, cooldownSeconds);
         return new CustomRewardMutationPayload
@@ -563,7 +569,9 @@ public sealed class TwitchApiClient : IDisposable
             IsEnabled = isEnabled,
             IsGlobalCooldownEnabled = normalizedCooldown > 0,
             GlobalCooldownSeconds = normalizedCooldown,
-            BackgroundColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(backgroundColor)
+            BackgroundColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(backgroundColor),
+            Prompt = prompt?.Trim() ?? string.Empty,
+            IsUserInputRequired = isUserInputRequired
         };
     }
 
@@ -771,6 +779,12 @@ public sealed class TwitchApiClient : IDisposable
 
         [JsonPropertyName("background_color")]
         public string BackgroundColor { get; set; } = string.Empty;
+
+        [JsonPropertyName("prompt")]
+        public string Prompt { get; set; } = string.Empty;
+
+        [JsonPropertyName("is_user_input_required")]
+        public bool IsUserInputRequired { get; set; }
     }
 
     private sealed class CustomRewardMutationPayload
@@ -792,6 +806,12 @@ public sealed class TwitchApiClient : IDisposable
 
         [JsonPropertyName("background_color")]
         public string BackgroundColor { get; set; } = ManagedRewardPresentation.ReadyBackgroundColor;
+
+        [JsonPropertyName("prompt")]
+        public string Prompt { get; set; } = string.Empty;
+
+        [JsonPropertyName("is_user_input_required")]
+        public bool IsUserInputRequired { get; set; }
     }
 
     public sealed class ChatBadgeSetListResponse

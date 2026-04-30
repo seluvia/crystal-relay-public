@@ -16,6 +16,15 @@ public sealed class VrChatOscClient
         return BuildPacket(address, parameterType, rawValue);
     }
 
+    public byte[] BuildPacketForAddress(
+        string address,
+        OscParameterType parameterType,
+        string rawValue)
+    {
+        var normalizedAddress = NormalizeOscAddress(address);
+        return BuildPacket(normalizedAddress, parameterType, rawValue);
+    }
+
     public byte[] BuildAvatarChangePacket(string avatarId)
     {
         return BuildPacket("/avatar/change", OscParameterType.String, avatarId.Trim());
@@ -74,6 +83,19 @@ public sealed class VrChatOscClient
         return trimmed.StartsWith("/", StringComparison.Ordinal)
             ? trimmed
             : $"/input/{trimmed.TrimStart('/')}";
+    }
+
+    public static string NormalizeOscAddress(string address)
+    {
+        var trimmed = address.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed))
+        {
+            throw new InvalidOperationException("Enter an OSC address before sending this action.");
+        }
+
+        return trimmed.StartsWith("/", StringComparison.Ordinal)
+            ? trimmed
+            : $"/{trimmed.TrimStart('/')}";
     }
 
     private static byte[] BuildPacket(string address, OscParameterType parameterType, string rawValue)

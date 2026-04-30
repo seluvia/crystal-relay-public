@@ -490,6 +490,17 @@ public partial class TwitchChatboxWindow : Window
             return;
         }
 
+        if (theme == AppTheme.Bratwurst)
+        {
+            ThemeManager.ApplyToResources(Resources, theme);
+            SetBrushColor("MessageTextBrush", "#FFF3D2");
+            SetBrushColor("MessageCardBrush", "#A8240E08");
+            SetBrushColor("MessageBorderBrush", "#D6A11D");
+            SetBrushColor("TimestampBrush", "#E0C48A");
+            SetBrushColor("SecondaryButtonTextBrush", "#FFF3D2");
+            return;
+        }
+
         if (theme == AppTheme.Baked)
         {
             Resources["BodyFontFamily"] = new FontFamily("Cambria");
@@ -966,12 +977,12 @@ public static class ChatMessageInlinePresenter
 
                 var image = new Image
                 {
-                    Source = cachedEmoteImage,
                     Height = Math.Max(20, Math.Round(textBlock.FontSize * 1.35)),
                     Stretch = Stretch.Uniform,
                     SnapsToDevicePixels = true,
                     Margin = new Thickness(0, -2, 1, -2)
                 };
+                ApplyCachedEmoteImage(image, cachedEmoteImage);
 
                 textBlock.Inlines.Add(new InlineUIContainer(image)
                 {
@@ -984,7 +995,7 @@ public static class ChatMessageInlinePresenter
         }
     }
 
-    private static ImageSource? TryGetCachedEmoteImage(Uri imageUri)
+    private static CachedEmoteImage? TryGetCachedEmoteImage(Uri imageUri)
     {
         var imageKey = imageUri.ToString();
         lock (emoteImageCacheGate)
@@ -993,7 +1004,7 @@ public static class ChatMessageInlinePresenter
             {
                 emoteImageRecency.Remove(cachedImageNode);
                 emoteImageRecency.AddFirst(cachedImageNode);
-                return cachedImageNode.Value.Image;
+                return cachedImageNode.Value;
             }
         }
 
@@ -1026,20 +1037,13 @@ public static class ChatMessageInlinePresenter
                 HttpCompletionOption.ResponseHeadersRead);
             response.EnsureSuccessStatusCode();
             var imageBytes = await response.Content.ReadAsByteArrayAsync();
-            using var imageStream = new MemoryStream(imageBytes);
-
-            var bitmap = new BitmapImage();
-            bitmap.BeginInit();
-            bitmap.CacheOption = BitmapCacheOption.OnLoad;
-            bitmap.StreamSource = imageStream;
-            bitmap.EndInit();
-            bitmap.Freeze();
+            var cachedImage = DecodeEmoteImage(imageKey, imageBytes, response.Content.Headers.ContentType?.MediaType);
 
             lock (emoteImageCacheGate)
             {
                 if (!emoteImagesByUri.ContainsKey(imageKey))
                 {
-                    var node = new LinkedListNode<CachedEmoteImage>(new CachedEmoteImage(imageKey, bitmap));
+                    var node = new LinkedListNode<CachedEmoteImage>(cachedImage);
                     emoteImageRecency.AddFirst(node);
                     emoteImagesByUri[imageKey] = node;
                     while (emoteImagesByUri.Count > MaxCachedEmoteImages && emoteImageRecency.Last is not null)
@@ -1095,10 +1099,140 @@ public static class ChatMessageInlinePresenter
         }
     }
 
+    private static CachedEmoteImage DecodeEmoteImage(string imageKey, byte[] imageBytes, string? mediaType)
+    {
+        if (IsGifPayload(imageBytes, mediaType))
+        {
+            using var imageStream = new MemoryStream(imageBytes);
+            var decoder = new GifBitmapDecoder(
+                imageStream,
+                BitmapCreateOptions.PreservePixelFormat,
+                BitmapCacheOption.OnLoad);
+            var frames = decoder.Frames
+                .Select(frame =>
+                {
+                    if (frame.CanFreeze)
+                    {
+                        frame.Freeze();
+                    }
+
+                    return (ImageSource)frame;
+                })
+                .ToArray();
+
+            if (frames.Length > 1)
+            {
+                var delays = decoder.Frames
+                    .Select(GetGifFrameDelay)
+                    .ToArray();
+                return new CachedEmoteImage(imageKey, frames[0], frames, delays);
+            }
+        }
+
+        using var bitmapStream = new MemoryStream(imageBytes);
+        var bitmap = new BitmapImage();
+        bitmap.BeginInit();
+        bitmap.CacheOption = BitmapCacheOption.OnLoad;
+        bitmap.StreamSource = bitmapStream;
+        bitmap.EndInit();
+        bitmap.Freeze();
+        return new CachedEmoteImage(imageKey, bitmap, [], []);
+    }
+
+    private static bool IsGifPayload(byte[] imageBytes, string? mediaType)
+    {
+        if (string.Equals(mediaType, "image/gif", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return imageBytes.Length >= 6
+            && imageBytes[0] == 'G'
+            && imageBytes[1] == 'I'
+            && imageBytes[2] == 'F'
+            && imageBytes[3] == '8'
+            && (imageBytes[4] == '7' || imageBytes[4] == '9')
+            && imageBytes[5] == 'a';
+    }
+
+    private static TimeSpan GetGifFrameDelay(BitmapFrame frame)
+    {
+        const int minimumFrameDelayMilliseconds = 20;
+        const int defaultFrameDelayMilliseconds = 100;
+
+        try
+        {
+            if (frame.Metadata is BitmapMetadata metadata
+                && metadata.ContainsQuery("/grctlext/Delay"))
+            {
+                var rawDelay = metadata.GetQuery("/grctlext/Delay");
+                var hundredths = rawDelay switch
+                {
+                    byte value => value,
+                    ushort value => value,
+                    short value => value,
+                    int value => value,
+                    uint value => value > int.MaxValue ? int.MaxValue : (int)value,
+                    _ => 0
+                };
+
+                if (hundredths > 0)
+                {
+                    return TimeSpan.FromMilliseconds(Math.Max(minimumFrameDelayMilliseconds, hundredths * 10));
+                }
+            }
+        }
+        catch
+        {
+            // Bad GIF metadata should not stop chat text from rendering.
+        }
+
+        return TimeSpan.FromMilliseconds(defaultFrameDelayMilliseconds);
+    }
+
+    private static void ApplyCachedEmoteImage(Image image, CachedEmoteImage cachedEmoteImage)
+    {
+        if (!cachedEmoteImage.IsAnimated)
+        {
+            image.Source = cachedEmoteImage.Image;
+            return;
+        }
+
+        var frameIndex = 0;
+        image.Source = cachedEmoteImage.AnimationFrames[frameIndex];
+        var timer = new DispatcherTimer(DispatcherPriority.Render, image.Dispatcher)
+        {
+            Interval = cachedEmoteImage.AnimationDelays[frameIndex]
+        };
+        timer.Tick += (_, _) =>
+        {
+            if (cachedEmoteImage.AnimationFrames.Count == 0)
+            {
+                timer.Stop();
+                return;
+            }
+
+            frameIndex = (frameIndex + 1) % cachedEmoteImage.AnimationFrames.Count;
+            image.Source = cachedEmoteImage.AnimationFrames[frameIndex];
+            timer.Interval = cachedEmoteImage.AnimationDelays.Count > frameIndex
+                ? cachedEmoteImage.AnimationDelays[frameIndex]
+                : TimeSpan.FromMilliseconds(100);
+        };
+        image.Unloaded += (_, _) => timer.Stop();
+        timer.Start();
+    }
+
     private static string ShortenImageUrlForLog(string imageUrl) =>
         imageUrl.Length <= 96
             ? imageUrl
             : $"{imageUrl[..96]}...";
 
-    private sealed record CachedEmoteImage(string Uri, ImageSource Image);
+    private sealed record CachedEmoteImage(
+        string Uri,
+        ImageSource Image,
+        IReadOnlyList<ImageSource> AnimationFrames,
+        IReadOnlyList<TimeSpan> AnimationDelays)
+    {
+        public bool IsAnimated => AnimationFrames.Count > 1;
+    }
 }

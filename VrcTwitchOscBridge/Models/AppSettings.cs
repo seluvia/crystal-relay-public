@@ -19,6 +19,9 @@ public sealed class AppSettings : ObservableObject
     private ObservableCollection<TriggerRule> globalMovementRules = [];
     private ObservableCollection<TriggerRule> globalOverrideRules = [];
     private ObservableCollection<UniversalTriggerRule> universalTriggers = [];
+    private ObservableCollection<AvatarScaleSet> avatarScaleSets = [];
+    private ObservableCollection<AvatarScaleRule> avatarScaleRules = [];
+    private AvatarScaleMasterRewardSettings avatarScaleMasterReward = new();
     private ObservableCollection<TriggerRule> rules = [];
     private int interfaceOpacityPercent = 88;
     private int chatTextSize = 20;
@@ -32,7 +35,10 @@ public sealed class AppSettings : ObservableObject
     private bool chatboxOscEnabled;
     private int chatboxOscDelaySeconds = 3;
     private bool chatboxViewerSoundEnabled;
+    private bool useBroadcasterAsBotSender;
     private bool supporterOverrideInfoMessageEnabled;
+    private bool triggerInfoAnnouncementsEnabled;
+    private int triggerInfoAnnouncementIntervalMinutes = 10;
     private bool channelPointRewardTestModeEnabled;
     private bool emergencyRedeemStopEnabled;
     private bool desktopModeInputLockEnabled;
@@ -105,6 +111,24 @@ public sealed class AppSettings : ObservableObject
     {
         get => universalTriggers;
         set => SetProperty(ref universalTriggers, value ?? []);
+    }
+
+    public ObservableCollection<AvatarScaleSet> AvatarScaleSets
+    {
+        get => avatarScaleSets;
+        set => SetProperty(ref avatarScaleSets, value ?? []);
+    }
+
+    public ObservableCollection<AvatarScaleRule> AvatarScaleRules
+    {
+        get => avatarScaleRules;
+        set => SetProperty(ref avatarScaleRules, value ?? []);
+    }
+
+    public AvatarScaleMasterRewardSettings AvatarScaleMasterReward
+    {
+        get => avatarScaleMasterReward;
+        set => SetProperty(ref avatarScaleMasterReward, value ?? new AvatarScaleMasterRewardSettings());
     }
 
     public ObservableCollection<TriggerRule> Rules
@@ -223,10 +247,28 @@ public sealed class AppSettings : ObservableObject
         set => SetProperty(ref chatboxViewerSoundEnabled, value);
     }
 
+    public bool UseBroadcasterAsBotSender
+    {
+        get => useBroadcasterAsBotSender;
+        set => SetProperty(ref useBroadcasterAsBotSender, value);
+    }
+
     public bool SupporterOverrideInfoMessageEnabled
     {
         get => supporterOverrideInfoMessageEnabled;
         set => SetProperty(ref supporterOverrideInfoMessageEnabled, value);
+    }
+
+    public bool TriggerInfoAnnouncementsEnabled
+    {
+        get => triggerInfoAnnouncementsEnabled;
+        set => SetProperty(ref triggerInfoAnnouncementsEnabled, value);
+    }
+
+    public int TriggerInfoAnnouncementIntervalMinutes
+    {
+        get => triggerInfoAnnouncementIntervalMinutes;
+        set => SetProperty(ref triggerInfoAnnouncementIntervalMinutes, Math.Max(1, value));
     }
 
     public bool ChannelPointRewardTestModeEnabled

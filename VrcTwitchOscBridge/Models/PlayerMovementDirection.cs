@@ -6,6 +6,7 @@ public enum PlayerMovementDirection
     Backward,
     Left,
     Right,
+    Jump,
     SpinLeft,
     SpinRight,
     StopMovement,
