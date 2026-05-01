@@ -197,6 +197,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
     public OscDiscoveryState DiscoveryState => oscRouterService.DiscoveryState;
 
+    public string CurrentVrChatAvatarId => GetCurrentVrChatAvatarId();
+
     public IReadOnlyCollection<Guid> GetTemporarilyDisabledRuleIds()
     {
         lock (stateGate)
@@ -408,7 +410,41 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             return false;
         }
 
-        return StringComparer.Ordinal.Equals(activeConfiguration.Broadcaster.UserId, configuration.Broadcaster.UserId);
+        if (!StringComparer.Ordinal.Equals(activeConfiguration.TwitchClientId, configuration.TwitchClientId))
+        {
+            return false;
+        }
+
+        var currentBroadcaster = broadcaster ?? activeConfiguration.Broadcaster;
+        if (currentBroadcaster is null || configuration.Broadcaster is null)
+        {
+            return false;
+        }
+
+        return CanReuseBroadcasterSession(currentBroadcaster, configuration.Broadcaster);
+    }
+
+    private static bool CanReuseBroadcasterSession(TwitchAccountSnapshot? current, TwitchAccountSnapshot? next)
+    {
+        if (current is null || next is null)
+        {
+            return false;
+        }
+
+        return StringComparer.Ordinal.Equals(current.UserId, next.UserId)
+            && StringComparer.Ordinal.Equals(current.AccessToken, next.AccessToken)
+            && ScopeSetsEqual(current.Scopes, next.Scopes);
+    }
+
+    private static bool ScopeSetsEqual(IEnumerable<string>? currentScopes, IEnumerable<string>? nextScopes)
+    {
+        var currentSet = (currentScopes ?? [])
+            .Where(scope => !string.IsNullOrWhiteSpace(scope))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var nextSet = (nextScopes ?? [])
+            .Where(scope => !string.IsNullOrWhiteSpace(scope))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return currentSet.SetEquals(nextSet);
     }
 
     private void SetActiveConfiguration(BridgeRuntimeConfiguration configuration)
@@ -1856,7 +1892,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
             if (rule.ActiveTimeSeconds > 0)
             {
-                ScheduleAvatarScaleRestoreSequence(rule, isTest);
+                ScheduleAvatarScaleRestoreSequence(rule, isTest, targetHeight);
             }
             else
             {
@@ -2129,7 +2165,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
     private void ScheduleAvatarScaleRestoreSequence(
         AvatarScaleRuleSnapshot rule,
-        bool isTest)
+        bool isTest,
+        double carriedHeightMeters)
     {
         var now = DateTimeOffset.UtcNow;
         var avatarId = GetCurrentVrChatAvatarId();
@@ -2146,6 +2183,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             sequence = new ActiveAvatarScaleRestoreSequenceState(
                 ++nextAvatarScaleRestoreSequenceId,
                 avatarId,
+                carriedHeightMeters,
                 ApplyAvatarScaleHeightLimits(rule, restoreHeight, "return height"),
                 now.AddSeconds(Math.Max(0.001, rule.ActiveTimeSeconds)),
                 sourceRuleName,
@@ -2231,11 +2269,26 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 }
 
                 sequence = currentSequence;
-                if (!string.Equals(GetCurrentVrChatAvatarId(), sequence.AvatarId, StringComparison.Ordinal))
+                var currentAvatarId = GetCurrentVrChatAvatarId();
+                if (!string.Equals(currentAvatarId, sequence.AvatarId, StringComparison.Ordinal))
                 {
-                    ClearAvatarScaleRestoreSequenceIfCurrent(sequence.SequenceId);
-                    WriteLog($"Avatar scale restore from '{sequence.SourceRuleName}' was skipped because the current avatar changed before the inactive timer ended.");
-                    return;
+                    if (string.IsNullOrWhiteSpace(currentAvatarId))
+                    {
+                        ClearAvatarScaleRestoreSequenceIfCurrent(sequence.SequenceId);
+                        WriteLog($"Avatar scale restore from '{sequence.SourceRuleName}' was skipped because Crystal Relay no longer knows the current avatar.");
+                        return;
+                    }
+
+                    RetargetAvatarScaleRestoreSequenceForAvatarChange(currentAvatarId);
+                    lock (stateGate)
+                    {
+                        if (activeAvatarScaleRestoreSequence?.SequenceId != sequence.SequenceId)
+                        {
+                            return;
+                        }
+
+                        sequence = activeAvatarScaleRestoreSequence;
+                    }
                 }
 
                 if (shouldDefer)
@@ -8037,7 +8090,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
                 await Task.Delay(TimeSpan.FromMilliseconds(1200), cancellationToken);
                 if (string.Equals(GetCurrentVrChatAvatarId(), newAvatarId, StringComparison.Ordinal)
-                    && IsAvatarScaleHeightSessionStillActive(carryover.SourceRuleId, carryover.SessionId))
+                    && IsAvatarScaleCarryoverStillActive(carryover))
                 {
                     await SendAvatarHeightValueAsync(carryover.CarriedHeightMeters, cancellationToken);
                     WriteLog($"Re-applied active avatar scale height {carryover.CarriedHeightMeters:0.###}m after the avatar swap settled.");
@@ -8086,7 +8139,31 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
             if (latestSession is null)
             {
-                return null;
+                if (activeAvatarScaleRestoreSequence is null
+                    || activeAvatarScaleRestoreSequence.ActiveUntil <= now)
+                {
+                    return null;
+                }
+
+                var activeSequence = activeAvatarScaleRestoreSequence;
+                var fallbackPreviousAvatarId = previousAvatarId?.Trim() ?? string.Empty;
+                if (!string.IsNullOrWhiteSpace(fallbackPreviousAvatarId)
+                    && !pendingAvatarScaleHeightRestores.ContainsKey(fallbackPreviousAvatarId))
+                {
+                    pendingAvatarScaleHeightRestores[fallbackPreviousAvatarId] = new PendingAvatarScaleHeightRestoreState(
+                        activeSequence.RestoreHeightMeters,
+                        activeSequence.ActiveUntil,
+                        activeSequence.SourceRuleName);
+                }
+
+                return new AvatarScaleCarryoverSnapshot(
+                    Guid.Empty,
+                    Guid.Empty,
+                    activeSequence.SequenceId,
+                    activeSequence.SourceRuleName,
+                    activeSequence.CarriedHeightMeters,
+                    activeSequence.RestoreHeightMeters,
+                    activeSequence.ActiveUntil);
             }
 
             var normalizedPreviousAvatarId = previousAvatarId?.Trim() ?? string.Empty;
@@ -8112,10 +8189,36 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             return new AvatarScaleCarryoverSnapshot(
                 latestSession.RuleId,
                 latestSession.SessionId,
+                activeAvatarScaleRestoreSequence?.SequenceId ?? 0,
                 latestSession.RuleName,
                 latestSession.CarriedHeightMeters,
                 latestSession.RestoreHeightMeters ?? 1.6,
                 latestSession.ActiveUntil);
+        }
+    }
+
+    private bool IsAvatarScaleCarryoverStillActive(AvatarScaleCarryoverSnapshot carryover)
+    {
+        var now = DateTimeOffset.UtcNow;
+        if (carryover.ActiveUntil <= now)
+        {
+            return false;
+        }
+
+        lock (stateGate)
+        {
+            PruneExpiredAvatarScaleHeightSessionsLocked(now);
+            if (carryover.SessionId != Guid.Empty
+                && activeAvatarScaleHeightSessions.TryGetValue(carryover.SourceRuleId, out var session)
+                && session.SessionId == carryover.SessionId
+                && session.ActiveUntil > now)
+            {
+                return true;
+            }
+
+            return carryover.RestoreSequenceId > 0
+                && activeAvatarScaleRestoreSequence?.SequenceId == carryover.RestoreSequenceId
+                && activeAvatarScaleRestoreSequence.ActiveUntil > now;
         }
     }
 
@@ -8313,10 +8416,18 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
         lock (stateGate)
         {
-            PruneExpiredAvatarScaleHeightSessionsLocked(DateTimeOffset.UtcNow);
-            if (activeAvatarScaleHeightSessions.Count > 0
-                || !pendingAvatarScaleHeightRestores.TryGetValue(normalizedAvatarId, out pendingRestore))
+            var now = DateTimeOffset.UtcNow;
+            PruneExpiredAvatarScaleHeightSessionsLocked(now);
+            if (!pendingAvatarScaleHeightRestores.TryGetValue(normalizedAvatarId, out pendingRestore))
             {
+                return;
+            }
+
+            if (activeAvatarScaleHeightSessions.Count > 0
+                || activeAvatarScaleRestoreSequence?.ActiveUntil > now
+                || pendingRestore.SourceActiveUntil > now)
+            {
+                WriteLog($"Deferred pending avatar scale restore from '{pendingRestore.SourceRuleName}' because Avatar Scaling active time is still running.");
                 return;
             }
         }
@@ -9817,11 +9928,23 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             .Replace("{amount}", bridgeEvent.Amount.ToString(CultureInfo.InvariantCulture), StringComparison.OrdinalIgnoreCase)
             .Replace("{reward}", rewardLabel, StringComparison.OrdinalIgnoreCase)
             .Replace("{duration}", DescribeDuration(durationSecondsOverride ?? GetBotMessageDurationSeconds(rule, bridgeEvent)), StringComparison.OrdinalIgnoreCase)
-            .Replace("{cooldown}", DescribeDuration(GetCooldownSeconds(rule)), StringComparison.OrdinalIgnoreCase)
+            .Replace("{cooldown}", GetBotMessageCooldownText(rule), StringComparison.OrdinalIgnoreCase)
             .Replace("{parameter}", DescribeActionAddress(rule), StringComparison.OrdinalIgnoreCase)
             .Replace("{value}", resolvedValue, StringComparison.OrdinalIgnoreCase);
 
         return SanitizeBotMessage(message);
+    }
+
+    private static string GetBotMessageCooldownText(TriggerRuleSnapshot rule)
+    {
+        if (rule.BotMessageCooldownSeconds.HasValue)
+        {
+            return DescribeDuration(rule.BotMessageCooldownSeconds.Value);
+        }
+
+        return rule.UsesLinkedChannelPointReward
+            ? T("Twitch cooldown unknown")
+            : DescribeDuration(GetCooldownSeconds(rule));
     }
 
     private static string BuildSupporterOverrideInfoBotMessage(
@@ -11443,6 +11566,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private sealed record ActiveAvatarScaleRestoreSequenceState(
         long SequenceId,
         string AvatarId,
+        double CarriedHeightMeters,
         double RestoreHeightMeters,
         DateTimeOffset ActiveUntil,
         string SourceRuleName,
@@ -11476,6 +11600,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private sealed record AvatarScaleCarryoverSnapshot(
         Guid SourceRuleId,
         Guid SessionId,
+        long RestoreSequenceId,
         string SourceRuleName,
         double CarriedHeightMeters,
         double FallbackRestoreHeightMeters,

@@ -205,11 +205,20 @@ public sealed class TwitchApiClient : IDisposable
         string accessToken,
         string clientId,
         string broadcasterId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool onlyManageableRewards = false)
     {
+        var rewardsUrl = new StringBuilder("https://api.twitch.tv/helix/channel_points/custom_rewards");
+        rewardsUrl.Append("?broadcaster_id=");
+        rewardsUrl.Append(Uri.EscapeDataString(broadcasterId));
+        if (onlyManageableRewards)
+        {
+            rewardsUrl.Append("&only_manageable_rewards=true");
+        }
+
         using var request = CreateHelixRequest(
             HttpMethod.Get,
-            $"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={Uri.EscapeDataString(broadcasterId)}",
+            rewardsUrl.ToString(),
             accessToken,
             clientId);
 
@@ -269,6 +278,30 @@ public sealed class TwitchApiClient : IDisposable
         var payload = await ReadAsJsonAsync<CustomRewardListResponse>(response, cancellationToken);
         return payload.Data.FirstOrDefault()
             ?? throw new InvalidOperationException("Twitch updated the reward, but returned no reward details.");
+    }
+
+    public async Task<CustomRewardResponse> UpdateCustomRewardVisibilityAsync(
+        string accessToken,
+        string clientId,
+        string broadcasterId,
+        string rewardId,
+        bool isEnabled,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateHelixRequest(
+            new HttpMethod("PATCH"),
+            $"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={Uri.EscapeDataString(broadcasterId)}&id={Uri.EscapeDataString(rewardId)}",
+            accessToken,
+            clientId);
+        request.Content = JsonContent.Create(new CustomRewardVisibilityMutationPayload
+        {
+            IsEnabled = isEnabled
+        });
+
+        using var response = await SendAsync(request, cancellationToken);
+        var payload = await ReadAsJsonAsync<CustomRewardListResponse>(response, cancellationToken);
+        return payload.Data.FirstOrDefault()
+            ?? throw new InvalidOperationException("Twitch updated the reward visibility, but returned no reward details.");
     }
 
     public async Task DeleteCustomRewardAsync(
@@ -607,7 +640,37 @@ public sealed class TwitchApiClient : IDisposable
         }
 
         var message = await ReadErrorMessageAsync(response, cancellationToken);
-        throw new TwitchApiException(response.StatusCode, message);
+        throw new TwitchApiException(response.StatusCode, message, GetRetryAfterUtc(response));
+    }
+
+    private static DateTimeOffset? GetRetryAfterUtc(HttpResponseMessage response)
+    {
+        if (response.Headers.RetryAfter?.Delta is { } retryAfterDelta)
+        {
+            return DateTimeOffset.UtcNow.Add(retryAfterDelta);
+        }
+
+        if (response.Headers.RetryAfter?.Date is { } retryAfterDate)
+        {
+            return retryAfterDate;
+        }
+
+        if (response.Headers.TryGetValues("Ratelimit-Reset", out var resetValues))
+        {
+            var resetValue = resetValues.FirstOrDefault();
+            if (long.TryParse(resetValue, out var resetUnixSeconds))
+            {
+                try
+                {
+                    return DateTimeOffset.FromUnixTimeSeconds(resetUnixSeconds);
+                }
+                catch (ArgumentOutOfRangeException)
+                {
+                }
+            }
+        }
+
+        return null;
     }
 
     private static async Task<string> ReadErrorMessageAsync(HttpResponseMessage response, CancellationToken cancellationToken)
@@ -812,6 +875,12 @@ public sealed class TwitchApiClient : IDisposable
 
         [JsonPropertyName("is_user_input_required")]
         public bool IsUserInputRequired { get; set; }
+    }
+
+    private sealed class CustomRewardVisibilityMutationPayload
+    {
+        [JsonPropertyName("is_enabled")]
+        public bool IsEnabled { get; set; }
     }
 
     public sealed class ChatBadgeSetListResponse

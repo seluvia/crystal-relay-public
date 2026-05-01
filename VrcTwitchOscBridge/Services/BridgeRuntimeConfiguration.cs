@@ -67,6 +67,8 @@ public sealed record TriggerRuleSnapshot(
     int RangeMaximum,
     int DurationSeconds,
     int CooldownSeconds,
+    bool UsesLinkedChannelPointReward,
+    int? BotMessageCooldownSeconds,
     bool SharedRewardChoiceEnabled,
     int SharedRewardChoiceNumber,
     string SharedRewardHelpText,
@@ -179,7 +181,10 @@ public sealed record BridgeRuntimeConfiguration(
     IReadOnlyList<UniversalTriggerRuleSnapshot> UniversalTriggers,
     IReadOnlyList<AvatarScaleRuleSnapshot> AvatarScaleRules)
 {
-    public static BridgeRuntimeConfiguration FromSettings(AppSettings settings, RuntimeConfig runtimeConfig)
+    public static BridgeRuntimeConfiguration FromSettings(
+        AppSettings settings,
+        RuntimeConfig runtimeConfig,
+        IReadOnlyDictionary<string, int>? linkedRewardCooldownSecondsById = null)
     {
         var rules = new List<TriggerRuleSnapshot>();
         var universalTriggers = new List<UniversalTriggerRuleSnapshot>();
@@ -190,7 +195,7 @@ public sealed record BridgeRuntimeConfiguration(
         {
             foreach (var rule in profile.ChannelPointRules)
             {
-                if (TryToSnapshot(rule, isGlobalOverride: false, profile, out var snapshot))
+                if (TryToSnapshot(rule, isGlobalOverride: false, profile, linkedRewardCooldownSecondsById, out var snapshot))
                 {
                     rules.Add(snapshot);
                 }
@@ -202,7 +207,7 @@ public sealed record BridgeRuntimeConfiguration(
             var supporterProfile = rule.SupporterAvatarProfileId == Guid.Empty
                 ? null
                 : settings.AvatarProfiles.FirstOrDefault(profile => profile.Id == rule.SupporterAvatarProfileId);
-            if (TryToSnapshot(rule, isGlobalOverride: true, supporterProfile, out var snapshot))
+            if (TryToSnapshot(rule, isGlobalOverride: true, supporterProfile, linkedRewardCooldownSecondsById, out var snapshot))
             {
                 rules.Add(snapshot);
             }
@@ -210,7 +215,7 @@ public sealed record BridgeRuntimeConfiguration(
 
         foreach (var rule in settings.GlobalMovementRules)
         {
-            if (TryToSnapshot(rule, isGlobalOverride: true, profile: null, out var snapshot))
+            if (TryToSnapshot(rule, isGlobalOverride: true, profile: null, linkedRewardCooldownSecondsById, out var snapshot))
             {
                 rules.Add(snapshot);
             }
@@ -297,7 +302,7 @@ public sealed record BridgeRuntimeConfiguration(
             throw new InvalidOperationException(GetManualTestReadinessError(rule));
         }
 
-        return CreateSnapshot(rule, isGlobalOverride, profile);
+        return CreateSnapshot(rule, isGlobalOverride, profile, linkedRewardCooldownSecondsById: null);
     }
 
     public static UniversalTriggerRuleSnapshot CreateManualTestSnapshot(UniversalTriggerRule rule)
@@ -324,6 +329,7 @@ public sealed record BridgeRuntimeConfiguration(
         TriggerRule rule,
         bool isGlobalOverride,
         AvatarTriggerProfile? profile,
+        IReadOnlyDictionary<string, int>? linkedRewardCooldownSecondsById,
         out TriggerRuleSnapshot snapshot)
     {
         snapshot = default!;
@@ -333,14 +339,15 @@ public sealed record BridgeRuntimeConfiguration(
             return false;
         }
 
-        snapshot = CreateSnapshot(rule, isGlobalOverride, profile);
+        snapshot = CreateSnapshot(rule, isGlobalOverride, profile, linkedRewardCooldownSecondsById);
         return true;
     }
 
     private static TriggerRuleSnapshot CreateSnapshot(
         TriggerRule rule,
         bool isGlobalOverride,
-        AvatarTriggerProfile? profile)
+        AvatarTriggerProfile? profile,
+        IReadOnlyDictionary<string, int>? linkedRewardCooldownSecondsById)
     {
         var usesSetTriggerMasterReward = !isGlobalOverride
             && rule.ActionType == OscActionType.SetTrigger
@@ -351,15 +358,26 @@ public sealed record BridgeRuntimeConfiguration(
         var channelPointRewardTitle = usesSetTriggerMasterReward
             ? profile!.SetTriggerMasterRewardTitle.Trim()
             : rule.ChannelPointRewardTitle.Trim();
+        var rewardSyncMode = usesSetTriggerMasterReward
+            ? profile!.SetTriggerMasterRewardSyncMode
+            : rule.RewardSyncMode;
         var readyColor = usesSetTriggerMasterReward
             ? profile!.SetTriggerMasterRewardReadyColor
             : rule.ManagedRewardReadyColor;
         var cooldownColor = usesSetTriggerMasterReward
             ? profile!.SetTriggerMasterRewardCooldownColor
             : rule.ManagedRewardCooldownColor;
-        var cooldownSeconds = usesSetTriggerMasterReward
+        var configuredCooldownSeconds = usesSetTriggerMasterReward
             ? profile!.SetTriggerMasterRewardCooldownSeconds
             : rule.CooldownSeconds;
+        var usesLinkedChannelPointReward = rule.TriggerType == TwitchTriggerType.ChannelPoints
+            && rewardSyncMode == TwitchRewardSyncMode.LinkExisting;
+        var cooldownSeconds = usesLinkedChannelPointReward
+            ? 0
+            : Math.Max(0, configuredCooldownSeconds);
+        var botMessageCooldownSeconds = usesLinkedChannelPointReward
+            ? GetLinkedRewardBotCooldownSeconds(linkedRewardCooldownSecondsById, channelPointRewardId)
+            : cooldownSeconds;
         var supporterAvatarId = isGlobalOverride ? rule.SupporterAvatarId.Trim() : string.Empty;
         var supporterAvatarName = isGlobalOverride ? rule.SupporterAvatarName.Trim() : string.Empty;
         if (isGlobalOverride
@@ -429,6 +447,8 @@ public sealed record BridgeRuntimeConfiguration(
             rule.RangeMaximum,
             rule.DurationSeconds,
             cooldownSeconds,
+            usesLinkedChannelPointReward,
+            botMessageCooldownSeconds,
             rule.SharedRewardChoiceEnabled,
             Math.Max(0, rule.SharedRewardChoiceNumber),
             rule.SharedRewardHelpText.Trim(),
@@ -447,6 +467,18 @@ public sealed record BridgeRuntimeConfiguration(
             action.ParameterName.Trim(),
             normalizedType,
             action.ParameterValue.Trim());
+    }
+
+    private static int? GetLinkedRewardBotCooldownSeconds(
+        IReadOnlyDictionary<string, int>? linkedRewardCooldownSecondsById,
+        string rewardId)
+    {
+        var normalizedRewardId = rewardId?.Trim() ?? string.Empty;
+        return !string.IsNullOrWhiteSpace(normalizedRewardId)
+            && linkedRewardCooldownSecondsById is not null
+            && linkedRewardCooldownSecondsById.TryGetValue(normalizedRewardId, out var cooldownSeconds)
+                ? Math.Max(0, cooldownSeconds)
+                : null;
     }
 
     private static bool TryToUniversalSnapshot(

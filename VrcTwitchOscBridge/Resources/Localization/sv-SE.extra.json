@@ -264,5 +264,22 @@
   "#{0} {1}": "Val {0}: {1}",
   "and {0} more": "och {0} till",
   "Choose which Twitch account Crystal Relay uses when it posts chat messages. The broadcaster can act as the bot after reconnecting once with chat-send permission, or you can keep using a separate bot account.": "V?lj vilket Twitch-konto Crystal Relay anv?nder n?r chattmeddelanden postas. Broadcaster kan agera som bot efter en ?teranslutning med r?ttighet att skicka chatt, eller s? kan du forts?tta anv?nda ett separat botkonto.",
-  "When enabled, Crystal Relay posts one compact Twitch chat message while you are live. The message lists the current avatar's channel point outfit choices and Bits outfit names so viewers know what to type.": "N?r detta ?r aktiverat postar Crystal Relay ett kompakt Twitch-chattmeddelande n?r du ?r live. Meddelandet listar aktuell avatars kanalpo?ngval f?r outfit och Bits-outfitnamn s? att tittare vet vad de ska skriva."
+  "When enabled, Crystal Relay posts one compact Twitch chat message while you are live. The message lists the current avatar's channel point outfit choices and Bits outfit names so viewers know what to type.": "N?r detta ?r aktiverat postar Crystal Relay ett kompakt Twitch-chattmeddelande n?r du ?r live. Meddelandet listar aktuell avatars kanalpo?ngval f?r outfit och Bits-outfitnamn s? att tittare vet vad de ska skriva.",
+  "Linked rewards are configured on Twitch. Crystal Relay only listens for this reward being redeemed and will not edit its name, cost, prompt, color, input settings, visibility, or cooldown.": "Länkade belöningar konfigureras på Twitch. Crystal Relay lyssnar bara efter att den här belöningen löses in och ändrar inte namn, kostnad, meddelande, färg, inmatningsinställningar, synlighet eller nedkylning.",
+  "Twitch cooldown unknown": "Okänd Twitch-nedkylning",
+  "Create/manage reward": "Skapa/hantera belöning",
+  "Disabled": "Disabled",
+  "Existing Twitch Reward": "Befintlig Twitch-belöning",
+  "Input required": "Inmatning krävs",
+  "Link existing Twitch reward": "Länka befintlig Twitch-belöning",
+  "Linked reward not loaded": "Länkad belöning inte laddad",
+  "No cooldown": "Ingen nedkylning",
+  "No input required": "Ingen inmatning krävs",
+  "Refresh Rewards": "Uppdatera belöningar",
+  "Reward Source": "Belöningskälla",
+  "Saved Twitch reward ID: {0}. Refresh rewards or reconnect the broadcaster account.": "Sparat Twitch-belönings-ID: {0}. Uppdatera belöningar eller återanslut broadcaster-kontot.",
+  "Select Twitch reward": "Välj Twitch-belöning",
+  "Unlink Reward": "Ta bort länk",
+  "{0} (not loaded)": "{0} (inte laddad)",
+  "{0}s cooldown": "{0}s nedkylning"
 }

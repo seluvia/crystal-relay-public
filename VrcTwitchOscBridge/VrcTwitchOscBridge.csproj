@@ -11,10 +11,10 @@
     <EnableDefaultPageItems>false</EnableDefaultPageItems>
     <ApplicationIcon>Assets\crystal-relay-icon.ico</ApplicationIcon>
     <UseWindowsForms>true</UseWindowsForms>
-    <Version>2.9.2</Version>
-    <AssemblyVersion>2.9.2.0</AssemblyVersion>
-    <FileVersion>2.9.2.0</FileVersion>
-    <InformationalVersion>2.9.2</InformationalVersion>
+    <Version>3.0.0</Version>
+    <AssemblyVersion>3.0.0.0</AssemblyVersion>
+    <FileVersion>3.0.0.0</FileVersion>
+    <InformationalVersion>3.0.0</InformationalVersion>
     <AssemblyName>CrystalRelayTwitchOsc</AssemblyName>
     <Product>Crystal Relay</Product>
     <Title>Crystal Relay - Twitch to OSC</Title>
@@ -79,6 +79,7 @@
     <Compile Include="Models\SetTriggerAction.cs" />
     <Compile Include="Models\TriggerRule.cs" />
     <Compile Include="Models\TwitchAccountSettings.cs" />
+    <Compile Include="Models\TwitchRewardSyncMode.cs" />
     <Compile Include="Models\TwitchTriggerType.cs" />
     <Compile Include="Models\UniversalTriggerAction.cs" />
     <Compile Include="Models\UniversalTriggerRule.cs" />

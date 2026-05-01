@@ -222,5 +222,22 @@
   "#{0} {1}": "#{0} {1}",
   "and {0} more": "and {0} more",
   "Choose which Twitch account Crystal Relay uses when it posts chat messages. The broadcaster can act as the bot after reconnecting once with chat-send permission, or you can keep using a separate bot account.": "Choose which Twitch account Crystal Relay uses when it posts chat messages. The broadcaster can act as the bot after reconnecting once with chat-send permission, or you can keep using a separate bot account.",
-  "When enabled, Crystal Relay posts one compact Twitch chat message while you are live. The message lists the current avatar's channel point outfit choices and Bits outfit names so viewers know what to type.": "When enabled, Crystal Relay posts one compact Twitch chat message while you are live. The message lists the current avatar's channel point outfit choices and Bits outfit names so viewers know what to type."
+  "When enabled, Crystal Relay posts one compact Twitch chat message while you are live. The message lists the current avatar's channel point outfit choices and Bits outfit names so viewers know what to type.": "When enabled, Crystal Relay posts one compact Twitch chat message while you are live. The message lists the current avatar's channel point outfit choices and Bits outfit names so viewers know what to type.",
+  "Linked rewards are configured on Twitch. Crystal Relay only listens for this reward being redeemed and will not edit its name, cost, prompt, color, input settings, visibility, or cooldown.": "Linked rewards are configured on Twitch. Crystal Relay only listens for this reward being redeemed and will not edit its name, cost, prompt, color, input settings, visibility, or cooldown.",
+  "Twitch cooldown unknown": "Twitch cooldown unknown",
+  "Create/manage reward": "Create/manage reward",
+  "Disabled": "Disabled",
+  "Existing Twitch Reward": "Existing Twitch Reward",
+  "Input required": "Input required",
+  "Link existing Twitch reward": "Link existing Twitch reward",
+  "Linked reward not loaded": "Linked reward not loaded",
+  "No cooldown": "No cooldown",
+  "No input required": "No input required",
+  "Refresh Rewards": "Refresh Rewards",
+  "Reward Source": "Reward Source",
+  "Saved Twitch reward ID: {0}. Refresh rewards or reconnect the broadcaster account.": "Saved Twitch reward ID: {0}. Refresh rewards or reconnect the broadcaster account.",
+  "Select Twitch reward": "Select Twitch reward",
+  "Unlink Reward": "Unlink Reward",
+  "{0} (not loaded)": "{0} (not loaded)",
+  "{0}s cooldown": "{0}s cooldown"
 }

@@ -22,6 +22,7 @@ public sealed class TriggerRule : ObservableObject
     private string channelPointRewardId = string.Empty;
     private string channelPointRewardTitle = string.Empty;
     private int channelPointRewardCost = 100;
+    private TwitchRewardSyncMode rewardSyncMode = TwitchRewardSyncMode.CreateOrManage;
     private string managedRewardReadyColor = ManagedRewardPresentation.ReadyBackgroundColor;
     private string managedRewardCooldownColor = ManagedRewardPresentation.InUseBackgroundColor;
     private bool deleteManagedRewardWhenInactive;
@@ -156,6 +157,27 @@ public sealed class TriggerRule : ObservableObject
             }
         }
     }
+
+    public TwitchRewardSyncMode RewardSyncMode
+    {
+        get => rewardSyncMode;
+        set
+        {
+            var normalizedValue = Enum.IsDefined(value)
+                ? value
+                : TwitchRewardSyncMode.CreateOrManage;
+            if (SetProperty(ref rewardSyncMode, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(UsesCreateOrManageReward));
+                RaisePropertyChanged(nameof(UsesLinkedExistingReward));
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public bool UsesCreateOrManageReward => RewardSyncMode == TwitchRewardSyncMode.CreateOrManage;
+
+    public bool UsesLinkedExistingReward => RewardSyncMode == TwitchRewardSyncMode.LinkExisting;
 
     public string ManagedRewardReadyColor
     {

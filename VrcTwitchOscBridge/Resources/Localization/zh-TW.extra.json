@@ -264,5 +264,22 @@
   "#{0} {1}": "?? {0}?{1}",
   "and {0} more": "???? {0} ?",
   "Choose which Twitch account Crystal Relay uses when it posts chat messages. The broadcaster can act as the bot after reconnecting once with chat-send permission, or you can keep using a separate bot account.": "?? Crystal Relay ?????????? Twitch ?????????????????????????????????????????????????",
-  "When enabled, Crystal Relay posts one compact Twitch chat message while you are live. The message lists the current avatar's channel point outfit choices and Bits outfit names so viewers know what to type.": "????Crystal Relay ???????????? Twitch ???????????????????????? Bits ????????????????"
+  "When enabled, Crystal Relay posts one compact Twitch chat message while you are live. The message lists the current avatar's channel point outfit choices and Bits outfit names so viewers know what to type.": "????Crystal Relay ???????????? Twitch ???????????????????????? Bits ????????????????",
+  "Linked rewards are configured on Twitch. Crystal Relay only listens for this reward being redeemed and will not edit its name, cost, prompt, color, input settings, visibility, or cooldown.": "已連結的獎勵在 Twitch 上設定。Crystal Relay 只監聽該獎勵是否被兌換，不會編輯名稱、花費、提示、顏色、輸入設定、可見性或冷卻時間。",
+  "Twitch cooldown unknown": "Twitch 冷卻時間未知",
+  "Create/manage reward": "建立/管理獎勵",
+  "Disabled": "Disabled",
+  "Existing Twitch Reward": "現有 Twitch 獎勵",
+  "Input required": "需要輸入",
+  "Link existing Twitch reward": "連結現有 Twitch 獎勵",
+  "Linked reward not loaded": "已連結獎勵未載入",
+  "No cooldown": "無冷卻",
+  "No input required": "不需要輸入",
+  "Refresh Rewards": "重新整理獎勵",
+  "Reward Source": "獎勵來源",
+  "Saved Twitch reward ID: {0}. Refresh rewards or reconnect the broadcaster account.": "已儲存的 Twitch 獎勵 ID：{0}。請重新整理獎勵或重新連接實況主帳號。",
+  "Select Twitch reward": "選擇 Twitch 獎勵",
+  "Unlink Reward": "取消連結獎勵",
+  "{0} (not loaded)": "{0}（未載入）",
+  "{0}s cooldown": "{0} 秒冷卻"
 }

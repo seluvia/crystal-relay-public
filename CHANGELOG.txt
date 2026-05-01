@@ -3,6 +3,19 @@ Crystal Relay Changelog
 
 Newest updates appear first. This changelog focuses on the changes users will notice most.
 
+v3.0.0
+- Reworked Avatar Sets with shared numbered rewards, Master Outfit Set Rewards, and Set Trigger outfit actions that can change multiple bool, int, and float parameters together.
+- Set Trigger outfit restores now use safe LocalAvatarData snapshots and a 70-second diff window so changed outfit parameters restore back to the values captured before the trigger ran.
+- Added Bits outfit triggers with outfit-name matching, including exact, compact, and fuzzy spelling matching, plus queueing so paid outfit changes restore safely in order.
+- Reorganized Bits + Subs into direct VRChat-avatar scoped supporter triggers and separate avatar-change overrides, with clearer avatar pickers and Use Current Avatar shortcuts.
+- Improved Avatar Scaling with cooldown-free stress tests, transition-gated scale queues, explicit Return Height restores, VRChat min/max bypass per scale redeem, master reward gating, and stronger avatar-swap carryover.
+- Linked existing Twitch rewards are now listen-only: Crystal Relay listens for redemptions without changing Twitch name, cost, cooldown, color, prompt, visibility, or deletion settings.
+- Managed Twitch reward sync now makes fewer API calls, backs off on Twitch rate limits, preserves reward IDs more carefully, and can recycle disabled Crystal Relay-owned `VRC:` rewards only when Twitch's 50 reward cap blocks current-avatar rewards.
+- Added broadcaster-as-bot chat sending and optional live-only outfit trigger announcement messages for current-avatar redeem and Bits outfit triggers.
+- Added the Stinky Online built-in theme and polished Home, Redeem Library, About/support, dropdown, and grouped-list layouts.
+- Fixed Avatar Set parameter picker/type syncing, timed bool restores, Int organizer row selection, Set Trigger dropdown display, reward dropdown stability, streaming status flicker, broadcaster scope recovery, and Test Mode reward population issues.
+- Improved Twitch Chatbox emote handling, including animated GIF emotes, while keeping static emotes working.
+
 v2.9.2
 - Added an optional managed reward cleanup setting that can delete inactive Crystal Relay Twitch rewards instead of only hiding them, helping avoid Twitch's 50 custom reward limit.
 - The cleanup option is available on Avatar Sets, Avatar Change, Movement Redeems, and Universal channel-point rewards, and Crystal Relay recreates or relinks those rewards when they become active again.

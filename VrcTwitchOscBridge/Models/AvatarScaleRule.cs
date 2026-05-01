@@ -74,6 +74,7 @@ public sealed class AvatarScaleMasterRewardSettings : ObservableObject
     private string rewardId = string.Empty;
     private string rewardTitle = "Avatar Scaling";
     private int rewardCost = 100;
+    private TwitchRewardSyncMode rewardSyncMode = TwitchRewardSyncMode.CreateOrManage;
     private int unlockDurationSeconds = 60;
     private int cooldownSeconds = 30;
     private string managedRewardReadyColor = ManagedRewardPresentation.ReadyBackgroundColor;
@@ -105,6 +106,26 @@ public sealed class AvatarScaleMasterRewardSettings : ObservableObject
         get => rewardCost;
         set => SetProperty(ref rewardCost, Math.Max(1, value));
     }
+
+    public TwitchRewardSyncMode RewardSyncMode
+    {
+        get => rewardSyncMode;
+        set
+        {
+            var normalizedValue = Enum.IsDefined(value)
+                ? value
+                : TwitchRewardSyncMode.CreateOrManage;
+            if (SetProperty(ref rewardSyncMode, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(UsesCreateOrManageReward));
+                RaisePropertyChanged(nameof(UsesLinkedExistingReward));
+            }
+        }
+    }
+
+    public bool UsesCreateOrManageReward => RewardSyncMode == TwitchRewardSyncMode.CreateOrManage;
+
+    public bool UsesLinkedExistingReward => RewardSyncMode == TwitchRewardSyncMode.LinkExisting;
 
     public int UnlockDurationSeconds
     {
@@ -261,6 +282,7 @@ public sealed class AvatarScaleRule : ObservableObject
     private string rewardId = string.Empty;
     private string rewardTitle = string.Empty;
     private int rewardCost = 100;
+    private TwitchRewardSyncMode rewardSyncMode = TwitchRewardSyncMode.CreateOrManage;
     private string managedRewardReadyColor = ManagedRewardPresentation.ReadyBackgroundColor;
     private string managedRewardCooldownColor = ManagedRewardPresentation.InUseBackgroundColor;
     private bool deleteManagedRewardWhenInactive;
@@ -370,6 +392,26 @@ public sealed class AvatarScaleRule : ObservableObject
         get => rewardCost;
         set => SetAndRaiseSummary(ref rewardCost, Math.Max(1, value));
     }
+
+    public TwitchRewardSyncMode RewardSyncMode
+    {
+        get => rewardSyncMode;
+        set
+        {
+            var normalizedValue = Enum.IsDefined(value)
+                ? value
+                : TwitchRewardSyncMode.CreateOrManage;
+            if (SetAndRaiseSummary(ref rewardSyncMode, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(UsesCreateOrManageReward));
+                RaisePropertyChanged(nameof(UsesLinkedExistingReward));
+            }
+        }
+    }
+
+    public bool UsesCreateOrManageReward => RewardSyncMode == TwitchRewardSyncMode.CreateOrManage;
+
+    public bool UsesLinkedExistingReward => RewardSyncMode == TwitchRewardSyncMode.LinkExisting;
 
     public string ManagedRewardReadyColor
     {

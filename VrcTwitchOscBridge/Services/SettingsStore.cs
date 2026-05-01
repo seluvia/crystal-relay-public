@@ -762,6 +762,7 @@ public sealed class SettingsStore
             SetTriggerMasterRewardId = profile.SetTriggerMasterRewardId,
             SetTriggerMasterRewardTitle = profile.SetTriggerMasterRewardTitle,
             SetTriggerMasterRewardCost = profile.SetTriggerMasterRewardCost,
+            SetTriggerMasterRewardSyncMode = profile.SetTriggerMasterRewardSyncMode,
             SetTriggerMasterRewardCooldownSeconds = profile.SetTriggerMasterRewardCooldownSeconds,
             SetTriggerMasterRewardReadyColor = profile.SetTriggerMasterRewardReadyColor,
             SetTriggerMasterRewardCooldownColor = profile.SetTriggerMasterRewardCooldownColor,
@@ -784,6 +785,9 @@ public sealed class SettingsStore
             SetTriggerMasterRewardId = profile.SetTriggerMasterRewardId ?? string.Empty,
             SetTriggerMasterRewardTitle = profile.SetTriggerMasterRewardTitle ?? string.Empty,
             SetTriggerMasterRewardCost = profile.SetTriggerMasterRewardCost <= 0 ? 100 : profile.SetTriggerMasterRewardCost,
+            SetTriggerMasterRewardSyncMode = Enum.IsDefined(profile.SetTriggerMasterRewardSyncMode)
+                ? profile.SetTriggerMasterRewardSyncMode
+                : TwitchRewardSyncMode.CreateOrManage,
             SetTriggerMasterRewardCooldownSeconds = Math.Max(0, profile.SetTriggerMasterRewardCooldownSeconds),
             SetTriggerMasterRewardReadyColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(profile.SetTriggerMasterRewardReadyColor),
             SetTriggerMasterRewardCooldownColor = ManagedRewardPresentation.NormalizeCooldownBackgroundColor(profile.SetTriggerMasterRewardCooldownColor),
@@ -809,6 +813,7 @@ public sealed class SettingsStore
             ChannelPointRewardId = rule.ChannelPointRewardId,
             ChannelPointRewardTitle = rule.ChannelPointRewardTitle,
             ChannelPointRewardCost = rule.ChannelPointRewardCost,
+            RewardSyncMode = rule.RewardSyncMode,
             ManagedRewardReadyColor = rule.ManagedRewardReadyColor,
             ManagedRewardCooldownColor = rule.ManagedRewardCooldownColor,
             DeleteManagedRewardWhenInactive = rule.DeleteManagedRewardWhenInactive,
@@ -890,6 +895,9 @@ public sealed class SettingsStore
                 ? rule.ChannelPointRewardTitle
                 : (rule.MatchText ?? string.Empty),
             ChannelPointRewardCost = rule.ChannelPointRewardCost <= 0 ? 100 : rule.ChannelPointRewardCost,
+            RewardSyncMode = Enum.IsDefined(rule.RewardSyncMode)
+                ? rule.RewardSyncMode
+                : TwitchRewardSyncMode.CreateOrManage,
             ManagedRewardReadyColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(rule.ManagedRewardReadyColor),
             ManagedRewardCooldownColor = ManagedRewardPresentation.NormalizeCooldownBackgroundColor(rule.ManagedRewardCooldownColor),
             DeleteManagedRewardWhenInactive = rule.DeleteManagedRewardWhenInactive,
@@ -981,6 +989,7 @@ public sealed class SettingsStore
             RewardId = rule.RewardId,
             RewardTitle = rule.RewardTitle,
             RewardCost = rule.RewardCost,
+            RewardSyncMode = rule.RewardSyncMode,
             ManagedRewardReadyColor = rule.ManagedRewardReadyColor,
             ManagedRewardCooldownColor = rule.ManagedRewardCooldownColor,
             DeleteManagedRewardWhenInactive = rule.DeleteManagedRewardWhenInactive,
@@ -1028,6 +1037,9 @@ public sealed class SettingsStore
             RewardId = rule.RewardId ?? string.Empty,
             RewardTitle = rule.RewardTitle ?? string.Empty,
             RewardCost = rule.RewardCost <= 0 ? 100 : rule.RewardCost,
+            RewardSyncMode = Enum.IsDefined(rule.RewardSyncMode)
+                ? rule.RewardSyncMode
+                : TwitchRewardSyncMode.CreateOrManage,
             ManagedRewardReadyColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(rule.ManagedRewardReadyColor),
             ManagedRewardCooldownColor = ManagedRewardPresentation.NormalizeCooldownBackgroundColor(rule.ManagedRewardCooldownColor),
             DeleteManagedRewardWhenInactive = rule.DeleteManagedRewardWhenInactive,
@@ -1113,6 +1125,7 @@ public sealed class SettingsStore
             RewardId = settings.RewardId,
             RewardTitle = settings.RewardTitle,
             RewardCost = settings.RewardCost,
+            RewardSyncMode = settings.RewardSyncMode,
             UnlockDurationSeconds = settings.UnlockDurationSeconds,
             CooldownSeconds = settings.CooldownSeconds,
             ManagedRewardReadyColor = settings.ManagedRewardReadyColor,
@@ -1134,6 +1147,9 @@ public sealed class SettingsStore
                 ? "Avatar Scaling"
                 : settings.RewardTitle,
             RewardCost = settings.RewardCost <= 0 ? 100 : settings.RewardCost,
+            RewardSyncMode = Enum.IsDefined(settings.RewardSyncMode)
+                ? settings.RewardSyncMode
+                : TwitchRewardSyncMode.CreateOrManage,
             UnlockDurationSeconds = settings.UnlockDurationSeconds <= 0 ? 60 : settings.UnlockDurationSeconds,
             CooldownSeconds = Math.Max(0, settings.CooldownSeconds),
             ManagedRewardReadyColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(settings.ManagedRewardReadyColor),
@@ -1158,6 +1174,7 @@ public sealed class SettingsStore
             RewardId = rule.RewardId,
             RewardTitle = rule.RewardTitle,
             RewardCost = rule.RewardCost,
+            RewardSyncMode = rule.RewardSyncMode,
             ManagedRewardReadyColor = rule.ManagedRewardReadyColor,
             ManagedRewardCooldownColor = rule.ManagedRewardCooldownColor,
             DeleteManagedRewardWhenInactive = rule.DeleteManagedRewardWhenInactive,
@@ -1219,6 +1236,9 @@ public sealed class SettingsStore
             RewardId = rule.RewardId ?? string.Empty,
             RewardTitle = rule.RewardTitle ?? string.Empty,
             RewardCost = rule.RewardCost <= 0 ? 100 : rule.RewardCost,
+            RewardSyncMode = Enum.IsDefined(rule.RewardSyncMode)
+                ? rule.RewardSyncMode
+                : TwitchRewardSyncMode.CreateOrManage,
             ManagedRewardReadyColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(rule.ManagedRewardReadyColor),
             ManagedRewardCooldownColor = ManagedRewardPresentation.NormalizeCooldownBackgroundColor(rule.ManagedRewardCooldownColor),
             DeleteManagedRewardWhenInactive = rule.DeleteManagedRewardWhenInactive,
@@ -1957,6 +1977,8 @@ public sealed class SettingsStore
 
         public int SetTriggerMasterRewardCost { get; set; }
 
+        public TwitchRewardSyncMode SetTriggerMasterRewardSyncMode { get; set; }
+
         public int SetTriggerMasterRewardCooldownSeconds { get; set; }
 
         public string? SetTriggerMasterRewardReadyColor { get; set; }
@@ -1985,6 +2007,8 @@ public sealed class SettingsStore
         public string? ChannelPointRewardTitle { get; set; }
 
         public int ChannelPointRewardCost { get; set; }
+
+        public TwitchRewardSyncMode RewardSyncMode { get; set; }
 
         public string? ManagedRewardReadyColor { get; set; }
 
@@ -2098,6 +2122,8 @@ public sealed class SettingsStore
 
         public int RewardCost { get; set; }
 
+        public TwitchRewardSyncMode RewardSyncMode { get; set; }
+
         public string? ManagedRewardReadyColor { get; set; }
 
         public string? ManagedRewardCooldownColor { get; set; }
@@ -2144,6 +2170,8 @@ public sealed class SettingsStore
 
         public int RewardCost { get; set; }
 
+        public TwitchRewardSyncMode RewardSyncMode { get; set; }
+
         public int UnlockDurationSeconds { get; set; }
 
         public int CooldownSeconds { get; set; }
@@ -2180,6 +2208,8 @@ public sealed class SettingsStore
         public string? RewardTitle { get; set; }
 
         public int RewardCost { get; set; }
+
+        public TwitchRewardSyncMode RewardSyncMode { get; set; }
 
         public string? ManagedRewardReadyColor { get; set; }
 

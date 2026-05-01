@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media;
@@ -35,6 +36,35 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         BroadcasterTokenRefreshRequired
     }
 
+    private enum ManagedRewardSyncReason
+    {
+        SettingsEdit,
+        Startup,
+        AccountReconnect,
+        AvatarChanged,
+        RuntimeAvailability,
+        AvatarScaleStatus,
+        TestMode,
+        EmergencyStop,
+        StreamStateChanged,
+        ManualRefresh,
+        ManualCleanup,
+        Maintenance
+    }
+
+    private sealed record BroadcasterRewardAccountSnapshot(
+        bool IsConnected,
+        string AccessToken,
+        string RefreshToken,
+        string UserId,
+        string Login,
+        string DisplayName,
+        string ProfileImageUrl,
+        DateTimeOffset? AccessTokenExpiresAt,
+        DateTimeOffset? SessionRenewalDueAt,
+        string[] Scopes,
+        string TwitchClientId);
+
     private const string TwitchActivationUri = "https://www.twitch.tv/activate";
     private const string TwitchDeveloperConsoleUri = "https://dev.twitch.tv/console/apps";
     private const string KoFiSupportUri = "https://ko-fi.com/screminpal";
@@ -43,9 +73,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private const int MaxLogEntryCount = 200;
     private const int MaxChatMessageCount = 250;
     private const int TwitchCustomRewardPromptMaxLength = 200;
+    private const int TwitchCustomRewardLimit = 50;
     private static readonly TimeSpan ManagedRewardCreateBackoffWindow = TimeSpan.FromSeconds(45);
     private static readonly TimeSpan ThrottledRewardSyncLogWindow = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan AvatarScaleLimitRewardSyncDebounce = TimeSpan.FromMilliseconds(750);
+    private static readonly TimeSpan TwitchAccessTokenRefreshLeadTime = TimeSpan.FromMinutes(15);
+    private static readonly TimeSpan TwitchPublicRefreshSessionWindow = TimeSpan.FromDays(30);
     private static readonly TimeSpan VrChatLocalStatePollInterval = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan VrChatCurrentAvatarPollInterval = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan VrChatOscParameterAutoRefreshInitialDelay = TimeSpan.FromSeconds(2);
@@ -80,6 +113,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         nameof(TriggerRule.TriggerType),
         nameof(TriggerRule.ChannelPointRewardId),
         nameof(TriggerRule.ChannelPointRewardTitle),
+        nameof(TriggerRule.RewardSyncMode),
         nameof(TriggerRule.ChatCommandEnabled),
         nameof(TriggerRule.ChatCommandText),
         nameof(TriggerRule.ChatCommandPermission),
@@ -124,6 +158,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         nameof(TriggerRule.ChannelPointRewardId),
         nameof(TriggerRule.ChannelPointRewardTitle),
         nameof(TriggerRule.ChannelPointRewardCost),
+        nameof(TriggerRule.RewardSyncMode),
         nameof(TriggerRule.ManagedRewardReadyColor),
         nameof(TriggerRule.ManagedRewardCooldownColor),
         nameof(TriggerRule.DeleteManagedRewardWhenInactive),
@@ -145,6 +180,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         nameof(AvatarTriggerProfile.AvatarId),
         nameof(AvatarTriggerProfile.SetTriggerMasterRewardId),
         nameof(AvatarTriggerProfile.SetTriggerMasterRewardTitle),
+        nameof(AvatarTriggerProfile.SetTriggerMasterRewardSyncMode),
         nameof(AvatarTriggerProfile.SetTriggerMasterRewardCooldownSeconds)
     };
     private static readonly HashSet<string> AvatarProfilePropertiesRequiringManagedRewardSync = new(StringComparer.Ordinal)
@@ -156,6 +192,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         nameof(AvatarTriggerProfile.SetTriggerMasterRewardId),
         nameof(AvatarTriggerProfile.SetTriggerMasterRewardTitle),
         nameof(AvatarTriggerProfile.SetTriggerMasterRewardCost),
+        nameof(AvatarTriggerProfile.SetTriggerMasterRewardSyncMode),
         nameof(AvatarTriggerProfile.SetTriggerMasterRewardCooldownSeconds),
         nameof(AvatarTriggerProfile.SetTriggerMasterRewardReadyColor),
         nameof(AvatarTriggerProfile.SetTriggerMasterRewardCooldownColor),
@@ -168,6 +205,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         nameof(UniversalTriggerRule.RewardId),
         nameof(UniversalTriggerRule.RewardTitle),
         nameof(UniversalTriggerRule.RewardCost),
+        nameof(UniversalTriggerRule.RewardSyncMode),
         nameof(UniversalTriggerRule.ManagedRewardReadyColor),
         nameof(UniversalTriggerRule.ManagedRewardCooldownColor),
         nameof(UniversalTriggerRule.DeleteManagedRewardWhenInactive)
@@ -186,6 +224,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         nameof(AvatarScaleRule.RewardId),
         nameof(AvatarScaleRule.RewardTitle),
         nameof(AvatarScaleRule.RewardCost),
+        nameof(AvatarScaleRule.RewardSyncMode),
         nameof(AvatarScaleRule.ManagedRewardReadyColor),
         nameof(AvatarScaleRule.ManagedRewardCooldownColor),
         nameof(AvatarScaleRule.DeleteManagedRewardWhenInactive),
@@ -203,6 +242,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         nameof(AvatarScaleMasterRewardSettings.RewardId),
         nameof(AvatarScaleMasterRewardSettings.RewardTitle),
         nameof(AvatarScaleMasterRewardSettings.RewardCost),
+        nameof(AvatarScaleMasterRewardSettings.RewardSyncMode),
         nameof(AvatarScaleMasterRewardSettings.UnlockDurationSeconds),
         nameof(AvatarScaleMasterRewardSettings.CooldownSeconds),
         nameof(AvatarScaleMasterRewardSettings.ManagedRewardReadyColor),
@@ -273,6 +313,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private string streamingListenerStateText = "Offline";
     private string streamingListenerStateVisual = "Disconnected";
     private bool isBroadcasterLive;
+    private bool hasResolvedBroadcasterLiveState;
     private string broadcasterExpiryStatus = string.Empty;
     private string botExpiryStatus = string.Empty;
     private string broadcasterDeviceCode = string.Empty;
@@ -316,6 +357,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private readonly Dictionary<Guid, bool> avatarScaleLimitInactiveStateByRuleId = [];
     private readonly Dictionary<string, DateTimeOffset> throttledLogExpiryByKey = new(StringComparer.Ordinal);
     private readonly List<ActionTypeOption> allActionTypes;
+    private string lastSuccessfulManagedRewardDesiredFingerprint = string.Empty;
+    private DateTimeOffset? managedRewardApiBackoffUntil;
     private DateTimeOffset aboutProfilesLastRefreshedAt = DateTimeOffset.MinValue;
     private DateTime latestLocalVrChatAvatarWriteTimeUtc = DateTime.MinValue;
     private string vrChatOutputLogPath = string.Empty;
@@ -356,6 +399,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         LogEntries = [];
         ChatMessages = [];
         RewardOptions = [];
+        RewardSyncModeOptions =
+        [
+            new TwitchRewardSyncModeOption(TwitchRewardSyncMode.CreateOrManage, T("Create/manage reward")),
+            new TwitchRewardSyncModeOption(TwitchRewardSyncMode.LinkExisting, T("Link existing Twitch reward"))
+        ];
         AvatarRuleProfiles = [];
         SupporterAvatarScopeOptions = [];
         SupporterRuleAvatarScopeOptions = [];
@@ -556,6 +604,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         OpenSaveFolderCommand = new RelayCommand(OpenSaveFolder);
         OpenKoFiSupportCommand = new RelayCommand(OpenKoFiSupportPage);
         RefreshOscConnectionCommand = new AsyncRelayCommand(RefreshOscConnectionAsync);
+        RefreshTwitchRewardsCommand = new AsyncRelayCommand(RefreshTwitchRewardsAsync);
+        UnlinkTwitchRewardCommand = new RelayCommand(UnlinkTwitchReward);
         TestSelectedRuleCommand = new AsyncRelayCommand(TestSelectedRuleAsync, () => SelectedRule is not null);
         ShowSettingsTestCommand = new RelayCommand(ShowSettingsTestPopup);
         ShowHomeSectionCommand = new RelayCommand(() => SetActiveSection(SectionView.Home));
@@ -590,6 +640,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RefreshVrChatOscParametersCommand = new AsyncRelayCommand(RefreshVrChatOscParametersAsync);
 
         AddRuleCommand = new RelayCommand(AddRule);
+        SelectRuleCommand = new RelayCommand(SelectRule, target => target is TriggerRule);
         AddAvatarSupporterTriggerCommand = new RelayCommand(AddAvatarSupporterTrigger);
         AddAvatarChangeOverrideCommand = new RelayCommand(AddAvatarChangeOverride);
         RemoveSelectedRuleCommand = new RelayCommand(RemoveSelectedRule, () => SelectedRule is not null);
@@ -636,7 +687,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             UpdateAccountStatuses();
             QueueSave();
             _ = QueueRewardRefreshAsync();
-            QueueManagedRewardSync(0);
+            QueueManagedRewardSync(0, ManagedRewardSyncReason.AccountReconnect);
             _ = RefreshAboutProfilesAsync();
         });
         bridgeCoordinator.ChatMessageReceived += message => RunOnUi(() => AppendChatMessage(message));
@@ -646,7 +697,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         bridgeCoordinator.ManagedRewardAvailabilityChanged += () => RunOnUi(() =>
         {
             RaisePropertyChanged(nameof(AvatarScaleMasterRewardStatusText));
-            QueueManagedRewardSync((int)AvatarScaleLimitRewardSyncDebounce.TotalMilliseconds);
+            QueueManagedRewardSync(
+                (int)AvatarScaleLimitRewardSyncDebounce.TotalMilliseconds,
+                ManagedRewardSyncReason.RuntimeAvailability);
         });
         bridgeCoordinator.AvatarScaleStatusChanged += () => RunOnUi(HandleAvatarScaleStatusChanged);
 
@@ -663,6 +716,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     public ObservableCollection<TwitchChatMessageEntry> ChatMessages { get; }
 
     public ObservableCollection<TwitchRewardOption> RewardOptions { get; }
+
+    public IReadOnlyList<TwitchRewardSyncModeOption> RewardSyncModeOptions { get; }
 
     public ObservableCollection<AvatarTriggerProfile> AvatarRuleProfiles { get; }
 
@@ -724,7 +779,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
                 if (Settings.ChannelPointRewardTestModeEnabled && !IsBroadcasterLive)
                 {
-                    QueueManagedRewardSync(0);
+                    QueueManagedRewardSync(0, ManagedRewardSyncReason.TestMode);
                 }
             }
         }
@@ -2090,6 +2145,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public AsyncRelayCommand RefreshOscConnectionCommand { get; }
 
+    public AsyncRelayCommand RefreshTwitchRewardsCommand { get; }
+
+    public RelayCommand UnlinkTwitchRewardCommand { get; }
+
     public AsyncRelayCommand TestSelectedRuleCommand { get; }
 
     public RelayCommand ShowSettingsTestCommand { get; }
@@ -2143,6 +2202,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     public AsyncRelayCommand RefreshVrChatOscParametersCommand { get; }
 
     public RelayCommand AddRuleCommand { get; }
+
+    public RelayCommand SelectRuleCommand { get; }
 
     public RelayCommand AddAvatarSupporterTriggerCommand { get; }
 
@@ -2269,7 +2330,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         AppendLog("Loaded saved settings.");
         await InitializeVrChatAsync();
         await QueueRewardRefreshAsync();
-        QueueManagedRewardSync();
+        QueueManagedRewardSync(reason: ManagedRewardSyncReason.Startup);
         await aboutProfilesRefreshTask;
         QueueBridgeRefresh();
     }
@@ -2518,6 +2579,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
             Settings.VrChat.Apply(account);
             RaiseVrChatConnectionStateProperties();
+            SyncVrChatRuntimeState(queueManagedRewardSync: false);
             QueueSave();
             AppendLog(TF("Connected VRChat avatar access as {0}.", account.DisplayName));
             StartOrRefreshVrChatLocalOscWatcher();
@@ -2527,8 +2589,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
         catch (Exception ex)
         {
-            Settings.VrChat.Clear();
+            ClearVrChatAccountPreservingCurrentAvatar();
             RaiseVrChatConnectionStateProperties();
+            SyncVrChatRuntimeState(queueManagedRewardSync: false);
             VrChatStatus = GetFriendlyVrChatError(ex);
             VrChatAvatarStatus = T("VRChat avatar list is unavailable until login succeeds.");
             AppendLog(VrChatStatus);
@@ -2572,7 +2635,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         await SafeVrChatLogoutAsync(Settings.VrChat.AuthCookie);
         await settingsStore.ClearVrChatAvatarCacheAsync(CancellationToken.None);
         await settingsStore.ClearVrChatOscParameterCacheAsync(CancellationToken.None);
-        Settings.VrChat.Clear();
+        ClearVrChatAccountPreservingCurrentAvatar();
         ClearAvailableVrChatAvatars();
         cachedVrChatParametersByAvatarId.Clear();
         AvatarParameterOptions.Clear();
@@ -2583,6 +2646,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RaiseVrChatConnectionStateProperties();
         VrChatStatus = T("VRChat avatar access is not connected.");
         VrChatAvatarStatus = T("Connect VRChat to load avatar choices.");
+        SyncVrChatRuntimeState();
         ResetVrChatLocalRuntimeTracking();
         DisposeVrChatLocalOscWatcher();
         QueueSave();
@@ -2590,6 +2654,46 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         UpdateAvatarProfileActivityStates();
         RefreshVrChatAvatarSelectionOptions();
         AppendLog(T("Disconnected VRChat avatar access."));
+    }
+
+    private void SyncVrChatRuntimeState(bool queueManagedRewardSync = true)
+    {
+        var currentAvatarId = GetBestKnownCurrentAvatarId();
+        if (!string.IsNullOrWhiteSpace(currentAvatarId)
+            && string.IsNullOrWhiteSpace(Settings.VrChat.CurrentAvatarId))
+        {
+            Settings.VrChat.CurrentAvatarId = currentAvatarId;
+        }
+
+        bridgeCoordinator.UpdateCurrentVrChatAvatar(currentAvatarId);
+        UpdateAvatarProfileActivityStates();
+        RaisePropertyChanged(nameof(UniversalManagedRewardStatusText));
+        QueueBridgeRefresh();
+        if (queueManagedRewardSync)
+        {
+            QueueManagedRewardSync(0);
+        }
+    }
+
+    private void ClearVrChatAccountPreservingCurrentAvatar()
+    {
+        var currentAvatarId = GetBestKnownCurrentAvatarId();
+        Settings.VrChat.Clear();
+        if (!string.IsNullOrWhiteSpace(currentAvatarId))
+        {
+            Settings.VrChat.CurrentAvatarId = currentAvatarId;
+        }
+    }
+
+    private string GetBestKnownCurrentAvatarId()
+    {
+        var savedAvatarId = Settings.VrChat.CurrentAvatarId?.Trim() ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(savedAvatarId))
+        {
+            return savedAvatarId;
+        }
+
+        return bridgeCoordinator.CurrentVrChatAvatarId?.Trim() ?? string.Empty;
     }
 
     // Shared Twitch device-auth flow used by both broadcaster and bot login buttons.
@@ -2796,6 +2900,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
             Settings.VrChat.Apply(account);
             ReplaceAvailableVrChatAvatars(avatars);
+            SyncVrChatRuntimeState(queueManagedRewardSync: false);
             if (NormalizeSupporterAvatarScopes())
             {
                 QueueSave(0);
@@ -2824,7 +2929,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             if (ex is VrChatApiException apiException
                 && apiException.StatusCode == System.Net.HttpStatusCode.Unauthorized)
             {
-                Settings.VrChat.Clear();
+                ClearVrChatAccountPreservingCurrentAvatar();
                 ClearAvailableVrChatAvatars();
                 await settingsStore.ClearVrChatAvatarCacheAsync(CancellationToken.None);
                 await settingsStore.ClearVrChatOscParameterCacheAsync(CancellationToken.None);
@@ -2834,6 +2939,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 SelectedAvatarParameterOption = null;
                 SelectedSetTriggerParameterOption = null;
                 RaiseVrChatConnectionStateProperties();
+                SyncVrChatRuntimeState(queueManagedRewardSync: false);
                 VrChatStatus = T("Saved VRChat session expired. Connect again to reload avatars.");
                 VrChatAvatarStatus = T("VRChat avatar list is unavailable until you reconnect.");
                 VrChatOscParameterStatus = T("Reconnect VRChat to load avatar parameters again.");
@@ -3564,7 +3670,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     {
         Settings.ChannelPointRewardTestModeEnabled = !Settings.ChannelPointRewardTestModeEnabled;
         QueueSave();
-        QueueManagedRewardSync(0);
+        QueueManagedRewardSync(0, ManagedRewardSyncReason.TestMode);
         RaiseRuleSelectionStateProperties();
         RefreshRuleCommandStates();
         AppendLog(Settings.ChannelPointRewardTestModeEnabled
@@ -3576,7 +3682,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     {
         Settings.EmergencyRedeemStopEnabled = !Settings.EmergencyRedeemStopEnabled;
         QueueSave(0);
-        QueueManagedRewardSync(0);
+        QueueManagedRewardSync(0, ManagedRewardSyncReason.EmergencyStop);
         QueueBridgeRefresh();
         RaisePropertyChanged(nameof(EmergencyRedeemStopButtonText));
         RaisePropertyChanged(nameof(EmergencyRedeemStopHelpText));
@@ -3791,6 +3897,14 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 : IsViewingMasterAvatar
                     ? $"Added master trigger '{rule.DisplayTitle}'."
             : $"Added trigger '{rule.DisplayTitle}' to '{SelectedAvatarProfile?.DisplayTitle}'.");
+    }
+
+    private void SelectRule(object? target)
+    {
+        if (target is TriggerRule rule)
+        {
+            SelectedRule = rule;
+        }
     }
 
     private void AddAvatarSupporterTrigger()
@@ -4198,6 +4312,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private void RetireManagedRewards(IEnumerable<TriggerRule> rules)
     {
         var retiredIds = rules
+            .Where(rule => rule.RewardSyncMode == TwitchRewardSyncMode.CreateOrManage)
             .Select(rule => rule.ChannelPointRewardId?.Trim())
             .Where(rewardId => !string.IsNullOrWhiteSpace(rewardId))
             .ToArray();
@@ -4218,8 +4333,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private void RetireManagedRewards(IEnumerable<UniversalTriggerRule> triggers)
     {
         var retiredIds = triggers
-            .Where(trigger => trigger.TriggerType == UniversalTriggerType.ChannelPointReward
+            .Where(trigger => trigger.RewardSyncMode == TwitchRewardSyncMode.CreateOrManage
+                && (trigger.TriggerType == UniversalTriggerType.ChannelPointReward
                 || !string.IsNullOrWhiteSpace(trigger.RewardId))
+            )
             .Select(trigger => trigger.RewardId?.Trim())
             .Where(rewardId => !string.IsNullOrWhiteSpace(rewardId))
             .ToArray();
@@ -4240,8 +4357,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private void RetireManagedRewards(IEnumerable<AvatarScaleRule> rules)
     {
         var retiredIds = rules
-            .Where(rule => rule.TriggerType == AvatarScaleTriggerType.ChannelPointReward
+            .Where(rule => rule.RewardSyncMode == TwitchRewardSyncMode.CreateOrManage
+                && (rule.TriggerType == AvatarScaleTriggerType.ChannelPointReward
                 || !string.IsNullOrWhiteSpace(rule.RewardId))
+            )
             .Select(rule => rule.RewardId?.Trim())
             .Where(rewardId => !string.IsNullOrWhiteSpace(rewardId))
             .ToArray();
@@ -5049,7 +5168,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
         if (shouldSync)
         {
-            QueueManagedRewardSync((int)AvatarScaleLimitRewardSyncDebounce.TotalMilliseconds);
+            QueueManagedRewardSync(
+                (int)AvatarScaleLimitRewardSyncDebounce.TotalMilliseconds,
+                ManagedRewardSyncReason.AvatarScaleStatus);
         }
     }
 
@@ -5423,7 +5544,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             && e.PropertyName == nameof(AppSettings.ChannelPointRewardTestModeEnabled))
         {
             RaiseRuleSelectionStateProperties();
-            QueueManagedRewardSync(0);
+            QueueManagedRewardSync(0, ManagedRewardSyncReason.TestMode);
         }
 
         if (sender is AppSettings
@@ -5440,7 +5561,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             RaisePropertyChanged(nameof(EmergencyRedeemStopButtonText));
             RaisePropertyChanged(nameof(EmergencyRedeemStopHelpText));
             RaisePropertyChanged(nameof(IsEmergencyRedeemStopEnabled));
-            QueueManagedRewardSync(0);
+            QueueManagedRewardSync(0, ManagedRewardSyncReason.EmergencyStop);
         }
 
         if (sender is AppSettings
@@ -5623,7 +5744,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         bool forceDiscoveryRefresh = false)
     {
         await ReloadRuntimeConfigAsync();
-        var configuration = BridgeRuntimeConfiguration.FromSettings(Settings, runtimeConfig);
+        var configuration = BridgeRuntimeConfiguration.FromSettings(Settings, runtimeConfig, BuildLinkedRewardCooldownLookup());
 
         if (!Settings.Broadcaster.IsConnected)
         {
@@ -5944,28 +6065,262 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         return (false, profile);
     }
 
+    private async Task RefreshTwitchRewardsAsync()
+    {
+        await QueueRewardRefreshAsync();
+    }
+
+    private async Task<ManagedRewardSyncOutcome> EnsureBroadcasterRewardManagementReadyAsync(
+        string status,
+        string logKey,
+        bool clearRewardOptions,
+        CancellationToken cancellationToken)
+    {
+        var accountSnapshot = await GetBroadcasterRewardAccountSnapshotAsync(cancellationToken);
+        if (!accountSnapshot.IsConnected)
+        {
+            return ManagedRewardSyncOutcome.Completed;
+        }
+
+        if (string.IsNullOrWhiteSpace(accountSnapshot.AccessToken)
+            || string.IsNullOrWhiteSpace(accountSnapshot.UserId)
+            || string.IsNullOrWhiteSpace(accountSnapshot.TwitchClientId))
+        {
+            SetUniversalManagedRewardSyncStatus(status);
+            RunOnUi(() => AppendThrottledLog(
+                $"{logKey}:incomplete",
+                "Twitch reward refresh skipped because the broadcaster login is incomplete. Reconnect the broadcaster account once.",
+                ThrottledRewardSyncLogWindow));
+            return ManagedRewardSyncOutcome.BroadcasterTokenRefreshRequired;
+        }
+
+        try
+        {
+            var refreshedAccount = await ValidateOrRefreshBroadcasterAccountAsync(accountSnapshot, cancellationToken);
+            if (!HasScope(refreshedAccount, TwitchScopes.RewardManagement))
+            {
+                ReportBroadcasterRewardManagementScopeMissing(
+                    status,
+                    $"{logKey}:missing-scope",
+                    clearRewardOptions);
+                return ManagedRewardSyncOutcome.BroadcasterRewardManagementScopeMissing;
+            }
+
+            await ApplyBroadcasterAccountRefreshAsync(refreshedAccount, cancellationToken);
+            return ManagedRewardSyncOutcome.Completed;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            SetUniversalManagedRewardSyncStatus(status);
+            RunOnUi(() => AppendThrottledLog(
+                $"{logKey}:token",
+                $"Twitch reward refresh skipped because Crystal Relay could not verify the broadcaster login yet. {ex.Message}",
+                ThrottledRewardSyncLogWindow));
+            return ManagedRewardSyncOutcome.BroadcasterTokenRefreshRequired;
+        }
+    }
+
+    private Task<BroadcasterRewardAccountSnapshot> GetBroadcasterRewardAccountSnapshotAsync(CancellationToken cancellationToken)
+    {
+        if (dispatcher.CheckAccess())
+        {
+            return Task.FromResult(CreateBroadcasterRewardAccountSnapshot());
+        }
+
+        return dispatcher.InvokeAsync(
+            CreateBroadcasterRewardAccountSnapshot,
+            DispatcherPriority.Normal,
+            cancellationToken).Task;
+    }
+
+    private BroadcasterRewardAccountSnapshot CreateBroadcasterRewardAccountSnapshot()
+    {
+        var account = Settings.Broadcaster;
+        return new BroadcasterRewardAccountSnapshot(
+            account.IsConnected,
+            account.AccessToken,
+            account.RefreshToken,
+            account.UserId,
+            account.Login,
+            account.DisplayName,
+            account.ProfileImageUrl,
+            account.AccessTokenExpiresAt,
+            account.SessionRenewalDueAt,
+            account.Scopes?.ToArray() ?? [],
+            runtimeConfig.TwitchClientId);
+    }
+
+    private async Task<TwitchAccountSettings> ValidateOrRefreshBroadcasterAccountAsync(
+        BroadcasterRewardAccountSnapshot account,
+        CancellationToken cancellationToken)
+    {
+        var accessToken = account.AccessToken;
+        var refreshToken = account.RefreshToken;
+        var scopes = account.Scopes.ToArray();
+        var expiresAt = account.AccessTokenExpiresAt;
+
+        if (!string.IsNullOrWhiteSpace(refreshToken)
+            && expiresAt is { } existingExpiresAt
+            && existingExpiresAt <= DateTimeOffset.UtcNow.Add(TwitchAccessTokenRefreshLeadTime))
+        {
+            var refreshedToken = await twitchApiClient.RefreshAccessTokenAsync(
+                account.TwitchClientId,
+                refreshToken,
+                cancellationToken);
+            accessToken = refreshedToken.AccessToken;
+            refreshToken = refreshedToken.RefreshToken;
+            scopes = [.. refreshedToken.Scope];
+            expiresAt = DateTimeOffset.UtcNow.AddSeconds(refreshedToken.ExpiresIn);
+        }
+
+        var validation = await twitchApiClient.ValidateTokenAsync(accessToken, cancellationToken);
+        if (validation is null)
+        {
+            if (string.IsNullOrWhiteSpace(refreshToken))
+            {
+                throw new InvalidOperationException("The saved broadcaster token expired and has no refresh token.");
+            }
+
+            var refreshedToken = await twitchApiClient.RefreshAccessTokenAsync(
+                account.TwitchClientId,
+                refreshToken,
+                cancellationToken);
+            accessToken = refreshedToken.AccessToken;
+            refreshToken = refreshedToken.RefreshToken;
+            scopes = [.. refreshedToken.Scope];
+            expiresAt = DateTimeOffset.UtcNow.AddSeconds(refreshedToken.ExpiresIn);
+            validation = await twitchApiClient.ValidateTokenAsync(accessToken, cancellationToken)
+                ?? throw new InvalidOperationException("The refreshed broadcaster token could not be validated.");
+        }
+
+        var user = await twitchApiClient.GetUserAsync(
+            accessToken,
+            account.TwitchClientId,
+            validation.UserId,
+            cancellationToken);
+        var validatedScopes = validation.Scopes.Count > 0 ? validation.Scopes.ToArray() : scopes;
+
+        return new TwitchAccountSettings
+        {
+            AccessToken = accessToken,
+            RefreshToken = refreshToken,
+            UserId = validation.UserId,
+            Login = user?.Login ?? validation.Login,
+            DisplayName = user?.DisplayName ?? account.DisplayName ?? validation.Login,
+            ProfileImageUrl = user?.ProfileImageUrl ?? account.ProfileImageUrl,
+            AccessTokenExpiresAt = DateTimeOffset.UtcNow.AddSeconds(validation.ExpiresIn),
+            SessionRenewalDueAt = account.SessionRenewalDueAt ?? DateTimeOffset.UtcNow.Add(TwitchPublicRefreshSessionWindow),
+            Scopes = [.. validatedScopes]
+        };
+    }
+
+    private async Task ApplyBroadcasterAccountRefreshAsync(TwitchAccountSettings refreshedAccount, CancellationToken cancellationToken)
+    {
+        if (dispatcher.CheckAccess())
+        {
+            ApplyBroadcasterAccountRefresh(refreshedAccount);
+            return;
+        }
+
+        await dispatcher.InvokeAsync(
+            () => ApplyBroadcasterAccountRefresh(refreshedAccount),
+            DispatcherPriority.Normal,
+            cancellationToken).Task;
+    }
+
+    private void ApplyBroadcasterAccountRefresh(TwitchAccountSettings refreshedAccount)
+    {
+        var bridgeSensitiveChange = HasBridgeSensitiveTwitchAccountChanges(Settings.Broadcaster, refreshedAccount);
+        var accountChanged = bridgeSensitiveChange
+            || !string.Equals(Settings.Broadcaster.DisplayName, refreshedAccount.DisplayName, StringComparison.Ordinal)
+            || !string.Equals(Settings.Broadcaster.ProfileImageUrl, refreshedAccount.ProfileImageUrl, StringComparison.Ordinal)
+            || Settings.Broadcaster.AccessTokenExpiresAt != refreshedAccount.AccessTokenExpiresAt
+            || Settings.Broadcaster.SessionRenewalDueAt != refreshedAccount.SessionRenewalDueAt;
+
+        Settings.Broadcaster.Apply(refreshedAccount);
+        if (BroadcasterCanManageRewards)
+        {
+            ClearBroadcasterManagedRewardsUnavailableForSession();
+        }
+
+        if (!accountChanged)
+        {
+            return;
+        }
+
+        UpdateAccountStatuses();
+        QueueSave();
+        if (bridgeSensitiveChange)
+        {
+            QueueBridgeRefresh();
+        }
+    }
+
+    private void UnlinkTwitchReward(object? target)
+    {
+        switch (target)
+        {
+            case TriggerRule rule:
+                rule.ChannelPointRewardId = string.Empty;
+                break;
+            case UniversalTriggerRule trigger:
+                trigger.RewardId = string.Empty;
+                break;
+            case AvatarScaleRule scaleRule:
+                scaleRule.RewardId = string.Empty;
+                break;
+            case AvatarScaleMasterRewardSettings masterReward:
+                masterReward.RewardId = string.Empty;
+                break;
+            case AvatarTriggerProfile profile:
+                profile.SetTriggerMasterRewardId = string.Empty;
+                break;
+            default:
+                return;
+        }
+
+        QueueManagedRewardSync(0);
+        QueueSave(0);
+    }
+
     private async Task QueueRewardRefreshAsync()
     {
         await ReloadRuntimeConfigAsync();
 
+        if (IsManagedRewardApiBackoffActive("Twitch reward refresh"))
+        {
+            return;
+        }
+
         if (!Settings.Broadcaster.IsConnected)
         {
-            RunOnUi(() => RewardOptions.Clear());
+            RunOnUi(() => AppendThrottledLog(
+                "managed-rewards-refresh-no-broadcaster",
+                "Twitch reward refresh skipped because the broadcaster account is not connected.",
+                ThrottledRewardSyncLogWindow));
             return;
         }
 
         if (broadcasterManagedRewardsUnavailableForSession)
         {
-            RunOnUi(() => RewardOptions.Clear());
+            RunOnUi(() => AppendThrottledLog(
+                "managed-rewards-refresh-unavailable",
+                "Twitch reward refresh skipped because channel point reward management is unavailable for this broadcaster session.",
+                ThrottledRewardSyncLogWindow));
             return;
         }
 
-        if (BroadcasterRewardManagementScopeKnownMissing)
+        var accountReadiness = await EnsureBroadcasterRewardManagementReadyAsync(
+            "Twitch reward refresh skipped because the broadcaster login is not ready for channel-point reward management.",
+            "managed-rewards-broadcaster-not-ready:catalog",
+            clearRewardOptions: false,
+            CancellationToken.None);
+        if (accountReadiness != ManagedRewardSyncOutcome.Completed)
         {
-            ReportBroadcasterRewardManagementScopeMissing(
-                "Twitch reward refresh skipped because the broadcaster login is missing channel-point reward management permission.",
-                "managed-rewards-missing-scope:catalog",
-                clearRewardOptions: true);
             return;
         }
 
@@ -5995,7 +6350,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 ReportBroadcasterRewardManagementScopeMissing(
                     "Twitch reward refresh skipped because the broadcaster login is missing channel-point reward management permission.",
                     "managed-rewards-missing-scope:catalog",
-                    clearRewardOptions: true);
+                    clearRewardOptions: false);
                 return;
             }
 
@@ -6008,15 +6363,27 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 return;
             }
 
+            if (TryApplyManagedRewardApiBackoff(ex, "Twitch reward refresh"))
+            {
+                return;
+            }
+
             RunOnUi(() => AppendLog($"Could not refresh channel point rewards: {ex.Message}"));
         }
     }
 
     // Debounced entry point for managed Twitch reward syncing.
     // Many editor changes land here, so older pending syncs get canceled in favor of the latest state.
-    private void QueueManagedRewardSync(int delayMilliseconds = 1100)
+    private void QueueManagedRewardSync(
+        int delayMilliseconds = 1100,
+        ManagedRewardSyncReason reason = ManagedRewardSyncReason.SettingsEdit)
     {
         if (!isInitialized || isShuttingDown)
+        {
+            return;
+        }
+
+        if (IsManagedRewardApiBackoffActive($"Twitch reward sync ({DescribeManagedRewardSyncReason(reason)})"))
         {
             return;
         }
@@ -6024,15 +6391,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         if (broadcasterManagedRewardsUnavailableForSession)
         {
             SetUniversalManagedRewardSyncStatus("Universal Twitch reward sync skipped because Twitch channel-point reward management is unavailable for this broadcaster session.");
-            return;
-        }
-
-        if (BroadcasterRewardManagementScopeKnownMissing)
-        {
-            ReportBroadcasterRewardManagementScopeMissing(
-                "Universal Twitch reward sync skipped because the broadcaster login is missing channel-point reward management permission.",
-                "managed-rewards-missing-scope:sync",
-                clearRewardOptions: false);
             return;
         }
 
@@ -6048,7 +6406,22 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                     await Task.Delay(delayMilliseconds, cancellationToken);
                 }
 
+                if (IsManagedRewardApiBackoffActive($"Twitch reward sync ({DescribeManagedRewardSyncReason(reason)})"))
+                {
+                    return;
+                }
+
                 if (broadcasterManagedRewardsUnavailableForSession)
+                {
+                    return;
+                }
+
+                var accountReadiness = await EnsureBroadcasterRewardManagementReadyAsync(
+                    "Universal Twitch reward sync skipped because the broadcaster login is not ready for channel-point reward management.",
+                    "managed-rewards-broadcaster-not-ready:sync",
+                    clearRewardOptions: false,
+                    cancellationToken);
+                if (accountReadiness != ManagedRewardSyncOutcome.Completed)
                 {
                     return;
                 }
@@ -6056,7 +6429,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 await managedRewardSyncGate.WaitAsync(cancellationToken);
                 try
                 {
-                    var syncOutcome = await SynchronizeManagedChannelPointRewardsAsync(cancellationToken);
+                    var syncOutcome = await SynchronizeManagedChannelPointRewardsAsync(cancellationToken, reason: reason);
                     if (syncOutcome == ManagedRewardSyncOutcome.BroadcasterCustomRewardsUnavailable)
                     {
                         RunOnUi(() => AppendThrottledLog(
@@ -6097,6 +6470,96 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 DisposeCompletedQueuedCancellationSource(ref managedRewardSyncCancellation, syncCancellation);
             }
         }, CancellationToken.None);
+    }
+
+    private static bool IsPassiveManagedRewardSyncReason(ManagedRewardSyncReason reason) =>
+        reason is ManagedRewardSyncReason.RuntimeAvailability or ManagedRewardSyncReason.AvatarScaleStatus;
+
+    private static bool ShouldSkipUnchangedManagedRewardSync(ManagedRewardSyncReason reason) =>
+        IsPassiveManagedRewardSyncReason(reason)
+        || reason is ManagedRewardSyncReason.AvatarChanged
+            or ManagedRewardSyncReason.TestMode
+            or ManagedRewardSyncReason.EmergencyStop
+            or ManagedRewardSyncReason.StreamStateChanged;
+
+    private static bool AllowsInactiveManagedRewardDeletion(ManagedRewardSyncReason reason) =>
+        reason is ManagedRewardSyncReason.Maintenance or ManagedRewardSyncReason.ManualCleanup;
+
+    private static bool ShouldSkipUninitializedPassiveManagedRewardSync(
+        ManagedRewardSyncReason reason,
+        bool allowManagedRewardActivation,
+        string lastSuccessfulFingerprint)
+    {
+        return !allowManagedRewardActivation
+            && string.IsNullOrWhiteSpace(lastSuccessfulFingerprint)
+            && ShouldSkipUnchangedManagedRewardSync(reason);
+    }
+
+    private static bool ShouldAllowMissingManagedRewardMaterialization(
+        ManagedRewardSyncReason reason,
+        bool allowManagedRewardActivation)
+    {
+        return allowManagedRewardActivation
+            || reason is ManagedRewardSyncReason.SettingsEdit
+                or ManagedRewardSyncReason.ManualCleanup
+                or ManagedRewardSyncReason.Maintenance;
+    }
+
+    private static string DescribeManagedRewardSyncReason(ManagedRewardSyncReason reason) => reason switch
+    {
+        ManagedRewardSyncReason.Startup => "startup",
+        ManagedRewardSyncReason.AccountReconnect => "account reconnect",
+        ManagedRewardSyncReason.AvatarChanged => "avatar changed",
+        ManagedRewardSyncReason.RuntimeAvailability => "runtime availability",
+        ManagedRewardSyncReason.AvatarScaleStatus => "avatar scale status",
+        ManagedRewardSyncReason.TestMode => "test mode",
+        ManagedRewardSyncReason.EmergencyStop => "emergency stop",
+        ManagedRewardSyncReason.StreamStateChanged => "stream state changed",
+        ManagedRewardSyncReason.ManualRefresh => "manual refresh",
+        ManagedRewardSyncReason.ManualCleanup => "manual cleanup",
+        ManagedRewardSyncReason.Maintenance => "maintenance",
+        _ => "settings edit"
+    };
+
+    private bool IsManagedRewardApiBackoffActive(string operation)
+    {
+        if (managedRewardApiBackoffUntil is not { } retryAfterUtc)
+        {
+            return false;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        if (retryAfterUtc <= now)
+        {
+            managedRewardApiBackoffUntil = null;
+            return false;
+        }
+
+        RunOnUi(() => AppendThrottledLog(
+            "managed-rewards-api-backoff",
+            $"{operation} skipped because Twitch asked Crystal Relay to slow reward API calls until {retryAfterUtc.LocalDateTime:t}.",
+            ThrottledRewardSyncLogWindow));
+        return true;
+    }
+
+    private bool TryApplyManagedRewardApiBackoff(Exception ex, string operation)
+    {
+        if (ex is not TwitchApiException { StatusCode: System.Net.HttpStatusCode.TooManyRequests } twitchException)
+        {
+            return false;
+        }
+
+        var retryAfterUtc = twitchException.RetryAfterUtc ?? DateTimeOffset.UtcNow.AddMinutes(1);
+        if (managedRewardApiBackoffUntil is null || managedRewardApiBackoffUntil.Value < retryAfterUtc)
+        {
+            managedRewardApiBackoffUntil = retryAfterUtc;
+        }
+
+        RunOnUi(() => AppendThrottledLog(
+            "managed-rewards-api-rate-limited",
+            $"{operation} hit Twitch's reward API rate limit. Crystal Relay will pause reward API calls until {retryAfterUtc.LocalDateTime:t}.",
+            ThrottledRewardSyncLogWindow));
+        return true;
     }
 
     private void ReportBroadcasterRewardManagementScopeMissing(string status, string logKey, bool clearRewardOptions)
@@ -6176,6 +6639,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     private void SetUniversalManagedRewardSyncStatus(string status)
     {
+        if (!dispatcher.CheckAccess())
+        {
+            RunOnUi(() => SetUniversalManagedRewardSyncStatus(status));
+            return;
+        }
+
         var normalizedStatus = status?.Trim() ?? string.Empty;
         if (string.Equals(universalManagedRewardSyncStatusText, normalizedStatus, StringComparison.Ordinal))
         {
@@ -6183,7 +6652,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
 
         universalManagedRewardSyncStatusText = normalizedStatus;
-        RunOnUi(() => RaisePropertyChanged(nameof(UniversalManagedRewardStatusText)));
+        RaisePropertyChanged(nameof(UniversalManagedRewardStatusText));
     }
 
     private string GetUniversalRewardActivationReason(bool? forcedManagedRewardActivation, bool allowManagedRewardActivation)
@@ -6217,6 +6686,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     {
         if (!Settings.VrChat.IsConnected)
         {
+            await RecoverManagedRewardCurrentAvatarFromBridgeRuntimeAsync(cancellationToken);
+            if (string.IsNullOrWhiteSpace(GetManagedRewardActivationAvatarId()))
+            {
+                RunOnUi(() => AppendThrottledLog(
+                    "managed-reward-current-avatar-unknown",
+                    "Crystal Relay does not know the current VRChat avatar yet. Avatar Set and Avatar Change rewards will stay hidden until the avatar refresh succeeds.",
+                    ThrottledRewardSyncLogWindow));
+            }
+
             RunOnUi(() => RaisePropertyChanged(nameof(UniversalManagedRewardStatusText)));
             return;
         }
@@ -6255,7 +6733,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             }
         }
 
-        var currentAvatarId = Settings.VrChat.CurrentAvatarId?.Trim() ?? string.Empty;
+        await RecoverManagedRewardCurrentAvatarFromBridgeRuntimeAsync(cancellationToken);
+
+        var currentAvatarId = GetManagedRewardActivationAvatarId();
         if (!string.IsNullOrWhiteSpace(currentAvatarId))
         {
             RunOnUi(() =>
@@ -6275,6 +6755,39 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
 
         RunOnUi(() => RaisePropertyChanged(nameof(UniversalManagedRewardStatusText)));
+    }
+
+    private async Task RecoverManagedRewardCurrentAvatarFromBridgeRuntimeAsync(CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrWhiteSpace(Settings.VrChat.CurrentAvatarId))
+        {
+            return;
+        }
+
+        var runtimeAvatarId = bridgeCoordinator.CurrentVrChatAvatarId?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(runtimeAvatarId))
+        {
+            return;
+        }
+
+        await dispatcher.InvokeAsync(() =>
+        {
+            if (!string.IsNullOrWhiteSpace(Settings.VrChat.CurrentAvatarId))
+            {
+                return;
+            }
+
+            Settings.VrChat.CurrentAvatarId = runtimeAvatarId;
+            ReplaceCurrentAvatarInCache(runtimeAvatarId);
+            UpdateAvatarProfileActivityStates();
+            RefreshVrChatAvatarSelectionOptions();
+            RefreshAvatarParameterOptions();
+            QueueSave(0);
+            AppendThrottledLog(
+                "managed-reward-current-avatar-runtime-recovered",
+                $"Crystal Relay recovered the current VRChat avatar from the live bridge state before syncing Twitch rewards: {ResolveVrChatAvatarName(runtimeAvatarId)}.",
+                ThrottledRewardSyncLogWindow);
+        }, DispatcherPriority.Normal, cancellationToken).Task;
     }
 
     private void QueueCurrentVrChatAvatarRefresh(int delayMilliseconds = 0)
@@ -6475,7 +6988,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
         catch (VrChatApiException apiException) when (apiException.StatusCode == System.Net.HttpStatusCode.Unauthorized)
         {
-            Settings.VrChat.Clear();
+            ClearVrChatAccountPreservingCurrentAvatar();
             ClearAvailableVrChatAvatars();
             await settingsStore.ClearVrChatAvatarCacheAsync(CancellationToken.None);
             await settingsStore.ClearVrChatOscParameterCacheAsync(CancellationToken.None);
@@ -6485,6 +6998,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             SelectedAvatarParameterOption = null;
             SelectedSetTriggerParameterOption = null;
             RaiseVrChatConnectionStateProperties();
+            SyncVrChatRuntimeState(queueManagedRewardSync: false);
             VrChatStatus = T("Saved VRChat session expired. Connect again to keep tracking your current avatar.");
             VrChatAvatarStatus = T("VRChat avatar list is unavailable until you reconnect.");
             VrChatOscParameterStatus = T("Reconnect VRChat to load avatar parameters again.");
@@ -6762,7 +7276,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                     yield return new ManagedRewardOwnershipEntry(
                         profile.Id,
                         GetSetTriggerMasterRewardId(profile, group),
-                        GetSetTriggerMasterRewardTitle(profile, group.Rules));
+                        GetSetTriggerMasterRewardTitle(profile, group.Rules),
+                        profile.SetTriggerMasterRewardSyncMode);
                 }
 
                 foreach (var rule in group.Rules)
@@ -6770,7 +7285,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                     groupedRuleIds.Add(rule.Id);
                     if (!group.UsesSetTriggerMasterReward)
                     {
-                        yield return new ManagedRewardOwnershipEntry(group.Owner.Id, rule.ChannelPointRewardId, group.RewardTitle);
+                        yield return new ManagedRewardOwnershipEntry(
+                            group.Owner.Id,
+                            rule.ChannelPointRewardId,
+                            group.RewardTitle,
+                            group.RewardSyncMode);
                     }
                 }
             }
@@ -6782,28 +7301,48 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                     continue;
                 }
 
-                yield return new ManagedRewardOwnershipEntry(rule.Id, rule.ChannelPointRewardId, rule.ChannelPointRewardTitle);
+                yield return new ManagedRewardOwnershipEntry(
+                    rule.Id,
+                    rule.ChannelPointRewardId,
+                    rule.ChannelPointRewardTitle,
+                    rule.RewardSyncMode);
             }
         }
 
         foreach (var rule in supportedMovementRules)
         {
-            yield return new ManagedRewardOwnershipEntry(rule.Id, rule.ChannelPointRewardId, rule.ChannelPointRewardTitle);
+            yield return new ManagedRewardOwnershipEntry(
+                rule.Id,
+                rule.ChannelPointRewardId,
+                rule.ChannelPointRewardTitle,
+                rule.RewardSyncMode);
         }
 
         foreach (var trigger in managedUniversalTriggers)
         {
-            yield return new ManagedRewardOwnershipEntry(trigger.Id, trigger.RewardId, trigger.RewardTitle);
+            yield return new ManagedRewardOwnershipEntry(
+                trigger.Id,
+                trigger.RewardId,
+                trigger.RewardTitle,
+                trigger.RewardSyncMode);
         }
 
         if (avatarScaleMasterReward is not null)
         {
-            yield return new ManagedRewardOwnershipEntry(AvatarScaleMasterRewardOwnerId, avatarScaleMasterReward.RewardId, avatarScaleMasterReward.RewardTitle);
+            yield return new ManagedRewardOwnershipEntry(
+                AvatarScaleMasterRewardOwnerId,
+                avatarScaleMasterReward.RewardId,
+                avatarScaleMasterReward.RewardTitle,
+                avatarScaleMasterReward.RewardSyncMode);
         }
 
         foreach (var rule in managedAvatarScaleRules)
         {
-            yield return new ManagedRewardOwnershipEntry(rule.Id, rule.RewardId, GetAvatarScaleManagedRewardTitle(rule));
+            yield return new ManagedRewardOwnershipEntry(
+                rule.Id,
+                rule.RewardId,
+                GetAvatarScaleManagedRewardTitle(rule),
+                rule.RewardSyncMode);
         }
     }
 
@@ -6831,7 +7370,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             && rule.IsEnabled
             && !temporarilyDisabledRuleIds.Contains(rule.Id)
             && profileIsEffectivelyActive;
-        var backgroundColor = cooldownRuleIds.Contains(rule.Id)
+        var isOnLocalCooldown = cooldownRuleIds.Contains(rule.Id);
+        var backgroundColor = isOnLocalCooldown
             ? ManagedRewardPresentation.NormalizeCooldownBackgroundColor(rule.ManagedRewardCooldownColor)
             : ManagedRewardPresentation.NormalizeReadyBackgroundColor(rule.ManagedRewardReadyColor);
 
@@ -6841,12 +7381,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             rule.ChannelPointRewardId,
             rule.ChannelPointRewardTitle,
             rule.ChannelPointRewardCost,
+            rule.RewardSyncMode,
             rule.CooldownSeconds,
             backgroundColor,
             prompt: string.Empty,
             requireUserInput: false,
             desiredEnabled: desiredEnabled,
+            isCooldownActive: isOnLocalCooldown,
             deleteWhenInactive: rule.DeleteManagedRewardWhenInactive && !temporarilyDisabledRuleIds.Contains(rule.Id),
+            protectFromCapReclaim: desiredEnabled || isOnLocalCooldown || temporarilyDisabledRuleIds.Contains(rule.Id),
             applyRewardId: rewardId => rule.ChannelPointRewardId = rewardId);
     }
 
@@ -6910,12 +7453,17 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             rewardId,
             rewardTitle,
             rewardCost,
+            group.UsesSetTriggerMasterReward
+                ? profile.SetTriggerMasterRewardSyncMode
+                : group.RewardSyncMode,
             cooldownSeconds,
             backgroundColor,
             prompt: BuildSharedAvatarSetRewardPrompt(activeChoices.Length > 0 ? activeChoices : group.Rules),
             requireUserInput: true,
             desiredEnabled: desiredEnabled,
+            isCooldownActive: anyChoiceInCooldown,
             deleteWhenInactive: deleteWhenInactive && !anyChoiceInCooldown && !anyChoiceTemporarilyDisabled,
+            protectFromCapReclaim: desiredEnabled || anyChoiceInCooldown || anyChoiceTemporarilyDisabled,
             applyRewardId: rewardId =>
             {
                 if (group.UsesSetTriggerMasterReward)
@@ -6948,12 +7496,23 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                     .OrderBy(rule => Math.Max(1, rule.SharedRewardChoiceNumber))
                     .ThenBy(rule => rule.DisplayTitle, StringComparer.CurrentCultureIgnoreCase)
                     .ToArray();
-                var owner = rules[0];
+                var owner = rules.FirstOrDefault(rule =>
+                        rule.RewardSyncMode == TwitchRewardSyncMode.LinkExisting
+                        && !string.IsNullOrWhiteSpace(rule.ChannelPointRewardId))
+                    ?? rules.FirstOrDefault(rule => rule.RewardSyncMode == TwitchRewardSyncMode.LinkExisting)
+                    ?? rules[0];
                 var usesSetTriggerMasterReward = rules.Any(rule => rule.ActionType == OscActionType.SetTrigger);
                 var rewardTitle = rules
                     .Select(rule => rule.ChannelPointRewardTitle?.Trim() ?? string.Empty)
                     .FirstOrDefault(title => !string.IsNullOrWhiteSpace(title)) ?? string.Empty;
-                return new SharedAvatarSetRewardGroup(owner, rules, rewardTitle, usesSetTriggerMasterReward);
+                return new SharedAvatarSetRewardGroup(
+                    owner,
+                    rules,
+                    rewardTitle,
+                    usesSetTriggerMasterReward,
+                    usesSetTriggerMasterReward
+                        ? profile.SetTriggerMasterRewardSyncMode
+                        : owner.RewardSyncMode);
             });
     }
 
@@ -7077,23 +7636,30 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             trigger.RewardId,
             trigger.RewardTitle,
             trigger.RewardCost,
+            trigger.RewardSyncMode,
             cooldownSeconds: 0,
-            ManagedRewardPresentation.NormalizeReadyBackgroundColor(trigger.ManagedRewardReadyColor),
+            backgroundColor: ManagedRewardPresentation.NormalizeReadyBackgroundColor(trigger.ManagedRewardReadyColor),
             prompt: string.Empty,
             requireUserInput: false,
             desiredEnabled: desiredEnabled,
+            isCooldownActive: false,
             deleteWhenInactive: trigger.DeleteManagedRewardWhenInactive,
+            protectFromCapReclaim: desiredEnabled,
             applyRewardId: rewardId => trigger.RewardId = rewardId);
     }
 
     private ManagedRewardSyncTarget CreateManagedRewardTargetForAvatarScaleMasterReward(
         AvatarScaleMasterRewardSettings masterReward,
         bool allowManagedRewardActivation,
-        bool useCooldownPresentation)
+        bool useCooldownPresentation,
+        bool isCooldownActive)
     {
+        var hasRewardIdentity = masterReward.RewardSyncMode == TwitchRewardSyncMode.LinkExisting
+            ? !string.IsNullOrWhiteSpace(masterReward.RewardId)
+            : !string.IsNullOrWhiteSpace(masterReward.RewardTitle);
         var desiredEnabled = allowManagedRewardActivation
             && masterReward.IsEnabled
-            && !string.IsNullOrWhiteSpace(masterReward.RewardTitle);
+            && hasRewardIdentity;
         var backgroundColor = useCooldownPresentation
             ? ManagedRewardPresentation.NormalizeCooldownBackgroundColor(masterReward.ManagedRewardCooldownColor)
             : ManagedRewardPresentation.NormalizeReadyBackgroundColor(masterReward.ManagedRewardReadyColor);
@@ -7104,12 +7670,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             masterReward.RewardId,
             masterReward.RewardTitle,
             masterReward.RewardCost,
+            masterReward.RewardSyncMode,
             masterReward.CooldownSeconds,
             backgroundColor,
             prompt: string.Empty,
             requireUserInput: false,
             desiredEnabled: desiredEnabled,
+            isCooldownActive: isCooldownActive,
             deleteWhenInactive: masterReward.DeleteMasterRewardWhenInactive,
+            protectFromCapReclaim: desiredEnabled || useCooldownPresentation || isCooldownActive,
             applyRewardId: rewardId => masterReward.RewardId = rewardId);
     }
 
@@ -7152,12 +7721,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             rule.RewardId,
             GetAvatarScaleManagedRewardTitle(rule),
             rule.RewardCost,
+            rule.RewardSyncMode,
             GetAvatarScaleEffectiveManagedRewardCooldownSeconds(rule),
             backgroundColor,
             prompt: string.Empty,
             requireUserInput: false,
             desiredEnabled: desiredEnabled,
+            isCooldownActive: isOnLocalCooldown,
             deleteWhenInactive: shouldDeleteWhenInactive && !isOnLocalCooldown && !isActiveScaleEffect && !isQueuedScaleRedeem && !isTemporarilyDisabledByPairing,
+            protectFromCapReclaim: desiredEnabled || isOnLocalCooldown || isActiveScaleEffect || isQueuedScaleRedeem || isTemporarilyDisabledByPairing,
             applyRewardId: rewardId => rule.RewardId = rewardId);
     }
 
@@ -7308,7 +7880,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     // updates, disables, or removes rewards so Twitch matches the current rule state.
     private async Task<ManagedRewardSyncOutcome> SynchronizeManagedChannelPointRewardsAsync(
         CancellationToken cancellationToken,
-        bool? forcedManagedRewardActivation = null)
+        bool? forcedManagedRewardActivation = null,
+        ManagedRewardSyncReason reason = ManagedRewardSyncReason.SettingsEdit)
     {
         await ReloadRuntimeConfigAsync();
 
@@ -7362,11 +7935,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
         try
         {
-            rewardCatalog = new ManagedRewardSyncCatalog(await twitchApiClient.GetCustomRewardsAsync(
-                Settings.Broadcaster.AccessToken,
-                runtimeConfig.TwitchClientId,
-                Settings.Broadcaster.UserId,
-                cancellationToken));
+            var apiCalls = new ManagedRewardApiCallCounter();
             var temporarilyDisabledRuleIds = bridgeCoordinator.GetTemporarilyDisabledRuleIds();
             var cooldownRuleIds = bridgeCoordinator.GetRulesOnCooldownIds();
             var activeAvatarScaleEffectRuleIds = bridgeCoordinator.GetActiveAvatarScaleEffectRuleIds();
@@ -7389,7 +7958,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             {
                 var unlinkedUniversalCount = managedUniversalTriggers.Count(trigger => string.IsNullOrWhiteSpace(trigger.RewardId));
                 SetUniversalManagedRewardSyncStatus(unlinkedUniversalCount > 0
-                    ? $"Universal Twitch reward sync is checking {managedUniversalTriggers.Length} reward(s); {unlinkedUniversalCount} unlinked reward(s) will be created or adopted if Twitch allows it. {GetUniversalRewardActivationReason(forcedManagedRewardActivation, allowManagedRewardActivation)}"
+                    ? $"Universal Twitch reward sync is checking {managedUniversalTriggers.Length} reward(s); {unlinkedUniversalCount} unlinked reward(s) will be created, adopted, or wait for an existing reward link based on their reward source. {GetUniversalRewardActivationReason(forcedManagedRewardActivation, allowManagedRewardActivation)}"
                     : $"Universal Twitch reward sync is checking {managedUniversalTriggers.Length} linked reward(s). {GetUniversalRewardActivationReason(forcedManagedRewardActivation, allowManagedRewardActivation)}");
             }
 
@@ -7408,10 +7977,161 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 .Cast<string>()
                 .ToHashSet(StringComparer.Ordinal);
             var desiredManagedRewardTitleKeys = ownershipEntries
+                .Where(entry => entry.RewardSyncMode == TwitchRewardSyncMode.CreateOrManage)
                 .Select(entry => ManagedRewardPresentation.NormalizeTitleIdentityKey(entry.RewardTitle))
                 .Where(titleKey => !string.IsNullOrWhiteSpace(titleKey))
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
             var ownershipIndex = new ManagedRewardRuleOwnershipIndex(ownershipEntries);
+
+            var avatarScaleMasterTarget = managedAvatarScaleMasterReward is null
+                ? null
+                : CreateManagedRewardTargetForAvatarScaleMasterReward(
+                    managedAvatarScaleMasterReward,
+                    allowManagedRewardActivation,
+                    masterRewardUnlocked || masterRewardInCooldown,
+                    masterRewardInCooldown);
+            var avatarProfileTargets = new List<ManagedRewardSyncTarget>();
+            foreach (var profile in Settings.AvatarProfiles)
+            {
+                var synchronizedSharedRuleIds = new HashSet<Guid>();
+                foreach (var group in EnumerateSharedAvatarSetRewardGroups(profile))
+                {
+                    foreach (var rule in group.Rules)
+                    {
+                        synchronizedSharedRuleIds.Add(rule.Id);
+                    }
+
+                    avatarProfileTargets.Add(CreateManagedRewardTargetForSharedAvatarSetRewardGroup(
+                        profile,
+                        group,
+                        currentAvatarId,
+                        avatarChangeTransitionActive,
+                        allowManagedRewardActivation,
+                        temporarilyDisabledRuleIds,
+                        cooldownRuleIds));
+                }
+
+                foreach (var rule in profile.ChannelPointRules)
+                {
+                    if (synchronizedSharedRuleIds.Contains(rule.Id))
+                    {
+                        continue;
+                    }
+
+                    avatarProfileTargets.Add(CreateManagedRewardTargetForRule(
+                        profile,
+                        rule,
+                        currentAvatarId,
+                        avatarChangeTransitionActive,
+                        allowManagedRewardActivation,
+                        temporarilyDisabledRuleIds,
+                        cooldownRuleIds));
+                }
+            }
+
+            var movementTargets = supportedMovementRules
+                .Select(rule => CreateManagedRewardTargetForRule(
+                    profile: null,
+                    rule,
+                    currentAvatarId,
+                    avatarChangeTransitionActive,
+                    allowManagedRewardActivation,
+                    temporarilyDisabledRuleIds,
+                    cooldownRuleIds))
+                .ToArray();
+            var universalTargets = managedUniversalTriggers
+                .Select(trigger => CreateManagedRewardTargetForUniversalTrigger(
+                    trigger,
+                    allowManagedRewardActivation,
+                    currentAvatarId))
+                .ToArray();
+            var avatarScaleTargets = managedAvatarScaleRules
+                .Select(rule => CreateManagedRewardTargetForAvatarScaleRule(
+                    rule,
+                    allowManagedRewardActivation,
+                    cooldownRuleIds,
+                    temporarilyDisabledRuleIds,
+                    activeAvatarScaleEffectRuleIds,
+                    queuedAvatarScaleRuleIds,
+                    Settings.AvatarScaleMasterReward.IsEnabled,
+                    masterRewardUnlocked,
+                    Settings.AvatarScaleMasterReward.FreeChildRewardSlotsWhenLocked))
+                .ToArray();
+            var allSyncTargets = new List<ManagedRewardSyncTarget>();
+            if (avatarScaleMasterTarget is not null)
+            {
+                allSyncTargets.Add(avatarScaleMasterTarget);
+            }
+
+            allSyncTargets.AddRange(avatarProfileTargets);
+            allSyncTargets.AddRange(movementTargets);
+            allSyncTargets.AddRange(universalTargets);
+            allSyncTargets.AddRange(avatarScaleTargets);
+
+            var capReclaimProtectedRewardIds = BuildManagedRewardCapReclaimProtectedRewardIds(allSyncTargets);
+            var capReclaimProtectedTitleKeys = BuildManagedRewardCapReclaimProtectedTitleKeys(allSyncTargets);
+            var hasCreateOrManageSyncWork = allSyncTargets.Any(target => !target.UsesLinkedExistingReward)
+                || retiredManagedRewardIds.Count > 0;
+            var desiredFingerprint = BuildManagedRewardDesiredFingerprint(
+                allSyncTargets,
+                retiredManagedRewardIds,
+                currentAvatarId,
+                allowManagedRewardActivation,
+                forcedManagedRewardActivation);
+            if (ShouldSkipUninitializedPassiveManagedRewardSync(
+                    reason,
+                    allowManagedRewardActivation,
+                    lastSuccessfulManagedRewardDesiredFingerprint))
+            {
+                RunOnUi(() => AppendThrottledLog(
+                    $"managed-rewards-skip-uninitialized-passive:{reason}",
+                    $"Skipped Twitch reward API sync for {DescribeManagedRewardSyncReason(reason)} because rewards are not visible and Crystal Relay has not completed a deliberate reward sync baseline yet.",
+                    ThrottledRewardSyncLogWindow));
+                return ManagedRewardSyncOutcome.Completed;
+            }
+
+            if (!hasCreateOrManageSyncWork)
+            {
+                RunOnUi(() => AppendThrottledLog(
+                    $"managed-rewards-skip-linked-only:{reason}",
+                    $"Skipped Twitch reward API sync for {DescribeManagedRewardSyncReason(reason)} because only linked/listen-only rewards are configured.",
+                    ThrottledRewardSyncLogWindow));
+                return ManagedRewardSyncOutcome.Completed;
+            }
+
+            if (ShouldSkipUnchangedManagedRewardSync(reason)
+                && string.Equals(lastSuccessfulManagedRewardDesiredFingerprint, desiredFingerprint, StringComparison.Ordinal))
+            {
+                RunOnUi(() => AppendThrottledLog(
+                    $"managed-rewards-skip-unchanged:{reason}",
+                    $"Skipped Twitch reward API sync for {DescribeManagedRewardSyncReason(reason)} because desired reward state has not changed.",
+                    ThrottledRewardSyncLogWindow));
+                return ManagedRewardSyncOutcome.Completed;
+            }
+
+            apiCalls.CatalogReads++;
+            rewardCatalog = new ManagedRewardSyncCatalog(await twitchApiClient.GetCustomRewardsAsync(
+                Settings.Broadcaster.AccessToken,
+                runtimeConfig.TwitchClientId,
+                Settings.Broadcaster.UserId,
+                cancellationToken));
+            ManagedRewardSyncCatalog? manageableRewardCatalog = null;
+            async Task<ManagedRewardSyncCatalog> GetManageableRewardCatalogAsync(CancellationToken requestCancellationToken)
+            {
+                if (manageableRewardCatalog is not null)
+                {
+                    return manageableRewardCatalog;
+                }
+
+                apiCalls.ManageableCatalogReads++;
+                manageableRewardCatalog = new ManagedRewardSyncCatalog(await twitchApiClient.GetCustomRewardsAsync(
+                    Settings.Broadcaster.AccessToken,
+                    runtimeConfig.TwitchClientId,
+                    Settings.Broadcaster.UserId,
+                    requestCancellationToken,
+                    onlyManageableRewards: true));
+                return manageableRewardCatalog;
+            }
 
             var changesMade = false;
             if (retiredManagedRewardIds.Count > 0)
@@ -7426,6 +8146,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
                     try
                     {
+                        apiCalls.Deletes++;
                         await twitchApiClient.DeleteCustomRewardAsync(
                             Settings.Broadcaster.AccessToken,
                             runtimeConfig.TwitchClientId,
@@ -7444,141 +8165,49 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 }
             }
 
+            var allowInactiveRewardDeletion = AllowsInactiveManagedRewardDeletion(reason);
+            var allowMissingManagedRewardMaterialization = ShouldAllowMissingManagedRewardMaterialization(
+                reason,
+                allowManagedRewardActivation);
             changesMade |= await CleanupStaleManagedRewardsAsync(
                 rewardCatalog,
                 claimedRewardIds,
                 desiredManagedRewardTitleKeys,
+                apiCalls,
+                allowInactiveRewardDeletion,
+                reason,
                 cancellationToken);
 
-            if (managedAvatarScaleMasterReward is not null)
-            {
-                var target = CreateManagedRewardTargetForAvatarScaleMasterReward(
-                    managedAvatarScaleMasterReward,
-                    allowManagedRewardActivation,
-                    masterRewardUnlocked || masterRewardInCooldown);
-                changesMade |= await SynchronizeManagedRewardForTargetAsync(
-                    target,
-                    rewardCatalog,
-                    claimedRewardIds,
-                    desiredManagedRewardTitleKeys,
-                    ownershipIndex,
-                    cancellationToken);
-            }
-
-            foreach (var profile in Settings.AvatarProfiles)
-            {
-                var synchronizedSharedRuleIds = new HashSet<Guid>();
-                foreach (var group in EnumerateSharedAvatarSetRewardGroups(profile))
-                {
-                    foreach (var rule in group.Rules)
-                    {
-                        synchronizedSharedRuleIds.Add(rule.Id);
-                    }
-
-                    var target = CreateManagedRewardTargetForSharedAvatarSetRewardGroup(
-                        profile,
-                        group,
-                        currentAvatarId,
-                        avatarChangeTransitionActive,
-                        allowManagedRewardActivation,
-                        temporarilyDisabledRuleIds,
-                        cooldownRuleIds);
-                    changesMade |= await SynchronizeManagedRewardForTargetAsync(
-                        target,
-                        rewardCatalog,
-                        claimedRewardIds,
-                        desiredManagedRewardTitleKeys,
-                        ownershipIndex,
-                        cancellationToken);
-                }
-
-                foreach (var rule in profile.ChannelPointRules)
-                {
-                    if (synchronizedSharedRuleIds.Contains(rule.Id))
-                    {
-                        continue;
-                    }
-
-                    var target = CreateManagedRewardTargetForRule(
-                        profile,
-                        rule,
-                        currentAvatarId,
-                        avatarChangeTransitionActive,
-                        allowManagedRewardActivation,
-                        temporarilyDisabledRuleIds,
-                        cooldownRuleIds);
-                    changesMade |= await SynchronizeManagedRewardForTargetAsync(
-                        target,
-                        rewardCatalog,
-                        claimedRewardIds,
-                        desiredManagedRewardTitleKeys,
-                        ownershipIndex,
-                        cancellationToken);
-                }
-            }
-
-            foreach (var rule in supportedMovementRules)
-            {
-                var target = CreateManagedRewardTargetForRule(
-                    profile: null,
-                    rule,
-                    currentAvatarId,
-                    avatarChangeTransitionActive,
-                    allowManagedRewardActivation,
-                    temporarilyDisabledRuleIds,
-                    cooldownRuleIds);
-                changesMade |= await SynchronizeManagedRewardForTargetAsync(
-                    target,
-                    rewardCatalog,
-                    claimedRewardIds,
-                    desiredManagedRewardTitleKeys,
-                    ownershipIndex,
-                    cancellationToken);
-            }
-
-            var universalTargets = managedUniversalTriggers
-                .Select(trigger => CreateManagedRewardTargetForUniversalTrigger(
-                    trigger,
-                    allowManagedRewardActivation,
-                    currentAvatarId))
-                .ToArray();
-
-            foreach (var target in universalTargets)
+            foreach (var target in allSyncTargets)
             {
                 changesMade |= await SynchronizeManagedRewardForTargetAsync(
                     target,
+                    allSyncTargets,
                     rewardCatalog,
                     claimedRewardIds,
                     desiredManagedRewardTitleKeys,
+                    capReclaimProtectedRewardIds,
+                    capReclaimProtectedTitleKeys,
+                    GetManageableRewardCatalogAsync,
                     ownershipIndex,
-                    cancellationToken);
-            }
-
-            var avatarScaleTargets = managedAvatarScaleRules
-                .Select(rule => CreateManagedRewardTargetForAvatarScaleRule(
-                    rule,
-                    allowManagedRewardActivation,
-                    cooldownRuleIds,
-                    temporarilyDisabledRuleIds,
-                    activeAvatarScaleEffectRuleIds,
-                    queuedAvatarScaleRuleIds,
-                    Settings.AvatarScaleMasterReward.IsEnabled,
-                    masterRewardUnlocked,
-                    Settings.AvatarScaleMasterReward.FreeChildRewardSlotsWhenLocked))
-                .ToArray();
-
-            foreach (var target in avatarScaleTargets)
-            {
-                changesMade |= await SynchronizeManagedRewardForTargetAsync(
-                    target,
-                    rewardCatalog,
-                    claimedRewardIds,
-                    desiredManagedRewardTitleKeys,
-                    ownershipIndex,
+                    apiCalls,
+                    allowInactiveRewardDeletion,
+                    allowMissingManagedRewardMaterialization,
+                    reason,
                     cancellationToken);
             }
 
             RunOnUi(() => ApplyRewardCatalog(rewardCatalog.Rewards));
+            lastSuccessfulManagedRewardDesiredFingerprint = BuildManagedRewardDesiredFingerprint(
+                allSyncTargets,
+                retiredManagedRewardIds,
+                currentAvatarId,
+                allowManagedRewardActivation,
+                forcedManagedRewardActivation);
+            RunOnUi(() => AppendThrottledLog(
+                $"managed-rewards-api-count:{reason}",
+                $"Twitch reward sync for {DescribeManagedRewardSyncReason(reason)} used {apiCalls.Describe()} API call(s).",
+                ThrottledRewardSyncLogWindow));
             if (managedUniversalTriggers.Length > 0)
             {
                 var enabledUniversalCount = universalTargets.Count(target => target.DesiredEnabled);
@@ -7622,6 +8251,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                     "managed-rewards-missing-scope:sync",
                     clearRewardOptions: false);
                 return ManagedRewardSyncOutcome.BroadcasterRewardManagementScopeMissing;
+            }
+
+            if (TryApplyManagedRewardApiBackoff(ex, $"Twitch reward sync ({DescribeManagedRewardSyncReason(reason)})"))
+            {
+                return ManagedRewardSyncOutcome.Completed;
             }
 
             if (IsInvalidBroadcasterTokenFailure(ex))
@@ -7689,7 +8323,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             lockAcquired = true;
             var syncOutcome = await SynchronizeManagedChannelPointRewardsAsync(
                 rewardDisableCancellation.Token,
-                forcedManagedRewardActivation: false);
+                forcedManagedRewardActivation: false,
+                reason: ManagedRewardSyncReason.Maintenance);
             if (syncOutcome == ManagedRewardSyncOutcome.BroadcasterCustomRewardsUnavailable)
             {
                 AppendThrottledLog(unsupportedLogKey, unsupportedMessage, ThrottledRewardSyncLogWindow);
@@ -7731,10 +8366,18 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     private async Task<bool> SynchronizeManagedRewardForTargetAsync(
         ManagedRewardSyncTarget target,
+        IReadOnlyCollection<ManagedRewardSyncTarget> allSyncTargets,
         ManagedRewardSyncCatalog rewardCatalog,
         HashSet<string> claimedRewardIds,
         IReadOnlyCollection<string> desiredManagedRewardTitleKeys,
+        IReadOnlyCollection<string> capReclaimProtectedRewardIds,
+        IReadOnlyCollection<string> capReclaimProtectedTitleKeys,
+        Func<CancellationToken, Task<ManagedRewardSyncCatalog>> getManageableRewardCatalogAsync,
         ManagedRewardRuleOwnershipIndex ownershipIndex,
+        ManagedRewardApiCallCounter apiCalls,
+        bool allowInactiveRewardDeletion,
+        bool allowMissingManagedRewardMaterialization,
+        ManagedRewardSyncReason reason,
         CancellationToken cancellationToken)
     {
         var rewardTitle = ManagedRewardPresentation.StripPrefix(target.RewardTitle);
@@ -7761,12 +8404,38 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         {
             RunOnUi(() => AppendThrottledLog(
                 $"managed-reward-id-missing:{target.Id}:{rewardId}",
-                $"Reward sync could not find saved Twitch reward ID for '{target.DisplayTitle}', so it will try normalized title matching before creating anything.",
+                target.UsesLinkedExistingReward
+                    ? $"Linked Twitch reward for '{target.DisplayTitle}' no longer exists or could not be loaded. Crystal Relay will not create a replacement; choose a Twitch reward again."
+                    : $"Reward sync could not find saved Twitch reward ID for '{target.DisplayTitle}', so it will try normalized title matching before creating anything.",
                 ThrottledRewardSyncLogWindow));
+        }
+
+        if (target.UsesLinkedExistingReward)
+        {
+            return await SynchronizeLinkedExistingRewardForTargetAsync(
+                target,
+                existingReward,
+                rewardCatalog,
+                claimedRewardIds,
+                cancellationToken);
         }
 
         var shouldDeleteInactiveReward = target.DeleteWhenInactive
             && (!desiredEnabled || string.IsNullOrWhiteSpace(rewardTitle));
+        if (shouldDeleteInactiveReward && !allowInactiveRewardDeletion)
+        {
+            RunOnUi(() => AppendThrottledLog(
+                $"managed-reward-delete-suppressed:{reason}:{target.Id}",
+                $"Skipped deleting inactive Twitch reward for '{target.DisplayTitle}' during {DescribeManagedRewardSyncReason(reason)} to avoid reward API churn. Crystal Relay only deletes opted-in inactive rewards during explicit cleanup/maintenance or direct rule removal.",
+                ThrottledRewardSyncLogWindow));
+            if (existingReward is null || string.IsNullOrWhiteSpace(rewardTitle))
+            {
+                return changed;
+            }
+
+            shouldDeleteInactiveReward = false;
+        }
+
         if (shouldDeleteInactiveReward)
         {
             if (existingReward is not null)
@@ -7776,6 +8445,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                     existingReward,
                     rewardCatalog,
                     ownershipIndex,
+                    apiCalls,
                     cancellationToken);
             }
 
@@ -7791,6 +8461,17 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             return changed;
         }
 
+        if (!allowMissingManagedRewardMaterialization
+            && existingReward is null
+            && !string.IsNullOrWhiteSpace(rewardTitle))
+        {
+            RunOnUi(() => AppendThrottledLog(
+                $"managed-reward-materialize-suppressed:{reason}:{target.Id}",
+                $"Skipped creating or adopting Twitch reward for '{target.DisplayTitle}' during {DescribeManagedRewardSyncReason(reason)} because rewards are currently hidden. Crystal Relay will create or adopt it during an intentional settings sync, Test Mode, or live stream sync.",
+                ThrottledRewardSyncLogWindow));
+            return changed;
+        }
+
         if (existingReward is null && !string.IsNullOrWhiteSpace(rewardTitle))
         {
             var adoptedReward = await FindAdoptableExistingManagedRewardAsync(
@@ -7799,6 +8480,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 rewardCatalog,
                 ownershipIndex,
                 refreshCatalogIfNeeded: false,
+                apiCalls,
                 cancellationToken);
 
             if (adoptedReward is not null)
@@ -7832,6 +8514,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         {
             if (existingReward.IsEnabled)
             {
+                apiCalls.Updates++;
                 var disabledReward = await twitchApiClient.UpdateCustomRewardAsync(
                     Settings.Broadcaster.AccessToken,
                     runtimeConfig.TwitchClientId,
@@ -7867,7 +8550,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                     rewardTitle,
                     rewardCatalog,
                     ownershipIndex,
-                    refreshCatalogIfNeeded: true,
+                    refreshCatalogIfNeeded: false,
+                    apiCalls,
                     cancellationToken);
                 if (refreshedAdoptedReward is not null)
                 {
@@ -7890,15 +8574,40 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                     return changed;
                 }
 
-                var recyclableReward = rewardCatalog.FindFirstRecyclableReward(claimedRewardIds, desiredManagedRewardTitleKeys);
-
-                if (recyclableReward is not null)
+                if (rewardCatalog.Rewards.Count >= TwitchCustomRewardLimit)
                 {
-                    var recycledReward = await twitchApiClient.UpdateCustomRewardAsync(
+                    var capRecovery = await TryRecycleManagedRewardForCapacityAsync(
+                        target,
+                        allSyncTargets,
+                        rewardCatalog,
+                        claimedRewardIds,
+                        capReclaimProtectedRewardIds,
+                        capReclaimProtectedTitleKeys,
+                        getManageableRewardCatalogAsync,
+                        ownershipIndex,
+                        apiCalls,
+                        managedRewardTitle,
+                        rewardCost,
+                        desiredEnabled,
+                        rewardCooldownSeconds,
+                        rewardBackgroundColor,
+                        rewardPrompt,
+                        requireUserInput,
+                        cancellationToken);
+                    if (capRecovery.handled)
+                    {
+                        return changed || capRecovery.changed;
+                    }
+                }
+
+                TwitchApiClient.CustomRewardResponse createdReward;
+                try
+                {
+                    apiCalls.Creates++;
+                    createdReward = await twitchApiClient.CreateCustomRewardAsync(
                         Settings.Broadcaster.AccessToken,
                         runtimeConfig.TwitchClientId,
                         Settings.Broadcaster.UserId,
-                        recyclableReward.Id,
                         managedRewardTitle,
                         rewardCost,
                         desiredEnabled,
@@ -7907,26 +8616,35 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                         cancellationToken,
                         rewardPrompt,
                         requireUserInput);
-                    changed |= SetManagedRewardTargetId(target, recycledReward.Id, ownershipIndex);
-                    rewardCatalog.Replace(recycledReward);
-                    claimedRewardIds.Add(recycledReward.Id);
-                    ClearManagedRewardCreateBackoff(managedRewardTitle);
-                    RunOnUi(() => AppendLog($"Reused stale managed Twitch reward '{recyclableReward.Title}' for '{target.DisplayTitle}'."));
-                    return true;
+                }
+                catch (Exception ex) when (IsManagedRewardCapacityFailure(ex))
+                {
+                    var capRecovery = await TryRecycleManagedRewardForCapacityAsync(
+                        target,
+                        allSyncTargets,
+                        rewardCatalog,
+                        claimedRewardIds,
+                        capReclaimProtectedRewardIds,
+                        capReclaimProtectedTitleKeys,
+                        getManageableRewardCatalogAsync,
+                        ownershipIndex,
+                        apiCalls,
+                        managedRewardTitle,
+                        rewardCost,
+                        desiredEnabled,
+                        rewardCooldownSeconds,
+                        rewardBackgroundColor,
+                        rewardPrompt,
+                        requireUserInput,
+                        cancellationToken);
+                    if (capRecovery.handled)
+                    {
+                        return changed || capRecovery.changed;
+                    }
+
+                    throw;
                 }
 
-                var createdReward = await twitchApiClient.CreateCustomRewardAsync(
-                    Settings.Broadcaster.AccessToken,
-                    runtimeConfig.TwitchClientId,
-                    Settings.Broadcaster.UserId,
-                    managedRewardTitle,
-                    rewardCost,
-                    desiredEnabled,
-                    rewardCooldownSeconds,
-                    rewardBackgroundColor,
-                    cancellationToken,
-                    rewardPrompt,
-                    requireUserInput);
                 changed |= SetManagedRewardTargetId(target, createdReward.Id, ownershipIndex);
                 rewardCatalog.Replace(createdReward);
                 claimedRewardIds.Add(createdReward.Id);
@@ -7946,6 +8664,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 || !string.Equals(NormalizeManagedRewardPrompt(existingReward.Prompt), rewardPrompt, StringComparison.Ordinal)
                 || existingReward.IsUserInputRequired != requireUserInput)
             {
+                apiCalls.Updates++;
                 var updatedReward = await twitchApiClient.UpdateCustomRewardAsync(
                     Settings.Broadcaster.AccessToken,
                     runtimeConfig.TwitchClientId,
@@ -7987,6 +8706,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 throw;
             }
 
+            if (TryApplyManagedRewardApiBackoff(ex, $"Twitch reward sync for '{target.DisplayTitle}'"))
+            {
+                throw;
+            }
+
             var duplicateRecovery = await TryRecoverDuplicateManagedRewardAsync(
                 ex,
                 target,
@@ -7995,6 +8719,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 rewardCatalog,
                 claimedRewardIds,
                 ownershipIndex,
+                apiCalls,
                 cancellationToken);
             if (duplicateRecovery.handled)
             {
@@ -8012,17 +8737,54 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         return changed;
     }
 
+    private Task<bool> SynchronizeLinkedExistingRewardForTargetAsync(
+        ManagedRewardSyncTarget target,
+        TwitchApiClient.CustomRewardResponse? existingReward,
+        ManagedRewardSyncCatalog rewardCatalog,
+        HashSet<string> claimedRewardIds,
+        CancellationToken cancellationToken)
+    {
+        var rewardId = target.RewardId?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(rewardId))
+        {
+            RunOnUi(() => AppendThrottledLog(
+                $"linked-reward-missing-selection:{target.Id}",
+                $"Linked reward sync skipped '{target.DisplayTitle}' because no existing Twitch reward is selected.",
+                ThrottledRewardSyncLogWindow));
+            return Task.FromResult(false);
+        }
+
+        if (existingReward is null)
+        {
+            RunOnUi(() => AppendThrottledLog(
+                $"linked-reward-not-found:{target.Id}:{rewardId}",
+                $"Linked Twitch reward for '{target.DisplayTitle}' was not found. Crystal Relay will not create, rename, or replace it automatically.",
+                ThrottledRewardSyncLogWindow));
+            return Task.FromResult(false);
+        }
+
+        claimedRewardIds.Add(existingReward.Id);
+
+        RunOnUi(() => AppendThrottledLog(
+            $"linked-reward-listen-only:{existingReward.Id}:{target.Id}",
+            $"Linked Twitch reward '{existingReward.Title}' is listen-only for '{target.DisplayTitle}'. Crystal Relay will run its action when redeemed, but will not edit Twitch visibility, name, cost, prompt, color, input setting, deletion, or cooldown.",
+            ThrottledRewardSyncLogWindow));
+        return Task.FromResult(false);
+    }
+
     private async Task<bool> DeleteInactiveManagedRewardAsync(
         ManagedRewardSyncTarget target,
         TwitchApiClient.CustomRewardResponse existingReward,
         ManagedRewardSyncCatalog rewardCatalog,
         ManagedRewardRuleOwnershipIndex ownershipIndex,
+        ManagedRewardApiCallCounter apiCalls,
         CancellationToken cancellationToken)
     {
         var rewardTitle = ManagedRewardPresentation.StripPrefix(existingReward.Title);
 
         try
         {
+            apiCalls.Deletes++;
             await twitchApiClient.DeleteCustomRewardAsync(
                 Settings.Broadcaster.AccessToken,
                 runtimeConfig.TwitchClientId,
@@ -8057,6 +8819,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             }
 
             if (IsInvalidBroadcasterTokenFailure(ex))
+            {
+                throw;
+            }
+
+            if (TryApplyManagedRewardApiBackoff(ex, $"Twitch reward delete for '{target.DisplayTitle}'"))
             {
                 throw;
             }
@@ -8251,6 +9018,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ManagedRewardSyncCatalog rewardCatalog,
         HashSet<string> claimedRewardIds,
         ManagedRewardRuleOwnershipIndex ownershipIndex,
+        ManagedRewardApiCallCounter apiCalls,
         CancellationToken cancellationToken)
     {
         if (!IsDuplicateManagedRewardFailure(ex))
@@ -8264,6 +9032,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             rewardCatalog,
             ownershipIndex,
             refreshCatalogIfNeeded: true,
+            apiCalls,
             cancellationToken);
 
         if (matchingReward is not null)
@@ -8296,6 +9065,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ManagedRewardSyncCatalog rewardCatalog,
         ManagedRewardRuleOwnershipIndex ownershipIndex,
         bool refreshCatalogIfNeeded,
+        ManagedRewardApiCallCounter apiCalls,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(rewardTitle))
@@ -8309,6 +9079,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             return matchingReward;
         }
 
+        apiCalls.CatalogReads++;
         rewardCatalog.Reset(await twitchApiClient.GetCustomRewardsAsync(
             Settings.Broadcaster.AccessToken,
             runtimeConfig.TwitchClientId,
@@ -8335,19 +9106,236 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         return null;
     }
 
+    private async Task<(bool handled, bool changed)> TryRecycleManagedRewardForCapacityAsync(
+        ManagedRewardSyncTarget target,
+        IReadOnlyCollection<ManagedRewardSyncTarget> allSyncTargets,
+        ManagedRewardSyncCatalog rewardCatalog,
+        HashSet<string> claimedRewardIds,
+        IReadOnlyCollection<string> capReclaimProtectedRewardIds,
+        IReadOnlyCollection<string> capReclaimProtectedTitleKeys,
+        Func<CancellationToken, Task<ManagedRewardSyncCatalog>> getManageableRewardCatalogAsync,
+        ManagedRewardRuleOwnershipIndex ownershipIndex,
+        ManagedRewardApiCallCounter apiCalls,
+        string managedRewardTitle,
+        int rewardCost,
+        bool desiredEnabled,
+        int rewardCooldownSeconds,
+        string rewardBackgroundColor,
+        string rewardPrompt,
+        bool requireUserInput,
+        CancellationToken cancellationToken)
+    {
+        if (!desiredEnabled)
+        {
+            MarkManagedRewardCreateBackoff(managedRewardTitle);
+            RunOnUi(() => AppendThrottledLog(
+                $"managed-reward-capacity-inactive:{managedRewardTitle}",
+                $"Twitch is full on custom rewards, so Crystal Relay skipped creating inactive off-avatar reward '{ManagedRewardPresentation.StripPrefix(managedRewardTitle)}'. It will make room only for rewards needed by the current avatar.",
+                ThrottledRewardSyncLogWindow));
+            return (true, false);
+        }
+
+        var manageableCatalog = await getManageableRewardCatalogAsync(cancellationToken);
+        var manageableRewardIds = manageableCatalog.Rewards
+            .Select(reward => reward.Id?.Trim())
+            .Where(rewardId => !string.IsNullOrWhiteSpace(rewardId))
+            .Cast<string>()
+            .ToHashSet(StringComparer.Ordinal);
+        var reclaimCandidate = rewardCatalog.FindFirstCapReclaimCandidate(
+            manageableRewardIds,
+            capReclaimProtectedRewardIds,
+            capReclaimProtectedTitleKeys);
+
+        if (reclaimCandidate is null)
+        {
+            MarkManagedRewardCreateBackoff(managedRewardTitle);
+            RunOnUi(() => AppendThrottledLog(
+                $"managed-reward-capacity-no-reclaim:{managedRewardTitle}",
+                $"Twitch is full on custom rewards, and Crystal Relay found no disabled app-owned off-avatar VRC reward it can safely recycle for '{target.DisplayTitle}'. Linked and user-created rewards were left untouched.",
+                ThrottledRewardSyncLogWindow));
+            return (true, false);
+        }
+
+        var previousRewardTitle = reclaimCandidate.Title;
+        var clearedOwnerCount = ClearManagedRewardIdFromCreateOrManageOwners(
+            reclaimCandidate.Id,
+            target.Id,
+            ownershipIndex);
+        var clearedSyncTargetCount = ClearManagedRewardIdFromSyncTargets(
+            reclaimCandidate.Id,
+            target.Id,
+            allSyncTargets);
+        claimedRewardIds.Remove(reclaimCandidate.Id);
+
+        apiCalls.Updates++;
+        var recycledReward = await twitchApiClient.UpdateCustomRewardAsync(
+            Settings.Broadcaster.AccessToken,
+            runtimeConfig.TwitchClientId,
+            Settings.Broadcaster.UserId,
+            reclaimCandidate.Id,
+            managedRewardTitle,
+            rewardCost,
+            desiredEnabled,
+            rewardCooldownSeconds,
+            rewardBackgroundColor,
+            cancellationToken,
+            rewardPrompt,
+            requireUserInput);
+
+        SetManagedRewardTargetId(target, recycledReward.Id, ownershipIndex);
+        rewardCatalog.Replace(recycledReward);
+        claimedRewardIds.Add(recycledReward.Id);
+        ClearManagedRewardCreateBackoff(managedRewardTitle);
+        RunOnUi(() => AppendThrottledLog(
+            $"managed-reward-capacity-recycled:{reclaimCandidate.Id}:{target.Id}",
+            $"Twitch was full, so Crystal Relay recycled disabled app-owned reward '{previousRewardTitle}' into '{managedRewardTitle}' for '{target.DisplayTitle}'. Cleared {clearedOwnerCount} old off-avatar saved link(s) and {clearedSyncTargetCount} in-pass sync target(s).",
+            ThrottledRewardSyncLogWindow));
+        return (true, true);
+    }
+
+    private static int ClearManagedRewardIdFromSyncTargets(
+        string rewardId,
+        Guid newOwnerId,
+        IEnumerable<ManagedRewardSyncTarget> syncTargets)
+    {
+        var normalizedRewardId = rewardId?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(normalizedRewardId))
+        {
+            return 0;
+        }
+
+        var clearedCount = 0;
+        foreach (var syncTarget in syncTargets)
+        {
+            if (syncTarget.Id == newOwnerId
+                || syncTarget.UsesLinkedExistingReward
+                || !string.Equals(syncTarget.RewardId?.Trim(), normalizedRewardId, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            syncTarget.RewardId = string.Empty;
+            clearedCount++;
+        }
+
+        return clearedCount;
+    }
+
+    private int ClearManagedRewardIdFromCreateOrManageOwners(
+        string rewardId,
+        Guid newOwnerId,
+        ManagedRewardRuleOwnershipIndex ownershipIndex)
+    {
+        var normalizedRewardId = rewardId?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(normalizedRewardId))
+        {
+            return 0;
+        }
+
+        var clearedCount = 0;
+        ownershipIndex.RemoveRewardId(normalizedRewardId);
+
+        void ClearTriggerRule(TriggerRule rule)
+        {
+            if (rule.Id == newOwnerId
+                || rule.RewardSyncMode != TwitchRewardSyncMode.CreateOrManage
+                || !string.Equals(rule.ChannelPointRewardId?.Trim(), normalizedRewardId, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            rule.ChannelPointRewardId = string.Empty;
+            clearedCount++;
+        }
+
+        foreach (var profile in Settings.AvatarProfiles)
+        {
+            if (profile.Id != newOwnerId
+                && profile.SetTriggerMasterRewardSyncMode == TwitchRewardSyncMode.CreateOrManage
+                && string.Equals(profile.SetTriggerMasterRewardId?.Trim(), normalizedRewardId, StringComparison.Ordinal))
+            {
+                profile.SetTriggerMasterRewardId = string.Empty;
+                clearedCount++;
+            }
+
+            foreach (var rule in profile.ChannelPointRules)
+            {
+                ClearTriggerRule(rule);
+            }
+        }
+
+        foreach (var rule in Settings.GlobalMovementRules)
+        {
+            ClearTriggerRule(rule);
+        }
+
+        foreach (var trigger in Settings.UniversalTriggers)
+        {
+            if (trigger.Id == newOwnerId
+                || trigger.RewardSyncMode != TwitchRewardSyncMode.CreateOrManage
+                || !string.Equals(trigger.RewardId?.Trim(), normalizedRewardId, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            trigger.RewardId = string.Empty;
+            clearedCount++;
+        }
+
+        if (newOwnerId != AvatarScaleMasterRewardOwnerId
+            && Settings.AvatarScaleMasterReward.RewardSyncMode == TwitchRewardSyncMode.CreateOrManage
+            && string.Equals(Settings.AvatarScaleMasterReward.RewardId?.Trim(), normalizedRewardId, StringComparison.Ordinal))
+        {
+            Settings.AvatarScaleMasterReward.RewardId = string.Empty;
+            clearedCount++;
+        }
+
+        foreach (var rule in GetAllAvatarScaleRules())
+        {
+            if (rule.Id == newOwnerId
+                || rule.RewardSyncMode != TwitchRewardSyncMode.CreateOrManage
+                || !string.Equals(rule.RewardId?.Trim(), normalizedRewardId, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            rule.RewardId = string.Empty;
+            clearedCount++;
+        }
+
+        return clearedCount;
+    }
+
     private async Task<bool> CleanupStaleManagedRewardsAsync(
         ManagedRewardSyncCatalog rewardCatalog,
         IReadOnlyCollection<string> claimedRewardIds,
         IReadOnlyCollection<string> desiredManagedRewardTitleKeys,
+        ManagedRewardApiCallCounter apiCalls,
+        bool allowInactiveRewardDeletion,
+        ManagedRewardSyncReason reason,
         CancellationToken cancellationToken)
     {
         var staleRewards = rewardCatalog.GetStaleRewards(claimedRewardIds, desiredManagedRewardTitleKeys);
+        if (!allowInactiveRewardDeletion)
+        {
+            var staleRewardCount = staleRewards.Count;
+            if (staleRewardCount > 0)
+            {
+                RunOnUi(() => AppendThrottledLog(
+                    $"managed-reward-stale-cleanup-suppressed:{reason}",
+                    $"Skipped deleting {staleRewardCount} stale managed Twitch reward(s) during {DescribeManagedRewardSyncReason(reason)} to avoid reward API churn. Stale reward cleanup only runs during explicit cleanup/maintenance.",
+                    ThrottledRewardSyncLogWindow));
+            }
+
+            return false;
+        }
 
         var changed = false;
         foreach (var staleReward in staleRewards)
         {
             try
             {
+                apiCalls.Deletes++;
                 await twitchApiClient.DeleteCustomRewardAsync(
                     Settings.Broadcaster.AccessToken,
                     runtimeConfig.TwitchClientId,
@@ -8383,6 +9371,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                     throw;
                 }
 
+                if (TryApplyManagedRewardApiBackoff(ex, "Twitch stale reward cleanup"))
+                {
+                    throw;
+                }
+
                 var cleanupTitle = ManagedRewardPresentation.StripPrefix(staleReward.Title);
                 RunOnUi(() => AppendThrottledLog(
                     $"managed-reward-cleanup:{staleReward.Id}",
@@ -8400,8 +9393,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         string rewardTitle,
         string displayTitle)
     {
-        if (ex is not TwitchApiException apiException
-            || !apiException.ApiMessage.Contains("CREATE_CUSTOM_REWARD_TOO_MANY_REWARDS", StringComparison.OrdinalIgnoreCase))
+        if (!IsManagedRewardCapacityFailure(ex))
         {
             return false;
         }
@@ -8412,6 +9404,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             $"Twitch is full on custom rewards, so Crystal Relay could not add '{rewardTitle}' yet. Remove old rewards or wait for cleanup, then it will try again.",
             ThrottledRewardSyncLogWindow));
         return true;
+    }
+
+    private static bool IsManagedRewardCapacityFailure(Exception ex)
+    {
+        return ex is TwitchApiException apiException
+            && apiException.ApiMessage.Contains("CREATE_CUSTOM_REWARD_TOO_MANY_REWARDS", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string NormalizeManagedRewardPrompt(string prompt)
@@ -8463,7 +9461,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         broadcasterManagedRewardsUnavailableForSession = true;
         RunOnUi(() =>
         {
-            RewardOptions.Clear();
             RaisePropertyChanged(nameof(ManagedChannelPointRewardHelpText));
             RaisePropertyChanged(nameof(UniversalManagedChannelPointRewardHelpText));
             SetUniversalManagedRewardSyncStatus("Universal Twitch reward sync skipped because Twitch channel-point reward management is unavailable for this broadcaster session.");
@@ -8526,7 +9523,77 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     private string GetManagedRewardActivationAvatarId()
     {
-        return Settings.VrChat.CurrentAvatarId?.Trim() ?? string.Empty;
+        return GetBestKnownCurrentAvatarId();
+    }
+
+    private static HashSet<string> BuildManagedRewardCapReclaimProtectedRewardIds(
+        IEnumerable<ManagedRewardSyncTarget> targets)
+    {
+        return targets
+            .Where(target => target.UsesLinkedExistingReward || target.ProtectFromCapReclaim)
+            .Select(target => target.RewardId?.Trim())
+            .Where(rewardId => !string.IsNullOrWhiteSpace(rewardId))
+            .Cast<string>()
+            .ToHashSet(StringComparer.Ordinal);
+    }
+
+    private static HashSet<string> BuildManagedRewardCapReclaimProtectedTitleKeys(
+        IEnumerable<ManagedRewardSyncTarget> targets)
+    {
+        return targets
+            .Where(target => target.UsesLinkedExistingReward || target.ProtectFromCapReclaim)
+            .Select(target => ManagedRewardPresentation.NormalizeTitleIdentityKey(target.RewardTitle))
+            .Where(titleKey => !string.IsNullOrWhiteSpace(titleKey))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static string BuildManagedRewardDesiredFingerprint(
+        IReadOnlyCollection<ManagedRewardSyncTarget> targets,
+        IEnumerable<string> retiredRewardIds,
+        string currentAvatarId,
+        bool allowManagedRewardActivation,
+        bool? forcedManagedRewardActivation)
+    {
+        var builder = new StringBuilder();
+        builder.Append("avatar=");
+        AppendFingerprintValue(builder, currentAvatarId);
+        builder.Append("|activation=").Append(allowManagedRewardActivation ? "1" : "0");
+        builder.Append("|forced=").Append(forcedManagedRewardActivation?.ToString() ?? "auto");
+
+        foreach (var target in targets
+                     .Where(target => !target.UsesLinkedExistingReward)
+                     .OrderBy(target => target.Id))
+        {
+            builder.Append("|target=");
+            builder.Append(target.Id);
+            AppendFingerprintValue(builder, target.RewardId);
+            AppendFingerprintValue(builder, target.RewardTitle);
+            builder.Append(':').Append(target.RewardCost);
+            builder.Append(':').Append(target.CooldownSeconds);
+            AppendFingerprintValue(builder, target.BackgroundColor);
+            AppendFingerprintValue(builder, target.Prompt);
+            builder.Append(':').Append(target.RequireUserInput ? "1" : "0");
+            builder.Append(':').Append(target.DesiredEnabled ? "1" : "0");
+            builder.Append(':').Append(target.IsCooldownActive ? "1" : "0");
+            builder.Append(':').Append(target.DeleteWhenInactive ? "1" : "0");
+        }
+
+        foreach (var retiredRewardId in retiredRewardIds
+                     .Select(rewardId => rewardId?.Trim() ?? string.Empty)
+                     .Where(rewardId => !string.IsNullOrWhiteSpace(rewardId))
+                     .OrderBy(rewardId => rewardId, StringComparer.Ordinal))
+        {
+            builder.Append("|retired=");
+            AppendFingerprintValue(builder, retiredRewardId);
+        }
+
+        return builder.ToString();
+    }
+
+    private static void AppendFingerprintValue(StringBuilder builder, string? value)
+    {
+        var normalizedValue = value?.Trim() ?? string.Empty;
+        builder.Append(':').Append(normalizedValue.Length).Append(':').Append(normalizedValue);
     }
 
     private static bool SetManagedRewardTargetId(
@@ -8553,17 +9620,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             .OrderBy(reward => reward.Title, StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
-        RewardOptions.Clear();
-        RewardOptions.Add(new TwitchRewardOption(string.Empty, "Any reward", 0));
-        foreach (var reward in orderedRewards)
-        {
-            RewardOptions.Add(new TwitchRewardOption(
-                reward.Id,
-                ManagedRewardPresentation.StripPrefix(reward.Title),
-                reward.Cost));
-        }
+        ApplyRewardOptions(orderedRewards);
+        QueueBridgeRefresh();
 
-        foreach (var rule in EnumerateAllRules().Where(rule => !string.IsNullOrWhiteSpace(rule.ChannelPointRewardId)))
+        foreach (var rule in EnumerateAllRules().Where(rule =>
+                     rule.RewardSyncMode == TwitchRewardSyncMode.CreateOrManage
+                     && !string.IsNullOrWhiteSpace(rule.ChannelPointRewardId)))
         {
             var reward = orderedRewards.FirstOrDefault(option =>
                 string.Equals(option.Id, rule.ChannelPointRewardId, StringComparison.Ordinal));
@@ -8584,7 +9646,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             }
         }
 
-        foreach (var profile in Settings.AvatarProfiles.Where(profile => !string.IsNullOrWhiteSpace(profile.SetTriggerMasterRewardId)))
+        foreach (var profile in Settings.AvatarProfiles.Where(profile =>
+                     profile.SetTriggerMasterRewardSyncMode == TwitchRewardSyncMode.CreateOrManage
+                     && !string.IsNullOrWhiteSpace(profile.SetTriggerMasterRewardId)))
         {
             var reward = orderedRewards.FirstOrDefault(option =>
                 string.Equals(option.Id, profile.SetTriggerMasterRewardId, StringComparison.Ordinal));
@@ -8607,6 +9671,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
         foreach (var trigger in Settings.UniversalTriggers.Where(trigger =>
                      trigger.TriggerType == UniversalTriggerType.ChannelPointReward
+                     && trigger.RewardSyncMode == TwitchRewardSyncMode.CreateOrManage
                      && !string.IsNullOrWhiteSpace(trigger.RewardId)))
         {
             var reward = orderedRewards.FirstOrDefault(option =>
@@ -8630,6 +9695,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
         foreach (var rule in GetAllAvatarScaleRules().Where(rule =>
                      rule.TriggerType == AvatarScaleTriggerType.ChannelPointReward
+                     && rule.RewardSyncMode == TwitchRewardSyncMode.CreateOrManage
                      && !string.IsNullOrWhiteSpace(rule.RewardId)))
         {
             var reward = orderedRewards.FirstOrDefault(option =>
@@ -8650,6 +9716,167 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 rule.RewardCost = reward.Cost;
             }
         }
+    }
+
+    private void ApplyRewardOptions(IReadOnlyList<TwitchApiClient.CustomRewardResponse> orderedRewards)
+    {
+        var nextOptions = BuildRewardOptions(orderedRewards);
+
+        foreach (var option in nextOptions)
+        {
+            if (FindRewardOptionIndexById(RewardOptions, option.Id) < 0)
+            {
+                RewardOptions.Add(option);
+            }
+        }
+
+        for (var desiredIndex = 0; desiredIndex < nextOptions.Count; desiredIndex++)
+        {
+            var desiredOption = nextOptions[desiredIndex];
+            var currentIndex = FindRewardOptionIndexById(RewardOptions, desiredOption.Id);
+            if (currentIndex < 0)
+            {
+                RewardOptions.Insert(desiredIndex, desiredOption);
+                continue;
+            }
+
+            if (currentIndex != desiredIndex)
+            {
+                RewardOptions.Move(currentIndex, desiredIndex);
+            }
+
+            if (!EqualityComparer<TwitchRewardOption>.Default.Equals(RewardOptions[desiredIndex], desiredOption))
+            {
+                RewardOptions[desiredIndex] = desiredOption;
+            }
+        }
+
+        for (var index = RewardOptions.Count - 1; index >= nextOptions.Count; index--)
+        {
+            RewardOptions.RemoveAt(index);
+        }
+    }
+
+    private IReadOnlyDictionary<string, int> BuildLinkedRewardCooldownLookup()
+    {
+        var lookup = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var option in RewardOptions)
+        {
+            var rewardId = option.Id?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(rewardId) || option.IsCatalogMissing)
+            {
+                continue;
+            }
+
+            lookup[rewardId] = Math.Max(0, option.CooldownSeconds);
+        }
+
+        return lookup;
+    }
+
+    private IReadOnlyList<TwitchRewardOption> BuildRewardOptions(IReadOnlyList<TwitchApiClient.CustomRewardResponse> orderedRewards)
+    {
+        var options = new List<TwitchRewardOption>
+        {
+            TwitchRewardOption.Placeholder(T("Select Twitch reward"))
+        };
+
+        var loadedRewardIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var reward in orderedRewards)
+        {
+            if (!string.IsNullOrWhiteSpace(reward.Id))
+            {
+                loadedRewardIds.Add(reward.Id);
+            }
+
+            options.Add(TwitchRewardOption.FromReward(reward));
+        }
+
+        var missingLinkedRewardIds = new HashSet<string>(loadedRewardIds, StringComparer.Ordinal);
+        foreach (var reference in EnumerateLinkedTwitchRewardReferences())
+        {
+            if (missingLinkedRewardIds.Add(reference.RewardId))
+            {
+                options.Add(TwitchRewardOption.MissingLinked(reference.RewardId, reference.DisplayTitle));
+            }
+        }
+
+        return options;
+    }
+
+    private IEnumerable<LinkedTwitchRewardReference> EnumerateLinkedTwitchRewardReferences()
+    {
+        foreach (var rule in EnumerateAllRules().Where(rule =>
+                     rule.RewardSyncMode == TwitchRewardSyncMode.LinkExisting
+                     && !string.IsNullOrWhiteSpace(rule.ChannelPointRewardId)))
+        {
+            yield return new LinkedTwitchRewardReference(
+                rule.ChannelPointRewardId.Trim(),
+                GetLinkedRewardFallbackTitle(rule.ChannelPointRewardTitle, rule.DisplayTitle));
+        }
+
+        foreach (var profile in Settings.AvatarProfiles.Where(profile =>
+                     profile.SetTriggerMasterRewardSyncMode == TwitchRewardSyncMode.LinkExisting
+                     && !string.IsNullOrWhiteSpace(profile.SetTriggerMasterRewardId)))
+        {
+            yield return new LinkedTwitchRewardReference(
+                profile.SetTriggerMasterRewardId.Trim(),
+                GetLinkedRewardFallbackTitle(profile.SetTriggerMasterRewardTitle, profile.SetTriggerMasterRewardDisplayTitle));
+        }
+
+        foreach (var trigger in Settings.UniversalTriggers.Where(trigger =>
+                     trigger.TriggerType == UniversalTriggerType.ChannelPointReward
+                     && trigger.RewardSyncMode == TwitchRewardSyncMode.LinkExisting
+                     && !string.IsNullOrWhiteSpace(trigger.RewardId)))
+        {
+            yield return new LinkedTwitchRewardReference(
+                trigger.RewardId.Trim(),
+                GetLinkedRewardFallbackTitle(trigger.RewardTitle, trigger.DisplayTitle));
+        }
+
+        var masterReward = Settings.AvatarScaleMasterReward;
+        if (masterReward.RewardSyncMode == TwitchRewardSyncMode.LinkExisting
+            && !string.IsNullOrWhiteSpace(masterReward.RewardId))
+        {
+            yield return new LinkedTwitchRewardReference(
+                masterReward.RewardId.Trim(),
+                GetLinkedRewardFallbackTitle(masterReward.RewardTitle, T("Avatar Scaling Master Reward")));
+        }
+
+        foreach (var rule in GetAllAvatarScaleRules().Where(rule =>
+                     rule.TriggerType == AvatarScaleTriggerType.ChannelPointReward
+                     && rule.RewardSyncMode == TwitchRewardSyncMode.LinkExisting
+                     && !string.IsNullOrWhiteSpace(rule.RewardId)))
+        {
+            yield return new LinkedTwitchRewardReference(
+                rule.RewardId.Trim(),
+                GetLinkedRewardFallbackTitle(rule.RewardTitle, rule.DisplayTitle));
+        }
+    }
+
+    private static string GetLinkedRewardFallbackTitle(string configuredTitle, string ownerTitle)
+    {
+        var normalizedTitle = ManagedRewardPresentation.StripPrefix(configuredTitle ?? string.Empty);
+        if (!string.IsNullOrWhiteSpace(normalizedTitle))
+        {
+            return normalizedTitle.Trim();
+        }
+
+        return ownerTitle?.Trim() ?? string.Empty;
+    }
+
+    private static int FindRewardOptionIndexById(IReadOnlyList<TwitchRewardOption> options, string rewardId)
+    {
+        var normalizedRewardId = rewardId?.Trim() ?? string.Empty;
+        for (var index = 0; index < options.Count; index++)
+        {
+            if (string.Equals(options[index].Id, normalizedRewardId, StringComparison.Ordinal))
+            {
+                return index;
+            }
+        }
+
+        return -1;
     }
 
     // About refresh prefers normal authenticated Twitch API calls when possible.
@@ -8950,6 +10177,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
         if (!broadcasterConnected)
         {
+            hasResolvedBroadcasterLiveState = false;
             SetStreamingStatusCard(
                 "Broadcaster not connected.",
                 "Connect Twitch to monitor stream and listener status.",
@@ -8976,6 +10204,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
         if (IsStreamingListenerConnectingState(normalizedBridgeStatus))
         {
+            if (bridgeCoordinator.IsRunning && hasResolvedBroadcasterLiveState)
+            {
+                SetResolvedStreamingStatusCard(listenerIsReconnecting: true);
+                return;
+            }
+
             var isReconnect = normalizedBridgeStatus.Contains("reconnect", StringComparison.OrdinalIgnoreCase);
             SetStreamingStatusCard(
                 "Checking Twitch status...",
@@ -8994,25 +10228,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         {
             if (IsBroadcasterLive)
             {
-                SetStreamingStatusCard(
-                    "You are live.",
-                    "Twitch listener is connected and streaming status is updating normally.",
-                    "Live",
-                    "Live",
-                    "Live",
-                    "Connected",
-                    "Healthy");
+                SetResolvedStreamingStatusCard(listenerIsReconnecting: false);
                 return;
             }
 
-            SetStreamingStatusCard(
-                "You are offline.",
-                "Twitch listener is connected and waiting for you to go live.",
-                "Healthy",
-                "Offline",
-                "Healthy",
-                "Connected",
-                "Healthy");
+            SetResolvedStreamingStatusCard(listenerIsReconnecting: false);
             return;
         }
 
@@ -9024,6 +10244,38 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             "Checking",
             "Connecting",
             "Checking");
+    }
+
+    private void SetResolvedStreamingStatusCard(bool listenerIsReconnecting)
+    {
+        var listenerText = listenerIsReconnecting ? "Reconnecting" : "Connected";
+        var listenerVisual = listenerIsReconnecting ? "Checking" : "Healthy";
+
+        if (IsBroadcasterLive)
+        {
+            SetStreamingStatusCard(
+                "You are live.",
+                listenerIsReconnecting
+                    ? "Twitch listener is reconnecting in the background. Your last checked stream state is live."
+                    : "Twitch listener is connected and streaming status is updating normally.",
+                "Live",
+                "Live",
+                "Live",
+                listenerText,
+                listenerVisual);
+            return;
+        }
+
+        SetStreamingStatusCard(
+            "You are offline.",
+            listenerIsReconnecting
+                ? "Twitch listener is reconnecting in the background. Your last checked stream state is offline."
+                : "Twitch listener is connected and waiting for you to go live.",
+            "Healthy",
+            "Offline",
+            "Healthy",
+            listenerText,
+            listenerVisual);
     }
 
     private void SetStreamingStatusCard(
@@ -9064,13 +10316,38 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private sealed record ManagedRewardOwnershipEntry(
         Guid Id,
         string RewardId,
-        string RewardTitle);
+        string RewardTitle,
+        TwitchRewardSyncMode RewardSyncMode);
 
     private sealed record SharedAvatarSetRewardGroup(
         TriggerRule Owner,
         IReadOnlyList<TriggerRule> Rules,
         string RewardTitle,
-        bool UsesSetTriggerMasterReward);
+        bool UsesSetTriggerMasterReward,
+        TwitchRewardSyncMode RewardSyncMode);
+
+    private sealed class ManagedRewardApiCallCounter
+    {
+        public int CatalogReads { get; set; }
+
+        public int ManageableCatalogReads { get; set; }
+
+        public int Creates { get; set; }
+
+        public int Updates { get; set; }
+
+        public int Deletes { get; set; }
+
+        public int Total => CatalogReads + ManageableCatalogReads + Creates + Updates + Deletes;
+
+        public string Describe()
+        {
+            var manageableText = ManageableCatalogReads > 0
+                ? $", {ManageableCatalogReads} manageable GET"
+                : string.Empty;
+            return $"{Total} total ({CatalogReads} GET{manageableText}, {Creates} create, {Updates} update, {Deletes} delete)";
+        }
+    }
 
     private sealed class ManagedRewardSyncTarget
     {
@@ -9080,12 +10357,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             string rewardId,
             string rewardTitle,
             int rewardCost,
+            TwitchRewardSyncMode rewardSyncMode,
             int cooldownSeconds,
             string backgroundColor,
             string prompt,
             bool requireUserInput,
             bool desiredEnabled,
+            bool isCooldownActive,
             bool deleteWhenInactive,
+            bool protectFromCapReclaim,
             Action<string> applyRewardId)
         {
             Id = id;
@@ -9093,12 +10373,17 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             RewardId = rewardId?.Trim() ?? string.Empty;
             RewardTitle = rewardTitle?.Trim() ?? string.Empty;
             RewardCost = Math.Max(1, rewardCost);
+            RewardSyncMode = Enum.IsDefined(rewardSyncMode)
+                ? rewardSyncMode
+                : TwitchRewardSyncMode.CreateOrManage;
             CooldownSeconds = Math.Max(0, cooldownSeconds);
             BackgroundColor = backgroundColor;
             Prompt = prompt?.Trim() ?? string.Empty;
             RequireUserInput = requireUserInput;
             DesiredEnabled = desiredEnabled;
+            IsCooldownActive = isCooldownActive;
             DeleteWhenInactive = deleteWhenInactive;
+            ProtectFromCapReclaim = protectFromCapReclaim;
             ApplyRewardId = applyRewardId;
         }
 
@@ -9112,6 +10397,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
         public int RewardCost { get; }
 
+        public TwitchRewardSyncMode RewardSyncMode { get; }
+
+        public bool UsesLinkedExistingReward => RewardSyncMode == TwitchRewardSyncMode.LinkExisting;
+
         public int CooldownSeconds { get; }
 
         public string BackgroundColor { get; }
@@ -9122,7 +10411,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
         public bool DesiredEnabled { get; }
 
+        public bool IsCooldownActive { get; }
+
         public bool DeleteWhenInactive { get; }
+
+        public bool ProtectFromCapReclaim { get; }
 
         public Action<string> ApplyRewardId { get; }
     }
@@ -9207,6 +10500,29 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                     && !reward.IsEnabled
                     && ManagedRewardPresentation.IsManagedTitle(reward.Title)
                     && !desiredManagedRewardTitleKeys.Contains(rewardTitleKey))
+                {
+                    return reward;
+                }
+            }
+
+            return null;
+        }
+
+        public TwitchApiClient.CustomRewardResponse? FindFirstCapReclaimCandidate(
+            IReadOnlyCollection<string> manageableRewardIds,
+            IReadOnlyCollection<string> protectedRewardIds,
+            IReadOnlyCollection<string> protectedRewardTitleKeys)
+        {
+            foreach (var reward in rewards
+                         .OrderBy(reward => reward.Title, StringComparer.OrdinalIgnoreCase)
+                         .ThenBy(reward => reward.Id, StringComparer.Ordinal))
+            {
+                var rewardTitleKey = ManagedRewardPresentation.NormalizeTitleIdentityKey(reward.Title);
+                if (manageableRewardIds.Contains(reward.Id)
+                    && !protectedRewardIds.Contains(reward.Id)
+                    && !reward.IsEnabled
+                    && ManagedRewardPresentation.IsManagedTitle(reward.Title)
+                    && !protectedRewardTitleKeys.Contains(rewardTitleKey))
                 {
                     return reward;
                 }
@@ -9342,12 +10658,26 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             }
         }
 
+        public void RemoveRewardId(string rewardId)
+        {
+            var normalizedRewardId = rewardId?.Trim() ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(normalizedRewardId))
+            {
+                ruleIdsByRewardId.Remove(normalizedRewardId);
+            }
+        }
+
         private void RegisterRule(ManagedRewardOwnershipEntry entry)
         {
             var rewardId = entry.RewardId?.Trim() ?? string.Empty;
             if (!string.IsNullOrWhiteSpace(rewardId))
             {
                 AddOwner(ruleIdsByRewardId, rewardId, entry.Id);
+            }
+
+            if (entry.RewardSyncMode != TwitchRewardSyncMode.CreateOrManage)
+            {
+                return;
             }
 
             var rewardTitleKey = ManagedRewardPresentation.NormalizeTitleIdentityKey(entry.RewardTitle);
@@ -9419,12 +10749,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             return true;
         }
 
-        return bridgeStatus.Contains("connecting", StringComparison.OrdinalIgnoreCase)
-            || bridgeStatus.Contains("reconnecting", StringComparison.OrdinalIgnoreCase)
+        return bridgeStatus.Contains("Connecting background listener", StringComparison.OrdinalIgnoreCase)
+            || bridgeStatus.Contains("Reconnecting background listener", StringComparison.OrdinalIgnoreCase)
             || bridgeStatus.Contains("starting", StringComparison.OrdinalIgnoreCase)
-            || bridgeStatus.Contains("refresh", StringComparison.OrdinalIgnoreCase)
-            || bridgeStatus.Contains("retrying", StringComparison.OrdinalIgnoreCase)
-            || bridgeStatus.Contains("checking", StringComparison.OrdinalIgnoreCase);
+            || bridgeStatus.Contains("Listener disconnected", StringComparison.OrdinalIgnoreCase)
+            || bridgeStatus.Contains("Twitch connection issue", StringComparison.OrdinalIgnoreCase);
     }
 
     private string BuildStreamingErrorDetail(string bridgeStatus, string broadcasterStatus)
@@ -9942,14 +11271,21 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     private void HandleBroadcasterLiveStateChanged(bool isLive)
     {
+        var stateChanged = !hasResolvedBroadcasterLiveState || IsBroadcasterLive != isLive;
+        hasResolvedBroadcasterLiveState = true;
         IsBroadcasterLive = isLive;
+        RefreshStreamingStatusCard();
+
         if (isLive && Settings.ChannelPointRewardTestModeEnabled)
         {
             Settings.ChannelPointRewardTestModeEnabled = false;
             AppendLog("Streaming test mode turned off automatically because the broadcaster is live.");
         }
 
-        QueueManagedRewardSync(0);
+        if (stateChanged)
+        {
+            QueueManagedRewardSync(0, ManagedRewardSyncReason.StreamStateChanged);
+        }
     }
 
     private void RunOnUi(Action action)
@@ -10102,6 +11438,25 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     {
         return account.Scopes.Any(existingScope =>
             string.Equals(existingScope, scope, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool HasBridgeSensitiveTwitchAccountChanges(TwitchAccountSettings current, TwitchAccountSettings next)
+    {
+        return !string.Equals(current.AccessToken, next.AccessToken, StringComparison.Ordinal)
+            || !string.Equals(current.UserId, next.UserId, StringComparison.Ordinal)
+            || !string.Equals(current.Login, next.Login, StringComparison.OrdinalIgnoreCase)
+            || !ScopeSetsEqual(current.Scopes, next.Scopes);
+    }
+
+    private static bool ScopeSetsEqual(IEnumerable<string> currentScopes, IEnumerable<string> nextScopes)
+    {
+        var currentSet = currentScopes
+            .Where(scope => !string.IsNullOrWhiteSpace(scope))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var nextSet = nextScopes
+            .Where(scope => !string.IsNullOrWhiteSpace(scope))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return currentSet.SetEquals(nextSet);
     }
 
     private string BuildExpiryStatus(TwitchAccountSettings account)
@@ -11042,7 +12397,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     private void UpdateAvatarProfileActivityStates()
     {
-        var currentAvatarId = Settings.VrChat.CurrentAvatarId?.Trim() ?? string.Empty;
+        var currentAvatarId = GetBestKnownCurrentAvatarId();
         foreach (var profile in Settings.AvatarProfiles)
         {
             profile.IsCurrentAvatarActive = !string.IsNullOrWhiteSpace(currentAvatarId)
@@ -11499,7 +12854,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         QueueSave();
         if (queueManagedRewardSync)
         {
-            QueueManagedRewardSync(0);
+            QueueManagedRewardSync(0, ManagedRewardSyncReason.AvatarChanged);
         }
 
         _ = EnsureSelectedAvatarParameterCacheLoadedAsync();
@@ -11613,7 +12968,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             RunOnUi(() => RaisePropertyChanged(nameof(UniversalManagedRewardStatusText)));
             if (queueManagedRewardSync)
             {
-                QueueManagedRewardSync(0);
+                QueueManagedRewardSync(0, ManagedRewardSyncReason.RuntimeAvailability);
             }
         }
     }
@@ -12320,11 +13675,92 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         UniversalTriggers,
         AvatarScaling
     }
+
+    private sealed record LinkedTwitchRewardReference(string RewardId, string DisplayTitle);
 }
 
-public sealed record TwitchRewardOption(string Id, string Title, int Cost)
+public sealed record TwitchRewardOption(
+    string Id,
+    string Title,
+    int Cost,
+    bool IsEnabled,
+    string Prompt,
+    string BackgroundColor,
+    int CooldownSeconds,
+    bool IsUserInputRequired,
+    bool IsCatalogMissing = false)
 {
-    public string DisplayLabel => Cost > 0 ? $"{Title} ({Cost} pts)" : Title;
+    public static TwitchRewardOption Placeholder(string title) =>
+        new(string.Empty, title, 0, false, string.Empty, string.Empty, 0, false);
+
+    public static TwitchRewardOption MissingLinked(string id, string title)
+    {
+        var displayTitle = string.IsNullOrWhiteSpace(title)
+            ? LocalizationService.Translate("Linked reward not loaded")
+            : LocalizationService.Format("{0} (not loaded)", title.Trim());
+        return new TwitchRewardOption(id, displayTitle, 0, false, string.Empty, string.Empty, 0, false, true);
+    }
+
+    public static TwitchRewardOption FromReward(TwitchApiClient.CustomRewardResponse reward)
+    {
+        var cooldownSeconds = reward.IsGlobalCooldownEnabled
+            ? Math.Max(0, reward.GlobalCooldownSeconds ?? 0)
+            : 0;
+        return new TwitchRewardOption(
+            reward.Id,
+            reward.Title,
+            reward.Cost,
+            reward.IsEnabled,
+            reward.Prompt,
+            reward.BackgroundColor,
+            cooldownSeconds,
+            reward.IsUserInputRequired);
+    }
+
+    public string DisplayLabel => string.IsNullOrWhiteSpace(Id)
+        ? Title
+        : IsCatalogMissing
+            ? Title
+        : $"{Title} ({Cost} pts, {StatusText})";
+
+    public string DetailText
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(Id))
+            {
+                return string.Empty;
+            }
+
+            if (IsCatalogMissing)
+            {
+                return LocalizationService.Format(
+                    "Saved Twitch reward ID: {0}. Refresh rewards or reconnect the broadcaster account.",
+                    Id);
+            }
+
+            var cooldownText = CooldownSeconds > 0
+                ? LocalizationService.Format("{0}s cooldown", CooldownSeconds)
+                : LocalizationService.Translate("No cooldown");
+            var inputText = IsUserInputRequired
+                ? LocalizationService.Translate("Input required")
+                : LocalizationService.Translate("No input required");
+            return $"{StatusText} | {Cost} pts | {cooldownText} | {inputText}";
+        }
+    }
+
+    public string StatusText => IsEnabled
+        ? LocalizationService.Translate("Enabled")
+        : LocalizationService.Translate("Disabled");
+
+    public bool HasDetailText => !string.IsNullOrWhiteSpace(DetailText);
+
+    public override string ToString() => DisplayLabel;
+}
+
+public sealed record TwitchRewardSyncModeOption(TwitchRewardSyncMode Value, string Label)
+{
+    public override string ToString() => Label;
 }
 
 public sealed class AboutTwitchProfile : ObservableObject

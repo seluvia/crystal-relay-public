@@ -234,6 +234,30 @@
                 </TextBlock>
             </StackPanel>
         </DataTemplate>
+        <DataTemplate x:Key="TwitchRewardOptionTemplate">
+            <StackPanel>
+                <TextBlock Text="{Binding DisplayLabel}"
+                           Foreground="{DynamicResource ComboTextBrush}"
+                           TextWrapping="Wrap" />
+                <TextBlock Margin="0,2,0,0"
+                           Text="{Binding DetailText}"
+                           Foreground="{DynamicResource MutedBrush}"
+                           FontSize="11"
+                           TextWrapping="Wrap"
+                           Visibility="Collapsed">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding HasDetailText}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </StackPanel>
+        </DataTemplate>
         <FontFamily x:Key="BodyFontFamily">Verdana</FontFamily>
         <FontFamily x:Key="HeadingFontFamily">Constantia</FontFamily>
         <sys:Double x:Key="HomeTitleFontSize">28</sys:Double>
@@ -912,6 +936,16 @@
             <Setter Property="BorderThickness" Value="1" />
         </Style>
 
+        <Style x:Key="RewardLinkButtonStyle" TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+            <Setter Property="MinHeight" Value="34" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="Padding" Value="12,6" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+            <Setter Property="ContentTemplate" Value="{StaticResource WrappingButtonContentTemplate}" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+
         <Style x:Key="SectionButtonStyle" TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
             <Setter Property="MinWidth" Value="96" />
             <Setter Property="MinHeight" Value="42" />
@@ -1397,7 +1431,12 @@
 
         <DataTemplate x:Key="AvatarRedeemListItemTemplate"
                       DataType="{x:Type models:TriggerRule}">
-            <Grid>
+            <Grid Background="Transparent">
+                <Grid.InputBindings>
+                    <MouseBinding MouseAction="LeftClick"
+                                  Command="{Binding DataContext.SelectRuleCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                  CommandParameter="{Binding}" />
+                </Grid.InputBindings>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="12" />
@@ -3708,8 +3747,52 @@
                                                         <CheckBox Margin="0,12,0,0"
                                                                   Content="{loc:Translate 'Use Master Reward'}"
                                                                   IsChecked="{Binding IsEnabled, UpdateSourceTrigger=PropertyChanged}" />
+                                                        <StackPanel Margin="0,12,0,0">
+                                                            <TextBlock Text="{loc:Translate 'Reward Source'}"
+                                                                       Foreground="{DynamicResource TextBrush}"
+                                                                       FontWeight="SemiBold" />
+                                                            <ComboBox ItemsSource="{Binding DataContext.RewardSyncModeOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                      DisplayMemberPath="Label"
+                                                                      SelectedValuePath="Value"
+                                                                      SelectedValue="{Binding RewardSyncMode, UpdateSourceTrigger=PropertyChanged}" />
+                                                        </StackPanel>
+                                                        <StackPanel Margin="0,12,0,0"
+                                                                    Visibility="{Binding UsesLinkedExistingReward, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <TextBlock Text="{loc:Translate 'Existing Twitch Reward'}"
+                                                                       Foreground="{DynamicResource TextBrush}"
+                                                                       FontWeight="SemiBold" />
+                                                            <ComboBox ItemsSource="{Binding DataContext.RewardOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                      ItemTemplate="{StaticResource TwitchRewardOptionTemplate}"
+                                                                      SelectedValuePath="Id"
+                                                                      SelectedValue="{Binding RewardId, UpdateSourceTrigger=PropertyChanged}" />
+                                                            <DockPanel Margin="0,8,0,0"
+                                                                       LastChildFill="False">
+                                                                <Button Style="{StaticResource RewardLinkButtonStyle}"
+                                                                        Content="{loc:Translate 'Refresh Rewards'}"
+                                                                        Command="{Binding DataContext.RefreshTwitchRewardsCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                                                <Button Margin="8,0,0,0"
+                                                                        Style="{StaticResource RewardLinkButtonStyle}"
+                                                                        Content="{loc:Translate 'Unlink Reward'}"
+                                                                        Command="{Binding DataContext.UnlinkTwitchRewardCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                        CommandParameter="{Binding}" />
+                                                            </DockPanel>
+                                                            <TextBlock Margin="0,6,0,0"
+                                                                      Text="{loc:Translate 'Linked rewards are configured on Twitch. Crystal Relay only listens for this reward being redeemed and will not edit its name, cost, prompt, color, input settings, visibility, or cooldown.'}"
+                                                                       Foreground="{DynamicResource MutedBrush}"
+                                                                       TextWrapping="Wrap" />
+                                                        </StackPanel>
                                                         <UniformGrid Columns="2"
-                                                                     Margin="0,12,0,0">
+                                                                      Margin="0,12,0,0">
+                                                            <UniformGrid.Style>
+                                                                <Style TargetType="UniformGrid">
+                                                                    <Setter Property="Visibility" Value="Visible" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding UsesLinkedExistingReward}" Value="True">
+                                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </UniformGrid.Style>
                                                             <StackPanel Margin="0,0,14,0">
                                                                 <TextBlock Text="{loc:Translate 'Reward Name'}"
                                                                            Foreground="{DynamicResource TextBrush}"
@@ -3743,7 +3826,19 @@
                                                                   IsChecked="{Binding FreeChildRewardSlotsWhenLocked, UpdateSourceTrigger=PropertyChanged}" />
                                                         <CheckBox Margin="0,8,0,0"
                                                                   Content="{loc:Translate 'Delete master reward when inactive'}"
-                                                                  IsChecked="{Binding DeleteMasterRewardWhenInactive, UpdateSourceTrigger=PropertyChanged}" />
+                                                                  IsChecked="{Binding DeleteMasterRewardWhenInactive, UpdateSourceTrigger=PropertyChanged}">
+                                                            <CheckBox.Style>
+                                                                <Style TargetType="CheckBox"
+                                                                       BasedOn="{StaticResource {x:Type CheckBox}}">
+                                                                    <Setter Property="Visibility" Value="Visible" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding UsesLinkedExistingReward}" Value="True">
+                                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </CheckBox.Style>
+                                                        </CheckBox>
                                                         <CheckBox Margin="0,8,0,0"
                                                                   Content="{loc:Translate 'Prevent avatar-change rewards while scaling is active'}"
                                                                   IsChecked="{Binding PreventAvatarChangesDuringActiveScaling, UpdateSourceTrigger=PropertyChanged}" />
@@ -3759,9 +3854,30 @@
                                                         <TextBlock Margin="0,14,0,0"
                                                                    Text="{loc:Translate 'Managed Reward Colors'}"
                                                                    Foreground="{DynamicResource TextBrush}"
-                                                                   FontWeight="SemiBold" />
+                                                                   FontWeight="SemiBold">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Setter Property="Visibility" Value="Visible" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding UsesLinkedExistingReward}" Value="True">
+                                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
                                                         <UniformGrid Columns="2"
-                                                                     Margin="0,8,0,0">
+                                                                      Margin="0,8,0,0">
+                                                            <UniformGrid.Style>
+                                                                <Style TargetType="UniformGrid">
+                                                                    <Setter Property="Visibility" Value="Visible" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding UsesLinkedExistingReward}" Value="True">
+                                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </UniformGrid.Style>
                                                             <StackPanel Margin="0,0,10,0">
                                                                 <TextBlock Text="{loc:Translate 'Ready Color'}"
                                                                            Foreground="{DynamicResource TextBrush}"
@@ -3979,6 +4095,16 @@
                                                         </StackPanel>
                                                     </UniformGrid>
                                                     <StackPanel Margin="0,12,0,0">
+                                                        <StackPanel.Style>
+                                                            <Style TargetType="StackPanel">
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding UsesLinkedExistingReward}" Value="True">
+                                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </StackPanel.Style>
                                                         <TextBlock Text="{loc:Translate 'Cooldown (seconds)'}"
                                                                    Foreground="{DynamicResource TextBrush}"
                                                                    FontWeight="SemiBold" />
@@ -4007,8 +4133,52 @@
                                                             <TextBlock Text="{loc:Translate 'Channel Point Reward'}"
                                                                        Foreground="{DynamicResource TextBrush}"
                                                                        FontWeight="SemiBold" />
+                                                            <StackPanel Margin="0,10,0,0">
+                                                                <TextBlock Text="{loc:Translate 'Reward Source'}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold" />
+                                                                <ComboBox ItemsSource="{Binding DataContext.RewardSyncModeOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                          DisplayMemberPath="Label"
+                                                                          SelectedValuePath="Value"
+                                                                          SelectedValue="{Binding RewardSyncMode, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                            <StackPanel Margin="0,10,0,0"
+                                                                        Visibility="{Binding UsesLinkedExistingReward, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                                <TextBlock Text="{loc:Translate 'Existing Twitch Reward'}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold" />
+                                                                <ComboBox ItemsSource="{Binding DataContext.RewardOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                          ItemTemplate="{StaticResource TwitchRewardOptionTemplate}"
+                                                                          SelectedValuePath="Id"
+                                                                          SelectedValue="{Binding RewardId, UpdateSourceTrigger=PropertyChanged}" />
+                                                                <DockPanel Margin="0,8,0,0"
+                                                                           LastChildFill="False">
+                                                                    <Button Style="{StaticResource RewardLinkButtonStyle}"
+                                                                            Content="{loc:Translate 'Refresh Rewards'}"
+                                                                            Command="{Binding DataContext.RefreshTwitchRewardsCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                                                    <Button Margin="8,0,0,0"
+                                                                            Style="{StaticResource RewardLinkButtonStyle}"
+                                                                            Content="{loc:Translate 'Unlink Reward'}"
+                                                                            Command="{Binding DataContext.UnlinkTwitchRewardCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                            CommandParameter="{Binding}" />
+                                                                </DockPanel>
+                                                                <TextBlock Margin="0,6,0,0"
+                                                                          Text="{loc:Translate 'Linked rewards are configured on Twitch. Crystal Relay only listens for this reward being redeemed and will not edit its name, cost, prompt, color, input settings, visibility, or cooldown.'}"
+                                                                           Foreground="{DynamicResource MutedBrush}"
+                                                                           TextWrapping="Wrap" />
+                                                            </StackPanel>
                                                             <UniformGrid Columns="2"
-                                                                         Margin="0,10,0,0">
+                                                                          Margin="0,10,0,0">
+                                                                <UniformGrid.Style>
+                                                                    <Style TargetType="UniformGrid">
+                                                                        <Setter Property="Visibility" Value="Visible" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding UsesLinkedExistingReward}" Value="True">
+                                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </UniformGrid.Style>
                                                                 <StackPanel Margin="0,0,14,0">
                                                                     <TextBlock Text="{loc:Translate 'Reward Name'}"
                                                                                Foreground="{DynamicResource TextBrush}"
@@ -4024,12 +4194,44 @@
                                                             </UniformGrid>
                                                             <CheckBox Margin="0,10,0,0"
                                                                       Content="{loc:Translate 'Delete Twitch reward when inactive'}"
-                                                                      IsChecked="{Binding DeleteManagedRewardWhenInactive, UpdateSourceTrigger=PropertyChanged}" />
+                                                                      IsChecked="{Binding DeleteManagedRewardWhenInactive, UpdateSourceTrigger=PropertyChanged}">
+                                                                <CheckBox.Style>
+                                                                    <Style TargetType="CheckBox">
+                                                                        <Setter Property="Visibility" Value="Visible" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding UsesLinkedExistingReward}" Value="True">
+                                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </CheckBox.Style>
+                                                            </CheckBox>
                                                             <TextBlock Margin="26,6,0,0"
                                                                        Foreground="{DynamicResource MutedBrush}"
                                                                        TextWrapping="Wrap"
-                                                                       Text="{loc:Translate 'Frees Twitch reward slots. Crystal Relay will recreate or relink this reward when it becomes active again.'}" />
+                                                                       Text="{loc:Translate 'Frees Twitch reward slots. Crystal Relay will recreate or relink this reward when it becomes active again.'}">
+                                                                <TextBlock.Style>
+                                                                    <Style TargetType="TextBlock">
+                                                                        <Setter Property="Visibility" Value="Visible" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding UsesLinkedExistingReward}" Value="True">
+                                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </TextBlock.Style>
+                                                            </TextBlock>
                                                             <StackPanel Margin="0,12,0,0">
+                                                                <StackPanel.Style>
+                                                                    <Style TargetType="StackPanel">
+                                                                        <Setter Property="Visibility" Value="Visible" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding UsesLinkedExistingReward}" Value="True">
+                                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </StackPanel.Style>
                                                                 <TextBlock Text="{loc:Translate 'Managed Reward Colors'}"
                                                                            Foreground="{DynamicResource TextBrush}"
                                                                            FontWeight="SemiBold" />
@@ -4693,8 +4895,52 @@
                                                    Foreground="{DynamicResource MutedBrush}"
                                                    TextWrapping="Wrap"
                                                    Text="{loc:Translate 'These outfit choices share one Twitch reward. Viewers type the choice number in the redeem input.'}" />
+                                        <StackPanel Margin="0,12,0,0">
+                                            <TextBlock Text="{loc:Translate 'Reward Source'}"
+                                                       Foreground="{DynamicResource TextBrush}"
+                                                       FontWeight="SemiBold" />
+                                            <ComboBox ItemsSource="{Binding DataContext.RewardSyncModeOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                      DisplayMemberPath="Label"
+                                                      SelectedValuePath="Value"
+                                                      SelectedValue="{Binding SetTriggerMasterRewardSyncMode, UpdateSourceTrigger=PropertyChanged}" />
+                                        </StackPanel>
+                                        <StackPanel Margin="0,12,0,0"
+                                                    Visibility="{Binding UsesLinkedExistingSetTriggerMasterReward, Converter={StaticResource BoolToVisibilityConverter}}">
+                                            <TextBlock Text="{loc:Translate 'Existing Twitch Reward'}"
+                                                       Foreground="{DynamicResource TextBrush}"
+                                                       FontWeight="SemiBold" />
+                                            <ComboBox ItemsSource="{Binding DataContext.RewardOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                      ItemTemplate="{StaticResource TwitchRewardOptionTemplate}"
+                                                      SelectedValuePath="Id"
+                                                      SelectedValue="{Binding SetTriggerMasterRewardId, UpdateSourceTrigger=PropertyChanged}" />
+                                            <DockPanel Margin="0,8,0,0"
+                                                       LastChildFill="False">
+                                                <Button Style="{StaticResource RewardLinkButtonStyle}"
+                                                        Content="{loc:Translate 'Refresh Rewards'}"
+                                                        Command="{Binding DataContext.RefreshTwitchRewardsCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                                <Button Margin="8,0,0,0"
+                                                        Style="{StaticResource RewardLinkButtonStyle}"
+                                                        Content="{loc:Translate 'Unlink Reward'}"
+                                                        Command="{Binding DataContext.UnlinkTwitchRewardCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        CommandParameter="{Binding}" />
+                                            </DockPanel>
+                                            <TextBlock Margin="0,6,0,0"
+                                                      Text="{loc:Translate 'Linked rewards are configured on Twitch. Crystal Relay only listens for this reward being redeemed and will not edit its name, cost, prompt, color, input settings, visibility, or cooldown.'}"
+                                                       Foreground="{DynamicResource MutedBrush}"
+                                                       TextWrapping="Wrap" />
+                                        </StackPanel>
                                         <UniformGrid Columns="2"
                                                      Margin="0,12,0,0">
+                                            <UniformGrid.Style>
+                                                <Style TargetType="UniformGrid">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding UsesLinkedExistingSetTriggerMasterReward}" Value="True">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </UniformGrid.Style>
                                             <StackPanel Margin="0,0,14,0">
                                                 <TextBlock Text="{loc:Translate 'Reward Name'}"
                                                            Foreground="{DynamicResource TextBrush}"
@@ -4718,6 +4964,16 @@
                                             </StackPanel>
                                             <StackPanel Margin="14,0,0,0"
                                                         VerticalAlignment="Bottom">
+                                                <StackPanel.Style>
+                                                    <Style TargetType="StackPanel">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding UsesLinkedExistingSetTriggerMasterReward}" Value="True">
+                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </StackPanel.Style>
                                                 <CheckBox IsChecked="{Binding DeleteSetTriggerMasterRewardWhenInactive, UpdateSourceTrigger=PropertyChanged}">
                                                     <TextBlock Text="{loc:Translate 'Delete Twitch reward when inactive'}"
                                                                TextWrapping="Wrap" />
@@ -4725,6 +4981,16 @@
                                             </StackPanel>
                                         </UniformGrid>
                                         <StackPanel Margin="0,12,0,0">
+                                            <StackPanel.Style>
+                                                <Style TargetType="StackPanel">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding UsesLinkedExistingSetTriggerMasterReward}" Value="True">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </StackPanel.Style>
                                             <TextBlock Text="{loc:Translate 'Managed Reward Colors'}"
                                                        Foreground="{DynamicResource TextBrush}"
                                                        FontWeight="SemiBold" />
@@ -4800,7 +5066,7 @@
                                                 </Expander.Header>
                                                 <ListBox Margin="0,8,0,0"
                                                          ItemsSource="{Binding SelectedAvatarBoolRedeems}"
-                                                         SelectedItem="{Binding SelectedRule}"
+                                                         SelectedItem="{Binding SelectedRule, Mode=OneWay}"
                                                          ScrollViewer.CanContentScroll="True"
                                                          VirtualizingStackPanel.IsVirtualizing="True"
                                                          VirtualizingStackPanel.VirtualizationMode="Recycling"
@@ -4831,7 +5097,7 @@
                                                 </Expander.Header>
                                                 <ListBox Margin="0,8,0,0"
                                                          ItemsSource="{Binding SelectedAvatarIntRedeems}"
-                                                         SelectedItem="{Binding SelectedRule}"
+                                                         SelectedItem="{Binding SelectedRule, Mode=OneWay}"
                                                          ScrollViewer.CanContentScroll="True"
                                                          VirtualizingStackPanel.IsVirtualizing="True"
                                                          VirtualizingStackPanel.VirtualizationMode="Recycling"
@@ -4862,7 +5128,7 @@
                                                 </Expander.Header>
                                                 <ListBox Margin="0,8,0,0"
                                                          ItemsSource="{Binding SelectedAvatarFloatRedeems}"
-                                                         SelectedItem="{Binding SelectedRule}"
+                                                         SelectedItem="{Binding SelectedRule, Mode=OneWay}"
                                                          ScrollViewer.CanContentScroll="True"
                                                          VirtualizingStackPanel.IsVirtualizing="True"
                                                          VirtualizingStackPanel.VirtualizationMode="Recycling"
@@ -4894,7 +5160,7 @@
                                                 </Expander.Header>
                                                 <ListBox Margin="0,8,0,0"
                                                          ItemsSource="{Binding SelectedAvatarMixRedeems}"
-                                                         SelectedItem="{Binding SelectedRule}"
+                                                         SelectedItem="{Binding SelectedRule, Mode=OneWay}"
                                                          ScrollViewer.CanContentScroll="True"
                                                          VirtualizingStackPanel.IsVirtualizing="True"
                                                          VirtualizingStackPanel.VirtualizationMode="Recycling"
@@ -4926,7 +5192,7 @@
                                                 </Expander.Header>
                                                 <ListBox Margin="0,8,0,0"
                                                          ItemsSource="{Binding SelectedAvatarOtherRedeems}"
-                                                         SelectedItem="{Binding SelectedRule}"
+                                                         SelectedItem="{Binding SelectedRule, Mode=OneWay}"
                                                          ScrollViewer.CanContentScroll="True"
                                                          VirtualizingStackPanel.IsVirtualizing="True"
                                                          VirtualizingStackPanel.VirtualizationMode="Recycling"
@@ -5369,8 +5635,52 @@
                                                                         CommandParameter="Twitch Redeem"
                                                                         Tag="{Binding DataContext.UniversalManagedChannelPointRewardHelpText, RelativeSource={RelativeSource AncestorType=Window}}" />
                                                             </DockPanel>
+                                                            <StackPanel Margin="0,8,0,0">
+                                                                <TextBlock Text="{loc:Translate 'Reward Source'}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold" />
+                                                                <ComboBox ItemsSource="{Binding DataContext.RewardSyncModeOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                          DisplayMemberPath="Label"
+                                                                          SelectedValuePath="Value"
+                                                                          SelectedValue="{Binding RewardSyncMode, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                            <StackPanel Margin="0,10,0,0"
+                                                                        Visibility="{Binding UsesLinkedExistingReward, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                                <TextBlock Text="{loc:Translate 'Existing Twitch Reward'}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold" />
+                                                                <ComboBox ItemsSource="{Binding DataContext.RewardOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                          ItemTemplate="{StaticResource TwitchRewardOptionTemplate}"
+                                                                          SelectedValuePath="Id"
+                                                                          SelectedValue="{Binding RewardId, UpdateSourceTrigger=PropertyChanged}" />
+                                                                <DockPanel Margin="0,8,0,0"
+                                                                           LastChildFill="False">
+                                                                    <Button Style="{StaticResource RewardLinkButtonStyle}"
+                                                                            Content="{loc:Translate 'Refresh Rewards'}"
+                                                                            Command="{Binding DataContext.RefreshTwitchRewardsCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                                                    <Button Margin="8,0,0,0"
+                                                                            Style="{StaticResource RewardLinkButtonStyle}"
+                                                                            Content="{loc:Translate 'Unlink Reward'}"
+                                                                            Command="{Binding DataContext.UnlinkTwitchRewardCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                            CommandParameter="{Binding}" />
+                                                                </DockPanel>
+                                                                <TextBlock Margin="0,6,0,0"
+                                                                          Text="{loc:Translate 'Linked rewards are configured on Twitch. Crystal Relay only listens for this reward being redeemed and will not edit its name, cost, prompt, color, input settings, visibility, or cooldown.'}"
+                                                                           Foreground="{DynamicResource MutedBrush}"
+                                                                           TextWrapping="Wrap" />
+                                                            </StackPanel>
                                                             <UniformGrid Columns="2"
-                                                                         Margin="0,8,0,0">
+                                                                          Margin="0,8,0,0">
+                                                                <UniformGrid.Style>
+                                                                    <Style TargetType="UniformGrid">
+                                                                        <Setter Property="Visibility" Value="Visible" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding UsesLinkedExistingReward}" Value="True">
+                                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </UniformGrid.Style>
                                                                 <StackPanel Margin="0,0,14,0">
                                                                     <TextBlock Text="{loc:Translate 'Reward Name'}"
                                                                                Foreground="{DynamicResource TextBrush}"
@@ -5388,14 +5698,24 @@
                                                                         Text="{Binding DataContext.UniversalManagedRewardStatusText, RelativeSource={RelativeSource AncestorType=Window}}"
                                                                         Foreground="{DynamicResource MutedBrush}"
                                                                         TextWrapping="Wrap" />
-                                                             <Border Margin="0,12,0,0"
-                                                                     Background="{DynamicResource PanelSecondaryBrush}"
-                                                                     BorderBrush="{DynamicResource InputBorderBrush}"
-                                                                     BorderThickness="1"
-                                                                     CornerRadius="14"
-                                                                     Padding="12">
-                                                                 <StackPanel>
-                                                                     <CheckBox IsChecked="{Binding DeleteManagedRewardWhenInactive, UpdateSourceTrigger=PropertyChanged}">
+                                                              <Border Margin="0,12,0,0"
+                                                                      Background="{DynamicResource PanelSecondaryBrush}"
+                                                                      BorderBrush="{DynamicResource InputBorderBrush}"
+                                                                      BorderThickness="1"
+                                                                      CornerRadius="14"
+                                                                      Padding="12">
+                                                                  <Border.Style>
+                                                                      <Style TargetType="Border">
+                                                                          <Setter Property="Visibility" Value="Visible" />
+                                                                          <Style.Triggers>
+                                                                              <DataTrigger Binding="{Binding UsesLinkedExistingReward}" Value="True">
+                                                                                  <Setter Property="Visibility" Value="Collapsed" />
+                                                                              </DataTrigger>
+                                                                          </Style.Triggers>
+                                                                      </Style>
+                                                                  </Border.Style>
+                                                                  <StackPanel>
+                                                                      <CheckBox IsChecked="{Binding DeleteManagedRewardWhenInactive, UpdateSourceTrigger=PropertyChanged}">
                                                                          <TextBlock Text="{loc:Translate 'Delete Twitch reward when inactive'}"
                                                                                     TextWrapping="Wrap" />
                                                                      </CheckBox>
@@ -5438,10 +5758,20 @@
                                                                          </StackPanel>
                                                                      </UniformGrid>
                                                                  </StackPanel>
-                                                             </Border>
-                                                             <StackPanel Margin="0,12,0,0">
-                                                                 <TextBlock Text="{loc:Translate 'Managed Reward Colors'}"
-                                                                            Foreground="{DynamicResource TextBrush}"
+                                                              </Border>
+                                                              <StackPanel Margin="0,12,0,0">
+                                                                 <StackPanel.Style>
+                                                                     <Style TargetType="StackPanel">
+                                                                         <Setter Property="Visibility" Value="Visible" />
+                                                                         <Style.Triggers>
+                                                                             <DataTrigger Binding="{Binding UsesLinkedExistingReward}" Value="True">
+                                                                                 <Setter Property="Visibility" Value="Collapsed" />
+                                                                             </DataTrigger>
+                                                                         </Style.Triggers>
+                                                                     </Style>
+                                                                 </StackPanel.Style>
+                                                                  <TextBlock Text="{loc:Translate 'Managed Reward Colors'}"
+                                                                             Foreground="{DynamicResource TextBrush}"
                                                                            FontWeight="SemiBold" />
                                                                 <TextBlock Margin="0,6,0,0"
                                                                            Foreground="{DynamicResource MutedBrush}"
@@ -5846,13 +6176,72 @@
                                                                         CommandParameter="Twitch Redeem"
                                                                         Tag="{Binding DataContext.ManagedChannelPointRewardHelpText, RelativeSource={RelativeSource AncestorType=Window}}" />
                                                             </DockPanel>
+                                                            <StackPanel Margin="0,8,0,0">
+                                                                <StackPanel.Style>
+                                                                    <Style TargetType="StackPanel">
+                                                                        <Setter Property="Visibility" Value="Visible" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding UsesSetTrigger}" Value="True">
+                                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </StackPanel.Style>
+                                                                <TextBlock Text="{loc:Translate 'Reward Source'}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold" />
+                                                                <ComboBox ItemsSource="{Binding DataContext.RewardSyncModeOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                          DisplayMemberPath="Label"
+                                                                          SelectedValuePath="Value"
+                                                                          SelectedValue="{Binding RewardSyncMode, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                            <StackPanel Margin="0,10,0,0">
+                                                                <StackPanel.Style>
+                                                                    <Style TargetType="StackPanel">
+                                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding UsesLinkedExistingReward}" Value="True">
+                                                                                <Setter Property="Visibility" Value="Visible" />
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding UsesSetTrigger}" Value="True">
+                                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </StackPanel.Style>
+                                                                <TextBlock Text="{loc:Translate 'Existing Twitch Reward'}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold" />
+                                                                <ComboBox ItemsSource="{Binding DataContext.RewardOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                          ItemTemplate="{StaticResource TwitchRewardOptionTemplate}"
+                                                                          SelectedValuePath="Id"
+                                                                          SelectedValue="{Binding ChannelPointRewardId, UpdateSourceTrigger=PropertyChanged}" />
+                                                                <DockPanel Margin="0,8,0,0"
+                                                                           LastChildFill="False">
+                                                                    <Button Style="{StaticResource RewardLinkButtonStyle}"
+                                                                            Content="{loc:Translate 'Refresh Rewards'}"
+                                                                            Command="{Binding DataContext.RefreshTwitchRewardsCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                                                    <Button Margin="8,0,0,0"
+                                                                            Style="{StaticResource RewardLinkButtonStyle}"
+                                                                            Content="{loc:Translate 'Unlink Reward'}"
+                                                                            Command="{Binding DataContext.UnlinkTwitchRewardCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                            CommandParameter="{Binding}" />
+                                                                </DockPanel>
+                                                                <TextBlock Margin="0,6,0,0"
+                                                                          Text="{loc:Translate 'Linked rewards are configured on Twitch. Crystal Relay only listens for this reward being redeemed and will not edit its name, cost, prompt, color, input settings, visibility, or cooldown.'}"
+                                                                           Foreground="{DynamicResource MutedBrush}"
+                                                                           TextWrapping="Wrap" />
+                                                            </StackPanel>
                                                             <UniformGrid Columns="2"
-                                                                         Margin="0,8,0,0">
+                                                                          Margin="0,8,0,0">
                                                                 <UniformGrid.Style>
                                                                     <Style TargetType="UniformGrid">
                                                                         <Setter Property="Visibility" Value="Visible" />
                                                                         <Style.Triggers>
                                                                             <DataTrigger Binding="{Binding UsesSetTrigger}" Value="True">
+                                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding UsesLinkedExistingReward}" Value="True">
                                                                                 <Setter Property="Visibility" Value="Collapsed" />
                                                                             </DataTrigger>
                                                                         </Style.Triggers>
@@ -5972,6 +6361,9 @@
                                                                             <DataTrigger Binding="{Binding UsesSetTrigger}" Value="True">
                                                                                 <Setter Property="Visibility" Value="Collapsed" />
                                                                             </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding UsesLinkedExistingReward}" Value="True">
+                                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                                            </DataTrigger>
                                                                         </Style.Triggers>
                                                                     </Style>
                                                                 </Border.Style>
@@ -5992,6 +6384,9 @@
                                                                         <Setter Property="Visibility" Value="Visible" />
                                                                         <Style.Triggers>
                                                                             <DataTrigger Binding="{Binding UsesSetTrigger}" Value="True">
+                                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding UsesLinkedExistingReward}" Value="True">
                                                                                 <Setter Property="Visibility" Value="Collapsed" />
                                                                             </DataTrigger>
                                                                         </Style.Triggers>
@@ -6821,6 +7216,9 @@
                                                                         <Setter Property="Visibility" Value="Visible" />
                                                                     </DataTrigger>
                                                                     <DataTrigger Binding="{Binding UsesSetTrigger}" Value="True">
+                                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                                    </DataTrigger>
+                                                                    <DataTrigger Binding="{Binding UsesLinkedExistingReward}" Value="True">
                                                                         <Setter Property="Visibility" Value="Collapsed" />
                                                                     </DataTrigger>
                                                                 </Style.Triggers>

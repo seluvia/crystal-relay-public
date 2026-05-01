@@ -264,5 +264,22 @@
   "#{0} {1}": "Wyb?r {0}: {1}",
   "and {0} more": "i jeszcze {0}",
   "Choose which Twitch account Crystal Relay uses when it posts chat messages. The broadcaster can act as the bot after reconnecting once with chat-send permission, or you can keep using a separate bot account.": "Wybierz konto Twitch, kt?rego Crystal Relay u?ywa do publikowania wiadomo?ci czatu. Nadawca mo?e dzia?a? jako bot po jednorazowym ponownym po??czeniu z uprawnieniem wysy?ania czatu, albo mo?esz nadal u?ywa? osobnego konta bota.",
-  "When enabled, Crystal Relay posts one compact Twitch chat message while you are live. The message lists the current avatar's channel point outfit choices and Bits outfit names so viewers know what to type.": "Po w??czeniu Crystal Relay publikuje kr?tk? wiadomo?? na czacie Twitch podczas live. Wiadomo?? pokazuje wybory stroju za punkty kana?u dla obecnego awatara oraz nazwy stroj?w Bits, aby widzowie wiedzieli, co wpisa?."
+  "When enabled, Crystal Relay posts one compact Twitch chat message while you are live. The message lists the current avatar's channel point outfit choices and Bits outfit names so viewers know what to type.": "Po w??czeniu Crystal Relay publikuje kr?tk? wiadomo?? na czacie Twitch podczas live. Wiadomo?? pokazuje wybory stroju za punkty kana?u dla obecnego awatara oraz nazwy stroj?w Bits, aby widzowie wiedzieli, co wpisa?.",
+  "Linked rewards are configured on Twitch. Crystal Relay only listens for this reward being redeemed and will not edit its name, cost, prompt, color, input settings, visibility, or cooldown.": "Połączone nagrody konfiguruje się na Twitchu. Crystal Relay tylko nasłuchuje użycia tej nagrody i nie zmienia jej nazwy, kosztu, opisu, koloru, ustawień wejścia, widoczności ani czasu odnowienia.",
+  "Twitch cooldown unknown": "Nieznany czas odnowienia Twitcha",
+  "Create/manage reward": "Utwórz/zarządzaj nagrodą",
+  "Disabled": "Disabled",
+  "Existing Twitch Reward": "Istniejąca nagroda Twitch",
+  "Input required": "Wymagany tekst",
+  "Link existing Twitch reward": "Połącz istniejącą nagrodę Twitch",
+  "Linked reward not loaded": "Połączona nagroda niezaładowana",
+  "No cooldown": "Brak czasu odnowienia",
+  "No input required": "Tekst niewymagany",
+  "Refresh Rewards": "Odśwież nagrody",
+  "Reward Source": "Źródło nagrody",
+  "Saved Twitch reward ID: {0}. Refresh rewards or reconnect the broadcaster account.": "Zapisane ID nagrody Twitch: {0}. Odśwież nagrody albo ponownie połącz konto nadawcy.",
+  "Select Twitch reward": "Wybierz nagrodę Twitch",
+  "Unlink Reward": "Odłącz nagrodę",
+  "{0} (not loaded)": "{0} (niezaładowane)",
+  "{0}s cooldown": "{0}s odnowienia"
 }

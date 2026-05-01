@@ -21,6 +21,7 @@ public sealed class AvatarTriggerProfile : ObservableObject
     private string setTriggerMasterRewardId = string.Empty;
     private string setTriggerMasterRewardTitle = string.Empty;
     private int setTriggerMasterRewardCost = 100;
+    private TwitchRewardSyncMode setTriggerMasterRewardSyncMode = TwitchRewardSyncMode.CreateOrManage;
     private int setTriggerMasterRewardCooldownSeconds;
     private string setTriggerMasterRewardReadyColor = ManagedRewardPresentation.ReadyBackgroundColor;
     private string setTriggerMasterRewardCooldownColor = ManagedRewardPresentation.InUseBackgroundColor;
@@ -141,6 +142,29 @@ public sealed class AvatarTriggerProfile : ObservableObject
         get => setTriggerMasterRewardCost;
         set => SetProperty(ref setTriggerMasterRewardCost, Math.Max(1, value));
     }
+
+    public TwitchRewardSyncMode SetTriggerMasterRewardSyncMode
+    {
+        get => setTriggerMasterRewardSyncMode;
+        set
+        {
+            var normalizedValue = Enum.IsDefined(value)
+                ? value
+                : TwitchRewardSyncMode.CreateOrManage;
+            if (SetProperty(ref setTriggerMasterRewardSyncMode, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(UsesCreateOrManageSetTriggerMasterReward));
+                RaisePropertyChanged(nameof(UsesLinkedExistingSetTriggerMasterReward));
+                RaisePropertyChanged(nameof(SetTriggerMasterRewardDisplayTitle));
+            }
+        }
+    }
+
+    public bool UsesCreateOrManageSetTriggerMasterReward =>
+        SetTriggerMasterRewardSyncMode == TwitchRewardSyncMode.CreateOrManage;
+
+    public bool UsesLinkedExistingSetTriggerMasterReward =>
+        SetTriggerMasterRewardSyncMode == TwitchRewardSyncMode.LinkExisting;
 
     public int SetTriggerMasterRewardCooldownSeconds
     {

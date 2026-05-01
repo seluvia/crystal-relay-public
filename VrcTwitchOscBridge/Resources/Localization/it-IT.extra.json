@@ -264,5 +264,22 @@
   "#{0} {1}": "Scelta {0}: {1}",
   "and {0} more": "e altri {0}",
   "Choose which Twitch account Crystal Relay uses when it posts chat messages. The broadcaster can act as the bot after reconnecting once with chat-send permission, or you can keep using a separate bot account.": "Scegli quale account Twitch Crystal Relay usa per pubblicare messaggi in chat. Il broadcaster pu? agire come bot dopo una riconnessione con il permesso di inviare chat, oppure puoi continuare a usare un account bot separato.",
-  "When enabled, Crystal Relay posts one compact Twitch chat message while you are live. The message lists the current avatar's channel point outfit choices and Bits outfit names so viewers know what to type.": "Quando ? attivo, Crystal Relay pubblica un messaggio Twitch compatto mentre sei in live. Elenca le scelte outfit con punti canale dell'avatar corrente e i nomi outfit Bits, cos? i viewer sanno cosa scrivere."
+  "When enabled, Crystal Relay posts one compact Twitch chat message while you are live. The message lists the current avatar's channel point outfit choices and Bits outfit names so viewers know what to type.": "Quando ? attivo, Crystal Relay pubblica un messaggio Twitch compatto mentre sei in live. Elenca le scelte outfit con punti canale dell'avatar corrente e i nomi outfit Bits, cos? i viewer sanno cosa scrivere.",
+  "Linked rewards are configured on Twitch. Crystal Relay only listens for this reward being redeemed and will not edit its name, cost, prompt, color, input settings, visibility, or cooldown.": "Le ricompense collegate si configurano su Twitch. Crystal Relay ascolta solo quando questa ricompensa viene riscattata e non modifica nome, costo, messaggio, colore, impostazioni di input, visibilità o tempo di recupero.",
+  "Twitch cooldown unknown": "Tempo di recupero Twitch sconosciuto",
+  "Create/manage reward": "Crea/gestisci ricompensa",
+  "Disabled": "Disabled",
+  "Existing Twitch Reward": "Ricompensa Twitch esistente",
+  "Input required": "Input richiesto",
+  "Link existing Twitch reward": "Collega ricompensa Twitch esistente",
+  "Linked reward not loaded": "Ricompensa collegata non caricata",
+  "No cooldown": "Nessun tempo di recupero",
+  "No input required": "Nessun input richiesto",
+  "Refresh Rewards": "Aggiorna ricompense",
+  "Reward Source": "Origine ricompensa",
+  "Saved Twitch reward ID: {0}. Refresh rewards or reconnect the broadcaster account.": "ID ricompensa Twitch salvato: {0}. Aggiorna le ricompense o riconnetti l account broadcaster.",
+  "Select Twitch reward": "Seleziona ricompensa Twitch",
+  "Unlink Reward": "Scollega ricompensa",
+  "{0} (not loaded)": "{0} (non caricata)",
+  "{0}s cooldown": "{0}s di recupero"
 }
