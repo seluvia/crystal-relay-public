@@ -52,6 +52,7 @@ public sealed class AvatarTriggerProfile : ObservableObject
         {
             if (SetProperty(ref isMasterProfile, value))
             {
+                RaisePropertyChanged(nameof(DisplayTitle));
                 RaisePropertyChanged(nameof(MasterStatusText));
             }
         }
@@ -77,6 +78,7 @@ public sealed class AvatarTriggerProfile : ObservableObject
             if (SetProperty(ref avatarId, value))
             {
                 RaisePropertyChanged(nameof(HasAvatarSelected));
+                RaisePropertyChanged(nameof(DisplayTitle));
                 RaisePropertyChanged(nameof(AvatarDisplayName));
             }
         }
@@ -223,11 +225,22 @@ public sealed class AvatarTriggerProfile : ObservableObject
         }
     }
 
-    public string DisplayTitle => !string.IsNullOrWhiteSpace(Name)
-        ? Name
-        : !string.IsNullOrWhiteSpace(AvatarName)
-            ? AvatarName
-            : "New Avatar Set";
+    public string DisplayTitle
+    {
+        get
+        {
+            if (IsMasterProfile)
+            {
+                return HasAvatarSelected ? AvatarDisplayName : "Return Avatar";
+            }
+
+            return !string.IsNullOrWhiteSpace(Name)
+                ? Name
+                : !string.IsNullOrWhiteSpace(AvatarName)
+                    ? AvatarName
+                    : "New Avatar Set";
+        }
+    }
 
     public bool HasAvatarSelected => !string.IsNullOrWhiteSpace(AvatarId);
 

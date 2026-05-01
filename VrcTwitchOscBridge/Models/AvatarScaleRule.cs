@@ -311,6 +311,15 @@ public sealed class AvatarScaleRule : ObservableObject
     private double supporterGrowthNormalHeightMeters = 1.6;
     private double supporterGrowthMaxAddedHeightMeters;
     private int supporterGrowthInactivityTimerSeconds = 60;
+    private bool supporterGrowthAllowRewardScaleOverlay = true;
+    private int supporterGrowthBitsTimerUnit = 100;
+    private int supporterGrowthSecondsPerBitsUnit = 30;
+    private int supporterGrowthTier1Seconds = 300;
+    private int supporterGrowthTier2Seconds = 600;
+    private int supporterGrowthTier3Seconds = 1500;
+    private int supporterGrowthSoftCapSeconds = 1800;
+    private int supporterGrowthSoftCapMultiplierPercent = 50;
+    private int supporterGrowthMaxPaidTimeSeconds = 3600;
     private double supporterGrowthTier1HeightMeters = 0.10;
     private double supporterGrowthTier2HeightMeters = 0.20;
     private double supporterGrowthTier3HeightMeters = 0.30;
@@ -657,6 +666,60 @@ public sealed class AvatarScaleRule : ObservableObject
         set => SetAndRaiseSupporterGrowth(ref supporterGrowthInactivityTimerSeconds, Math.Max(1, value));
     }
 
+    public bool SupporterGrowthAllowRewardScaleOverlay
+    {
+        get => supporterGrowthAllowRewardScaleOverlay;
+        set => SetAndRaiseSupporterGrowth(ref supporterGrowthAllowRewardScaleOverlay, value);
+    }
+
+    public int SupporterGrowthBitsTimerUnit
+    {
+        get => supporterGrowthBitsTimerUnit;
+        set => SetAndRaiseSupporterGrowth(ref supporterGrowthBitsTimerUnit, Math.Max(1, value));
+    }
+
+    public int SupporterGrowthSecondsPerBitsUnit
+    {
+        get => supporterGrowthSecondsPerBitsUnit;
+        set => SetAndRaiseSupporterGrowth(ref supporterGrowthSecondsPerBitsUnit, Math.Max(0, value));
+    }
+
+    public int SupporterGrowthTier1Seconds
+    {
+        get => supporterGrowthTier1Seconds;
+        set => SetAndRaiseSupporterGrowth(ref supporterGrowthTier1Seconds, Math.Max(0, value));
+    }
+
+    public int SupporterGrowthTier2Seconds
+    {
+        get => supporterGrowthTier2Seconds;
+        set => SetAndRaiseSupporterGrowth(ref supporterGrowthTier2Seconds, Math.Max(0, value));
+    }
+
+    public int SupporterGrowthTier3Seconds
+    {
+        get => supporterGrowthTier3Seconds;
+        set => SetAndRaiseSupporterGrowth(ref supporterGrowthTier3Seconds, Math.Max(0, value));
+    }
+
+    public int SupporterGrowthSoftCapSeconds
+    {
+        get => supporterGrowthSoftCapSeconds;
+        set => SetAndRaiseSupporterGrowth(ref supporterGrowthSoftCapSeconds, Math.Max(0, value));
+    }
+
+    public int SupporterGrowthSoftCapMultiplierPercent
+    {
+        get => supporterGrowthSoftCapMultiplierPercent;
+        set => SetAndRaiseSupporterGrowth(ref supporterGrowthSoftCapMultiplierPercent, Math.Clamp(value, 0, 100));
+    }
+
+    public int SupporterGrowthMaxPaidTimeSeconds
+    {
+        get => supporterGrowthMaxPaidTimeSeconds;
+        set => SetAndRaiseSupporterGrowth(ref supporterGrowthMaxPaidTimeSeconds, Math.Max(1, value));
+    }
+
     public double SupporterGrowthTier1HeightMeters
     {
         get => supporterGrowthTier1HeightMeters;
@@ -870,6 +933,17 @@ public sealed class AvatarScaleRule : ObservableObject
     }
 
     private bool SetAndRaiseSupporterGrowth(ref int storage, int value)
+    {
+        if (!SetProperty(ref storage, value))
+        {
+            return false;
+        }
+
+        RaiseSupporterGrowthProperties();
+        return true;
+    }
+
+    private bool SetAndRaiseSupporterGrowth(ref bool storage, bool value)
     {
         if (!SetProperty(ref storage, value))
         {

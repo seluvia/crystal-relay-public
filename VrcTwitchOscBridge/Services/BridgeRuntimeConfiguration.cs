@@ -155,6 +155,15 @@ public sealed record AvatarScaleRuleSnapshot(
     double SupporterGrowthNormalHeightMeters,
     double SupporterGrowthMaxAddedHeightMeters,
     int SupporterGrowthInactivityTimerSeconds,
+    bool SupporterGrowthAllowRewardScaleOverlay,
+    int SupporterGrowthBitsTimerUnit,
+    int SupporterGrowthSecondsPerBitsUnit,
+    int SupporterGrowthTier1Seconds,
+    int SupporterGrowthTier2Seconds,
+    int SupporterGrowthTier3Seconds,
+    int SupporterGrowthSoftCapSeconds,
+    int SupporterGrowthSoftCapMultiplierPercent,
+    int SupporterGrowthMaxPaidTimeSeconds,
     double SupporterGrowthTier1HeightMeters,
     double SupporterGrowthTier2HeightMeters,
     double SupporterGrowthTier3HeightMeters,
@@ -555,6 +564,12 @@ public sealed record BridgeRuntimeConfiguration(
             return false;
         }
 
+        var cooldownSeconds =
+            rule.TriggerType == AvatarScaleTriggerType.ChannelPointReward
+            && rule.RewardSyncMode == TwitchRewardSyncMode.CreateOrManage
+                ? Math.Max(0, rule.CooldownSeconds)
+                : 0;
+
         snapshot = new AvatarScaleRuleSnapshot(
             rule.Id == Guid.Empty ? Guid.NewGuid() : rule.Id,
             rule.IsEnabled,
@@ -570,7 +585,7 @@ public sealed record BridgeRuntimeConfiguration(
             rule.SubscriptionTier.Trim(),
             rule.MinimumMonths,
             rule.MaximumMonths,
-            Math.Max(0, rule.CooldownSeconds),
+            cooldownSeconds,
             [.. rule.TemporarilyDisabledScaleRuleIds.Where(ruleId => ruleId != Guid.Empty).Distinct()],
             rule.ScaleMode,
             ClampScaleHeight(rule.TargetHeightMeters, rule.AdvancedRangeEnabled),
@@ -590,6 +605,15 @@ public sealed record BridgeRuntimeConfiguration(
             ClampScaleHeight(rule.SupporterGrowthNormalHeightMeters, rule.AdvancedRangeEnabled),
             ClampRelativeScaleHeight(rule.SupporterGrowthMaxAddedHeightMeters, rule.AdvancedRangeEnabled),
             Math.Max(1, rule.SupporterGrowthInactivityTimerSeconds),
+            rule.SupporterGrowthAllowRewardScaleOverlay,
+            Math.Max(1, rule.SupporterGrowthBitsTimerUnit),
+            Math.Max(0, rule.SupporterGrowthSecondsPerBitsUnit),
+            Math.Max(0, rule.SupporterGrowthTier1Seconds),
+            Math.Max(0, rule.SupporterGrowthTier2Seconds),
+            Math.Max(0, rule.SupporterGrowthTier3Seconds),
+            Math.Max(0, rule.SupporterGrowthSoftCapSeconds),
+            Math.Clamp(rule.SupporterGrowthSoftCapMultiplierPercent, 0, 100),
+            Math.Max(1, rule.SupporterGrowthMaxPaidTimeSeconds),
             Math.Max(0, rule.SupporterGrowthTier1HeightMeters),
             Math.Max(0, rule.SupporterGrowthTier2HeightMeters),
             Math.Max(0, rule.SupporterGrowthTier3HeightMeters),

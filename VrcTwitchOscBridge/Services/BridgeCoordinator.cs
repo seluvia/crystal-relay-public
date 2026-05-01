@@ -1597,6 +1597,15 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                                         logMessage = $"Queued avatar scale '{currentRule.Name}' is waiting for cooldown to clear for {DescribeDuration(delay.TotalSeconds)}.";
                                     }
                                 }
+                                else if (IsAvatarScaleRewardOverlayBlockedByPaidGrowthLocked(currentRule, now))
+                                {
+                                    delay = AvatarScaleQueuePollDelay;
+                                    if (!nextOperation.PaidGrowthWaitLogged)
+                                    {
+                                        nextOperation.PaidGrowthWaitLogged = true;
+                                        logMessage = $"Queued avatar scale '{currentRule.Name}' is waiting because paid Supporter Growth is active and reward scale changes are disabled.";
+                                    }
+                                }
                                 else
                                 {
                                     ruleToExecute = currentRule;
@@ -2188,6 +2197,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 now.AddSeconds(Math.Max(0.001, rule.ActiveTimeSeconds)),
                 sourceRuleName,
                 Math.Max(0, rule.SmoothTransitionSeconds),
+                RestoreToPaidGrowthIfActive: true,
                 isTest);
             previousCancellation = avatarScaleRestoreSequenceCancellation;
             avatarScaleRestoreSequenceCancellation = newCancellation;
@@ -2327,9 +2337,18 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                         return;
                     }
 
+                    var restoreHeightMeters = sequence.RestoreHeightMeters;
+                    var restoringToPaidGrowth = false;
+                    if (sequence.RestoreToPaidGrowthIfActive
+                        && TryGetActiveSupporterGrowthPaidTargetHeight(out var paidTargetHeight, out _))
+                    {
+                        restoreHeightMeters = paidTargetHeight;
+                        restoringToPaidGrowth = true;
+                    }
+
                     if (!await SendAvatarHeightForOperationAsync(
                             operation,
-                            sequence.RestoreHeightMeters,
+                            restoreHeightMeters,
                             sequence.RestoreSmoothTransitionSeconds,
                             cancellationToken))
                     {
@@ -2339,7 +2358,9 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
                     ClearPendingAvatarScaleHeightRestoreForCurrentAvatar();
                     ClearAvatarScaleRestoreSequenceIfCurrent(sequence.SequenceId);
-                    WriteLog($"Avatar scale returned to the configured return height of {sequence.RestoreHeightMeters:0.###}m after the inactive timer ended.");
+                    WriteLog(restoringToPaidGrowth
+                        ? $"Avatar scale returned to the active paid Supporter Growth height of {restoreHeightMeters:0.###}m after the reward timer ended."
+                        : $"Avatar scale returned to the configured return height of {restoreHeightMeters:0.###}m after the inactive timer ended.");
                     return;
                 }
                 finally
@@ -2402,6 +2423,13 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             return;
         }
 
+        var addedPaidSeconds = GetSupporterGrowthAddedTimeSeconds(rule, incomingEvent, isTest);
+        if (addedPaidSeconds <= 0)
+        {
+            WriteLog($"Avatar scale '{rule.Name}' skipped because this supporter event has no paid active time configured.");
+            return;
+        }
+
         var operationPriority = isTest
             ? AvatarScaleOperationPriority.TestSimulation
             : AvatarScaleOperationPriority.SupporterGrowth;
@@ -2439,23 +2467,20 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                     return;
                 }
 
-                if (rule.SupporterGrowthInactivityTimerSeconds > 0)
+                await Task.Delay(TimeSpan.FromSeconds(Math.Max(1, addedPaidSeconds)), cancellationToken);
+                if (!IsAvatarScaleOperationCurrent(operation))
                 {
-                    await Task.Delay(TimeSpan.FromSeconds(Math.Max(1, rule.SupporterGrowthInactivityTimerSeconds)), cancellationToken);
-                    if (!IsAvatarScaleOperationCurrent(operation))
-                    {
-                        WriteLog($"Supporter growth test/simulated effect '{rule.Name}' skipped its inactive reset because a newer scale effect is active.");
-                        return;
-                    }
-
-                    await SendAvatarHeightForOperationAsync(
-                        operation,
-                        normalHeight,
-                        rule.SmoothTransitionSeconds,
-                        cancellationToken);
+                    WriteLog($"Supporter growth test/simulated effect '{rule.Name}' skipped its paid timer reset because a newer scale effect is active.");
+                    return;
                 }
 
-                WriteLog($"Sent supporter growth test/simulated effect for '{rule.Name}' to {testTargetHeight:0.###}m (+{addedHeight:0.###}m).");
+                await SendAvatarHeightForOperationAsync(
+                    operation,
+                    normalHeight,
+                    rule.SmoothTransitionSeconds,
+                    cancellationToken);
+
+                WriteLog($"Sent supporter growth test/simulated effect for '{rule.Name}' to {testTargetHeight:0.###}m (+{addedHeight:0.###}m) for {DescribeDuration(addedPaidSeconds)}.");
                 return;
             }
 
@@ -2463,6 +2488,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             CancellationTokenSource sessionCancellation;
             double totalAddedHeight;
             double targetHeight;
+            double remainingPaidSeconds;
+            DateTimeOffset paidActiveUntil;
 
             lock (stateGate)
             {
@@ -2484,6 +2511,18 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                     : requestedAddedHeight;
                 totalAddedHeight = state.AddedHeightMeters;
                 targetHeight = ApplyAvatarScaleHeightLimits(rule, normalHeight + totalAddedHeight, "supporter growth height");
+
+                var now = DateTimeOffset.UtcNow;
+                var currentRemainingSeconds = Math.Max(0, (state.PaidActiveUntil - now).TotalSeconds);
+                remainingPaidSeconds = CalculateSupporterGrowthPaidRemainingSeconds(
+                    currentRemainingSeconds,
+                    addedPaidSeconds,
+                    rule);
+                paidActiveUntil = now.AddSeconds(remainingPaidSeconds);
+                state.PaidActiveUntil = paidActiveUntil;
+                state.CurrentTargetHeightMeters = targetHeight;
+                state.NormalHeightMeters = normalHeight;
+                state.AllowRewardScaleOverlay = rule.SupporterGrowthAllowRewardScaleOverlay;
             }
 
             previousSessionCancellation?.Cancel();
@@ -2497,11 +2536,12 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                     targetHeight,
                     normalHeight,
                     rule.SmoothTransitionSeconds,
-                    rule.SupporterGrowthInactivityTimerSeconds,
+                    paidActiveUntil,
+                    rule.SupporterGrowthAllowRewardScaleOverlay,
                     sessionCancellation),
                 CancellationToken.None);
 
-            WriteLog($"{incomingEvent.UserDisplayName} added {addedHeight:0.###}m to supporter growth '{rule.Name}' for a target of {targetHeight:0.###}m.");
+            WriteLog($"{incomingEvent.UserDisplayName} added {addedHeight:0.###}m and {DescribeDuration(addedPaidSeconds)} to supporter growth '{rule.Name}' for a target of {targetHeight:0.###}m. Paid time remaining: {DescribeDuration(remainingPaidSeconds)}.");
         }
         finally
         {
@@ -2519,14 +2559,17 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         double targetHeight,
         double normalHeight,
         double smoothTransitionSeconds,
-        int inactivityTimerSeconds,
+        DateTimeOffset paidActiveUntil,
+        bool allowRewardScaleOverlay,
         CancellationTokenSource sessionCancellation)
     {
         var heightSessionId = Guid.Empty;
+        var transitionOperationEnded = false;
+        ActiveAvatarScaleOperationTicket? restoreOperation = null;
         try
         {
             var cancellationToken = sessionCancellation.Token;
-            var activeWindowSeconds = Math.Max(1, smoothTransitionSeconds + Math.Max(1, inactivityTimerSeconds) + smoothTransitionSeconds);
+            var activeWindowSeconds = Math.Max(1, (paidActiveUntil - DateTimeOffset.UtcNow).TotalSeconds + smoothTransitionSeconds);
             if (!await SendAvatarHeightForOperationAsync(
                     operation,
                     targetHeight,
@@ -2545,10 +2588,43 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 return;
             }
 
-            await Task.Delay(TimeSpan.FromSeconds(Math.Max(1, inactivityTimerSeconds)), cancellationToken);
-            if (!IsAvatarScaleOperationCurrent(operation))
+            if (allowRewardScaleOverlay)
             {
-                WriteLog($"Supporter growth '{ruleName}' skipped its inactive reset because a newer scale effect is active.");
+                EndAvatarScaleOperation(operation);
+                transitionOperationEnded = true;
+            }
+
+            var remainingDelay = paidActiveUntil - DateTimeOffset.UtcNow;
+            if (remainingDelay > TimeSpan.Zero)
+            {
+                await Task.Delay(remainingDelay, cancellationToken);
+            }
+
+            lock (stateGate)
+            {
+                if (!avatarScaleSupporterGrowthStates.TryGetValue(ruleId, out var state)
+                    || !ReferenceEquals(state.SessionCancellation, sessionCancellation))
+                {
+                    return;
+                }
+            }
+
+            if (transitionOperationEnded)
+            {
+                restoreOperation = await WaitForAvatarScaleOperationSlotAsync(
+                    ruleId,
+                    ruleName,
+                    AvatarScaleOperationPriority.SupporterGrowth,
+                    isTest: false,
+                    cancellationToken);
+                if (restoreOperation is null)
+                {
+                    return;
+                }
+            }
+            else if (!IsAvatarScaleOperationCurrent(operation))
+            {
+                WriteLog($"Supporter growth '{ruleName}' skipped its paid timer reset because a newer scale effect is active.");
                 return;
             }
 
@@ -2562,10 +2638,11 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             }
 
             var restoreHeight = ResolveAvatarScaleRestoreHeightForCurrentAvatar(normalHeight);
-            if (await SendAvatarHeightForOperationAsync(operation, restoreHeight, smoothTransitionSeconds, cancellationToken))
+            var resetOperation = restoreOperation ?? operation;
+            if (await SendAvatarHeightForOperationAsync(resetOperation, restoreHeight, smoothTransitionSeconds, cancellationToken))
             {
                 ClearPendingAvatarScaleHeightRestoreForCurrentAvatar();
-                WriteLog($"Supporter growth '{ruleName}' returned to normal height after no new subs or bits arrived.");
+                WriteLog($"Supporter growth '{ruleName}' returned to normal height after paid active time ended.");
             }
         }
         catch (OperationCanceledException)
@@ -2587,7 +2664,16 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             }
 
             EndAvatarScaleHeightSession(ruleId, heightSessionId);
-            EndAvatarScaleOperation(operation);
+            if (restoreOperation is not null)
+            {
+                EndAvatarScaleOperation(restoreOperation);
+            }
+
+            if (!transitionOperationEnded)
+            {
+                EndAvatarScaleOperation(operation);
+            }
+
             sessionCancellation.Dispose();
         }
     }
@@ -2610,6 +2696,65 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 * Math.Max(1, incomingEvent.Amount),
             _ => 0
         };
+    }
+
+    private static double GetSupporterGrowthAddedTimeSeconds(
+        AvatarScaleRuleSnapshot rule,
+        UniversalIncomingEvent incomingEvent,
+        bool isTest)
+    {
+        if (isTest)
+        {
+            return Math.Max(0, rule.SupporterGrowthTier1Seconds);
+        }
+
+        return incomingEvent.TriggerType switch
+        {
+            UniversalTriggerType.Bits => GetSupporterGrowthBitsTimeSeconds(rule, incomingEvent.Amount),
+            UniversalTriggerType.Subscription => GetSupporterGrowthTierTimeSeconds(rule, incomingEvent.SubscriptionTier),
+            UniversalTriggerType.GiftSubscription => GetSupporterGrowthTierTimeSeconds(rule, incomingEvent.SubscriptionTier)
+                * Math.Max(1, incomingEvent.Amount),
+            _ => 0
+        };
+    }
+
+    private static double GetSupporterGrowthBitsTimeSeconds(AvatarScaleRuleSnapshot rule, int bits)
+    {
+        if (bits <= 0)
+        {
+            return 0;
+        }
+
+        var bitsUnit = Math.Max(1, rule.SupporterGrowthBitsTimerUnit);
+        var secondsPerUnit = Math.Max(0, rule.SupporterGrowthSecondsPerBitsUnit);
+        return bits / (double)bitsUnit * secondsPerUnit;
+    }
+
+    private static double GetSupporterGrowthTierTimeSeconds(AvatarScaleRuleSnapshot rule, string tier)
+    {
+        return tier.Trim() switch
+        {
+            "1000" => rule.SupporterGrowthTier1Seconds,
+            "2000" => rule.SupporterGrowthTier2Seconds,
+            "3000" => rule.SupporterGrowthTier3Seconds,
+            _ => rule.SupporterGrowthTier1Seconds
+        };
+    }
+
+    private static double CalculateSupporterGrowthPaidRemainingSeconds(
+        double currentRemainingSeconds,
+        double addedSeconds,
+        AvatarScaleRuleSnapshot rule)
+    {
+        var maxSeconds = Math.Max(1, rule.SupporterGrowthMaxPaidTimeSeconds);
+        var softCapSeconds = Math.Clamp(rule.SupporterGrowthSoftCapSeconds, 0, maxSeconds);
+        var multiplier = Math.Clamp(rule.SupporterGrowthSoftCapMultiplierPercent, 0, 100) / 100d;
+        var remaining = Math.Clamp(currentRemainingSeconds, 0, maxSeconds);
+        var addition = Math.Max(0, addedSeconds);
+        var fullCapacity = Math.Max(0, softCapSeconds - remaining);
+        var fullAddition = Math.Min(addition, fullCapacity);
+        var reducedAddition = Math.Max(0, addition - fullAddition) * multiplier;
+        return Math.Clamp(remaining + fullAddition + reducedAddition, 0, maxSeconds);
     }
 
     private static double GetSupporterGrowthBitsHeightAdd(AvatarScaleRuleSnapshot rule, int bits)
@@ -2641,6 +2786,58 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             "3000" => rule.SupporterGrowthTier3HeightMeters,
             _ => 0
         };
+    }
+
+    private bool IsAvatarScaleRewardOverlayBlockedByPaidGrowthLocked(
+        AvatarScaleRuleSnapshot rule,
+        DateTimeOffset now)
+    {
+        if (rule.TriggerType is not (AvatarScaleTriggerType.ChannelPointReward or AvatarScaleTriggerType.ChatCommand))
+        {
+            return false;
+        }
+
+        return avatarScaleSupporterGrowthStates.Values.Any(state =>
+            state.PaidActiveUntil > now
+            && !state.AllowRewardScaleOverlay);
+    }
+
+    private bool TryGetActiveSupporterGrowthPaidTargetHeight(
+        out double targetHeightMeters,
+        out string ruleName)
+    {
+        var now = DateTimeOffset.UtcNow;
+        lock (stateGate)
+        {
+            Guid selectedRuleId = Guid.Empty;
+            ActiveAvatarScaleSupporterGrowthState? selectedState = null;
+            foreach (var pair in avatarScaleSupporterGrowthStates)
+            {
+                var state = pair.Value;
+                if (state.PaidActiveUntil <= now)
+                {
+                    continue;
+                }
+
+                if (selectedState is null || state.PaidActiveUntil > selectedState.PaidActiveUntil)
+                {
+                    selectedRuleId = pair.Key;
+                    selectedState = state;
+                }
+            }
+
+            if (selectedState is not null)
+            {
+                targetHeightMeters = selectedState.CurrentTargetHeightMeters;
+                ruleName = activeConfiguration?.AvatarScaleRules.FirstOrDefault(rule => rule.Id == selectedRuleId)?.Name
+                    ?? "Supporter Growth";
+                return true;
+            }
+        }
+
+        targetHeightMeters = 0;
+        ruleName = string.Empty;
+        return false;
     }
 
     private async Task SendAvatarHeightValueAsync(double heightMeters, CancellationToken cancellationToken)
@@ -11571,6 +11768,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         DateTimeOffset ActiveUntil,
         string SourceRuleName,
         double RestoreSmoothTransitionSeconds,
+        bool RestoreToPaidGrowthIfActive,
         bool IsTest);
 
     private enum AvatarScaleOperationPriority
@@ -11610,6 +11808,14 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     {
         public double AddedHeightMeters { get; set; }
 
+        public double CurrentTargetHeightMeters { get; set; }
+
+        public double NormalHeightMeters { get; set; }
+
+        public DateTimeOffset PaidActiveUntil { get; set; }
+
+        public bool AllowRewardScaleOverlay { get; set; } = true;
+
         public CancellationTokenSource? SessionCancellation { get; set; }
     }
 
@@ -11640,6 +11846,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         public bool CooldownWaitLogged { get; set; }
 
         public bool TemporaryDisableWaitLogged { get; set; }
+
+        public bool PaidGrowthWaitLogged { get; set; }
     }
 
     private sealed record QueuedLaneAction(TriggerRuleSnapshot Rule, BridgeIncomingEvent? Event, bool IsTest);

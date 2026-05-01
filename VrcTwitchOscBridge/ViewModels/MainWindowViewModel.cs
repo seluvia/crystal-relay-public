@@ -86,6 +86,19 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private static readonly TimeSpan TwitchPublicSessionWindow = TimeSpan.FromDays(30);
     private static readonly TimeSpan AboutProfileRefreshInterval = TimeSpan.FromMinutes(5);
     private static readonly Guid AvatarScaleMasterRewardOwnerId = new("c69a2537-6c74-450f-9c5a-b6d9f04a7d95");
+    private static readonly AvatarScaleTriggerType[] PrimaryAvatarScaleTriggerTypes =
+    [
+        AvatarScaleTriggerType.ChannelPointReward,
+        AvatarScaleTriggerType.ChatCommand,
+        AvatarScaleTriggerType.Follow,
+        AvatarScaleTriggerType.SupporterGrowth
+    ];
+    private static readonly HashSet<AvatarScaleTriggerType> LegacyPaidAvatarScaleTriggerTypes =
+    [
+        AvatarScaleTriggerType.Bits,
+        AvatarScaleTriggerType.Subscription,
+        AvatarScaleTriggerType.GiftSubscription
+    ];
     private const int VrChatOscParameterAutoRefreshPassCount = 4;
     private static readonly string AppVersion = GetAppVersion();
     private static readonly bool IsTestBuild = DetectTestBuild();
@@ -464,6 +477,13 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         AvatarScaleModes = Enum.GetValues<AvatarScaleMode>();
         AvatarScalePresets = Enum.GetValues<AvatarScalePreset>();
         AvatarScaleRestoreModes = Enum.GetValues<AvatarScaleRestoreMode>();
+        AvatarScaleSubscriptionTierOptions =
+        [
+            new AvatarScaleSubscriptionTierOption(string.Empty, T("Any tier")),
+            new AvatarScaleSubscriptionTierOption("1000", T("Tier 1")),
+            new AvatarScaleSubscriptionTierOption("2000", T("Tier 2")),
+            new AvatarScaleSubscriptionTierOption("3000", T("Tier 3"))
+        ];
         ActionTypes = [.. allActionTypes];
         ThemeOptions =
         [
@@ -845,11 +865,28 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public IReadOnlyList<AvatarScaleTriggerType> AvatarScaleTriggerTypes { get; }
 
+    public IReadOnlyList<AvatarScaleTriggerType> AvailableAvatarScaleTriggerTypesForSelectedRule
+    {
+        get
+        {
+            var selectedTriggerType = SelectedAvatarScaleRule?.TriggerType;
+            if (selectedTriggerType is { } triggerType
+                && LegacyPaidAvatarScaleTriggerTypes.Contains(triggerType))
+            {
+                return [.. PrimaryAvatarScaleTriggerTypes, triggerType];
+            }
+
+            return PrimaryAvatarScaleTriggerTypes;
+        }
+    }
+
     public IReadOnlyList<AvatarScaleMode> AvatarScaleModes { get; }
 
     public IReadOnlyList<AvatarScalePreset> AvatarScalePresets { get; }
 
     public IReadOnlyList<AvatarScaleRestoreMode> AvatarScaleRestoreModes { get; }
+
+    public IReadOnlyList<AvatarScaleSubscriptionTierOption> AvatarScaleSubscriptionTierOptions { get; }
 
     public IReadOnlyList<ActionTypeOption> ActionTypes { get; }
 
@@ -1814,6 +1851,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 TestSelectedAvatarScaleRuleCommand.NotifyCanExecuteChanged();
                 OpenAvatarScaleRuleLockoutPickerCommand.NotifyCanExecuteChanged();
                 RaisePropertyChanged(nameof(SelectedAvatarScaleRule));
+                RaisePropertyChanged(nameof(AvailableAvatarScaleTriggerTypesForSelectedRule));
                 RaisePropertyChanged(nameof(AvatarScaleRuntimeStatusText));
                 RaisePropertyChanged(nameof(AvatarScaleRuleLockoutSummaryText));
             }
@@ -5111,6 +5149,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         QueueBridgeRefresh();
         RaisePropertyChanged(nameof(AvatarScaleRules));
         RaisePropertyChanged(nameof(AvatarScaleRuntimeStatusText));
+        if (e.PropertyName == nameof(AvatarScaleRule.TriggerType))
+        {
+            RaisePropertyChanged(nameof(AvailableAvatarScaleTriggerTypesForSelectedRule));
+        }
+
         if (e.PropertyName == nameof(AvatarScaleRule.TemporarilyDisabledScaleRuleIds)
             || e.PropertyName == nameof(AvatarScaleRule.HasScaleDisablePairings))
         {
@@ -7747,7 +7790,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     private static int GetAvatarScaleEffectiveManagedRewardCooldownSeconds(AvatarScaleRule rule)
     {
-        return Math.Max(0, rule.CooldownSeconds);
+        return rule.RewardSyncMode == TwitchRewardSyncMode.CreateOrManage
+            ? Math.Max(0, rule.CooldownSeconds)
+            : 0;
     }
 
     private static int GetAvatarScaleEffectDurationSeconds(AvatarScaleRule rule)
@@ -14118,5 +14163,10 @@ public sealed record ChatCommandPermissionOption(ChatCommandPermission Value, st
 }
 
 public sealed record PlayerMovementOption(PlayerMovementDirection Value, string Label);
+
+public sealed record AvatarScaleSubscriptionTierOption(string Value, string Label)
+{
+    public override string ToString() => Label;
+}
 
 public sealed record TriggerRuleReferenceOption(Guid RuleId, string Label);

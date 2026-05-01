@@ -1203,6 +1203,15 @@ public sealed class SettingsStore
             SupporterGrowthNormalHeightMeters = rule.SupporterGrowthNormalHeightMeters,
             SupporterGrowthMaxAddedHeightMeters = rule.SupporterGrowthMaxAddedHeightMeters,
             SupporterGrowthInactivityTimerSeconds = rule.SupporterGrowthInactivityTimerSeconds,
+            SupporterGrowthAllowRewardScaleOverlay = rule.SupporterGrowthAllowRewardScaleOverlay,
+            SupporterGrowthBitsTimerUnit = rule.SupporterGrowthBitsTimerUnit,
+            SupporterGrowthSecondsPerBitsUnit = rule.SupporterGrowthSecondsPerBitsUnit,
+            SupporterGrowthTier1Seconds = rule.SupporterGrowthTier1Seconds,
+            SupporterGrowthTier2Seconds = rule.SupporterGrowthTier2Seconds,
+            SupporterGrowthTier3Seconds = rule.SupporterGrowthTier3Seconds,
+            SupporterGrowthSoftCapSeconds = rule.SupporterGrowthSoftCapSeconds,
+            SupporterGrowthSoftCapMultiplierPercent = rule.SupporterGrowthSoftCapMultiplierPercent,
+            SupporterGrowthMaxPaidTimeSeconds = rule.SupporterGrowthMaxPaidTimeSeconds,
             SupporterGrowthTier1HeightMeters = rule.SupporterGrowthTier1HeightMeters,
             SupporterGrowthTier2HeightMeters = rule.SupporterGrowthTier2HeightMeters,
             SupporterGrowthTier3HeightMeters = rule.SupporterGrowthTier3HeightMeters,
@@ -1277,6 +1286,31 @@ public sealed class SettingsStore
             SupporterGrowthInactivityTimerSeconds = rule.SupporterGrowthInactivityTimerSeconds <= 0
                 ? 60
                 : rule.SupporterGrowthInactivityTimerSeconds,
+            SupporterGrowthAllowRewardScaleOverlay = rule.SupporterGrowthAllowRewardScaleOverlay,
+            SupporterGrowthBitsTimerUnit = rule.SupporterGrowthBitsTimerUnit <= 0
+                ? 100
+                : rule.SupporterGrowthBitsTimerUnit,
+            SupporterGrowthSecondsPerBitsUnit = rule.SupporterGrowthSecondsPerBitsUnit <= 0
+                ? 30
+                : rule.SupporterGrowthSecondsPerBitsUnit,
+            SupporterGrowthTier1Seconds = rule.SupporterGrowthTier1Seconds <= 0
+                ? 300
+                : rule.SupporterGrowthTier1Seconds,
+            SupporterGrowthTier2Seconds = rule.SupporterGrowthTier2Seconds <= 0
+                ? 600
+                : rule.SupporterGrowthTier2Seconds,
+            SupporterGrowthTier3Seconds = rule.SupporterGrowthTier3Seconds <= 0
+                ? 1500
+                : rule.SupporterGrowthTier3Seconds,
+            SupporterGrowthSoftCapSeconds = rule.SupporterGrowthSoftCapSeconds <= 0
+                ? 1800
+                : rule.SupporterGrowthSoftCapSeconds,
+            SupporterGrowthSoftCapMultiplierPercent = rule.SupporterGrowthSoftCapMultiplierPercent <= 0
+                ? 50
+                : Math.Clamp(rule.SupporterGrowthSoftCapMultiplierPercent, 0, 100),
+            SupporterGrowthMaxPaidTimeSeconds = rule.SupporterGrowthMaxPaidTimeSeconds <= 0
+                ? 3600
+                : rule.SupporterGrowthMaxPaidTimeSeconds,
             SupporterGrowthTier1HeightMeters = rule.SupporterGrowthTier1HeightMeters <= 0
                 ? 0.10
                 : rule.SupporterGrowthTier1HeightMeters,
@@ -2266,6 +2300,24 @@ public sealed class SettingsStore
         public double SupporterGrowthMaxAddedHeightMeters { get; set; }
 
         public int SupporterGrowthInactivityTimerSeconds { get; set; }
+
+        public bool SupporterGrowthAllowRewardScaleOverlay { get; set; } = true;
+
+        public int SupporterGrowthBitsTimerUnit { get; set; }
+
+        public int SupporterGrowthSecondsPerBitsUnit { get; set; }
+
+        public int SupporterGrowthTier1Seconds { get; set; }
+
+        public int SupporterGrowthTier2Seconds { get; set; }
+
+        public int SupporterGrowthTier3Seconds { get; set; }
+
+        public int SupporterGrowthSoftCapSeconds { get; set; }
+
+        public int SupporterGrowthSoftCapMultiplierPercent { get; set; }
+
+        public int SupporterGrowthMaxPaidTimeSeconds { get; set; }
 
         public double SupporterGrowthTier1HeightMeters { get; set; }
 

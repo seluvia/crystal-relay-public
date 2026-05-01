@@ -3,6 +3,12 @@ Crystal Relay Changelog
 
 Newest updates appear first. This changelog focuses on the changes users will notice most.
 
+v3.0.1
+- Reworked Avatar Scaling paid support so bits, new subs, resubs, and gift subs feed one Supporter Growth height timer with soft cap, max cap, and fair time-add controls.
+- Added an option that lets channel-point and chat scale redeems temporarily overlay height changes during paid Supporter Growth without shortening, resetting, or canceling the paid timer.
+- Cleaned up the Avatar Scaling setup UI so Supporter Growth is the guided paid-scale path, legacy paid scale trigger types still load, and reward cooldown controls only show where Crystal Relay manages the channel-point reward.
+- Reward and chat scale restores now return to the active paid Supporter Growth height while paid growth is still running, then Supporter Growth restores to Normal Height when its paid timer ends.
+
 v3.0.0
 - Reworked Avatar Sets with shared numbered rewards, Master Outfit Set Rewards, and Set Trigger outfit actions that can change multiple bool, int, and float parameters together.
 - Set Trigger outfit restores now use safe LocalAvatarData snapshots and a 70-second diff window so changed outfit parameters restore back to the values captured before the trigger ran.
