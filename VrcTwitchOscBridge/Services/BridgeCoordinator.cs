@@ -14,6 +14,19 @@ public enum OscSessionMode
     FullBridge
 }
 
+public enum RewardFireSaleContributionType
+{
+    Bits,
+    ManagedReward
+}
+
+public sealed record RewardFireSaleContribution(
+    RewardFireSaleContributionType Type,
+    int Amount,
+    string? RewardId,
+    string? RewardTitle,
+    string UserDisplayName);
+
 /// <summary>
 /// Long-running Twitch/OSC runtime for Crystal Relay.
 /// This class owns the live bridge loop: EventSub listening, cooldowns, lockouts,
@@ -181,11 +194,13 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
     public event Action<string, string>? SharedReturnAvatarChanged;
 
-    public event Action<bool>? StreamStateChanged;
+    public event Action<bool, bool>? StreamStateChanged;
 
     public event Action? ManagedRewardAvailabilityChanged;
 
     public event Action? AvatarScaleStatusChanged;
+
+    public event Func<RewardFireSaleContribution, bool>? RewardFireSaleContributionReceived;
 
     public bool IsRunning => runtimeTask is { IsCompleted: false };
 
@@ -599,7 +614,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             nextTriggerInfoAnnouncementAt = DateTimeOffset.MinValue;
             oscSessionMode = OscSessionMode.Stopped;
             ClearRuntimeState();
-            StreamStateChanged?.Invoke(false);
+            StreamStateChanged?.Invoke(false, false);
             StatusChanged?.Invoke("Background bridge stopped.");
             return;
         }
@@ -615,7 +630,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             nextTriggerInfoAnnouncementAt = DateTimeOffset.MinValue;
             oscSessionMode = OscSessionMode.Stopped;
             ClearRuntimeState();
-            StreamStateChanged?.Invoke(false);
+            StreamStateChanged?.Invoke(false, false);
             StatusChanged?.Invoke("Background bridge stopped.");
             return;
         }
@@ -1002,6 +1017,14 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         if (AreRedeemsPaused())
         {
             LogRedeemsPaused();
+            return;
+        }
+
+        var fireSaleContributionHandled = TryBuildRewardFireSaleContribution(bridgeEvent, out var fireSaleContribution)
+            && RewardFireSaleContributionReceived?.Invoke(fireSaleContribution) == true;
+
+        if (matchingRules.Length == 0 && fireSaleContributionHandled)
+        {
             return;
         }
 
@@ -3447,16 +3470,17 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         {
             isBroadcasterLive = true;
             nextTriggerInfoAnnouncementAt = DateTimeOffset.MinValue;
-            StreamStateChanged?.Invoke(true);
+            StreamStateChanged?.Invoke(true, false);
             WriteLog("Broadcaster is live on Twitch.");
             return true;
         }
 
         if (string.Equals(notification.SubscriptionType, "stream.offline", StringComparison.Ordinal))
         {
+            var streamEnded = isBroadcasterLive;
             isBroadcasterLive = false;
             nextTriggerInfoAnnouncementAt = DateTimeOffset.MinValue;
-            StreamStateChanged?.Invoke(false);
+            StreamStateChanged?.Invoke(false, streamEnded);
             WriteLog("Broadcaster is offline on Twitch.");
             return true;
         }
@@ -3470,7 +3494,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         {
             isBroadcasterLive = false;
             nextTriggerInfoAnnouncementAt = DateTimeOffset.MinValue;
-            StreamStateChanged?.Invoke(false);
+            StreamStateChanged?.Invoke(false, false);
             return;
         }
 
@@ -3481,12 +3505,13 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 activeConfiguration.TwitchClientId,
                 broadcaster.UserId,
                 cancellationToken);
+            var streamEnded = isBroadcasterLive && !isLive;
             isBroadcasterLive = isLive;
             if (!isLive)
             {
                 nextTriggerInfoAnnouncementAt = DateTimeOffset.MinValue;
             }
-            StreamStateChanged?.Invoke(isLive);
+            StreamStateChanged?.Invoke(isLive, streamEnded);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -8784,6 +8809,48 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
             _ => null
         };
+    }
+
+    private static bool TryBuildRewardFireSaleContribution(
+        BridgeIncomingEvent incomingEvent,
+        out RewardFireSaleContribution contribution)
+    {
+        contribution = default!;
+        if (incomingEvent.IsChatCommandTrigger)
+        {
+            return false;
+        }
+
+        if (incomingEvent.TriggerType == TwitchTriggerType.Bits && incomingEvent.Amount > 0)
+        {
+            contribution = new RewardFireSaleContribution(
+                RewardFireSaleContributionType.Bits,
+                incomingEvent.Amount,
+                null,
+                null,
+                incomingEvent.UserDisplayName);
+            return true;
+        }
+
+        if (incomingEvent.TriggerType == TwitchTriggerType.ChannelPoints)
+        {
+            var rewardId = incomingEvent.RewardId?.Trim() ?? string.Empty;
+            var rewardTitle = incomingEvent.RewardTitle?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(rewardId) && string.IsNullOrWhiteSpace(rewardTitle))
+            {
+                return false;
+            }
+
+            contribution = new RewardFireSaleContribution(
+                RewardFireSaleContributionType.ManagedReward,
+                Math.Max(0, incomingEvent.Amount),
+                rewardId,
+                rewardTitle,
+                incomingEvent.UserDisplayName);
+            return true;
+        }
+
+        return false;
     }
 
     private UniversalIncomingEvent? ParseUniversalEvent(

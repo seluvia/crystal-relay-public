@@ -373,6 +373,9 @@ public sealed class SettingsStore
             settings.AvatarScaleMasterReward = profile.AvatarScaleMasterReward is null
                 ? settings.AvatarScaleMasterReward
                 : ToAvatarScaleMasterReward(profile.AvatarScaleMasterReward);
+            settings.RewardFireSale = profile.RewardFireSale is null
+                ? settings.RewardFireSale
+                : ToRewardFireSaleSettings(profile.RewardFireSale);
             settings.Rules = new ObservableCollection<TriggerRule>((profile.Rules ?? []).Select(ToRule));
         }
 
@@ -485,7 +488,8 @@ public sealed class SettingsStore
             GlobalOverrideRules = [.. settings.GlobalOverrideRules.Select(ToPersistedRule)],
             UniversalTriggers = [.. settings.UniversalTriggers.Select(ToPersistedUniversalTriggerRule)],
             AvatarScaleSets = [.. settings.AvatarScaleSets.Select(ToPersistedAvatarScaleSet)],
-            AvatarScaleMasterReward = ToPersistedAvatarScaleMasterReward(settings.AvatarScaleMasterReward)
+            AvatarScaleMasterReward = ToPersistedAvatarScaleMasterReward(settings.AvatarScaleMasterReward),
+            RewardFireSale = ToPersistedRewardFireSaleSettings(settings.RewardFireSale)
         };
 
         await SaveTextFileAtomicallyAsync(
@@ -1160,6 +1164,86 @@ public sealed class SettingsStore
         };
     }
 
+    private static PersistedRewardFireSaleSettings ToPersistedRewardFireSaleSettings(
+        RewardFireSaleSettings settings)
+    {
+        return new PersistedRewardFireSaleSettings
+        {
+            IsEnabled = settings.IsEnabled,
+            CountBits = settings.CountBits,
+            CountManagedRewards = settings.CountManagedRewards,
+            FundingRewardEnabled = settings.FundingRewardEnabled,
+            FundingRewardId = settings.FundingRewardId,
+            FundingRewardTitle = settings.FundingRewardTitle,
+            FundingRewardCost = settings.FundingRewardCost,
+            RewardPointsPerProgressUnit = settings.RewardPointsPerProgressUnit,
+            MultiTierEnabled = settings.MultiTierEnabled,
+            SaleMode = settings.SaleMode,
+            TemporaryDurationSeconds = settings.TemporaryDurationSeconds,
+            CurrentProgress = settings.CurrentProgress,
+            IsSaleActive = settings.IsSaleActive,
+            ActiveDiscountPercent = settings.ActiveDiscountPercent,
+            ActiveTierGoalAmount = settings.ActiveTierGoalAmount,
+            ActiveUntilUtc = settings.ActiveUntilUtc,
+            Tiers = [.. settings.Tiers.Select(ToPersistedRewardFireSaleTier)]
+        };
+    }
+
+    private static PersistedRewardFireSaleTier ToPersistedRewardFireSaleTier(RewardFireSaleTier tier)
+    {
+        return new PersistedRewardFireSaleTier
+        {
+            Id = tier.Id,
+            GoalAmount = tier.GoalAmount,
+            DiscountPercent = tier.DiscountPercent
+        };
+    }
+
+    private static RewardFireSaleSettings ToRewardFireSaleSettings(PersistedRewardFireSaleSettings settings)
+    {
+        var tiers = (settings.Tiers ?? [])
+            .Select(ToRewardFireSaleTier)
+            .Where(tier => tier.GoalAmount > 0)
+            .OrderBy(tier => tier.GoalAmount)
+            .ToArray();
+
+        return new RewardFireSaleSettings
+        {
+            IsEnabled = settings.IsEnabled,
+            CountBits = settings.CountBits ?? true,
+            CountManagedRewards = settings.CountManagedRewards ?? true,
+            FundingRewardEnabled = settings.FundingRewardEnabled,
+            FundingRewardId = settings.FundingRewardId?.Trim() ?? string.Empty,
+            FundingRewardTitle = string.IsNullOrWhiteSpace(settings.FundingRewardTitle)
+                ? "Fire Sale Fund"
+                : settings.FundingRewardTitle.Trim(),
+            FundingRewardCost = settings.FundingRewardCost <= 0 ? 100 : settings.FundingRewardCost,
+            RewardPointsPerProgressUnit = settings.RewardPointsPerProgressUnit <= 0 ? 10 : settings.RewardPointsPerProgressUnit,
+            MultiTierEnabled = settings.MultiTierEnabled ?? true,
+            SaleMode = Enum.IsDefined(settings.SaleMode) ? settings.SaleMode : RewardFireSaleMode.Temporary,
+            TemporaryDurationSeconds = settings.TemporaryDurationSeconds <= 0 ? 300 : settings.TemporaryDurationSeconds,
+            CurrentProgress = Math.Max(0, settings.CurrentProgress),
+            IsSaleActive = settings.IsSaleActive,
+            ActiveDiscountPercent = Math.Clamp(settings.ActiveDiscountPercent, 0, 100),
+            ActiveTierGoalAmount = Math.Max(0, settings.ActiveTierGoalAmount),
+            ActiveUntilUtc = settings.ActiveUntilUtc,
+            Tiers = new ObservableCollection<RewardFireSaleTier>(
+                tiers.Length == 0
+                    ? new[] { new RewardFireSaleTier() }
+                    : tiers)
+        };
+    }
+
+    private static RewardFireSaleTier ToRewardFireSaleTier(PersistedRewardFireSaleTier tier)
+    {
+        return new RewardFireSaleTier
+        {
+            Id = tier.Id == Guid.Empty ? Guid.NewGuid() : tier.Id,
+            GoalAmount = tier.GoalAmount <= 0 ? 5000 : tier.GoalAmount,
+            DiscountPercent = tier.DiscountPercent <= 0 ? 25 : tier.DiscountPercent
+        };
+    }
+
     private static PersistedAvatarScaleRule ToPersistedAvatarScaleRule(AvatarScaleRule rule)
     {
         return new PersistedAvatarScaleRule
@@ -1817,6 +1901,8 @@ public sealed class SettingsStore
 
         public PersistedAvatarScaleMasterRewardSettings? AvatarScaleMasterReward { get; set; }
 
+        public PersistedRewardFireSaleSettings? RewardFireSale { get; set; }
+
         public List<PersistedAvatarScaleRule>? AvatarScaleRules { get; set; }
 
         public List<PersistedTriggerRule>? Rules { get; set; }
@@ -2219,6 +2305,52 @@ public sealed class SettingsStore
         public bool? FreeChildRewardSlotsWhenLocked { get; set; }
 
         public bool PreventAvatarChangesDuringActiveScaling { get; set; }
+    }
+
+    private sealed class PersistedRewardFireSaleSettings
+    {
+        public bool IsEnabled { get; set; }
+
+        public bool? CountBits { get; set; }
+
+        public bool? CountManagedRewards { get; set; }
+
+        public bool FundingRewardEnabled { get; set; }
+
+        public string? FundingRewardId { get; set; }
+
+        public string? FundingRewardTitle { get; set; }
+
+        public int FundingRewardCost { get; set; }
+
+        public int RewardPointsPerProgressUnit { get; set; }
+
+        public bool? MultiTierEnabled { get; set; }
+
+        public List<PersistedRewardFireSaleTier>? Tiers { get; set; }
+
+        public RewardFireSaleMode SaleMode { get; set; }
+
+        public int TemporaryDurationSeconds { get; set; }
+
+        public long CurrentProgress { get; set; }
+
+        public bool IsSaleActive { get; set; }
+
+        public int ActiveDiscountPercent { get; set; }
+
+        public int ActiveTierGoalAmount { get; set; }
+
+        public DateTimeOffset? ActiveUntilUtc { get; set; }
+    }
+
+    private sealed class PersistedRewardFireSaleTier
+    {
+        public Guid Id { get; set; }
+
+        public int GoalAmount { get; set; }
+
+        public int DiscountPercent { get; set; }
     }
 
     private sealed class PersistedAvatarScaleRule

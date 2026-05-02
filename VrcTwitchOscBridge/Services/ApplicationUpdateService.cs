@@ -16,7 +16,8 @@ internal enum ApplicationUpdateCheckStatus
 internal sealed record ApplicationUpdateInfo(
     string CurrentVersion,
     string LatestVersion,
-    string ReleasePageUrl);
+    string ReleasePageUrl,
+    bool IsBeta = false);
 
 internal sealed record ApplicationUpdateCheckResult(
     ApplicationUpdateCheckStatus Status,
@@ -28,7 +29,7 @@ internal sealed record ApplicationUpdateCheckResult(
 /// </summary>
 internal sealed class ApplicationUpdateService : IDisposable
 {
-    private static readonly Uri LatestReleaseEndpoint = new("https://api.github.com/repos/seluvia/crystal-relay-public/releases/latest");
+    private static readonly Uri ReleasesEndpoint = new("https://api.github.com/repos/seluvia/crystal-relay-public/releases?per_page=30");
     private static readonly TimeSpan DefaultRequestTimeout = TimeSpan.FromSeconds(6);
 
     private readonly HttpClient httpClient = new()
@@ -47,21 +48,21 @@ internal sealed class ApplicationUpdateService : IDisposable
         string ignoredVersionText,
         CancellationToken cancellationToken = default)
     {
-        if (!TryParseVersion(currentVersionText, out var currentVersion))
+        if (!TryParseReleaseVersion(currentVersionText, out var currentVersion))
         {
             return new ApplicationUpdateCheckResult(ApplicationUpdateCheckStatus.NoUpdate);
         }
 
-        GitHubReleaseResponse? release;
+        List<GitHubReleaseResponse>? releases;
         try
         {
-            using var response = await httpClient.GetAsync(LatestReleaseEndpoint, cancellationToken);
+            using var response = await httpClient.GetAsync(ReleasesEndpoint, cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
                 return new ApplicationUpdateCheckResult(ApplicationUpdateCheckStatus.RequestFailed);
             }
 
-            release = await response.Content.ReadFromJsonAsync<GitHubReleaseResponse>(cancellationToken: cancellationToken);
+            releases = await response.Content.ReadFromJsonAsync<List<GitHubReleaseResponse>>(cancellationToken: cancellationToken);
         }
         catch (OperationCanceledException)
         {
@@ -72,26 +73,38 @@ internal sealed class ApplicationUpdateService : IDisposable
             return new ApplicationUpdateCheckResult(ApplicationUpdateCheckStatus.RequestFailed);
         }
 
-        if (release is null
-            || release.Draft
-            || release.Prerelease
-            || string.IsNullOrWhiteSpace(release.HtmlUrl))
+        if (releases is null || releases.Count == 0)
         {
             return new ApplicationUpdateCheckResult(ApplicationUpdateCheckStatus.NoUpdate);
         }
 
-        if (!TryParseVersion(release.TagName, out var latestVersion))
+        var candidates = releases
+            .Where(release => !release.Draft && !string.IsNullOrWhiteSpace(release.HtmlUrl))
+            .Select(release => TryCreateCandidate(release, out var candidate) ? candidate : null)
+            .OfType<ReleaseCandidate>()
+            .ToArray();
+
+        if (candidates.Length == 0)
         {
             return new ApplicationUpdateCheckResult(ApplicationUpdateCheckStatus.ReleaseVersionUnreadable);
         }
 
-        if (latestVersion.CompareTo(currentVersion) <= 0)
-        {
-            return new ApplicationUpdateCheckResult(ApplicationUpdateCheckStatus.NoUpdate);
-        }
+        var bestStable = candidates
+            .Where(candidate => !candidate.IsBeta)
+            .Where(candidate => candidate.Version.CompareTo(currentVersion) > 0)
+            .Where(candidate => !IsIgnoredUpdate(ignoredVersionText, candidate.Version, betaCandidate: false))
+            .OrderByDescending(candidate => candidate.Version)
+            .FirstOrDefault();
 
-        if (TryParseVersion(ignoredVersionText, out var ignoredVersion)
-            && latestVersion.CompareTo(ignoredVersion) <= 0)
+        var bestBeta = candidates
+            .Where(candidate => candidate.IsBeta)
+            .Where(candidate => IsNewerBetaCandidate(candidate.Version, currentVersion))
+            .Where(candidate => !IsIgnoredUpdate(ignoredVersionText, candidate.Version, betaCandidate: true))
+            .OrderByDescending(candidate => candidate.Version)
+            .FirstOrDefault();
+
+        var update = ChooseBestCandidate(bestStable, bestBeta);
+        if (update is null)
         {
             return new ApplicationUpdateCheckResult(ApplicationUpdateCheckStatus.NoUpdate);
         }
@@ -100,13 +113,115 @@ internal sealed class ApplicationUpdateService : IDisposable
             ApplicationUpdateCheckStatus.UpdateAvailable,
             new ApplicationUpdateInfo(
                 currentVersion.ToDisplayString(),
-                latestVersion.ToDisplayString(),
-                release.HtmlUrl));
+                update.Version.ToDisplayString(),
+                update.ReleasePageUrl,
+                update.IsBeta));
     }
 
     public void Dispose() => httpClient.Dispose();
 
-    private static bool TryParseVersion(string? value, out AppVersionTriple version)
+    private static bool TryCreateCandidate(GitHubReleaseResponse release, out ReleaseCandidate candidate)
+    {
+        candidate = default!;
+        if (!TryParseReleaseVersion(release.TagName, out var version))
+        {
+            return false;
+        }
+
+        var isBeta = IsBetaRelease(release, version);
+        if (!isBeta && (release.Prerelease || version.IsPrerelease))
+        {
+            return false;
+        }
+
+        candidate = new ReleaseCandidate(
+            version,
+            release.HtmlUrl ?? string.Empty,
+            isBeta,
+            release.PublishedAt ?? DateTimeOffset.MinValue);
+        return true;
+    }
+
+    private static ReleaseCandidate? ChooseBestCandidate(ReleaseCandidate? stableCandidate, ReleaseCandidate? betaCandidate)
+    {
+        if (stableCandidate is null)
+        {
+            return betaCandidate;
+        }
+
+        if (betaCandidate is null)
+        {
+            return stableCandidate;
+        }
+
+        var versionComparison = stableCandidate.Version.CompareTo(betaCandidate.Version);
+        if (versionComparison > 0)
+        {
+            return stableCandidate;
+        }
+
+        if (versionComparison < 0)
+        {
+            return betaCandidate;
+        }
+
+        return stableCandidate.PublishedAt >= betaCandidate.PublishedAt
+            ? stableCandidate
+            : betaCandidate;
+    }
+
+    private static bool IsNewerBetaCandidate(AppReleaseVersion betaVersion, AppReleaseVersion currentVersion)
+    {
+        var baseComparison = betaVersion.CompareBaseTo(currentVersion);
+        if (baseComparison > 0)
+        {
+            return true;
+        }
+
+        if (baseComparison < 0)
+        {
+            return false;
+        }
+
+        if (currentVersion.IsPrerelease)
+        {
+            return betaVersion.CompareTo(currentVersion) > 0;
+        }
+
+        return !betaVersion.HasSameIdentity(currentVersion);
+    }
+
+    private static bool IsIgnoredUpdate(string ignoredVersionText, AppReleaseVersion candidateVersion, bool betaCandidate)
+    {
+        if (!TryParseReleaseVersion(ignoredVersionText, out var ignoredVersion))
+        {
+            return false;
+        }
+
+        if (betaCandidate || candidateVersion.IsPrerelease || ignoredVersion.IsPrerelease)
+        {
+            return candidateVersion.HasSameIdentity(ignoredVersion);
+        }
+
+        return candidateVersion.CompareTo(ignoredVersion) <= 0;
+    }
+
+    private static bool IsBetaRelease(GitHubReleaseResponse release, AppReleaseVersion version)
+    {
+        if (ContainsBetaMarker(version.Prerelease))
+        {
+            return true;
+        }
+
+        return release.Prerelease
+            && (ContainsBetaMarker(release.TagName) || ContainsBetaMarker(release.Name));
+    }
+
+    private static bool ContainsBetaMarker(string? value) =>
+        !string.IsNullOrWhiteSpace(value)
+        && value.Contains("beta", StringComparison.OrdinalIgnoreCase);
+
+    private static bool TryParseReleaseVersion(string? value, out AppReleaseVersion version)
     {
         version = default;
         if (string.IsNullOrWhiteSpace(value))
@@ -126,9 +241,11 @@ internal sealed class ApplicationUpdateService : IDisposable
             normalized = normalized[..plusIndex];
         }
 
+        var prerelease = string.Empty;
         var hyphenIndex = normalized.IndexOf('-');
         if (hyphenIndex >= 0)
         {
+            prerelease = normalized[(hyphenIndex + 1)..].Trim();
             normalized = normalized[..hyphenIndex];
         }
 
@@ -145,13 +262,22 @@ internal sealed class ApplicationUpdateService : IDisposable
             return false;
         }
 
-        version = new AppVersionTriple(major, minor, patch);
+        version = new AppReleaseVersion(major, minor, patch, prerelease);
         return true;
     }
 
-    private readonly record struct AppVersionTriple(int Major, int Minor, int Patch)
+    private sealed record ReleaseCandidate(
+        AppReleaseVersion Version,
+        string ReleasePageUrl,
+        bool IsBeta,
+        DateTimeOffset PublishedAt);
+
+    private readonly record struct AppReleaseVersion(int Major, int Minor, int Patch, string Prerelease)
+        : IComparable<AppReleaseVersion>
     {
-        public int CompareTo(AppVersionTriple other)
+        public bool IsPrerelease => !string.IsNullOrWhiteSpace(Prerelease);
+
+        public int CompareBaseTo(AppReleaseVersion other)
         {
             var majorComparison = Major.CompareTo(other.Major);
             if (majorComparison != 0)
@@ -168,13 +294,108 @@ internal sealed class ApplicationUpdateService : IDisposable
             return Patch.CompareTo(other.Patch);
         }
 
-        public string ToDisplayString() => $"{Major}.{Minor}.{Patch}";
+        public int CompareTo(AppReleaseVersion other)
+        {
+            var baseComparison = CompareBaseTo(other);
+            if (baseComparison != 0)
+            {
+                return baseComparison;
+            }
+
+            if (!IsPrerelease && !other.IsPrerelease)
+            {
+                return 0;
+            }
+
+            if (!IsPrerelease)
+            {
+                return 1;
+            }
+
+            if (!other.IsPrerelease)
+            {
+                return -1;
+            }
+
+            return ComparePrerelease(Prerelease, other.Prerelease);
+        }
+
+        public bool HasSameIdentity(AppReleaseVersion other) => CompareTo(other) == 0;
+
+        public string ToDisplayString() =>
+            IsPrerelease
+                ? $"{Major}.{Minor}.{Patch}-{Prerelease}"
+                : $"{Major}.{Minor}.{Patch}";
+    }
+
+    private static int ComparePrerelease(string left, string right)
+    {
+        var leftParts = left.Split(['.', '-', '_'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var rightParts = right.Split(['.', '-', '_'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var count = Math.Max(leftParts.Length, rightParts.Length);
+        for (var index = 0; index < count; index++)
+        {
+            if (index >= leftParts.Length)
+            {
+                return -1;
+            }
+
+            if (index >= rightParts.Length)
+            {
+                return 1;
+            }
+
+            var comparison = ComparePrereleasePart(leftParts[index], rightParts[index]);
+            if (comparison != 0)
+            {
+                return comparison;
+            }
+        }
+
+        return 0;
+    }
+
+    private static int ComparePrereleasePart(string left, string right)
+    {
+        var leftSplit = SplitAlphaNumericSuffix(left);
+        var rightSplit = SplitAlphaNumericSuffix(right);
+        var prefixComparison = string.Compare(leftSplit.Prefix, rightSplit.Prefix, StringComparison.OrdinalIgnoreCase);
+        if (prefixComparison != 0)
+        {
+            return prefixComparison;
+        }
+
+        if (leftSplit.Number is { } leftNumber && rightSplit.Number is { } rightNumber)
+        {
+            return leftNumber.CompareTo(rightNumber);
+        }
+
+        return string.Compare(left, right, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static (string Prefix, int? Number) SplitAlphaNumericSuffix(string value)
+    {
+        var splitIndex = value.Length;
+        while (splitIndex > 0 && char.IsDigit(value[splitIndex - 1]))
+        {
+            splitIndex--;
+        }
+
+        if (splitIndex == value.Length || !int.TryParse(value[splitIndex..], out var number))
+        {
+            return (value, null);
+        }
+
+        return (value[..splitIndex], number);
     }
 
     private sealed class GitHubReleaseResponse
     {
         [JsonPropertyName("tag_name")]
         public string? TagName { get; set; }
+
+        [JsonPropertyName("name")]
+        public string? Name { get; set; }
 
         [JsonPropertyName("html_url")]
         public string? HtmlUrl { get; set; }
@@ -184,5 +405,8 @@ internal sealed class ApplicationUpdateService : IDisposable
 
         [JsonPropertyName("prerelease")]
         public bool Prerelease { get; set; }
+
+        [JsonPropertyName("published_at")]
+        public DateTimeOffset? PublishedAt { get; set; }
     }
 }

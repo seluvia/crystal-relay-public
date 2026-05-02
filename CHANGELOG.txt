@@ -3,6 +3,13 @@ Crystal Relay Changelog
 
 Newest updates appear first. This changelog focuses on the changes users will notice most.
 
+v3.0.2
+- Added Reward Fire Sale, a new Redeem Library section that can build a shared Bits and optional funding reward goal for temporary or permanent channel-point discounts.
+- Fire Sale tiers can use one discount or the highest reached tier, then apply the discount only to Crystal Relay-created `VRC:` rewards while linked Twitch rewards stay listen-only and unchanged.
+- Temporary Fire Sales restore normal reward prices when the timer ends, and permanent Fire Sales stay active until stopped.
+- Fire Sale progress uses Bits amounts and an optional Crystal Relay-owned funding reward with an editable channel-point conversion rate, without polling Twitch or syncing rewards while progress is only filling.
+- Added Fire Sale test-mode warning text so streamers know starting or stopping a sale can update Crystal Relay-owned Twitch reward prices.
+
 v3.0.1
 - Reworked Avatar Scaling paid support so bits, new subs, resubs, and gift subs feed one Supporter Growth height timer with soft cap, max cap, and fair time-add controls.
 - Added an option that lets channel-point and chat scale redeems temporarily overlay height changes during paid Supporter Growth without shortening, resetting, or canceling the paid timer.

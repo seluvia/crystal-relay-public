@@ -22,6 +22,7 @@ public sealed class AppSettings : ObservableObject
     private ObservableCollection<AvatarScaleSet> avatarScaleSets = [];
     private ObservableCollection<AvatarScaleRule> avatarScaleRules = [];
     private AvatarScaleMasterRewardSettings avatarScaleMasterReward = new();
+    private RewardFireSaleSettings rewardFireSale = new();
     private ObservableCollection<TriggerRule> rules = [];
     private int interfaceOpacityPercent = 88;
     private int chatTextSize = 20;
@@ -129,6 +130,12 @@ public sealed class AppSettings : ObservableObject
     {
         get => avatarScaleMasterReward;
         set => SetProperty(ref avatarScaleMasterReward, value ?? new AvatarScaleMasterRewardSettings());
+    }
+
+    public RewardFireSaleSettings RewardFireSale
+    {
+        get => rewardFireSale;
+        set => SetProperty(ref rewardFireSale, value ?? new RewardFireSaleSettings());
     }
 
     public ObservableCollection<TriggerRule> Rules

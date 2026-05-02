@@ -2977,6 +2977,23 @@
                                 </Button.Style>
                             </Button>
                         </UniformGrid>
+                        <Button Content="{loc:Translate 'Reward Fire Sale'}"
+                                Command="{Binding ShowRewardFireSaleCommand}"
+                                Width="340"
+                                Margin="0,10,0,0"
+                                HorizontalAlignment="Center">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource RuleLibraryTabButtonStyle}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsViewingRewardFireSale}" Value="True">
+                                            <Setter Property="Background" Value="{DynamicResource SectionActiveBrush}" />
+                                            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                            <Setter Property="Foreground" Value="White" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
                         <StackPanel Margin="0,16,0,0"
                                     Width="340"
                                     HorizontalAlignment="Center">
@@ -3023,6 +3040,9 @@
                                             <Setter Property="Visibility" Value="Collapsed" />
                                         </DataTrigger>
                                         <DataTrigger Binding="{Binding IsViewingAvatarScaling}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsViewingRewardFireSale}" Value="True">
                                             <Setter Property="Visibility" Value="Collapsed" />
                                         </DataTrigger>
                                     </Style.Triggers>
@@ -3289,6 +3309,55 @@
                             </Border>
                         </StackPanel>
 
+                        <StackPanel Margin="0,14,0,0"
+                                    Width="340"
+                                    HorizontalAlignment="Center">
+                            <StackPanel.Style>
+                                <Style TargetType="StackPanel">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsViewingRewardFireSale}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </StackPanel.Style>
+                            <Border Background="{DynamicResource NestedPanelBrush}"
+                                    BorderBrush="{DynamicResource HighlightBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="14"
+                                    Padding="12">
+                                <StackPanel>
+                                    <TextBlock Text="{loc:Translate 'Fire Sale Status'}"
+                                               Foreground="{DynamicResource TextBrush}"
+                                               FontWeight="SemiBold"
+                                               TextWrapping="Wrap" />
+                                    <TextBlock Margin="0,6,0,0"
+                                               Text="{Binding RewardFireSaleStatusText}"
+                                               Foreground="{DynamicResource MutedBrush}"
+                                               TextWrapping="Wrap" />
+                                    <ProgressBar Margin="0,10,0,0"
+                                                 Height="8"
+                                                 Minimum="0"
+                                                 Maximum="100"
+                                                 Value="{Binding RewardFireSaleProgressPercent, Mode=OneWay}"
+                                                 Foreground="{DynamicResource AccentBrush}"
+                                                 Background="{DynamicResource PanelBrush}" />
+                                    <UniformGrid Margin="0,12,0,0"
+                                                 Columns="2">
+                                        <Button Style="{StaticResource RuleLibraryButtonStyle}"
+                                                Margin="0,0,6,0"
+                                                Content="{loc:Translate 'Reset Progress'}"
+                                                Command="{Binding ResetRewardFireSaleProgressCommand}" />
+                                        <Button Style="{StaticResource RuleLibraryDangerButtonStyle}"
+                                                Margin="6,0,0,0"
+                                                Content="{loc:Translate 'Stop Fire Sale'}"
+                                                Command="{Binding StopRewardFireSaleCommand}" />
+                                    </UniformGrid>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
                     <Grid Margin="0,14,0,0"
                           HorizontalAlignment="Stretch">
                         <ListBox ItemsSource="{Binding AvatarRuleProfiles}"
@@ -3313,6 +3382,9 @@
                                             <Setter Property="Visibility" Value="Collapsed" />
                                         </DataTrigger>
                                         <DataTrigger Binding="{Binding IsViewingAvatarScaling}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsViewingRewardFireSale}" Value="True">
                                             <Setter Property="Visibility" Value="Collapsed" />
                                         </DataTrigger>
                                     </Style.Triggers>
@@ -3553,6 +3625,255 @@
                                        FontSize="24"
                                        FontWeight="Bold"
                                        Foreground="{DynamicResource TextBrush}" />
+                            <Border Margin="0,18,0,0"
+                                    Background="{DynamicResource PanelHighlightBrush}"
+                                    BorderBrush="{DynamicResource HighlightBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="18"
+                                    Padding="18">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsViewingRewardFireSale}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <StackPanel>
+                                    <DockPanel LastChildFill="False">
+                                        <TextBlock Text="{loc:Translate 'Reward Fire Sale Setup'}"
+                                                   Style="{StaticResource HeadingTextStyle}"
+                                                   FontSize="22"
+                                                   FontWeight="Bold"
+                                                   Foreground="{DynamicResource TextBrush}" />
+                                        <Button Style="{StaticResource HelpIconButtonStyle}"
+                                                Click="OnHelpButtonClicked"
+                                                CommandParameter="Reward Fire Sale"
+                                                Tag="{Binding RuleLibraryHelpText}" />
+                                    </DockPanel>
+                                    <TextBlock Margin="0,10,0,0"
+                                               Text="{Binding RewardFireSaleStatusText}"
+                                               Foreground="{DynamicResource MutedBrush}"
+                                               TextWrapping="Wrap" />
+                                    <Border Margin="0,14,0,0"
+                                            Padding="12"
+                                            CornerRadius="12"
+                                            Background="{DynamicResource DangerBrush}"
+                                            BorderBrush="{DynamicResource DangerBorderBrush}"
+                                            BorderThickness="1">
+                                        <TextBlock Text="{Binding RewardFireSaleActiveWarningText}"
+                                                   Foreground="White"
+                                                   FontWeight="SemiBold"
+                                                   TextWrapping="Wrap" />
+                                    </Border>
+
+                                    <Border Margin="0,14,0,0"
+                                            Padding="14"
+                                            CornerRadius="14"
+                                            Background="{DynamicResource NestedPanelBrush}"
+                                            BorderBrush="{DynamicResource HighlightBorderBrush}"
+                                            BorderThickness="1">
+                                        <StackPanel>
+                                            <TextBlock Text="{loc:Translate 'Goal Sources'}"
+                                                       Foreground="{DynamicResource TextBrush}"
+                                                       FontWeight="SemiBold" />
+                                            <Grid Margin="0,10,0,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="22" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                </Grid.RowDefinitions>
+
+                                                <CheckBox Grid.Row="0"
+                                                          Grid.Column="0"
+                                                          Margin="0,0,0,8"
+                                                          IsChecked="{Binding Settings.RewardFireSale.IsEnabled, UpdateSourceTrigger=PropertyChanged}">
+                                                    <TextBlock Text="{loc:Translate 'Enable Reward Fire Sale'}"
+                                                               TextWrapping="Wrap" />
+                                                </CheckBox>
+                                                <CheckBox Grid.Row="0"
+                                                          Grid.Column="2"
+                                                          Margin="0,0,0,8"
+                                                          IsChecked="{Binding Settings.RewardFireSale.CountBits, UpdateSourceTrigger=PropertyChanged}">
+                                                    <TextBlock Text="{loc:Translate 'Count Bits'}"
+                                                               TextWrapping="Wrap" />
+                                                </CheckBox>
+                                                <CheckBox Grid.Row="1"
+                                                          Grid.Column="0"
+                                                          IsChecked="{Binding Settings.RewardFireSale.MultiTierEnabled, UpdateSourceTrigger=PropertyChanged}">
+                                                    <TextBlock Text="{loc:Translate 'Use highest reached tier'}"
+                                                               TextWrapping="Wrap" />
+                                                </CheckBox>
+                                            </Grid>
+                                            <TextBlock Margin="0,8,0,0"
+                                                       Text="{loc:Translate 'Bits add their bit amount. Optional funding reward redeems add progress using the conversion below. Linked rewards are ignored and never changed.'}"
+                                                       Foreground="{DynamicResource MutedBrush}"
+                                                       TextWrapping="Wrap" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Margin="0,14,0,0"
+                                            Padding="14"
+                                            CornerRadius="14"
+                                            Background="{DynamicResource NestedPanelBrush}"
+                                            BorderBrush="{DynamicResource HighlightBorderBrush}"
+                                            BorderThickness="1">
+                                        <StackPanel>
+                                            <TextBlock Text="{loc:Translate 'Fire Sale Funding Reward'}"
+                                                       Foreground="{DynamicResource TextBrush}"
+                                                       FontWeight="SemiBold" />
+                                            <CheckBox Margin="0,10,0,0"
+                                                      IsChecked="{Binding Settings.RewardFireSale.FundingRewardEnabled, UpdateSourceTrigger=PropertyChanged}">
+                                                <TextBlock Text="{loc:Translate 'Enable Fire Sale funding reward'}"
+                                                           TextWrapping="Wrap" />
+                                            </CheckBox>
+                                            <TextBlock Margin="0,8,0,0"
+                                                       Text="{loc:Translate 'Creates one Crystal Relay-owned channel point reward viewers can redeem to fund the next Fire Sale goal.'}"
+                                                       Foreground="{DynamicResource MutedBrush}"
+                                                       TextWrapping="Wrap" />
+                                            <UniformGrid Margin="0,12,0,0"
+                                                         Columns="2">
+                                                <StackPanel Margin="0,0,10,0">
+                                                    <TextBlock Text="{loc:Translate 'Reward Name'}"
+                                                               Foreground="{DynamicResource TextBrush}"
+                                                               FontWeight="SemiBold" />
+                                                    <TextBox Text="{Binding Settings.RewardFireSale.FundingRewardTitle, UpdateSourceTrigger=PropertyChanged}" />
+                                                </StackPanel>
+                                                <StackPanel Margin="10,0,0,0">
+                                                    <TextBlock Text="{loc:Translate 'Reward Cost'}"
+                                                               Foreground="{DynamicResource TextBrush}"
+                                                               FontWeight="SemiBold" />
+                                                    <TextBox Text="{Binding Settings.RewardFireSale.FundingRewardCost, UpdateSourceTrigger=PropertyChanged}" />
+                                                </StackPanel>
+                                            </UniformGrid>
+                                            <StackPanel Margin="0,12,0,0">
+                                                <TextBlock Text="{loc:Translate 'Reward points per 1 progress'}"
+                                                           Foreground="{DynamicResource TextBrush}"
+                                                           FontWeight="SemiBold" />
+                                                <TextBox Text="{Binding Settings.RewardFireSale.RewardPointsPerProgressUnit, UpdateSourceTrigger=PropertyChanged}" />
+                                            </StackPanel>
+                                            <TextBlock Margin="0,8,0,0"
+                                                       Text="{Binding RewardFireSaleFundingRewardConversionText}"
+                                                       Foreground="{DynamicResource MutedBrush}"
+                                                       TextWrapping="Wrap" />
+                                            <TextBlock Margin="0,6,0,0"
+                                                       Text="{Binding RewardFireSaleFundingRewardPrompt}"
+                                                       Foreground="{DynamicResource MutedBrush}"
+                                                       TextWrapping="Wrap" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Margin="0,14,0,0"
+                                            Padding="14"
+                                            CornerRadius="14"
+                                            Background="{DynamicResource NestedPanelBrush}"
+                                            BorderBrush="{DynamicResource HighlightBorderBrush}"
+                                            BorderThickness="1">
+                                        <StackPanel>
+                                            <TextBlock Text="{loc:Translate 'Sale Mode'}"
+                                                       Foreground="{DynamicResource TextBrush}"
+                                                       FontWeight="SemiBold" />
+                                            <UniformGrid Margin="0,10,0,0"
+                                                         Columns="2">
+                                                <StackPanel Margin="0,0,10,0">
+                                                    <TextBlock Text="{loc:Translate 'Mode'}"
+                                                               Foreground="{DynamicResource TextBrush}"
+                                                               FontWeight="SemiBold" />
+                                                    <ComboBox ItemsSource="{Binding RewardFireSaleModeOptions}"
+                                                              DisplayMemberPath="Label"
+                                                              SelectedValuePath="Value"
+                                                              SelectedValue="{Binding Settings.RewardFireSale.SaleMode, UpdateSourceTrigger=PropertyChanged}" />
+                                                </StackPanel>
+                                                <StackPanel Margin="10,0,0,0">
+                                                    <StackPanel.Style>
+                                                        <Style TargetType="StackPanel">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsRewardFireSaleTemporary}" Value="False">
+                                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </StackPanel.Style>
+                                                    <TextBlock Text="{loc:Translate 'Duration (seconds)'}"
+                                                               Foreground="{DynamicResource TextBrush}"
+                                                               FontWeight="SemiBold" />
+                                                    <TextBox Text="{Binding Settings.RewardFireSale.TemporaryDurationSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                                                </StackPanel>
+                                            </UniformGrid>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Margin="0,14,0,0"
+                                            Padding="14"
+                                            CornerRadius="14"
+                                            Background="{DynamicResource NestedPanelBrush}"
+                                            BorderBrush="{DynamicResource HighlightBorderBrush}"
+                                            BorderThickness="1">
+                                        <StackPanel>
+                                            <DockPanel LastChildFill="False">
+                                                <TextBlock Text="{loc:Translate 'Discount Tiers'}"
+                                                           Foreground="{DynamicResource TextBrush}"
+                                                           FontWeight="SemiBold"
+                                                           VerticalAlignment="Center" />
+                                                <Button Style="{StaticResource PrimaryButtonStyle}"
+                                                        Margin="10,0,0,0"
+                                                        MinWidth="120"
+                                                        Content="{loc:Translate 'Add Tier'}"
+                                                        Command="{Binding AddRewardFireSaleTierCommand}" />
+                                            </DockPanel>
+                                            <ItemsControl Margin="0,10,0,0"
+                                                          ItemsSource="{Binding Settings.RewardFireSale.Tiers}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate DataType="{x:Type models:RewardFireSaleTier}">
+                                                        <Border Margin="0,0,0,10"
+                                                                Padding="12"
+                                                                CornerRadius="12"
+                                                                Background="{DynamicResource PanelHighlightBrush}"
+                                                                BorderBrush="{DynamicResource HighlightBorderBrush}"
+                                                                BorderThickness="1">
+                                                            <Grid>
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="*" />
+                                                                    <ColumnDefinition Width="*" />
+                                                                    <ColumnDefinition Width="Auto" />
+                                                                </Grid.ColumnDefinitions>
+                                                                <StackPanel Grid.Column="0"
+                                                                            Margin="0,0,10,0">
+                                                                    <TextBlock Text="{loc:Translate 'Goal Amount'}"
+                                                                               Foreground="{DynamicResource TextBrush}"
+                                                                               FontWeight="SemiBold" />
+                                                                    <TextBox Text="{Binding GoalAmount, UpdateSourceTrigger=PropertyChanged}" />
+                                                                </StackPanel>
+                                                                <StackPanel Grid.Column="1"
+                                                                            Margin="10,0,10,0">
+                                                                    <TextBlock Text="{loc:Translate 'Discount Percent'}"
+                                                                               Foreground="{DynamicResource TextBrush}"
+                                                                               FontWeight="SemiBold" />
+                                                                    <TextBox Text="{Binding DiscountPercent, UpdateSourceTrigger=PropertyChanged}" />
+                                                                </StackPanel>
+                                                                <Button Grid.Column="2"
+                                                                        Style="{StaticResource RuleLibraryDangerButtonStyle}"
+                                                                        MinWidth="92"
+                                                                        VerticalAlignment="Bottom"
+                                                                        Content="{loc:Translate 'Delete'}"
+                                                                        Command="{Binding DataContext.RemoveRewardFireSaleTierCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                        CommandParameter="{Binding}" />
+                                                            </Grid>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
                             <ContentControl Margin="0,18,0,0"
                                             Content="{Binding SelectedAvatarProfile}">
                                 <ContentControl.Style>
@@ -7396,6 +7717,9 @@
                                                 <Setter Property="Visibility" Value="Visible" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsViewingUniversalTriggers}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsViewingRewardFireSale}" Value="True">
                                                 <Setter Property="Visibility" Value="Collapsed" />
                                             </DataTrigger>
                                         </Style.Triggers>

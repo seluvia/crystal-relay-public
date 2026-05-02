@@ -47,6 +47,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         TestMode,
         EmergencyStop,
         StreamStateChanged,
+        FireSaleChanged,
         ManualRefresh,
         ManualCleanup,
         Maintenance
@@ -86,6 +87,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private static readonly TimeSpan TwitchPublicSessionWindow = TimeSpan.FromDays(30);
     private static readonly TimeSpan AboutProfileRefreshInterval = TimeSpan.FromMinutes(5);
     private static readonly Guid AvatarScaleMasterRewardOwnerId = new("c69a2537-6c74-450f-9c5a-b6d9f04a7d95");
+    private static readonly Guid RewardFireSaleFundingRewardOwnerId = new("f31cdb57-052f-4dd4-96d3-1c2b044e2fd9");
     private static readonly AvatarScaleTriggerType[] PrimaryAvatarScaleTriggerTypes =
     [
         AvatarScaleTriggerType.ChannelPointReward,
@@ -349,6 +351,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private bool isSynchronizingManagedRewards;
     private bool isSwitchingRuleView;
     private bool isShuttingDown;
+    private bool suppressRewardFireSaleChangeSideEffects;
     private bool isRefreshingAboutProfiles;
     private bool isNormalizingChatCommandRules;
     private bool runtimeConfigLoaded;
@@ -360,6 +363,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private CancellationTokenSource? vrChatCurrentAvatarRefreshCancellation;
     private CancellationTokenSource? vrChatOscParameterRefreshCancellation;
     private CancellationTokenSource? vrChatLocalOscScanCancellation;
+    private CancellationTokenSource? rewardFireSaleExpirationCancellation;
     private FileSystemWatcher? vrChatLocalOscWatcher;
     private readonly List<VrChatAvatarSummary> availableVrChatAvatars = [];
     private readonly Dictionary<string, string> availableVrChatAvatarNamesById = new(StringComparer.Ordinal);
@@ -641,6 +645,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ShowSupporterOverridesCommand = new RelayCommand(ShowSupporterOverrides);
         ShowUniversalTriggersCommand = new RelayCommand(ShowUniversalTriggers);
         ShowAvatarScalingCommand = new RelayCommand(ShowAvatarScaling);
+        ShowRewardFireSaleCommand = new RelayCommand(ShowRewardFireSale);
         AddAvatarProfileCommand = new RelayCommand(AddAvatarProfile);
         DeleteSelectedAvatarProfileCommand = new RelayCommand(DeleteSelectedAvatarProfile, () => SelectedAvatarProfile is not null);
         DeleteAllAvatarProfilesCommand = new RelayCommand(DeleteAllAvatarProfiles, () => AvatarRuleProfiles.Count > 0);
@@ -691,6 +696,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RemoveSelectedSetTriggerActionCommand = new RelayCommand(RemoveSelectedSetTriggerAction, () => SelectedRule?.ActionType == OscActionType.SetTrigger && SelectedSetTriggerAction is not null);
         CopySelectedAvatarParameterPathCommand = new RelayCommand(CopySelectedAvatarParameterPath, CanCopySelectedAvatarParameterPath);
         PasteSelectedAvatarParameterPathCommand = new RelayCommand(PasteSelectedAvatarParameterPath, CanPasteSelectedAvatarParameterPath);
+        AddRewardFireSaleTierCommand = new RelayCommand(AddRewardFireSaleTier);
+        RemoveRewardFireSaleTierCommand = new RelayCommand(
+            RemoveRewardFireSaleTier,
+            target => target is RewardFireSaleTier && Settings.RewardFireSale.Tiers.Count > 1);
+        StopRewardFireSaleCommand = new RelayCommand(StopRewardFireSale, () => Settings.RewardFireSale.IsSaleActive);
+        ResetRewardFireSaleProgressCommand = new RelayCommand(ResetRewardFireSaleProgress, () => Settings.RewardFireSale.CurrentProgress > 0);
 
         bridgeCoordinator.LogWritten += message => RunOnUi(() =>
         {
@@ -713,7 +724,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         bridgeCoordinator.ChatMessageReceived += message => RunOnUi(() => AppendChatMessage(message));
         bridgeCoordinator.VrChatAvatarChanged += avatarId => RunOnUi(() => HandleVrChatAvatarChangedByBridge(avatarId));
         bridgeCoordinator.SharedReturnAvatarChanged += (avatarId, avatarName) => RunOnUi(() => HandleSharedReturnAvatarChangedByBridge(avatarId, avatarName));
-        bridgeCoordinator.StreamStateChanged += isLive => RunOnUi(() => HandleBroadcasterLiveStateChanged(isLive));
+        bridgeCoordinator.StreamStateChanged += (isLive, streamEnded) => RunOnUi(() => HandleBroadcasterLiveStateChanged(isLive, streamEnded));
         bridgeCoordinator.ManagedRewardAvailabilityChanged += () => RunOnUi(() =>
         {
             RaisePropertyChanged(nameof(AvatarScaleMasterRewardStatusText));
@@ -722,6 +733,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 ManagedRewardSyncReason.RuntimeAvailability);
         });
         bridgeCoordinator.AvatarScaleStatusChanged += () => RunOnUi(HandleAvatarScaleStatusChanged);
+        bridgeCoordinator.RewardFireSaleContributionReceived += contribution => RunOnUi(() => HandleRewardFireSaleContribution(contribution));
 
     }
 
@@ -1005,6 +1017,87 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public bool IsViewingAvatarScaling => activeRuleListView == RuleListView.AvatarScaling;
 
+    public bool IsViewingRewardFireSale => activeRuleListView == RuleListView.RewardFireSale;
+
+    public bool IsRewardFireSaleTemporary => Settings.RewardFireSale.SaleMode == RewardFireSaleMode.Temporary;
+
+    public IReadOnlyList<RewardFireSaleModeOption> RewardFireSaleModeOptions { get; } =
+    [
+        new RewardFireSaleModeOption(RewardFireSaleMode.Temporary, T("Temporary")),
+        new RewardFireSaleModeOption(RewardFireSaleMode.Permanent, T("Permanent"))
+    ];
+
+    public string RewardFireSaleStatusText
+    {
+        get
+        {
+            var fireSale = Settings.RewardFireSale;
+            if (!fireSale.IsEnabled)
+            {
+                return T("Reward Fire Sale is off.");
+            }
+
+            if (IsRewardFireSaleActiveNow())
+            {
+                var untilText = fireSale.SaleMode == RewardFireSaleMode.Temporary && fireSale.ActiveUntilUtc is { } activeUntil
+                    ? TF(" Ends {0}.", activeUntil.ToLocalTime().ToString("g"))
+                    : T(" Stays active until stopped.");
+                return TF(
+                    "Fire Sale active: {0}% off from the {1:N0} goal tier.{2}",
+                    fireSale.ActiveDiscountPercent,
+                    fireSale.ActiveTierGoalAmount,
+                    untilText);
+            }
+
+            var nextTier = GetNextRewardFireSaleTier();
+            if (nextTier is null)
+            {
+                return T("Add a Fire Sale tier to start tracking progress.");
+            }
+
+            var remaining = Math.Max(0, nextTier.GoalAmount - fireSale.CurrentProgress);
+            return TF(
+                "{0:N0} / {1:N0} progress. {2:N0} more to start {3}% off.",
+                fireSale.CurrentProgress,
+                nextTier.GoalAmount,
+                remaining,
+                nextTier.DiscountPercent);
+        }
+    }
+
+    public double RewardFireSaleProgressPercent
+    {
+        get
+        {
+            var nextTier = GetNextRewardFireSaleTier();
+            if (nextTier is null)
+            {
+                return 0;
+            }
+
+            return Math.Clamp(Settings.RewardFireSale.CurrentProgress / (double)Math.Max(1, nextTier.GoalAmount) * 100d, 0d, 100d);
+        }
+    }
+
+    public string RewardFireSaleActiveWarningText => T("Fire Sale Test Mode warning: starting or stopping a Fire Sale changes Crystal Relay-owned Twitch reward costs. Linked rewards stay listen-only. Stop the sale or let the timer expire to restore normal prices.");
+
+    public string RewardFireSaleFundingRewardConversionText
+    {
+        get
+        {
+            var fireSale = Settings.RewardFireSale;
+            return TF(
+                "At {0:N0} points and {1:N0}:1 conversion, each redeem adds {2:N0} Fire Sale progress.",
+                Math.Max(1, fireSale.FundingRewardCost),
+                Math.Max(1, fireSale.RewardPointsPerProgressUnit),
+                GetRewardFireSaleFundingProgressPerRedeem());
+        }
+    }
+
+    public string RewardFireSaleFundingRewardPrompt => TF(
+        "Adds {0:N0} Fire Sale progress toward the next discount goal.",
+        GetRewardFireSaleFundingProgressPerRedeem());
+
     public IReadOnlyList<TriggerRule> SelectedAvatarSupporterRules => Settings.GlobalOverrideRules
         .Where(rule => !IsSupporterAvatarChangeOverride(rule))
         .ToArray();
@@ -1149,7 +1242,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         Settings.AvatarProfiles.FirstOrDefault(profile => profile.IsMasterProfile)
         ?? Settings.AvatarProfiles.FirstOrDefault();
 
-    public string SelectedRuleCollectionTitle => IsViewingAvatarScaling
+    public string SelectedRuleCollectionTitle => IsViewingRewardFireSale
+        ? T("Reward Fire Sale")
+        : IsViewingAvatarScaling
         ? T("Avatar Scaling")
         : IsViewingUniversalTriggers
         ? T("Universal Triggers")
@@ -1161,7 +1256,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             ? T("Avatar Change Redeems")
             : T("Avatar Redeems");
 
-    public string SelectedRuleCollectionHelpText => IsViewingAvatarScaling
+    public string SelectedRuleCollectionHelpText => IsViewingRewardFireSale
+        ? T("Build a shared Bits and funding reward goal that discounts Crystal Relay-owned channel point redeems. Linked Twitch rewards stay listen-only and are never repriced.")
+        : IsViewingAvatarScaling
         ? T("Use Scale Sets to organize VRChat OSC avatar height scaling. Scale redeems send /avatar/eyeheight and stay separate from avatar sets, movement, universal triggers, and paid overrides.")
         : IsViewingUniversalTriggers
         ? T("Use this list for imported or universal Twitch interactions. These triggers can listen for chat commands, channel point rewards, bits, subscriptions, gift subs, and follows without mixing into avatar sets or paid override rules.")
@@ -1175,7 +1272,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             ? T("Use Avatar Sets to build per-avatar rule groups. Add Avatar Set creates another avatar group, Delete Avatar Set removes the selected one, and Delete All Avatar Sets clears the full set list. Each set becomes active only when Crystal Relay detects that exact avatar.")
             : T("This list holds the rules for one avatar set. Pick the avatar once, then add and manage the redeems that should only turn on while you are using that avatar.");
 
-    public string RuleLibraryHelpText => IsViewingAvatarScaling
+    public string RuleLibraryHelpText => IsViewingRewardFireSale
+        ? T("Reward Fire Sale tracks Bits and the optional Fire Sale funding reward toward a discount goal. The sale changes only Crystal Relay-created reward prices when the goal starts or ends.")
+        : IsViewingAvatarScaling
         ? T("This tab is for avatar height scale redeems using VRChat OSC Avatar Scaling. Use Scale Sets to keep different height reward ideas organized without changing how the triggers run.")
         : IsViewingUniversalTriggers
         ? T("This tab is for universal Twitch interaction triggers. Import a Fooma Twitch Interaction config here, then test and adjust the OSC actions without changing the existing Avatar Sets, Movement Redeems, Avatar Change, or Bits + Subs override sections.")
@@ -1187,7 +1286,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 ? T("This tab is for Avatar Change Setup. Pick the shared return avatar on the right, then build direct avatar swaps or Avatar Roulette rules here. Timed avatar-switch rules return to that shared return avatar when they finish.")
                 : T("This tab is for Avatar Sets. Use it to group redeems by the avatar they belong to, then pick a set below to edit the rules inside it. Crystal Relay uses current-avatar detection so only the set for the avatar you are actually wearing turns on.");
 
-    public string AddRuleButtonText => IsViewingAvatarScaling
+    public string AddRuleButtonText => IsViewingRewardFireSale
+        ? T("Add Fire Sale Tier")
+        : IsViewingAvatarScaling
         ? T("Add Scale Redeem")
         : IsViewingUniversalTriggers
         ? T("Add Universal Trigger")
@@ -1199,7 +1300,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             ? T("Add Avatar Switch")
             : T("Add Redeem");
 
-    public string DeleteRuleButtonText => IsViewingAvatarScaling
+    public string DeleteRuleButtonText => IsViewingRewardFireSale
+        ? T("Delete Fire Sale Tier")
+        : IsViewingAvatarScaling
         ? T("Delete Scale Redeem")
         : IsViewingUniversalTriggers
         ? T("Delete Universal Trigger")
@@ -1211,7 +1314,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             ? T("Delete Avatar Switch")
             : T("Delete Redeem");
 
-    public string DeleteAllRulesButtonText => IsViewingAvatarScaling
+    public string DeleteAllRulesButtonText => IsViewingRewardFireSale
+        ? T("Reset Fire Sale Progress")
+        : IsViewingAvatarScaling
         ? T("Delete All Scale Sets")
         : IsViewingUniversalTriggers
         ? T("Delete All Universal Triggers")
@@ -1223,7 +1328,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             ? T("Delete All Avatar Switches")
             : T("Delete All Redeems");
 
-    public string SelectedRuleEmptyStateText => IsViewingAvatarScaling
+    public string SelectedRuleEmptyStateText => IsViewingRewardFireSale
+        ? T("Use the Reward Fire Sale setup to edit sale sources, tiers, and duration.")
+        : IsViewingAvatarScaling
         ? T("Select or add a scale set, then add a scale redeem to edit it.")
         : IsViewingUniversalTriggers
         ? T("Import a Fooma config or add a universal trigger to edit it.")
@@ -2217,6 +2324,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public RelayCommand ShowAvatarScalingCommand { get; }
 
+    public RelayCommand ShowRewardFireSaleCommand { get; }
+
     public RelayCommand AddAvatarProfileCommand { get; }
 
     public RelayCommand DeleteSelectedAvatarProfileCommand { get; }
@@ -2303,6 +2412,14 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public RelayCommand PasteSelectedAvatarParameterPathCommand { get; }
 
+    public RelayCommand AddRewardFireSaleTierCommand { get; }
+
+    public RelayCommand RemoveRewardFireSaleTierCommand { get; }
+
+    public RelayCommand StopRewardFireSaleCommand { get; }
+
+    public RelayCommand ResetRewardFireSaleProgressCommand { get; }
+
     // Startup flow for the main window. This loads saved data, rebuilds editor state,
     // restores helper caches, and runs cleanup recovery if the previous launch ended badly.
     public async Task InitializeAsync()
@@ -2329,6 +2446,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         var fusedUniversalCommandFallbacks = UniversalTriggerFusionService.FuseMatchingCommandFallbacks(Settings.UniversalTriggers);
         NormalizeAvatarProfileRules();
         var normalizedSupporterAvatarScopes = NormalizeSupporterAvatarScopes();
+        var normalizedRewardFireSale = NormalizeRewardFireSaleSettings();
+        RestoreRewardFireSaleStartupState();
         UpdateAvatarProfileActivityStates();
         SelectedAvatarProfile = AvatarRuleProfiles.FirstOrDefault();
         SelectedRule = SelectedAvatarProfile?.ChannelPointRules.FirstOrDefault();
@@ -2338,7 +2457,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RefreshRuntimeSummary();
         UpdateAccountStatuses();
         isInitialized = true;
-        if (normalizedChatCommandFallbacks || fusedUniversalCommandFallbacks > 0 || normalizedSupporterAvatarScopes)
+        ScheduleRewardFireSaleExpirationIfNeeded();
+        if (normalizedChatCommandFallbacks || fusedUniversalCommandFallbacks > 0 || normalizedSupporterAvatarScopes || normalizedRewardFireSale)
         {
             QueueSave(0);
         }
@@ -2393,6 +2513,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         CancelAndDisposeQueuedCancellationSource(ref vrChatCurrentAvatarRefreshCancellation);
         CancelAndDisposeQueuedCancellationSource(ref vrChatOscParameterRefreshCancellation);
         CancelAndDisposeQueuedCancellationSource(ref vrChatLocalOscScanCancellation);
+        CancelAndDisposeQueuedCancellationSource(ref rewardFireSaleExpirationCancellation);
         DisposeVrChatLocalOscWatcher();
 
         if (isInitialized)
@@ -3588,6 +3709,450 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         QueueManagedRewardSync(0);
     }
 
+    private void ShowRewardFireSale()
+    {
+        SwitchRuleView(RuleListView.RewardFireSale, profile: null, rule: null);
+        SelectedUniversalTrigger = null;
+        SelectedAvatarScaleSet = null;
+        SelectedAvatarScaleRule = null;
+        EnsureRewardFireSaleTierExists();
+        RefreshRewardFireSaleStateProperties();
+    }
+
+    private bool NormalizeRewardFireSaleSettings()
+    {
+        var changed = false;
+        var fireSale = Settings.RewardFireSale;
+        if (fireSale.Tiers.Count == 0)
+        {
+            fireSale.Tiers.Add(new RewardFireSaleTier());
+            changed = true;
+        }
+
+        foreach (var tier in fireSale.Tiers)
+        {
+            var goal = tier.GoalAmount;
+            var discount = tier.DiscountPercent;
+            tier.GoalAmount = Math.Max(1, goal);
+            tier.DiscountPercent = Math.Clamp(discount, 1, 100);
+            changed |= goal != tier.GoalAmount || discount != tier.DiscountPercent;
+        }
+
+        if (fireSale.TemporaryDurationSeconds <= 0)
+        {
+            fireSale.TemporaryDurationSeconds = 300;
+            changed = true;
+        }
+
+        var fundingTitle = fireSale.FundingRewardTitle;
+        fireSale.FundingRewardTitle = string.IsNullOrWhiteSpace(fundingTitle) ? "Fire Sale Fund" : fundingTitle.Trim();
+        changed |= !string.Equals(fundingTitle, fireSale.FundingRewardTitle, StringComparison.Ordinal);
+
+        var fundingCost = fireSale.FundingRewardCost;
+        fireSale.FundingRewardCost = Math.Max(1, fundingCost <= 0 ? 100 : fundingCost);
+        changed |= fundingCost != fireSale.FundingRewardCost;
+
+        var conversion = fireSale.RewardPointsPerProgressUnit;
+        fireSale.RewardPointsPerProgressUnit = Math.Max(1, conversion <= 0 ? 10 : conversion);
+        changed |= conversion != fireSale.RewardPointsPerProgressUnit;
+
+        return changed;
+    }
+
+    private void RestoreRewardFireSaleStartupState()
+    {
+        var fireSale = Settings.RewardFireSale;
+        if (!fireSale.IsSaleActive)
+        {
+            return;
+        }
+
+        if (fireSale.SaleMode == RewardFireSaleMode.Temporary
+            && fireSale.ActiveUntilUtc is { } activeUntil
+            && activeUntil <= DateTimeOffset.UtcNow)
+        {
+            fireSale.IsSaleActive = false;
+            fireSale.ActiveDiscountPercent = 0;
+            fireSale.ActiveTierGoalAmount = 0;
+            fireSale.ActiveUntilUtc = null;
+            AppendLog("Reward Fire Sale expired while Crystal Relay was closed. Normal reward prices will be restored on the next reward sync.");
+        }
+    }
+
+    private void EnsureRewardFireSaleTierExists()
+    {
+        if (Settings.RewardFireSale.Tiers.Count > 0)
+        {
+            return;
+        }
+
+        Settings.RewardFireSale.Tiers.Add(new RewardFireSaleTier());
+    }
+
+    private void AddRewardFireSaleTier()
+    {
+        var lastTier = Settings.RewardFireSale.Tiers
+            .OrderBy(tier => tier.GoalAmount)
+            .LastOrDefault();
+        var nextGoal = lastTier is null ? 5000 : Math.Max(1, lastTier.GoalAmount + 5000);
+        var nextDiscount = lastTier is null ? 25 : Math.Clamp(lastTier.DiscountPercent + 10, 1, 100);
+        Settings.RewardFireSale.Tiers.Add(new RewardFireSaleTier
+        {
+            GoalAmount = nextGoal,
+            DiscountPercent = nextDiscount
+        });
+        AppendLog($"Added Reward Fire Sale tier {nextGoal:N0} = {nextDiscount}% off.");
+    }
+
+    private void RemoveRewardFireSaleTier(object? target)
+    {
+        if (target is not RewardFireSaleTier tier || Settings.RewardFireSale.Tiers.Count <= 1)
+        {
+            return;
+        }
+
+        Settings.RewardFireSale.Tiers.Remove(tier);
+        AppendLog($"Removed Reward Fire Sale tier {tier.GoalAmount:N0} = {tier.DiscountPercent}% off.");
+    }
+
+    private void ResetRewardFireSaleProgress()
+    {
+        Settings.RewardFireSale.CurrentProgress = 0;
+        RefreshRewardFireSaleStateProperties();
+        QueueSave();
+        AppendLog("Reward Fire Sale progress reset.");
+    }
+
+    private void StopRewardFireSale()
+    {
+        StopRewardFireSale(expired: false);
+    }
+
+    private void StopRewardFireSale(bool expired)
+    {
+        var fireSale = Settings.RewardFireSale;
+        if (!fireSale.IsSaleActive)
+        {
+            return;
+        }
+
+        CancelAndDisposeQueuedCancellationSource(ref rewardFireSaleExpirationCancellation);
+        fireSale.IsSaleActive = false;
+        fireSale.ActiveDiscountPercent = 0;
+        fireSale.ActiveTierGoalAmount = 0;
+        fireSale.ActiveUntilUtc = null;
+        RefreshRewardFireSaleStateProperties();
+        QueueSave(0);
+        QueueManagedRewardSync(0, ManagedRewardSyncReason.FireSaleChanged);
+        AppendLog(expired
+            ? "Reward Fire Sale ended and Crystal Relay queued normal reward prices to restore."
+            : "Reward Fire Sale stopped and Crystal Relay queued normal reward prices to restore.");
+    }
+
+    private bool ResetRewardFireSaleForStreamEnd()
+    {
+        var fireSale = Settings.RewardFireSale;
+        if (!fireSale.IsSaleActive && fireSale.CurrentProgress <= 0)
+        {
+            return false;
+        }
+
+        suppressRewardFireSaleChangeSideEffects = true;
+        try
+        {
+            CancelAndDisposeQueuedCancellationSource(ref rewardFireSaleExpirationCancellation);
+            fireSale.IsSaleActive = false;
+            fireSale.ActiveDiscountPercent = 0;
+            fireSale.ActiveTierGoalAmount = 0;
+            fireSale.ActiveUntilUtc = null;
+            fireSale.CurrentProgress = 0;
+        }
+        finally
+        {
+            suppressRewardFireSaleChangeSideEffects = false;
+        }
+
+        RefreshRewardFireSaleStateProperties();
+        QueueSave(0);
+        QueueManagedRewardSync(0, ManagedRewardSyncReason.FireSaleChanged);
+        AppendLog("Stream ended, so Reward Fire Sale was reset and normal reward prices were queued to restore.");
+        return true;
+    }
+
+    private bool HandleRewardFireSaleContribution(RewardFireSaleContribution contribution)
+    {
+        if (!isInitialized || isShuttingDown)
+        {
+            return false;
+        }
+
+        ExpireRewardFireSaleIfNeeded();
+        var fireSale = Settings.RewardFireSale;
+        var isFundingReward = contribution.Type == RewardFireSaleContributionType.ManagedReward
+            && IsRewardFireSaleFundingReward(contribution.RewardId, contribution.RewardTitle);
+        if (!fireSale.IsEnabled)
+        {
+            return isFundingReward;
+        }
+
+        if (IsRewardFireSaleActiveNow() && !CanRewardFireSaleAdvanceToLaterTier())
+        {
+            AppendThrottledLog(
+                "reward-fire-sale-active-progress-paused",
+                "Reward Fire Sale is already active at its final available tier, so new Bits and funding reward redeems are not adding progress right now.",
+                ThrottledRewardSyncLogWindow);
+            return isFundingReward;
+        }
+
+        var contributionAmount = ResolveRewardFireSaleContributionAmount(contribution);
+        if (contributionAmount <= 0)
+        {
+            return isFundingReward;
+        }
+
+        fireSale.CurrentProgress += contributionAmount;
+        AppendLog($"Reward Fire Sale added {contributionAmount:N0} progress from {contribution.UserDisplayName}. Total: {fireSale.CurrentProgress:N0}.");
+        ActivateRewardFireSaleIfGoalReached();
+        RefreshRewardFireSaleStateProperties();
+        QueueSave();
+        return isFundingReward;
+    }
+
+    private int ResolveRewardFireSaleContributionAmount(RewardFireSaleContribution contribution)
+    {
+        var fireSale = Settings.RewardFireSale;
+        if (contribution.Type == RewardFireSaleContributionType.Bits)
+        {
+            return fireSale.CountBits ? Math.Max(0, contribution.Amount) : 0;
+        }
+
+        if (!fireSale.FundingRewardEnabled || !IsRewardFireSaleFundingReward(contribution.RewardId, contribution.RewardTitle))
+        {
+            return 0;
+        }
+
+        return GetRewardFireSaleFundingProgressPerRedeem();
+    }
+
+    private bool IsRewardFireSaleFundingReward(string? rewardId, string? rewardTitle)
+    {
+        var fireSale = Settings.RewardFireSale;
+        var savedRewardId = fireSale.FundingRewardId?.Trim() ?? string.Empty;
+        var incomingRewardId = rewardId?.Trim() ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(savedRewardId)
+            && string.Equals(savedRewardId, incomingRewardId, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        return ManagedRewardPresentation.HasSameTitleIdentity(rewardTitle, fireSale.FundingRewardTitle);
+    }
+
+    private int GetRewardFireSaleFundingProgressPerRedeem()
+    {
+        var fireSale = Settings.RewardFireSale;
+        return Math.Max(1, (int)Math.Floor(Math.Max(1, fireSale.FundingRewardCost) / (double)Math.Max(1, fireSale.RewardPointsPerProgressUnit)));
+    }
+
+    private void ActivateRewardFireSaleIfGoalReached()
+    {
+        var reachedTier = GetReachedRewardFireSaleTier();
+        if (reachedTier is null)
+        {
+            return;
+        }
+
+        var fireSale = Settings.RewardFireSale;
+        var saleWasActive = IsRewardFireSaleActiveNow();
+        if (saleWasActive
+            && reachedTier.GoalAmount <= fireSale.ActiveTierGoalAmount
+            && reachedTier.DiscountPercent <= fireSale.ActiveDiscountPercent)
+        {
+            return;
+        }
+
+        suppressRewardFireSaleChangeSideEffects = true;
+        try
+        {
+            fireSale.IsSaleActive = true;
+            fireSale.ActiveDiscountPercent = reachedTier.DiscountPercent;
+            fireSale.ActiveTierGoalAmount = reachedTier.GoalAmount;
+            if (!saleWasActive)
+            {
+                fireSale.ActiveUntilUtc = fireSale.SaleMode == RewardFireSaleMode.Temporary
+                    ? DateTimeOffset.UtcNow.AddSeconds(Math.Max(1, fireSale.TemporaryDurationSeconds))
+                    : null;
+            }
+
+            if (!fireSale.MultiTierEnabled || IsFinalRewardFireSaleTier(reachedTier))
+            {
+                fireSale.CurrentProgress = 0;
+            }
+        }
+        finally
+        {
+            suppressRewardFireSaleChangeSideEffects = false;
+        }
+
+        if (!saleWasActive)
+        {
+            ScheduleRewardFireSaleExpirationIfNeeded();
+        }
+
+        RefreshRewardFireSaleStateProperties();
+        QueueSave(0);
+        QueueManagedRewardSync(0, ManagedRewardSyncReason.FireSaleChanged);
+        AppendLog(saleWasActive
+            ? $"Reward Fire Sale upgraded: {reachedTier.DiscountPercent}% off from the {reachedTier.GoalAmount:N0} goal tier."
+            : $"Reward Fire Sale started: {reachedTier.DiscountPercent}% off Crystal Relay-owned VRC rewards.");
+    }
+
+    private RewardFireSaleTier? GetReachedRewardFireSaleTier()
+    {
+        var fireSale = Settings.RewardFireSale;
+        var eligibleTiers = GetRewardFireSaleTiers()
+            .Where(tier => fireSale.CurrentProgress >= tier.GoalAmount)
+            .ToArray();
+        if (eligibleTiers.Length == 0)
+        {
+            return null;
+        }
+
+        return fireSale.MultiTierEnabled
+            ? eligibleTiers.OrderByDescending(tier => tier.GoalAmount).First()
+            : eligibleTiers.OrderBy(tier => tier.GoalAmount).First();
+    }
+
+    private RewardFireSaleTier? GetNextRewardFireSaleTier()
+    {
+        return GetRewardFireSaleTiers()
+            .Where(tier => Settings.RewardFireSale.CurrentProgress < tier.GoalAmount)
+            .OrderBy(tier => tier.GoalAmount)
+            .FirstOrDefault()
+            ?? GetRewardFireSaleTiers().OrderByDescending(tier => tier.GoalAmount).FirstOrDefault();
+    }
+
+    private IReadOnlyList<RewardFireSaleTier> GetRewardFireSaleTiers()
+    {
+        EnsureRewardFireSaleTierExists();
+        return Settings.RewardFireSale.Tiers
+            .Where(tier => tier.GoalAmount > 0 && tier.DiscountPercent > 0)
+            .OrderBy(tier => tier.GoalAmount)
+            .ToArray();
+    }
+
+    private RewardFireSaleTier? GetFinalRewardFireSaleTier() =>
+        GetRewardFireSaleTiers().OrderByDescending(tier => tier.GoalAmount).FirstOrDefault();
+
+    private bool IsFinalRewardFireSaleTier(RewardFireSaleTier tier)
+    {
+        var finalTier = GetFinalRewardFireSaleTier();
+        return finalTier is not null && finalTier.GoalAmount == tier.GoalAmount;
+    }
+
+    private bool CanRewardFireSaleAdvanceToLaterTier()
+    {
+        var fireSale = Settings.RewardFireSale;
+        if (!fireSale.MultiTierEnabled || !IsRewardFireSaleActiveNow())
+        {
+            return false;
+        }
+
+        var finalTier = GetFinalRewardFireSaleTier();
+        return finalTier is not null
+            && fireSale.ActiveTierGoalAmount < finalTier.GoalAmount
+            && fireSale.CurrentProgress < finalTier.GoalAmount;
+    }
+
+    private bool IsRewardFireSaleActiveNow()
+    {
+        var fireSale = Settings.RewardFireSale;
+        if (!fireSale.IsEnabled || !fireSale.IsSaleActive || fireSale.ActiveDiscountPercent <= 0)
+        {
+            return false;
+        }
+
+        return fireSale.SaleMode != RewardFireSaleMode.Temporary
+            || fireSale.ActiveUntilUtc is null
+            || fireSale.ActiveUntilUtc > DateTimeOffset.UtcNow;
+    }
+
+    private void ExpireRewardFireSaleIfNeeded()
+    {
+        var fireSale = Settings.RewardFireSale;
+        if (!fireSale.IsSaleActive
+            || fireSale.SaleMode != RewardFireSaleMode.Temporary
+            || fireSale.ActiveUntilUtc is not { } activeUntil
+            || activeUntil > DateTimeOffset.UtcNow)
+        {
+            return;
+        }
+
+        StopRewardFireSale(expired: true);
+    }
+
+    private void ScheduleRewardFireSaleExpirationIfNeeded()
+    {
+        CancelAndDisposeQueuedCancellationSource(ref rewardFireSaleExpirationCancellation);
+        var fireSale = Settings.RewardFireSale;
+        if (!fireSale.IsSaleActive
+            || fireSale.SaleMode != RewardFireSaleMode.Temporary
+            || fireSale.ActiveUntilUtc is not { } activeUntil)
+        {
+            return;
+        }
+
+        var delay = activeUntil - DateTimeOffset.UtcNow;
+        if (delay <= TimeSpan.Zero)
+        {
+            StopRewardFireSale(expired: true);
+            return;
+        }
+
+        rewardFireSaleExpirationCancellation = new CancellationTokenSource();
+        var cancellationToken = rewardFireSaleExpirationCancellation.Token;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(delay, cancellationToken);
+                RunOnUi(() => StopRewardFireSale(expired: true));
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }, CancellationToken.None);
+    }
+
+    private int ApplyRewardFireSaleDiscount(int normalCost, TwitchRewardSyncMode rewardSyncMode)
+    {
+        if (rewardSyncMode != TwitchRewardSyncMode.CreateOrManage || !IsRewardFireSaleActiveNow())
+        {
+            return Math.Max(1, normalCost);
+        }
+
+        var discountPercent = Math.Clamp(Settings.RewardFireSale.ActiveDiscountPercent, 0, 100);
+        if (discountPercent <= 0)
+        {
+            return Math.Max(1, normalCost);
+        }
+
+        var discountedCost = (int)Math.Floor(Math.Max(1, normalCost) * (100 - discountPercent) / 100d);
+        return Math.Max(1, discountedCost);
+    }
+
+    private void RefreshRewardFireSaleStateProperties()
+    {
+        RaisePropertyChanged(nameof(RewardFireSaleStatusText));
+        RaisePropertyChanged(nameof(RewardFireSaleProgressPercent));
+        RaisePropertyChanged(nameof(IsRewardFireSaleTemporary));
+        RaisePropertyChanged(nameof(RewardFireSaleFundingRewardConversionText));
+        RaisePropertyChanged(nameof(RewardFireSaleFundingRewardPrompt));
+        StopRewardFireSaleCommand.NotifyCanExecuteChanged();
+        ResetRewardFireSaleProgressCommand.NotifyCanExecuteChanged();
+        RemoveRewardFireSaleTierCommand.NotifyCanExecuteChanged();
+    }
+
     private void AddAvatarProfile()
     {
         var profile = CreateDefaultAvatarProfile();
@@ -4696,6 +5261,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         appSettings.UniversalTriggers.CollectionChanged += UniversalTriggersCollectionChanged;
         appSettings.AvatarScaleSets.CollectionChanged += AvatarScaleSetsCollectionChanged;
         appSettings.AvatarScaleMasterReward.PropertyChanged += AvatarScaleMasterRewardChanged;
+        WireRewardFireSale(appSettings.RewardFireSale);
 
         foreach (var profile in appSettings.AvatarProfiles)
         {
@@ -4736,6 +5302,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         appSettings.UniversalTriggers.CollectionChanged -= UniversalTriggersCollectionChanged;
         appSettings.AvatarScaleSets.CollectionChanged -= AvatarScaleSetsCollectionChanged;
         appSettings.AvatarScaleMasterReward.PropertyChanged -= AvatarScaleMasterRewardChanged;
+        UnwireRewardFireSale(appSettings.RewardFireSale);
 
         foreach (var profile in appSettings.AvatarProfiles)
         {
@@ -4760,6 +5327,26 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         foreach (var scaleSet in appSettings.AvatarScaleSets)
         {
             UnwireAvatarScaleSet(scaleSet);
+        }
+    }
+
+    private void WireRewardFireSale(RewardFireSaleSettings fireSale)
+    {
+        fireSale.PropertyChanged += RewardFireSaleChanged;
+        fireSale.Tiers.CollectionChanged += RewardFireSaleTiersCollectionChanged;
+        foreach (var tier in fireSale.Tiers)
+        {
+            tier.PropertyChanged += RewardFireSaleTierChanged;
+        }
+    }
+
+    private void UnwireRewardFireSale(RewardFireSaleSettings fireSale)
+    {
+        fireSale.PropertyChanged -= RewardFireSaleChanged;
+        fireSale.Tiers.CollectionChanged -= RewardFireSaleTiersCollectionChanged;
+        foreach (var tier in fireSale.Tiers)
+        {
+            tier.PropertyChanged -= RewardFireSaleTierChanged;
         }
     }
 
@@ -5178,6 +5765,100 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         {
             QueueManagedRewardSync();
         }
+    }
+
+    private void RewardFireSaleChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (sender is not RewardFireSaleSettings fireSale)
+        {
+            return;
+        }
+
+        if (suppressRewardFireSaleChangeSideEffects)
+        {
+            return;
+        }
+
+        if (e.PropertyName == nameof(RewardFireSaleSettings.Tiers))
+        {
+            UnwireRewardFireSale(fireSale);
+            WireRewardFireSale(fireSale);
+        }
+
+        if (e.PropertyName == nameof(RewardFireSaleSettings.IsEnabled)
+            && !fireSale.IsEnabled
+            && fireSale.IsSaleActive)
+        {
+            StopRewardFireSale(expired: false);
+        }
+
+        if (e.PropertyName == nameof(RewardFireSaleSettings.SaleMode))
+        {
+            RaisePropertyChanged(nameof(IsRewardFireSaleTemporary));
+            if (fireSale.IsSaleActive)
+            {
+                if (fireSale.SaleMode == RewardFireSaleMode.Temporary
+                    && (fireSale.ActiveUntilUtc is null || fireSale.ActiveUntilUtc <= DateTimeOffset.UtcNow))
+                {
+                    fireSale.ActiveUntilUtc = DateTimeOffset.UtcNow.AddSeconds(Math.Max(1, fireSale.TemporaryDurationSeconds));
+                }
+
+                ScheduleRewardFireSaleExpirationIfNeeded();
+            }
+        }
+
+        if (e.PropertyName == nameof(RewardFireSaleSettings.IsSaleActive)
+            || e.PropertyName == nameof(RewardFireSaleSettings.ActiveDiscountPercent)
+            || e.PropertyName == nameof(RewardFireSaleSettings.ActiveTierGoalAmount)
+            || e.PropertyName == nameof(RewardFireSaleSettings.ActiveUntilUtc)
+            || e.PropertyName == nameof(RewardFireSaleSettings.CurrentProgress)
+            || e.PropertyName == nameof(RewardFireSaleSettings.IsEnabled)
+            || e.PropertyName == nameof(RewardFireSaleSettings.FundingRewardCost)
+            || e.PropertyName == nameof(RewardFireSaleSettings.RewardPointsPerProgressUnit))
+        {
+            RefreshRewardFireSaleStateProperties();
+        }
+
+        if (e.PropertyName == nameof(RewardFireSaleSettings.IsSaleActive)
+            || e.PropertyName == nameof(RewardFireSaleSettings.ActiveDiscountPercent)
+            || e.PropertyName == nameof(RewardFireSaleSettings.IsEnabled)
+            || e.PropertyName == nameof(RewardFireSaleSettings.FundingRewardEnabled)
+            || e.PropertyName == nameof(RewardFireSaleSettings.FundingRewardTitle)
+            || e.PropertyName == nameof(RewardFireSaleSettings.FundingRewardCost)
+            || e.PropertyName == nameof(RewardFireSaleSettings.RewardPointsPerProgressUnit))
+        {
+            QueueManagedRewardSync(0, ManagedRewardSyncReason.FireSaleChanged);
+        }
+
+        QueueSave();
+    }
+
+    private void RewardFireSaleTiersCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.NewItems is not null)
+        {
+            foreach (RewardFireSaleTier tier in e.NewItems)
+            {
+                tier.PropertyChanged += RewardFireSaleTierChanged;
+            }
+        }
+
+        if (e.OldItems is not null)
+        {
+            foreach (RewardFireSaleTier tier in e.OldItems)
+            {
+                tier.PropertyChanged -= RewardFireSaleTierChanged;
+            }
+        }
+
+        RefreshRewardFireSaleStateProperties();
+        QueueSave();
+    }
+
+    private void RewardFireSaleTierChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        RefreshRewardFireSaleStateProperties();
+        QueueSave();
     }
 
     private void HandleAvatarScaleStatusChanged()
@@ -6523,7 +7204,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         || reason is ManagedRewardSyncReason.AvatarChanged
             or ManagedRewardSyncReason.TestMode
             or ManagedRewardSyncReason.EmergencyStop
-            or ManagedRewardSyncReason.StreamStateChanged;
+            or ManagedRewardSyncReason.StreamStateChanged
+            or ManagedRewardSyncReason.FireSaleChanged;
 
     private static bool AllowsInactiveManagedRewardDeletion(ManagedRewardSyncReason reason) =>
         reason is ManagedRewardSyncReason.Maintenance or ManagedRewardSyncReason.ManualCleanup;
@@ -6558,6 +7240,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ManagedRewardSyncReason.TestMode => "test mode",
         ManagedRewardSyncReason.EmergencyStop => "emergency stop",
         ManagedRewardSyncReason.StreamStateChanged => "stream state changed",
+        ManagedRewardSyncReason.FireSaleChanged => "reward fire sale",
         ManagedRewardSyncReason.ManualRefresh => "manual refresh",
         ManagedRewardSyncReason.ManualCleanup => "manual cleanup",
         ManagedRewardSyncReason.Maintenance => "maintenance",
@@ -7387,6 +8070,16 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 GetAvatarScaleManagedRewardTitle(rule),
                 rule.RewardSyncMode);
         }
+
+        var fireSale = Settings.RewardFireSale;
+        if (fireSale.FundingRewardEnabled || !string.IsNullOrWhiteSpace(fireSale.FundingRewardId))
+        {
+            yield return new ManagedRewardOwnershipEntry(
+                RewardFireSaleFundingRewardOwnerId,
+                fireSale.FundingRewardId,
+                fireSale.FundingRewardTitle,
+                TwitchRewardSyncMode.CreateOrManage);
+        }
     }
 
     private ManagedRewardSyncTarget CreateManagedRewardTargetForRule(
@@ -7423,7 +8116,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             rule.DisplayTitle,
             rule.ChannelPointRewardId,
             rule.ChannelPointRewardTitle,
-            rule.ChannelPointRewardCost,
+            ApplyRewardFireSaleDiscount(rule.ChannelPointRewardCost, rule.RewardSyncMode),
             rule.RewardSyncMode,
             rule.CooldownSeconds,
             backgroundColor,
@@ -7483,6 +8176,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         var rewardCost = group.UsesSetTriggerMasterReward
             ? profile.SetTriggerMasterRewardCost
             : owner.ChannelPointRewardCost;
+        var rewardSyncMode = group.UsesSetTriggerMasterReward
+            ? profile.SetTriggerMasterRewardSyncMode
+            : group.RewardSyncMode;
         var cooldownSeconds = group.UsesSetTriggerMasterReward
             ? profile.SetTriggerMasterRewardCooldownSeconds
             : owner.CooldownSeconds;
@@ -7495,10 +8191,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             group.UsesSetTriggerMasterReward ? "Set Trigger Master Reward" : owner.DisplayTitle,
             rewardId,
             rewardTitle,
-            rewardCost,
-            group.UsesSetTriggerMasterReward
-                ? profile.SetTriggerMasterRewardSyncMode
-                : group.RewardSyncMode,
+            ApplyRewardFireSaleDiscount(rewardCost, rewardSyncMode),
+            rewardSyncMode,
             cooldownSeconds,
             backgroundColor,
             prompt: BuildSharedAvatarSetRewardPrompt(activeChoices.Length > 0 ? activeChoices : group.Rules),
@@ -7678,7 +8372,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             trigger.DisplayTitle,
             trigger.RewardId,
             trigger.RewardTitle,
-            trigger.RewardCost,
+            ApplyRewardFireSaleDiscount(trigger.RewardCost, trigger.RewardSyncMode),
             trigger.RewardSyncMode,
             cooldownSeconds: 0,
             backgroundColor: ManagedRewardPresentation.NormalizeReadyBackgroundColor(trigger.ManagedRewardReadyColor),
@@ -7712,7 +8406,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             "Avatar Scaling Master Reward",
             masterReward.RewardId,
             masterReward.RewardTitle,
-            masterReward.RewardCost,
+            ApplyRewardFireSaleDiscount(masterReward.RewardCost, masterReward.RewardSyncMode),
             masterReward.RewardSyncMode,
             masterReward.CooldownSeconds,
             backgroundColor,
@@ -7763,7 +8457,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             rule.DisplayTitle,
             rule.RewardId,
             GetAvatarScaleManagedRewardTitle(rule),
-            rule.RewardCost,
+            ApplyRewardFireSaleDiscount(rule.RewardCost, rule.RewardSyncMode),
             rule.RewardSyncMode,
             GetAvatarScaleEffectiveManagedRewardCooldownSeconds(rule),
             backgroundColor,
@@ -7774,6 +8468,38 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             deleteWhenInactive: shouldDeleteWhenInactive && !isOnLocalCooldown && !isActiveScaleEffect && !isQueuedScaleRedeem && !isTemporarilyDisabledByPairing,
             protectFromCapReclaim: desiredEnabled || isOnLocalCooldown || isActiveScaleEffect || isQueuedScaleRedeem || isTemporarilyDisabledByPairing,
             applyRewardId: rewardId => rule.RewardId = rewardId);
+    }
+
+    private ManagedRewardSyncTarget? CreateManagedRewardTargetForRewardFireSaleFundingReward(
+        bool allowManagedRewardActivation)
+    {
+        var fireSale = Settings.RewardFireSale;
+        if (!fireSale.FundingRewardEnabled && string.IsNullOrWhiteSpace(fireSale.FundingRewardId))
+        {
+            return null;
+        }
+
+        var desiredEnabled = allowManagedRewardActivation
+            && fireSale.IsEnabled
+            && fireSale.FundingRewardEnabled
+            && (!IsRewardFireSaleActiveNow() || CanRewardFireSaleAdvanceToLaterTier());
+
+        return new ManagedRewardSyncTarget(
+            RewardFireSaleFundingRewardOwnerId,
+            T("Fire Sale Funding Reward"),
+            fireSale.FundingRewardId,
+            fireSale.FundingRewardTitle,
+            fireSale.FundingRewardCost,
+            TwitchRewardSyncMode.CreateOrManage,
+            cooldownSeconds: 0,
+            backgroundColor: ManagedRewardPresentation.ReadyBackgroundColor,
+            prompt: RewardFireSaleFundingRewardPrompt,
+            requireUserInput: false,
+            desiredEnabled: desiredEnabled,
+            isCooldownActive: false,
+            deleteWhenInactive: false,
+            protectFromCapReclaim: desiredEnabled || fireSale.IsSaleActive,
+            applyRewardId: rewardId => fireSale.FundingRewardId = rewardId);
     }
 
     private static string GetAvatarScaleManagedRewardTitle(AvatarScaleRule rule)
@@ -7929,6 +8655,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ManagedRewardSyncReason reason = ManagedRewardSyncReason.SettingsEdit)
     {
         await ReloadRuntimeConfigAsync();
+        RunOnUi(ExpireRewardFireSaleIfNeeded);
 
         var managedUniversalTriggers = Settings.UniversalTriggers
             .Where(IsManagedUniversalChannelPointTrigger)
@@ -8102,6 +8829,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                     masterRewardUnlocked,
                     Settings.AvatarScaleMasterReward.FreeChildRewardSlotsWhenLocked))
                 .ToArray();
+            var rewardFireSaleFundingTarget = CreateManagedRewardTargetForRewardFireSaleFundingReward(allowManagedRewardActivation);
             var allSyncTargets = new List<ManagedRewardSyncTarget>();
             if (avatarScaleMasterTarget is not null)
             {
@@ -8112,6 +8840,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             allSyncTargets.AddRange(movementTargets);
             allSyncTargets.AddRange(universalTargets);
             allSyncTargets.AddRange(avatarScaleTargets);
+            if (rewardFireSaleFundingTarget is not null)
+            {
+                allSyncTargets.Add(rewardFireSaleFundingTarget);
+            }
 
             var capReclaimProtectedRewardIds = BuildManagedRewardCapReclaimProtectedRewardIds(allSyncTargets);
             var capReclaimProtectedTitleKeys = BuildManagedRewardCapReclaimProtectedTitleKeys(allSyncTargets);
@@ -8513,6 +9245,18 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             RunOnUi(() => AppendThrottledLog(
                 $"managed-reward-materialize-suppressed:{reason}:{target.Id}",
                 $"Skipped creating or adopting Twitch reward for '{target.DisplayTitle}' during {DescribeManagedRewardSyncReason(reason)} because rewards are currently hidden. Crystal Relay will create or adopt it during an intentional settings sync, Test Mode, or live stream sync.",
+                ThrottledRewardSyncLogWindow));
+            return changed;
+        }
+
+        if (reason == ManagedRewardSyncReason.FireSaleChanged
+            && existingReward is null
+            && !desiredEnabled
+            && !string.IsNullOrWhiteSpace(rewardTitle))
+        {
+            RunOnUi(() => AppendThrottledLog(
+                $"managed-reward-fire-sale-materialize-suppressed:{target.Id}",
+                $"Reward Fire Sale skipped creating inactive Twitch reward '{target.DisplayTitle}'. It will be discounted when that reward is needed by normal sync.",
                 ThrottledRewardSyncLogWindow));
             return changed;
         }
@@ -9345,6 +10089,13 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             }
 
             rule.RewardId = string.Empty;
+            clearedCount++;
+        }
+
+        if (newOwnerId != RewardFireSaleFundingRewardOwnerId
+            && string.Equals(Settings.RewardFireSale.FundingRewardId?.Trim(), normalizedRewardId, StringComparison.Ordinal))
+        {
+            Settings.RewardFireSale.FundingRewardId = string.Empty;
             clearedCount++;
         }
 
@@ -11287,6 +12038,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         UseCurrentVrChatAvatarForProfileCommand.NotifyCanExecuteChanged();
         UseCurrentAvatarForSupporterRuleCommand.NotifyCanExecuteChanged();
         UseCurrentAvatarForAvatarChangeRuleCommand.NotifyCanExecuteChanged();
+        StopRewardFireSaleCommand.NotifyCanExecuteChanged();
+        ResetRewardFireSaleProgressCommand.NotifyCanExecuteChanged();
+        RemoveRewardFireSaleTierCommand.NotifyCanExecuteChanged();
     }
 
     private void UpgradeLegacyRewardTestOverrides()
@@ -11314,7 +12068,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
     }
 
-    private void HandleBroadcasterLiveStateChanged(bool isLive)
+    private void HandleBroadcasterLiveStateChanged(bool isLive, bool streamEnded)
     {
         var stateChanged = !hasResolvedBroadcasterLiveState || IsBroadcasterLive != isLive;
         hasResolvedBroadcasterLiveState = true;
@@ -11327,9 +12081,13 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             AppendLog("Streaming test mode turned off automatically because the broadcaster is live.");
         }
 
+        var rewardFireSaleResetQueued = streamEnded && ResetRewardFireSaleForStreamEnd();
         if (stateChanged)
         {
-            QueueManagedRewardSync(0, ManagedRewardSyncReason.StreamStateChanged);
+            if (!rewardFireSaleResetQueued)
+            {
+                QueueManagedRewardSync(0, ManagedRewardSyncReason.StreamStateChanged);
+            }
         }
     }
 
@@ -11342,6 +12100,16 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
 
         _ = dispatcher.InvokeAsync(action);
+    }
+
+    private bool RunOnUi(Func<bool> action)
+    {
+        if (dispatcher.CheckAccess())
+        {
+            return action();
+        }
+
+        return dispatcher.Invoke(action);
     }
 
     private static void OpenUri(string? uri)
@@ -12166,6 +12934,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RaisePropertyChanged(nameof(IsViewingSupporterOverrides));
         RaisePropertyChanged(nameof(IsViewingUniversalTriggers));
         RaisePropertyChanged(nameof(IsViewingAvatarScaling));
+        RaisePropertyChanged(nameof(IsViewingRewardFireSale));
         RaisePropertyChanged(nameof(AvatarScaleSets));
         RaisePropertyChanged(nameof(AvatarScaleRules));
         RaisePropertyChanged(nameof(MasterAvatarDisplayName));
@@ -12187,6 +12956,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RaisePropertyChanged(nameof(UniversalManagedChannelPointRewardHelpText));
         RaisePropertyChanged(nameof(UniversalManagedRewardStatusText));
         RaisePropertyChanged(nameof(AvatarScaleRuntimeStatusText));
+        RefreshRewardFireSaleStateProperties();
         RaisePropertyChanged(nameof(IsSetTriggerMasterRewardEditorVisible));
         RaisePropertyChanged(nameof(SelectedActionTypeOption));
         RaiseAvatarRedeemGroupProperties();
@@ -13718,7 +14488,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         MovementRedeems,
         SupporterOverrides,
         UniversalTriggers,
-        AvatarScaling
+        AvatarScaling,
+        RewardFireSale
     }
 
     private sealed record LinkedTwitchRewardReference(string RewardId, string DisplayTitle);
@@ -13804,6 +14575,11 @@ public sealed record TwitchRewardOption(
 }
 
 public sealed record TwitchRewardSyncModeOption(TwitchRewardSyncMode Value, string Label)
+{
+    public override string ToString() => Label;
+}
+
+public sealed record RewardFireSaleModeOption(RewardFireSaleMode Value, string Label)
 {
     public override string ToString() => Label;
 }
