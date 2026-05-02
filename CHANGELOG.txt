@@ -9,6 +9,8 @@ v3.0.2
 - Temporary Fire Sales restore normal reward prices when the timer ends, and permanent Fire Sales stay active until stopped.
 - Fire Sale progress uses Bits amounts and an optional Crystal Relay-owned funding reward with an editable channel-point conversion rate, without polling Twitch or syncing rewards while progress is only filling.
 - Added Fire Sale test-mode warning text so streamers know starting or stopping a sale can update Crystal Relay-owned Twitch reward prices.
+- Added an in-app Report Bug flow on the About page, with optional sanitized logs and a source-only Cloudflare Worker scaffold for creating public GitHub issues safely.
+- Polished the Report Bug window to match Crystal Relay themes, moved the Report Bug button to the top action bar, and tightened the Worker path so normal browser submissions are rejected while the desktop app can still send reports.
 
 v3.0.1
 - Reworked Avatar Scaling paid support so bits, new subs, resubs, and gift subs feed one Supporter Growth height timer with soft cap, max cap, and fair time-add controls.

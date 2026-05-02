@@ -27,6 +27,7 @@
   <ItemGroup>
     <ApplicationDefinition Include="App.xaml" />
     <Page Include="MainWindow.xaml" />
+    <Page Include="BugReportWindow.xaml" />
     <Page Include="ThemeBackgrounds\*.xaml" />
     <Page Include="TwitchChatboxWindow.xaml" />
     <Page Include="ThemedDialogWindow.xaml" />
@@ -53,6 +54,7 @@
   <ItemGroup>
     <Compile Include="App.xaml.cs" />
     <Compile Include="AssemblyInfo.cs" />
+    <Compile Include="BugReportWindow.xaml.cs" />
     <Compile Include="ComboBoxInteraction.cs" />
     <Compile Include="MainWindow.xaml.cs" />
     <Compile Include="TwitchChatboxWindow.xaml.cs" />
@@ -95,6 +97,7 @@
     <Compile Include="Services\BridgeAccountRole.cs" />
     <Compile Include="Services\BridgeCoordinator.cs" />
     <Compile Include="Services\BridgeRuntimeConfiguration.cs" />
+    <Compile Include="Services\BugReportService.cs" />
     <Compile Include="Services\ChatboxRelayModerationFilter.cs" />
     <Compile Include="Services\CrashLogService.cs" />
     <Compile Include="Services\DesktopInputLockService.cs" />

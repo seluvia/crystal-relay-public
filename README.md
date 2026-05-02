@@ -152,7 +152,7 @@ Crystal Relay uses standard network connections only for the services needed to 
 | **Twitch** | Outbound HTTPS for login, Helix API calls, reward management, emote data, and optional bot chat sends. Live Twitch events are received through EventSub over WebSocket. |
 | **VRChat** | Outbound HTTPS for login, 2FA, logout, and avatar list refreshes. Runtime avatar control uses local OSC and OSCQuery traffic between Crystal Relay and VRChat. |
 | **GitHub** | Outbound HTTPS to the public Crystal Relay releases API for update checks. |
-| **Cloudflare** | Outbound HTTPS to a Crystal Relay Cloudflare Worker for About-page beta live-status cards. It checks whether the listed beta/community profiles are live and returns public profile summary data only; Twitch tokens, VRChat auth cookies, local files, and private app data are not sent. |
+| **Cloudflare** | Outbound HTTPS to Crystal Relay Cloudflare Workers for About-page beta live-status cards and optional in-app bug reports. Bug reports are user-submitted, logs are opt-in and sanitized before sending, and Twitch tokens, VRChat auth cookies, passwords, and private app data must never be sent. |
 | **Local machine** | OSC and OSCQuery use local UDP/TCP ports for discovery, avatar parameters, movement inputs, avatar changes, and chatbox messages. This is local app-to-VRChat communication, not a public remote-control server. |
 
 Crystal Relay does **not** publish Twitch tokens, VRChat auth cookies, private IP addresses, local usernames, downloaded VRChat avatar files, or runtime app data into the README or public repository.

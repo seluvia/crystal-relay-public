@@ -286,6 +286,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private readonly RuntimeConfigStore runtimeConfigStore = new();
     private readonly TwitchApiClient twitchApiClient = new();
     private readonly ApplicationUpdateService applicationUpdateService = new();
+    private readonly BugReportService bugReportService = new();
     private readonly VrChatApiClient vrChatApiClient = new();
     private readonly VrChatLocalClientStateService vrChatLocalClientStateService = new();
     private readonly VrChatLocalOscCacheService vrChatLocalOscCacheService = new();
@@ -627,6 +628,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         OpenTwitchDeveloperConsoleCommand = new RelayCommand(OpenTwitchDeveloperConsole);
         OpenSaveFolderCommand = new RelayCommand(OpenSaveFolder);
         OpenKoFiSupportCommand = new RelayCommand(OpenKoFiSupportPage);
+        OpenBugReportCommand = new AsyncRelayCommand(OpenBugReportAsync);
         RefreshOscConnectionCommand = new AsyncRelayCommand(RefreshOscConnectionAsync);
         RefreshTwitchRewardsCommand = new AsyncRelayCommand(RefreshTwitchRewardsAsync);
         UnlinkTwitchRewardCommand = new RelayCommand(UnlinkTwitchReward);
@@ -2288,6 +2290,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public RelayCommand OpenKoFiSupportCommand { get; }
 
+    public AsyncRelayCommand OpenBugReportCommand { get; }
+
     public AsyncRelayCommand RefreshOscConnectionCommand { get; }
 
     public AsyncRelayCommand RefreshTwitchRewardsCommand { get; }
@@ -2554,6 +2558,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         await bridgeCoordinator.DisposeAsync();
         twitchApiClient.Dispose();
         applicationUpdateService.Dispose();
+        bugReportService.Dispose();
         vrChatApiClient.Dispose();
         sessionStatusTimer.Stop();
         vrChatLocalStateTimer.Stop();
@@ -12152,6 +12157,68 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private void OpenKoFiSupportPage()
     {
         OpenUri(KoFiSupportUri);
+    }
+
+    private async Task OpenBugReportAsync()
+    {
+        var dialog = new VrcTwitchOscBridge.BugReportWindow(SelectedTheme)
+        {
+            Owner = Application.Current?.MainWindow
+        };
+
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        var diagnostics = dialog.IncludeSanitizedLogs
+            ? bugReportService.BuildSanitizedDiagnostics(AppVersion, LogEntries.ToArray())
+            : string.Empty;
+
+        var submission = new BugReportSubmission(
+            dialog.BugTitle,
+            dialog.WhatHappened,
+            dialog.ExpectedBehavior,
+            dialog.StepsToReproduce,
+            dialog.ContactName,
+            AppVersion,
+            diagnostics);
+
+        AppendLog("Sending bug report to Crystal Relay's bug report service.");
+        var result = await bugReportService.SubmitAsync(submission);
+        if (result.Succeeded && !string.IsNullOrWhiteSpace(result.IssueUrl))
+        {
+            AppendLog($"Bug report submitted: {result.IssueUrl}");
+            var shouldOpenIssue = ThemedDialogWindow.ShowYesNo(
+                Application.Current?.MainWindow,
+                SelectedTheme,
+                T("Bug report sent"),
+                $"{T("Crystal Relay created a GitHub issue for this report.")}{Environment.NewLine}{Environment.NewLine}{result.IssueUrl}",
+                T("Open Issue"),
+                T("Close"));
+            if (shouldOpenIssue)
+            {
+                OpenUri(result.IssueUrl);
+            }
+
+            return;
+        }
+
+        var errorMessage = string.IsNullOrWhiteSpace(result.ErrorMessage)
+            ? T("The bug report service did not accept the report.")
+            : result.ErrorMessage;
+        AppendLog($"Bug report could not be sent: {errorMessage}");
+        var shouldOpenFallback = ThemedDialogWindow.ShowYesNo(
+            Application.Current?.MainWindow,
+            SelectedTheme,
+            T("Bug report could not be sent"),
+            $"{errorMessage}{Environment.NewLine}{Environment.NewLine}{T("Open the GitHub Issues page instead?")}",
+            T("Open GitHub Issues"),
+            T("Close"));
+        if (shouldOpenFallback)
+        {
+            OpenUri(BugReportService.GitHubIssuesUrl);
+        }
     }
 
     private void OpenBroadcasterAuthPage()
