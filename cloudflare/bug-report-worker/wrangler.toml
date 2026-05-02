@@ -1,8 +1,0 @@
-name = "crystal-relay-bug-report"
-main = "src/index.js"
-compatibility_date = "2026-05-02"
-workers_dev = true
-
-[[kv_namespaces]]
-binding = "BUG_REPORT_RATE_LIMIT"
-id = "e392730cdffe4921b834490ce8b8c01b"

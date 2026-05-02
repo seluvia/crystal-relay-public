@@ -6,6 +6,8 @@
 .dotnet/
 .dotnet-home/
 .nuget/
+.wrangler/
+**/.wrangler/
 
 Backups/
 Releases/
@@ -22,7 +24,3 @@ Code Review/
 
 appsettings.Development.json
 secrets.json
-
-# Cloudflare local deployment cache
-.wrangler/
-**/.wrangler/
