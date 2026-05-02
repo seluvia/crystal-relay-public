@@ -375,6 +375,12 @@
   "Try again in {0}.": "Försök igen om {0}.",
   "What did you expect to happen": "Vad förväntade du dig skulle hända",
   "What happened": "Vad hände",
-  "What happened must be 20 to 5000 characters.": "Beskrivningen av vad som hände måste vara 20 till 5000 tecken."
+  "What happened must be 20 to 5000 characters.": "Beskrivningen av vad som hände måste vara 20 till 5000 tecken.",
+  "Funding Reward Cooldown (seconds)": "Nedkylning för finansieringsbelöning (sekunder)",
+  "Supporter Growth Cheer Keywords": "Cheer-nyckelord för Supporter Growth",
+  "Grow Keyword": "Nyckelord för att växa",
+  "Shrink Keyword": "Nyckelord för att krympa",
+  "Use cheer text like Cheer100 grow or Cheer100 shrink. No keyword keeps the existing positive growth behavior; if both words appear, Crystal Relay skips the scale instead of guessing.": "Använd Cheer-text som Cheer100 grow eller Cheer100 shrink. Utan nyckelord behålls det befintliga positiva växandet; om båda orden finns hoppar Crystal Relay över skalningen i stället för att gissa.",
+  "Avatar scale '{0}' skipped because cheer text matched both Supporter Growth keywords ('{1}' and '{2}').": "Avatar-skalning '{0}' hoppades över eftersom Cheer-texten matchade båda Supporter Growth-nyckelorden ('{1}' och '{2}').",
+  "Avatar scale '{0}' skipped because the cheer text matched both grow and shrink keywords.": "Avatar-skalning '{0}' hoppades över eftersom Cheer-texten matchade både väx- och krympnyckelordet."
 }
-

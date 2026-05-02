@@ -375,6 +375,12 @@
   "Try again in {0}.": "Versuche es in {0} erneut.",
   "What did you expect to happen": "Was sollte passieren",
   "What happened": "Was ist passiert",
-  "What happened must be 20 to 5000 characters.": "Die Beschreibung muss 20 bis 5000 Zeichen lang sein."
+  "What happened must be 20 to 5000 characters.": "Die Beschreibung muss 20 bis 5000 Zeichen lang sein.",
+  "Funding Reward Cooldown (seconds)": "Abklingzeit der Finanzierungsbelohnung (Sekunden)",
+  "Supporter Growth Cheer Keywords": "Cheer-Schlüsselwörter für Supporter Growth",
+  "Grow Keyword": "Schlüsselwort zum Wachsen",
+  "Shrink Keyword": "Schlüsselwort zum Schrumpfen",
+  "Use cheer text like Cheer100 grow or Cheer100 shrink. No keyword keeps the existing positive growth behavior; if both words appear, Crystal Relay skips the scale instead of guessing.": "Nutze Cheer-Text wie Cheer100 grow oder Cheer100 shrink. Ohne Schlüsselwort bleibt das bisherige positive Wachstum erhalten; wenn beide Wörter vorkommen, überspringt Crystal Relay die Skalierung statt zu raten.",
+  "Avatar scale '{0}' skipped because cheer text matched both Supporter Growth keywords ('{1}' and '{2}').": "Avatar-Skalierung '{0}' übersprungen, weil der Cheer-Text beide Supporter-Growth-Schlüsselwörter ('{1}' und '{2}') enthielt.",
+  "Avatar scale '{0}' skipped because the cheer text matched both grow and shrink keywords.": "Avatar-Skalierung '{0}' übersprungen, weil der Cheer-Text sowohl das Wachsen- als auch das Schrumpfen-Schlüsselwort enthielt."
 }
-

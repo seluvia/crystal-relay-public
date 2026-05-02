@@ -1,7 +1,7 @@
 {
   "Jump": "Salta",
   "Update Available": "Aggiornamento disponibile",
-  "A newer Crystal Relay update is available.\n\nCurrent version: {0}\nLatest version: {1}\n\nIf you continue, Crystal Relay will open the GitHub release page in your browser.": "ÃƒÆ’Ã†â€™Ãƒâ€¹Ã¢â‚¬Â\u00A0 disponibile un nuovo aggiornamento di Crystal Relay.\n\nVersione attuale: {0}\nUltima versione: {1}\n\nSe continui, Crystal Relay aprirÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â\u00A0 nel browser la pagina della release su GitHub.",
+  "A newer Crystal Relay update is available.\n\nCurrent version: {0}\nLatest version: {1}\n\nIf you continue, Crystal Relay will open the GitHub release page in your browser.": "ÃƒÆ’Ã†â€™Ãƒâ€¹Ã¢â‚¬Â  disponibile un nuovo aggiornamento di Crystal Relay.\n\nVersione attuale: {0}\nUltima versione: {1}\n\nSe continui, Crystal Relay aprirÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â  nel browser la pagina della release su GitHub.",
   "Open Update Page": "Apri pagina aggiornamento",
   "Not Now": "Non ora",
   "Crystal Relay could not check for updates right now.": "Crystal Relay non ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¨ riuscito a controllare gli aggiornamenti in questo momento.",
@@ -45,7 +45,7 @@
   "Delete Universal Trigger": "Delete Universal Trigger",
   "Delete Universal Triggers": "Delete Universal Triggers",
   "Delete Twitch reward when inactive": "Elimina la ricompensa Twitch quando ÃƒÆ’Ã‚Â¨ inattiva",
-  "Frees Twitch reward slots. Crystal Relay will recreate or relink this reward when it becomes active again.": "Libera slot per le ricompense Twitch. Crystal Relay ricreerÃƒÆ’Ã‚Â\u00A0 o ricollegherÃƒÆ’Ã‚Â\u00A0 questa ricompensa quando tornerÃƒÆ’Ã‚Â\u00A0 attiva.",
+  "Frees Twitch reward slots. Crystal Relay will recreate or relink this reward when it becomes active again.": "Libera slot per le ricompense Twitch. Crystal Relay ricreerÃƒÆ’Ã‚Â  o ricollegherÃƒÆ’Ã‚Â  questa ricompensa quando tornerÃƒÆ’Ã‚Â  attiva.",
   "Delete every universal trigger? This does not delete Avatar Sets, Movement Redeems, Avatar Change, or Bits + Subs overrides.": "Delete every universal trigger? This does not delete Avatar Sets, Movement Redeems, Avatar Change, or Bits + Subs overrides.",
   "Duration": "Duration",
   "Enabled": "Enabled",
@@ -375,6 +375,12 @@
   "Try again in {0}.": "Riprova tra {0}.",
   "What did you expect to happen": "Cosa ti aspettavi che accadesse",
   "What happened": "Cosa è successo",
-  "What happened must be 20 to 5000 characters.": "La descrizione di cosa è successo deve avere da 20 a 5000 caratteri."
+  "What happened must be 20 to 5000 characters.": "La descrizione di cosa è successo deve avere da 20 a 5000 caratteri.",
+  "Funding Reward Cooldown (seconds)": "Tempo di recupero della ricompensa di finanziamento (secondi)",
+  "Supporter Growth Cheer Keywords": "Parole chiave Cheer per Supporter Growth",
+  "Grow Keyword": "Parola chiave per crescere",
+  "Shrink Keyword": "Parola chiave per rimpicciolire",
+  "Use cheer text like Cheer100 grow or Cheer100 shrink. No keyword keeps the existing positive growth behavior; if both words appear, Crystal Relay skips the scale instead of guessing.": "Usa un testo Cheer come Cheer100 grow o Cheer100 shrink. Senza parola chiave resta il comportamento di crescita positiva esistente; se compaiono entrambe le parole, Crystal Relay salta la scala invece di indovinare.",
+  "Avatar scale '{0}' skipped because cheer text matched both Supporter Growth keywords ('{1}' and '{2}').": "Scala avatar '{0}' saltata perché il testo Cheer corrispondeva a entrambe le parole chiave di Supporter Growth ('{1}' e '{2}').",
+  "Avatar scale '{0}' skipped because the cheer text matched both grow and shrink keywords.": "Scala avatar '{0}' saltata perché il testo Cheer corrispondeva sia alla parola chiave per crescere sia a quella per rimpicciolire."
 }
-

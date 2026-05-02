@@ -2439,8 +2439,21 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         bool isTest,
         CancellationToken cancellationToken)
     {
-        var addedHeight = GetSupporterGrowthHeightAdd(rule, incomingEvent, isTest);
-        if (addedHeight <= 0)
+        var bitHeightDirection = 1;
+        if (!isTest
+            && incomingEvent.TriggerType == UniversalTriggerType.Bits
+            && !TryResolveSupporterGrowthBitsHeightDirection(
+                rule,
+                incomingEvent.ChatMessageText,
+                out bitHeightDirection,
+                out var directionDiagnostic))
+        {
+            WriteLog(directionDiagnostic ?? TF("Avatar scale '{0}' skipped because the cheer text matched both grow and shrink keywords.", rule.Name));
+            return;
+        }
+
+        var addedHeight = GetSupporterGrowthHeightAdd(rule, incomingEvent, isTest, bitHeightDirection);
+        if (addedHeight == 0)
         {
             WriteLog($"Avatar scale '{rule.Name}' skipped because this supporter event does not match a configured tier or bits range.");
             return;
@@ -2530,7 +2543,10 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
                 var requestedAddedHeight = state.AddedHeightMeters + addedHeight;
                 state.AddedHeightMeters = rule.SupporterGrowthMaxAddedHeightMeters > 0
-                    ? Math.Min(requestedAddedHeight, rule.SupporterGrowthMaxAddedHeightMeters)
+                    ? Math.Clamp(
+                        requestedAddedHeight,
+                        -Math.Abs(rule.SupporterGrowthMaxAddedHeightMeters),
+                        Math.Abs(rule.SupporterGrowthMaxAddedHeightMeters))
                     : requestedAddedHeight;
                 totalAddedHeight = state.AddedHeightMeters;
                 targetHeight = ApplyAvatarScaleHeightLimits(rule, normalHeight + totalAddedHeight, "supporter growth height");
@@ -2564,7 +2580,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                     sessionCancellation),
                 CancellationToken.None);
 
-            WriteLog($"{incomingEvent.UserDisplayName} added {addedHeight:0.###}m and {DescribeDuration(addedPaidSeconds)} to supporter growth '{rule.Name}' for a target of {targetHeight:0.###}m. Paid time remaining: {DescribeDuration(remainingPaidSeconds)}.");
+            WriteLog($"{incomingEvent.UserDisplayName} changed supporter growth '{rule.Name}' by {addedHeight:+0.###;-0.###;0}m and added {DescribeDuration(addedPaidSeconds)} for a target of {targetHeight:0.###}m. Paid time remaining: {DescribeDuration(remainingPaidSeconds)}.");
         }
         finally
         {
@@ -2704,7 +2720,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private static double GetSupporterGrowthHeightAdd(
         AvatarScaleRuleSnapshot rule,
         UniversalIncomingEvent incomingEvent,
-        bool isTest)
+        bool isTest,
+        int bitHeightDirection = 1)
     {
         if (isTest)
         {
@@ -2713,7 +2730,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
         return incomingEvent.TriggerType switch
         {
-            UniversalTriggerType.Bits => GetSupporterGrowthBitsHeightAdd(rule, incomingEvent.Amount),
+            UniversalTriggerType.Bits => GetSupporterGrowthBitsHeightAdd(rule, incomingEvent.Amount, bitHeightDirection),
             UniversalTriggerType.Subscription => GetSupporterGrowthTierHeightAdd(rule, incomingEvent.SubscriptionTier),
             UniversalTriggerType.GiftSubscription => GetSupporterGrowthTierHeightAdd(rule, incomingEvent.SubscriptionTier)
                 * Math.Max(1, incomingEvent.Amount),
@@ -2780,7 +2797,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         return Math.Clamp(remaining + fullAddition + reducedAddition, 0, maxSeconds);
     }
 
-    private static double GetSupporterGrowthBitsHeightAdd(AvatarScaleRuleSnapshot rule, int bits)
+    private static double GetSupporterGrowthBitsHeightAdd(AvatarScaleRuleSnapshot rule, int bits, int direction)
     {
         if (bits <= 0)
         {
@@ -2793,11 +2810,79 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             var maximumBits = Math.Max(0, range.MaximumBits);
             if (bits >= minimumBits && (maximumBits == 0 || bits <= maximumBits))
             {
-                return Math.Max(0, range.HeightAddedMeters);
+                return Math.Abs(range.HeightAddedMeters) * (direction < 0 ? -1 : 1);
             }
         }
 
         return 0;
+    }
+
+    private static bool TryResolveSupporterGrowthBitsHeightDirection(
+        AvatarScaleRuleSnapshot rule,
+        string messageText,
+        out int direction,
+        out string? diagnostic)
+    {
+        direction = 1;
+        diagnostic = null;
+
+        var cheerText = ExtractBitsOutfitChoiceText(messageText);
+        var growMatched = ContainsSupporterGrowthBitsKeyword(cheerText, rule.SupporterGrowthGrowKeyword);
+        var shrinkMatched = ContainsSupporterGrowthBitsKeyword(cheerText, rule.SupporterGrowthShrinkKeyword);
+        if (growMatched && shrinkMatched)
+        {
+            diagnostic = TF(
+                "Avatar scale '{0}' skipped because cheer text matched both Supporter Growth keywords ('{1}' and '{2}').",
+                rule.Name,
+                rule.SupporterGrowthGrowKeyword,
+                rule.SupporterGrowthShrinkKeyword);
+            return false;
+        }
+
+        direction = shrinkMatched ? -1 : 1;
+        return true;
+    }
+
+    private static bool ContainsSupporterGrowthBitsKeyword(string messageText, string keyword)
+    {
+        var normalizedMessage = NormalizeSupporterGrowthBitsKeywordText(messageText);
+        var normalizedKeyword = NormalizeSupporterGrowthBitsKeywordText(keyword);
+        if (string.IsNullOrWhiteSpace(normalizedMessage)
+            || string.IsNullOrWhiteSpace(normalizedKeyword))
+        {
+            return false;
+        }
+
+        return string.Equals(normalizedMessage, normalizedKeyword, StringComparison.Ordinal)
+            || normalizedMessage.StartsWith(normalizedKeyword + " ", StringComparison.Ordinal)
+            || normalizedMessage.EndsWith(" " + normalizedKeyword, StringComparison.Ordinal)
+            || normalizedMessage.Contains(" " + normalizedKeyword + " ", StringComparison.Ordinal);
+    }
+
+    private static string NormalizeSupporterGrowthBitsKeywordText(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        var builder = new StringBuilder(value.Length);
+        var previousWasSpace = true;
+        foreach (var character in value.Trim().ToLowerInvariant())
+        {
+            if (char.IsLetterOrDigit(character))
+            {
+                builder.Append(character);
+                previousWasSpace = false;
+            }
+            else if (!previousWasSpace)
+            {
+                builder.Append(' ');
+                previousWasSpace = true;
+            }
+        }
+
+        return builder.ToString().Trim();
     }
 
     private static double GetSupporterGrowthTierHeightAdd(AvatarScaleRuleSnapshot rule, string tier)
@@ -3188,7 +3273,18 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         AvatarScaleRuleSnapshot rule,
         UniversalIncomingEvent incomingEvent)
     {
-        return GetSupporterGrowthHeightAdd(rule, incomingEvent, isTest: false) > 0;
+        var bitHeightDirection = 1;
+        if (incomingEvent.TriggerType == UniversalTriggerType.Bits
+            && !TryResolveSupporterGrowthBitsHeightDirection(
+                rule,
+                incomingEvent.ChatMessageText,
+                out bitHeightDirection,
+                out _))
+        {
+            return false;
+        }
+
+        return GetSupporterGrowthHeightAdd(rule, incomingEvent, isTest: false, bitHeightDirection) != 0;
     }
 
     private static bool AvatarScaleRewardMatches(
@@ -8898,7 +8994,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 GetInt(eventData, "bits"),
                 null,
                 null,
-                string.Empty,
+                GetString(eventData, "message") ?? ExtractChatMessageText(eventData),
                 string.Empty,
                 0,
                 [],

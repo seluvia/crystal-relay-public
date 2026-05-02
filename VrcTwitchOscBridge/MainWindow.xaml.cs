@@ -358,6 +358,9 @@ public partial class MainWindow : Window
             AvatarTriggerProfile profile => isCooldownColor
                 ? profile.SetTriggerMasterRewardCooldownColor
                 : profile.SetTriggerMasterRewardReadyColor,
+            RewardFireSaleSettings fireSale => isCooldownColor
+                ? fireSale.FundingRewardCooldownColor
+                : fireSale.FundingRewardReadyColor,
             _ => string.Empty
         };
         if (string.IsNullOrWhiteSpace(initialColor))
@@ -415,6 +418,12 @@ public partial class MainWindow : Window
                 break;
             case AvatarTriggerProfile profile:
                 profile.SetTriggerMasterRewardReadyColor = selectedColor;
+                break;
+            case RewardFireSaleSettings fireSale when isCooldownColor:
+                fireSale.FundingRewardCooldownColor = selectedColor;
+                break;
+            case RewardFireSaleSettings fireSale:
+                fireSale.FundingRewardReadyColor = selectedColor;
                 break;
         }
     }

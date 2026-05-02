@@ -1,5 +1,8 @@
 using System.Collections.ObjectModel;
+using System.Windows.Media;
 using VrcTwitchOscBridge.Infrastructure;
+using VrcTwitchOscBridge.Services;
+using Brush = System.Windows.Media.Brush;
 
 namespace VrcTwitchOscBridge.Models;
 
@@ -57,6 +60,9 @@ public sealed class RewardFireSaleSettings : ObservableObject
     private string fundingRewardId = string.Empty;
     private string fundingRewardTitle = "Fire Sale Fund";
     private int fundingRewardCost = 100;
+    private int fundingRewardCooldownSeconds;
+    private string fundingRewardReadyColor = ManagedRewardPresentation.ReadyBackgroundColor;
+    private string fundingRewardCooldownColor = ManagedRewardPresentation.InUseBackgroundColor;
     private int rewardPointsPerProgressUnit = 10;
     private bool multiTierEnabled = true;
     private ObservableCollection<RewardFireSaleTier> tiers =
@@ -111,6 +117,38 @@ public sealed class RewardFireSaleSettings : ObservableObject
     {
         get => fundingRewardCost;
         set => SetProperty(ref fundingRewardCost, Math.Max(1, value));
+    }
+
+    public int FundingRewardCooldownSeconds
+    {
+        get => fundingRewardCooldownSeconds;
+        set => SetProperty(ref fundingRewardCooldownSeconds, Math.Max(0, value));
+    }
+
+    public string FundingRewardReadyColor
+    {
+        get => fundingRewardReadyColor;
+        set
+        {
+            var normalizedValue = ManagedRewardPresentation.NormalizeReadyBackgroundColor(value);
+            if (SetProperty(ref fundingRewardReadyColor, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(FundingRewardReadyColorBrush));
+            }
+        }
+    }
+
+    public string FundingRewardCooldownColor
+    {
+        get => fundingRewardCooldownColor;
+        set
+        {
+            var normalizedValue = ManagedRewardPresentation.NormalizeCooldownBackgroundColor(value);
+            if (SetProperty(ref fundingRewardCooldownColor, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(FundingRewardCooldownColorBrush));
+            }
+        }
     }
 
     public int RewardPointsPerProgressUnit
@@ -180,4 +218,15 @@ public sealed class RewardFireSaleSettings : ObservableObject
     }
 
     public string CurrentProgressText => $"{CurrentProgress:N0}";
+
+    public Brush FundingRewardReadyColorBrush => CreateColorBrush(FundingRewardReadyColor);
+
+    public Brush FundingRewardCooldownColorBrush => CreateColorBrush(FundingRewardCooldownColor);
+
+    private static Brush CreateColorBrush(string colorText)
+    {
+        var brush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(colorText));
+        brush.Freeze();
+        return brush;
+    }
 }

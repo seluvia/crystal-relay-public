@@ -365,6 +365,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private CancellationTokenSource? vrChatOscParameterRefreshCancellation;
     private CancellationTokenSource? vrChatLocalOscScanCancellation;
     private CancellationTokenSource? rewardFireSaleExpirationCancellation;
+    private CancellationTokenSource? rewardFireSaleFundingCooldownCancellation;
+    private DateTimeOffset? rewardFireSaleFundingRewardCooldownUntil;
     private FileSystemWatcher? vrChatLocalOscWatcher;
     private readonly List<VrChatAvatarSummary> availableVrChatAvatars = [];
     private readonly Dictionary<string, string> availableVrChatAvatarNamesById = new(StringComparer.Ordinal);
@@ -2518,6 +2520,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         CancelAndDisposeQueuedCancellationSource(ref vrChatOscParameterRefreshCancellation);
         CancelAndDisposeQueuedCancellationSource(ref vrChatLocalOscScanCancellation);
         CancelAndDisposeQueuedCancellationSource(ref rewardFireSaleExpirationCancellation);
+        CancelAndDisposeQueuedCancellationSource(ref rewardFireSaleFundingCooldownCancellation);
         DisposeVrChatLocalOscWatcher();
 
         if (isInitialized)
@@ -3757,6 +3760,18 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         fireSale.FundingRewardCost = Math.Max(1, fundingCost <= 0 ? 100 : fundingCost);
         changed |= fundingCost != fireSale.FundingRewardCost;
 
+        var fundingCooldown = fireSale.FundingRewardCooldownSeconds;
+        fireSale.FundingRewardCooldownSeconds = Math.Max(0, fundingCooldown);
+        changed |= fundingCooldown != fireSale.FundingRewardCooldownSeconds;
+
+        var fundingReadyColor = fireSale.FundingRewardReadyColor;
+        fireSale.FundingRewardReadyColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(fundingReadyColor);
+        changed |= !string.Equals(fundingReadyColor, fireSale.FundingRewardReadyColor, StringComparison.OrdinalIgnoreCase);
+
+        var fundingCooldownColor = fireSale.FundingRewardCooldownColor;
+        fireSale.FundingRewardCooldownColor = ManagedRewardPresentation.NormalizeCooldownBackgroundColor(fundingCooldownColor);
+        changed |= !string.Equals(fundingCooldownColor, fireSale.FundingRewardCooldownColor, StringComparison.OrdinalIgnoreCase);
+
         var conversion = fireSale.RewardPointsPerProgressUnit;
         fireSale.RewardPointsPerProgressUnit = Math.Max(1, conversion <= 0 ? 10 : conversion);
         changed |= conversion != fireSale.RewardPointsPerProgressUnit;
@@ -3916,6 +3931,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
 
         fireSale.CurrentProgress += contributionAmount;
+        if (isFundingReward)
+        {
+            StartRewardFireSaleFundingRewardCooldown();
+        }
+
         AppendLog($"Reward Fire Sale added {contributionAmount:N0} progress from {contribution.UserDisplayName}. Total: {fireSale.CurrentProgress:N0}.");
         ActivateRewardFireSaleIfGoalReached();
         RefreshRewardFireSaleStateProperties();
@@ -3957,6 +3977,71 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     {
         var fireSale = Settings.RewardFireSale;
         return Math.Max(1, (int)Math.Floor(Math.Max(1, fireSale.FundingRewardCost) / (double)Math.Max(1, fireSale.RewardPointsPerProgressUnit)));
+    }
+
+    private void StartRewardFireSaleFundingRewardCooldown()
+    {
+        var cooldownSeconds = Math.Max(0, Settings.RewardFireSale.FundingRewardCooldownSeconds);
+        if (cooldownSeconds <= 0)
+        {
+            ClearRewardFireSaleFundingRewardCooldown(queueSync: false);
+            return;
+        }
+
+        rewardFireSaleFundingRewardCooldownUntil = DateTimeOffset.UtcNow.AddSeconds(cooldownSeconds);
+        ScheduleRewardFireSaleFundingRewardCooldownEnd(cooldownSeconds);
+        QueueManagedRewardSync(0, ManagedRewardSyncReason.FireSaleChanged);
+    }
+
+    private bool IsRewardFireSaleFundingRewardOnCooldown()
+    {
+        if (rewardFireSaleFundingRewardCooldownUntil is not { } cooldownUntil)
+        {
+            return false;
+        }
+
+        if (cooldownUntil > DateTimeOffset.UtcNow
+            && Settings.RewardFireSale.FundingRewardCooldownSeconds > 0)
+        {
+            return true;
+        }
+
+        ClearRewardFireSaleFundingRewardCooldown(queueSync: false);
+        return false;
+    }
+
+    private void ClearRewardFireSaleFundingRewardCooldown(bool queueSync)
+    {
+        rewardFireSaleFundingRewardCooldownUntil = null;
+        CancelAndDisposeQueuedCancellationSource(ref rewardFireSaleFundingCooldownCancellation);
+        if (queueSync)
+        {
+            QueueManagedRewardSync(0, ManagedRewardSyncReason.FireSaleChanged);
+        }
+    }
+
+    private void ScheduleRewardFireSaleFundingRewardCooldownEnd(int cooldownSeconds)
+    {
+        var cooldownCancellation = ReplaceQueuedCancellationSource(ref rewardFireSaleFundingCooldownCancellation);
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(Math.Max(1, cooldownSeconds)), cooldownCancellation.Token);
+                RunOnUi(() =>
+                {
+                    rewardFireSaleFundingRewardCooldownUntil = null;
+                    QueueManagedRewardSync(0, ManagedRewardSyncReason.FireSaleChanged);
+                });
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            finally
+            {
+                DisposeCompletedQueuedCancellationSource(ref rewardFireSaleFundingCooldownCancellation, cooldownCancellation);
+            }
+        }, CancellationToken.None);
     }
 
     private void ActivateRewardFireSaleIfGoalReached()
@@ -5812,6 +5897,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             }
         }
 
+        if (e.PropertyName == nameof(RewardFireSaleSettings.FundingRewardCooldownSeconds)
+            && fireSale.FundingRewardCooldownSeconds <= 0)
+        {
+            ClearRewardFireSaleFundingRewardCooldown(queueSync: true);
+        }
+
         if (e.PropertyName == nameof(RewardFireSaleSettings.IsSaleActive)
             || e.PropertyName == nameof(RewardFireSaleSettings.ActiveDiscountPercent)
             || e.PropertyName == nameof(RewardFireSaleSettings.ActiveTierGoalAmount)
@@ -5819,6 +5910,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             || e.PropertyName == nameof(RewardFireSaleSettings.CurrentProgress)
             || e.PropertyName == nameof(RewardFireSaleSettings.IsEnabled)
             || e.PropertyName == nameof(RewardFireSaleSettings.FundingRewardCost)
+            || e.PropertyName == nameof(RewardFireSaleSettings.FundingRewardCooldownSeconds)
             || e.PropertyName == nameof(RewardFireSaleSettings.RewardPointsPerProgressUnit))
         {
             RefreshRewardFireSaleStateProperties();
@@ -5830,6 +5922,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             || e.PropertyName == nameof(RewardFireSaleSettings.FundingRewardEnabled)
             || e.PropertyName == nameof(RewardFireSaleSettings.FundingRewardTitle)
             || e.PropertyName == nameof(RewardFireSaleSettings.FundingRewardCost)
+            || e.PropertyName == nameof(RewardFireSaleSettings.FundingRewardCooldownSeconds)
+            || e.PropertyName == nameof(RewardFireSaleSettings.FundingRewardReadyColor)
+            || e.PropertyName == nameof(RewardFireSaleSettings.FundingRewardCooldownColor)
             || e.PropertyName == nameof(RewardFireSaleSettings.RewardPointsPerProgressUnit))
         {
             QueueManagedRewardSync(0, ManagedRewardSyncReason.FireSaleChanged);
@@ -8488,6 +8583,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             && fireSale.IsEnabled
             && fireSale.FundingRewardEnabled
             && (!IsRewardFireSaleActiveNow() || CanRewardFireSaleAdvanceToLaterTier());
+        var isFundingRewardOnCooldown = IsRewardFireSaleFundingRewardOnCooldown();
+        var backgroundColor = isFundingRewardOnCooldown
+            ? ManagedRewardPresentation.NormalizeCooldownBackgroundColor(fireSale.FundingRewardCooldownColor)
+            : ManagedRewardPresentation.NormalizeReadyBackgroundColor(fireSale.FundingRewardReadyColor);
 
         return new ManagedRewardSyncTarget(
             RewardFireSaleFundingRewardOwnerId,
@@ -8496,14 +8595,14 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             fireSale.FundingRewardTitle,
             fireSale.FundingRewardCost,
             TwitchRewardSyncMode.CreateOrManage,
-            cooldownSeconds: 0,
-            backgroundColor: ManagedRewardPresentation.ReadyBackgroundColor,
+            cooldownSeconds: fireSale.FundingRewardCooldownSeconds,
+            backgroundColor: backgroundColor,
             prompt: RewardFireSaleFundingRewardPrompt,
             requireUserInput: false,
             desiredEnabled: desiredEnabled,
-            isCooldownActive: false,
+            isCooldownActive: isFundingRewardOnCooldown,
             deleteWhenInactive: false,
-            protectFromCapReclaim: desiredEnabled || fireSale.IsSaleActive,
+            protectFromCapReclaim: desiredEnabled || fireSale.IsSaleActive || isFundingRewardOnCooldown,
             applyRewardId: rewardId => fireSale.FundingRewardId = rewardId);
     }
 

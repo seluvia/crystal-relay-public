@@ -3756,12 +3756,21 @@
                                                     <TextBox Text="{Binding Settings.RewardFireSale.FundingRewardCost, UpdateSourceTrigger=PropertyChanged}" />
                                                 </StackPanel>
                                             </UniformGrid>
-                                            <StackPanel Margin="0,12,0,0">
-                                                <TextBlock Text="{loc:Translate 'Reward points per 1 progress'}"
-                                                           Foreground="{DynamicResource TextBrush}"
-                                                           FontWeight="SemiBold" />
-                                                <TextBox Text="{Binding Settings.RewardFireSale.RewardPointsPerProgressUnit, UpdateSourceTrigger=PropertyChanged}" />
-                                            </StackPanel>
+                                            <UniformGrid Margin="0,12,0,0"
+                                                         Columns="2">
+                                                <StackPanel Margin="0,0,10,0">
+                                                    <TextBlock Text="{loc:Translate 'Reward points per 1 progress'}"
+                                                               Foreground="{DynamicResource TextBrush}"
+                                                               FontWeight="SemiBold" />
+                                                    <TextBox Text="{Binding Settings.RewardFireSale.RewardPointsPerProgressUnit, UpdateSourceTrigger=PropertyChanged}" />
+                                                </StackPanel>
+                                                <StackPanel Margin="10,0,0,0">
+                                                    <TextBlock Text="{loc:Translate 'Funding Reward Cooldown (seconds)'}"
+                                                               Foreground="{DynamicResource TextBrush}"
+                                                               FontWeight="SemiBold" />
+                                                    <TextBox Text="{Binding Settings.RewardFireSale.FundingRewardCooldownSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                                                </StackPanel>
+                                            </UniformGrid>
                                             <TextBlock Margin="0,8,0,0"
                                                        Text="{Binding RewardFireSaleFundingRewardConversionText}"
                                                        Foreground="{DynamicResource MutedBrush}"
@@ -3770,6 +3779,66 @@
                                                        Text="{Binding RewardFireSaleFundingRewardPrompt}"
                                                        Foreground="{DynamicResource MutedBrush}"
                                                        TextWrapping="Wrap" />
+                                            <StackPanel Margin="0,12,0,0"
+                                                        DataContext="{Binding Settings.RewardFireSale}">
+                                                <TextBlock Text="{loc:Translate 'Managed Reward Colors'}"
+                                                           Foreground="{DynamicResource TextBrush}"
+                                                           FontWeight="SemiBold" />
+                                                <TextBlock Margin="0,6,0,0"
+                                                           Foreground="{DynamicResource MutedBrush}"
+                                                           TextWrapping="Wrap"
+                                                           Text="{Binding DataContext.ManagedRewardColorsDescriptionText, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                                <StackPanel Margin="0,10,0,0">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{loc:Translate 'Ready Color'}"
+                                                                   Foreground="{DynamicResource TextBrush}"
+                                                                   FontWeight="SemiBold" />
+                                                        <DockPanel Margin="0,6,0,0"
+                                                                   LastChildFill="False">
+                                                            <Border Width="28"
+                                                                    Height="28"
+                                                                    CornerRadius="14"
+                                                                    Background="{Binding FundingRewardReadyColorBrush}"
+                                                                    BorderBrush="{DynamicResource InputBorderBrush}"
+                                                                    BorderThickness="1" />
+                                                            <TextBlock Margin="12,0,16,0"
+                                                                       VerticalAlignment="Center"
+                                                                       Foreground="{DynamicResource TextBrush}"
+                                                                       FontWeight="SemiBold"
+                                                                       Text="{Binding FundingRewardReadyColor}" />
+                                                            <Button Content="{loc:Translate 'Choose Color'}"
+                                                                    Padding="16,6"
+                                                                    MinWidth="132"
+                                                                    Click="OnPickManagedRewardColorClicked"
+                                                                    Tag="Ready" />
+                                                        </DockPanel>
+                                                    </StackPanel>
+                                                    <StackPanel Margin="0,12,0,0">
+                                                        <TextBlock Text="{loc:Translate 'Cooldown Color'}"
+                                                                   Foreground="{DynamicResource TextBrush}"
+                                                                   FontWeight="SemiBold" />
+                                                        <DockPanel Margin="0,6,0,0"
+                                                                   LastChildFill="False">
+                                                            <Border Width="28"
+                                                                    Height="28"
+                                                                    CornerRadius="14"
+                                                                    Background="{Binding FundingRewardCooldownColorBrush}"
+                                                                    BorderBrush="{DynamicResource InputBorderBrush}"
+                                                                    BorderThickness="1" />
+                                                            <TextBlock Margin="12,0,16,0"
+                                                                       VerticalAlignment="Center"
+                                                                       Foreground="{DynamicResource TextBrush}"
+                                                                       FontWeight="SemiBold"
+                                                                       Text="{Binding FundingRewardCooldownColor}" />
+                                                            <Button Content="{loc:Translate 'Choose Color'}"
+                                                                    Padding="16,6"
+                                                                    MinWidth="132"
+                                                                    Click="OnPickManagedRewardColorClicked"
+                                                                    Tag="Cooldown" />
+                                                        </DockPanel>
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </StackPanel>
                                         </StackPanel>
                                     </Border>
 
@@ -4556,7 +4625,8 @@
                                                                       Content="{loc:Translate 'Delete Twitch reward when inactive'}"
                                                                       IsChecked="{Binding DeleteManagedRewardWhenInactive, UpdateSourceTrigger=PropertyChanged}">
                                                                 <CheckBox.Style>
-                                                                    <Style TargetType="CheckBox">
+                                                                    <Style TargetType="CheckBox"
+                                                                           BasedOn="{StaticResource {x:Type CheckBox}}">
                                                                         <Setter Property="Visibility" Value="Visible" />
                                                                         <Style.Triggers>
                                                                             <DataTrigger Binding="{Binding UsesLinkedExistingReward}" Value="True">
@@ -4893,6 +4963,30 @@
                                                                        Foreground="{DynamicResource TextBrush}"
                                                                        FontWeight="SemiBold" />
                                                             <TextBox Text="{Binding SupporterGrowthMaxPaidTimeSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                                                        </StackPanel>
+                                                    </UniformGrid>
+
+                                                    <TextBlock Margin="0,16,0,0"
+                                                               Text="{loc:Translate 'Supporter Growth Cheer Keywords'}"
+                                                               Foreground="{DynamicResource TextBrush}"
+                                                               FontWeight="SemiBold" />
+                                                    <TextBlock Margin="0,6,0,0"
+                                                               Text="{loc:Translate 'Use cheer text like Cheer100 grow or Cheer100 shrink. No keyword keeps the existing positive growth behavior; if both words appear, Crystal Relay skips the scale instead of guessing.'}"
+                                                               Foreground="{DynamicResource MutedBrush}"
+                                                               TextWrapping="Wrap" />
+                                                    <UniformGrid Columns="2"
+                                                                 Margin="0,10,0,0">
+                                                        <StackPanel Margin="0,0,14,0">
+                                                            <TextBlock Text="{loc:Translate 'Grow Keyword'}"
+                                                                       Foreground="{DynamicResource TextBrush}"
+                                                                       FontWeight="SemiBold" />
+                                                            <TextBox Text="{Binding SupporterGrowthGrowKeyword, UpdateSourceTrigger=PropertyChanged}" />
+                                                        </StackPanel>
+                                                        <StackPanel Margin="14,0,0,0">
+                                                            <TextBlock Text="{loc:Translate 'Shrink Keyword'}"
+                                                                       Foreground="{DynamicResource TextBrush}"
+                                                                       FontWeight="SemiBold" />
+                                                            <TextBox Text="{Binding SupporterGrowthShrinkKeyword, UpdateSourceTrigger=PropertyChanged}" />
                                                         </StackPanel>
                                                     </UniformGrid>
 

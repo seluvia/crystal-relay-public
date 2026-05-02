@@ -320,6 +320,8 @@ public sealed class AvatarScaleRule : ObservableObject
     private int supporterGrowthSoftCapSeconds = 1800;
     private int supporterGrowthSoftCapMultiplierPercent = 50;
     private int supporterGrowthMaxPaidTimeSeconds = 3600;
+    private string supporterGrowthGrowKeyword = "grow";
+    private string supporterGrowthShrinkKeyword = "shrink";
     private double supporterGrowthTier1HeightMeters = 0.10;
     private double supporterGrowthTier2HeightMeters = 0.20;
     private double supporterGrowthTier3HeightMeters = 0.30;
@@ -720,6 +722,18 @@ public sealed class AvatarScaleRule : ObservableObject
         set => SetAndRaiseSupporterGrowth(ref supporterGrowthMaxPaidTimeSeconds, Math.Max(1, value));
     }
 
+    public string SupporterGrowthGrowKeyword
+    {
+        get => supporterGrowthGrowKeyword;
+        set => SetAndRaiseSupporterGrowth(ref supporterGrowthGrowKeyword, NormalizeSupporterGrowthKeyword(value, "grow"));
+    }
+
+    public string SupporterGrowthShrinkKeyword
+    {
+        get => supporterGrowthShrinkKeyword;
+        set => SetAndRaiseSupporterGrowth(ref supporterGrowthShrinkKeyword, NormalizeSupporterGrowthKeyword(value, "shrink"));
+    }
+
     public double SupporterGrowthTier1HeightMeters
     {
         get => supporterGrowthTier1HeightMeters;
@@ -952,6 +966,23 @@ public sealed class AvatarScaleRule : ObservableObject
 
         RaiseSupporterGrowthProperties();
         return true;
+    }
+
+    private bool SetAndRaiseSupporterGrowth(ref string storage, string value)
+    {
+        if (!SetProperty(ref storage, value))
+        {
+            return false;
+        }
+
+        RaiseSupporterGrowthProperties();
+        return true;
+    }
+
+    private static string NormalizeSupporterGrowthKeyword(string? value, string fallback)
+    {
+        var normalizedValue = value?.Trim() ?? string.Empty;
+        return string.IsNullOrWhiteSpace(normalizedValue) ? fallback : normalizedValue;
     }
 
     private void RaiseTriggerProperties()

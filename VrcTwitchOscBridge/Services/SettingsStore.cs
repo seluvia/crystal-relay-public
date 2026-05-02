@@ -1176,6 +1176,9 @@ public sealed class SettingsStore
             FundingRewardId = settings.FundingRewardId,
             FundingRewardTitle = settings.FundingRewardTitle,
             FundingRewardCost = settings.FundingRewardCost,
+            FundingRewardCooldownSeconds = settings.FundingRewardCooldownSeconds,
+            FundingRewardReadyColor = settings.FundingRewardReadyColor,
+            FundingRewardCooldownColor = settings.FundingRewardCooldownColor,
             RewardPointsPerProgressUnit = settings.RewardPointsPerProgressUnit,
             MultiTierEnabled = settings.MultiTierEnabled,
             SaleMode = settings.SaleMode,
@@ -1218,6 +1221,9 @@ public sealed class SettingsStore
                 ? "Fire Sale Fund"
                 : settings.FundingRewardTitle.Trim(),
             FundingRewardCost = settings.FundingRewardCost <= 0 ? 100 : settings.FundingRewardCost,
+            FundingRewardCooldownSeconds = Math.Max(0, settings.FundingRewardCooldownSeconds),
+            FundingRewardReadyColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(settings.FundingRewardReadyColor),
+            FundingRewardCooldownColor = ManagedRewardPresentation.NormalizeCooldownBackgroundColor(settings.FundingRewardCooldownColor),
             RewardPointsPerProgressUnit = settings.RewardPointsPerProgressUnit <= 0 ? 10 : settings.RewardPointsPerProgressUnit,
             MultiTierEnabled = settings.MultiTierEnabled ?? true,
             SaleMode = Enum.IsDefined(settings.SaleMode) ? settings.SaleMode : RewardFireSaleMode.Temporary,
@@ -1296,6 +1302,8 @@ public sealed class SettingsStore
             SupporterGrowthSoftCapSeconds = rule.SupporterGrowthSoftCapSeconds,
             SupporterGrowthSoftCapMultiplierPercent = rule.SupporterGrowthSoftCapMultiplierPercent,
             SupporterGrowthMaxPaidTimeSeconds = rule.SupporterGrowthMaxPaidTimeSeconds,
+            SupporterGrowthGrowKeyword = rule.SupporterGrowthGrowKeyword,
+            SupporterGrowthShrinkKeyword = rule.SupporterGrowthShrinkKeyword,
             SupporterGrowthTier1HeightMeters = rule.SupporterGrowthTier1HeightMeters,
             SupporterGrowthTier2HeightMeters = rule.SupporterGrowthTier2HeightMeters,
             SupporterGrowthTier3HeightMeters = rule.SupporterGrowthTier3HeightMeters,
@@ -1395,6 +1403,12 @@ public sealed class SettingsStore
             SupporterGrowthMaxPaidTimeSeconds = rule.SupporterGrowthMaxPaidTimeSeconds <= 0
                 ? 3600
                 : rule.SupporterGrowthMaxPaidTimeSeconds,
+            SupporterGrowthGrowKeyword = string.IsNullOrWhiteSpace(rule.SupporterGrowthGrowKeyword)
+                ? "grow"
+                : rule.SupporterGrowthGrowKeyword.Trim(),
+            SupporterGrowthShrinkKeyword = string.IsNullOrWhiteSpace(rule.SupporterGrowthShrinkKeyword)
+                ? "shrink"
+                : rule.SupporterGrowthShrinkKeyword.Trim(),
             SupporterGrowthTier1HeightMeters = rule.SupporterGrowthTier1HeightMeters <= 0
                 ? 0.10
                 : rule.SupporterGrowthTier1HeightMeters,
@@ -2323,6 +2337,12 @@ public sealed class SettingsStore
 
         public int FundingRewardCost { get; set; }
 
+        public int FundingRewardCooldownSeconds { get; set; }
+
+        public string? FundingRewardReadyColor { get; set; }
+
+        public string? FundingRewardCooldownColor { get; set; }
+
         public int RewardPointsPerProgressUnit { get; set; }
 
         public bool? MultiTierEnabled { get; set; }
@@ -2450,6 +2470,10 @@ public sealed class SettingsStore
         public int SupporterGrowthSoftCapMultiplierPercent { get; set; }
 
         public int SupporterGrowthMaxPaidTimeSeconds { get; set; }
+
+        public string? SupporterGrowthGrowKeyword { get; set; }
+
+        public string? SupporterGrowthShrinkKeyword { get; set; }
 
         public double SupporterGrowthTier1HeightMeters { get; set; }
 
