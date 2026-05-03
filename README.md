@@ -15,6 +15,7 @@ Crystal Relay connects Twitch events to VRChat through local OSC and OSCQuery co
 - [Download packaged releases](https://github.com/seluvia/crystal-relay-public/releases)
 - [Watch the tutorial video](https://github.com/seluvia/crystal-relay-public/releases/download/v2.9.0/CrystalRelay-Tutorial-v2.9.0.mp4)
 - [Build and run from source](#build-and-run-from-source)
+- [Help translate Crystal Relay](TRANSLATING.md)
 - [Support free development on Ko-fi](https://ko-fi.com/screminpal)
 
 ## Contents
@@ -47,7 +48,7 @@ Crystal Relay connects Twitch events to VRChat through local OSC and OSCQuery co
 | **Managed rewards** | Twitch reward creation, adoption, syncing, cap-safe recycling, cooldown-aware state, per-redeem colors |
 | **Chat tools** | Built-in Twitch Chatbox, optional VRChat chat relay, optional bot/broadcaster trigger announcements |
 | **VRChat tools** | VRChat login with 2FA, avatar cache, OSC parameter cache, OSCQuery discovery |
-| **App polish** | Built-in themes, localization, About-page live cards, update alerts, in-app bug reports, crash logging |
+| **App polish** | Built-in themes, community-ready localization, About-page live cards, update alerts, in-app bug reports, crash logging |
 
 ## Main Features
 
@@ -196,6 +197,10 @@ Current built-in themes:
 - Stinky Online
 
 Built-in language support includes English, Spanish, Japanese, German, French, Portuguese (Brazil), Swedish, Italian, Simplified Chinese, Traditional Chinese, Korean, Russian, Polish, and Thai.
+
+Crystal Relay accepts public translation help through GitHub issues and pull requests. The English source file is `VrcTwitchOscBridge/Resources/Localization/en-US.extra.json`, and the translated files live beside it as `*.extra.json`.
+
+Want to help improve wording in your language? See [TRANSLATING.md](TRANSLATING.md). You can either open a translation issue with suggested wording or submit a pull request that edits the JSON translation files directly.
 
 ## Network and Privacy Basics
 
