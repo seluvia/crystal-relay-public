@@ -15,15 +15,17 @@ Crystal Relay connects Twitch events to VRChat through local OSC and OSCQuery co
 - [Download packaged releases](https://github.com/seluvia/crystal-relay-public/releases)
 - [Watch the tutorial video](https://github.com/seluvia/crystal-relay-public/releases/download/v2.9.0/CrystalRelay-Tutorial-v2.9.0.mp4)
 - [Build and run from source](#build-and-run-from-source)
+- [Support free development on Ko-fi](https://ko-fi.com/screminpal)
 
 ## Contents
 
 | Start Here | Stream Tools | Technical Info | Project Info |
 | --- | --- | --- | --- |
 | [Quick Start](#quick-start) | [Managed Twitch Rewards](#managed-twitch-rewards) | [Network and Privacy Basics](#network-and-privacy-basics) | [Open Source and AI Transparency](#open-source-and-ai-transparency) |
-| [What Crystal Relay Handles](#what-crystal-relay-handles) | [Universal Triggers](#universal-triggers) | [Local Data and Crash Logs](#local-data-and-crash-logs) | [License](#license) |
-| [Trigger Areas and Actions](#trigger-areas-and-actions) | [Twitch Chatbox](#twitch-chatbox) | [Build and Run From Source](#build-and-run-from-source) | [Versioning](#versioning) |
-| [Main Features](#main-features) | [VRChat and OSC](#vrchat-and-osc) | [Releases](#releases) | |
+| [What Crystal Relay Handles](#what-crystal-relay-handles) | [Avatar Scaling](#avatar-scaling) | [Local Data and Crash Logs](#local-data-and-crash-logs) | [License](#license) |
+| [Trigger Areas and Actions](#trigger-areas-and-actions) | [Reward Fire Sale](#reward-fire-sale) | [Build and Run From Source](#build-and-run-from-source) | [Versioning](#versioning) |
+| [Main Features](#main-features) | [Universal Triggers](#universal-triggers) | [Releases](#releases) | |
+| [Beta Highlights](#current-beta-highlights) | [Twitch Chatbox](#twitch-chatbox) | [VRChat and OSC](#vrchat-and-osc) | |
 
 ## Quick Start
 
@@ -40,25 +42,44 @@ Crystal Relay connects Twitch events to VRChat through local OSC and OSCQuery co
 | Category | Supported Areas |
 | --- | --- |
 | **Twitch triggers** | Channel Points, Chat Commands, Bits, Subscriptions, Gift Subs, Follows |
-| **OSC actions** | Avatar Parameters, Avatar Changes, Player Movement |
-| **Rule areas** | Avatar Sets, Avatar Change, Movement Redeems, Bits + Subs Overrides, Universal Triggers |
-| **Managed rewards** | Twitch reward creation, adoption, syncing, cleanup recovery, cooldown-aware state, per-redeem colors |
-| **Chat tools** | Built-in Twitch Chatbox with optional VRChat chat relay |
+| **OSC actions** | Avatar Parameters, Set Trigger outfit groups, Avatar Changes, Player Movement, Avatar Scaling |
+| **Rule areas** | Avatar Sets, Avatar Change, Movement Redeems, Bits + Subs Overrides, Universal Triggers, Avatar Scaling, Reward Fire Sale |
+| **Managed rewards** | Twitch reward creation, adoption, syncing, cap-safe recycling, cooldown-aware state, per-redeem colors |
+| **Chat tools** | Built-in Twitch Chatbox, optional VRChat chat relay, optional bot/broadcaster trigger announcements |
 | **VRChat tools** | VRChat login with 2FA, avatar cache, OSC parameter cache, OSCQuery discovery |
-| **App polish** | Built-in themes, localization, About-page live cards, crash logging |
+| **App polish** | Built-in themes, localization, About-page live cards, update alerts, in-app bug reports, crash logging |
 
 ## Main Features
 
 - Managed Twitch reward syncing with cleanup and recovery handling
+- Linked existing Twitch rewards stay listen-only, so Crystal Relay can trigger from them without changing their Twitch setup
 - Pause Redeems for quickly disabling Twitch-triggered actions during stream moments
 - Streaming Test Mode for checking managed reward behavior before going live
 - Per-redeem ready and cooldown colors for managed Channel Point rewards
-- Priority-based Bits + Subs override queueing with timed stacking controls
+- Avatar Set **Set Trigger** outfit actions that snapshot safe VRChat LocalAvatarData values, send grouped outfit parameters, and restore changed values after Active Time
+- Avatar Scaling with channel-point rewards, chat commands, bits, subs, gift subs, follows, master reward gating, and paid Supporter Growth
+- Reward Fire Sale goals that can discount Crystal Relay-owned `VRC:` rewards for temporary or permanent sale moments
+- Avatar-scoped Bits + Subs supporter triggers, including Bits outfit names with fuzzy matching for casing, spacing, and spelling mistakes
 - Optional bot info messages for supporter overrides
 - Avatar-aware redeem libraries for avatar-specific and global behaviors
+- In-app bug reporting with opt-in sanitized logs
 - Built-in Twitch Chatbox with theme-aware settings and optional VRChat relay
 - Theme support across the main window, dialogs, and chatbox
 - Built-in language support for English, Spanish, Japanese, German, French, Portuguese (Brazil), Swedish, Italian, Simplified Chinese, Traditional Chinese, Korean, Russian, Polish, and Thai
+
+## Current Beta Highlights
+
+Recent beta builds include larger systems that are still being refined from streamer feedback:
+
+- **Reward Fire Sale**: builds a Bits or channel-point funding goal, then discounts Crystal Relay-owned `VRC:` rewards by the reached tier.
+- **Fire Sale funding reward**: optional dedicated `VRC: Fire Sale Fund` reward with editable point-to-progress conversion, cooldown, and ready/cooldown colors.
+- **Supporter Growth scale bank**: bits, subs, resubs, and gift subs feed one paid Avatar Scaling timer instead of replacing each other.
+- **Supporter Growth cheer keywords**: `Cheer100 grow` and `Cheer100 shrink` can choose positive or negative Bits scaling while still adding paid time.
+- **Reward scale overlay during paid growth**: optional channel-point or chat scale changes can temporarily overlay paid growth without shortening the paid timer.
+- **Set Trigger outfit restore**: outfit triggers learn changed safe LocalAvatarData parameters after a 70-second diff window and restore from the copied pre-trigger snapshot.
+- **In-app bug reports**: About page reports can create GitHub issues through a secure Cloudflare Worker without requiring a GitHub account.
+- **Beta update notifications**: the app can notify stable and beta users when a newer beta is available.
+- **Twitch API safety work**: reward sync is fingerprinted, redundant syncs are skipped, linked rewards remain listen-only, and rate-limit backoff is respected.
 
 ## Trigger Areas and Actions
 
@@ -69,16 +90,20 @@ Crystal Relay connects Twitch events to VRChat through local OSC and OSCQuery co
 | **Avatar Sets** | Groups redeems by avatar so they only stay live while that avatar is active. |
 | **Avatar Change** | Switches to another avatar, then optionally returns after a timer. |
 | **Movement Redeems** | Sends timed VRChat movement inputs that are not tied to one avatar. |
-| **Bits + Subs Overrides** | Runs global paid override rules that can preempt normal redeems. |
+| **Bits + Subs Overrides** | Runs paid avatar-scoped supporter triggers and global avatar-change overrides. |
 | **Universal Triggers** | Imports or creates general Twitch interactions for commands, rewards, bits, subs, gift subs, and follows. |
+| **Avatar Scaling** | Controls VRChat Avatar Scaling through `/avatar/eyeheight`, including Supporter Growth and timed restore behavior. |
+| **Reward Fire Sale** | Builds a stream goal that can temporarily or permanently discount Crystal Relay-owned `VRC:` rewards. |
 
 ### Action Types
 
 | Action Type | Result |
 | --- | --- |
 | **Avatar Parameter** | Sends bool, int, or float parameter values into VRChat. |
+| **Set Trigger** | Sends multiple bool, int, or float outfit parameters together, then restores changed values after Active Time. |
 | **Avatar Change** | Swaps to another avatar temporarily or permanently. |
 | **Player Movement** | Holds a movement input for the configured active time. |
+| **Avatar Scaling** | Sends height changes through VRChat's Avatar Scaling OSC endpoint. |
 
 ## Managed Twitch Rewards
 
@@ -88,7 +113,34 @@ Crystal Relay can create and manage Twitch custom rewards for supported broadcas
 - On shutdown, Crystal Relay tries to disable managed rewards cleanly.
 - If the previous session ended badly, Crystal Relay runs a recovery cleanup pass on the next launch.
 - Reward availability follows cooldowns, avatar matching, disable-pairing, and Bits/Subs override suppression rules.
+- Crystal Relay-owned rewards use the `VRC:` prefix and can be updated, colored, disabled, recycled, or deleted when you opt into cleanup.
+- Linked existing rewards are listen-only. Crystal Relay listens for the redemption, but it does not rename, recolor, recost, hide, delete, or cooldown-edit them.
+- If Twitch reward slots are full, Crystal Relay can recycle inactive app-owned `VRC:` rewards that are not needed for the current avatar before creating more.
+- Reward API calls are gated by desired-state fingerprints so normal timers, tests, and unchanged runtime events do not repeatedly spam Twitch.
 - Twitch custom reward management requires a broadcaster account that supports custom rewards.
+
+## Avatar Scaling
+
+Avatar Scaling controls VRChat's `/avatar/eyeheight` endpoint for scale rewards and paid growth moments.
+
+- Supports Channel Point rewards, chat commands, Bits, subscriptions, gift subscriptions, follows, and Supporter Growth.
+- Scale modes include set height, random height, relative height, multiplier, and presets.
+- Timed scale redeems restore to an explicit **Return Height**.
+- Supporter Growth combines Bits, subs, resubs, and gift subs into one paid timer bank with soft cap and max cap controls.
+- Bits Supporter Growth can use editable grow/shrink keywords, for example `Cheer100 grow` or `Cheer100 shrink`.
+- Reward or chat scale changes can optionally overlay paid Supporter Growth without changing the paid timer.
+- Manual avatar swaps during active scaling carry the active height onto the new avatar and restore when the timer ends.
+
+## Reward Fire Sale
+
+Reward Fire Sale is a global stream goal for discount moments.
+
+- Bits can add progress directly.
+- An optional `VRC: Fire Sale Fund` channel-point reward can add progress using an editable point-to-progress conversion.
+- The sale can use one tier or the highest reached tier from a multi-tier goal list.
+- Temporary sales restore prices when the timer ends; permanent sales stay active until stopped.
+- Stream end resets the sale, clears progress, and queues normal reward prices to restore.
+- Discounts apply only to Crystal Relay-owned `Create/manage reward` `VRC:` rewards. Linked existing rewards stay unchanged.
 
 ## Universal Triggers
 
@@ -123,6 +175,7 @@ Crystal Relay supports VRChat username/password login with 2FA and uses local av
 - Use **Refresh OSC Parameters** when you want the latest parameters for the avatar you are wearing.
 - OSCQuery discovery helps Crystal Relay find the running VRChat client.
 - OSC sends avatar parameters, avatar changes, movement inputs, and chatbox messages to VRChat locally.
+- Set Trigger outfit restores may read VRChat LocalAvatarData as a read-only safety snapshot source. Height, scale, eye-height, locomotion, gesture, grab, pose, and transient parameters are excluded from Set Trigger restore logic.
 
 ## Themes and Localization
 
@@ -140,6 +193,7 @@ Current built-in themes:
 - Baked
 - MainFrame
 - Trash Kitty
+- Stinky Online
 
 Built-in language support includes English, Spanish, Japanese, German, French, Portuguese (Brazil), Swedish, Italian, Simplified Chinese, Traditional Chinese, Korean, Russian, Polish, and Thai.
 
