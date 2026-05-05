@@ -184,6 +184,10 @@ public sealed record BridgeRuntimeConfiguration(
     bool SupporterOverrideInfoMessageEnabled,
     bool TriggerInfoAnnouncementsEnabled,
     int TriggerInfoAnnouncementIntervalMinutes,
+    bool TriggerInfoCommandEnabled,
+    string TriggerInfoCommandText,
+    int TriggerInfoCommandCooldownSeconds,
+    ChatCommandPermission TriggerInfoCommandPermission,
     bool ChannelPointRewardTestModeEnabled,
     bool EmergencyRedeemStopEnabled,
     bool DesktopModeInputLockEnabled,
@@ -224,7 +228,10 @@ public sealed record BridgeRuntimeConfiguration(
             }
         }
 
-        foreach (var rule in settings.GlobalMovementRules)
+        var movementRules = settings.MovementRedeemSets.Count > 0
+            ? settings.MovementRedeemSets.SelectMany(set => set.MovementRules)
+            : settings.GlobalMovementRules;
+        foreach (var rule in movementRules)
         {
             if (TryToSnapshot(rule, isGlobalOverride: true, profile: null, linkedRewardCooldownSecondsById, out var snapshot))
             {
@@ -264,6 +271,12 @@ public sealed record BridgeRuntimeConfiguration(
             settings.SupporterOverrideInfoMessageEnabled,
             settings.TriggerInfoAnnouncementsEnabled,
             Math.Max(1, settings.TriggerInfoAnnouncementIntervalMinutes),
+            settings.TriggerInfoCommandEnabled,
+            ChatCommandUtility.Normalize(settings.TriggerInfoCommandText),
+            Math.Max(0, settings.TriggerInfoCommandCooldownSeconds),
+            Enum.IsDefined(settings.TriggerInfoCommandPermission)
+                ? settings.TriggerInfoCommandPermission
+                : ChatCommandPermission.Everyone,
             settings.ChannelPointRewardTestModeEnabled,
             settings.EmergencyRedeemStopEnabled,
             settings.DesktopModeInputLockEnabled,

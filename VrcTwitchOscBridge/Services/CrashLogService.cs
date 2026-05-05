@@ -13,7 +13,7 @@ internal static class CrashLogService
 
     public static CrashLogWriteResult TryWrite(string source, object? exceptionObject, bool isTerminating)
     {
-        var crashReport = BuildCrashReport(source, exceptionObject, isTerminating);
+        var crashReport = SensitiveTextSanitizer.Sanitize(BuildCrashReport(source, exceptionObject, isTerminating));
         var candidateFolders = GetCandidateFolders();
         var failureMessages = new List<string>();
 

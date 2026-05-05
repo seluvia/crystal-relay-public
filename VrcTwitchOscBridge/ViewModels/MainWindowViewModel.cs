@@ -2,6 +2,7 @@
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -71,6 +72,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private const string KoFiSupportUri = "https://ko-fi.com/screminpal";
     private const string SettingsTestAudioRelativePath = "Assets\\engineer_no01.mp3";
     private const string TestBuildMarkerFileName = "test-build.flag";
+    private const string BetaBuildMarkerFileName = "beta-build.flag";
     private const int MaxLogEntryCount = 200;
     private const int MaxChatMessageCount = 250;
     private const int TwitchCustomRewardPromptMaxLength = 200;
@@ -103,6 +105,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     ];
     private const int VrChatOscParameterAutoRefreshPassCount = 4;
     private static readonly string AppVersion = GetAppVersion();
+    private static readonly string BetaBuildLabel = DetectBetaBuildLabel();
     private static readonly bool IsTestBuild = DetectTestBuild();
     private static readonly HashSet<string> KnownViewerNotificationBotLogins = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -220,6 +223,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         nameof(UniversalTriggerRule.RewardId),
         nameof(UniversalTriggerRule.RewardTitle),
         nameof(UniversalTriggerRule.RewardCost),
+        nameof(UniversalTriggerRule.RewardCooldownSeconds),
         nameof(UniversalTriggerRule.RewardSyncMode),
         nameof(UniversalTriggerRule.ManagedRewardReadyColor),
         nameof(UniversalTriggerRule.ManagedRewardCooldownColor),
@@ -308,6 +312,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private TriggerRule? selectedRule;
     private UniversalTriggerRule? selectedUniversalTrigger;
     private UniversalTriggerAction? selectedUniversalTriggerAction;
+    private MovementRedeemSet? selectedMovementRedeemSet;
     private AvatarScaleSet? selectedAvatarScaleSet;
     private AvatarScaleRule? selectedAvatarScaleRule;
     private AvatarTriggerProfile? selectedAvatarProfile;
@@ -387,6 +392,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private Guid lastSelectedAvatarProfileId = Guid.Empty;
     private Guid selectedSupporterAvatarProfileId = Guid.Empty;
     private Guid lastSelectedMasterRuleId = Guid.Empty;
+    private Guid lastSelectedMovementSetId = Guid.Empty;
     private Guid lastSelectedMovementRuleId = Guid.Empty;
     private Guid lastSelectedSupporterRuleId = Guid.Empty;
     private Guid lastSelectedUniversalTriggerId = Guid.Empty;
@@ -685,6 +691,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ImportFoomaInteractionConfigCommand = new AsyncRelayCommand(ImportFoomaInteractionConfigAsync);
         AddUniversalTriggerActionCommand = new RelayCommand(AddUniversalTriggerAction, () => SelectedUniversalTrigger is not null);
         RemoveSelectedUniversalTriggerActionCommand = new RelayCommand(RemoveSelectedUniversalTriggerAction, () => SelectedUniversalTriggerAction is not null);
+        AddMovementRedeemSetCommand = new RelayCommand(AddMovementRedeemSet);
+        RemoveSelectedMovementRedeemSetCommand = new RelayCommand(RemoveSelectedMovementRedeemSet, () => SelectedMovementRedeemSet is not null);
+        DeleteAllMovementRedeemSetsCommand = new RelayCommand(DeleteAllMovementRedeemSets, () => Settings.MovementRedeemSets.Count > 0);
         AddAvatarScaleSetCommand = new RelayCommand(AddAvatarScaleSet);
         RemoveSelectedAvatarScaleSetCommand = new RelayCommand(RemoveSelectedAvatarScaleSet, () => SelectedAvatarScaleSet is not null);
         AddAvatarScaleRuleCommand = new RelayCommand(AddAvatarScaleRule);
@@ -964,9 +973,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
     }
 
-    public string WindowTitle => TF("Crystal Relay v{0}{1} | Twitch to OSC", AppVersion, GetTestBuildTitleSuffix());
+    public string WindowTitle => TF("Crystal Relay v{0} | Twitch to OSC", GetAppVersionDisplay());
 
-    public string WindowHeaderSubtitle => TF("Twitch to OSC | v{0}{1}", AppVersion, GetTestBuildTitleSuffix());
+    public string WindowHeaderSubtitle => TF("Twitch to OSC | v{0}", GetAppVersionDisplay());
 
     public bool IsLanguageRestartNoticeVisible => Settings.Language != activeLanguageAtStartup;
 
@@ -1118,6 +1127,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public bool HasGlobalSupporterRules => GlobalSupporterRules.Count > 0;
 
+    public IReadOnlyList<MovementRedeemSet> MovementRedeemSets => Settings.MovementRedeemSets.ToArray();
+
+    public IReadOnlyList<TriggerRule> MovementRedeemRules => SelectedMovementRedeemSet?.MovementRules.ToArray() ?? [];
+
     public IReadOnlyList<AvatarScaleSet> AvatarScaleSets => Settings.AvatarScaleSets.ToArray();
 
     public IReadOnlyList<AvatarScaleRule> AvatarScaleRules => SelectedAvatarScaleSet?.ScaleRules.ToArray() ?? [];
@@ -1255,7 +1268,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         : IsViewingSupporterOverrides
         ? T("Bits + Subs Overrides")
         : IsViewingMovementRedeems
-            ? T("Movement Redeems")
+            ? T("Movement Sets")
         : IsViewingMasterAvatar
             ? T("Avatar Change Redeems")
             : T("Avatar Redeems");
@@ -1269,7 +1282,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         : IsViewingSupporterOverrides
         ? T("Use this list for paid Twitch triggers like bits and subscriptions. Avatar Supporter Triggers are tied directly to one VRChat avatar, while Avatar Change Overrides stay global so outfit-name Bits triggers do not fight avatar swaps.")
         : IsViewingMovementRedeems
-            ? T("Use this list for global movement rules. Add Movement Redeem creates another movement trigger, Delete Movement Redeem removes the selected one, and Enable All or Disable All controls the whole movement library at once. Movement rules are global, so they are not tied to one avatar set.")
+            ? T("Use Movement Sets to organize global movement redeems. The sets are folders only; every movement redeem still works across every avatar and keeps its existing Twitch reward link.")
         : IsViewingMasterAvatar
             ? T("Use this list for avatar-switch rules that belong to Avatar Change Setup. Add Avatar Switch creates a direct Avatar Change rule or an Avatar Roulette rule, Delete Avatar Switch removes the selected one, and Enable All or Disable All controls the full avatar-switch list. These rules only turn on while you are on the shared return avatar unless a timed avatar switch is already active.")
         : SelectedAvatarProfile is null
@@ -1285,7 +1298,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         : IsViewingSupporterOverrides
         ? T("This tab is for paid Twitch triggers. Use Avatar Supporter Triggers for current-avatar bits/subs actions and Bits outfit Set Triggers, and keep avatar-change paid overrides in their own group.")
         : IsViewingMovementRedeems
-            ? T("This tab is for global movement redeems like forward, back, left, right, and spin. These rules work across every avatar instead of belonging to one avatar set, so viewers can still trigger movement actions after you swap avatars.")
+            ? T("This tab is for organizing global movement redeems like forward, back, left, right, and spin. Movement Sets do not add avatar matching; they only keep the movement library easier to manage.")
             : IsViewingMasterAvatar
                 ? T("This tab is for Avatar Change Setup. Pick the shared return avatar on the right, then build direct avatar swaps or Avatar Roulette rules here. Timed avatar-switch rules return to that shared return avatar when they finish.")
                 : T("This tab is for Avatar Sets. Use it to group redeems by the avatar they belong to, then pick a set below to edit the rules inside it. Crystal Relay uses current-avatar detection so only the set for the avatar you are actually wearing turns on.");
@@ -1327,7 +1340,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         : IsViewingSupporterOverrides
         ? T("Delete All Overrides")
         : IsViewingMovementRedeems
-            ? T("Delete All Movement Redeems")
+            ? T("Delete All Movement Sets")
         : IsViewingMasterAvatar
             ? T("Delete All Avatar Switches")
             : T("Delete All Redeems");
@@ -1341,7 +1354,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         : IsViewingSupporterOverrides
         ? T("Add or select a bits/subs trigger to edit it.")
         : IsViewingMovementRedeems
-            ? T("Add a movement redeem to edit it.")
+            ? T("Select a movement set, then add a movement redeem to edit it.")
         : IsViewingMasterAvatar
             ? T("Add an avatar-switch redeem to edit it.")
         : SelectedAvatarProfile is null
@@ -1922,6 +1935,34 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
     }
 
+    public MovementRedeemSet? SelectedMovementRedeemSet
+    {
+        get => selectedMovementRedeemSet;
+        set
+        {
+            if (SetProperty(ref selectedMovementRedeemSet, value))
+            {
+                lastSelectedMovementSetId = value?.Id ?? Guid.Empty;
+                if (SelectedRule is not null
+                    && value?.MovementRules.Contains(SelectedRule) != true
+                    && IsViewingMovementRedeems)
+                {
+                    SelectedRule = GetRememberedMovementRule();
+                }
+                else if (SelectedRule is null && value is not null && IsViewingMovementRedeems)
+                {
+                    SelectedRule = GetRememberedMovementRule();
+                }
+
+                RemoveSelectedMovementRedeemSetCommand.NotifyCanExecuteChanged();
+                AddRuleCommand.NotifyCanExecuteChanged();
+                RaisePropertyChanged(nameof(SelectedMovementRedeemSet));
+                RaisePropertyChanged(nameof(MovementRedeemRules));
+                RefreshRuleCommandStates();
+            }
+        }
+    }
+
     public AvatarScaleSet? SelectedAvatarScaleSet
     {
         get => selectedAvatarScaleSet;
@@ -2387,6 +2428,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     public RelayCommand AddUniversalTriggerActionCommand { get; }
 
     public RelayCommand RemoveSelectedUniversalTriggerActionCommand { get; }
+
+    public RelayCommand AddMovementRedeemSetCommand { get; }
+
+    public RelayCommand RemoveSelectedMovementRedeemSetCommand { get; }
+
+    public RelayCommand DeleteAllMovementRedeemSetsCommand { get; }
 
     public RelayCommand AddAvatarScaleSetCommand { get; }
 
@@ -3692,6 +3739,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     private void ShowMovementRedeems()
     {
+        EnsureSelectedMovementRedeemSet();
+        SelectedMovementRedeemSet = GetRememberedMovementRedeemSet();
         var rule = GetRememberedMovementRule();
         SwitchRuleView(RuleListView.MovementRedeems, profile: null, rule);
     }
@@ -4554,7 +4603,13 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
         else if (IsViewingMovementRedeems)
         {
-            Settings.GlobalMovementRules.Add(rule);
+            EnsureSelectedMovementRedeemSet();
+            if (SelectedMovementRedeemSet is null)
+            {
+                return;
+            }
+
+            SelectedMovementRedeemSet.MovementRules.Add(rule);
         }
         else
         {
@@ -4644,8 +4699,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
         else if (IsViewingMovementRedeems)
         {
-            Settings.GlobalMovementRules.Remove(SelectedRule);
-            SelectedRule = Settings.GlobalMovementRules.FirstOrDefault();
+            SelectedMovementRedeemSet?.MovementRules.Remove(SelectedRule);
+            SelectedRule = SelectedMovementRedeemSet?.MovementRules.FirstOrDefault();
         }
         else if (IsViewingMasterAvatar)
         {
@@ -4661,7 +4716,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RemoveSpecialRuleLockoutReferencesToRule(removedRule.Id);
         RefreshSpecialRuleLockoutOptions();
 
-        if (!IsViewingSupporterOverrides)
+        if (!IsViewingSupporterOverrides && !IsViewingMovementRedeems)
         {
             RetireManagedRewards([removedRule]);
         }
@@ -4713,7 +4768,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
         var currentRules = GetCurrentEditableRuleCollection();
         var removedCount = currentRules.Count;
-        if (!IsViewingSupporterOverrides)
+        if (!IsViewingSupporterOverrides && !IsViewingMovementRedeems)
         {
             RetireManagedRewards(currentRules.ToArray());
         }
@@ -4739,6 +4794,75 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         QueueSave();
         QueueBridgeRefresh();
         AppendLog($"Added universal trigger '{trigger.DisplayTitle}'.");
+    }
+
+    private void AddMovementRedeemSet()
+    {
+        var set = CreateDefaultMovementRedeemSet();
+        Settings.MovementRedeemSets.Add(set);
+        SelectedMovementRedeemSet = set;
+        SelectedRule = set.MovementRules.FirstOrDefault();
+        AppendLog($"Added movement set '{set.DisplayTitle}'.");
+    }
+
+    private void RemoveSelectedMovementRedeemSet()
+    {
+        if (SelectedMovementRedeemSet is null)
+        {
+            return;
+        }
+
+        var removedSet = SelectedMovementRedeemSet;
+        var removedName = removedSet.DisplayTitle;
+        var removedRules = removedSet.MovementRules.ToArray();
+        ForgetRememberedRules(removedRules);
+        Settings.MovementRedeemSets.Remove(removedSet);
+
+        if (lastSelectedMovementSetId == removedSet.Id)
+        {
+            lastSelectedMovementSetId = Guid.Empty;
+        }
+
+        SelectedMovementRedeemSet = GetRememberedMovementRedeemSet();
+        SelectedRule = GetRememberedMovementRule();
+        QueueSave();
+        QueueBridgeRefresh();
+        AppendLog($"Removed movement set '{removedName}'.");
+    }
+
+    private void DeleteAllMovementRedeemSets()
+    {
+        var setsToRemove = Settings.MovementRedeemSets.ToArray();
+        if (setsToRemove.Length == 0)
+        {
+            return;
+        }
+
+        var (destinationName, warningMessage) = GetDeleteAllWarningContent();
+        var warningResult = ThemedDialogWindow.ShowYesNo(
+            Application.Current?.MainWindow,
+            SelectedTheme,
+            "Delete All Movement Sets",
+            warningMessage);
+
+        if (!warningResult)
+        {
+            return;
+        }
+
+        foreach (var set in setsToRemove)
+        {
+            var removedRules = set.MovementRules.ToArray();
+            ForgetRememberedRules(removedRules);
+            Settings.MovementRedeemSets.Remove(set);
+        }
+
+        lastSelectedMovementSetId = Guid.Empty;
+        SelectedMovementRedeemSet = null;
+        SelectedRule = null;
+        QueueSave();
+        QueueBridgeRefresh();
+        AppendLog($"Yeeted {setsToRemove.Length} movement set{(setsToRemove.Length == 1 ? string.Empty : "s")} to the {destinationName}.");
     }
 
     private void RemoveSelectedUniversalTrigger()
@@ -5121,16 +5245,18 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     private TriggerRule? GetRememberedMovementRule()
     {
+        IEnumerable<TriggerRule> candidateRules = (IEnumerable<TriggerRule>?)SelectedMovementRedeemSet?.MovementRules
+            ?? GetAllMovementRules();
         if (lastSelectedMovementRuleId != Guid.Empty)
         {
-            var rememberedRule = Settings.GlobalMovementRules.FirstOrDefault(rule => rule.Id == lastSelectedMovementRuleId);
+            var rememberedRule = candidateRules.FirstOrDefault(rule => rule.Id == lastSelectedMovementRuleId);
             if (rememberedRule is not null)
             {
                 return rememberedRule;
             }
         }
 
-        return Settings.GlobalMovementRules.FirstOrDefault();
+        return candidateRules.FirstOrDefault();
     }
 
     private TriggerRule? GetRememberedSupporterRule()
@@ -5192,6 +5318,62 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             ? null
             : Settings.AvatarScaleSets.FirstOrDefault(set => set.ScaleRules.Any(rule => rule.Id == lastSelectedAvatarScaleRuleId));
         return rememberedRuleOwner ?? Settings.AvatarScaleSets.FirstOrDefault();
+    }
+
+    private MovementRedeemSet? GetRememberedMovementRedeemSet()
+    {
+        if (lastSelectedMovementSetId != Guid.Empty)
+        {
+            var rememberedSet = Settings.MovementRedeemSets.FirstOrDefault(set => set.Id == lastSelectedMovementSetId);
+            if (rememberedSet is not null)
+            {
+                return rememberedSet;
+            }
+        }
+
+        var rememberedRuleOwner = lastSelectedMovementRuleId == Guid.Empty
+            ? null
+            : Settings.MovementRedeemSets.FirstOrDefault(set => set.MovementRules.Any(rule => rule.Id == lastSelectedMovementRuleId));
+        return rememberedRuleOwner ?? Settings.MovementRedeemSets.FirstOrDefault();
+    }
+
+    private void EnsureSelectedMovementRedeemSet()
+    {
+        if (SelectedMovementRedeemSet is not null)
+        {
+            return;
+        }
+
+        SelectedMovementRedeemSet = GetRememberedMovementRedeemSet();
+        if (SelectedMovementRedeemSet is not null)
+        {
+            return;
+        }
+
+        var set = CreateDefaultMovementRedeemSet();
+        Settings.MovementRedeemSets.Add(set);
+        SelectedMovementRedeemSet = set;
+    }
+
+    private MovementRedeemSet? GetOwningMovementRedeemSet(TriggerRule rule)
+    {
+        return Settings.MovementRedeemSets.FirstOrDefault(set => set.MovementRules.Contains(rule));
+    }
+
+    private List<TriggerRule> GetAllMovementRules()
+    {
+        return Settings.MovementRedeemSets.SelectMany(set => set.MovementRules).ToList();
+    }
+
+    private void SyncLegacyGlobalMovementRules()
+    {
+        var flattenedRules = GetAllMovementRules();
+        if (Settings.GlobalMovementRules.SequenceEqual(flattenedRules))
+        {
+            return;
+        }
+
+        Settings.GlobalMovementRules = new ObservableCollection<TriggerRule>(flattenedRules);
     }
 
     private void EnsureSelectedAvatarScaleSet()
@@ -5311,6 +5493,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 SelectedUniversalTrigger = null;
             }
 
+            if (targetView != RuleListView.MovementRedeems)
+            {
+                SelectedMovementRedeemSet = null;
+            }
+
             if (targetView != RuleListView.AvatarScaling)
             {
                 SelectedAvatarScaleSet = null;
@@ -5346,7 +5533,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         appSettings.Bot.PropertyChanged += SettingsChanged;
         appSettings.VrChat.PropertyChanged += SettingsChanged;
         appSettings.AvatarProfiles.CollectionChanged += AvatarProfilesCollectionChanged;
-        appSettings.GlobalMovementRules.CollectionChanged += GlobalMovementRulesCollectionChanged;
+        appSettings.MovementRedeemSets.CollectionChanged += MovementRedeemSetsCollectionChanged;
         appSettings.GlobalOverrideRules.CollectionChanged += GlobalOverrideRulesCollectionChanged;
         appSettings.UniversalTriggers.CollectionChanged += UniversalTriggersCollectionChanged;
         appSettings.AvatarScaleSets.CollectionChanged += AvatarScaleSetsCollectionChanged;
@@ -5358,10 +5545,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             WireAvatarProfile(profile);
         }
 
-        foreach (var rule in appSettings.GlobalMovementRules)
+        foreach (var set in appSettings.MovementRedeemSets)
         {
-            ApplyMovementRuleDefaults(rule);
-            rule.PropertyChanged += RuleChanged;
+            WireMovementRedeemSet(set);
         }
 
         foreach (var rule in appSettings.GlobalOverrideRules)
@@ -5387,7 +5573,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         appSettings.Bot.PropertyChanged -= SettingsChanged;
         appSettings.VrChat.PropertyChanged -= SettingsChanged;
         appSettings.AvatarProfiles.CollectionChanged -= AvatarProfilesCollectionChanged;
-        appSettings.GlobalMovementRules.CollectionChanged -= GlobalMovementRulesCollectionChanged;
+        appSettings.MovementRedeemSets.CollectionChanged -= MovementRedeemSetsCollectionChanged;
         appSettings.GlobalOverrideRules.CollectionChanged -= GlobalOverrideRulesCollectionChanged;
         appSettings.UniversalTriggers.CollectionChanged -= UniversalTriggersCollectionChanged;
         appSettings.AvatarScaleSets.CollectionChanged -= AvatarScaleSetsCollectionChanged;
@@ -5399,9 +5585,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             UnwireAvatarProfile(profile);
         }
 
-        foreach (var rule in appSettings.GlobalMovementRules)
+        foreach (var set in appSettings.MovementRedeemSets)
         {
-            rule.PropertyChanged -= RuleChanged;
+            UnwireMovementRedeemSet(set);
         }
 
         foreach (var rule in appSettings.GlobalOverrideRules)
@@ -5458,6 +5644,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ThemeManager.UpdateTheme(Settings.Theme, Settings.CustomTheme);
         universalTriggersGroupedView = null;
         RaisePropertyChanged(nameof(UniversalTriggersGroupedView));
+        RaisePropertyChanged(nameof(MovementRedeemSets));
+        RaisePropertyChanged(nameof(MovementRedeemRules));
         RaisePropertyChanged(nameof(AvatarScaleSets));
         RaisePropertyChanged(nameof(AvatarScaleRules));
         RaisePropertyChanged(nameof(SelectedLanguageOption));
@@ -5549,7 +5737,81 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         QueueManagedRewardSync();
     }
 
-    private void GlobalMovementRulesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    private void MovementRedeemSetsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.NewItems is not null)
+        {
+            foreach (MovementRedeemSet set in e.NewItems)
+            {
+                WireMovementRedeemSet(set);
+            }
+        }
+
+        if (e.OldItems is not null)
+        {
+            var removedRules = new List<TriggerRule>();
+            foreach (MovementRedeemSet set in e.OldItems)
+            {
+                UnwireMovementRedeemSet(set);
+                removedRules.AddRange(set.MovementRules);
+                if (lastSelectedMovementSetId == set.Id)
+                {
+                    lastSelectedMovementSetId = Guid.Empty;
+                }
+            }
+
+            RetireManagedRewards(removedRules);
+        }
+
+        if (IsViewingMovementRedeems && SelectedMovementRedeemSet is not null && !Settings.MovementRedeemSets.Contains(SelectedMovementRedeemSet))
+        {
+            SelectedMovementRedeemSet = GetRememberedMovementRedeemSet();
+        }
+
+        if (IsViewingMovementRedeems
+            && SelectedRule is not null
+            && !GetAllMovementRules().Contains(SelectedRule))
+        {
+            SelectedRule = GetRememberedMovementRule();
+        }
+
+        SyncLegacyGlobalMovementRules();
+        RaisePropertyChanged(nameof(MovementRedeemSets));
+        RaisePropertyChanged(nameof(MovementRedeemRules));
+        QueueSave();
+        QueueBridgeRefresh();
+        RefreshRuleCommandStates();
+        QueueManagedRewardSync();
+    }
+
+    private void WireMovementRedeemSet(MovementRedeemSet set)
+    {
+        set.PropertyChanged += MovementRedeemSetChanged;
+        set.MovementRules.CollectionChanged += MovementRedeemSetRulesCollectionChanged;
+        foreach (var rule in set.MovementRules)
+        {
+            ApplyMovementRuleDefaults(rule);
+            rule.PropertyChanged += RuleChanged;
+        }
+    }
+
+    private void UnwireMovementRedeemSet(MovementRedeemSet set)
+    {
+        set.PropertyChanged -= MovementRedeemSetChanged;
+        set.MovementRules.CollectionChanged -= MovementRedeemSetRulesCollectionChanged;
+        foreach (var rule in set.MovementRules)
+        {
+            rule.PropertyChanged -= RuleChanged;
+        }
+    }
+
+    private void MovementRedeemSetChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        QueueSave();
+        RaisePropertyChanged(nameof(MovementRedeemSets));
+    }
+
+    private void MovementRedeemSetRulesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         if (e.NewItems is not null)
         {
@@ -5562,12 +5824,30 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
         if (e.OldItems is not null)
         {
+            var removedRules = new List<TriggerRule>();
             foreach (TriggerRule rule in e.OldItems)
             {
                 rule.PropertyChanged -= RuleChanged;
+                removedRules.Add(rule);
+                if (lastSelectedMovementRuleId == rule.Id)
+                {
+                    lastSelectedMovementRuleId = Guid.Empty;
+                }
             }
+
+            RetireManagedRewards(removedRules);
         }
 
+        if (IsViewingMovementRedeems
+            && SelectedRule is not null
+            && SelectedMovementRedeemSet?.MovementRules.Contains(SelectedRule) != true)
+        {
+            SelectedRule = GetRememberedMovementRule();
+        }
+
+        SyncLegacyGlobalMovementRules();
+        RaisePropertyChanged(nameof(MovementRedeemSets));
+        RaisePropertyChanged(nameof(MovementRedeemRules));
         QueueSave();
         QueueBridgeRefresh();
         RefreshRuleCommandStates();
@@ -6257,7 +6537,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 }
             }
 
-            if (Settings.GlobalMovementRules.Contains(rule))
+            if (GetOwningMovementRedeemSet(rule) is not null)
             {
                 ApplyMovementRuleDefaults(rule);
             }
@@ -6326,7 +6606,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
         if (!isSynchronizingManagedRewards
             && sender is TriggerRule changedRule
-            && (RuleBelongsToAvatarProfile(changedRule) || Settings.GlobalMovementRules.Contains(changedRule))
+            && (RuleBelongsToAvatarProfile(changedRule) || GetOwningMovementRedeemSet(changedRule) is not null)
             && ShouldSynchronizeManagedRewardsForRuleChange(e.PropertyName))
         {
             QueueManagedRewardSync();
@@ -6880,7 +7160,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             return (true, supporterProfile);
         }
 
-        if (Settings.GlobalMovementRules.Contains(rule))
+        if (GetOwningMovementRedeemSet(rule) is not null)
         {
             return (true, null);
         }
@@ -8474,7 +8754,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             trigger.RewardTitle,
             ApplyRewardFireSaleDiscount(trigger.RewardCost, trigger.RewardSyncMode),
             trigger.RewardSyncMode,
-            cooldownSeconds: 0,
+            cooldownSeconds: trigger.UsesCreateOrManageReward ? trigger.RewardCooldownSeconds : 0,
             backgroundColor: ManagedRewardPresentation.NormalizeReadyBackgroundColor(trigger.ManagedRewardReadyColor),
             prompt: string.Empty,
             requireUserInput: false,
@@ -8822,7 +9102,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             var allowManagedRewardActivation = forcedManagedRewardActivation
                 ?? ((IsBroadcasterLive || Settings.ChannelPointRewardTestModeEnabled)
                     && !Settings.EmergencyRedeemStopEnabled);
-            var supportedMovementRules = Settings.GlobalMovementRules
+            var supportedMovementRules = GetAllMovementRules()
                 .Where(IsSupportedMovementRule)
                 .ToArray();
             var currentAvatarId = GetManagedRewardActivationAvatarId();
@@ -10157,7 +10437,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             }
         }
 
-        foreach (var rule in Settings.GlobalMovementRules)
+        foreach (var rule in GetAllMovementRules())
         {
             ClearTriggerRule(rule);
         }
@@ -12016,11 +12296,30 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             message.UserColor,
             [.. message.BadgeImageUrls],
             BuildChatMessageFragments(message),
-            ShouldPlayViewerChatSound(message),
+            message.Kind == BridgeChatMessageKind.Chat && ShouldPlayViewerChatSound(message),
             message.ReceivedAt,
             SelectedTheme,
-            Settings.ChatTimestampFormat));
+            Settings.ChatTimestampFormat,
+            MapChatMessageEntryKind(message.Kind),
+            message.RewardTitle,
+            message.RewardCost,
+            message.RewardUserInput,
+            message.SupportAmount,
+            message.SupportTier,
+            message.SupportMonths,
+            message.SupportMessage));
     }
+
+    private static TwitchChatMessageEntryKind MapChatMessageEntryKind(BridgeChatMessageKind kind) => kind switch
+    {
+        BridgeChatMessageKind.ChannelPointRedemption => TwitchChatMessageEntryKind.ChannelPointRedemption,
+        BridgeChatMessageKind.BitsCheer => TwitchChatMessageEntryKind.BitsCheer,
+        BridgeChatMessageKind.Subscription => TwitchChatMessageEntryKind.Subscription,
+        BridgeChatMessageKind.Resubscription => TwitchChatMessageEntryKind.Resubscription,
+        BridgeChatMessageKind.GiftSubscription => TwitchChatMessageEntryKind.GiftSubscription,
+        BridgeChatMessageKind.Raid => TwitchChatMessageEntryKind.Raid,
+        _ => TwitchChatMessageEntryKind.Chat
+    };
 
     private IReadOnlyList<TwitchChatInlineFragment> BuildChatMessageFragments(BridgeChatMessage message)
     {
@@ -12087,6 +12386,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         TestSelectedUniversalTriggerCommand.NotifyCanExecuteChanged();
         AddUniversalTriggerActionCommand.NotifyCanExecuteChanged();
         RemoveSelectedUniversalTriggerActionCommand.NotifyCanExecuteChanged();
+        RemoveSelectedMovementRedeemSetCommand.NotifyCanExecuteChanged();
+        DeleteAllMovementRedeemSetsCommand.NotifyCanExecuteChanged();
         RemoveSelectedAvatarScaleSetCommand.NotifyCanExecuteChanged();
         RemoveSelectedAvatarScaleRuleCommand.NotifyCanExecuteChanged();
         TestSelectedAvatarScaleRuleCommand.NotifyCanExecuteChanged();
@@ -12126,6 +12427,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ImportFoomaInteractionConfigCommand.NotifyCanExecuteChanged();
         AddUniversalTriggerActionCommand.NotifyCanExecuteChanged();
         RemoveSelectedUniversalTriggerActionCommand.NotifyCanExecuteChanged();
+        AddMovementRedeemSetCommand.NotifyCanExecuteChanged();
+        RemoveSelectedMovementRedeemSetCommand.NotifyCanExecuteChanged();
+        DeleteAllMovementRedeemSetsCommand.NotifyCanExecuteChanged();
         AddAvatarScaleSetCommand.NotifyCanExecuteChanged();
         RemoveSelectedAvatarScaleSetCommand.NotifyCanExecuteChanged();
         AddAvatarScaleRuleCommand.NotifyCanExecuteChanged();
@@ -12280,7 +12584,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             dialog.ExpectedBehavior,
             dialog.StepsToReproduce,
             dialog.ContactName,
-            AppVersion,
+            GetAppVersionDisplay(),
             diagnostics);
 
         AppendLog("Sending bug report to Crystal Relay's bug report service.");
@@ -12590,7 +12894,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private IEnumerable<TriggerRule> EnumerateAllRules()
     {
         return Settings.AvatarProfiles.SelectMany(profile => profile.ChannelPointRules)
-            .Concat(Settings.GlobalMovementRules)
+            .Concat(GetAllMovementRules())
             .Concat(Settings.GlobalOverrideRules);
     }
 
@@ -12608,7 +12912,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
         if (IsViewingMovementRedeems)
         {
-            return Settings.GlobalMovementRules;
+            return SelectedMovementRedeemSet?.MovementRules ?? new ObservableCollection<TriggerRule>();
         }
 
         if (IsViewingMasterAvatar)
@@ -12964,7 +13268,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     private void RemoveUnsupportedMovementRules()
     {
-        var unsupportedRules = Settings.GlobalMovementRules
+        var unsupportedRules = GetAllMovementRules()
             .Where(rule => !IsSupportedMovementDirection(rule.MovementDirection))
             .ToArray();
         if (unsupportedRules.Length == 0)
@@ -12975,7 +13279,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         foreach (var rule in unsupportedRules)
         {
             ForgetRememberedRules([rule]);
-            Settings.GlobalMovementRules.Remove(rule);
+            GetOwningMovementRedeemSet(rule)?.MovementRules.Remove(rule);
         }
 
         AppendLog($"Removed {unsupportedRules.Length} old stop-input movement redeem{(unsupportedRules.Length == 1 ? string.Empty : "s")} because Crystal Relay now supports directional movement redeems only.");
@@ -13101,6 +13405,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RaisePropertyChanged(nameof(IsViewingUniversalTriggers));
         RaisePropertyChanged(nameof(IsViewingAvatarScaling));
         RaisePropertyChanged(nameof(IsViewingRewardFireSale));
+        RaisePropertyChanged(nameof(MovementRedeemSets));
+        RaisePropertyChanged(nameof(MovementRedeemRules));
         RaisePropertyChanged(nameof(AvatarScaleSets));
         RaisePropertyChanged(nameof(AvatarScaleRules));
         RaisePropertyChanged(nameof(MasterAvatarDisplayName));
@@ -13466,6 +13772,16 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             RestoreMode = AvatarScaleRestoreMode.ConfiguredHeight,
             RestoreHeightMeters = 1.6,
             SmoothTransitionSeconds = 0
+        };
+    }
+
+    private MovementRedeemSet CreateDefaultMovementRedeemSet()
+    {
+        var nextNumber = Settings.MovementRedeemSets.Count + 1;
+        return new MovementRedeemSet
+        {
+            Name = Settings.MovementRedeemSets.Count == 0 ? "Default Movement Set" : $"Movement Set {nextNumber}",
+            MovementRules = []
         };
     }
 
@@ -14418,11 +14734,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         {
             rule.DurationSeconds = 3;
         }
-
-        if (rule.CooldownSeconds != 0)
-        {
-            rule.CooldownSeconds = 0;
-        }
     }
 
     private void RelocateMisplacedMovementRules()
@@ -14438,10 +14749,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             foreach (var rule in misplacedRules)
             {
                 profile.ChannelPointRules.Remove(rule);
-                if (!Settings.GlobalMovementRules.Contains(rule))
-                {
-                    Settings.GlobalMovementRules.Add(rule);
-                }
+                AddRuleToSelectedOrDefaultMovementSet(rule);
 
                 movedRuleNames.Add(rule.DisplayTitle);
             }
@@ -14454,10 +14762,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         foreach (var rule in misplacedOverrideRules)
         {
             Settings.GlobalOverrideRules.Remove(rule);
-            if (!Settings.GlobalMovementRules.Contains(rule))
-            {
-                Settings.GlobalMovementRules.Add(rule);
-            }
+            AddRuleToSelectedOrDefaultMovementSet(rule);
 
             movedRuleNames.Add(rule.DisplayTitle);
         }
@@ -14467,7 +14772,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             return;
         }
 
-        if (SelectedRule is not null && Settings.GlobalMovementRules.Contains(SelectedRule))
+        if (SelectedRule is not null && GetOwningMovementRedeemSet(SelectedRule) is not null)
         {
             SwitchRuleView(RuleListView.MovementRedeems, profile: null, SelectedRule);
         }
@@ -14483,7 +14788,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     private void RelocateRuleToGlobalMovementRules(TriggerRule rule)
     {
-        if (Settings.GlobalMovementRules.Contains(rule))
+        if (GetOwningMovementRedeemSet(rule) is not null)
         {
             ApplyMovementRuleDefaults(rule);
             return;
@@ -14505,14 +14810,29 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             return;
         }
 
-        if (!Settings.GlobalMovementRules.Contains(rule))
-        {
-            Settings.GlobalMovementRules.Add(rule);
-        }
+        AddRuleToSelectedOrDefaultMovementSet(rule);
 
         ApplyMovementRuleDefaults(rule);
         SwitchRuleView(RuleListView.MovementRedeems, profile: null, rule);
         AppendLog(TF("Moved '{0}' into Movement Redeems because player movement is global.", rule.DisplayTitle));
+    }
+
+    private void AddRuleToSelectedOrDefaultMovementSet(TriggerRule rule)
+    {
+        if (GetOwningMovementRedeemSet(rule) is not null)
+        {
+            return;
+        }
+
+        EnsureSelectedMovementRedeemSet();
+        var targetSet = SelectedMovementRedeemSet ?? Settings.MovementRedeemSets.FirstOrDefault();
+        if (targetSet is null)
+        {
+            targetSet = CreateDefaultMovementRedeemSet();
+            Settings.MovementRedeemSets.Add(targetSet);
+        }
+
+        targetSet.MovementRules.Add(rule);
     }
 
     private static string GetFriendlyVrChatError(Exception ex)
@@ -14619,6 +14939,40 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         return "0.0.0";
     }
 
+    private static string DetectBetaBuildLabel()
+    {
+        try
+        {
+            var markerPath = Path.Combine(AppContext.BaseDirectory, BetaBuildMarkerFileName);
+            if (!File.Exists(markerPath))
+            {
+                return string.Empty;
+            }
+
+            var label = File.ReadAllText(markerPath).Trim();
+            if (string.IsNullOrWhiteSpace(label))
+            {
+                return "Beta";
+            }
+
+            if (label.StartsWith("beta", StringComparison.OrdinalIgnoreCase))
+            {
+                var betaNumber = label[4..].Trim(' ', '-', '_');
+                if (int.TryParse(betaNumber, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedBetaNumber) &&
+                    parsedBetaNumber > 0)
+                {
+                    return $"Beta {parsedBetaNumber.ToString(CultureInfo.InvariantCulture)}";
+                }
+            }
+
+            return label.Length <= 40 ? label : label[..40];
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
     private static bool DetectTestBuild()
     {
         try
@@ -14631,7 +14985,22 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
     }
 
-    private static string GetTestBuildTitleSuffix() => IsTestBuild ? LocalizationService.Translate(" - Test Build") : string.Empty;
+    private static string GetAppVersionDisplay()
+    {
+        var builder = new StringBuilder(AppVersion);
+        if (!string.IsNullOrWhiteSpace(BetaBuildLabel))
+        {
+            builder.Append(" - ");
+            builder.Append(BetaBuildLabel);
+        }
+
+        if (IsTestBuild)
+        {
+            builder.Append(LocalizationService.Translate(" - Test Build"));
+        }
+
+        return builder.ToString();
+    }
 
     private enum SectionView
     {
@@ -14864,6 +15233,17 @@ public sealed record VrChatAvatarOption(
     public override string ToString() => DisplayLabel;
 }
 
+public enum TwitchChatMessageEntryKind
+{
+    Chat,
+    ChannelPointRedemption,
+    BitsCheer,
+    Subscription,
+    Resubscription,
+    GiftSubscription,
+    Raid
+}
+
 public sealed class TwitchChatMessageEntry : ObservableObject
 {
     private static readonly SolidColorBrush DefaultNameBrush = CreateFrozenBrush("#F5EEFF");
@@ -14880,8 +15260,17 @@ public sealed class TwitchChatMessageEntry : ObservableObject
         bool shouldPlayViewerSound,
         DateTimeOffset receivedAt,
         AppTheme theme,
-        ChatTimestampFormat timestampFormat)
+        ChatTimestampFormat timestampFormat,
+        TwitchChatMessageEntryKind kind = TwitchChatMessageEntryKind.Chat,
+        string rewardTitle = "",
+        int rewardCost = 0,
+        string rewardUserInput = "",
+        int supportAmount = 0,
+        string supportTier = "",
+        int supportMonths = 0,
+        string supportMessage = "")
     {
+        Kind = Enum.IsDefined(kind) ? kind : TwitchChatMessageEntryKind.Chat;
         UserDisplayName = string.IsNullOrWhiteSpace(userDisplayName) ? "Viewer" : userDisplayName.Trim();
         MessageText = messageText;
         BadgeImageUrls = badgeImageUrls;
@@ -14892,8 +15281,27 @@ public sealed class TwitchChatMessageEntry : ObservableObject
         ReceivedAt = receivedAt;
         RawUserColor = userColor;
         NameBrush = ParseNameBrush(userColor, theme);
+        RewardTitle = string.IsNullOrWhiteSpace(rewardTitle) ? MessageText.Trim() : rewardTitle.Trim();
+        RewardCost = Math.Max(0, rewardCost);
+        RewardUserInput = rewardUserInput?.Trim() ?? string.Empty;
+        SupportAmount = Math.Max(0, supportAmount);
+        SupportTier = supportTier?.Trim() ?? string.Empty;
+        SupportMonths = Math.Max(0, supportMonths);
+        SupportMessage = supportMessage?.Trim() ?? string.Empty;
         this.timestampFormat = NormalizeTimestampFormat(timestampFormat);
     }
+
+    public TwitchChatMessageEntryKind Kind { get; }
+
+    public bool IsChatMessage => Kind == TwitchChatMessageEntryKind.Chat;
+
+    public bool IsChannelPointRedemption => Kind == TwitchChatMessageEntryKind.ChannelPointRedemption;
+
+    public bool IsSupportEvent => Kind is TwitchChatMessageEntryKind.BitsCheer
+        or TwitchChatMessageEntryKind.Subscription
+        or TwitchChatMessageEntryKind.Resubscription
+        or TwitchChatMessageEntryKind.GiftSubscription
+        or TwitchChatMessageEntryKind.Raid;
 
     public string UserDisplayName { get; }
 
@@ -14912,6 +15320,115 @@ public sealed class TwitchChatMessageEntry : ObservableObject
     public string TimestampText => FormatTimestamp(ReceivedAt, timestampFormat);
 
     public Brush NameBrush { get; }
+
+    public string RewardTitle { get; }
+
+    public int RewardCost { get; }
+
+    public string RewardUserInput { get; }
+
+    public bool HasRewardCost => RewardCost > 0;
+
+    public bool HasRewardUserInput => !string.IsNullOrWhiteSpace(RewardUserInput);
+
+    public int SupportAmount { get; }
+
+    public string SupportTier { get; }
+
+    public int SupportMonths { get; }
+
+    public string SupportMessage { get; }
+
+    public bool HasSupportDetailText => !string.IsNullOrWhiteSpace(SupportDetailText);
+
+    public bool HasSupportMessage => !string.IsNullOrWhiteSpace(SupportMessage);
+
+    public string SupportEventLabel => Kind switch
+    {
+        TwitchChatMessageEntryKind.BitsCheer => LocalizationService.Translate("Bits Cheer"),
+        TwitchChatMessageEntryKind.Subscription => LocalizationService.Translate("New Sub"),
+        TwitchChatMessageEntryKind.Resubscription => LocalizationService.Translate("Resub"),
+        TwitchChatMessageEntryKind.GiftSubscription => LocalizationService.Translate("Gift Subs"),
+        TwitchChatMessageEntryKind.Raid => LocalizationService.Translate("Raid"),
+        _ => string.Empty
+    };
+
+    public string SupportHeadlineText => Kind switch
+    {
+        TwitchChatMessageEntryKind.BitsCheer => string.Format(
+            CultureInfo.CurrentCulture,
+            LocalizationService.Translate("{0} cheered {1:N0} Bits"),
+            UserDisplayName,
+            SupportAmount),
+        TwitchChatMessageEntryKind.Subscription => string.Format(
+            CultureInfo.CurrentCulture,
+            LocalizationService.Translate("{0} subscribed"),
+            UserDisplayName),
+        TwitchChatMessageEntryKind.Resubscription => string.Format(
+            CultureInfo.CurrentCulture,
+            LocalizationService.Translate("{0} resubbed"),
+            UserDisplayName),
+        TwitchChatMessageEntryKind.GiftSubscription => string.Format(
+            CultureInfo.CurrentCulture,
+            LocalizationService.Translate("{0} gifted {1:N0} subs"),
+            UserDisplayName,
+            SupportAmount),
+        TwitchChatMessageEntryKind.Raid => string.Format(
+            CultureInfo.CurrentCulture,
+            LocalizationService.Translate("{0} raided with {1:N0} viewers"),
+            UserDisplayName,
+            SupportAmount),
+        _ => string.Empty
+    };
+
+    public string SupportDetailText => Kind switch
+    {
+        TwitchChatMessageEntryKind.Subscription => FormatSupportTierLabel(SupportTier),
+        TwitchChatMessageEntryKind.Resubscription => FormatSupportTierAndMonths(SupportTier, SupportMonths),
+        TwitchChatMessageEntryKind.GiftSubscription => FormatSupportTierLabel(SupportTier),
+        _ => string.Empty
+    };
+
+    public string RedemptionViewerText => string.Format(
+        CultureInfo.CurrentCulture,
+        LocalizationService.Translate("Redeemed by {0}"),
+        UserDisplayName);
+
+    public string RedemptionCostText => RewardCost > 0
+        ? string.Format(
+            CultureInfo.CurrentCulture,
+            LocalizationService.Translate("{0:N0} points"),
+            RewardCost)
+        : string.Empty;
+
+    private static string FormatSupportTierAndMonths(string tier, int months)
+    {
+        var tierLabel = FormatSupportTierLabel(tier);
+        if (months <= 0)
+        {
+            return tierLabel;
+        }
+
+        var monthLabel = string.Format(
+            CultureInfo.CurrentCulture,
+            LocalizationService.Translate("{0:N0} months"),
+            months);
+
+        return string.IsNullOrWhiteSpace(tierLabel)
+            ? monthLabel
+            : string.Format(CultureInfo.CurrentCulture, LocalizationService.Translate("{0} ({1})"), tierLabel, monthLabel);
+    }
+
+    private static string FormatSupportTierLabel(string tier)
+    {
+        return tier.Trim() switch
+        {
+            "1000" => LocalizationService.Translate("Tier 1"),
+            "2000" => LocalizationService.Translate("Tier 2"),
+            "3000" => LocalizationService.Translate("Tier 3"),
+            _ => string.Empty
+        };
+    }
 
     public static Brush ResolveNameBrush(string userColor, AppTheme theme) => ParseNameBrush(userColor, theme);
 

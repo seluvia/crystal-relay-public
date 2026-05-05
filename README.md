@@ -2,6 +2,8 @@
 
 **Windows desktop Twitch-to-VRChat control through OSC and OSCQuery.**
 
+**Want the Windows download right away?** Open the [Crystal Relay Releases page](https://github.com/seluvia/crystal-relay-public/releases), or use **Releases** on the right side of the GitHub page.
+
 [![Platform](https://img.shields.io/badge/platform-Windows-0078D4?style=for-the-badge)](#build-and-run-from-source)
 [![.NET](https://img.shields.io/badge/.NET-10-512BD4?style=for-the-badge)](#build-and-run-from-source)
 [![License](https://img.shields.io/badge/license-GPL--3.0--or--later-2E8B57?style=for-the-badge)](LICENSE)
@@ -212,11 +214,13 @@ Crystal Relay uses standard network connections only for the services needed to 
 | **VRChat** | Outbound HTTPS for login, 2FA, logout, and avatar list refreshes. Runtime avatar control uses local OSC and OSCQuery traffic between Crystal Relay and VRChat. |
 | **GitHub** | Outbound HTTPS to the public Crystal Relay releases API for update checks. |
 | **Cloudflare** | Outbound HTTPS to Crystal Relay Cloudflare Workers for About-page beta live-status cards and optional in-app bug reports. Bug reports are user-submitted, logs are opt-in and sanitized before sending, and Twitch tokens, VRChat auth cookies, passwords, and private app data must never be sent. |
-| **Local machine** | OSC and OSCQuery use local UDP/TCP ports for discovery, avatar parameters, movement inputs, avatar changes, and chatbox messages. This is local app-to-VRChat communication, not a public remote-control server. |
+| **Local machine** | OSC and OSCQuery use local UDP/TCP ports for discovery, avatar parameters, movement inputs, avatar changes, and chatbox messages. Crystal Relay advertises loopback OSCQuery endpoints and uses local dynamic UDP/TCP ports for app-to-VRChat communication. This is not a public remote-control server. |
 
 Crystal Relay does **not** publish Twitch tokens, VRChat auth cookies, private IP addresses, local usernames, downloaded VRChat avatar files, or runtime app data into the README or public repository.
 
 Login/session secrets are stored locally through **Windows Credential Manager**, and runtime caches stay in the user's local app data folder.
+
+Keep VRChat OSC and OSCQuery local/private. Do not expose Crystal Relay or VRChat OSC/OSCQuery ports through router port-forwarding or broad firewall rules.
 
 ## Local Data and Crash Logs
 
@@ -242,6 +246,8 @@ C:\Users\<YourUser>\AppData\Local\CrystalRelay\CrashLogs
 
 Use **Open Crystal Relay Folder** inside the app to jump there quickly.
 
+Crash logs are sanitized before they are written. Crystal Relay redacts common token, cookie, authorization header, Twitch login code, VRChat auth, and local Windows username path patterns.
+
 ## Build and Run From Source
 
 Prerequisites:
@@ -255,6 +261,12 @@ Build the solution:
 dotnet build .\VrcTwitchOscBridge.slnx
 ```
 
+Check NuGet dependencies for known vulnerabilities:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\Check-Crystal-Relay-Dependencies.ps1
+```
+
 Run from source:
 
 ```powershell
@@ -265,6 +277,12 @@ Create a test package:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\Build-Crystal-Relay-Test.ps1
+```
+
+Create a beta release package:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\Build-Crystal-Relay-Beta.ps1 -Version 3.1.0 -Beta 1
 ```
 
 Create a release package:

@@ -320,7 +320,15 @@ public partial class TwitchChatboxWindow : Window
                 current.ShouldPlayViewerSound,
                 current.ReceivedAt,
                 viewModel.SelectedTheme,
-                viewModel.Settings.ChatTimestampFormat);
+                viewModel.Settings.ChatTimestampFormat,
+                current.Kind,
+                current.RewardTitle,
+                current.RewardCost,
+                current.RewardUserInput,
+                current.SupportAmount,
+                current.SupportTier,
+                current.SupportMonths,
+                current.SupportMessage);
         }
     }
 

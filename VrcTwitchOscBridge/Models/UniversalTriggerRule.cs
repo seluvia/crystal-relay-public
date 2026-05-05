@@ -18,6 +18,7 @@ public sealed class UniversalTriggerRule : ObservableObject
     private string rewardId = string.Empty;
     private string rewardTitle = string.Empty;
     private int rewardCost = 100;
+    private int rewardCooldownSeconds;
     private TwitchRewardSyncMode rewardSyncMode = TwitchRewardSyncMode.CreateOrManage;
     private string managedRewardReadyColor = ManagedRewardPresentation.ReadyBackgroundColor;
     private string managedRewardCooldownColor = ManagedRewardPresentation.InUseBackgroundColor;
@@ -144,6 +145,12 @@ public sealed class UniversalTriggerRule : ObservableObject
                 RaiseTitleProperties();
             }
         }
+    }
+
+    public int RewardCooldownSeconds
+    {
+        get => rewardCooldownSeconds;
+        set => SetProperty(ref rewardCooldownSeconds, Math.Max(0, value));
     }
 
     public TwitchRewardSyncMode RewardSyncMode

@@ -3,6 +3,17 @@ Crystal Relay Changelog
 
 Newest updates appear first. This changelog focuses on the changes users will notice most.
 
+v3.1.0
+- Added Movement Sets so Movement Redeems can be organized into folders while keeping existing movement rewards, active times, cooldowns, and runtime behavior global.
+- Added real Twitch reward cooldown controls for Universal Trigger and Movement channel-point rewards created by Crystal Relay, while linked rewards stay listen-only.
+- Expanded Trigger Info chat messages and the `!rewards` reminder command so viewers can see current-avatar outfit choices, Bits outfit names, Bits grow/shrink scale words, and sub/gift-sub scale effects.
+- Twitch Chatbox now shows special cards for channel-point redemptions, Bits cheers, subscriptions, resubs, gift subs, and incoming raids, separate from normal chat and not relayed to VRChat chatbox OSC.
+- Supporter Growth Bits can use editable grow/shrink keywords such as `Cheer100 grow` or `Cheer100 shrink`, with ambiguous cheer text rejected instead of guessed.
+- Fire Sale funding rewards now have managed ready/cooldown colors and cooldown control, and Fire Sale progress/log trimming was tightened so large sanitized bug-report logs are trimmed instead of rejected.
+- Crash logs and bug report diagnostics now share stronger sanitization for tokens, cookies, authorization headers, Twitch codes, VRChat auth text, and local Windows usernames.
+- Added a dependency vulnerability scan script and README security notes for local OSC/OSCQuery port behavior.
+- Added TheRaccoonCat to the Cloudflare live-status playtester list so the About page can show the card as live when Twitch reports the channel online.
+
 v3.0.2
 - Added Reward Fire Sale, a new Redeem Library section that can build a shared Bits and optional funding reward goal for temporary or permanent channel-point discounts.
 - Fire Sale tiers can use one discount or the highest reached tier, then apply the discount only to Crystal Relay-created `VRC:` rewards while linked Twitch rewards stay listen-only and unchanged.

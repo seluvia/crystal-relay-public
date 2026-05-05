@@ -1564,6 +1564,38 @@
                 </Border>
             </Grid>
         </DataTemplate>
+
+        <DataTemplate x:Key="MovementRedeemSetListItemTemplate"
+                      DataType="{x:Type models:MovementRedeemSet}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Text="{Binding DisplayTitle}"
+                               FontWeight="SemiBold"
+                               FontSize="16"
+                               Foreground="{DynamicResource TextBrush}"
+                               TextWrapping="Wrap" />
+                    <TextBlock Margin="0,6,0,0"
+                               Text="{Binding MovementCountText}"
+                               Foreground="{DynamicResource MutedBrush}"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+                <Border Grid.Column="1"
+                        Margin="12,0,0,0"
+                        Padding="10,4"
+                        VerticalAlignment="Top"
+                        CornerRadius="10"
+                        Background="{DynamicResource StatusChipBrush}">
+                    <TextBlock Text="{Binding MovementCountText}"
+                               FontSize="12"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextBrush}" />
+                </Border>
+            </Grid>
+        </DataTemplate>
     </Window.Resources>
 
     <Border BorderBrush="{DynamicResource BorderBrush}"
@@ -2441,7 +2473,7 @@
                                                             <ColumnDefinition Width="Auto" />
                                                         </Grid.ColumnDefinitions>
                                                         <TextBlock Grid.Column="0"
-                                                                   Text="{loc:Translate 'Outfit trigger info announcements'}"
+                                                                   Text="{loc:Translate 'Trigger info announcements'}"
                                                                    Style="{StaticResource HeadingTextStyle}"
                                                                    FontSize="16"
                                                                    FontWeight="SemiBold"
@@ -2451,11 +2483,11 @@
                                                                 Margin="8,0,0,0"
                                                                 Style="{StaticResource HelpIconButtonStyle}"
                                                                 Click="OnHelpButtonClicked"
-                                                                CommandParameter="Outfit trigger info announcements"
-                                                                Tag="When enabled, Crystal Relay posts one compact Twitch chat message while you are live. The message lists the current avatar's channel point outfit choices and Bits outfit names so viewers know what to type." />
+                                                                CommandParameter="Trigger info announcements"
+                                                                Tag="When enabled, Crystal Relay posts one compact Twitch chat message while you are live. The message lists current-avatar outfit choices, Bits outfit names, Bits grow/shrink scale words, and sub or gift-sub scale effects." />
                                                     </Grid>
                                                     <CheckBox Margin="0,10,0,0"
-                                                              Content="{loc:Translate 'Post current outfit trigger info while live'}"
+                                                              Content="{loc:Translate 'Post current trigger info while live'}"
                                                               IsChecked="{Binding Settings.TriggerInfoAnnouncementsEnabled, UpdateSourceTrigger=PropertyChanged}" />
                                                     <Grid Margin="0,10,0,0">
                                                         <Grid.ColumnDefinitions>
@@ -2479,9 +2511,70 @@
                                                                    TextWrapping="Wrap" />
                                                     </Grid>
                                                     <TextBlock Margin="0,8,0,0"
-                                                               Text="{loc:Translate 'Crystal Relay only posts these automatic outfit messages while Twitch says the stream is live. It skips the message if no current-avatar outfit triggers are available.'}"
+                                                               Text="{loc:Translate 'Crystal Relay only posts these automatic trigger messages while Twitch says the stream is live. It skips the timed message if no current-avatar trigger info is available.'}"
                                                                Foreground="{DynamicResource MutedBrush}"
                                                                TextWrapping="Wrap" />
+                                                    <Border Margin="0,14,0,0"
+                                                            Padding="12"
+                                                            Background="{DynamicResource NestedPanelBrush}"
+                                                            BorderBrush="{DynamicResource InputBorderBrush}"
+                                                            BorderThickness="1"
+                                                            CornerRadius="10">
+                                                        <StackPanel>
+                                                            <CheckBox Content="{loc:Translate 'Allow reminder command'}"
+                                                                      IsChecked="{Binding Settings.TriggerInfoCommandEnabled, UpdateSourceTrigger=PropertyChanged}" />
+                                                            <Grid Margin="0,10,0,0">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="*" />
+                                                                    <ColumnDefinition Width="*" />
+                                                                </Grid.ColumnDefinitions>
+                                                                <StackPanel Grid.Column="0"
+                                                                            Margin="0,0,8,0">
+                                                                    <TextBlock Text="{loc:Translate 'Reminder Command'}"
+                                                                               FontWeight="SemiBold"
+                                                                               Foreground="{DynamicResource TextBrush}" />
+                                                                    <TextBox Margin="0,6,0,0"
+                                                                             Text="{Binding Settings.TriggerInfoCommandText, UpdateSourceTrigger=PropertyChanged}" />
+                                                                </StackPanel>
+                                                                <StackPanel Grid.Column="1"
+                                                                            Margin="8,0,0,0">
+                                                                    <TextBlock Text="{loc:Translate 'Command Permission'}"
+                                                                               FontWeight="SemiBold"
+                                                                               Foreground="{DynamicResource TextBrush}" />
+                                                                    <ComboBox Margin="0,6,0,0"
+                                                                              ItemsSource="{Binding DataContext.ChatCommandPermissionOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                              DisplayMemberPath="Label"
+                                                                              SelectedValuePath="Value"
+                                                                              SelectedValue="{Binding Settings.TriggerInfoCommandPermission, UpdateSourceTrigger=PropertyChanged}" />
+                                                                </StackPanel>
+                                                            </Grid>
+                                                            <Grid Margin="0,10,0,0">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="Auto" />
+                                                                    <ColumnDefinition Width="96" />
+                                                                    <ColumnDefinition Width="*" />
+                                                                </Grid.ColumnDefinitions>
+                                                                <TextBlock Grid.Column="0"
+                                                                           VerticalAlignment="Center"
+                                                                           Text="{loc:Translate 'Command cooldown'}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold" />
+                                                                <TextBox Grid.Column="1"
+                                                                         Margin="8,0"
+                                                                         Text="{Binding Settings.TriggerInfoCommandCooldownSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                                                                <TextBlock Grid.Column="2"
+                                                                           VerticalAlignment="Center"
+                                                                           Text="{loc:Translate 'seconds'}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold"
+                                                                           TextWrapping="Wrap" />
+                                                            </Grid>
+                                                            <TextBlock Margin="0,8,0,0"
+                                                                       Text="{loc:Translate 'The reminder command posts the same current trigger info as the timed message, but uses its own cooldown so viewers can ask without waiting for the next automatic post.'}"
+                                                                       Foreground="{DynamicResource MutedBrush}"
+                                                                       TextWrapping="Wrap" />
+                                                        </StackPanel>
+                                                    </Border>
                                                 </StackPanel>
                                             </Border>
                                         </StackPanel>
@@ -3122,30 +3215,19 @@
                             <UniformGrid Columns="2">
                                 <Button Style="{StaticResource RuleLibraryPrimaryButtonStyle}"
                                         Margin="0,0,10,0"
-                                        Content="{loc:Translate 'Add Movement Redeem'}"
-                                        Command="{Binding AddRuleCommand}" />
+                                        Content="{loc:Translate 'Add Movement Set'}"
+                                        Command="{Binding AddMovementRedeemSetCommand}" />
                                 <Button Style="{StaticResource RuleLibraryButtonStyle}"
                                         Margin="10,0,0,0"
-                                        Content="{loc:Translate 'Delete Movement Redeem'}"
-                                        Command="{Binding RemoveSelectedRuleCommand}" />
+                                        Content="{loc:Translate 'Delete Movement Set'}"
+                                        Command="{Binding RemoveSelectedMovementRedeemSetCommand}" />
                             </UniformGrid>
                             <Button Style="{StaticResource RuleLibraryDangerButtonStyle}"
                                     Margin="0,10,0,0"
                                     Width="214"
                                     HorizontalAlignment="Center"
-                                    Content="{loc:Translate 'Delete All Movement Redeems'}"
-                                    Command="{Binding DeleteAllRulesCommand}" />
-                            <UniformGrid Margin="0,10,0,0"
-                                         Columns="2">
-                                <Button Style="{StaticResource RuleLibraryButtonStyle}"
-                                        Margin="0,0,10,0"
-                                        Content="{loc:Translate 'Enable All'}"
-                                        Command="{Binding EnableAllRulesCommand}" />
-                                <Button Style="{StaticResource RuleLibraryButtonStyle}"
-                                        Margin="10,0,0,0"
-                                        Content="{loc:Translate 'Disable All'}"
-                                        Command="{Binding DisableAllRulesCommand}" />
-                            </UniformGrid>
+                                    Content="{loc:Translate 'Delete All Movement Sets'}"
+                                    Command="{Binding DeleteAllMovementRedeemSetsCommand}" />
                         </StackPanel>
 
                         <StackPanel Margin="0,14,0,0"
@@ -3413,8 +3495,9 @@
                             </ListBox.Style>
                         </ListBox>
 
-                        <ListBox ItemsSource="{Binding Settings.GlobalMovementRules}"
-                                 SelectedItem="{Binding SelectedRule}"
+                        <ListBox ItemsSource="{Binding MovementRedeemSets}"
+                                 SelectedItem="{Binding SelectedMovementRedeemSet}"
+                                 ItemTemplate="{StaticResource MovementRedeemSetListItemTemplate}"
                                  ScrollViewer.CanContentScroll="True"
                                  VirtualizingStackPanel.IsVirtualizing="True"
                                  VirtualizingStackPanel.VirtualizationMode="Recycling">
@@ -3570,10 +3653,10 @@
                                         <MultiDataTrigger>
                                             <MultiDataTrigger.Conditions>
                                                 <Condition Binding="{Binding IsViewingMovementRedeems}" Value="True" />
-                                                <Condition Binding="{Binding Settings.GlobalMovementRules.Count}" Value="0" />
+                                                <Condition Binding="{Binding MovementRedeemSets.Count}" Value="0" />
                                             </MultiDataTrigger.Conditions>
                                             <Setter Property="Visibility" Value="Visible" />
-                                            <Setter Property="Text" Value="{loc:Translate 'Add a movement redeem to get started.'}" />
+                                            <Setter Property="Text" Value="{loc:Translate 'Add a movement set to get started.'}" />
                                         </MultiDataTrigger>
                                         <MultiDataTrigger>
                                             <MultiDataTrigger.Conditions>
@@ -5762,8 +5845,77 @@
                                         <Button Style="{StaticResource HelpIconButtonStyle}"
                                                 Click="OnHelpButtonClicked"
                                                 CommandParameter="Movement Redeems"
-                                                Tag="Movement Redeems are global rules instead of avatar-specific ones. Use this area for viewer-controlled movement inputs like forward, back, left, right, or spin that should work the same on every avatar. The buttons here add, remove, or enable the full movement rule list." />
+                                                Tag="{loc:Translate 'Movement Sets are organization-only folders. Movement redeems inside them still run globally across every avatar and keep their existing Twitch reward links.'}" />
                                     </DockPanel>
+                                    <TextBlock Margin="0,10,0,0"
+                                               Text="{loc:Translate 'Movement Sets are only for organization. Every movement redeem in every set still works globally across avatars.'}"
+                                               Foreground="{DynamicResource MutedBrush}"
+                                               TextWrapping="Wrap" />
+                                    <Border Margin="0,16,0,0"
+                                            Background="{DynamicResource NestedPanelBrush}"
+                                            BorderBrush="{DynamicResource HighlightBorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="18"
+                                            Padding="16">
+                                        <StackPanel>
+                                            <TextBlock Text="{loc:Translate 'Movement Set Name'}"
+                                                       Foreground="{DynamicResource TextBrush}"
+                                                       FontWeight="SemiBold" />
+                                            <TextBox Margin="0,6,0,0"
+                                                     Text="{Binding SelectedMovementRedeemSet.Name, UpdateSourceTrigger=PropertyChanged}" />
+                                            <DockPanel Margin="0,16,0,0"
+                                                       LastChildFill="False">
+                                                <TextBlock Text="{loc:Translate 'Redeems In This Movement Set'}"
+                                                           Foreground="{DynamicResource TextBrush}"
+                                                           FontWeight="SemiBold"
+                                                           FontSize="17"
+                                                           VerticalAlignment="Center" />
+                                                <Border Margin="10,0,0,0"
+                                                        Padding="10,4"
+                                                        VerticalAlignment="Center"
+                                                        Background="{DynamicResource StatusChipBrush}"
+                                                        BorderBrush="{DynamicResource InputBorderBrush}"
+                                                        BorderThickness="1"
+                                                        CornerRadius="10">
+                                                    <TextBlock Text="{Binding SelectedMovementRedeemSet.MovementCountText}"
+                                                               Foreground="{DynamicResource TextBrush}"
+                                                               FontWeight="SemiBold"
+                                                               FontSize="12" />
+                                                </Border>
+                                            </DockPanel>
+                                            <UniformGrid Margin="0,12,0,0"
+                                                         Columns="2">
+                                                <Button Style="{StaticResource SecondaryButtonStyle}"
+                                                        Margin="0,0,8,0"
+                                                        Content="{loc:Translate 'Add Movement Redeem'}"
+                                                        Command="{Binding AddRuleCommand}" />
+                                                <Button Style="{StaticResource SecondaryButtonStyle}"
+                                                        Margin="8,0,0,0"
+                                                        Content="{loc:Translate 'Delete Movement Redeem'}"
+                                                        Command="{Binding RemoveSelectedRuleCommand}" />
+                                            </UniformGrid>
+                                            <UniformGrid Margin="0,10,0,0"
+                                                         Columns="2">
+                                                <Button Style="{StaticResource SecondaryButtonStyle}"
+                                                        Margin="0,0,8,0"
+                                                        Content="{loc:Translate 'Enable All'}"
+                                                        Command="{Binding EnableAllRulesCommand}" />
+                                                <Button Style="{StaticResource SecondaryButtonStyle}"
+                                                        Margin="8,0,0,0"
+                                                        Content="{loc:Translate 'Disable All'}"
+                                                        Command="{Binding DisableAllRulesCommand}" />
+                                            </UniformGrid>
+                                            <ListBox Margin="0,14,0,0"
+                                                     ItemsSource="{Binding MovementRedeemRules}"
+                                                     SelectedItem="{Binding SelectedRule, Mode=OneWayToSource}"
+                                                     MinHeight="72"
+                                                     MaxHeight="260"
+                                                     ScrollViewer.CanContentScroll="True"
+                                                     VirtualizingStackPanel.IsVirtualizing="True"
+                                                     VirtualizingStackPanel.VirtualizationMode="Recycling"
+                                                     ItemTemplate="{StaticResource AvatarRedeemListItemTemplate}" />
+                                        </StackPanel>
+                                    </Border>
                                 </StackPanel>
                             </Border>
 
@@ -6227,6 +6379,28 @@
                                                                     <TextBox Text="{Binding RewardCost, UpdateSourceTrigger=PropertyChanged}" />
                                                                 </StackPanel>
                                                             </UniformGrid>
+                                                            <StackPanel Margin="0,10,0,0">
+                                                                <StackPanel.Style>
+                                                                    <Style TargetType="StackPanel">
+                                                                        <Setter Property="Visibility" Value="Visible" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding UsesLinkedExistingReward}" Value="True">
+                                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </StackPanel.Style>
+                                                                <TextBlock Text="{loc:Translate 'Reward Cooldown (seconds)'}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold" />
+                                                                <TextBox MaxWidth="220"
+                                                                         HorizontalAlignment="Left"
+                                                                         Text="{Binding RewardCooldownSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                                                                <TextBlock Margin="0,6,0,0"
+                                                                           Text="{loc:Translate 'Only Crystal Relay-created Universal channel-point rewards use this Twitch cooldown. Global Delay and User Delay are Crystal Relay-only trigger waits.'}"
+                                                                           Foreground="{DynamicResource MutedBrush}"
+                                                                           TextWrapping="Wrap" />
+                                                            </StackPanel>
                                                              <TextBlock Margin="0,10,0,0"
                                                                         Text="{Binding DataContext.UniversalManagedRewardStatusText, RelativeSource={RelativeSource AncestorType=Window}}"
                                                                         Foreground="{DynamicResource MutedBrush}"
@@ -6793,6 +6967,31 @@
                                                                     <TextBox Text="{Binding ChannelPointRewardCost, UpdateSourceTrigger=PropertyChanged}" />
                                                                 </StackPanel>
                                                             </UniformGrid>
+                                                            <StackPanel Margin="0,10,0,0">
+                                                                <StackPanel.Style>
+                                                                    <Style TargetType="StackPanel">
+                                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding DataContext.IsViewingMovementRedeems, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                                                <Setter Property="Visibility" Value="Visible" />
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding UsesLinkedExistingReward}" Value="True">
+                                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </StackPanel.Style>
+                                                                <TextBlock Text="{loc:Translate 'Reward Cooldown (seconds)'}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold" />
+                                                                <TextBox MaxWidth="220"
+                                                                         HorizontalAlignment="Left"
+                                                                         Text="{Binding CooldownSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                                                                <TextBlock Margin="0,6,0,0"
+                                                                           Text="{loc:Translate 'Movement reward cooldown only controls the Twitch channel-point reward cooldown. Active Time still controls how long Crystal Relay holds the movement input.'}"
+                                                                           Foreground="{DynamicResource MutedBrush}"
+                                                                           TextWrapping="Wrap" />
+                                                            </StackPanel>
                                                             <Border Margin="0,12,0,0"
                                                                     Background="{DynamicResource PanelSecondaryBrush}"
                                                                     BorderBrush="{DynamicResource InputBorderBrush}"

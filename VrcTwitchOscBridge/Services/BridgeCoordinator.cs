@@ -68,6 +68,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         "channel.subscribe",
         "channel.subscription.gift",
         "channel.subscription.message",
+        "channel.raid",
         "channel.follow",
         "channel.chat.message",
         "stream.online",
@@ -131,6 +132,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private readonly Dictionary<Guid, DateTimeOffset> universalTriggerGlobalDelays = [];
     private readonly Dictionary<string, DateTimeOffset> universalTriggerUserDelays = new(StringComparer.Ordinal);
     private readonly Dictionary<Guid, SemaphoreSlim> universalTriggerQueueGates = [];
+    private readonly Dictionary<string, DateTimeOffset> triggerInfoCommandCooldowns = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<Guid, ActiveAvatarScaleSupporterGrowthState> avatarScaleSupporterGrowthStates = [];
     private readonly Dictionary<Guid, DateTimeOffset> activeAvatarScaleEffects = [];
     private readonly Dictionary<Guid, CancellationTokenSource> avatarScaleEffectStateNotifications = [];
@@ -820,6 +822,62 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         }
     }
 
+    private async Task<bool> TryHandleTriggerInfoReminderCommandAsync(
+        BridgeRuntimeConfiguration configuration,
+        BridgeIncomingEvent bridgeEvent,
+        CancellationToken cancellationToken)
+    {
+        if (!configuration.TriggerInfoCommandEnabled
+            || !bridgeEvent.IsChatCommandTrigger)
+        {
+            return false;
+        }
+
+        var commandText = ChatCommandUtility.Normalize(configuration.TriggerInfoCommandText);
+        if (!ChatCommandUtility.IsConfigured(commandText)
+            || !ChatCommandUtility.MessageMatches(commandText, bridgeEvent.ChatCommandText))
+        {
+            return false;
+        }
+
+        if (!isBroadcasterLive)
+        {
+            return true;
+        }
+
+        if (!UserCanTriggerChatCommand(configuration.TriggerInfoCommandPermission, bridgeEvent))
+        {
+            return true;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var cooldownSeconds = Math.Max(0, configuration.TriggerInfoCommandCooldownSeconds);
+        lock (stateGate)
+        {
+            if (triggerInfoCommandCooldowns.TryGetValue(commandText, out var cooldownUntil)
+                && cooldownUntil > now)
+            {
+                return true;
+            }
+
+            triggerInfoCommandCooldowns[commandText] = now.AddSeconds(cooldownSeconds);
+        }
+
+        var currentAvatarId = GetCurrentVrChatAvatarId();
+        var message = BuildTriggerInfoAnnouncement(configuration, currentAvatarId);
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            message = T("No current trigger info is available right now.");
+        }
+
+        if (await TrySendChatMessageWithEffectiveSenderAsync(message, "Trigger info reminder command", cancellationToken))
+        {
+            WriteLog($"{bridgeEvent.UserDisplayName} used the trigger info reminder command.");
+        }
+
+        return true;
+    }
+
 
     // Connects to Twitch EventSub and keeps reconnecting as needed while the bridge is alive.
     // Incoming Twitch events eventually flow into the rule trigger path below.
@@ -889,7 +947,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
         foreach (var subscription in subscriptions.Where(subscription =>
                      string.Equals(subscription.Transport.Method, "websocket", StringComparison.OrdinalIgnoreCase)
-                     && string.Equals(subscription.Condition.BroadcasterUserId, broadcaster.UserId, StringComparison.Ordinal)
+                     && SubscriptionConditionMatchesBroadcaster(subscription.Condition, broadcaster.UserId)
                      && ManagedSubscriptionTypes.Contains(subscription.Type, StringComparer.Ordinal)))
         {
             await twitchApiClient.DeleteEventSubSubscriptionAsync(
@@ -950,6 +1008,14 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         }
     }
 
+    private static bool SubscriptionConditionMatchesBroadcaster(
+        TwitchApiClient.EventSubConditionInfo condition,
+        string broadcasterUserId)
+    {
+        return string.Equals(condition.BroadcasterUserId, broadcasterUserId, StringComparison.Ordinal)
+            || string.Equals(condition.ToBroadcasterUserId, broadcasterUserId, StringComparison.Ordinal);
+    }
+
     private async Task HandleNotificationAsync(EventSubNotification notification, CancellationToken cancellationToken)
     {
         if (!RememberMessage(notification.MessageId))
@@ -966,6 +1032,18 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             chatCommandEvent = ParseChatCommandEvent(notification);
         }
 
+        var redemptionChatboxMessage = ParseChannelPointRedemptionChatboxMessage(notification);
+        if (redemptionChatboxMessage is not null)
+        {
+            ChatMessageReceived?.Invoke(redemptionChatboxMessage);
+        }
+
+        var supportChatboxMessage = ParseSupportEventChatboxMessage(notification);
+        if (supportChatboxMessage is not null)
+        {
+            ChatMessageReceived?.Invoke(supportChatboxMessage);
+        }
+
         if (TryHandleStreamStateNotification(notification))
         {
             return;
@@ -976,6 +1054,12 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         var configuration = activeConfiguration;
         var ruleIndex = activeRuleIndex;
         if (configuration is null)
+        {
+            return;
+        }
+
+        if (bridgeEvent is { IsChatCommandTrigger: true }
+            && await TryHandleTriggerInfoReminderCommandAsync(configuration, bridgeEvent, cancellationToken))
         {
             return;
         }
@@ -1097,6 +1181,14 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             {
                 broadcaster_user_id = broadcaster.UserId,
                 moderator_user_id = broadcaster.UserId
+            };
+        }
+
+        if (string.Equals(subscriptionType, "channel.raid", StringComparison.Ordinal))
+        {
+            return new
+            {
+                to_broadcaster_user_id = broadcaster.UserId
             };
         }
 
@@ -9147,19 +9239,31 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             var fragmentType = GetString(fragmentNode, "type") ?? string.Empty;
             if (!string.Equals(fragmentType, "emote", StringComparison.OrdinalIgnoreCase))
             {
-                parsedFragments.Add(new ParsedBridgeChatFragment(BridgeChatFragmentKind.Text, text, string.Empty));
+                parsedFragments.Add(new ParsedBridgeChatFragment(BridgeChatFragmentKind.Text, text, string.Empty, string.Empty));
                 continue;
             }
 
             var emoteId = GetString(fragmentNode, "emote", "id") ?? string.Empty;
             if (string.IsNullOrWhiteSpace(emoteId))
             {
-                parsedFragments.Add(new ParsedBridgeChatFragment(BridgeChatFragmentKind.Text, text, string.Empty));
+                parsedFragments.Add(new ParsedBridgeChatFragment(BridgeChatFragmentKind.Text, text, string.Empty, string.Empty));
                 continue;
             }
 
+            var emoteSetId = GetString(fragmentNode, "emote", "emote_set_id") ?? string.Empty;
             nativeEmoteFragmentCount++;
-            parsedFragments.Add(new ParsedBridgeChatFragment(BridgeChatFragmentKind.Emote, text, emoteId));
+            parsedFragments.Add(new ParsedBridgeChatFragment(BridgeChatFragmentKind.Emote, text, emoteId, emoteSetId));
+        }
+
+        var nativeEmoteSetIds = parsedFragments
+            .Where(fragment => fragment.Kind == BridgeChatFragmentKind.Emote
+                && !string.IsNullOrWhiteSpace(fragment.EmoteSetId))
+            .Select(fragment => fragment.EmoteSetId)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (nativeEmoteSetIds.Length > 0)
+        {
+            await EnsureChatEmoteSetsCachedAsync(nativeEmoteSetIds, cancellationToken);
         }
 
         await RefreshThirdPartyChatEmoteCatalogAsync(cancellationToken);
@@ -9174,7 +9278,12 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 continue;
             }
 
-            var imageUrl = BuildTwitchStaticEmoteImageUrl(fragment.EmoteId);
+            var imageUrl = ResolveChatEmoteImageUrl(fragment.EmoteId);
+            if (string.IsNullOrWhiteSpace(imageUrl))
+            {
+                imageUrl = BuildTwitchStaticEmoteImageUrl(fragment.EmoteId);
+            }
+
             convertedNativeEmoteFragments += string.IsNullOrWhiteSpace(imageUrl) ? 0 : 1;
 
             resolvedFragments.Add(new BridgeChatFragment(
@@ -9189,6 +9298,150 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         }
 
         return resolvedFragments;
+    }
+
+    private static BridgeChatMessage? ParseChannelPointRedemptionChatboxMessage(EventSubNotification notification)
+    {
+        if (!string.Equals(notification.SubscriptionType, "channel.channel_points_custom_reward_redemption.add", StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var eventData = notification.EventData;
+        var rewardTitle = GetString(eventData, "reward", "title")?.Trim() ?? string.Empty;
+        var rewardInput = GetString(eventData, "user_input")?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(rewardTitle))
+        {
+            rewardTitle = T("Channel Point Reward");
+        }
+
+        var userDisplayName = GetString(eventData, "user_name") ?? "Viewer";
+        var userId = GetString(eventData, "user_id") ?? string.Empty;
+        var userLogin = GetString(eventData, "user_login") ?? string.Empty;
+        var rewardCost = Math.Max(0, GetInt(eventData, "reward", "cost"));
+        var rewardId = GetString(eventData, "reward", "id") ?? string.Empty;
+        var messageText = string.IsNullOrWhiteSpace(rewardInput)
+            ? rewardTitle
+            : $"{rewardTitle}: {rewardInput}";
+
+        return new BridgeChatMessage(
+            userDisplayName,
+            userLogin,
+            userId,
+            messageText,
+            string.Empty,
+            [],
+            [],
+            [],
+            DateTimeOffset.Now)
+        {
+            Kind = BridgeChatMessageKind.ChannelPointRedemption,
+            RewardId = rewardId,
+            RewardTitle = rewardTitle,
+            RewardCost = rewardCost,
+            RewardUserInput = rewardInput
+        };
+    }
+
+    private static BridgeChatMessage? ParseSupportEventChatboxMessage(EventSubNotification notification)
+    {
+        var eventData = notification.EventData;
+        return notification.SubscriptionType switch
+        {
+            "channel.cheer" => BuildSupportChatboxMessage(
+                BridgeChatMessageKind.BitsCheer,
+                GetBoolean(eventData, "is_anonymous") ? "Anonymous" : GetString(eventData, "user_name") ?? "Viewer",
+                GetString(eventData, "user_login") ?? string.Empty,
+                GetString(eventData, "user_id") ?? string.Empty,
+                Math.Max(1, GetInt(eventData, "bits")),
+                string.Empty,
+                0,
+                GetString(eventData, "message") ?? ExtractChatMessageText(eventData)),
+
+            "channel.subscribe" when !GetBoolean(eventData, "is_gift") => BuildSupportChatboxMessage(
+                BridgeChatMessageKind.Subscription,
+                GetString(eventData, "user_name") ?? "Subscriber",
+                GetString(eventData, "user_login") ?? string.Empty,
+                GetString(eventData, "user_id") ?? string.Empty,
+                1,
+                GetString(eventData, "tier") ?? string.Empty,
+                0,
+                string.Empty),
+
+            "channel.subscription.message" => BuildSupportChatboxMessage(
+                BridgeChatMessageKind.Resubscription,
+                GetString(eventData, "user_name") ?? "Subscriber",
+                GetString(eventData, "user_login") ?? string.Empty,
+                GetString(eventData, "user_id") ?? string.Empty,
+                1,
+                GetString(eventData, "tier") ?? string.Empty,
+                Math.Max(0, Math.Max(GetInt(eventData, "cumulative_months"), GetInt(eventData, "duration_months"))),
+                ExtractChatMessageText(eventData)),
+
+            "channel.subscription.gift" => BuildSupportChatboxMessage(
+                BridgeChatMessageKind.GiftSubscription,
+                GetBoolean(eventData, "is_anonymous") ? "Anonymous" : GetString(eventData, "user_name") ?? "Gifter",
+                GetString(eventData, "user_login") ?? string.Empty,
+                GetString(eventData, "user_id") ?? string.Empty,
+                Math.Max(1, GetInt(eventData, "total")),
+                GetString(eventData, "tier") ?? string.Empty,
+                0,
+                string.Empty),
+
+            "channel.raid" => BuildSupportChatboxMessage(
+                BridgeChatMessageKind.Raid,
+                GetString(eventData, "from_broadcaster_user_name") ?? "Raider",
+                GetString(eventData, "from_broadcaster_user_login") ?? string.Empty,
+                GetString(eventData, "from_broadcaster_user_id") ?? string.Empty,
+                Math.Max(1, GetInt(eventData, "viewers")),
+                string.Empty,
+                0,
+                string.Empty),
+
+            _ => null
+        };
+    }
+
+    private static BridgeChatMessage BuildSupportChatboxMessage(
+        BridgeChatMessageKind kind,
+        string userDisplayName,
+        string userLogin,
+        string userId,
+        int amount,
+        string tier,
+        int months,
+        string supportMessage)
+    {
+        var normalizedUserDisplayName = string.IsNullOrWhiteSpace(userDisplayName) ? "Viewer" : userDisplayName.Trim();
+        var normalizedAmount = Math.Max(0, amount);
+        var normalizedSupportMessage = supportMessage?.Trim() ?? string.Empty;
+        var messageText = kind switch
+        {
+            BridgeChatMessageKind.BitsCheer => TF("{0} cheered {1:N0} Bits", normalizedUserDisplayName, normalizedAmount),
+            BridgeChatMessageKind.Subscription => TF("{0} subscribed", normalizedUserDisplayName),
+            BridgeChatMessageKind.Resubscription => TF("{0} resubbed", normalizedUserDisplayName),
+            BridgeChatMessageKind.GiftSubscription => TF("{0} gifted {1:N0} subs", normalizedUserDisplayName, normalizedAmount),
+            BridgeChatMessageKind.Raid => TF("{0} raided with {1:N0} viewers", normalizedUserDisplayName, normalizedAmount),
+            _ => normalizedSupportMessage
+        };
+
+        return new BridgeChatMessage(
+            normalizedUserDisplayName,
+            userLogin?.Trim() ?? string.Empty,
+            userId?.Trim() ?? string.Empty,
+            string.IsNullOrWhiteSpace(messageText) ? normalizedUserDisplayName : messageText,
+            string.Empty,
+            [],
+            [],
+            [],
+            DateTimeOffset.Now)
+        {
+            Kind = kind,
+            SupportAmount = normalizedAmount,
+            SupportTier = tier?.Trim() ?? string.Empty,
+            SupportMonths = Math.Max(0, months),
+            SupportMessage = normalizedSupportMessage
+        };
     }
 
     private void LogChatEmoteFragmentDiagnostic(int nativeEmoteFragmentCount, int convertedNativeEmoteFragments)
@@ -10157,10 +10410,37 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         BridgeRuntimeConfiguration configuration,
         string currentAvatarId)
     {
+        string? fallbackMessage = null;
+        for (var maxOptions = 4; maxOptions >= 1; maxOptions--)
+        {
+            var sections = BuildTriggerInfoAnnouncementSections(configuration, currentAvatarId, maxOptions);
+            if (sections.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            var candidate = SanitizeBotMessage(TF("Crystal Relay triggers: {0}", string.Join(" | ", sections)), truncate: false);
+            fallbackMessage = candidate;
+            if (candidate.Length <= TwitchChatMessageMaxCharacters)
+            {
+                return candidate;
+            }
+        }
+
+        return string.IsNullOrWhiteSpace(fallbackMessage)
+            ? string.Empty
+            : SanitizeBotMessage(fallbackMessage);
+    }
+
+    private static IReadOnlyList<string> BuildTriggerInfoAnnouncementSections(
+        BridgeRuntimeConfiguration configuration,
+        string currentAvatarId,
+        int maxOptions)
+    {
         var normalizedCurrentAvatarId = currentAvatarId?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(normalizedCurrentAvatarId))
         {
-            return string.Empty;
+            return [];
         }
 
         var channelPointSections = configuration.Rules
@@ -10180,7 +10460,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             .GroupBy(rule => string.IsNullOrWhiteSpace(rule.ChannelPointRewardTitle)
                 ? rule.AvatarProfileId.ToString("N")
                 : ManagedRewardPresentation.NormalizeTitleIdentityKey(rule.ChannelPointRewardTitle))
-            .Select(BuildChannelPointOutfitAnnouncementSection)
+            .Select(group => BuildChannelPointOutfitAnnouncementSection(group, maxOptions))
             .Where(section => !string.IsNullOrWhiteSpace(section))
             .ToArray();
 
@@ -10191,22 +10471,44 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 && !string.IsNullOrWhiteSpace(rule.SharedRewardHelpText))
             .OrderBy(rule => Math.Max(1, rule.MinimumAmount))
             .ThenBy(rule => rule.SharedRewardHelpText, StringComparer.CurrentCultureIgnoreCase)
-            .Select(rule => TF("{0}+ bits {1}", Math.Max(1, rule.MinimumAmount), rule.SharedRewardHelpText.Trim()))
+            .Select(rule => TF("Cheer{0} {1}", Math.Max(1, rule.MinimumAmount), rule.SharedRewardHelpText.Trim()))
             .ToArray();
 
         var sections = new List<string>();
-        sections.AddRange(channelPointSections);
-        if (bitsOptions.Length > 0)
+        if (channelPointSections.Length > 0)
         {
-            sections.Add(TF("Bits outfits: {0}", BuildCompactAnnouncementOptionList(bitsOptions)));
+            sections.Add(TF("Outfits: {0}", string.Join("; ", channelPointSections)));
         }
 
-        return sections.Count == 0
-            ? string.Empty
-            : SanitizeBotMessage(TF("Outfit triggers: {0}", string.Join(" | ", sections)));
+        if (bitsOptions.Length > 0)
+        {
+            sections.Add(TF("Bits outfits: {0}", BuildCompactAnnouncementOptionList(bitsOptions, maxOptions)));
+        }
+
+        var supporterGrowthBits = BuildSupporterGrowthBitsAnnouncementOptions(configuration.AvatarScaleRules);
+        if (supporterGrowthBits.Count > 0)
+        {
+            sections.Add(TF("Scale bits: {0}", BuildCompactAnnouncementOptionList(supporterGrowthBits, maxOptions)));
+        }
+
+        var supporterGrowthSubs = BuildSupporterGrowthSubscriptionAnnouncementOptions(configuration.AvatarScaleRules);
+        if (supporterGrowthSubs.Count > 0)
+        {
+            sections.Add(TF("Subs/gifts: {0}", BuildCompactAnnouncementOptionList(supporterGrowthSubs, maxOptions)));
+        }
+
+        var paidOptions = BuildCurrentAvatarSupporterAnnouncementOptions(configuration.Rules, normalizedCurrentAvatarId);
+        if (paidOptions.Count > 0)
+        {
+            sections.Add(TF("Paid triggers: {0}", BuildCompactAnnouncementOptionList(paidOptions, maxOptions)));
+        }
+
+        return sections;
     }
 
-    private static string BuildChannelPointOutfitAnnouncementSection(IGrouping<string, TriggerRuleSnapshot> group)
+    private static string BuildChannelPointOutfitAnnouncementSection(
+        IGrouping<string, TriggerRuleSnapshot> group,
+        int maxOptions)
     {
         var rules = group
             .OrderBy(rule => rule.SharedRewardChoiceNumber)
@@ -10231,7 +10533,100 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         var options = rules
             .Select(rule => TF("#{0} {1}", rule.SharedRewardChoiceNumber, GetSetTriggerChoiceLabel(rule)))
             .ToArray();
-        return TF("{0}: {1}", rewardName.Trim(), BuildCompactAnnouncementOptionList(options));
+        return TF("{0}: {1}", rewardName.Trim(), BuildCompactAnnouncementOptionList(options, maxOptions));
+    }
+
+    private static IReadOnlyList<string> BuildSupporterGrowthBitsAnnouncementOptions(
+        IReadOnlyList<AvatarScaleRuleSnapshot> rules)
+    {
+        var options = new List<string>();
+        foreach (var rule in rules
+                     .Where(rule => rule.IsEnabled && rule.TriggerType == AvatarScaleTriggerType.SupporterGrowth)
+                     .OrderBy(rule => rule.Name, StringComparer.CurrentCultureIgnoreCase))
+        {
+            var growKeyword = string.IsNullOrWhiteSpace(rule.SupporterGrowthGrowKeyword)
+                ? "grow"
+                : rule.SupporterGrowthGrowKeyword.Trim();
+            var shrinkKeyword = string.IsNullOrWhiteSpace(rule.SupporterGrowthShrinkKeyword)
+                ? "shrink"
+                : rule.SupporterGrowthShrinkKeyword.Trim();
+            var keywordText = string.Equals(growKeyword, shrinkKeyword, StringComparison.OrdinalIgnoreCase)
+                ? growKeyword
+                : $"{growKeyword}/{shrinkKeyword}";
+            var timeSuffix = rule.SupporterGrowthSecondsPerBitsUnit > 0
+                ? TF(", +{0}/{1} bits", DescribeDuration(rule.SupporterGrowthSecondsPerBitsUnit), Math.Max(1, rule.SupporterGrowthBitsTimerUnit))
+                : string.Empty;
+
+            foreach (var range in rule.SupporterGrowthBitRanges
+                         .Where(range => range.HeightAddedMeters > 0)
+                         .OrderBy(range => Math.Max(1, range.MinimumBits)))
+            {
+                options.Add(TF(
+                    "Cheer{0} {1} (+/-{2}m{3})",
+                    Math.Max(1, range.MinimumBits),
+                    keywordText,
+                    Math.Abs(range.HeightAddedMeters).ToString("0.###", CultureInfo.InvariantCulture),
+                    timeSuffix));
+            }
+        }
+
+        return options;
+    }
+
+    private static IReadOnlyList<string> BuildSupporterGrowthSubscriptionAnnouncementOptions(
+        IReadOnlyList<AvatarScaleRuleSnapshot> rules)
+    {
+        var options = new List<string>();
+        foreach (var rule in rules
+                     .Where(rule => rule.IsEnabled && rule.TriggerType == AvatarScaleTriggerType.SupporterGrowth)
+                     .OrderBy(rule => rule.Name, StringComparer.CurrentCultureIgnoreCase))
+        {
+            AddSupporterGrowthTierAnnouncementOption(options, "T1", rule.SupporterGrowthTier1HeightMeters, rule.SupporterGrowthTier1Seconds);
+            AddSupporterGrowthTierAnnouncementOption(options, "T2", rule.SupporterGrowthTier2HeightMeters, rule.SupporterGrowthTier2Seconds);
+            AddSupporterGrowthTierAnnouncementOption(options, "T3", rule.SupporterGrowthTier3HeightMeters, rule.SupporterGrowthTier3Seconds);
+        }
+
+        return options;
+    }
+
+    private static void AddSupporterGrowthTierAnnouncementOption(
+        ICollection<string> options,
+        string tierLabel,
+        double heightMeters,
+        int seconds)
+    {
+        var parts = new List<string>();
+        if (heightMeters > 0)
+        {
+            parts.Add($"+{heightMeters.ToString("0.###", CultureInfo.InvariantCulture)}m");
+        }
+
+        if (seconds > 0)
+        {
+            parts.Add("+" + DescribeDuration(seconds));
+        }
+
+        if (parts.Count > 0)
+        {
+            options.Add(TF("{0} {1} each", tierLabel, string.Join(" ", parts)));
+        }
+    }
+
+    private static IReadOnlyList<string> BuildCurrentAvatarSupporterAnnouncementOptions(
+        IReadOnlyList<TriggerRuleSnapshot> rules,
+        string currentAvatarId)
+    {
+        return rules
+            .Where(rule => rule.IsEnabled
+                && IsSupporterRuleScopedToCurrentAvatar(rule, currentAvatarId)
+                && rule.TriggerType is TwitchTriggerType.Bits or TwitchTriggerType.Subscriptions
+                && !IsBitsOutfitSetTriggerRule(rule))
+            .OrderBy(rule => GetSupporterOverrideListTriggerTypeSortRank(rule.TriggerType))
+            .ThenBy(rule => Math.Max(1, rule.MinimumAmount))
+            .ThenBy(rule => rule.Name, StringComparer.CurrentCultureIgnoreCase)
+            .Select(rule => TF("{0} ({1})", rule.Name, DescribeSupporterOverrideOption(rule)))
+            .Where(option => !string.IsNullOrWhiteSpace(option))
+            .ToArray();
     }
 
     private static string GetSetTriggerChoiceLabel(TriggerRuleSnapshot rule)
@@ -12096,7 +12491,37 @@ public sealed record BridgeChatMessage(
     IReadOnlyList<string> BadgeImageUrls,
     IReadOnlyList<string> BadgeSetIds,
     IReadOnlyList<BridgeChatFragment> Fragments,
-    DateTimeOffset ReceivedAt);
+    DateTimeOffset ReceivedAt)
+{
+    public BridgeChatMessageKind Kind { get; init; } = BridgeChatMessageKind.Chat;
+
+    public string RewardId { get; init; } = string.Empty;
+
+    public string RewardTitle { get; init; } = string.Empty;
+
+    public int RewardCost { get; init; }
+
+    public string RewardUserInput { get; init; } = string.Empty;
+
+    public int SupportAmount { get; init; }
+
+    public string SupportTier { get; init; } = string.Empty;
+
+    public int SupportMonths { get; init; }
+
+    public string SupportMessage { get; init; } = string.Empty;
+}
+
+public enum BridgeChatMessageKind
+{
+    Chat,
+    ChannelPointRedemption,
+    BitsCheer,
+    Subscription,
+    Resubscription,
+    GiftSubscription,
+    Raid
+}
 
 public sealed record AvatarScaleRuntimeStatus(
     double? CurrentHeightMeters,
@@ -12118,4 +12543,5 @@ public sealed record BridgeChatFragment(
 internal sealed record ParsedBridgeChatFragment(
     BridgeChatFragmentKind Kind,
     string Text,
-    string EmoteId);
+    string EmoteId,
+    string EmoteSetId);

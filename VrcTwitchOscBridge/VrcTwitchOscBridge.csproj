@@ -11,10 +11,10 @@
     <EnableDefaultPageItems>false</EnableDefaultPageItems>
     <ApplicationIcon>Assets\crystal-relay-icon.ico</ApplicationIcon>
     <UseWindowsForms>true</UseWindowsForms>
-    <Version>3.0.2</Version>
-    <AssemblyVersion>3.0.2.0</AssemblyVersion>
-    <FileVersion>3.0.2.0</FileVersion>
-    <InformationalVersion>3.0.2</InformationalVersion>
+    <Version>3.1.0</Version>
+    <AssemblyVersion>3.1.0.0</AssemblyVersion>
+    <FileVersion>3.1.0.0</FileVersion>
+    <InformationalVersion>3.1.0</InformationalVersion>
     <AssemblyName>CrystalRelayTwitchOsc</AssemblyName>
     <Product>Crystal Relay</Product>
     <Title>Crystal Relay - Twitch to OSC</Title>
@@ -75,6 +75,7 @@
     <Compile Include="Models\ChatCommandPermission.cs" />
     <Compile Include="Models\ChatCommandUtility.cs" />
     <Compile Include="Models\IntZeroDurationMode.cs" />
+    <Compile Include="Models\MovementRedeemSet.cs" />
     <Compile Include="Models\OscActionType.cs" />
     <Compile Include="Models\OscParameterType.cs" />
     <Compile Include="Models\PlayerMovementDirection.cs" />
@@ -110,6 +111,7 @@
     <Compile Include="Services\RuntimeConfigStore.cs" />
     <Compile Include="Services\ShutdownRecoveryStateStore.cs" />
     <Compile Include="Services\SettingsStore.cs" />
+    <Compile Include="Services\SensitiveTextSanitizer.cs" />
     <Compile Include="Services\TwitchApiClient.cs" />
     <Compile Include="Services\TwitchApiException.cs" />
     <Compile Include="Services\ThemeManager.cs" />

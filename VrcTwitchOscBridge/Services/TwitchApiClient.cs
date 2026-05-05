@@ -994,6 +994,9 @@ public sealed class TwitchApiClient : IDisposable
     {
         [JsonPropertyName("broadcaster_user_id")]
         public string BroadcasterUserId { get; set; } = string.Empty;
+
+        [JsonPropertyName("to_broadcaster_user_id")]
+        public string ToBroadcasterUserId { get; set; } = string.Empty;
     }
 
     public sealed class EventSubTransportInfo

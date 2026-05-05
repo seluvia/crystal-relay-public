@@ -6,7 +6,6 @@ using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Text.RegularExpressions;
 
 namespace VrcTwitchOscBridge.Services;
 
@@ -17,9 +16,10 @@ internal sealed class BugReportService : IDisposable
     private const string DesktopClientHeaderName = "X-Crystal-Relay-Client";
     private const string DesktopClientHeaderValue = "CrystalRelayDesktop";
     private const string AppVersionHeaderName = "X-Crystal-Relay-Version";
-    private const int MaxDiagnosticLogLength = 12 * 1024;
+    private const int MaxDiagnosticLogLength = 11 * 1024;
     private const int MaxPayloadLength = 20 * 1024;
     private const int MaxActivityLogLines = 80;
+    private const string TrimmedMarker = "[trimmed]";
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(15);
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -35,22 +35,6 @@ internal sealed class BugReportService : IDisposable
         ".dev",
         "/report"
     ];
-
-    private static readonly Regex SecretAssignmentRegex = new(
-        @"(?i)\b(access[_-]?token|refresh[_-]?token|client[_-]?secret|device[_-]?code|user[_-]?code|authorization|set-cookie|authcookie|twofactorauth|vrchat[-_ ]?auth|cookie)\b\s*[:=]\s*([^\r\n;]+)",
-        RegexOptions.Compiled | RegexOptions.CultureInvariant);
-
-    private static readonly Regex BearerTokenRegex = new(
-        @"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]+",
-        RegexOptions.Compiled | RegexOptions.CultureInvariant);
-
-    private static readonly Regex WindowsUserPathRegex = new(
-        @"(?i)C:\\Users\\[^\\\r\n]+",
-        RegexOptions.Compiled | RegexOptions.CultureInvariant);
-
-    private static readonly Regex TwitchLoginCodeRegex = new(
-        @"(?i)(asks for a code,\s*use\s+)[A-Z0-9-]{4,}",
-        RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     private readonly HttpClient httpClient = new()
     {
@@ -171,7 +155,7 @@ internal sealed class BugReportService : IDisposable
             builder.AppendLine(latestCrashLog);
         }
 
-        return TrimToUtf8Length(Sanitize(builder.ToString()), MaxDiagnosticLogLength);
+        return TrimToUtf8Length(SensitiveTextSanitizer.Sanitize(builder.ToString()), MaxDiagnosticLogLength);
     }
 
     public void Dispose() => httpClient.Dispose();
@@ -243,29 +227,50 @@ internal sealed class BugReportService : IDisposable
             return value;
         }
 
-        var builder = new StringBuilder(value.Length);
-        foreach (var character in value)
+        var marker = $"{Environment.NewLine}{TrimmedMarker}";
+        var markerBytes = Encoding.UTF8.GetByteCount(marker);
+        if (markerBytes >= maxBytes)
         {
-            builder.Append(character);
-            if (Encoding.UTF8.GetByteCount(builder.ToString()) > maxBytes)
-            {
-                builder.Length--;
-                break;
-            }
+            return TrimMarkerToUtf8Length(marker, maxBytes);
         }
 
-        builder.AppendLine();
-        builder.Append("[trimmed]");
-        return builder.ToString();
+        var contentBudget = maxBytes - markerBytes;
+        var builder = new StringBuilder(value.Length);
+        var currentBytes = 0;
+        foreach (var rune in value.EnumerateRunes())
+        {
+            var runeText = rune.ToString();
+            var runeBytes = Encoding.UTF8.GetByteCount(runeText);
+            if (currentBytes + runeBytes > contentBudget)
+            {
+                break;
+            }
+
+            builder.Append(runeText);
+            currentBytes += runeBytes;
+        }
+
+        return $"{builder.ToString().TrimEnd()}{marker}";
     }
 
-    private static string Sanitize(string value)
+    private static string TrimMarkerToUtf8Length(string marker, int maxBytes)
     {
-        var sanitized = SecretAssignmentRegex.Replace(value, "$1=[redacted]");
-        sanitized = BearerTokenRegex.Replace(sanitized, "Bearer [redacted]");
-        sanitized = WindowsUserPathRegex.Replace(sanitized, @"C:\Users\<user>");
-        sanitized = TwitchLoginCodeRegex.Replace(sanitized, "$1[redacted]");
-        return sanitized;
+        var builder = new StringBuilder(marker.Length);
+        var currentBytes = 0;
+        foreach (var rune in marker.EnumerateRunes())
+        {
+            var runeText = rune.ToString();
+            var runeBytes = Encoding.UTF8.GetByteCount(runeText);
+            if (currentBytes + runeBytes > maxBytes)
+            {
+                break;
+            }
+
+            builder.Append(runeText);
+            currentBytes += runeBytes;
+        }
+
+        return builder.ToString();
     }
 
     private static string TryReadLatestCrashLog()

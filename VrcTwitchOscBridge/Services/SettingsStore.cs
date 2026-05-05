@@ -354,7 +354,23 @@ public sealed class SettingsStore
                 ? profile.ChatboxOscDelaySeconds.Value
                 : settings.ChatboxOscDelaySeconds;
             settings.ChatboxViewerSoundEnabled = profile.ChatboxViewerSoundEnabled ?? settings.ChatboxViewerSoundEnabled;
+            settings.UseBroadcasterAsBotSender = profile.UseBroadcasterAsBotSender ?? settings.UseBroadcasterAsBotSender;
             settings.SupporterOverrideInfoMessageEnabled = profile.SupporterOverrideInfoMessageEnabled ?? settings.SupporterOverrideInfoMessageEnabled;
+            settings.TriggerInfoAnnouncementsEnabled = profile.TriggerInfoAnnouncementsEnabled ?? settings.TriggerInfoAnnouncementsEnabled;
+            settings.TriggerInfoAnnouncementIntervalMinutes = profile.TriggerInfoAnnouncementIntervalMinutes is > 0
+                ? profile.TriggerInfoAnnouncementIntervalMinutes.Value
+                : settings.TriggerInfoAnnouncementIntervalMinutes;
+            settings.TriggerInfoCommandEnabled = profile.TriggerInfoCommandEnabled ?? settings.TriggerInfoCommandEnabled;
+            settings.TriggerInfoCommandText = string.IsNullOrWhiteSpace(profile.TriggerInfoCommandText)
+                ? settings.TriggerInfoCommandText
+                : profile.TriggerInfoCommandText;
+            settings.TriggerInfoCommandCooldownSeconds = profile.TriggerInfoCommandCooldownSeconds is >= 0
+                ? profile.TriggerInfoCommandCooldownSeconds.Value
+                : settings.TriggerInfoCommandCooldownSeconds;
+            settings.TriggerInfoCommandPermission = profile.TriggerInfoCommandPermission is not null
+                && Enum.IsDefined(profile.TriggerInfoCommandPermission.Value)
+                    ? profile.TriggerInfoCommandPermission.Value
+                    : settings.TriggerInfoCommandPermission;
             settings.ChannelPointRewardTestModeEnabled = profile.ChannelPointRewardTestModeEnabled ?? settings.ChannelPointRewardTestModeEnabled;
             settings.EmergencyRedeemStopEnabled = profile.EmergencyRedeemStopEnabled ?? settings.EmergencyRedeemStopEnabled;
             settings.DesktopModeInputLockEnabled = profile.DesktopModeInputLockEnabled ?? settings.DesktopModeInputLockEnabled;
@@ -366,6 +382,8 @@ public sealed class SettingsStore
                 : ToCustomThemeSettings(profile.CustomTheme);
             settings.AvatarProfiles = new ObservableCollection<AvatarTriggerProfile>((profile.AvatarProfiles ?? []).Select(ToAvatarProfile));
             settings.GlobalMovementRules = new ObservableCollection<TriggerRule>((profile.GlobalMovementRules ?? []).Select(ToRule));
+            settings.MovementRedeemSets = BuildMovementRedeemSets(profile, settings.GlobalMovementRules);
+            settings.GlobalMovementRules = new ObservableCollection<TriggerRule>(settings.MovementRedeemSets.SelectMany(set => set.MovementRules));
             settings.GlobalOverrideRules = new ObservableCollection<TriggerRule>((profile.GlobalOverrideRules ?? []).Select(ToRule));
             settings.UniversalTriggers = new ObservableCollection<UniversalTriggerRule>((profile.UniversalTriggers ?? []).Select(ToUniversalTriggerRule));
             settings.AvatarScaleSets = BuildAvatarScaleSets(profile);
@@ -422,6 +440,7 @@ public sealed class SettingsStore
 
         if (settings.AvatarProfiles.Count == 0
             && settings.GlobalMovementRules.Count == 0
+            && settings.MovementRedeemSets.Count == 0
             && settings.GlobalOverrideRules.Count == 0
             && settings.Rules.Count > 0)
         {
@@ -475,7 +494,14 @@ public sealed class SettingsStore
             ChatboxOscEnabled = settings.ChatboxOscEnabled,
             ChatboxOscDelaySeconds = settings.ChatboxOscDelaySeconds,
             ChatboxViewerSoundEnabled = settings.ChatboxViewerSoundEnabled,
+            UseBroadcasterAsBotSender = settings.UseBroadcasterAsBotSender,
             SupporterOverrideInfoMessageEnabled = settings.SupporterOverrideInfoMessageEnabled,
+            TriggerInfoAnnouncementsEnabled = settings.TriggerInfoAnnouncementsEnabled,
+            TriggerInfoAnnouncementIntervalMinutes = settings.TriggerInfoAnnouncementIntervalMinutes,
+            TriggerInfoCommandEnabled = settings.TriggerInfoCommandEnabled,
+            TriggerInfoCommandText = settings.TriggerInfoCommandText,
+            TriggerInfoCommandCooldownSeconds = settings.TriggerInfoCommandCooldownSeconds,
+            TriggerInfoCommandPermission = settings.TriggerInfoCommandPermission,
             ChannelPointRewardTestModeEnabled = settings.ChannelPointRewardTestModeEnabled,
             EmergencyRedeemStopEnabled = settings.EmergencyRedeemStopEnabled,
             DesktopModeInputLockEnabled = settings.DesktopModeInputLockEnabled,
@@ -484,7 +510,8 @@ public sealed class SettingsStore
             IgnoredUpdateVersion = settings.IgnoredUpdateVersion,
             CustomTheme = ToPersistedCustomThemeSettings(settings.CustomTheme),
             AvatarProfiles = [.. settings.AvatarProfiles.Select(ToPersistedAvatarProfile)],
-            GlobalMovementRules = [.. settings.GlobalMovementRules.Select(ToPersistedRule)],
+            MovementRedeemSets = [.. settings.MovementRedeemSets.Select(ToPersistedMovementRedeemSet)],
+            GlobalMovementRules = [.. settings.MovementRedeemSets.SelectMany(set => set.MovementRules).Select(ToPersistedRule)],
             GlobalOverrideRules = [.. settings.GlobalOverrideRules.Select(ToPersistedRule)],
             UniversalTriggers = [.. settings.UniversalTriggers.Select(ToPersistedUniversalTriggerRule)],
             AvatarScaleSets = [.. settings.AvatarScaleSets.Select(ToPersistedAvatarScaleSet)],
@@ -745,6 +772,7 @@ public sealed class SettingsStore
         {
             AvatarProfiles = new ObservableCollection<AvatarTriggerProfile>(),
             GlobalMovementRules = new ObservableCollection<TriggerRule>(),
+            MovementRedeemSets = new ObservableCollection<MovementRedeemSet>(),
             GlobalOverrideRules = new ObservableCollection<TriggerRule>(),
             UniversalTriggers = new ObservableCollection<UniversalTriggerRule>(),
             AvatarScaleSets = new ObservableCollection<AvatarScaleSet>(),
@@ -993,6 +1021,7 @@ public sealed class SettingsStore
             RewardId = rule.RewardId,
             RewardTitle = rule.RewardTitle,
             RewardCost = rule.RewardCost,
+            RewardCooldownSeconds = rule.RewardCooldownSeconds,
             RewardSyncMode = rule.RewardSyncMode,
             ManagedRewardReadyColor = rule.ManagedRewardReadyColor,
             ManagedRewardCooldownColor = rule.ManagedRewardCooldownColor,
@@ -1041,6 +1070,7 @@ public sealed class SettingsStore
             RewardId = rule.RewardId ?? string.Empty,
             RewardTitle = rule.RewardTitle ?? string.Empty,
             RewardCost = rule.RewardCost <= 0 ? 100 : rule.RewardCost,
+            RewardCooldownSeconds = Math.Max(0, rule.RewardCooldownSeconds),
             RewardSyncMode = Enum.IsDefined(rule.RewardSyncMode)
                 ? rule.RewardSyncMode
                 : TwitchRewardSyncMode.CreateOrManage,
@@ -1098,6 +1128,51 @@ public sealed class SettingsStore
                 ScaleRules = new ObservableCollection<AvatarScaleRule>(legacyRules)
             }
         ];
+    }
+
+    private static ObservableCollection<MovementRedeemSet> BuildMovementRedeemSets(
+        PersistedProfileSettings profile,
+        IEnumerable<TriggerRule> legacyMovementRules)
+    {
+        if (profile.MovementRedeemSets?.Count > 0)
+        {
+            return new ObservableCollection<MovementRedeemSet>(profile.MovementRedeemSets.Select(ToMovementRedeemSet));
+        }
+
+        var legacyRules = legacyMovementRules.ToArray();
+        if (legacyRules.Length == 0)
+        {
+            return [];
+        }
+
+        return
+        [
+            new MovementRedeemSet
+            {
+                Name = "Default Movement Set",
+                MovementRules = new ObservableCollection<TriggerRule>(legacyRules)
+            }
+        ];
+    }
+
+    private static PersistedMovementRedeemSet ToPersistedMovementRedeemSet(MovementRedeemSet set)
+    {
+        return new PersistedMovementRedeemSet
+        {
+            Id = set.Id,
+            Name = set.Name,
+            MovementRules = [.. set.MovementRules.Select(ToPersistedRule)]
+        };
+    }
+
+    private static MovementRedeemSet ToMovementRedeemSet(PersistedMovementRedeemSet set)
+    {
+        return new MovementRedeemSet
+        {
+            Id = set.Id == Guid.Empty ? Guid.NewGuid() : set.Id,
+            Name = string.IsNullOrWhiteSpace(set.Name) ? "Default Movement Set" : set.Name,
+            MovementRules = new ObservableCollection<TriggerRule>((set.MovementRules ?? []).Select(ToRule))
+        };
     }
 
     private static PersistedAvatarScaleSet ToPersistedAvatarScaleSet(AvatarScaleSet set)
@@ -1464,17 +1539,29 @@ public sealed class SettingsStore
 
         settings.AvatarProfiles.Clear();
         settings.GlobalMovementRules.Clear();
+        settings.MovementRedeemSets.Clear();
         settings.GlobalOverrideRules.Clear();
 
         var legacyChannelPointRules = clonedRules
             .Where(rule => rule.TriggerType == TwitchTriggerType.ChannelPoints && rule.ActionType != OscActionType.PlayerMovement)
             .ToArray();
 
-        foreach (var movementRule in clonedRules.Where(rule =>
+        var movementRules = clonedRules.Where(rule =>
                      rule.TriggerType == TwitchTriggerType.ChannelPoints
-                     && rule.ActionType == OscActionType.PlayerMovement))
+                     && rule.ActionType == OscActionType.PlayerMovement)
+            .ToArray();
+        foreach (var movementRule in movementRules)
         {
             settings.GlobalMovementRules.Add(movementRule);
+        }
+
+        if (movementRules.Length > 0)
+        {
+            settings.MovementRedeemSets.Add(new MovementRedeemSet
+            {
+                Name = "Default Movement Set",
+                MovementRules = new ObservableCollection<TriggerRule>(movementRules)
+            });
         }
 
         if (legacyChannelPointRules.Length > 0)
@@ -1887,7 +1974,21 @@ public sealed class SettingsStore
 
         public bool? ChatboxViewerSoundEnabled { get; set; }
 
+        public bool? UseBroadcasterAsBotSender { get; set; }
+
         public bool? SupporterOverrideInfoMessageEnabled { get; set; }
+
+        public bool? TriggerInfoAnnouncementsEnabled { get; set; }
+
+        public int? TriggerInfoAnnouncementIntervalMinutes { get; set; }
+
+        public bool? TriggerInfoCommandEnabled { get; set; }
+
+        public string? TriggerInfoCommandText { get; set; }
+
+        public int? TriggerInfoCommandCooldownSeconds { get; set; }
+
+        public ChatCommandPermission? TriggerInfoCommandPermission { get; set; }
 
         public bool? ChannelPointRewardTestModeEnabled { get; set; }
 
@@ -1904,6 +2005,8 @@ public sealed class SettingsStore
         public PersistedCustomThemeSettings? CustomTheme { get; set; }
 
         public List<PersistedAvatarTriggerProfile>? AvatarProfiles { get; set; }
+
+        public List<PersistedMovementRedeemSet>? MovementRedeemSets { get; set; }
 
         public List<PersistedTriggerRule>? GlobalMovementRules { get; set; }
 
@@ -2256,6 +2359,8 @@ public sealed class SettingsStore
 
         public int RewardCost { get; set; }
 
+        public int RewardCooldownSeconds { get; set; }
+
         public TwitchRewardSyncMode RewardSyncMode { get; set; }
 
         public string? ManagedRewardReadyColor { get; set; }
@@ -2292,6 +2397,15 @@ public sealed class SettingsStore
         public string? Name { get; set; }
 
         public List<PersistedAvatarScaleRule>? ScaleRules { get; set; }
+    }
+
+    private sealed class PersistedMovementRedeemSet
+    {
+        public Guid Id { get; set; }
+
+        public string? Name { get; set; }
+
+        public List<PersistedTriggerRule>? MovementRules { get; set; }
     }
 
     private sealed class PersistedAvatarScaleMasterRewardSettings

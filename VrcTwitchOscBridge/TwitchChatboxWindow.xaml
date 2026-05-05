@@ -514,63 +514,218 @@
         </Style>
 
         <DataTemplate DataType="{x:Type vm:TwitchChatMessageEntry}">
-            <Border Margin="0,0,0,10"
-                    Padding="12,10"
-                    Background="{DynamicResource MessageCardBrush}"
-                    BorderBrush="{DynamicResource MessageBorderBrush}"
-                    BorderThickness="1"
-                    CornerRadius="12"
-                    TextElement.Foreground="{DynamicResource TextBrush}"
-                    Opacity="{Binding DataContext.Settings.ChatOpacity, RelativeSource={RelativeSource AncestorType=Window}}">
-                <StackPanel>
-                    <DockPanel LastChildFill="True">
-                        <TextBlock DockPanel.Dock="Right"
-                                   Margin="10,0,0,0"
-                                   FontSize="11"
-                                   Foreground="{DynamicResource TimestampBrush}"
-                                   Text="{Binding TimestampText}"
-                                   Visibility="{Binding DataContext.Settings.ChatShowTimestamps, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BooleanToVisibilityConverter}}" />
+            <Grid Margin="0,0,0,10"
+                  Opacity="{Binding DataContext.Settings.ChatOpacity, RelativeSource={RelativeSource AncestorType=Window}}">
+                <Border Padding="12,10"
+                        Background="{DynamicResource MessageCardBrush}"
+                        BorderBrush="{DynamicResource MessageBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="12"
+                        TextElement.Foreground="{DynamicResource TextBrush}"
+                        Visibility="{Binding IsChatMessage, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <StackPanel>
+                        <DockPanel LastChildFill="True">
+                            <TextBlock DockPanel.Dock="Right"
+                                       Margin="10,0,0,0"
+                                       FontSize="11"
+                                       Foreground="{DynamicResource TimestampBrush}"
+                                       Text="{Binding TimestampText}"
+                                       Visibility="{Binding DataContext.Settings.ChatShowTimestamps, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BooleanToVisibilityConverter}}" />
 
-                        <StackPanel Orientation="Horizontal">
-                            <ItemsControl ItemsSource="{Binding BadgeImageUrls}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <StackPanel Orientation="Horizontal" />
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border Margin="0,0,4,0"
-                                                Width="18"
-                                                Height="18"
-                                                CornerRadius="3"
-                                                BorderBrush="{DynamicResource MessageBorderBrush}"
-                                                BorderThickness="1">
-                                            <Image Source="{Binding}"
-                                                   Stretch="UniformToFill"
-                                                   SnapsToDevicePixels="True" />
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                            <StackPanel Orientation="Horizontal">
+                                <ItemsControl ItemsSource="{Binding BadgeImageUrls}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Margin="0,0,4,0"
+                                                    Width="18"
+                                                    Height="18"
+                                                    CornerRadius="3"
+                                                    BorderBrush="{DynamicResource MessageBorderBrush}"
+                                                    BorderThickness="1">
+                                                <Image Source="{Binding}"
+                                                       Stretch="UniformToFill"
+                                                       SnapsToDevicePixels="True" />
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
 
-                            <TextBlock FontWeight="Bold"
+                                <TextBlock FontWeight="Bold"
+                                           FontFamily="{Binding DataContext.Settings.ChatFontFamily, RelativeSource={RelativeSource AncestorType=Window}}"
+                                           FontSize="{Binding DataContext.Settings.ChatTextSize, RelativeSource={RelativeSource AncestorType=Window}}"
+                                           Foreground="{Binding NameBrush}"
+                                           Text="{Binding UserDisplayName}" />
+                            </StackPanel>
+                        </DockPanel>
+
+                        <TextBlock Margin="0,6,0,0"
+                                   FontFamily="{Binding DataContext.Settings.ChatFontFamily, RelativeSource={RelativeSource AncestorType=Window}}"
+                                   FontSize="{Binding DataContext.Settings.ChatTextSize, RelativeSource={RelativeSource AncestorType=Window}}"
+                                   Foreground="{DynamicResource MessageTextBrush}"
+                                   TextWrapping="Wrap"
+                                   local:ChatMessageInlinePresenter.Fragments="{Binding InlineFragments}"
+                                   local:ChatMessageInlinePresenter.FontScaleKey="{Binding DataContext.Settings.ChatTextSize, RelativeSource={RelativeSource AncestorType=Window}}" />
+                    </StackPanel>
+                </Border>
+
+                <Border Padding="10"
+                        Background="{DynamicResource InputBrush}"
+                        BorderBrush="{DynamicResource AccentBrush}"
+                        BorderThickness="1"
+                        CornerRadius="12"
+                        TextElement.Foreground="{DynamicResource TextBrush}"
+                        Visibility="{Binding IsChannelPointRedemption, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="5" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border Grid.Column="0"
+                                Background="{DynamicResource AccentBrush}"
+                                CornerRadius="4" />
+
+                        <StackPanel Grid.Column="1"
+                                    Margin="10,0,0,0">
+                            <DockPanel LastChildFill="True">
+                                <TextBlock DockPanel.Dock="Right"
+                                           Margin="10,0,0,0"
+                                           FontSize="11"
+                                           Foreground="{DynamicResource TimestampBrush}"
+                                           Text="{Binding TimestampText}"
+                                           Visibility="{Binding DataContext.Settings.ChatShowTimestamps, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+                                <Border HorizontalAlignment="Left"
+                                        Padding="9,3"
+                                        Background="{DynamicResource AccentBrush}"
+                                        CornerRadius="9">
+                                    <TextBlock Text="{loc:Translate 'Channel Point Redeem'}"
+                                               FontSize="11"
+                                               FontWeight="Bold"
+                                               Foreground="White" />
+                                </Border>
+                            </DockPanel>
+
+                            <TextBlock Margin="0,7,0,0"
                                        FontFamily="{Binding DataContext.Settings.ChatFontFamily, RelativeSource={RelativeSource AncestorType=Window}}"
                                        FontSize="{Binding DataContext.Settings.ChatTextSize, RelativeSource={RelativeSource AncestorType=Window}}"
-                                       Foreground="{Binding NameBrush}"
-                                       Text="{Binding UserDisplayName}" />
-                        </StackPanel>
-                    </DockPanel>
+                                       FontWeight="Bold"
+                                       Foreground="{DynamicResource TextBrush}"
+                                       Text="{Binding RewardTitle}"
+                                       TextWrapping="Wrap" />
 
-                    <TextBlock Margin="0,6,0,0"
-                               FontFamily="{Binding DataContext.Settings.ChatFontFamily, RelativeSource={RelativeSource AncestorType=Window}}"
-                               FontSize="{Binding DataContext.Settings.ChatTextSize, RelativeSource={RelativeSource AncestorType=Window}}"
-                               Foreground="{DynamicResource MessageTextBrush}"
-                               TextWrapping="Wrap"
-                               local:ChatMessageInlinePresenter.Fragments="{Binding InlineFragments}"
-                               local:ChatMessageInlinePresenter.FontScaleKey="{Binding DataContext.Settings.ChatTextSize, RelativeSource={RelativeSource AncestorType=Window}}" />
-                </StackPanel>
-            </Border>
+                            <WrapPanel Margin="0,4,0,0">
+                                <TextBlock Text="{Binding RedemptionViewerText}"
+                                           Foreground="{DynamicResource MutedBrush}"
+                                           TextWrapping="Wrap" />
+                                <TextBlock Margin="10,0,0,0"
+                                           Text="{Binding RedemptionCostText}"
+                                           Foreground="{DynamicResource MutedBrush}"
+                                           TextWrapping="Wrap"
+                                           Visibility="{Binding HasRewardCost, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            </WrapPanel>
+
+                            <Border Margin="0,8,0,0"
+                                    Padding="9,7"
+                                    Background="{DynamicResource MessageCardBrush}"
+                                    BorderBrush="{DynamicResource MessageBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="9"
+                                    Visibility="{Binding HasRewardUserInput, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <StackPanel>
+                                    <TextBlock Text="{loc:Translate 'Viewer input'}"
+                                               Foreground="{DynamicResource MutedBrush}"
+                                               FontSize="11"
+                                               FontWeight="Bold" />
+                                    <TextBlock Margin="0,3,0,0"
+                                               Text="{Binding RewardUserInput}"
+                                               Foreground="{DynamicResource MessageTextBrush}"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <Border Padding="10"
+                        Background="{DynamicResource MessageCardBrush}"
+                        BorderBrush="{DynamicResource AccentBrush}"
+                        BorderThickness="1.5"
+                        CornerRadius="12"
+                        TextElement.Foreground="{DynamicResource TextBrush}"
+                        Visibility="{Binding IsSupportEvent, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="6" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border Grid.Column="0"
+                                Background="{DynamicResource AccentBrush}"
+                                CornerRadius="5" />
+
+                        <StackPanel Grid.Column="1"
+                                    Margin="11,0,0,0">
+                            <DockPanel LastChildFill="True">
+                                <TextBlock DockPanel.Dock="Right"
+                                           Margin="10,0,0,0"
+                                           FontSize="11"
+                                           Foreground="{DynamicResource TimestampBrush}"
+                                           Text="{Binding TimestampText}"
+                                           Visibility="{Binding DataContext.Settings.ChatShowTimestamps, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+                                <Border HorizontalAlignment="Left"
+                                        Padding="9,3"
+                                        Background="{DynamicResource AccentBrush}"
+                                        CornerRadius="9">
+                                    <TextBlock Text="{Binding SupportEventLabel}"
+                                               FontSize="11"
+                                               FontWeight="Bold"
+                                               Foreground="White" />
+                                </Border>
+                            </DockPanel>
+
+                            <TextBlock Margin="0,8,0,0"
+                                       FontFamily="{Binding DataContext.Settings.ChatFontFamily, RelativeSource={RelativeSource AncestorType=Window}}"
+                                       FontSize="{Binding DataContext.Settings.ChatTextSize, RelativeSource={RelativeSource AncestorType=Window}}"
+                                       FontWeight="Bold"
+                                       Foreground="{DynamicResource TextBrush}"
+                                       Text="{Binding SupportHeadlineText}"
+                                       TextWrapping="Wrap" />
+
+                            <TextBlock Margin="0,4,0,0"
+                                       Text="{Binding SupportDetailText}"
+                                       Foreground="{DynamicResource MutedBrush}"
+                                       TextWrapping="Wrap"
+                                       Visibility="{Binding HasSupportDetailText, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+                            <Border Margin="0,8,0,0"
+                                    Padding="9,7"
+                                    Background="{DynamicResource InputBrush}"
+                                    BorderBrush="{DynamicResource MessageBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="9"
+                                    Visibility="{Binding HasSupportMessage, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <StackPanel>
+                                    <TextBlock Text="{loc:Translate 'Message'}"
+                                               Foreground="{DynamicResource MutedBrush}"
+                                               FontSize="11"
+                                               FontWeight="Bold" />
+                                    <TextBlock Margin="0,3,0,0"
+                                               Text="{Binding SupportMessage}"
+                                               Foreground="{DynamicResource MessageTextBrush}"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Grid>
         </DataTemplate>
     </Window.Resources>
 
