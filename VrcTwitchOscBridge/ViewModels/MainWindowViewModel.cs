@@ -84,6 +84,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private static readonly TimeSpan TwitchPublicRefreshSessionWindow = TimeSpan.FromDays(30);
     private static readonly TimeSpan VrChatLocalStatePollInterval = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan VrChatCurrentAvatarPollInterval = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan ActiveAvatarScaleLocalRefreshInterval = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan VrChatOscParameterAutoRefreshInitialDelay = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan VrChatOscParameterAutoRefreshRetryDelay = TimeSpan.FromSeconds(3);
     private static readonly TimeSpan TwitchPublicSessionWindow = TimeSpan.FromDays(30);
@@ -369,6 +370,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private CancellationTokenSource? vrChatCurrentAvatarRefreshCancellation;
     private CancellationTokenSource? vrChatOscParameterRefreshCancellation;
     private CancellationTokenSource? vrChatLocalOscScanCancellation;
+    private CancellationTokenSource? activeAvatarScaleLocalRefreshCancellation;
     private CancellationTokenSource? rewardFireSaleExpirationCancellation;
     private CancellationTokenSource? rewardFireSaleFundingCooldownCancellation;
     private DateTimeOffset? rewardFireSaleFundingRewardCooldownUntil;
@@ -2566,6 +2568,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         CancelAndDisposeQueuedCancellationSource(ref vrChatCurrentAvatarRefreshCancellation);
         CancelAndDisposeQueuedCancellationSource(ref vrChatOscParameterRefreshCancellation);
         CancelAndDisposeQueuedCancellationSource(ref vrChatLocalOscScanCancellation);
+        CancelAndDisposeQueuedCancellationSource(ref activeAvatarScaleLocalRefreshCancellation);
         CancelAndDisposeQueuedCancellationSource(ref rewardFireSaleExpirationCancellation);
         CancelAndDisposeQueuedCancellationSource(ref rewardFireSaleFundingCooldownCancellation);
         DisposeVrChatLocalOscWatcher();
@@ -6251,6 +6254,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
 
         var status = bridgeCoordinator.GetAvatarScaleRuntimeStatus();
+        RefreshCurrentAvatarMoreOftenDuringActiveScale(status);
         var shouldSync = false;
         var activeRuleIds = new HashSet<Guid>();
         foreach (var rule in GetAllAvatarScaleRules().Where(IsManagedAvatarScaleChannelPointRule))
@@ -6276,6 +6280,57 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 (int)AvatarScaleLimitRewardSyncDebounce.TotalMilliseconds,
                 ManagedRewardSyncReason.AvatarScaleStatus);
         }
+    }
+
+    private void RefreshCurrentAvatarMoreOftenDuringActiveScale(AvatarScaleRuntimeStatus status)
+    {
+        if (!status.IsActive || !Settings.VrChat.IsConnected)
+        {
+            CancelAndDisposeQueuedCancellationSource(ref activeAvatarScaleLocalRefreshCancellation);
+            return;
+        }
+
+        if (activeAvatarScaleLocalRefreshCancellation is not null)
+        {
+            return;
+        }
+
+        var refreshCancellation = new CancellationTokenSource();
+        activeAvatarScaleLocalRefreshCancellation = refreshCancellation;
+        var cancellationToken = refreshCancellation.Token;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                while (!cancellationToken.IsCancellationRequested)
+                {
+                    QueueCurrentVrChatLocalStateRefresh(0);
+                    await Task.Delay(ActiveAvatarScaleLocalRefreshInterval, cancellationToken);
+
+                    var currentStatus = bridgeCoordinator.GetAvatarScaleRuntimeStatus();
+                    if (!currentStatus.IsActive)
+                    {
+                        break;
+                    }
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+            }
+            finally
+            {
+                RunOnUi(() =>
+                {
+                    if (ReferenceEquals(activeAvatarScaleLocalRefreshCancellation, refreshCancellation))
+                    {
+                        activeAvatarScaleLocalRefreshCancellation = null;
+                    }
+
+                    refreshCancellation.Dispose();
+                });
+            }
+        }, CancellationToken.None);
     }
 
     private void WireAvatarProfile(AvatarTriggerProfile profile)

@@ -3,6 +3,9 @@ Crystal Relay Changelog
 
 Newest updates appear first. This changelog focuses on the changes users will notice most.
 
+v3.1.1
+- Fixed Avatar Scaling carryover during VRChat avatar swaps so active scale height waits for the new avatar to finish loading, reapplies across repeated swaps, and restores to the configured return height only after the active timer ends.
+
 v3.1.0
 - Added Movement Sets so Movement Redeems can be organized into folders while keeping existing movement rewards, active times, cooldowns, and runtime behavior global.
 - Added real Twitch reward cooldown controls for Universal Trigger and Movement channel-point rewards created by Crystal Relay, while linked rewards stay listen-only.
