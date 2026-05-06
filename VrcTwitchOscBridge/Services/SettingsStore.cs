@@ -793,6 +793,7 @@ public sealed class SettingsStore
             AvatarName = profile.AvatarName,
             SetTriggerMasterRewardId = profile.SetTriggerMasterRewardId,
             SetTriggerMasterRewardTitle = profile.SetTriggerMasterRewardTitle,
+            SetTriggerMasterRewardDescription = profile.SetTriggerMasterRewardDescription,
             SetTriggerMasterRewardCost = profile.SetTriggerMasterRewardCost,
             SetTriggerMasterRewardSyncMode = profile.SetTriggerMasterRewardSyncMode,
             SetTriggerMasterRewardCooldownSeconds = profile.SetTriggerMasterRewardCooldownSeconds,
@@ -816,6 +817,7 @@ public sealed class SettingsStore
             AvatarName = profile.AvatarName ?? string.Empty,
             SetTriggerMasterRewardId = profile.SetTriggerMasterRewardId ?? string.Empty,
             SetTriggerMasterRewardTitle = profile.SetTriggerMasterRewardTitle ?? string.Empty,
+            SetTriggerMasterRewardDescription = profile.SetTriggerMasterRewardDescription ?? string.Empty,
             SetTriggerMasterRewardCost = profile.SetTriggerMasterRewardCost <= 0 ? 100 : profile.SetTriggerMasterRewardCost,
             SetTriggerMasterRewardSyncMode = Enum.IsDefined(profile.SetTriggerMasterRewardSyncMode)
                 ? profile.SetTriggerMasterRewardSyncMode
@@ -844,6 +846,7 @@ public sealed class SettingsStore
             TriggerType = rule.TriggerType,
             ChannelPointRewardId = rule.ChannelPointRewardId,
             ChannelPointRewardTitle = rule.ChannelPointRewardTitle,
+            ChannelPointRewardDescription = rule.ChannelPointRewardDescription,
             ChannelPointRewardCost = rule.ChannelPointRewardCost,
             RewardSyncMode = rule.RewardSyncMode,
             ManagedRewardReadyColor = rule.ManagedRewardReadyColor,
@@ -926,6 +929,7 @@ public sealed class SettingsStore
             ChannelPointRewardTitle = !string.IsNullOrWhiteSpace(rule.ChannelPointRewardTitle)
                 ? rule.ChannelPointRewardTitle
                 : (rule.MatchText ?? string.Empty),
+            ChannelPointRewardDescription = rule.ChannelPointRewardDescription ?? string.Empty,
             ChannelPointRewardCost = rule.ChannelPointRewardCost <= 0 ? 100 : rule.ChannelPointRewardCost,
             RewardSyncMode = Enum.IsDefined(rule.RewardSyncMode)
                 ? rule.RewardSyncMode
@@ -1020,6 +1024,7 @@ public sealed class SettingsStore
             ChatCommandPermission = rule.ChatCommandPermission,
             RewardId = rule.RewardId,
             RewardTitle = rule.RewardTitle,
+            RewardDescription = rule.RewardDescription,
             RewardCost = rule.RewardCost,
             RewardCooldownSeconds = rule.RewardCooldownSeconds,
             RewardSyncMode = rule.RewardSyncMode,
@@ -1069,6 +1074,7 @@ public sealed class SettingsStore
                 : ChatCommandPermission.Moderators,
             RewardId = rule.RewardId ?? string.Empty,
             RewardTitle = rule.RewardTitle ?? string.Empty,
+            RewardDescription = rule.RewardDescription ?? string.Empty,
             RewardCost = rule.RewardCost <= 0 ? 100 : rule.RewardCost,
             RewardCooldownSeconds = Math.Max(0, rule.RewardCooldownSeconds),
             RewardSyncMode = Enum.IsDefined(rule.RewardSyncMode)
@@ -1203,6 +1209,7 @@ public sealed class SettingsStore
             IsEnabled = settings.IsEnabled,
             RewardId = settings.RewardId,
             RewardTitle = settings.RewardTitle,
+            RewardDescription = settings.RewardDescription,
             RewardCost = settings.RewardCost,
             RewardSyncMode = settings.RewardSyncMode,
             UnlockDurationSeconds = settings.UnlockDurationSeconds,
@@ -1225,6 +1232,7 @@ public sealed class SettingsStore
             RewardTitle = string.IsNullOrWhiteSpace(settings.RewardTitle)
                 ? "Avatar Scaling"
                 : settings.RewardTitle,
+            RewardDescription = settings.RewardDescription ?? string.Empty,
             RewardCost = settings.RewardCost <= 0 ? 100 : settings.RewardCost,
             RewardSyncMode = Enum.IsDefined(settings.RewardSyncMode)
                 ? settings.RewardSyncMode
@@ -1250,6 +1258,7 @@ public sealed class SettingsStore
             FundingRewardEnabled = settings.FundingRewardEnabled,
             FundingRewardId = settings.FundingRewardId,
             FundingRewardTitle = settings.FundingRewardTitle,
+            FundingRewardDescription = settings.FundingRewardDescription,
             FundingRewardCost = settings.FundingRewardCost,
             FundingRewardCooldownSeconds = settings.FundingRewardCooldownSeconds,
             FundingRewardReadyColor = settings.FundingRewardReadyColor,
@@ -1295,6 +1304,7 @@ public sealed class SettingsStore
             FundingRewardTitle = string.IsNullOrWhiteSpace(settings.FundingRewardTitle)
                 ? "Fire Sale Fund"
                 : settings.FundingRewardTitle.Trim(),
+            FundingRewardDescription = settings.FundingRewardDescription ?? string.Empty,
             FundingRewardCost = settings.FundingRewardCost <= 0 ? 100 : settings.FundingRewardCost,
             FundingRewardCooldownSeconds = Math.Max(0, settings.FundingRewardCooldownSeconds),
             FundingRewardReadyColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(settings.FundingRewardReadyColor),
@@ -1338,6 +1348,7 @@ public sealed class SettingsStore
             ChatCommandPermission = rule.ChatCommandPermission,
             RewardId = rule.RewardId,
             RewardTitle = rule.RewardTitle,
+            RewardDescription = rule.RewardDescription,
             RewardCost = rule.RewardCost,
             RewardSyncMode = rule.RewardSyncMode,
             ManagedRewardReadyColor = rule.ManagedRewardReadyColor,
@@ -1411,6 +1422,7 @@ public sealed class SettingsStore
                 : ChatCommandPermission.Moderators,
             RewardId = rule.RewardId ?? string.Empty,
             RewardTitle = rule.RewardTitle ?? string.Empty,
+            RewardDescription = rule.RewardDescription ?? string.Empty,
             RewardCost = rule.RewardCost <= 0 ? 100 : rule.RewardCost,
             RewardSyncMode = Enum.IsDefined(rule.RewardSyncMode)
                 ? rule.RewardSyncMode
@@ -2212,6 +2224,8 @@ public sealed class SettingsStore
 
         public string? SetTriggerMasterRewardTitle { get; set; }
 
+        public string? SetTriggerMasterRewardDescription { get; set; }
+
         public int SetTriggerMasterRewardCost { get; set; }
 
         public TwitchRewardSyncMode SetTriggerMasterRewardSyncMode { get; set; }
@@ -2242,6 +2256,8 @@ public sealed class SettingsStore
         public string? ChannelPointRewardId { get; set; }
 
         public string? ChannelPointRewardTitle { get; set; }
+
+        public string? ChannelPointRewardDescription { get; set; }
 
         public int ChannelPointRewardCost { get; set; }
 
@@ -2357,6 +2373,8 @@ public sealed class SettingsStore
 
         public string? RewardTitle { get; set; }
 
+        public string? RewardDescription { get; set; }
+
         public int RewardCost { get; set; }
 
         public int RewardCooldownSeconds { get; set; }
@@ -2416,6 +2434,8 @@ public sealed class SettingsStore
 
         public string? RewardTitle { get; set; }
 
+        public string? RewardDescription { get; set; }
+
         public int RewardCost { get; set; }
 
         public TwitchRewardSyncMode RewardSyncMode { get; set; }
@@ -2448,6 +2468,8 @@ public sealed class SettingsStore
         public string? FundingRewardId { get; set; }
 
         public string? FundingRewardTitle { get; set; }
+
+        public string? FundingRewardDescription { get; set; }
 
         public int FundingRewardCost { get; set; }
 
@@ -2506,6 +2528,8 @@ public sealed class SettingsStore
         public string? RewardId { get; set; }
 
         public string? RewardTitle { get; set; }
+
+        public string? RewardDescription { get; set; }
 
         public int RewardCost { get; set; }
 

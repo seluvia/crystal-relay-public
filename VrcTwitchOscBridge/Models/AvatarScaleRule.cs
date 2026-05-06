@@ -73,6 +73,7 @@ public sealed class AvatarScaleMasterRewardSettings : ObservableObject
     private bool isEnabled;
     private string rewardId = string.Empty;
     private string rewardTitle = "Avatar Scaling";
+    private string rewardDescription = string.Empty;
     private int rewardCost = 100;
     private TwitchRewardSyncMode rewardSyncMode = TwitchRewardSyncMode.CreateOrManage;
     private int unlockDurationSeconds = 60;
@@ -99,6 +100,12 @@ public sealed class AvatarScaleMasterRewardSettings : ObservableObject
     {
         get => rewardTitle;
         set => SetProperty(ref rewardTitle, string.IsNullOrWhiteSpace(value) ? "Avatar Scaling" : value.Trim());
+    }
+
+    public string RewardDescription
+    {
+        get => rewardDescription;
+        set => SetProperty(ref rewardDescription, value ?? string.Empty);
     }
 
     public int RewardCost
@@ -281,6 +288,7 @@ public sealed class AvatarScaleRule : ObservableObject
     private ChatCommandPermission chatCommandPermission = ChatCommandPermission.Moderators;
     private string rewardId = string.Empty;
     private string rewardTitle = string.Empty;
+    private string rewardDescription = string.Empty;
     private int rewardCost = 100;
     private TwitchRewardSyncMode rewardSyncMode = TwitchRewardSyncMode.CreateOrManage;
     private string managedRewardReadyColor = ManagedRewardPresentation.ReadyBackgroundColor;
@@ -396,6 +404,12 @@ public sealed class AvatarScaleRule : ObservableObject
     {
         get => rewardTitle;
         set => SetAndRaiseSummary(ref rewardTitle, value?.Trim() ?? string.Empty);
+    }
+
+    public string RewardDescription
+    {
+        get => rewardDescription;
+        set => SetProperty(ref rewardDescription, value ?? string.Empty);
     }
 
     public int RewardCost

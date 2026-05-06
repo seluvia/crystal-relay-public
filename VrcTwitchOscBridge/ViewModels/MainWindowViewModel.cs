@@ -177,6 +177,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         nameof(TriggerRule.ChannelPointRewardId),
         nameof(TriggerRule.ChannelPointRewardTitle),
         nameof(TriggerRule.ChannelPointRewardCost),
+        nameof(TriggerRule.ChannelPointRewardDescription),
         nameof(TriggerRule.RewardSyncMode),
         nameof(TriggerRule.ManagedRewardReadyColor),
         nameof(TriggerRule.ManagedRewardCooldownColor),
@@ -211,6 +212,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         nameof(AvatarTriggerProfile.SetTriggerMasterRewardId),
         nameof(AvatarTriggerProfile.SetTriggerMasterRewardTitle),
         nameof(AvatarTriggerProfile.SetTriggerMasterRewardCost),
+        nameof(AvatarTriggerProfile.SetTriggerMasterRewardDescription),
         nameof(AvatarTriggerProfile.SetTriggerMasterRewardSyncMode),
         nameof(AvatarTriggerProfile.SetTriggerMasterRewardCooldownSeconds),
         nameof(AvatarTriggerProfile.SetTriggerMasterRewardReadyColor),
@@ -224,6 +226,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         nameof(UniversalTriggerRule.RewardId),
         nameof(UniversalTriggerRule.RewardTitle),
         nameof(UniversalTriggerRule.RewardCost),
+        nameof(UniversalTriggerRule.RewardDescription),
         nameof(UniversalTriggerRule.RewardCooldownSeconds),
         nameof(UniversalTriggerRule.RewardSyncMode),
         nameof(UniversalTriggerRule.ManagedRewardReadyColor),
@@ -244,6 +247,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         nameof(AvatarScaleRule.RewardId),
         nameof(AvatarScaleRule.RewardTitle),
         nameof(AvatarScaleRule.RewardCost),
+        nameof(AvatarScaleRule.RewardDescription),
         nameof(AvatarScaleRule.RewardSyncMode),
         nameof(AvatarScaleRule.ManagedRewardReadyColor),
         nameof(AvatarScaleRule.ManagedRewardCooldownColor),
@@ -262,6 +266,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         nameof(AvatarScaleMasterRewardSettings.RewardId),
         nameof(AvatarScaleMasterRewardSettings.RewardTitle),
         nameof(AvatarScaleMasterRewardSettings.RewardCost),
+        nameof(AvatarScaleMasterRewardSettings.RewardDescription),
         nameof(AvatarScaleMasterRewardSettings.RewardSyncMode),
         nameof(AvatarScaleMasterRewardSettings.UnlockDurationSeconds),
         nameof(AvatarScaleMasterRewardSettings.CooldownSeconds),
@@ -1109,9 +1114,17 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
     }
 
-    public string RewardFireSaleFundingRewardPrompt => TF(
-        "Adds {0:N0} Fire Sale progress toward the next discount goal.",
-        GetRewardFireSaleFundingProgressPerRedeem());
+    public string RewardFireSaleFundingRewardPrompt => BuildRewardFireSaleFundingRewardPrompt();
+
+    private string BuildRewardFireSaleFundingRewardPrompt()
+    {
+        var configuredDescription = Settings.RewardFireSale.FundingRewardDescription?.Trim() ?? string.Empty;
+        return string.IsNullOrWhiteSpace(configuredDescription)
+            ? TF(
+                "Adds {0:N0} Fire Sale progress toward the next discount goal.",
+                GetRewardFireSaleFundingProgressPerRedeem())
+            : configuredDescription;
+    }
 
     public IReadOnlyList<TriggerRule> SelectedAvatarSupporterRules => Settings.GlobalOverrideRules
         .Where(rule => !IsSupporterAvatarChangeOverride(rule))
@@ -3808,6 +3821,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         fireSale.FundingRewardTitle = string.IsNullOrWhiteSpace(fundingTitle) ? "Fire Sale Fund" : fundingTitle.Trim();
         changed |= !string.Equals(fundingTitle, fireSale.FundingRewardTitle, StringComparison.Ordinal);
 
+        fireSale.FundingRewardDescription ??= string.Empty;
+
         var fundingCost = fireSale.FundingRewardCost;
         fireSale.FundingRewardCost = Math.Max(1, fundingCost <= 0 ? 100 : fundingCost);
         changed |= fundingCost != fireSale.FundingRewardCost;
@@ -6194,6 +6209,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             || e.PropertyName == nameof(RewardFireSaleSettings.IsEnabled)
             || e.PropertyName == nameof(RewardFireSaleSettings.FundingRewardCost)
             || e.PropertyName == nameof(RewardFireSaleSettings.FundingRewardCooldownSeconds)
+            || e.PropertyName == nameof(RewardFireSaleSettings.FundingRewardDescription)
             || e.PropertyName == nameof(RewardFireSaleSettings.RewardPointsPerProgressUnit))
         {
             RefreshRewardFireSaleStateProperties();
@@ -6206,6 +6222,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             || e.PropertyName == nameof(RewardFireSaleSettings.FundingRewardTitle)
             || e.PropertyName == nameof(RewardFireSaleSettings.FundingRewardCost)
             || e.PropertyName == nameof(RewardFireSaleSettings.FundingRewardCooldownSeconds)
+            || e.PropertyName == nameof(RewardFireSaleSettings.FundingRewardDescription)
             || e.PropertyName == nameof(RewardFireSaleSettings.FundingRewardReadyColor)
             || e.PropertyName == nameof(RewardFireSaleSettings.FundingRewardCooldownColor)
             || e.PropertyName == nameof(RewardFireSaleSettings.RewardPointsPerProgressUnit))
@@ -8555,7 +8572,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             rule.RewardSyncMode,
             rule.CooldownSeconds,
             backgroundColor,
-            prompt: string.Empty,
+            prompt: BuildManagedRewardPrompt(rule.ChannelPointRewardDescription),
             requireUserInput: false,
             desiredEnabled: desiredEnabled,
             isCooldownActive: isOnLocalCooldown,
@@ -8630,7 +8647,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             rewardSyncMode,
             cooldownSeconds,
             backgroundColor,
-            prompt: BuildSharedAvatarSetRewardPrompt(activeChoices.Length > 0 ? activeChoices : group.Rules),
+            prompt: BuildSharedAvatarSetRewardPrompt(
+                activeChoices.Length > 0 ? activeChoices : group.Rules,
+                group.UsesSetTriggerMasterReward
+                    ? profile.SetTriggerMasterRewardDescription
+                    : owner.ChannelPointRewardDescription),
             requireUserInput: true,
             desiredEnabled: desiredEnabled,
             isCooldownActive: anyChoiceInCooldown,
@@ -8751,7 +8772,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             .FirstOrDefault(candidate => !string.IsNullOrWhiteSpace(candidate)) ?? string.Empty;
     }
 
-    private static string BuildSharedAvatarSetRewardPrompt(IReadOnlyList<TriggerRule> rules)
+    private static string BuildManagedRewardPrompt(string? description)
+    {
+        var configuredDescription = description?.Trim() ?? string.Empty;
+        return string.IsNullOrWhiteSpace(configuredDescription)
+            ? T("Managed by Crystal Relay.")
+            : configuredDescription;
+    }
+
+    private static string BuildSharedAvatarSetRewardPrompt(IReadOnlyList<TriggerRule> rules, string? description = null)
     {
         var options = rules
             .Where(IsSharedAvatarSetRewardChoiceRule)
@@ -8766,9 +8795,19 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
 
         var prompt = $"{T("Use number")}: {string.Join(", ", options)}";
-        return prompt.Length <= TwitchCustomRewardPromptMaxLength
+        var choicePrompt = prompt.Length <= TwitchCustomRewardPromptMaxLength
             ? prompt
             : T("Type a number to choose this avatar set redeem.");
+        var configuredDescription = description?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(configuredDescription))
+        {
+            return choicePrompt;
+        }
+
+        var combinedPrompt = $"{configuredDescription} {choicePrompt}";
+        return combinedPrompt.Length <= TwitchCustomRewardPromptMaxLength
+            ? combinedPrompt
+            : choicePrompt;
     }
 
     private static string DescribeSharedAvatarSetRewardChoiceOption(TriggerRule rule)
@@ -8811,7 +8850,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             trigger.RewardSyncMode,
             cooldownSeconds: trigger.UsesCreateOrManageReward ? trigger.RewardCooldownSeconds : 0,
             backgroundColor: ManagedRewardPresentation.NormalizeReadyBackgroundColor(trigger.ManagedRewardReadyColor),
-            prompt: string.Empty,
+            prompt: BuildManagedRewardPrompt(trigger.RewardDescription),
             requireUserInput: false,
             desiredEnabled: desiredEnabled,
             isCooldownActive: false,
@@ -8845,7 +8884,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             masterReward.RewardSyncMode,
             masterReward.CooldownSeconds,
             backgroundColor,
-            prompt: string.Empty,
+            prompt: BuildManagedRewardPrompt(masterReward.RewardDescription),
             requireUserInput: false,
             desiredEnabled: desiredEnabled,
             isCooldownActive: isCooldownActive,
@@ -8896,7 +8935,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             rule.RewardSyncMode,
             GetAvatarScaleEffectiveManagedRewardCooldownSeconds(rule),
             backgroundColor,
-            prompt: string.Empty,
+            prompt: BuildManagedRewardPrompt(rule.RewardDescription),
             requireUserInput: false,
             desiredEnabled: desiredEnabled,
             isCooldownActive: isOnLocalCooldown,
@@ -8932,7 +8971,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             TwitchRewardSyncMode.CreateOrManage,
             cooldownSeconds: fireSale.FundingRewardCooldownSeconds,
             backgroundColor: backgroundColor,
-            prompt: RewardFireSaleFundingRewardPrompt,
+            prompt: BuildRewardFireSaleFundingRewardPrompt(),
             requireUserInput: false,
             desiredEnabled: desiredEnabled,
             isCooldownActive: isFundingRewardOnCooldown,
@@ -14708,6 +14747,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             && !string.IsNullOrWhiteSpace(migratedRule.ChannelPointRewardTitle))
         {
             profile.SetTriggerMasterRewardTitle = migratedRule.ChannelPointRewardTitle.Trim();
+            profile.SetTriggerMasterRewardDescription = migratedRule.ChannelPointRewardDescription;
             profile.SetTriggerMasterRewardCost = migratedRule.ChannelPointRewardCost;
             profile.SetTriggerMasterRewardCooldownSeconds = migratedRule.CooldownSeconds;
             profile.SetTriggerMasterRewardReadyColor = migratedRule.ManagedRewardReadyColor;

@@ -20,6 +20,7 @@ public sealed class AvatarTriggerProfile : ObservableObject
     private bool isRewardTestOverrideEnabled;
     private string setTriggerMasterRewardId = string.Empty;
     private string setTriggerMasterRewardTitle = string.Empty;
+    private string setTriggerMasterRewardDescription = string.Empty;
     private int setTriggerMasterRewardCost = 100;
     private TwitchRewardSyncMode setTriggerMasterRewardSyncMode = TwitchRewardSyncMode.CreateOrManage;
     private int setTriggerMasterRewardCooldownSeconds;
@@ -137,6 +138,12 @@ public sealed class AvatarTriggerProfile : ObservableObject
                 RaisePropertyChanged(nameof(SetTriggerMasterRewardDisplayTitle));
             }
         }
+    }
+
+    public string SetTriggerMasterRewardDescription
+    {
+        get => setTriggerMasterRewardDescription;
+        set => SetProperty(ref setTriggerMasterRewardDescription, value ?? string.Empty);
     }
 
     public int SetTriggerMasterRewardCost

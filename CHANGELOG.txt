@@ -3,6 +3,11 @@ Crystal Relay Changelog
 
 Newest updates appear first. This changelog focuses on the changes users will notice most.
 
+v3.1.2 beta 1
+- Added editable Twitch reward descriptions for Crystal Relay-created channel-point rewards, syncing to Twitch's reward prompt field.
+- Blank standard managed rewards now use a formal default description, while Set Trigger shared rewards keep their numbered choice instructions and Fire Sale funding rewards keep their automatic progress prompt.
+- Linked existing Twitch rewards remain listen-only, so Crystal Relay does not edit their name, cost, description, prompt, color, input settings, visibility, or cooldown.
+
 v3.1.1
 - Fixed Avatar Scaling carryover during VRChat avatar swaps so active scale height waits for the new avatar to finish loading, reapplies across repeated swaps, and restores to the configured return height only after the active timer ends.
 

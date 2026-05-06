@@ -1,4 +1,9 @@
 {
+  "Reward Description": "보상 설명",
+  "Shown on Twitch as the reward description. Leave blank to use the Crystal Relay default.": "Twitch 보상 설명으로 표시됩니다. 비워 두면 Crystal Relay 기본값을 사용합니다.",
+  "Shown on Twitch as the reward description. Leave blank to use the automatic funding progress prompt.": "Twitch 보상 설명으로 표시됩니다. 비워 두면 자동 펀딩 진행 안내를 사용합니다.",
+  "Shown on Twitch as the reward description. Leave blank to use the automatic choice instructions.": "Twitch 보상 설명으로 표시됩니다. 비워 두면 자동 선택 안내를 사용합니다.",
+  "Managed by Crystal Relay.": "Crystal Relay에서 관리합니다.",
   "Crystal Relay v{0} | Twitch to OSC": "크리스탈 릴레이 v{0} | OSC로 트위치",
   "Twitch to OSC | v{0}": "트위치에서 OSC로 | v{0}",
   "Jump": "ÃƒÂ¬Ã‚Â Ã‚ÂÃƒÂ­Ã¢â‚¬ÂÃ¢â‚¬Å¾",

@@ -1,4 +1,9 @@
 {
+  "Reward Description": "報酬の説明",
+  "Shown on Twitch as the reward description. Leave blank to use the Crystal Relay default.": "Twitch の報酬説明として表示されます。空欄にすると Crystal Relay の既定文を使用します。",
+  "Shown on Twitch as the reward description. Leave blank to use the automatic funding progress prompt.": "Twitch の報酬説明として表示されます。空欄にすると自動の支援進捗メッセージを使用します。",
+  "Shown on Twitch as the reward description. Leave blank to use the automatic choice instructions.": "Twitch の報酬説明として表示されます。空欄にすると自動の選択案内を使用します。",
+  "Managed by Crystal Relay.": "Crystal Relay によって管理されています。",
   "Crystal Relay v{0} | Twitch to OSC": "Crystal Relay v{0} | Twitch から OSC",
   "Twitch to OSC | v{0}": "Twitch を OSC にストリーミング | v{0}",
   "Jump": "ÃƒÂ£Ã¢â‚¬Å¡Ã‚Â¸ÃƒÂ£Ã†â€™Ã‚Â£ÃƒÂ£Ã†â€™Ã‚Â³ÃƒÂ£Ã†â€™Ã¢â‚¬â€",

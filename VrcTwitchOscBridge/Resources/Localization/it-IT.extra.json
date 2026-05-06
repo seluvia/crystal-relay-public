@@ -1,4 +1,9 @@
 {
+  "Reward Description": "Descrizione della ricompensa",
+  "Shown on Twitch as the reward description. Leave blank to use the Crystal Relay default.": "Mostrata su Twitch come descrizione della ricompensa. Lascia vuoto per usare il valore predefinito di Crystal Relay.",
+  "Shown on Twitch as the reward description. Leave blank to use the automatic funding progress prompt.": "Mostrata su Twitch come descrizione della ricompensa. Lascia vuoto per usare il messaggio automatico di avanzamento del finanziamento.",
+  "Shown on Twitch as the reward description. Leave blank to use the automatic choice instructions.": "Mostrata su Twitch come descrizione della ricompensa. Lascia vuoto per usare le istruzioni automatiche di scelta.",
+  "Managed by Crystal Relay.": "Gestito da Crystal Relay.",
   "Crystal Relay v{0} | Twitch to OSC": "Relè di cristallo v{0} | Passa a OSC",
   "Twitch to OSC | v{0}": "Passa a OSC | v{0}",
   "Jump": "Salta",

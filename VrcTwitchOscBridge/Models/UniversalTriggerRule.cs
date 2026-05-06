@@ -17,6 +17,7 @@ public sealed class UniversalTriggerRule : ObservableObject
     private ChatCommandPermission chatCommandPermission = ChatCommandPermission.Moderators;
     private string rewardId = string.Empty;
     private string rewardTitle = string.Empty;
+    private string rewardDescription = string.Empty;
     private int rewardCost = 100;
     private int rewardCooldownSeconds;
     private TwitchRewardSyncMode rewardSyncMode = TwitchRewardSyncMode.CreateOrManage;
@@ -133,6 +134,12 @@ public sealed class UniversalTriggerRule : ObservableObject
                 RaiseTitleProperties();
             }
         }
+    }
+
+    public string RewardDescription
+    {
+        get => rewardDescription;
+        set => SetProperty(ref rewardDescription, value ?? string.Empty);
     }
 
     public int RewardCost

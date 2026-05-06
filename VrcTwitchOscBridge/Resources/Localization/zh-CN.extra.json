@@ -1,4 +1,9 @@
 {
+  "Reward Description": "奖励说明",
+  "Shown on Twitch as the reward description. Leave blank to use the Crystal Relay default.": "在 Twitch 上显示为奖励说明。留空将使用 Crystal Relay 默认内容。",
+  "Shown on Twitch as the reward description. Leave blank to use the automatic funding progress prompt.": "在 Twitch 上显示为奖励说明。留空将使用自动筹款进度提示。",
+  "Shown on Twitch as the reward description. Leave blank to use the automatic choice instructions.": "在 Twitch 上显示为奖励说明。留空将使用自动选择说明。",
+  "Managed by Crystal Relay.": "由 Crystal Relay 管理。",
   "Crystal Relay v{0} | Twitch to OSC": "水晶中继 v{0} |切换到 OSC",
   "Twitch to OSC | v{0}": "切换至 OSC | v{0}",
   "Jump": "ÃƒÂ¨Ã‚Â·Ã‚Â³ÃƒÂ¨Ã‚Â·Ã†â€™",

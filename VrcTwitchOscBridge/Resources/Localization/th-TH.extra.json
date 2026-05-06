@@ -1,4 +1,9 @@
 {
+  "Reward Description": "คำอธิบายรางวัล",
+  "Shown on Twitch as the reward description. Leave blank to use the Crystal Relay default.": "แสดงบน Twitch เป็นคำอธิบายรางวัล เว้นว่างไว้เพื่อใช้ค่าเริ่มต้นของ Crystal Relay",
+  "Shown on Twitch as the reward description. Leave blank to use the automatic funding progress prompt.": "แสดงบน Twitch เป็นคำอธิบายรางวัล เว้นว่างไว้เพื่อใช้ข้อความความคืบหน้าการระดมทุนอัตโนมัติ",
+  "Shown on Twitch as the reward description. Leave blank to use the automatic choice instructions.": "แสดงบน Twitch เป็นคำอธิบายรางวัล เว้นว่างไว้เพื่อใช้คำแนะนำการเลือกอัตโนมัติ",
+  "Managed by Crystal Relay.": "จัดการโดย Crystal Relay",
   "Crystal Relay v{0} | Twitch to OSC": "คริสตัลรีเลย์ v{0} | กระตุกเป็น OSC",
   "Twitch to OSC | v{0}": "ชักไปที่ OSC | ว{0}",
   "Jump": "ÃƒÂ Ã‚Â¸Ã‚ÂÃƒÂ Ã‚Â¸Ã‚Â£ÃƒÂ Ã‚Â¸Ã‚Â°ÃƒÂ Ã‚Â¹Ã¢â‚¬Å¡ÃƒÂ Ã‚Â¸Ã¢â‚¬ÂÃƒÂ Ã‚Â¸Ã¢â‚¬Â",

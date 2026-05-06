@@ -3858,6 +3858,19 @@
                                                        Text="{Binding RewardFireSaleFundingRewardConversionText}"
                                                        Foreground="{DynamicResource MutedBrush}"
                                                        TextWrapping="Wrap" />
+                                            <StackPanel Margin="0,12,0,0">
+                                                <TextBlock Text="{loc:Translate 'Reward Description'}"
+                                                           Foreground="{DynamicResource TextBrush}"
+                                                           FontWeight="SemiBold" />
+                                                <TextBox Text="{Binding Settings.RewardFireSale.FundingRewardDescription, UpdateSourceTrigger=PropertyChanged}"
+                                                         AcceptsReturn="True"
+                                                         Height="70"
+                                                         TextWrapping="Wrap" />
+                                                <TextBlock Margin="0,6,0,0"
+                                                           Text="{loc:Translate 'Shown on Twitch as the reward description. Leave blank to use the automatic funding progress prompt.'}"
+                                                           Foreground="{DynamicResource MutedBrush}"
+                                                           TextWrapping="Wrap" />
+                                            </StackPanel>
                                             <TextBlock Margin="0,6,0,0"
                                                        Text="{Binding RewardFireSaleFundingRewardPrompt}"
                                                        Foreground="{DynamicResource MutedBrush}"
@@ -4312,6 +4325,29 @@
                                                                 <TextBox Text="{Binding RewardCost, UpdateSourceTrigger=PropertyChanged}" />
                                                             </StackPanel>
                                                         </UniformGrid>
+                                                        <StackPanel Margin="0,12,0,0">
+                                                            <StackPanel.Style>
+                                                                <Style TargetType="StackPanel">
+                                                                    <Setter Property="Visibility" Value="Visible" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding UsesLinkedExistingReward}" Value="True">
+                                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </StackPanel.Style>
+                                                            <TextBlock Text="{loc:Translate 'Reward Description'}"
+                                                                       Foreground="{DynamicResource TextBrush}"
+                                                                       FontWeight="SemiBold" />
+                                                            <TextBox Text="{Binding RewardDescription, UpdateSourceTrigger=PropertyChanged}"
+                                                                     AcceptsReturn="True"
+                                                                     Height="70"
+                                                                     TextWrapping="Wrap" />
+                                                            <TextBlock Margin="0,6,0,0"
+                                                                       Text="{loc:Translate 'Shown on Twitch as the reward description. Leave blank to use the Crystal Relay default.'}"
+                                                                       Foreground="{DynamicResource MutedBrush}"
+                                                                       TextWrapping="Wrap" />
+                                                        </StackPanel>
                                                         <UniformGrid Columns="2"
                                                                      Margin="0,12,0,0">
                                                             <StackPanel Margin="0,0,14,0">
@@ -4680,8 +4716,31 @@
                                                                                Foreground="{DynamicResource TextBrush}"
                                                                                FontWeight="SemiBold" />
                                                                     <TextBox Text="{Binding RewardCost, UpdateSourceTrigger=PropertyChanged}" />
-                                                                </StackPanel>
-                                                            </UniformGrid>
+                                                                    </StackPanel>
+                                                                </UniformGrid>
+                                                            <StackPanel Margin="0,10,0,0">
+                                                                <StackPanel.Style>
+                                                                    <Style TargetType="StackPanel">
+                                                                        <Setter Property="Visibility" Value="Visible" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding UsesLinkedExistingReward}" Value="True">
+                                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </StackPanel.Style>
+                                                                <TextBlock Text="{loc:Translate 'Reward Description'}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding RewardDescription, UpdateSourceTrigger=PropertyChanged}"
+                                                                         AcceptsReturn="True"
+                                                                         Height="70"
+                                                                         TextWrapping="Wrap" />
+                                                                <TextBlock Margin="0,6,0,0"
+                                                                           Text="{loc:Translate 'Shown on Twitch as the reward description. Leave blank to use the Crystal Relay default.'}"
+                                                                           Foreground="{DynamicResource MutedBrush}"
+                                                                           TextWrapping="Wrap" />
+                                                            </StackPanel>
                                                             <StackPanel Margin="0,10,0,0">
                                                                 <StackPanel.Style>
                                                                     <Style TargetType="StackPanel">
@@ -5570,6 +5629,29 @@
                                                 <TextBox Text="{Binding SetTriggerMasterRewardCost, UpdateSourceTrigger=PropertyChanged}" />
                                             </StackPanel>
                                         </UniformGrid>
+                                        <StackPanel Margin="0,12,0,0">
+                                            <StackPanel.Style>
+                                                <Style TargetType="StackPanel">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding UsesLinkedExistingSetTriggerMasterReward}" Value="True">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </StackPanel.Style>
+                                            <TextBlock Text="{loc:Translate 'Reward Description'}"
+                                                       Foreground="{DynamicResource TextBrush}"
+                                                       FontWeight="SemiBold" />
+                                            <TextBox Text="{Binding SetTriggerMasterRewardDescription, UpdateSourceTrigger=PropertyChanged}"
+                                                     AcceptsReturn="True"
+                                                     Height="70"
+                                                     TextWrapping="Wrap" />
+                                            <TextBlock Margin="0,6,0,0"
+                                                       Text="{loc:Translate 'Shown on Twitch as the reward description. Leave blank to use the automatic choice instructions.'}"
+                                                       Foreground="{DynamicResource MutedBrush}"
+                                                       TextWrapping="Wrap" />
+                                        </StackPanel>
                                         <UniformGrid Columns="2"
                                                      Margin="0,12,0,0">
                                             <StackPanel Margin="0,0,14,0">
@@ -6390,6 +6472,29 @@
                                                                         </Style.Triggers>
                                                                     </Style>
                                                                 </StackPanel.Style>
+                                                                <TextBlock Text="{loc:Translate 'Reward Description'}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding RewardDescription, UpdateSourceTrigger=PropertyChanged}"
+                                                                         AcceptsReturn="True"
+                                                                         Height="70"
+                                                                         TextWrapping="Wrap" />
+                                                                <TextBlock Margin="0,6,0,0"
+                                                                           Text="{loc:Translate 'Shown on Twitch as the reward description. Leave blank to use the Crystal Relay default.'}"
+                                                                           Foreground="{DynamicResource MutedBrush}"
+                                                                           TextWrapping="Wrap" />
+                                                            </StackPanel>
+                                                            <StackPanel Margin="0,10,0,0">
+                                                                <StackPanel.Style>
+                                                                    <Style TargetType="StackPanel">
+                                                                        <Setter Property="Visibility" Value="Visible" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding UsesLinkedExistingReward}" Value="True">
+                                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </StackPanel.Style>
                                                                 <TextBlock Text="{loc:Translate 'Reward Cooldown (seconds)'}"
                                                                            Foreground="{DynamicResource TextBrush}"
                                                                            FontWeight="SemiBold" />
@@ -6967,6 +7072,32 @@
                                                                     <TextBox Text="{Binding ChannelPointRewardCost, UpdateSourceTrigger=PropertyChanged}" />
                                                                 </StackPanel>
                                                             </UniformGrid>
+                                                            <StackPanel Margin="0,10,0,0">
+                                                                <StackPanel.Style>
+                                                                    <Style TargetType="StackPanel">
+                                                                        <Setter Property="Visibility" Value="Visible" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding UsesSetTrigger}" Value="True">
+                                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding UsesLinkedExistingReward}" Value="True">
+                                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </StackPanel.Style>
+                                                                <TextBlock Text="{loc:Translate 'Reward Description'}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding ChannelPointRewardDescription, UpdateSourceTrigger=PropertyChanged}"
+                                                                         AcceptsReturn="True"
+                                                                         Height="70"
+                                                                         TextWrapping="Wrap" />
+                                                                <TextBlock Margin="0,6,0,0"
+                                                                           Text="{loc:Translate 'Shown on Twitch as the reward description. Leave blank to use the Crystal Relay default.'}"
+                                                                           Foreground="{DynamicResource MutedBrush}"
+                                                                           TextWrapping="Wrap" />
+                                                            </StackPanel>
                                                             <StackPanel Margin="0,10,0,0">
                                                                 <StackPanel.Style>
                                                                     <Style TargetType="StackPanel">

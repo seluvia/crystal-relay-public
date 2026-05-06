@@ -21,6 +21,7 @@ public sealed class TriggerRule : ObservableObject
     private TwitchTriggerType triggerType = TwitchTriggerType.ChannelPoints;
     private string channelPointRewardId = string.Empty;
     private string channelPointRewardTitle = string.Empty;
+    private string channelPointRewardDescription = string.Empty;
     private int channelPointRewardCost = 100;
     private TwitchRewardSyncMode rewardSyncMode = TwitchRewardSyncMode.CreateOrManage;
     private string managedRewardReadyColor = ManagedRewardPresentation.ReadyBackgroundColor;
@@ -143,6 +144,12 @@ public sealed class TriggerRule : ObservableObject
                 RaisePropertyChanged(nameof(TriggerSummary));
             }
         }
+    }
+
+    public string ChannelPointRewardDescription
+    {
+        get => channelPointRewardDescription;
+        set => SetProperty(ref channelPointRewardDescription, value ?? string.Empty);
     }
 
     public int ChannelPointRewardCost

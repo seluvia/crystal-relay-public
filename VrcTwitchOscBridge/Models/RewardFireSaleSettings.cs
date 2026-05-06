@@ -59,6 +59,7 @@ public sealed class RewardFireSaleSettings : ObservableObject
     private bool fundingRewardEnabled;
     private string fundingRewardId = string.Empty;
     private string fundingRewardTitle = "Fire Sale Fund";
+    private string fundingRewardDescription = string.Empty;
     private int fundingRewardCost = 100;
     private int fundingRewardCooldownSeconds;
     private string fundingRewardReadyColor = ManagedRewardPresentation.ReadyBackgroundColor;
@@ -111,6 +112,12 @@ public sealed class RewardFireSaleSettings : ObservableObject
     {
         get => fundingRewardTitle;
         set => SetProperty(ref fundingRewardTitle, string.IsNullOrWhiteSpace(value) ? "Fire Sale Fund" : value.Trim());
+    }
+
+    public string FundingRewardDescription
+    {
+        get => fundingRewardDescription;
+        set => SetProperty(ref fundingRewardDescription, value ?? string.Empty);
     }
 
     public int FundingRewardCost
