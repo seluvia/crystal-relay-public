@@ -27,6 +27,7 @@
   <ItemGroup>
     <ApplicationDefinition Include="App.xaml" />
     <Page Include="MainWindow.xaml" />
+    <Page Include="ActiveFloatBoostRewardWindow.xaml" />
     <Page Include="BugReportWindow.xaml" />
     <Page Include="ThemeBackgrounds\*.xaml" />
     <Page Include="TwitchChatboxWindow.xaml" />
@@ -53,6 +54,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="App.xaml.cs" />
+    <Compile Include="ActiveFloatBoostRewardWindow.xaml.cs" />
     <Compile Include="AssemblyInfo.cs" />
     <Compile Include="BugReportWindow.xaml.cs" />
     <Compile Include="ComboBoxInteraction.cs" />
@@ -74,6 +76,7 @@
     <Compile Include="Models\AvatarScaleRule.cs" />
     <Compile Include="Models\ChatCommandPermission.cs" />
     <Compile Include="Models\ChatCommandUtility.cs" />
+    <Compile Include="Models\FloatValueMode.cs" />
     <Compile Include="Models\IntZeroDurationMode.cs" />
     <Compile Include="Models\MovementRedeemSet.cs" />
     <Compile Include="Models\OscActionType.cs" />
@@ -104,6 +107,7 @@
     <Compile Include="Services\DesktopInputLockService.cs" />
     <Compile Include="Services\EmbeddedMediaCacheService.cs" />
     <Compile Include="Services\FoomaInteractionConfigImporter.cs" />
+    <Compile Include="Services\FloatValueModeConverter.cs" />
     <Compile Include="Services\LocalizationService.cs" />
     <Compile Include="Services\ManagedRewardPresentation.cs" />
     <Compile Include="Services\OscRouterService.cs" />
@@ -115,6 +119,7 @@
     <Compile Include="Services\TwitchApiClient.cs" />
     <Compile Include="Services\TwitchApiException.cs" />
     <Compile Include="Services\ThemeManager.cs" />
+    <Compile Include="Services\TwitchAccountReconnectRequiredException.cs" />
     <Compile Include="Services\TwitchEventSubSession.cs" />
     <Compile Include="Services\TwitchScopes.cs" />
     <Compile Include="Services\UniversalTriggerFusionService.cs" />

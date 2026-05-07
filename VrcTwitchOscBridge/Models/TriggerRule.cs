@@ -46,6 +46,8 @@ public sealed class TriggerRule : ObservableObject
     private OscParameterType parameterType = OscParameterType.Int;
     private IntZeroDurationMode intZeroDurationMode = global::VrcTwitchOscBridge.Models.IntZeroDurationMode.Fixed;
     private string parameterValue = "1";
+    private FloatValueMode floatValueMode = global::VrcTwitchOscBridge.Models.FloatValueMode.Decimal;
+    private double floatTransitionSeconds;
     private string avatarChangeTargetId = string.Empty;
     private string avatarTargetName = string.Empty;
     private string resetValue = "0";
@@ -64,6 +66,18 @@ public sealed class TriggerRule : ObservableObject
     private bool sharedRewardChoiceEnabled;
     private int sharedRewardChoiceNumber;
     private string sharedRewardHelpText = string.Empty;
+    private Guid activeFloatBoostRewardOwnerId = Guid.NewGuid();
+    private bool activeFloatBoostRewardEnabled;
+    private string activeFloatBoostRewardId = string.Empty;
+    private string activeFloatBoostRewardTitle = string.Empty;
+    private string activeFloatBoostRewardDescription = string.Empty;
+    private int activeFloatBoostRewardCost = 100;
+    private int activeFloatBoostRewardCooldownSeconds;
+    private string activeFloatBoostRewardReadyColor = ManagedRewardPresentation.ReadyBackgroundColor;
+    private string activeFloatBoostRewardCooldownColor = ManagedRewardPresentation.InUseBackgroundColor;
+    private string activeFloatBoostAddValue = "0.05";
+    private string activeFloatBoostMinimumValue = "0";
+    private string activeFloatBoostMaximumValue = "1";
     private ObservableCollection<SetTriggerAction> setTriggerActions = [];
     private ObservableCollection<Guid> temporarilyDisabledRuleIds = [];
     private string supporterAvatarScopeLabel = string.Empty;
@@ -515,6 +529,40 @@ public sealed class TriggerRule : ObservableObject
         }
     }
 
+    public FloatValueMode FloatValueMode
+    {
+        get => floatValueMode;
+        set
+        {
+            var normalizedValue = Enum.IsDefined(value) ? value : global::VrcTwitchOscBridge.Models.FloatValueMode.Decimal;
+            var previousValue = floatValueMode;
+            if (SetProperty(ref floatValueMode, normalizedValue))
+            {
+                ParameterValue = FloatValueModeConverter.ConvertDisplayText(ParameterValue, previousValue, normalizedValue);
+                ResetValue = FloatValueModeConverter.ConvertDisplayText(ResetValue, previousValue, normalizedValue);
+                ActiveFloatBoostAddValue = FloatValueModeConverter.ConvertDisplayText(ActiveFloatBoostAddValue, previousValue, normalizedValue);
+                ActiveFloatBoostMinimumValue = FloatValueModeConverter.ConvertDisplayText(ActiveFloatBoostMinimumValue, previousValue, normalizedValue);
+                ActiveFloatBoostMaximumValue = FloatValueModeConverter.ConvertDisplayText(ActiveFloatBoostMaximumValue, previousValue, normalizedValue);
+                RaisePropertyChanged(nameof(FloatValueModeHelpText));
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public double FloatTransitionSeconds
+    {
+        get => floatTransitionSeconds;
+        set
+        {
+            var normalizedValue = Math.Clamp(value, 0, 30);
+            if (SetProperty(ref floatTransitionSeconds, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(UsesFloatTransition));
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
     public string AvatarTargetName
     {
         get => avatarTargetName;
@@ -656,6 +704,10 @@ public sealed class TriggerRule : ObservableObject
             if (SetProperty(ref durationSeconds, normalizedValue))
             {
                 RaiseActionVisibilityProperties();
+                RaisePropertyChanged(nameof(UsesFloatTimedValues));
+                RaisePropertyChanged(nameof(UsesFloatTransition));
+                RaisePropertyChanged(nameof(UsesActiveFloatBoostReward));
+                RaisePropertyChanged(nameof(ActiveFloatBoostRewardStatusText));
                 RaisePropertyChanged(nameof(TriggerSummary));
             }
         }
@@ -763,6 +815,112 @@ public sealed class TriggerRule : ObservableObject
                 RaisePropertyChanged(nameof(TriggerSummary));
             }
         }
+    }
+
+    public Guid ActiveFloatBoostRewardOwnerId
+    {
+        get => activeFloatBoostRewardOwnerId;
+        set => SetProperty(ref activeFloatBoostRewardOwnerId, value == Guid.Empty ? Guid.NewGuid() : value);
+    }
+
+    public bool ActiveFloatBoostRewardEnabled
+    {
+        get => activeFloatBoostRewardEnabled;
+        set
+        {
+            if (SetProperty(ref activeFloatBoostRewardEnabled, value))
+            {
+                RaisePropertyChanged(nameof(UsesActiveFloatBoostReward));
+                RaisePropertyChanged(nameof(ActiveFloatBoostRewardStatusText));
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public string ActiveFloatBoostRewardId
+    {
+        get => activeFloatBoostRewardId;
+        set => SetProperty(ref activeFloatBoostRewardId, value ?? string.Empty);
+    }
+
+    public string ActiveFloatBoostRewardTitle
+    {
+        get => activeFloatBoostRewardTitle;
+        set
+        {
+            if (SetProperty(ref activeFloatBoostRewardTitle, value ?? string.Empty))
+            {
+                RaisePropertyChanged(nameof(ActiveFloatBoostRewardStatusText));
+            }
+        }
+    }
+
+    public string ActiveFloatBoostRewardDescription
+    {
+        get => activeFloatBoostRewardDescription;
+        set => SetProperty(ref activeFloatBoostRewardDescription, value ?? string.Empty);
+    }
+
+    public int ActiveFloatBoostRewardCost
+    {
+        get => activeFloatBoostRewardCost;
+        set => SetProperty(ref activeFloatBoostRewardCost, Math.Max(1, value));
+    }
+
+    public int ActiveFloatBoostRewardCooldownSeconds
+    {
+        get => activeFloatBoostRewardCooldownSeconds;
+        set => SetProperty(ref activeFloatBoostRewardCooldownSeconds, Math.Max(0, value));
+    }
+
+    public string ActiveFloatBoostRewardReadyColor
+    {
+        get => activeFloatBoostRewardReadyColor;
+        set
+        {
+            var normalizedValue = ManagedRewardPresentation.NormalizeReadyBackgroundColor(value);
+            if (SetProperty(ref activeFloatBoostRewardReadyColor, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(ActiveFloatBoostRewardReadyColorBrush));
+            }
+        }
+    }
+
+    public string ActiveFloatBoostRewardCooldownColor
+    {
+        get => activeFloatBoostRewardCooldownColor;
+        set
+        {
+            var normalizedValue = ManagedRewardPresentation.NormalizeCooldownBackgroundColor(value);
+            if (SetProperty(ref activeFloatBoostRewardCooldownColor, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(ActiveFloatBoostRewardCooldownColorBrush));
+            }
+        }
+    }
+
+    public string ActiveFloatBoostAddValue
+    {
+        get => activeFloatBoostAddValue;
+        set
+        {
+            if (SetProperty(ref activeFloatBoostAddValue, value ?? string.Empty))
+            {
+                RaisePropertyChanged(nameof(ActiveFloatBoostRewardStatusText));
+            }
+        }
+    }
+
+    public string ActiveFloatBoostMinimumValue
+    {
+        get => activeFloatBoostMinimumValue;
+        set => SetProperty(ref activeFloatBoostMinimumValue, value ?? string.Empty);
+    }
+
+    public string ActiveFloatBoostMaximumValue
+    {
+        get => activeFloatBoostMaximumValue;
+        set => SetProperty(ref activeFloatBoostMaximumValue, value ?? string.Empty);
     }
 
     public ObservableCollection<SetTriggerAction> SetTriggerActions
@@ -924,6 +1082,14 @@ public sealed class TriggerRule : ObservableObject
 
     public bool UsesTextOrFloatParameter => UsesAvatarParameter && (ParameterType == OscParameterType.Float || ParameterType == OscParameterType.String);
 
+    public bool UsesFloatParameter => UsesAvatarParameter && ParameterType == OscParameterType.Float;
+
+    public bool UsesFloatTimedValues => UsesFloatParameter && UsesTimedAction;
+
+    public bool UsesFloatTransition => UsesFloatTimedValues && FloatTransitionSeconds > 0;
+
+    public bool UsesActiveFloatBoostReward => UsesFloatTimedValues && ActiveFloatBoostRewardEnabled;
+
     public bool UsesBoolTimedValues => UsesBoolParameter && UsesTimedAction;
 
     public bool UsesBoolToggleHint => UsesBoolParameter && UsesInstantAction;
@@ -941,6 +1107,37 @@ public sealed class TriggerRule : ObservableObject
     public bool UsesDirectTimedValues => UsesTextOrFloatParameter && UsesTimedAction;
 
     public bool UsesAvatarChangeTimedReset => UsesAvatarChange && UsesTimedAction;
+
+    public string FloatValueModeHelpText => FloatValueMode == global::VrcTwitchOscBridge.Models.FloatValueMode.Percent
+        ? T("Percent mode accepts 0 to 100 and sends the converted 0.00 to 1.00 OSC float value.")
+        : T("Decimal mode sends the value directly as a 0.00 to 1.00 OSC float.");
+
+    public string ActiveFloatBoostRewardStatusText
+    {
+        get
+        {
+            if (!UsesActiveFloatBoostReward)
+            {
+                return UsesLinkedExistingReward
+                    ? T("Active boost rewards need a Crystal Relay-managed parent reward.")
+                    : T("Enable this only on timed float Avatar Parameter redeems.");
+            }
+
+            if (UsesLinkedExistingReward)
+            {
+                return T("Active boost reward is configured, but parent hide/show requires a Crystal Relay-managed parent reward.");
+            }
+
+            var title = string.IsNullOrWhiteSpace(ActiveFloatBoostRewardTitle)
+                ? T("Active Boost Reward")
+                : ActiveFloatBoostRewardTitle.Trim();
+            return TF("{0} adds {1} while this redeem is active.", title, ActiveFloatBoostAddValue);
+        }
+    }
+
+    public Brush ActiveFloatBoostRewardReadyColorBrush => CreateColorBrush(ActiveFloatBoostRewardReadyColor);
+
+    public Brush ActiveFloatBoostRewardCooldownColorBrush => CreateColorBrush(ActiveFloatBoostRewardCooldownColor);
 
     public bool HasAvatarRouletPool => AvatarRouletAvatarIds.Count > 0;
 
@@ -1081,6 +1278,10 @@ public sealed class TriggerRule : ObservableObject
         RaisePropertyChanged(nameof(UsesBoolParameter));
         RaisePropertyChanged(nameof(UsesIntParameter));
         RaisePropertyChanged(nameof(UsesTextOrFloatParameter));
+        RaisePropertyChanged(nameof(UsesFloatParameter));
+        RaisePropertyChanged(nameof(UsesFloatTimedValues));
+        RaisePropertyChanged(nameof(UsesFloatTransition));
+        RaisePropertyChanged(nameof(UsesActiveFloatBoostReward));
         RaisePropertyChanged(nameof(UsesBoolTimedValues));
         RaisePropertyChanged(nameof(UsesBoolToggleHint));
         RaisePropertyChanged(nameof(UsesIntInstantModeOptions));
@@ -1093,6 +1294,8 @@ public sealed class TriggerRule : ObservableObject
         RaisePropertyChanged(nameof(UsesAvatarRoulet));
         RaisePropertyChanged(nameof(HasAvatarRouletPool));
         RaisePropertyChanged(nameof(AvatarRouletPoolSummary));
+        RaisePropertyChanged(nameof(FloatValueModeHelpText));
+        RaisePropertyChanged(nameof(ActiveFloatBoostRewardStatusText));
         RaisePropertyChanged(nameof(HasSetTriggerActions));
         RaisePropertyChanged(nameof(SetTriggerActionCount));
         RaisePropertyChanged(nameof(SetTriggerSummary));

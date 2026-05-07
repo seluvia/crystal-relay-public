@@ -94,6 +94,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     }
 
     private readonly TwitchApiClient twitchApiClient = new();
+    private readonly VrChatApiClient vrChatApiClient = new();
     private readonly VrChatOscClient vrChatOscClient = new();
     private readonly OscRouterService oscRouterService = new();
     private readonly VrChatLocalAvatarDataService vrChatLocalAvatarDataService = new();
@@ -110,6 +111,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private readonly Dictionary<string, Queue<QueuedLaneAction>> queuedLaneActions = [];
     private readonly HashSet<string> drainingQueuedLanes = [];
     private readonly Dictionary<Guid, PendingResetState> pendingResets = [];
+    private readonly Dictionary<Guid, ActiveFloatRedeemSessionState> activeFloatRedeemSessions = [];
     private readonly Dictionary<string, DateTimeOffset> recentMessageIds = [];
     private readonly Dictionary<string, OscObservedValue> avatarParameterValues = [];
     private readonly Dictionary<string, OscObservedValue> avatarScaleValues = new(StringComparer.Ordinal);
@@ -137,6 +139,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private readonly Dictionary<string, DateTimeOffset> universalTriggerUserDelays = new(StringComparer.Ordinal);
     private readonly Dictionary<Guid, SemaphoreSlim> universalTriggerQueueGates = [];
     private readonly Dictionary<string, DateTimeOffset> triggerInfoCommandCooldowns = new(StringComparer.OrdinalIgnoreCase);
+    private readonly SemaphoreSlim worldCommandLookupGate = new(1, 1);
     private readonly Dictionary<Guid, ActiveAvatarScaleSupporterGrowthState> avatarScaleSupporterGrowthStates = [];
     private readonly Dictionary<Guid, DateTimeOffset> activeAvatarScaleEffects = [];
     private readonly Dictionary<Guid, CancellationTokenSource> avatarScaleEffectStateNotifications = [];
@@ -173,6 +176,10 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private DateTimeOffset nextThirdPartyChatEmoteRefreshAt = DateTimeOffset.MinValue;
     private DateTimeOffset nextChatEmoteDiagnosticLogAt = DateTimeOffset.MinValue;
     private ActiveSupporterOverrideState? activeSupporterOverride;
+    private DateTimeOffset nextWorldCommandAllowedAt = DateTimeOffset.MinValue;
+    private DateTimeOffset cachedWorldCommandResultExpiresAt = DateTimeOffset.MinValue;
+    private string cachedWorldCommandUserId = string.Empty;
+    private VrChatCurrentWorldLookupResult? cachedWorldCommandResult;
     private DateTimeOffset avatarScaleMasterUnlockUntil = DateTimeOffset.MinValue;
     private DateTimeOffset avatarScaleMasterCooldownUntil = DateTimeOffset.MinValue;
     private CancellationTokenSource? avatarScaleMasterUnlockNotification;
@@ -242,6 +249,11 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 activeRuleIds.Add(ruleId);
             }
 
+            foreach (var ruleId in activeFloatRedeemSessions.Keys)
+            {
+                activeRuleIds.Add(ruleId);
+            }
+
             foreach (var movementLock in activeMovementLocks.Values)
             {
                 activeRuleIds.Add(movementLock.RuleId);
@@ -258,6 +270,16 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             }
 
             return [.. activeRuleIds];
+        }
+    }
+
+    public IReadOnlyCollection<Guid> GetActiveFloatBoostMaximumReachedRuleIds()
+    {
+        lock (stateGate)
+        {
+            return [.. activeFloatRedeemSessions
+                .Where(session => session.Value.BoostMaximumReached)
+                .Select(session => session.Key)];
         }
     }
 
@@ -686,7 +708,9 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         desktopInputLockService.EmergencyUnlockTriggered -= HandleEmergencyDesktopInputUnlock;
         await desktopInputLockService.DisposeAsync();
         twitchApiClient.Dispose();
+        vrChatApiClient.Dispose();
         thirdPartyChatEmoteRefreshGate.Dispose();
+        worldCommandLookupGate.Dispose();
         await oscRouterService.DisposeAsync();
     }
 
@@ -894,6 +918,122 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         return true;
     }
 
+    private async Task<bool> TryHandleWorldCommandAsync(
+        BridgeRuntimeConfiguration configuration,
+        BridgeIncomingEvent bridgeEvent,
+        CancellationToken cancellationToken)
+    {
+        if (!configuration.WorldCommandEnabled
+            || !bridgeEvent.IsChatCommandTrigger
+            || !ChatCommandUtility.MessageMatches("!world", bridgeEvent.ChatCommandText))
+        {
+            return false;
+        }
+
+        if (!UserCanTriggerChatCommand(configuration.WorldCommandPermission, bridgeEvent))
+        {
+            return true;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var cooldownSeconds = Math.Max(0, configuration.WorldCommandCooldownSeconds);
+        lock (stateGate)
+        {
+            if (nextWorldCommandAllowedAt > now)
+            {
+                return true;
+            }
+
+            nextWorldCommandAllowedAt = now.AddSeconds(cooldownSeconds);
+        }
+
+        var message = await BuildWorldCommandMessageAsync(configuration, cooldownSeconds, cancellationToken);
+        if (await TrySendChatMessageWithEffectiveSenderAsync(message, "VRChat world command", cancellationToken))
+        {
+            WriteLog(TF("{0} used the VRChat world command.", bridgeEvent.UserDisplayName));
+        }
+
+        return true;
+    }
+
+    private async Task<string> BuildWorldCommandMessageAsync(
+        BridgeRuntimeConfiguration configuration,
+        int cooldownSeconds,
+        CancellationToken cancellationToken)
+    {
+        var world = await GetCurrentWorldForCommandAsync(configuration, cooldownSeconds, cancellationToken);
+        return world.IsAvailable
+            ? SanitizeBotMessage(TF("Current VRChat world: {0} - {1}", world.WorldName, world.WorldUrl))
+            : T("Crystal Relay could not find a public VRChat world to share right now.");
+    }
+
+    private async Task<VrChatCurrentWorldLookupResult> GetCurrentWorldForCommandAsync(
+        BridgeRuntimeConfiguration configuration,
+        int cooldownSeconds,
+        CancellationToken cancellationToken)
+    {
+        if (!configuration.VrChatSession.IsConnected)
+        {
+            return VrChatCurrentWorldLookupResult.Unavailable;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var vrChatUserId = configuration.VrChatSession.UserId.Trim();
+        lock (stateGate)
+        {
+            if (cachedWorldCommandResult is { IsAvailable: true } cachedResult
+                && cachedWorldCommandResultExpiresAt > now
+                && string.Equals(cachedWorldCommandUserId, vrChatUserId, StringComparison.Ordinal))
+            {
+                return cachedResult;
+            }
+        }
+
+        await worldCommandLookupGate.WaitAsync(cancellationToken);
+        try
+        {
+            now = DateTimeOffset.UtcNow;
+            lock (stateGate)
+            {
+                if (cachedWorldCommandResult is { IsAvailable: true } cachedResult
+                    && cachedWorldCommandResultExpiresAt > now
+                    && string.Equals(cachedWorldCommandUserId, vrChatUserId, StringComparison.Ordinal))
+                {
+                    return cachedResult;
+                }
+            }
+
+            var result = await vrChatApiClient.GetCurrentWorldAsync(
+                configuration.VrChatSession.AuthCookie,
+                cancellationToken);
+            if (result.IsAvailable)
+            {
+                var cacheSeconds = Math.Max(1, cooldownSeconds);
+                lock (stateGate)
+                {
+                    cachedWorldCommandResult = result;
+                    cachedWorldCommandUserId = vrChatUserId;
+                    cachedWorldCommandResultExpiresAt = DateTimeOffset.UtcNow.AddSeconds(cacheSeconds);
+                }
+            }
+
+            return result;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch
+        {
+            WriteLog(T("VRChat world command lookup failed without exposing location details."));
+            return VrChatCurrentWorldLookupResult.Unavailable;
+        }
+        finally
+        {
+            worldCommandLookupGate.Release();
+        }
+    }
+
 
     // Connects to Twitch EventSub and keeps reconnecting as needed while the bridge is alive.
     // Incoming Twitch events eventually flow into the rule trigger path below.
@@ -1075,6 +1215,12 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         }
 
         if (bridgeEvent is { IsChatCommandTrigger: true }
+            && await TryHandleWorldCommandAsync(configuration, bridgeEvent, cancellationToken))
+        {
+            return;
+        }
+
+        if (bridgeEvent is { IsChatCommandTrigger: true }
             && await TryHandleTriggerInfoReminderCommandAsync(configuration, bridgeEvent, cancellationToken))
         {
             return;
@@ -1095,6 +1241,19 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         var currentAvatarId = GetCurrentVrChatAvatarId();
         var temporarilyDisabledRuleIds = GetTemporarilyDisabledRuleIds();
         var avatarChangeTransitionActive = IsAvatarChangeTransitionActive();
+        if (!bridgeEvent.IsChatCommandTrigger
+            && bridgeEvent.TriggerType == TwitchTriggerType.ChannelPoints
+            && await TryHandleActiveFloatBoostRewardAsync(
+                ruleIndex,
+                bridgeEvent,
+                currentAvatarId,
+                avatarChangeTransitionActive,
+                temporarilyDisabledRuleIds,
+                cancellationToken))
+        {
+            return;
+        }
+
         var matchingRules = bridgeEvent.IsChatCommandTrigger
             ? SelectMatchingChatCommandRules(
                 ruleIndex,
@@ -3936,6 +4095,20 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             return;
         }
 
+        if (IsTimedFloatAvatarParameterRule(rule))
+        {
+            await ExecuteTimedFloatAvatarParameterRuleActionAsync(
+                rule,
+                bridgeEvent,
+                cancellationToken,
+                isTest,
+                queuedReplay,
+                laneKeys: null,
+                laneLeaseId: Guid.Empty,
+                cooldownSeconds);
+            return;
+        }
+
         var action = await ResolveActionAsync(
             rule,
             cancellationToken,
@@ -4066,6 +4239,432 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         {
             await TrySendBotMessageAsync(rule, bridgeEvent, action.DisplayValue, cancellationToken);
         }
+    }
+
+    private static bool IsTimedFloatAvatarParameterRule(TriggerRuleSnapshot rule) =>
+        rule.ActionType == OscActionType.AvatarParameter
+        && rule.ParameterType == OscParameterType.Float
+        && rule.DurationSeconds > 0
+        && (rule.FloatTransitionSeconds > 0 || rule.ActiveFloatBoostRewardEnabled);
+
+    private static bool IsActiveFloatBoostRule(TriggerRuleSnapshot rule) =>
+        rule.TriggerType == TwitchTriggerType.ChannelPoints
+        && rule.ActionType == OscActionType.AvatarParameter
+        && rule.ParameterType == OscParameterType.Float
+        && rule.DurationSeconds > 0
+        && rule.ActiveFloatBoostRewardEnabled
+        && (!string.IsNullOrWhiteSpace(rule.ActiveFloatBoostRewardId)
+            || !string.IsNullOrWhiteSpace(rule.ActiveFloatBoostRewardTitle));
+
+    private static bool TryResolveActiveFloatBoostMaximum(
+        TriggerRuleSnapshot rule,
+        out double maximumValue)
+    {
+        maximumValue = 1d;
+        if (!FloatValueModeConverter.TryParseNormalized(rule.FloatValueMode, rule.ActiveFloatBoostMinimumValue, out var minimumValue)
+            || !FloatValueModeConverter.TryParseNormalized(rule.FloatValueMode, rule.ActiveFloatBoostMaximumValue, out var configuredMaximumValue))
+        {
+            return false;
+        }
+
+        maximumValue = Math.Max(minimumValue, configuredMaximumValue);
+        return true;
+    }
+
+    private static bool IsAtOrAboveActiveFloatBoostMaximum(double currentValue, double maximumValue) =>
+        currentValue >= maximumValue - 0.000001d;
+
+    private async Task ExecuteTimedFloatAvatarParameterRuleActionAsync(
+        TriggerRuleSnapshot rule,
+        BridgeIncomingEvent? bridgeEvent,
+        CancellationToken cancellationToken,
+        bool isTest,
+        bool queuedReplay,
+        IReadOnlyList<string>? laneKeys,
+        Guid laneLeaseId,
+        int cooldownSeconds)
+    {
+        if (!FloatValueModeConverter.TryParseNormalized(rule.FloatValueMode, rule.ParameterValue, out var targetValue))
+        {
+            throw new InvalidOperationException("Enter a valid float trigger value before using this rule.");
+        }
+
+        if (!FloatValueModeConverter.TryParseNormalized(rule.FloatValueMode, rule.ResetValue, out var resetValue))
+        {
+            throw new InvalidOperationException("Enter a valid float reset value before using this timed rule.");
+        }
+
+        var address = VrChatOscClient.NormalizeAvatarParameterAddress(rule.ParameterName);
+        laneKeys ??= GetActionLaneKeys(rule);
+        laneLeaseId = laneKeys.Count == 0 ? Guid.Empty : Guid.NewGuid();
+        var transitionSeconds = Math.Clamp(rule.FloatTransitionSeconds, 0, 30);
+        var activeSeconds = Math.Max(1, rule.DurationSeconds);
+        var totalActiveSeconds = transitionSeconds + activeSeconds + transitionSeconds;
+        var activeUntil = DateTimeOffset.UtcNow.AddSeconds(totalActiveSeconds);
+        var completionCancellation = runtimeCancellation is null
+            ? new CancellationTokenSource()
+            : CancellationTokenSource.CreateLinkedTokenSource(runtimeCancellation.Token);
+        var boostMaximumReached = IsActiveFloatBoostRule(rule)
+            && TryResolveActiveFloatBoostMaximum(rule, out var maximumBoostValue)
+            && IsAtOrAboveActiveFloatBoostMaximum(targetValue, maximumBoostValue);
+        var session = new ActiveFloatRedeemSessionState(
+            rule,
+            address,
+            targetValue,
+            resetValue,
+            activeUntil,
+            completionCancellation,
+            laneKeys,
+            laneLeaseId,
+            isTest,
+            boostMaximumReached);
+
+        ActiveFloatRedeemSessionState? previousSession = null;
+        lock (stateGate)
+        {
+            if (activeFloatRedeemSessions.TryGetValue(rule.Id, out previousSession))
+            {
+                activeFloatRedeemSessions.Remove(rule.Id);
+            }
+
+            activeFloatRedeemSessions[rule.Id] = session;
+            foreach (var laneKey in laneKeys)
+            {
+                actionLanes[laneKey] = new ActiveMovementLaneState(
+                    laneLeaseId,
+                    activeUntil,
+                    rule.Id,
+                    false);
+            }
+
+            if (!isTest)
+            {
+                if (cooldownSeconds > 0)
+                {
+                    cooldowns[rule.Id] = DateTimeOffset.UtcNow.AddSeconds(cooldownSeconds);
+                }
+                else
+                {
+                    cooldowns.Remove(rule.Id);
+                }
+            }
+        }
+
+        previousSession?.CompletionCancellation.Cancel();
+        previousSession?.CompletionCancellation.Dispose();
+
+        if (!isTest)
+        {
+            if (cooldownSeconds > 0)
+            {
+                ScheduleCooldownStateNotification(rule.Id, TimeSpan.FromSeconds(cooldownSeconds));
+            }
+            else
+            {
+                CancelCooldownStateNotification(rule.Id);
+            }
+
+            ApplyRuleLockoutUntil(rule, activeUntil);
+            ManagedRewardAvailabilityChanged?.Invoke();
+        }
+
+        try
+        {
+            var startValue = await TryGetCurrentAvatarFloatValueAsync(address, targetValue, cancellationToken);
+            await session.SendGate.WaitAsync(cancellationToken);
+            try
+            {
+                await SendFloatAvatarParameterValueAsync(
+                    address,
+                    startValue,
+                    targetValue,
+                    transitionSeconds,
+                    cancellationToken);
+                session.CurrentValue = targetValue;
+            }
+            finally
+            {
+                session.SendGate.Release();
+            }
+        }
+        catch
+        {
+            FinishActiveFloatRedeemSession(session, completionCancellation, notifyManagedRewardState: !isTest);
+            throw;
+        }
+
+        RememberAvatarParameterValue(rule, FloatValueModeConverter.ToOscText(targetValue));
+
+        if (isTest)
+        {
+            WriteLog(queuedReplay
+                ? $"Sent queued test trigger for '{rule.Name}'."
+                : $"Sent a test trigger for '{rule.Name}'.");
+        }
+        else if (bridgeEvent is not null)
+        {
+            WriteLog(queuedReplay
+                ? $"{bridgeEvent.UserDisplayName} triggered '{rule.Name}' from the queue."
+                : $"{bridgeEvent.UserDisplayName} triggered '{rule.Name}'.");
+        }
+
+        ScheduleActiveFloatRedeemCompletion(session, completionCancellation, activeSeconds, transitionSeconds);
+
+        if (!isTest && bridgeEvent is not null)
+        {
+            await TrySendBotMessageAsync(rule, bridgeEvent, FloatValueModeConverter.ToOscText(targetValue), cancellationToken);
+        }
+    }
+
+    private void ScheduleActiveFloatRedeemCompletion(
+        ActiveFloatRedeemSessionState session,
+        CancellationTokenSource completionCancellation,
+        double activeSeconds,
+        double transitionSeconds)
+    {
+        _ = Task.Run(async () =>
+        {
+            var shouldNotifyManagedRewardState = !session.IsTest;
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(Math.Max(1, activeSeconds)), completionCancellation.Token);
+                await session.SendGate.WaitAsync(completionCancellation.Token);
+                try
+                {
+                    await SendFloatAvatarParameterValueAsync(
+                        session.Address,
+                        session.CurrentValue,
+                        session.ResetValue,
+                        transitionSeconds,
+                        completionCancellation.Token);
+                    session.CurrentValue = session.ResetValue;
+                }
+                finally
+                {
+                    session.SendGate.Release();
+                }
+
+                RememberAvatarParameterValue(session.Rule, FloatValueModeConverter.ToOscText(session.ResetValue));
+                WriteLog($"Reset '{session.Rule.Name}' after {DescribeDuration(activeSeconds + transitionSeconds + transitionSeconds)}.");
+            }
+            catch (OperationCanceledException)
+            {
+                shouldNotifyManagedRewardState = false;
+            }
+            catch (Exception ex)
+            {
+                WriteLog($"Failed to reset '{session.Rule.Name}': {ex.Message}");
+            }
+            finally
+            {
+                FinishActiveFloatRedeemSession(session, completionCancellation, shouldNotifyManagedRewardState);
+            }
+        }, CancellationToken.None);
+    }
+
+    private async Task ApplyActiveFloatBoostRewardAsync(
+        TriggerRuleSnapshot rule,
+        BridgeIncomingEvent bridgeEvent,
+        CancellationToken cancellationToken)
+    {
+        ActiveFloatRedeemSessionState? session;
+        lock (stateGate)
+        {
+            activeFloatRedeemSessions.TryGetValue(rule.Id, out session);
+        }
+
+        if (session is null)
+        {
+            WriteLog($"Ignored active boost reward '{bridgeEvent.RewardTitle}' because '{rule.Name}' is not active.");
+            return;
+        }
+
+        if (!FloatValueModeConverter.TryParseNormalized(rule.FloatValueMode, rule.ActiveFloatBoostAddValue, out var addValue)
+            || !FloatValueModeConverter.TryParseNormalized(rule.FloatValueMode, rule.ActiveFloatBoostMinimumValue, out var minimumValue)
+            || !FloatValueModeConverter.TryParseNormalized(rule.FloatValueMode, rule.ActiveFloatBoostMaximumValue, out var maximumValue))
+        {
+            WriteLog($"Ignored active boost reward for '{rule.Name}' because its boost amount or min/max value is invalid.");
+            return;
+        }
+
+        var lowerBound = Math.Min(minimumValue, maximumValue);
+        var upperBound = Math.Max(minimumValue, maximumValue);
+        var transitionSeconds = Math.Clamp(rule.FloatTransitionSeconds, 0, 30);
+        var activeSeconds = Math.Max(1, rule.DurationSeconds);
+        var oldCompletionCancellation = session.CompletionCancellation;
+        var newCompletionCancellation = runtimeCancellation is null
+            ? new CancellationTokenSource()
+            : CancellationTokenSource.CreateLinkedTokenSource(runtimeCancellation.Token);
+        var newActiveUntil = DateTimeOffset.UtcNow.AddSeconds(transitionSeconds + activeSeconds + transitionSeconds);
+        double boostedValue;
+        bool boostMaximumReached;
+
+        lock (stateGate)
+        {
+            if (!activeFloatRedeemSessions.TryGetValue(rule.Id, out var currentSession)
+                || !ReferenceEquals(currentSession, session))
+            {
+                newCompletionCancellation.Dispose();
+                return;
+            }
+
+            boostedValue = Math.Clamp(session.CurrentValue + addValue, lowerBound, upperBound);
+            boostMaximumReached = IsAtOrAboveActiveFloatBoostMaximum(boostedValue, upperBound);
+            session.ActiveUntil = newActiveUntil;
+            session.CompletionCancellation = newCompletionCancellation;
+            session.BoostMaximumReached = boostMaximumReached;
+            foreach (var laneKey in session.MovementLaneKeys)
+            {
+                actionLanes[laneKey] = new ActiveMovementLaneState(
+                    session.MovementLaneLeaseId,
+                    newActiveUntil,
+                    rule.Id,
+                    false);
+            }
+        }
+
+        oldCompletionCancellation.Cancel();
+        oldCompletionCancellation.Dispose();
+
+        ApplyRuleLockoutUntil(rule, newActiveUntil);
+        ManagedRewardAvailabilityChanged?.Invoke();
+
+        await session.SendGate.WaitAsync(cancellationToken);
+        try
+        {
+            await SendFloatAvatarParameterValueAsync(
+                session.Address,
+                session.CurrentValue,
+                boostedValue,
+                transitionSeconds,
+                cancellationToken);
+            session.CurrentValue = boostedValue;
+        }
+        finally
+        {
+            session.SendGate.Release();
+        }
+
+        RememberAvatarParameterValue(rule, FloatValueModeConverter.ToOscText(boostedValue));
+        ScheduleActiveFloatRedeemCompletion(session, newCompletionCancellation, activeSeconds, transitionSeconds);
+        WriteLog($"{bridgeEvent.UserDisplayName} boosted '{rule.Name}' to {FloatValueModeConverter.ToOscText(boostedValue)} and refreshed its active timer.");
+    }
+
+    private void FinishActiveFloatRedeemSession(
+        ActiveFloatRedeemSessionState session,
+        CancellationTokenSource completionCancellation,
+        bool notifyManagedRewardState)
+    {
+        var releasedSession = false;
+        lock (stateGate)
+        {
+            if (activeFloatRedeemSessions.TryGetValue(session.Rule.Id, out var currentSession)
+                && ReferenceEquals(currentSession, session)
+                && ReferenceEquals(session.CompletionCancellation, completionCancellation))
+            {
+                activeFloatRedeemSessions.Remove(session.Rule.Id);
+                releasedSession = true;
+            }
+        }
+
+        if (!releasedSession)
+        {
+            return;
+        }
+
+        completionCancellation.Dispose();
+        session.SendGate.Dispose();
+        var releasedLaneKeys = ReleaseMovementLanes(session.MovementLaneLeaseId, session.MovementLaneKeys);
+        ReleaseActiveRuleLockoutState(session.Rule.Id, logRelease: true);
+        if (notifyManagedRewardState)
+        {
+            ManagedRewardAvailabilityChanged?.Invoke();
+        }
+
+        foreach (var releasedLaneKey in releasedLaneKeys)
+        {
+            EnsureQueuedLaneDrain(releasedLaneKey);
+        }
+    }
+
+    private async Task<double> TryGetCurrentAvatarFloatValueAsync(
+        string address,
+        double fallbackValue,
+        CancellationToken cancellationToken)
+    {
+        lock (stateGate)
+        {
+            if (TryGetObservedFloatLocked(address, out var observedValue))
+            {
+                return observedValue;
+            }
+        }
+
+        try
+        {
+            var observedValue = await oscRouterService.GetCurrentAvatarParameterValueAsync(address, cancellationToken);
+            if (observedValue?.ParameterType == OscParameterType.Float && observedValue.Value is float floatValue)
+            {
+                ObserveOscValue(new OscObservedValue(address, OscParameterType.Float, floatValue));
+                return floatValue;
+            }
+        }
+        catch (Exception ex)
+        {
+            WriteLog($"Crystal Relay could not read the live float state for {address} through OSCQuery. {ex.Message}");
+        }
+
+        return fallbackValue;
+    }
+
+    private async Task SendFloatAvatarParameterValueAsync(
+        string address,
+        double startValue,
+        double targetValue,
+        double transitionSeconds,
+        CancellationToken cancellationToken)
+    {
+        if (transitionSeconds <= 0)
+        {
+            await SendSingleFloatAvatarParameterValueAsync(address, targetValue, cancellationToken);
+            return;
+        }
+
+        var duration = TimeSpan.FromSeconds(Math.Max(0.001, transitionSeconds));
+        var steps = Math.Clamp(
+            (int)Math.Ceiling(duration.TotalSeconds * AvatarScaleSmoothUpdatesPerSecond),
+            1,
+            AvatarScaleSmoothMaxSteps);
+        var stopwatch = Stopwatch.StartNew();
+
+        for (var step = 1; step <= steps; step++)
+        {
+            var scheduledElapsed = TimeSpan.FromSeconds(duration.TotalSeconds * step / steps);
+            var waitTime = scheduledElapsed - stopwatch.Elapsed;
+            if (waitTime > TimeSpan.Zero)
+            {
+                await Task.Delay(waitTime, cancellationToken);
+            }
+
+            var linearProgress = step == steps
+                ? 1
+                : Math.Clamp(stopwatch.Elapsed.TotalSeconds / duration.TotalSeconds, 0, 1);
+            var easedProgress = SmoothStep(linearProgress);
+            var value = startValue + ((targetValue - startValue) * easedProgress);
+            await SendSingleFloatAvatarParameterValueAsync(address, value, cancellationToken);
+        }
+    }
+
+    private async Task SendSingleFloatAvatarParameterValueAsync(
+        string address,
+        double value,
+        CancellationToken cancellationToken)
+    {
+        var clampedValue = Math.Clamp(value, 0d, 1d);
+        await oscRouterService.SendToVrChatAsync(
+            vrChatOscClient.BuildAvatarParameterPacket(address, OscParameterType.Float, FloatValueModeConverter.ToOscText(clampedValue)),
+            cancellationToken);
+        ObserveOscValue(new OscObservedValue(address, OscParameterType.Float, (float)clampedValue));
     }
 
     private async Task<ResolvedRuleAction> ResolveActionAsync(
@@ -5486,10 +6085,11 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             }
             default:
             {
-                var targetPacket = vrChatOscClient.BuildAvatarParameterPacket(address, rule.ParameterType, rule.ParameterValue);
-                var displayValue = rule.ParameterValue;
+                var targetValue = ResolveAvatarParameterPacketValue(rule.ParameterType, rule.FloatValueMode, rule.ParameterValue);
+                var targetPacket = vrChatOscClient.BuildAvatarParameterPacket(address, rule.ParameterType, targetValue);
+                var displayValue = targetValue;
                 var observedValues = Array.Empty<OscObservedValue>();
-                if (TryCreateObservedValueFromText(address, rule.ParameterType, rule.ParameterValue, out var targetText, out var targetObservedValue))
+                if (TryCreateObservedValueFromText(address, rule.ParameterType, targetValue, out var targetText, out var targetObservedValue))
                 {
                     displayValue = targetText;
                     observedValues = [targetObservedValue];
@@ -5499,8 +6099,9 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 var resetObservedValues = Array.Empty<OscObservedValue>();
                 if (rule.DurationSeconds > 0 && !string.IsNullOrWhiteSpace(rule.ResetValue))
                 {
-                    resetPacket = vrChatOscClient.BuildAvatarParameterPacket(address, rule.ParameterType, rule.ResetValue);
-                    if (TryCreateObservedValueFromText(address, rule.ParameterType, rule.ResetValue, out _, out var resetObservedValue))
+                    var resetValue = ResolveAvatarParameterPacketValue(rule.ParameterType, rule.FloatValueMode, rule.ResetValue);
+                    resetPacket = vrChatOscClient.BuildAvatarParameterPacket(address, rule.ParameterType, resetValue);
+                    if (TryCreateObservedValueFromText(address, rule.ParameterType, resetValue, out _, out var resetObservedValue))
                     {
                         resetObservedValues = [resetObservedValue];
                     }
@@ -5697,6 +6298,24 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             default:
                 return false;
         }
+    }
+
+    private static string ResolveAvatarParameterPacketValue(
+        OscParameterType parameterType,
+        FloatValueMode floatValueMode,
+        string rawValue)
+    {
+        if (parameterType != OscParameterType.Float)
+        {
+            return rawValue;
+        }
+
+        if (!FloatValueModeConverter.TryParseNormalized(floatValueMode, rawValue, out var normalizedValue))
+        {
+            throw new InvalidOperationException("Enter a valid float value before testing or redeeming this rule.");
+        }
+
+        return FloatValueModeConverter.ToOscText(normalizedValue);
     }
 
     private static bool TryCreateObservedValueFromText(
@@ -7559,7 +8178,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
         if (shouldRefresh)
         {
-            var refreshedToken = await twitchApiClient.RefreshAccessTokenAsync(activeConfiguration.TwitchClientId, account.RefreshToken, cancellationToken);
+            var refreshedToken = await RefreshAccountTokenAsync(account.RefreshToken, accountRole, cancellationToken);
             account = account with
             {
                 AccessToken = refreshedToken.AccessToken,
@@ -7578,7 +8197,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 throw new InvalidOperationException($"{accountRole} OAuth token expired and no refresh token is available.");
             }
 
-            var refreshedToken = await twitchApiClient.RefreshAccessTokenAsync(activeConfiguration.TwitchClientId, account.RefreshToken, cancellationToken);
+            var refreshedToken = await RefreshAccountTokenAsync(account.RefreshToken, accountRole, cancellationToken);
             account = account with
             {
                 AccessToken = refreshedToken.AccessToken,
@@ -7620,6 +8239,26 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
         AccountUpdated?.Invoke(accountRole, updatedAccount);
         return updatedAccount;
+    }
+
+    private async Task<TwitchApiClient.TokenExchangeResponse> RefreshAccountTokenAsync(
+        string refreshToken,
+        BridgeAccountRole accountRole,
+        CancellationToken cancellationToken)
+    {
+        if (activeConfiguration is null)
+        {
+            throw new InvalidOperationException("Bridge settings are missing.");
+        }
+
+        try
+        {
+            return await twitchApiClient.RefreshAccessTokenAsync(activeConfiguration.TwitchClientId, refreshToken, cancellationToken);
+        }
+        catch (TwitchApiException ex) when (ex.StatusCode is System.Net.HttpStatusCode.BadRequest or System.Net.HttpStatusCode.Unauthorized)
+        {
+            throw new TwitchAccountReconnectRequiredException(accountRole, ex);
+        }
     }
 
     private async Task StopOscRouterSafelyAsync()
@@ -7707,6 +8346,52 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 currentAvatarId),
             _ => []
         };
+    }
+
+    private async Task<bool> TryHandleActiveFloatBoostRewardAsync(
+        RuntimeRuleIndex ruleIndex,
+        BridgeIncomingEvent bridgeEvent,
+        string currentAvatarId,
+        bool avatarChangeTransitionActive,
+        IReadOnlyCollection<Guid> temporarilyDisabledRuleIds,
+        CancellationToken cancellationToken)
+    {
+        var normalizedRewardId = bridgeEvent.RewardId?.Trim() ?? string.Empty;
+        var normalizedRewardTitle = NormalizeRewardTitle(bridgeEvent.RewardTitle);
+        var normalizedCurrentAvatarId = currentAvatarId?.Trim() ?? string.Empty;
+        var candidates = ruleIndex.GetActiveFloatBoostCandidates(normalizedRewardId, normalizedRewardTitle)
+            .Where(rule => rule.IsEnabled
+                && !temporarilyDisabledRuleIds.Contains(rule.Id)
+                && AvatarRuleActivationPolicy.IsRuleActiveForCurrentAvatar(
+                    rule.IsGlobalOverride,
+                    rule.BelongsToMasterAvatarProfile,
+                    rule.ActionType,
+                    rule.AvatarChangeTargetId,
+                    rule.RequiredAvatarId,
+                    normalizedCurrentAvatarId,
+                    avatarChangeTransitionActive))
+            .ToArray();
+        if (candidates.Length == 0)
+        {
+            return false;
+        }
+
+        var parentRule = candidates.FirstOrDefault(rule =>
+        {
+            lock (stateGate)
+            {
+                return activeFloatRedeemSessions.ContainsKey(rule.Id);
+            }
+        });
+
+        if (parentRule is null)
+        {
+            WriteLog($"Ignored active boost reward '{bridgeEvent.RewardTitle}' because its float redeem is not active.");
+            return true;
+        }
+
+        await ApplyActiveFloatBoostRewardAsync(parentRule, bridgeEvent, cancellationToken);
+        return true;
     }
 
     private TriggerRuleSnapshot[] SelectBitsMatchingRules(
@@ -11677,6 +12362,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         CancellationTokenSource[] avatarSwitchLockoutNotifications;
         CancellationTokenSource[] avatarScaleEffectNotifications;
         CancellationTokenSource[] supporterGrowthCancellations;
+        CancellationTokenSource[] activeFloatRedeemCancellations;
+        SemaphoreSlim[] activeFloatRedeemGates;
         CancellationTokenSource? masterUnlockNotification;
         CancellationTokenSource? masterCooldownNotification;
         CancellationTokenSource[] movementLockCancellations;
@@ -11697,6 +12384,9 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             queuedLaneActions.Clear();
             drainingQueuedLanes.Clear();
             pendingResets.Clear();
+            activeFloatRedeemCancellations = [.. activeFloatRedeemSessions.Values.Select(session => session.CompletionCancellation)];
+            activeFloatRedeemGates = [.. activeFloatRedeemSessions.Values.Select(session => session.SendGate)];
+            activeFloatRedeemSessions.Clear();
             recentMessageIds.Clear();
             nextRecentMessagePruneAt = DateTimeOffset.MinValue;
             avatarParameterValues.Clear();
@@ -11736,6 +12426,11 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             nextSupporterOverrideQueueOrder = 0;
             universalTriggerGlobalDelays.Clear();
             universalTriggerUserDelays.Clear();
+            triggerInfoCommandCooldowns.Clear();
+            nextWorldCommandAllowedAt = DateTimeOffset.MinValue;
+            cachedWorldCommandResultExpiresAt = DateTimeOffset.MinValue;
+            cachedWorldCommandUserId = string.Empty;
+            cachedWorldCommandResult = null;
             universalQueueGates = [.. universalTriggerQueueGates.Values];
             universalTriggerQueueGates.Clear();
             supporterGrowthCancellations = [.. avatarScaleSupporterGrowthStates.Values
@@ -11769,6 +12464,17 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         {
             movementLockCancellation.Cancel();
             movementLockCancellation.Dispose();
+        }
+
+        foreach (var activeFloatRedeemCancellation in activeFloatRedeemCancellations)
+        {
+            activeFloatRedeemCancellation.Cancel();
+            activeFloatRedeemCancellation.Dispose();
+        }
+
+        foreach (var activeFloatRedeemGate in activeFloatRedeemGates)
+        {
+            activeFloatRedeemGate.Dispose();
         }
 
         foreach (var desktopLockCancellation in desktopLockCancellations)
@@ -12280,6 +12986,55 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         public bool HasPackets => Packets.Count > 0;
     }
 
+    private sealed class ActiveFloatRedeemSessionState
+    {
+        public ActiveFloatRedeemSessionState(
+            TriggerRuleSnapshot rule,
+            string address,
+            double currentValue,
+            double resetValue,
+            DateTimeOffset activeUntil,
+            CancellationTokenSource completionCancellation,
+            IReadOnlyList<string> movementLaneKeys,
+            Guid movementLaneLeaseId,
+            bool isTest,
+            bool boostMaximumReached)
+        {
+            Rule = rule;
+            Address = address;
+            CurrentValue = currentValue;
+            ResetValue = resetValue;
+            ActiveUntil = activeUntil;
+            CompletionCancellation = completionCancellation;
+            MovementLaneKeys = movementLaneKeys;
+            MovementLaneLeaseId = movementLaneLeaseId;
+            IsTest = isTest;
+            BoostMaximumReached = boostMaximumReached;
+        }
+
+        public TriggerRuleSnapshot Rule { get; }
+
+        public string Address { get; }
+
+        public double CurrentValue { get; set; }
+
+        public double ResetValue { get; }
+
+        public DateTimeOffset ActiveUntil { get; set; }
+
+        public CancellationTokenSource CompletionCancellation { get; set; }
+
+        public IReadOnlyList<string> MovementLaneKeys { get; }
+
+        public Guid MovementLaneLeaseId { get; }
+
+        public bool IsTest { get; }
+
+        public bool BoostMaximumReached { get; set; }
+
+        public SemaphoreSlim SendGate { get; } = new(1, 1);
+    }
+
     private sealed record SetTriggerPreparedAction(
         string Address,
         OscParameterType ParameterType,
@@ -12496,6 +13251,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         private readonly Dictionary<TwitchTriggerType, List<IndexedRule>> globalOverrideRulesByTriggerType = [];
         private readonly Dictionary<string, List<IndexedRule>> channelPointRulesByRewardId = new(StringComparer.Ordinal);
         private readonly Dictionary<string, List<IndexedRule>> channelPointRulesByRewardTitle = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, List<IndexedRule>> activeFloatBoostRulesByRewardId = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, List<IndexedRule>> activeFloatBoostRulesByRewardTitle = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, List<IndexedRule>> chatCommandRulesByCommand = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<Guid, List<IndexedRule>> rulesByAvatarProfileId = [];
 
@@ -12525,6 +13282,17 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                     }
 
                     AddChannelPointTitleVariants(indexedRule.Rule.ChannelPointRewardTitle, indexedRule);
+
+                    if (IsActiveFloatBoostRule(indexedRule.Rule))
+                    {
+                        var boostRewardId = indexedRule.Rule.ActiveFloatBoostRewardId?.Trim() ?? string.Empty;
+                        if (!string.IsNullOrWhiteSpace(boostRewardId))
+                        {
+                            Add(activeFloatBoostRulesByRewardId, boostRewardId, indexedRule);
+                        }
+
+                        AddActiveFloatBoostTitleVariants(indexedRule.Rule.ActiveFloatBoostRewardTitle, indexedRule);
+                    }
                 }
 
                 if (indexedRule.Rule.ChatCommandEnabled)
@@ -12551,6 +13319,20 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             AddCandidates(channelPointRulesByRewardId, rewardId, candidatesById);
             AddCandidates(
                 channelPointRulesByRewardTitle,
+                ManagedRewardPresentation.NormalizeTitleIdentityKey(rewardTitle),
+                candidatesById);
+
+            return candidatesById.Values
+                .OrderBy(static indexedRule => indexedRule.Order)
+                .Select(static indexedRule => indexedRule.Rule);
+        }
+
+        public IEnumerable<TriggerRuleSnapshot> GetActiveFloatBoostCandidates(string rewardId, string rewardTitle)
+        {
+            var candidatesById = new Dictionary<Guid, IndexedRule>();
+            AddCandidates(activeFloatBoostRulesByRewardId, rewardId, candidatesById);
+            AddCandidates(
+                activeFloatBoostRulesByRewardTitle,
                 ManagedRewardPresentation.NormalizeTitleIdentityKey(rewardTitle),
                 candidatesById);
 
@@ -12597,6 +13379,17 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             }
 
             Add(channelPointRulesByRewardTitle, titleKey, indexedRule);
+        }
+
+        private void AddActiveFloatBoostTitleVariants(string title, IndexedRule indexedRule)
+        {
+            var titleKey = ManagedRewardPresentation.NormalizeTitleIdentityKey(title);
+            if (string.IsNullOrWhiteSpace(titleKey))
+            {
+                return;
+            }
+
+            Add(activeFloatBoostRulesByRewardTitle, titleKey, indexedRule);
         }
 
         private static void AddCandidates(

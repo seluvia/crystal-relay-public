@@ -18,5 +18,6 @@ public enum AppTheme
     CarrotPatch,
     TreetendersArm,
     Bratwurst,
+    NeonBorb,
     StinkyOnline
 }

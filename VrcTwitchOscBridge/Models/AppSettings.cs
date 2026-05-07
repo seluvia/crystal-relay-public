@@ -45,6 +45,9 @@ public sealed class AppSettings : ObservableObject
     private string triggerInfoCommandText = "!rewards";
     private int triggerInfoCommandCooldownSeconds = 300;
     private ChatCommandPermission triggerInfoCommandPermission = ChatCommandPermission.Everyone;
+    private bool worldCommandEnabled;
+    private int worldCommandCooldownSeconds = 30;
+    private ChatCommandPermission worldCommandPermission = ChatCommandPermission.Everyone;
     private bool channelPointRewardTestModeEnabled;
     private bool emergencyRedeemStopEnabled;
     private bool desktopModeInputLockEnabled;
@@ -312,6 +315,26 @@ public sealed class AppSettings : ObservableObject
         get => triggerInfoCommandPermission;
         set => SetProperty(
             ref triggerInfoCommandPermission,
+            Enum.IsDefined(value) ? value : ChatCommandPermission.Everyone);
+    }
+
+    public bool WorldCommandEnabled
+    {
+        get => worldCommandEnabled;
+        set => SetProperty(ref worldCommandEnabled, value);
+    }
+
+    public int WorldCommandCooldownSeconds
+    {
+        get => worldCommandCooldownSeconds;
+        set => SetProperty(ref worldCommandCooldownSeconds, Math.Max(0, value));
+    }
+
+    public ChatCommandPermission WorldCommandPermission
+    {
+        get => worldCommandPermission;
+        set => SetProperty(
+            ref worldCommandPermission,
             Enum.IsDefined(value) ? value : ChatCommandPermission.Everyone);
     }
 

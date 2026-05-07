@@ -343,22 +343,36 @@ public sealed class UniversalTriggerRule : ObservableObject
 
     public bool HasActions => Actions.Count > 0;
 
+    public bool IsConfigured => IsTriggerFilterConfigured && HasCompleteAction;
+
+    public bool IsTriggerFilterConfigured => TriggerType switch
+    {
+        UniversalTriggerType.ChatCommand => ChatCommandUtility.IsConfigured(CommandText),
+        UniversalTriggerType.ChannelPointReward => !string.IsNullOrWhiteSpace(RewardId)
+            || !string.IsNullOrWhiteSpace(RewardTitle),
+        UniversalTriggerType.Bits => Math.Max(1, MaximumBits) >= Math.Max(1, MinimumBits),
+        UniversalTriggerType.Subscription or UniversalTriggerType.GiftSubscription or UniversalTriggerType.Follow => true,
+        _ => false
+    };
+
+    public bool HasCompleteAction => Actions.Any(IsCompleteAction);
+
     public Brush ManagedRewardReadyColorBrush => CreateColorBrush(ManagedRewardReadyColor);
 
     public Brush ManagedRewardCooldownColorBrush => CreateColorBrush(ManagedRewardCooldownColor);
 
-    public int TriggerGroupSortOrder => TriggerType switch
+    public int TriggerGroupSortOrder => !IsConfigured ? 0 : TriggerType switch
     {
-        UniversalTriggerType.ChatCommand => 0,
-        UniversalTriggerType.ChannelPointReward => 1,
-        UniversalTriggerType.Bits => 2,
-        UniversalTriggerType.Subscription => 3,
-        UniversalTriggerType.GiftSubscription => 4,
-        UniversalTriggerType.Follow => 5,
+        UniversalTriggerType.ChatCommand => 1,
+        UniversalTriggerType.ChannelPointReward => 2,
+        UniversalTriggerType.Bits => 3,
+        UniversalTriggerType.Subscription => 4,
+        UniversalTriggerType.GiftSubscription => 5,
+        UniversalTriggerType.Follow => 6,
         _ => 99
     };
 
-    public string TriggerGroupTitle => TriggerType switch
+    public string TriggerGroupTitle => !IsConfigured ? "Unconfigured" : TriggerType switch
     {
         UniversalTriggerType.ChatCommand => "Chat Commands",
         UniversalTriggerType.ChannelPointReward => "Channel Point Rewards",
@@ -395,7 +409,8 @@ public sealed class UniversalTriggerRule : ObservableObject
                 _ => TriggerType.ToString()
             };
             var actionMode = ExecuteRandomAction ? "random action" : "all actions";
-            return $"{filter} | {Actions.Count} action(s), {actionMode}";
+            var setupText = IsConfigured ? filter : $"{filter} | Needs setup";
+            return $"{setupText} | {Actions.Count} action(s), {actionMode}";
         }
     }
 
@@ -418,18 +433,31 @@ public sealed class UniversalTriggerRule : ObservableObject
 
     private void OnActionsChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
+        RefreshActionState();
+    }
+
+    public void RefreshActionState()
+    {
         RaisePropertyChanged(nameof(Actions));
         RaisePropertyChanged(nameof(HasActions));
+        RaisePropertyChanged(nameof(HasCompleteAction));
         RaiseTitleProperties();
     }
 
     private void RaiseTitleProperties()
     {
+        RaisePropertyChanged(nameof(IsTriggerFilterConfigured));
+        RaisePropertyChanged(nameof(IsConfigured));
         RaisePropertyChanged(nameof(DisplayTitle));
         RaisePropertyChanged(nameof(TriggerSummary));
         RaisePropertyChanged(nameof(TriggerGroupSortOrder));
         RaisePropertyChanged(nameof(TriggerGroupTitle));
     }
+
+    private static bool IsCompleteAction(UniversalTriggerAction action) =>
+        !string.IsNullOrWhiteSpace(action.OscAddress)
+        && !string.IsNullOrWhiteSpace(action.TargetValue)
+        && (action.DurationSeconds <= 0 || !string.IsNullOrWhiteSpace(action.DefaultValue));
 
     private static Brush CreateColorBrush(string colorText)
     {

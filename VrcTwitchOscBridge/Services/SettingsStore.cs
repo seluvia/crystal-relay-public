@@ -371,6 +371,14 @@ public sealed class SettingsStore
                 && Enum.IsDefined(profile.TriggerInfoCommandPermission.Value)
                     ? profile.TriggerInfoCommandPermission.Value
                     : settings.TriggerInfoCommandPermission;
+            settings.WorldCommandEnabled = profile.WorldCommandEnabled ?? settings.WorldCommandEnabled;
+            settings.WorldCommandCooldownSeconds = profile.WorldCommandCooldownSeconds is >= 0
+                ? profile.WorldCommandCooldownSeconds.Value
+                : settings.WorldCommandCooldownSeconds;
+            settings.WorldCommandPermission = profile.WorldCommandPermission is not null
+                && Enum.IsDefined(profile.WorldCommandPermission.Value)
+                    ? profile.WorldCommandPermission.Value
+                    : settings.WorldCommandPermission;
             settings.ChannelPointRewardTestModeEnabled = profile.ChannelPointRewardTestModeEnabled ?? settings.ChannelPointRewardTestModeEnabled;
             settings.EmergencyRedeemStopEnabled = profile.EmergencyRedeemStopEnabled ?? settings.EmergencyRedeemStopEnabled;
             settings.DesktopModeInputLockEnabled = profile.DesktopModeInputLockEnabled ?? settings.DesktopModeInputLockEnabled;
@@ -502,6 +510,9 @@ public sealed class SettingsStore
             TriggerInfoCommandText = settings.TriggerInfoCommandText,
             TriggerInfoCommandCooldownSeconds = settings.TriggerInfoCommandCooldownSeconds,
             TriggerInfoCommandPermission = settings.TriggerInfoCommandPermission,
+            WorldCommandEnabled = settings.WorldCommandEnabled,
+            WorldCommandCooldownSeconds = settings.WorldCommandCooldownSeconds,
+            WorldCommandPermission = settings.WorldCommandPermission,
             ChannelPointRewardTestModeEnabled = settings.ChannelPointRewardTestModeEnabled,
             EmergencyRedeemStopEnabled = settings.EmergencyRedeemStopEnabled,
             DesktopModeInputLockEnabled = settings.DesktopModeInputLockEnabled,
@@ -871,6 +882,8 @@ public sealed class SettingsStore
             ParameterType = rule.ParameterType,
             IntZeroDurationMode = rule.IntZeroDurationMode,
             ParameterValue = rule.ParameterValue,
+            FloatValueMode = rule.FloatValueMode,
+            FloatTransitionSeconds = rule.FloatTransitionSeconds,
             AvatarChangeTargetId = rule.AvatarChangeTargetId,
             AvatarTargetName = rule.AvatarTargetName,
             ResetValue = rule.ResetValue,
@@ -885,6 +898,18 @@ public sealed class SettingsStore
             SharedRewardChoiceEnabled = rule.SharedRewardChoiceEnabled,
             SharedRewardChoiceNumber = rule.SharedRewardChoiceNumber,
             SharedRewardHelpText = rule.SharedRewardHelpText,
+            ActiveFloatBoostRewardOwnerId = rule.ActiveFloatBoostRewardOwnerId,
+            ActiveFloatBoostRewardEnabled = rule.ActiveFloatBoostRewardEnabled,
+            ActiveFloatBoostRewardId = rule.ActiveFloatBoostRewardId,
+            ActiveFloatBoostRewardTitle = rule.ActiveFloatBoostRewardTitle,
+            ActiveFloatBoostRewardDescription = rule.ActiveFloatBoostRewardDescription,
+            ActiveFloatBoostRewardCost = rule.ActiveFloatBoostRewardCost,
+            ActiveFloatBoostRewardCooldownSeconds = rule.ActiveFloatBoostRewardCooldownSeconds,
+            ActiveFloatBoostRewardReadyColor = rule.ActiveFloatBoostRewardReadyColor,
+            ActiveFloatBoostRewardCooldownColor = rule.ActiveFloatBoostRewardCooldownColor,
+            ActiveFloatBoostAddValue = rule.ActiveFloatBoostAddValue,
+            ActiveFloatBoostMinimumValue = rule.ActiveFloatBoostMinimumValue,
+            ActiveFloatBoostMaximumValue = rule.ActiveFloatBoostMaximumValue,
             SetTriggerActions = [.. rule.SetTriggerActions.Select(ToPersistedSetTriggerAction)],
             BotMessageTemplate = rule.BotMessageTemplate,
             TemporarilyDisabledRuleIds = [.. rule.TemporarilyDisabledRuleIds]
@@ -968,6 +993,8 @@ public sealed class SettingsStore
             ParameterType = rule.ParameterType,
             IntZeroDurationMode = rule.IntZeroDurationMode,
             ParameterValue = migratedParameterValue,
+            FloatValueMode = Enum.IsDefined(rule.FloatValueMode) ? rule.FloatValueMode : FloatValueMode.Decimal,
+            FloatTransitionSeconds = Math.Clamp(rule.FloatTransitionSeconds, 0, 30),
             AvatarChangeTargetId = migratedAvatarChangeTargetId ?? string.Empty,
             AvatarTargetName = rule.AvatarTargetName ?? string.Empty,
             ResetValue = migratedResetValue,
@@ -986,6 +1013,20 @@ public sealed class SettingsStore
             SharedRewardChoiceEnabled = rule.SharedRewardChoiceEnabled,
             SharedRewardChoiceNumber = Math.Max(0, rule.SharedRewardChoiceNumber),
             SharedRewardHelpText = rule.SharedRewardHelpText ?? string.Empty,
+            ActiveFloatBoostRewardOwnerId = rule.ActiveFloatBoostRewardOwnerId == Guid.Empty
+                ? Guid.NewGuid()
+                : rule.ActiveFloatBoostRewardOwnerId,
+            ActiveFloatBoostRewardEnabled = rule.ActiveFloatBoostRewardEnabled,
+            ActiveFloatBoostRewardId = rule.ActiveFloatBoostRewardId ?? string.Empty,
+            ActiveFloatBoostRewardTitle = rule.ActiveFloatBoostRewardTitle ?? string.Empty,
+            ActiveFloatBoostRewardDescription = rule.ActiveFloatBoostRewardDescription ?? string.Empty,
+            ActiveFloatBoostRewardCost = rule.ActiveFloatBoostRewardCost <= 0 ? 100 : rule.ActiveFloatBoostRewardCost,
+            ActiveFloatBoostRewardCooldownSeconds = Math.Max(0, rule.ActiveFloatBoostRewardCooldownSeconds),
+            ActiveFloatBoostRewardReadyColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(rule.ActiveFloatBoostRewardReadyColor),
+            ActiveFloatBoostRewardCooldownColor = ManagedRewardPresentation.NormalizeCooldownBackgroundColor(rule.ActiveFloatBoostRewardCooldownColor),
+            ActiveFloatBoostAddValue = string.IsNullOrWhiteSpace(rule.ActiveFloatBoostAddValue) ? "0.05" : rule.ActiveFloatBoostAddValue,
+            ActiveFloatBoostMinimumValue = string.IsNullOrWhiteSpace(rule.ActiveFloatBoostMinimumValue) ? "0" : rule.ActiveFloatBoostMinimumValue,
+            ActiveFloatBoostMaximumValue = string.IsNullOrWhiteSpace(rule.ActiveFloatBoostMaximumValue) ? "1" : rule.ActiveFloatBoostMaximumValue,
             SetTriggerActions = new ObservableCollection<SetTriggerAction>((rule.SetTriggerActions ?? [])
                 .Select(ToSetTriggerAction)
                 .Where(action => !string.IsNullOrWhiteSpace(action.ParameterName))),
@@ -2002,6 +2043,12 @@ public sealed class SettingsStore
 
         public ChatCommandPermission? TriggerInfoCommandPermission { get; set; }
 
+        public bool? WorldCommandEnabled { get; set; }
+
+        public int? WorldCommandCooldownSeconds { get; set; }
+
+        public ChatCommandPermission? WorldCommandPermission { get; set; }
+
         public bool? ChannelPointRewardTestModeEnabled { get; set; }
 
         public bool? EmergencyRedeemStopEnabled { get; set; }
@@ -2307,6 +2354,10 @@ public sealed class SettingsStore
 
         public string? ParameterValue { get; set; }
 
+        public FloatValueMode FloatValueMode { get; set; }
+
+        public double FloatTransitionSeconds { get; set; }
+
         public string? AvatarChangeTargetId { get; set; }
 
         public string? AvatarTargetName { get; set; }
@@ -2334,6 +2385,30 @@ public sealed class SettingsStore
         public int SharedRewardChoiceNumber { get; set; }
 
         public string? SharedRewardHelpText { get; set; }
+
+        public Guid ActiveFloatBoostRewardOwnerId { get; set; }
+
+        public bool ActiveFloatBoostRewardEnabled { get; set; }
+
+        public string? ActiveFloatBoostRewardId { get; set; }
+
+        public string? ActiveFloatBoostRewardTitle { get; set; }
+
+        public string? ActiveFloatBoostRewardDescription { get; set; }
+
+        public int ActiveFloatBoostRewardCost { get; set; }
+
+        public int ActiveFloatBoostRewardCooldownSeconds { get; set; }
+
+        public string? ActiveFloatBoostRewardReadyColor { get; set; }
+
+        public string? ActiveFloatBoostRewardCooldownColor { get; set; }
+
+        public string? ActiveFloatBoostAddValue { get; set; }
+
+        public string? ActiveFloatBoostMinimumValue { get; set; }
+
+        public string? ActiveFloatBoostMaximumValue { get; set; }
 
         public List<PersistedSetTriggerAction>? SetTriggerActions { get; set; }
 

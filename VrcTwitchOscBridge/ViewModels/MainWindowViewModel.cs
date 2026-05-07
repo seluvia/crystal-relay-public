@@ -152,6 +152,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         nameof(TriggerRule.ParameterType),
         nameof(TriggerRule.IntZeroDurationMode),
         nameof(TriggerRule.ParameterValue),
+        nameof(TriggerRule.FloatValueMode),
+        nameof(TriggerRule.FloatTransitionSeconds),
         nameof(TriggerRule.ResetValue),
         nameof(TriggerRule.AvatarChangeTargetId),
         nameof(TriggerRule.AvatarChangeResetId),
@@ -167,6 +169,17 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         nameof(TriggerRule.SharedRewardChoiceEnabled),
         nameof(TriggerRule.SharedRewardChoiceNumber),
         nameof(TriggerRule.SharedRewardHelpText),
+        nameof(TriggerRule.ActiveFloatBoostRewardEnabled),
+        nameof(TriggerRule.ActiveFloatBoostRewardId),
+        nameof(TriggerRule.ActiveFloatBoostRewardTitle),
+        nameof(TriggerRule.ActiveFloatBoostRewardDescription),
+        nameof(TriggerRule.ActiveFloatBoostRewardCost),
+        nameof(TriggerRule.ActiveFloatBoostRewardCooldownSeconds),
+        nameof(TriggerRule.ActiveFloatBoostRewardReadyColor),
+        nameof(TriggerRule.ActiveFloatBoostRewardCooldownColor),
+        nameof(TriggerRule.ActiveFloatBoostAddValue),
+        nameof(TriggerRule.ActiveFloatBoostMinimumValue),
+        nameof(TriggerRule.ActiveFloatBoostMaximumValue),
         nameof(TriggerRule.SetTriggerActions),
         nameof(TriggerRule.TemporarilyDisabledRuleIds),
         nameof(TriggerRule.BotMessageTemplate)
@@ -182,6 +195,14 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         nameof(TriggerRule.ManagedRewardReadyColor),
         nameof(TriggerRule.ManagedRewardCooldownColor),
         nameof(TriggerRule.DeleteManagedRewardWhenInactive),
+        nameof(TriggerRule.ActiveFloatBoostRewardEnabled),
+        nameof(TriggerRule.ActiveFloatBoostRewardId),
+        nameof(TriggerRule.ActiveFloatBoostRewardTitle),
+        nameof(TriggerRule.ActiveFloatBoostRewardDescription),
+        nameof(TriggerRule.ActiveFloatBoostRewardCost),
+        nameof(TriggerRule.ActiveFloatBoostRewardCooldownSeconds),
+        nameof(TriggerRule.ActiveFloatBoostRewardReadyColor),
+        nameof(TriggerRule.ActiveFloatBoostRewardCooldownColor),
         nameof(TriggerRule.ParameterName),
         nameof(TriggerRule.SharedRewardChoiceEnabled),
         nameof(TriggerRule.SharedRewardChoiceNumber),
@@ -368,6 +389,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private bool isNormalizingChatCommandRules;
     private bool runtimeConfigLoaded;
     private bool broadcasterManagedRewardsUnavailableForSession;
+    private bool broadcasterReconnectRequired;
+    private bool botReconnectRequired;
     private string universalManagedRewardSyncStatusText = "Universal Twitch reward sync has not run yet.";
     private CancellationTokenSource? saveDebounceCancellation;
     private CancellationTokenSource? bridgeRefreshCancellation;
@@ -413,6 +436,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private bool isUniversalSubscriptionsExpanded = true;
     private bool isUniversalGiftSubscriptionsExpanded = true;
     private bool isUniversalFollowsExpanded = true;
+    private bool isUniversalUnconfiguredExpanded = true;
     private bool isAvatarBoolRedeemsExpanded;
     private bool isAvatarIntRedeemsExpanded;
     private bool isAvatarFloatRedeemsExpanded;
@@ -521,6 +545,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             new ThemeOption(AppTheme.MoonBunnyWink, "Moon Bunny Wink"),
             new ThemeOption(AppTheme.DreadNightBar, "Dread Night Bar"),
             new ThemeOption(AppTheme.Baked, "Baked"),
+            new ThemeOption(AppTheme.NeonBorb, "Neon Borb"),
             new ThemeOption(AppTheme.StinkyOnline, "Stinky Online")
         ];
         LanguageOptions =
@@ -582,6 +607,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             new ChatCommandPermissionOption(ChatCommandPermission.Broadcaster, T("Broadcaster Only"))
         ];
         ParameterTypes = [OscParameterType.Bool, OscParameterType.Int, OscParameterType.Float];
+        FloatValueModes = Enum.GetValues<FloatValueMode>();
         UniversalTriggerValueKinds = Enum.GetValues<UniversalTriggerValueKind>();
         IntZeroDurationModes = Enum.GetValues<IntZeroDurationMode>();
         BoolValueOptions = ["True", "False"];
@@ -712,6 +738,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         OpenAvatarScaleRuleLockoutPickerCommand = new RelayCommand(OpenAvatarScaleRuleLockoutPicker, CanOpenAvatarScaleRuleLockoutPicker);
         OpenSpecialRuleLockoutPickerCommand = new RelayCommand(OpenSpecialRuleLockoutPicker, CanOpenSpecialRuleLockoutPicker);
         OpenAvatarRouletPoolPickerCommand = new RelayCommand(OpenAvatarRouletPoolPicker, CanOpenAvatarRouletPoolPicker);
+        OpenActiveFloatBoostRewardCommand = new RelayCommand(OpenActiveFloatBoostReward, CanOpenActiveFloatBoostReward);
         AddSetTriggerActionCommand = new RelayCommand(AddSetTriggerAction, () => SelectedRule?.ActionType == OscActionType.SetTrigger);
         RemoveSelectedSetTriggerActionCommand = new RelayCommand(RemoveSelectedSetTriggerAction, () => SelectedRule?.ActionType == OscActionType.SetTrigger && SelectedSetTriggerAction is not null);
         CopySelectedAvatarParameterPathCommand = new RelayCommand(CopySelectedAvatarParameterPath, CanCopySelectedAvatarParameterPath);
@@ -956,6 +983,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public IReadOnlyList<OscParameterType> ParameterTypes { get; }
 
+    public IReadOnlyList<FloatValueMode> FloatValueModes { get; }
+
     public IReadOnlyList<UniversalTriggerValueKind> UniversalTriggerValueKinds { get; }
 
     public IReadOnlyList<IntZeroDurationMode> IntZeroDurationModes { get; }
@@ -1162,6 +1191,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public IReadOnlyList<UniversalTriggerRule> UniversalFollowTriggers => GetUniversalTriggersByType(UniversalTriggerType.Follow);
 
+    public IReadOnlyList<UniversalTriggerRule> UniversalUnconfiguredTriggers => Settings.UniversalTriggers
+        .Where(trigger => !trigger.IsConfigured)
+        .OrderBy(trigger => trigger.DisplayTitle, StringComparer.CurrentCultureIgnoreCase)
+        .ToArray();
+
     public ICollectionView UniversalTriggersGroupedView => universalTriggersGroupedView ??= CreateUniversalTriggersGroupedView();
 
     public IReadOnlyList<TriggerRule> SelectedAvatarBoolRedeems => GetSelectedAvatarRedeemsByParameterType(OscParameterType.Bool);
@@ -1233,6 +1267,14 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     public string UniversalGiftSubscriptionGroupTitle => "Gift Subscriptions";
 
     public string UniversalFollowGroupTitle => "Follows";
+
+    public string UniversalUnconfiguredGroupTitle => T("Unconfigured");
+
+    public bool IsUniversalUnconfiguredExpanded
+    {
+        get => isUniversalUnconfiguredExpanded;
+        set => SetProperty(ref isUniversalUnconfiguredExpanded, value);
+    }
 
     public bool IsUniversalChatCommandsExpanded
     {
@@ -1896,6 +1938,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 SelectedSetTriggerAction = value?.SetTriggerActions.FirstOrDefault();
                 AddSetTriggerActionCommand.NotifyCanExecuteChanged();
                 RemoveSelectedSetTriggerActionCommand.NotifyCanExecuteChanged();
+                OpenActiveFloatBoostRewardCommand.NotifyCanExecuteChanged();
                 RefreshAvatarParameterPathCommandStates();
                 RememberSelectedRuleForCurrentView(value);
                 RaisePropertyChanged(nameof(ChatCommandFallbackHelpText));
@@ -2209,6 +2252,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public bool IsBakedThemeSelected => SelectedTheme == AppTheme.Baked;
 
+    public bool IsNeonBorbThemeSelected => SelectedTheme == AppTheme.NeonBorb;
+
     public bool IsStinkyOnlineThemeSelected => SelectedTheme == AppTheme.StinkyOnline;
 
     public bool HasCustomThemeBackgroundImage => !string.IsNullOrWhiteSpace(Settings.CustomTheme.BackgroundImageRelativePath);
@@ -2471,6 +2516,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     public RelayCommand OpenSpecialRuleLockoutPickerCommand { get; }
 
     public RelayCommand OpenAvatarRouletPoolPickerCommand { get; }
+
+    public RelayCommand OpenActiveFloatBoostRewardCommand { get; }
 
     public RelayCommand AddSetTriggerActionCommand { get; }
 
@@ -2742,6 +2789,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RaisePropertyChanged(nameof(IsMoonBunnyWinkThemeSelected));
         RaisePropertyChanged(nameof(IsDreadNightBarThemeSelected));
         RaisePropertyChanged(nameof(IsBakedThemeSelected));
+        RaisePropertyChanged(nameof(IsNeonBorbThemeSelected));
         RaisePropertyChanged(nameof(IsStinkyOnlineThemeSelected));
         RaisePropertyChanged(nameof(HasCustomThemeBackgroundImage));
         RaisePropertyChanged(nameof(CustomThemeBackgroundImageStatusText));
@@ -2839,6 +2887,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private async Task DisconnectBroadcasterAsync()
     {
         ClearBroadcasterManagedRewardsUnavailableForSession();
+        broadcasterReconnectRequired = false;
         Settings.Broadcaster.Clear();
         ClearBroadcasterDeviceFlow();
         UpdateAccountStatuses();
@@ -2851,6 +2900,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     private async Task DisconnectBotAsync()
     {
+        botReconnectRequired = false;
         Settings.Bot.Clear();
         ClearBotDeviceFlow();
         UpdateAccountStatuses();
@@ -2965,11 +3015,13 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             if (accountRole == BridgeAccountRole.Broadcaster)
             {
                 ClearBroadcasterManagedRewardsUnavailableForSession();
+                broadcasterReconnectRequired = false;
                 Settings.Broadcaster.Apply(accountSettings);
                 ClearBroadcasterDeviceFlow();
             }
             else
             {
+                botReconnectRequired = false;
                 Settings.Bot.Apply(accountSettings);
                 ClearBotDeviceFlow();
             }
@@ -5146,9 +5198,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     private void RetireManagedRewards(IEnumerable<TriggerRule> rules)
     {
-        var retiredIds = rules
+        var ruleArray = rules.ToArray();
+        var retiredIds = ruleArray
             .Where(rule => rule.RewardSyncMode == TwitchRewardSyncMode.CreateOrManage)
             .Select(rule => rule.ChannelPointRewardId?.Trim())
+            .Concat(ruleArray.Select(rule => rule.ActiveFloatBoostRewardId?.Trim()))
             .Where(rewardId => !string.IsNullOrWhiteSpace(rewardId))
             .ToArray();
 
@@ -5950,9 +6004,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
         AddUniversalTriggerActionCommand.NotifyCanExecuteChanged();
         RemoveSelectedUniversalTriggerActionCommand.NotifyCanExecuteChanged();
+        if (sender is ObservableCollection<UniversalTriggerAction> actions)
+        {
+            FindUniversalTriggerForActions(actions)?.RefreshActionState();
+        }
+
         QueueSave();
         QueueBridgeRefresh();
         QueueManagedRewardSync();
+        RaiseUniversalTriggerGroupProperties();
         RaisePropertyChanged(nameof(UniversalManagedRewardStatusText));
     }
 
@@ -5982,8 +6042,14 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     private void UniversalTriggerActionChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (sender is UniversalTriggerAction action)
+        {
+            FindUniversalTriggerForAction(action)?.RefreshActionState();
+        }
+
         QueueSave();
         QueueBridgeRefresh();
+        RaiseUniversalTriggerGroupProperties();
         RaisePropertyChanged(nameof(UniversalManagedRewardStatusText));
 
         if (!isSynchronizingManagedRewards
@@ -5992,6 +6058,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             QueueManagedRewardSync();
         }
     }
+
+    private UniversalTriggerRule? FindUniversalTriggerForAction(UniversalTriggerAction action) =>
+        Settings.UniversalTriggers.FirstOrDefault(trigger => trigger.Actions.Contains(action));
+
+    private UniversalTriggerRule? FindUniversalTriggerForActions(ObservableCollection<UniversalTriggerAction> actions) =>
+        Settings.UniversalTriggers.FirstOrDefault(trigger => ReferenceEquals(trigger.Actions, actions));
 
     private void AvatarScaleSetsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
@@ -6627,6 +6699,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                     or nameof(TriggerRule.AvatarChangeResetId)
                     or nameof(TriggerRule.ParameterType)
                     or nameof(TriggerRule.ParameterName)
+                    or nameof(TriggerRule.DurationSeconds)
                     or nameof(TriggerRule.SupporterAvatarId)
                     or nameof(TriggerRule.SupporterAvatarName)
                     or nameof(TriggerRule.SupporterAvatarProfileId)
@@ -6643,6 +6716,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 RefreshAvailableActionTypes();
                 RefreshAvatarParameterOptions();
                 OpenAvatarRouletPoolPickerCommand.NotifyCanExecuteChanged();
+                OpenActiveFloatBoostRewardCommand.NotifyCanExecuteChanged();
                 AddSetTriggerActionCommand.NotifyCanExecuteChanged();
                 RemoveSelectedSetTriggerActionCommand.NotifyCanExecuteChanged();
                 RefreshAvatarParameterPathCommandStates();
@@ -6950,6 +7024,35 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             return;
         }
 
+        if (broadcasterReconnectRequired)
+        {
+            if (bridgeCoordinator.IsRunning)
+            {
+                await bridgeCoordinator.StopAsync();
+            }
+
+            var oscSessionWasActive = bridgeCoordinator.IsOscActive;
+            var shouldForceDiscoveryRefresh = forceDiscoveryRefresh
+                || !oscSessionWasActive
+                || bridgeCoordinator.DiscoveryState == OscDiscoveryState.Lost;
+            await bridgeCoordinator.StartOscOnlyAsync(configuration, cancellationToken);
+
+            if (shouldForceDiscoveryRefresh)
+            {
+                await bridgeCoordinator.ForceOscRefreshAsync(cancellationToken);
+            }
+
+            RunOnUi(() =>
+            {
+                BridgeStatus = "Twitch listener needs reconnect.";
+                OscStatusDetail = bridgeCoordinator.HasDiscoveredVrChat
+                    ? T("OSCQuery is still connected to VRChat. Reconnect Twitch to restore the listener.")
+                    : T("OSCQuery stayed online and is still searching for VRChat.");
+                UpdateAccountStatuses();
+            });
+            return;
+        }
+
         if (bridgeCoordinator.IsRunning)
         {
             if (bridgeCoordinator.CanApplyConfigurationWithoutRestart(configuration))
@@ -6991,6 +7094,68 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+        }
+        catch (TwitchAccountReconnectRequiredException ex)
+        {
+            var oscFallbackStarted = false;
+            string? oscFallbackError = null;
+
+            if (ex.AccountRole == BridgeAccountRole.Broadcaster)
+            {
+                broadcasterReconnectRequired = true;
+            }
+            else
+            {
+                botReconnectRequired = true;
+            }
+
+            if (!bridgeCoordinator.IsOscActive)
+            {
+                try
+                {
+                    await bridgeCoordinator.StartOscOnlyAsync(configuration, cancellationToken);
+                    await bridgeCoordinator.ForceOscRefreshAsync(cancellationToken);
+                    oscFallbackStarted = true;
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    return;
+                }
+                catch (Exception oscEx)
+                {
+                    oscFallbackError = oscEx.Message;
+                }
+            }
+
+            RunOnUi(() =>
+            {
+                AppendLog($"{ex.AccountRole} Twitch login needs reconnecting. Crystal Relay did not reuse the rejected saved refresh token.");
+                UpdateAccountStatuses();
+
+                if (oscFallbackStarted || bridgeCoordinator.IsOscActive)
+                {
+                    BridgeStatus = "Twitch listener needs reconnect.";
+                    OscStatusDetail = bridgeCoordinator.HasDiscoveredVrChat
+                        ? T("OSCQuery is still connected to VRChat. Reconnect Twitch to restore the listener.")
+                        : T("OSCQuery stayed online and is still searching for VRChat.");
+
+                    if (oscFallbackStarted)
+                    {
+                        AppendLog("Crystal Relay kept OSCQuery running so Force Refresh and Test Rule can still work.");
+                    }
+
+                    return;
+                }
+
+                BridgeStatus = "Background bridge could not start.";
+                OscStatusDetail = string.IsNullOrWhiteSpace(oscFallbackError)
+                    ? T("OSCQuery could not start with the background bridge.")
+                    : TF("OSCQuery fallback also failed: {0}", oscFallbackError);
+                if (!string.IsNullOrWhiteSpace(oscFallbackError))
+                {
+                    AppendLog($"OSCQuery fallback failed: {oscFallbackError}");
+                }
+            });
         }
         catch (Exception ex)
         {
@@ -7289,6 +7454,17 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         {
             throw;
         }
+        catch (TwitchAccountReconnectRequiredException)
+        {
+            broadcasterReconnectRequired = true;
+            UpdateAccountStatuses();
+            SetUniversalManagedRewardSyncStatus(status);
+            RunOnUi(() => AppendThrottledLog(
+                $"{logKey}:reconnect",
+                "Twitch reward refresh skipped because the broadcaster login needs reconnecting.",
+                ThrottledRewardSyncLogWindow));
+            return ManagedRewardSyncOutcome.BroadcasterTokenRefreshRequired;
+        }
         catch (Exception ex)
         {
             SetUniversalManagedRewardSyncStatus(status);
@@ -7343,7 +7519,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             && expiresAt is { } existingExpiresAt
             && existingExpiresAt <= DateTimeOffset.UtcNow.Add(TwitchAccessTokenRefreshLeadTime))
         {
-            var refreshedToken = await twitchApiClient.RefreshAccessTokenAsync(
+            var refreshedToken = await RefreshBroadcasterAccessTokenForUiAsync(
                 account.TwitchClientId,
                 refreshToken,
                 cancellationToken);
@@ -7361,7 +7537,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 throw new InvalidOperationException("The saved broadcaster token expired and has no refresh token.");
             }
 
-            var refreshedToken = await twitchApiClient.RefreshAccessTokenAsync(
+            var refreshedToken = await RefreshBroadcasterAccessTokenForUiAsync(
                 account.TwitchClientId,
                 refreshToken,
                 cancellationToken);
@@ -7394,6 +7570,21 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         };
     }
 
+    private async Task<TwitchApiClient.TokenExchangeResponse> RefreshBroadcasterAccessTokenForUiAsync(
+        string clientId,
+        string refreshToken,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await twitchApiClient.RefreshAccessTokenAsync(clientId, refreshToken, cancellationToken);
+        }
+        catch (TwitchApiException ex) when (ex.StatusCode is System.Net.HttpStatusCode.BadRequest or System.Net.HttpStatusCode.Unauthorized)
+        {
+            throw new TwitchAccountReconnectRequiredException(BridgeAccountRole.Broadcaster, ex);
+        }
+    }
+
     private async Task ApplyBroadcasterAccountRefreshAsync(TwitchAccountSettings refreshedAccount, CancellationToken cancellationToken)
     {
         if (dispatcher.CheckAccess())
@@ -7410,14 +7601,17 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     private void ApplyBroadcasterAccountRefresh(TwitchAccountSettings refreshedAccount)
     {
+        var reconnectWasRequired = broadcasterReconnectRequired;
         var bridgeSensitiveChange = HasBridgeSensitiveTwitchAccountChanges(Settings.Broadcaster, refreshedAccount);
-        var accountChanged = bridgeSensitiveChange
+        var accountChanged = reconnectWasRequired
+            || bridgeSensitiveChange
             || !string.Equals(Settings.Broadcaster.DisplayName, refreshedAccount.DisplayName, StringComparison.Ordinal)
             || !string.Equals(Settings.Broadcaster.ProfileImageUrl, refreshedAccount.ProfileImageUrl, StringComparison.Ordinal)
             || Settings.Broadcaster.AccessTokenExpiresAt != refreshedAccount.AccessTokenExpiresAt
             || Settings.Broadcaster.SessionRenewalDueAt != refreshedAccount.SessionRenewalDueAt;
 
         Settings.Broadcaster.Apply(refreshedAccount);
+        broadcasterReconnectRequired = false;
         if (BroadcasterCanManageRewards)
         {
             ClearBroadcasterManagedRewardsUnavailableForSession();
@@ -8469,6 +8663,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                             group.RewardTitle,
                             group.RewardSyncMode);
                     }
+
+                    if (IsActiveFloatBoostParentRule(rule))
+                    {
+                        yield return new ManagedRewardOwnershipEntry(
+                            rule.ActiveFloatBoostRewardOwnerId,
+                            rule.ActiveFloatBoostRewardId,
+                            rule.ActiveFloatBoostRewardTitle,
+                            TwitchRewardSyncMode.CreateOrManage);
+                    }
                 }
             }
 
@@ -8484,6 +8687,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                     rule.ChannelPointRewardId,
                     rule.ChannelPointRewardTitle,
                     rule.RewardSyncMode);
+
+                if (IsActiveFloatBoostParentRule(rule))
+                {
+                    yield return new ManagedRewardOwnershipEntry(
+                        rule.ActiveFloatBoostRewardOwnerId,
+                        rule.ActiveFloatBoostRewardId,
+                        rule.ActiveFloatBoostRewardTitle,
+                        TwitchRewardSyncMode.CreateOrManage);
+                }
             }
         }
 
@@ -8541,7 +8753,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         bool avatarChangeTransitionActive,
         bool allowManagedRewardActivation,
         IReadOnlyCollection<Guid> temporarilyDisabledRuleIds,
-        IReadOnlyCollection<Guid> cooldownRuleIds)
+        IReadOnlyCollection<Guid> cooldownRuleIds,
+        IReadOnlyCollection<Guid> activeTimedRuleIds)
     {
         var ruleHasRuntimeReadyAction = HasRuntimeReadyAction(rule);
         var profileIsEffectivelyActive = AvatarRuleActivationPolicy.IsRuleActiveForCurrentAvatar(
@@ -8552,12 +8765,14 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             requiredAvatarId: profile?.AvatarId,
             currentAvatarId: currentAvatarId,
             avatarChangeTransitionActive: avatarChangeTransitionActive);
+        var isActiveFloatBoostParent = IsActiveFloatBoostParentRule(rule) && activeTimedRuleIds.Contains(rule.Id);
         var desiredEnabled = allowManagedRewardActivation
             && ruleHasRuntimeReadyAction
             && (profile?.IsEnabled ?? true)
             && rule.IsEnabled
             && !temporarilyDisabledRuleIds.Contains(rule.Id)
-            && profileIsEffectivelyActive;
+            && profileIsEffectivelyActive
+            && !isActiveFloatBoostParent;
         var isOnLocalCooldown = cooldownRuleIds.Contains(rule.Id);
         var backgroundColor = isOnLocalCooldown
             ? ManagedRewardPresentation.NormalizeCooldownBackgroundColor(rule.ManagedRewardCooldownColor)
@@ -8576,9 +8791,66 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             requireUserInput: false,
             desiredEnabled: desiredEnabled,
             isCooldownActive: isOnLocalCooldown,
-            deleteWhenInactive: rule.DeleteManagedRewardWhenInactive && !temporarilyDisabledRuleIds.Contains(rule.Id),
-            protectFromCapReclaim: desiredEnabled || isOnLocalCooldown || temporarilyDisabledRuleIds.Contains(rule.Id),
+            deleteWhenInactive: rule.DeleteManagedRewardWhenInactive && !temporarilyDisabledRuleIds.Contains(rule.Id) && !isActiveFloatBoostParent,
+            protectFromCapReclaim: desiredEnabled || isOnLocalCooldown || temporarilyDisabledRuleIds.Contains(rule.Id) || isActiveFloatBoostParent,
             applyRewardId: rewardId => rule.ChannelPointRewardId = rewardId);
+    }
+
+    private ManagedRewardSyncTarget? CreateManagedRewardTargetForActiveFloatBoostReward(
+        AvatarTriggerProfile profile,
+        TriggerRule rule,
+        string currentAvatarId,
+        bool avatarChangeTransitionActive,
+        bool allowManagedRewardActivation,
+        IReadOnlyCollection<Guid> temporarilyDisabledRuleIds,
+        IReadOnlyCollection<Guid> activeTimedRuleIds,
+        IReadOnlyCollection<Guid> activeFloatBoostMaximumReachedRuleIds)
+    {
+        if (!IsActiveFloatBoostParentRule(rule))
+        {
+            return null;
+        }
+
+        var profileIsEffectivelyActive = AvatarRuleActivationPolicy.IsRuleActiveForCurrentAvatar(
+            isGlobalOverride: false,
+            belongsToMasterAvatarProfile: profile.IsMasterProfile,
+            actionType: rule.ActionType,
+            avatarChangeTargetId: rule.AvatarChangeTargetId,
+            requiredAvatarId: profile.AvatarId,
+            currentAvatarId: currentAvatarId,
+            avatarChangeTransitionActive: avatarChangeTransitionActive);
+        var parentIsActive = activeTimedRuleIds.Contains(rule.Id);
+        var boostMaximumReached = activeFloatBoostMaximumReachedRuleIds.Contains(rule.Id);
+        var parentCanBeManaged = rule.RewardSyncMode == TwitchRewardSyncMode.CreateOrManage;
+        var desiredEnabled = allowManagedRewardActivation
+            && parentCanBeManaged
+            && parentIsActive
+            && !boostMaximumReached
+            && profile.IsEnabled
+            && profileIsEffectivelyActive
+            && rule.IsEnabled
+            && !temporarilyDisabledRuleIds.Contains(rule.Id)
+            && HasRuntimeReadyAction(rule);
+        var rewardTitle = string.IsNullOrWhiteSpace(rule.ActiveFloatBoostRewardTitle)
+            ? T("Active Boost Reward")
+            : rule.ActiveFloatBoostRewardTitle;
+
+        return new ManagedRewardSyncTarget(
+            rule.ActiveFloatBoostRewardOwnerId,
+            TF("Active boost for {0}", rule.DisplayTitle),
+            rule.ActiveFloatBoostRewardId,
+            rewardTitle,
+            ApplyRewardFireSaleDiscount(rule.ActiveFloatBoostRewardCost, TwitchRewardSyncMode.CreateOrManage),
+            TwitchRewardSyncMode.CreateOrManage,
+            rule.ActiveFloatBoostRewardCooldownSeconds,
+            ManagedRewardPresentation.NormalizeReadyBackgroundColor(rule.ActiveFloatBoostRewardReadyColor),
+            prompt: BuildManagedRewardPrompt(rule.ActiveFloatBoostRewardDescription),
+            requireUserInput: false,
+            desiredEnabled: desiredEnabled,
+            isCooldownActive: false,
+            deleteWhenInactive: false,
+            protectFromCapReclaim: parentIsActive || desiredEnabled,
+            applyRewardId: rewardId => rule.ActiveFloatBoostRewardId = rewardId);
     }
 
     private ManagedRewardSyncTarget CreateManagedRewardTargetForSharedAvatarSetRewardGroup(
@@ -8588,7 +8860,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         bool avatarChangeTransitionActive,
         bool allowManagedRewardActivation,
         IReadOnlyCollection<Guid> temporarilyDisabledRuleIds,
-        IReadOnlyCollection<Guid> cooldownRuleIds)
+        IReadOnlyCollection<Guid> cooldownRuleIds,
+        IReadOnlyCollection<Guid> activeTimedRuleIds)
     {
         var owner = group.Owner;
         var profileIsEffectivelyActive = AvatarRuleActivationPolicy.IsRuleActiveForCurrentAvatar(
@@ -8610,6 +8883,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             && activeChoices.Length > 0;
         var anyChoiceInCooldown = group.Rules.Any(rule => cooldownRuleIds.Contains(rule.Id));
         var anyChoiceTemporarilyDisabled = group.Rules.Any(rule => temporarilyDisabledRuleIds.Contains(rule.Id));
+        var anyActiveFloatBoostChoice = group.Rules.Any(rule => IsActiveFloatBoostParentRule(rule) && activeTimedRuleIds.Contains(rule.Id));
+        desiredEnabled = desiredEnabled && !anyActiveFloatBoostChoice;
         var readyColor = group.UsesSetTriggerMasterReward
             ? profile.SetTriggerMasterRewardReadyColor
             : owner.ManagedRewardReadyColor;
@@ -8655,8 +8930,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             requireUserInput: true,
             desiredEnabled: desiredEnabled,
             isCooldownActive: anyChoiceInCooldown,
-            deleteWhenInactive: deleteWhenInactive && !anyChoiceInCooldown && !anyChoiceTemporarilyDisabled,
-            protectFromCapReclaim: desiredEnabled || anyChoiceInCooldown || anyChoiceTemporarilyDisabled,
+            deleteWhenInactive: deleteWhenInactive && !anyChoiceInCooldown && !anyChoiceTemporarilyDisabled && !anyActiveFloatBoostChoice,
+            protectFromCapReclaim: desiredEnabled || anyChoiceInCooldown || anyChoiceTemporarilyDisabled || anyActiveFloatBoostChoice,
             applyRewardId: rewardId =>
             {
                 if (group.UsesSetTriggerMasterReward)
@@ -8831,21 +9106,29 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         return $"{Math.Max(1, rule.SharedRewardChoiceNumber)} = {label}";
     }
 
-    private ManagedRewardSyncTarget CreateManagedRewardTargetForUniversalTrigger(
+    private ManagedRewardSyncTarget? CreateManagedRewardTargetForUniversalTrigger(
         UniversalTriggerRule trigger,
         bool allowManagedRewardActivation,
         string currentAvatarId)
     {
+        var triggerIsConfigured = trigger.IsConfigured;
+        if (!triggerIsConfigured && string.IsNullOrWhiteSpace(trigger.RewardId))
+        {
+            return null;
+        }
+
         var desiredEnabled = allowManagedRewardActivation
             && trigger.IsEnabled
+            && triggerIsConfigured
             && HasRuntimeReadyUniversalTriggerAction(trigger)
             && IsUniversalTriggerReadyForCurrentAvatarJson(trigger, currentAvatarId);
+        var rewardTitle = triggerIsConfigured ? trigger.RewardTitle : string.Empty;
 
         return new ManagedRewardSyncTarget(
             trigger.Id,
             trigger.DisplayTitle,
             trigger.RewardId,
-            trigger.RewardTitle,
+            rewardTitle,
             ApplyRewardFireSaleDiscount(trigger.RewardCost, trigger.RewardSyncMode),
             trigger.RewardSyncMode,
             cooldownSeconds: trigger.UsesCreateOrManageReward ? trigger.RewardCooldownSeconds : 0,
@@ -9137,6 +9420,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
         var managedUniversalTriggers = Settings.UniversalTriggers
             .Where(IsManagedUniversalChannelPointTrigger)
+            .Where(trigger => trigger.IsConfigured || !string.IsNullOrWhiteSpace(trigger.RewardId))
             .ToArray();
         var managedAvatarScaleRules = GetAllAvatarScaleRules()
             .Where(IsManagedAvatarScaleChannelPointRule)
@@ -9188,6 +9472,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             var apiCalls = new ManagedRewardApiCallCounter();
             var temporarilyDisabledRuleIds = bridgeCoordinator.GetTemporarilyDisabledRuleIds();
             var cooldownRuleIds = bridgeCoordinator.GetRulesOnCooldownIds();
+            var activeTimedRuleIds = bridgeCoordinator.GetActiveTimedRuleIds();
+            var activeFloatBoostMaximumReachedRuleIds = bridgeCoordinator.GetActiveFloatBoostMaximumReachedRuleIds();
             var activeAvatarScaleEffectRuleIds = bridgeCoordinator.GetActiveAvatarScaleEffectRuleIds();
             var queuedAvatarScaleRuleIds = bridgeCoordinator.GetQueuedAvatarScaleRuleIds();
             var avatarChangeTransitionActive = bridgeCoordinator.IsAvatarChangeTransitionActive();
@@ -9258,7 +9544,23 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                         avatarChangeTransitionActive,
                         allowManagedRewardActivation,
                         temporarilyDisabledRuleIds,
-                        cooldownRuleIds));
+                        cooldownRuleIds,
+                        activeTimedRuleIds));
+                    foreach (var rule in group.Rules)
+                    {
+                        if (CreateManagedRewardTargetForActiveFloatBoostReward(
+                                profile,
+                                rule,
+                                currentAvatarId,
+                                avatarChangeTransitionActive,
+                                allowManagedRewardActivation,
+                                temporarilyDisabledRuleIds,
+                                activeTimedRuleIds,
+                                activeFloatBoostMaximumReachedRuleIds) is { } boostTarget)
+                        {
+                            avatarProfileTargets.Add(boostTarget);
+                        }
+                    }
                 }
 
                 foreach (var rule in profile.ChannelPointRules)
@@ -9275,7 +9577,20 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                         avatarChangeTransitionActive,
                         allowManagedRewardActivation,
                         temporarilyDisabledRuleIds,
-                        cooldownRuleIds));
+                        cooldownRuleIds,
+                        activeTimedRuleIds));
+                    if (CreateManagedRewardTargetForActiveFloatBoostReward(
+                            profile,
+                            rule,
+                            currentAvatarId,
+                            avatarChangeTransitionActive,
+                            allowManagedRewardActivation,
+                            temporarilyDisabledRuleIds,
+                            activeTimedRuleIds,
+                            activeFloatBoostMaximumReachedRuleIds) is { } boostTarget)
+                    {
+                        avatarProfileTargets.Add(boostTarget);
+                    }
                 }
             }
 
@@ -9287,13 +9602,16 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                     avatarChangeTransitionActive,
                     allowManagedRewardActivation,
                     temporarilyDisabledRuleIds,
-                    cooldownRuleIds))
+                    cooldownRuleIds,
+                    activeTimedRuleIds))
                 .ToArray();
             var universalTargets = managedUniversalTriggers
                 .Select(trigger => CreateManagedRewardTargetForUniversalTrigger(
                     trigger,
                     allowManagedRewardActivation,
                     currentAvatarId))
+                .Where(target => target is not null)
+                .Cast<ManagedRewardSyncTarget>()
                 .ToArray();
             var avatarScaleTargets = managedAvatarScaleRules
                 .Select(rule => CreateManagedRewardTargetForAvatarScaleRule(
@@ -10124,6 +10442,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private static bool IsManagedAvatarScaleMasterReward(AvatarScaleMasterRewardSettings masterReward) =>
         masterReward.IsEnabled || !string.IsNullOrWhiteSpace(masterReward.RewardId);
 
+    private static bool IsActiveFloatBoostParentRule(TriggerRule rule) =>
+        rule.TriggerType == TwitchTriggerType.ChannelPoints
+        && rule.ActionType == OscActionType.AvatarParameter
+        && rule.ParameterType == OscParameterType.Float
+        && rule.DurationSeconds > 0
+        && rule.ActiveFloatBoostRewardEnabled
+        && (!string.IsNullOrWhiteSpace(rule.ActiveFloatBoostRewardTitle)
+            || !string.IsNullOrWhiteSpace(rule.ActiveFloatBoostRewardId));
+
     private static bool IsAvatarScaleRuleInactiveAtRelativeLimit(AvatarScaleRule rule, double? currentHeight)
     {
         if (rule.ScaleMode != AvatarScaleMode.RelativeHeight
@@ -10504,15 +10831,20 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
         void ClearTriggerRule(TriggerRule rule)
         {
-            if (rule.Id == newOwnerId
-                || rule.RewardSyncMode != TwitchRewardSyncMode.CreateOrManage
-                || !string.Equals(rule.ChannelPointRewardId?.Trim(), normalizedRewardId, StringComparison.Ordinal))
+            if (rule.Id != newOwnerId
+                && rule.RewardSyncMode == TwitchRewardSyncMode.CreateOrManage
+                && string.Equals(rule.ChannelPointRewardId?.Trim(), normalizedRewardId, StringComparison.Ordinal))
             {
-                return;
+                rule.ChannelPointRewardId = string.Empty;
+                clearedCount++;
             }
 
-            rule.ChannelPointRewardId = string.Empty;
-            clearedCount++;
+            if (rule.ActiveFloatBoostRewardOwnerId != newOwnerId
+                && string.Equals(rule.ActiveFloatBoostRewardId?.Trim(), normalizedRewardId, StringComparison.Ordinal))
+            {
+                rule.ActiveFloatBoostRewardId = string.Empty;
+                clearedCount++;
+            }
         }
 
         foreach (var profile in Settings.AvatarProfiles)
@@ -11393,6 +11725,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 : broadcasterDisplayName;
             BroadcasterStatus = BroadcasterRewardManagementScopeKnownMissing
                 ? $"Connected as {broadcasterDisplayName}, but reconnect once to restore Twitch reward management."
+                : broadcasterReconnectRequired
+                    ? $"Connected as {broadcasterDisplayName}, but reconnect Twitch to refresh the background listener."
                 : $"Connected as {broadcasterDisplayName}.";
         }
         else
@@ -11401,7 +11735,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
 
         BotStatus = Settings.Bot.IsConnected
-            ? $"Connected as {Settings.Bot.DisplayName}. Bot announcements are ready."
+            ? botReconnectRequired
+                ? $"Connected as {Settings.Bot.DisplayName}, but reconnect Twitch to restore bot announcements."
+                : $"Connected as {Settings.Bot.DisplayName}. Bot announcements are ready."
             : Settings.UseBroadcasterAsBotSender
                 ? "Bot account not connected. Broadcaster-as-bot is enabled."
                 : "Bot account not connected. This is optional.";
@@ -11431,6 +11767,22 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         {
             var displayName = status.Substring(connectedPrefix.Length, status.Length - connectedPrefix.Length - botConnectedSuffix.Length);
             return TF("Connected as {0}. Bot announcements are ready.", displayName);
+        }
+
+        const string broadcasterReconnectSuffix = ", but reconnect Twitch to refresh the background listener.";
+        if (status.StartsWith(connectedPrefix, StringComparison.Ordinal)
+            && status.EndsWith(broadcasterReconnectSuffix, StringComparison.Ordinal))
+        {
+            var displayName = status.Substring(connectedPrefix.Length, status.Length - connectedPrefix.Length - broadcasterReconnectSuffix.Length);
+            return TF("Connected as {0}, but reconnect Twitch to refresh the background listener.", displayName);
+        }
+
+        const string botReconnectSuffix = ", but reconnect Twitch to restore bot announcements.";
+        if (status.StartsWith(connectedPrefix, StringComparison.Ordinal)
+            && status.EndsWith(botReconnectSuffix, StringComparison.Ordinal))
+        {
+            var displayName = status.Substring(connectedPrefix.Length, status.Length - connectedPrefix.Length - botReconnectSuffix.Length);
+            return TF("Connected as {0}, but reconnect Twitch to restore bot announcements.", displayName);
         }
 
         if (status.StartsWith(connectedPrefix, StringComparison.Ordinal)
@@ -11578,6 +11930,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
 
         return bridgeStatus.Contains("Twitch listener needs attention", StringComparison.OrdinalIgnoreCase)
+            || bridgeStatus.Contains("Twitch listener needs reconnect", StringComparison.OrdinalIgnoreCase)
             || bridgeStatus.Contains("Bridge error", StringComparison.OrdinalIgnoreCase)
             || bridgeStatus.Contains("OAuth session expired", StringComparison.OrdinalIgnoreCase)
             || bridgeStatus.Contains("Listener disconnected", StringComparison.OrdinalIgnoreCase)
@@ -12033,6 +12386,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private string BuildStreamingErrorDetail(string bridgeStatus, string broadcasterStatus)
     {
         if (bridgeStatus.Contains("OAuth session expired", StringComparison.OrdinalIgnoreCase)
+            || bridgeStatus.Contains("Twitch listener needs reconnect", StringComparison.OrdinalIgnoreCase)
             || bridgeStatus.Contains("Bridge error", StringComparison.OrdinalIgnoreCase)
             || broadcasterStatus.Contains("reconnect", StringComparison.OrdinalIgnoreCase)
             || broadcasterStatus.Contains("expired", StringComparison.OrdinalIgnoreCase))
@@ -12297,6 +12651,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
         if (accountRole == BridgeAccountRole.Broadcaster)
         {
+            broadcasterReconnectRequired = false;
             Settings.Broadcaster.Apply(accountSettings);
             if (BroadcasterCanManageRewards)
             {
@@ -12305,6 +12660,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
         else
         {
+            botReconnectRequired = false;
             Settings.Bot.Apply(accountSettings);
         }
     }
@@ -12508,6 +12864,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RemoveSelectedRuleCommand.NotifyCanExecuteChanged();
         OpenSpecialRuleLockoutPickerCommand.NotifyCanExecuteChanged();
         OpenAvatarRouletPoolPickerCommand.NotifyCanExecuteChanged();
+        OpenActiveFloatBoostRewardCommand.NotifyCanExecuteChanged();
         EnableAllRulesCommand.NotifyCanExecuteChanged();
         DisableAllRulesCommand.NotifyCanExecuteChanged();
         DeleteAllRulesCommand.NotifyCanExecuteChanged();
@@ -12764,7 +13121,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             ? Settings.Broadcaster.IsConnected
             : Settings.Bot.IsConnected;
 
-        if (hasExistingCode || isConnected)
+        var reconnectRequired = accountRole == BridgeAccountRole.Broadcaster
+            ? broadcasterReconnectRequired
+            : botReconnectRequired;
+
+        if (hasExistingCode || (isConnected && !reconnectRequired))
         {
             OpenAuthPage(accountRole);
             return;
@@ -13287,6 +13648,40 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             : $"Updated the Avatar Roulette pool for '{SelectedRule.DisplayTitle}'.");
     }
 
+    private bool CanOpenActiveFloatBoostReward(object? parameter = null)
+    {
+        var rule = parameter as TriggerRule ?? SelectedRule;
+        return rule is not null
+            && rule.ActionType == OscActionType.AvatarParameter
+            && rule.ParameterType == OscParameterType.Float
+            && rule.DurationSeconds > 0;
+    }
+
+    private void OpenActiveFloatBoostReward(object? parameter)
+    {
+        var rule = parameter as TriggerRule ?? SelectedRule;
+        if (rule is null || !CanOpenActiveFloatBoostReward(rule))
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(rule.ActiveFloatBoostRewardTitle))
+        {
+            var parentTitle = string.IsNullOrWhiteSpace(rule.ChannelPointRewardTitle)
+                ? rule.DisplayTitle
+                : rule.ChannelPointRewardTitle;
+            rule.ActiveFloatBoostRewardTitle = string.IsNullOrWhiteSpace(parentTitle)
+                ? T("Boost Float")
+                : TF("Keep {0}", parentTitle);
+        }
+
+        var dialog = new ActiveFloatBoostRewardWindow(SelectedTheme, rule)
+        {
+            Owner = Application.Current?.MainWindow
+        };
+        dialog.ShowDialog();
+    }
+
     private void RemoveSpecialRuleLockoutReferencesToRule(Guid ruleId)
     {
         foreach (var rule in Settings.AvatarProfiles
@@ -13749,7 +14144,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private IReadOnlyList<UniversalTriggerRule> GetUniversalTriggersByType(UniversalTriggerType triggerType)
     {
         return Settings.UniversalTriggers
-            .Where(trigger => trigger.TriggerType == triggerType)
+            .Where(trigger => trigger.IsConfigured && trigger.TriggerType == triggerType)
+            .OrderBy(trigger => trigger.DisplayTitle, StringComparer.CurrentCultureIgnoreCase)
             .ToArray();
     }
 
@@ -13768,12 +14164,14 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     {
         universalTriggersGroupedView?.Refresh();
         RaisePropertyChanged(nameof(UniversalTriggersGroupedView));
+        RaisePropertyChanged(nameof(UniversalUnconfiguredTriggers));
         RaisePropertyChanged(nameof(UniversalChatCommandTriggers));
         RaisePropertyChanged(nameof(UniversalChannelPointRewardTriggers));
         RaisePropertyChanged(nameof(UniversalBitsTriggers));
         RaisePropertyChanged(nameof(UniversalSubscriptionTriggers));
         RaisePropertyChanged(nameof(UniversalGiftSubscriptionTriggers));
         RaisePropertyChanged(nameof(UniversalFollowTriggers));
+        RaisePropertyChanged(nameof(UniversalUnconfiguredGroupTitle));
     }
 
     private void UpdateAvatarProfileActivityStates()
@@ -13825,7 +14223,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         {
             Name = "New Universal Trigger",
             TriggerType = UniversalTriggerType.ChatCommand,
-            CommandText = "!trigger",
             ChatCommandPermission = ChatCommandPermission.Moderators,
             Actions = new ObservableCollection<UniversalTriggerAction>
             {

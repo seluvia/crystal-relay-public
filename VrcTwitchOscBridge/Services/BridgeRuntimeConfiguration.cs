@@ -13,6 +13,16 @@ public sealed record TwitchAccountSnapshot(
     DateTimeOffset? SessionRenewalDueAt,
     IReadOnlyList<string> Scopes);
 
+public sealed record VrChatSessionSnapshot(
+    string AuthCookie,
+    string UserId,
+    string DisplayName)
+{
+    public static VrChatSessionSnapshot Empty { get; } = new(string.Empty, string.Empty, string.Empty);
+
+    public bool IsConnected => !string.IsNullOrWhiteSpace(AuthCookie) && !string.IsNullOrWhiteSpace(UserId);
+}
+
 public sealed record SetTriggerActionSnapshot(
     Guid Id,
     string ParameterName,
@@ -56,7 +66,20 @@ public sealed record TriggerRuleSnapshot(
     OscParameterType ParameterType,
     IntZeroDurationMode IntZeroDurationMode,
     string ParameterValue,
+    FloatValueMode FloatValueMode,
+    double FloatTransitionSeconds,
     string ResetValue,
+    bool ActiveFloatBoostRewardEnabled,
+    string ActiveFloatBoostRewardId,
+    string ActiveFloatBoostRewardTitle,
+    string ActiveFloatBoostRewardDescription,
+    int ActiveFloatBoostRewardCost,
+    int ActiveFloatBoostRewardCooldownSeconds,
+    string ActiveFloatBoostRewardReadyColor,
+    string ActiveFloatBoostRewardCooldownColor,
+    string ActiveFloatBoostAddValue,
+    string ActiveFloatBoostMinimumValue,
+    string ActiveFloatBoostMaximumValue,
     string AvatarChangeTargetId,
     string AvatarChangeResetId,
     string AvatarTargetName,
@@ -178,6 +201,7 @@ public sealed record BridgeRuntimeConfiguration(
     string CurrentVrChatAvatarId,
     string SharedReturnAvatarId,
     string SharedReturnAvatarName,
+    VrChatSessionSnapshot VrChatSession,
     bool ChatboxOscEnabled,
     int ChatboxOscDelaySeconds,
     bool UseBroadcasterAsBotSender,
@@ -188,6 +212,9 @@ public sealed record BridgeRuntimeConfiguration(
     string TriggerInfoCommandText,
     int TriggerInfoCommandCooldownSeconds,
     ChatCommandPermission TriggerInfoCommandPermission,
+    bool WorldCommandEnabled,
+    int WorldCommandCooldownSeconds,
+    ChatCommandPermission WorldCommandPermission,
     bool ChannelPointRewardTestModeEnabled,
     bool EmergencyRedeemStopEnabled,
     bool DesktopModeInputLockEnabled,
@@ -265,6 +292,12 @@ public sealed record BridgeRuntimeConfiguration(
             settings.VrChat.CurrentAvatarId.Trim(),
             masterProfile?.AvatarId.Trim() ?? string.Empty,
             masterProfile?.AvatarName.Trim() ?? string.Empty,
+            settings.VrChat.IsConnected
+                ? new VrChatSessionSnapshot(
+                    settings.VrChat.AuthCookie,
+                    settings.VrChat.UserId,
+                    settings.VrChat.DisplayName)
+                : VrChatSessionSnapshot.Empty,
             settings.ChatboxOscEnabled,
             settings.ChatboxOscDelaySeconds,
             settings.UseBroadcasterAsBotSender,
@@ -276,6 +309,11 @@ public sealed record BridgeRuntimeConfiguration(
             Math.Max(0, settings.TriggerInfoCommandCooldownSeconds),
             Enum.IsDefined(settings.TriggerInfoCommandPermission)
                 ? settings.TriggerInfoCommandPermission
+                : ChatCommandPermission.Everyone,
+            settings.WorldCommandEnabled,
+            Math.Max(0, settings.WorldCommandCooldownSeconds),
+            Enum.IsDefined(settings.WorldCommandPermission)
+                ? settings.WorldCommandPermission
                 : ChatCommandPermission.Everyone,
             settings.ChannelPointRewardTestModeEnabled,
             settings.EmergencyRedeemStopEnabled,
@@ -460,7 +498,20 @@ public sealed record BridgeRuntimeConfiguration(
             rule.ParameterType,
             rule.IntZeroDurationMode,
             rule.ParameterValue.Trim(),
+            Enum.IsDefined(rule.FloatValueMode) ? rule.FloatValueMode : FloatValueMode.Decimal,
+            Math.Clamp(rule.FloatTransitionSeconds, 0, 30),
             rule.ResetValue.Trim(),
+            rule.ActiveFloatBoostRewardEnabled,
+            rule.ActiveFloatBoostRewardId.Trim(),
+            rule.ActiveFloatBoostRewardTitle.Trim(),
+            rule.ActiveFloatBoostRewardDescription.Trim(),
+            Math.Max(1, rule.ActiveFloatBoostRewardCost),
+            Math.Max(0, rule.ActiveFloatBoostRewardCooldownSeconds),
+            ManagedRewardPresentation.NormalizeReadyBackgroundColor(rule.ActiveFloatBoostRewardReadyColor),
+            ManagedRewardPresentation.NormalizeCooldownBackgroundColor(rule.ActiveFloatBoostRewardCooldownColor),
+            rule.ActiveFloatBoostAddValue.Trim(),
+            rule.ActiveFloatBoostMinimumValue.Trim(),
+            rule.ActiveFloatBoostMaximumValue.Trim(),
             rule.AvatarChangeTargetId.Trim(),
             rule.AvatarChangeResetId.Trim(),
             rule.AvatarTargetName.Trim(),
@@ -781,7 +832,17 @@ public sealed record BridgeRuntimeConfiguration(
         try
         {
             var oscClient = new VrChatOscClient();
-            _ = oscClient.BuildAvatarParameterPacket(rule.ParameterName, rule.ParameterType, rule.ParameterValue);
+            var parameterValue = rule.ParameterType == OscParameterType.Float
+                ? FloatValueModeConverter.TryParseNormalized(rule.FloatValueMode, rule.ParameterValue, out var normalizedValue)
+                    ? FloatValueModeConverter.ToOscText(normalizedValue)
+                    : string.Empty
+                : rule.ParameterValue;
+            if (string.IsNullOrWhiteSpace(parameterValue))
+            {
+                return false;
+            }
+
+            _ = oscClient.BuildAvatarParameterPacket(rule.ParameterName, rule.ParameterType, parameterValue);
             if (rule.DurationSeconds > 0)
             {
                 if (string.IsNullOrWhiteSpace(rule.ResetValue))
@@ -789,7 +850,17 @@ public sealed record BridgeRuntimeConfiguration(
                     return false;
                 }
 
-                _ = oscClient.BuildAvatarParameterPacket(rule.ParameterName, rule.ParameterType, rule.ResetValue);
+                var resetValue = rule.ParameterType == OscParameterType.Float
+                    ? FloatValueModeConverter.TryParseNormalized(rule.FloatValueMode, rule.ResetValue, out var normalizedResetValue)
+                        ? FloatValueModeConverter.ToOscText(normalizedResetValue)
+                        : string.Empty
+                    : rule.ResetValue;
+                if (string.IsNullOrWhiteSpace(resetValue))
+                {
+                    return false;
+                }
+
+                _ = oscClient.BuildAvatarParameterPacket(rule.ParameterName, rule.ParameterType, resetValue);
             }
 
             return true;

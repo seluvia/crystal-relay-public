@@ -2473,6 +2473,80 @@
                                                             <ColumnDefinition Width="Auto" />
                                                         </Grid.ColumnDefinitions>
                                                         <TextBlock Grid.Column="0"
+                                                                   Text="{loc:Translate 'VRChat World Command'}"
+                                                                   Style="{StaticResource HeadingTextStyle}"
+                                                                   FontSize="16"
+                                                                   FontWeight="SemiBold"
+                                                                   Foreground="{DynamicResource TextBrush}"
+                                                                   TextWrapping="Wrap" />
+                                                        <Button Grid.Column="1"
+                                                                Margin="8,0,0,0"
+                                                                Style="{StaticResource HelpIconButtonStyle}"
+                                                                Click="OnHelpButtonClicked"
+                                                                CommandParameter="VRChat World Command"
+                                                                Tag="When enabled, viewers can use !world to ask where the streamer is in VRChat. Crystal Relay only posts the public world name and world page link. It never posts the instance ID, invite/private suffix, nonce, region, or full VRChat location." />
+                                                    </Grid>
+                                                    <CheckBox Margin="0,10,0,0"
+                                                              Content="{loc:Translate 'Enable !world command'}"
+                                                              IsChecked="{Binding Settings.WorldCommandEnabled, UpdateSourceTrigger=PropertyChanged}" />
+                                                    <Grid Margin="0,10,0,0">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="*" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <StackPanel Grid.Column="0"
+                                                                    Margin="0,0,8,0">
+                                                            <TextBlock Text="{loc:Translate 'World Command Permission'}"
+                                                                       FontWeight="SemiBold"
+                                                                       Foreground="{DynamicResource TextBrush}" />
+                                                            <ComboBox Margin="0,6,0,0"
+                                                                      ItemsSource="{Binding DataContext.ChatCommandPermissionOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                      DisplayMemberPath="Label"
+                                                                      SelectedValuePath="Value"
+                                                                      SelectedValue="{Binding Settings.WorldCommandPermission, UpdateSourceTrigger=PropertyChanged}" />
+                                                        </StackPanel>
+                                                        <StackPanel Grid.Column="1"
+                                                                    Margin="8,0,0,0">
+                                                            <TextBlock Text="{loc:Translate 'World command cooldown'}"
+                                                                       FontWeight="SemiBold"
+                                                                       Foreground="{DynamicResource TextBrush}" />
+                                                            <Grid Margin="0,6,0,0">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="96" />
+                                                                    <ColumnDefinition Width="*" />
+                                                                </Grid.ColumnDefinitions>
+                                                                <TextBox Grid.Column="0"
+                                                                         Text="{Binding Settings.WorldCommandCooldownSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                                                                <TextBlock Grid.Column="1"
+                                                                           Margin="8,0,0,0"
+                                                                           VerticalAlignment="Center"
+                                                                           Text="{loc:Translate 'seconds'}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold"
+                                                                           TextWrapping="Wrap" />
+                                                            </Grid>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                    <TextBlock Margin="0,8,0,0"
+                                                               Text="{loc:Translate 'When enabled, viewers can use !world to ask where the streamer is in VRChat. Crystal Relay only posts the public world name and world page link. It never posts the instance ID, invite/private suffix, nonce, region, or full VRChat location.'}"
+                                                               Foreground="{DynamicResource MutedBrush}"
+                                                               TextWrapping="Wrap" />
+                                                </StackPanel>
+                                            </Border>
+
+                                            <Border Margin="0,14,0,0"
+                                                    Padding="14"
+                                                    Background="{DynamicResource PanelBrush}"
+                                                    BorderBrush="{DynamicResource InputBorderBrush}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="12">
+                                                <StackPanel>
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Grid.Column="0"
                                                                    Text="{loc:Translate 'Trigger info announcements'}"
                                                                    Style="{StaticResource HeadingTextStyle}"
                                                                    FontSize="16"
@@ -6103,6 +6177,36 @@
                                                        TextWrapping="Wrap" />
                                             <StackPanel Margin="0,12,0,0">
                                                 <Expander Margin="0,10,0,8"
+                                                          IsExpanded="{Binding IsUniversalUnconfiguredExpanded, Mode=TwoWay}"
+                                                          Foreground="{DynamicResource TextBrush}">
+                                                    <Expander.Header>
+                                                        <Border Padding="10,5"
+                                                                Background="{DynamicResource StatusChipBrush}"
+                                                                BorderBrush="{DynamicResource InputBorderBrush}"
+                                                                BorderThickness="1"
+                                                                CornerRadius="12">
+                                                            <DockPanel LastChildFill="False">
+                                                                <TextBlock Text="{Binding UniversalUnconfiguredGroupTitle}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold"
+                                                                           FontSize="12" />
+                                                                <TextBlock Margin="10,0,0,0"
+                                                                           Text="{Binding UniversalUnconfiguredTriggers.Count}"
+                                                                           Foreground="{DynamicResource MutedBrush}"
+                                                                           FontWeight="SemiBold"
+                                                                           FontSize="12" />
+                                                            </DockPanel>
+                                                        </Border>
+                                                    </Expander.Header>
+                                                    <ListBox Margin="0,8,0,0"
+                                                             ItemsSource="{Binding UniversalUnconfiguredTriggers}"
+                                                             SelectedItem="{Binding SelectedUniversalTrigger}"
+                                                             ScrollViewer.CanContentScroll="True"
+                                                             VirtualizingStackPanel.IsVirtualizing="True"
+                                                             VirtualizingStackPanel.VirtualizationMode="Recycling" />
+                                                </Expander>
+
+                                                <Expander Margin="0,10,0,8"
                                                           IsExpanded="{Binding IsUniversalChatCommandsExpanded, Mode=TwoWay}"
                                                           Foreground="{DynamicResource TextBrush}">
                                                     <Expander.Header>
@@ -6699,6 +6803,22 @@
                                                                    Text="{loc:Translate 'Run all actions in order, or enable random mode above to pick one action per trigger. Queued actions serialize repeated activations for this trigger.'}"
                                                                    Foreground="{DynamicResource MutedBrush}"
                                                                    TextWrapping="Wrap" />
+                                                        <Border Margin="0,12,0,0"
+                                                                Padding="12"
+                                                                Background="{DynamicResource PanelSecondaryBrush}"
+                                                                BorderBrush="{DynamicResource DangerBorderBrush}"
+                                                                BorderThickness="1"
+                                                                CornerRadius="14">
+                                                            <StackPanel>
+                                                                <TextBlock Text="{loc:Translate 'Universal Trigger Setup Warning'}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold" />
+                                                                <TextBlock Margin="0,6,0,0"
+                                                                           Text="{loc:Translate 'OSC parameter paths must match VRChat exactly: capitalization, spacing, slashes, and the parameter name all need to be 1-to-1. Wrong value type, missing target/default values, duration resets, or a parameter that does not exist on the current avatar can make a trigger look like it did nothing. Channel point triggers also need a reward name or linked reward before Twitch can match them. Linked rewards are listen-only, and incomplete triggers stay local until setup is complete.'}"
+                                                                           Foreground="{DynamicResource MutedBrush}"
+                                                                           TextWrapping="Wrap" />
+                                                            </StackPanel>
+                                                        </Border>
                                                         <ListBox Margin="0,12,0,0"
                                                                  MaxHeight="180"
                                                                  ItemsSource="{Binding Actions}"
@@ -7694,6 +7814,36 @@
                                                                        Text="{Binding DataContext.VrChatOscParameterStatus, RelativeSource={RelativeSource AncestorType=Window}}"
                                                                        Foreground="{DynamicResource MutedBrush}"
                                                                        TextWrapping="Wrap" />
+
+                                                            <StackPanel Margin="0,14,0,0"
+                                                                        Visibility="{Binding UsesFloatParameter, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                                <TextBlock Text="{loc:Translate 'Float Input Mode'}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold" />
+                                                                <ComboBox ItemsSource="{Binding DataContext.FloatValueModes, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                          SelectedItem="{Binding FloatValueMode, UpdateSourceTrigger=PropertyChanged}" />
+                                                                <TextBlock Margin="0,6,0,0"
+                                                                           Text="{Binding FloatValueModeHelpText}"
+                                                                           Foreground="{DynamicResource MutedBrush}"
+                                                                           TextWrapping="Wrap" />
+                                                                <StackPanel Margin="0,12,0,0"
+                                                                            Visibility="{Binding UsesFloatTimedValues, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                                    <TextBlock Text="{loc:Translate 'Smooth Transition (seconds)'}"
+                                                                               Foreground="{DynamicResource TextBrush}"
+                                                                               FontWeight="SemiBold" />
+                                                                    <TextBox Text="{Binding FloatTransitionSeconds, UpdateSourceTrigger=LostFocus}" />
+                                                                    <Button Margin="0,12,0,0"
+                                                                            HorizontalAlignment="Left"
+                                                                            Style="{StaticResource SecondaryButtonStyle}"
+                                                                            Content="{loc:Translate 'Active Boost Reward...'}"
+                                                                            Command="{Binding DataContext.OpenActiveFloatBoostRewardCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                            CommandParameter="{Binding}" />
+                                                                    <TextBlock Margin="0,6,0,0"
+                                                                               Text="{Binding ActiveFloatBoostRewardStatusText}"
+                                                                               Foreground="{DynamicResource MutedBrush}"
+                                                                               TextWrapping="Wrap" />
+                                                                </StackPanel>
+                                                            </StackPanel>
 
                                                             <StackPanel Margin="0,14,0,0"
                                                                         Visibility="{Binding UsesBoolParameter, Converter={StaticResource BoolToVisibilityConverter}}">
