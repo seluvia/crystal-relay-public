@@ -13035,6 +13035,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             message.MessageText,
             message.UserColor,
             [.. message.BadgeImageUrls],
+            [.. message.BadgeSetIds],
             BuildChatMessageFragments(message),
             message.Kind == BridgeChatMessageKind.Chat && ShouldPlayViewerChatSound(message),
             message.ReceivedAt,
@@ -16026,6 +16027,19 @@ public enum TwitchChatMessageEntryKind
     Raid
 }
 
+public enum TwitchChatRoleCardKind
+{
+    None,
+    Staff,
+    Moderator,
+    Vip,
+    Artist,
+    TierThree,
+    TierTwo,
+    TierOne,
+    Subscriber
+}
+
 public sealed class TwitchChatMessageEntry : ObservableObject
 {
     private const string CrystalRelayDeveloperLogin = "Screminpal_";
@@ -16041,6 +16055,7 @@ public sealed class TwitchChatMessageEntry : ObservableObject
         string messageText,
         string userColor,
         IReadOnlyList<string> badgeImageUrls,
+        IReadOnlyList<string> badgeSetIds,
         IReadOnlyList<TwitchChatInlineFragment> inlineFragments,
         bool shouldPlayViewerSound,
         DateTimeOffset receivedAt,
@@ -16055,12 +16070,18 @@ public sealed class TwitchChatMessageEntry : ObservableObject
         int supportMonths = 0,
         string supportMessage = "")
     {
+        var normalizedSupportTier = supportTier?.Trim() ?? string.Empty;
+
         Kind = Enum.IsDefined(kind) ? kind : TwitchChatMessageEntryKind.Chat;
         UserDisplayName = string.IsNullOrWhiteSpace(userDisplayName) ? "Viewer" : userDisplayName.Trim();
         UserLogin = userLogin?.Trim() ?? string.Empty;
         IsCrystalRelayDeveloper = IsCrystalRelayDeveloperAccount(UserDisplayName, UserLogin);
         MessageText = messageText;
         BadgeImageUrls = badgeImageUrls;
+        BadgeSetIds = badgeSetIds;
+        RoleCardKind = IsCrystalRelayDeveloper
+            ? TwitchChatRoleCardKind.None
+            : ResolveRoleCardKind(Kind, normalizedSupportTier, BadgeSetIds);
         InlineFragments = inlineFragments.Count == 0
             ? [new TwitchChatInlineFragment(TwitchChatInlineFragmentKind.Text, messageText, string.Empty)]
             : inlineFragments;
@@ -16072,7 +16093,7 @@ public sealed class TwitchChatMessageEntry : ObservableObject
         RewardCost = Math.Max(0, rewardCost);
         RewardUserInput = rewardUserInput?.Trim() ?? string.Empty;
         SupportAmount = Math.Max(0, supportAmount);
-        SupportTier = supportTier?.Trim() ?? string.Empty;
+        SupportTier = normalizedSupportTier;
         SupportMonths = Math.Max(0, supportMonths);
         SupportMessage = supportMessage?.Trim() ?? string.Empty;
         this.timestampFormat = NormalizeTimestampFormat(timestampFormat);
@@ -16099,6 +16120,41 @@ public sealed class TwitchChatMessageEntry : ObservableObject
     public string MessageText { get; }
 
     public IReadOnlyList<string> BadgeImageUrls { get; }
+
+    public IReadOnlyList<string> BadgeSetIds { get; }
+
+    public TwitchChatRoleCardKind RoleCardKind { get; }
+
+    public bool HasBadgeRoleCard => RoleCardKind != TwitchChatRoleCardKind.None;
+
+    public bool IsTwitchStaffRoleCard => RoleCardKind == TwitchChatRoleCardKind.Staff;
+
+    public bool IsModeratorRoleCard => RoleCardKind == TwitchChatRoleCardKind.Moderator;
+
+    public bool IsVipRoleCard => RoleCardKind == TwitchChatRoleCardKind.Vip;
+
+    public bool IsArtistRoleCard => RoleCardKind == TwitchChatRoleCardKind.Artist;
+
+    public bool IsTierThreeRoleCard => RoleCardKind == TwitchChatRoleCardKind.TierThree;
+
+    public bool IsTierTwoRoleCard => RoleCardKind == TwitchChatRoleCardKind.TierTwo;
+
+    public bool IsTierOneRoleCard => RoleCardKind == TwitchChatRoleCardKind.TierOne;
+
+    public bool IsSubscriberRoleCard => RoleCardKind == TwitchChatRoleCardKind.Subscriber;
+
+    public string RoleCardLabel => RoleCardKind switch
+    {
+        TwitchChatRoleCardKind.Staff => "TWITCH STAFF",
+        TwitchChatRoleCardKind.Moderator => "MOD",
+        TwitchChatRoleCardKind.Vip => "VIP",
+        TwitchChatRoleCardKind.Artist => "ARTIST",
+        TwitchChatRoleCardKind.TierThree => "TIER 3",
+        TwitchChatRoleCardKind.TierTwo => "TIER 2",
+        TwitchChatRoleCardKind.TierOne => "TIER 1",
+        TwitchChatRoleCardKind.Subscriber => "SUBSCRIBER",
+        _ => string.Empty
+    };
 
     public IReadOnlyList<TwitchChatInlineFragment> InlineFragments { get; }
 
@@ -16219,6 +16275,74 @@ public sealed class TwitchChatMessageEntry : ObservableObject
             "3000" => LocalizationService.Translate("Tier 3"),
             _ => string.Empty
         };
+    }
+
+    private static TwitchChatRoleCardKind ResolveRoleCardKind(
+        TwitchChatMessageEntryKind kind,
+        string supportTier,
+        IReadOnlyList<string> badgeSetIds)
+    {
+        if (kind is TwitchChatMessageEntryKind.Subscription
+            or TwitchChatMessageEntryKind.Resubscription
+            or TwitchChatMessageEntryKind.GiftSubscription)
+        {
+            var tierRole = ResolveSubscriptionTierRole(supportTier);
+            if (tierRole != TwitchChatRoleCardKind.None)
+            {
+                return tierRole;
+            }
+        }
+
+        if (ContainsBadgeSetId(badgeSetIds, "staff"))
+        {
+            return TwitchChatRoleCardKind.Staff;
+        }
+
+        if (ContainsBadgeSetId(badgeSetIds, "moderator"))
+        {
+            return TwitchChatRoleCardKind.Moderator;
+        }
+
+        if (ContainsBadgeSetId(badgeSetIds, "vip"))
+        {
+            return TwitchChatRoleCardKind.Vip;
+        }
+
+        if (ContainsBadgeSetId(badgeSetIds, "artist-badge") || ContainsBadgeSetId(badgeSetIds, "artist"))
+        {
+            return TwitchChatRoleCardKind.Artist;
+        }
+
+        if (ContainsBadgeSetId(badgeSetIds, "subscriber") || ContainsBadgeSetId(badgeSetIds, "founder"))
+        {
+            return TwitchChatRoleCardKind.Subscriber;
+        }
+
+        return TwitchChatRoleCardKind.None;
+    }
+
+    private static TwitchChatRoleCardKind ResolveSubscriptionTierRole(string tier)
+    {
+        return tier.Trim() switch
+        {
+            "3000" => TwitchChatRoleCardKind.TierThree,
+            "2000" => TwitchChatRoleCardKind.TierTwo,
+            "1000" => TwitchChatRoleCardKind.TierOne,
+            _ => TwitchChatRoleCardKind.None
+        };
+    }
+
+    private static bool ContainsBadgeSetId(IReadOnlyList<string> badgeSetIds, string setId)
+    {
+        foreach (var badgeSetId in badgeSetIds)
+        {
+            if (string.Equals(badgeSetId?.Trim(), setId, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public static Brush ResolveNameBrush(string userColor, AppTheme theme) => ParseNameBrush(userColor, theme);
