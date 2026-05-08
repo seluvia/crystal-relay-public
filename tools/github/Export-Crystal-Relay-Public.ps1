@@ -58,15 +58,32 @@ function Assert-PublicExportClean {
 
     $blockedPaths = @(
         '.appdata',
+        '.codex',
         '.dotnet',
+        '.dotnet-home',
         '.nuget',
+        '.vs',
+        '.wrangler',
         'Backups',
         'Releases',
         'TestBuilds',
         'Code Review',
         'temp-build',
         'cloudflare',
-        'tools'
+        'tools',
+        'bin',
+        'obj'
+    )
+
+    $blockedFiles = @(
+        'AGENTS.md',
+        'Backup-Crystal-Relay-Project.ps1',
+        'Backup-Crystal-Relay-AppData.ps1',
+        'Open-Crystal-Relay-GitHub-Desktop-Workflow.ps1',
+        'Prepare-Crystal-Relay-GitHub-Uploads.ps1',
+        'Sync-Crystal-Relay-GitHub-Repos.ps1',
+        'GITHUB-UPLOAD-NOTES.txt',
+        'RELEASE-CHANGE-RECORD.txt'
     )
 
     foreach ($blockedPath in $blockedPaths) {
@@ -76,14 +93,43 @@ function Assert-PublicExportClean {
         }
     }
 
+    foreach ($blockedFile in $blockedFiles) {
+        $candidate = Join-Path $Path $blockedFile
+        if (Test-Path -LiteralPath $candidate) {
+            throw "Public export still contains blocked file: $blockedFile"
+        }
+    }
+
     $blockedPatterns = @(
         'About fallback relay values',
-        'SupplementalAboutProfilesHeaderValue = "',
         'crl_abt_',
+        'crystal-relay-private',
         'E:\!!!Program to work on\Crystal Relay',
         'E:\!!!Program to work on\Proper Crystal Relay',
         'C:\Users\screm\AppData',
-        'C:\Users\screm\Documents\GitHub\crystal-relay-private'
+        'C:\Users\screm\Documents\GitHub\crystal-relay-private',
+        'Codex',
+        'ChatGPT',
+        'OpenAI',
+        'AI-generated',
+        'AI generated',
+        'prompt transcript',
+        'system prompt',
+        'developer message',
+        'AGENTS.md'
+    )
+
+    $blockedRegexPatterns = @(
+        '(?<![A-Za-z0-9])[A-Za-z]:[\\/][^\s"<>|]+',
+        'SupplementalAboutProfilesHeaderValue\s*=\s*"[^"]+',
+        '\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9_]{20,}\b',
+        '\bgithub_pat_[A-Za-z0-9_]{20,}\b',
+        '\bsk-[A-Za-z0-9]{20,}\b',
+        '\bxox[baprs]-[A-Za-z0-9-]{20,}\b',
+        '\bBearer\s+[A-Za-z0-9._~+/=-]{20,}\b',
+        '\bOAuth\s+[A-Za-z0-9._~+/=-]{20,}\b',
+        '\boauth:[A-Za-z0-9._~+/=-]{20,}\b',
+        '\b(access[_-]?token|refresh[_-]?token|client[_-]?secret|api[_-]?key|password|set-cookie|authcookie)\b\s*[:=]\s*[''"][A-Za-z0-9._~+/=-]{12,}[''"]'
     )
 
     foreach ($pattern in $blockedPatterns) {
@@ -95,6 +141,18 @@ function Assert-PublicExportClean {
 
         if ($LASTEXITCODE -gt 1) {
             throw "rg failed while checking blocked pattern '$pattern'."
+        }
+    }
+
+    foreach ($pattern in $blockedRegexPatterns) {
+        $matches = rg --pcre2 --line-number --glob '!**/.git/**' --glob '!**/bin/**' --glob '!**/obj/**' -- "$pattern" $Path
+        if ($LASTEXITCODE -eq 0) {
+            $matchText = $matches -join [Environment]::NewLine
+            throw "Public export matched blocked regex '$pattern':$([Environment]::NewLine)$matchText"
+        }
+
+        if ($LASTEXITCODE -gt 1) {
+            throw "rg failed while checking blocked regex '$pattern'."
         }
     }
 }
@@ -114,6 +172,7 @@ if ($sourceRoot.TrimEnd('\') -ieq $publicRoot.TrimEnd('\')) {
 $excludedDirs = @(
     '.git',
     '.appdata',
+    '.codex',
     '.dotnet',
     '.dotnet-home',
     '.nuget',
@@ -130,6 +189,7 @@ $excludedDirs = @(
 )
 $excludedFiles = @(
     'AGENTS.md',
+    'Backup-Crystal-Relay-Project.ps1',
     'GITHUB-UPLOAD-NOTES.txt',
     'RELEASE-CHANGE-RECORD.txt',
     'Backup-Crystal-Relay-AppData.ps1',
@@ -153,6 +213,19 @@ if ($LASTEXITCODE -gt 7) {
 }
 
 Write-SharedGitIgnore -Path (Join-Path $publicRoot '.gitignore')
+
+$publicWorkflowDirectory = Join-Path $publicRoot '.github\workflows'
+New-Item -ItemType Directory -Path $publicWorkflowDirectory -Force | Out-Null
+Copy-Item `
+    -LiteralPath (Join-Path $PSScriptRoot 'templates\public-safety.yml') `
+    -Destination (Join-Path $publicWorkflowDirectory 'public-safety.yml') `
+    -Force
+
 Assert-PublicExportClean -Path $publicRoot
+
+$preflightScript = Join-Path $PSScriptRoot 'Test-Crystal-Relay-PublicSafety.ps1'
+if (Test-Path -LiteralPath $preflightScript) {
+    & $preflightScript -PublicRepoPath $publicRoot -SkipBuild
+}
 
 Write-Host "Public repo export complete: $publicRoot"

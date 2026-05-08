@@ -229,7 +229,7 @@ Keep VRChat OSC and OSCQuery local/private. Do not expose Crystal Relay or VRCha
 Crystal Relay stores local data in:
 
 ```text
-C:\Users\<YourUser>\AppData\Local\CrystalRelay
+%LOCALAPPDATA%\CrystalRelay
 ```
 
 This folder includes:
@@ -243,7 +243,7 @@ This folder includes:
 Crash logs are written under:
 
 ```text
-C:\Users\<YourUser>\AppData\Local\CrystalRelay\CrashLogs
+%LOCALAPPDATA%\CrystalRelay\CrashLogs
 ```
 
 Use **Open Crystal Relay Folder** inside the app to jump there quickly.
