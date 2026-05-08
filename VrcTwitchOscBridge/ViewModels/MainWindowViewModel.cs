@@ -16031,6 +16031,7 @@ public enum TwitchChatRoleCardKind
 {
     None,
     Staff,
+    LeadModerator,
     Moderator,
     Vip,
     Artist,
@@ -16129,6 +16130,8 @@ public sealed class TwitchChatMessageEntry : ObservableObject
 
     public bool IsTwitchStaffRoleCard => RoleCardKind == TwitchChatRoleCardKind.Staff;
 
+    public bool IsLeadModeratorRoleCard => RoleCardKind == TwitchChatRoleCardKind.LeadModerator;
+
     public bool IsModeratorRoleCard => RoleCardKind == TwitchChatRoleCardKind.Moderator;
 
     public bool IsVipRoleCard => RoleCardKind == TwitchChatRoleCardKind.Vip;
@@ -16146,6 +16149,7 @@ public sealed class TwitchChatMessageEntry : ObservableObject
     public string RoleCardLabel => RoleCardKind switch
     {
         TwitchChatRoleCardKind.Staff => "TWITCH STAFF",
+        TwitchChatRoleCardKind.LeadModerator => "LEAD MOD",
         TwitchChatRoleCardKind.Moderator => "MOD",
         TwitchChatRoleCardKind.Vip => "VIP",
         TwitchChatRoleCardKind.Artist => "ARTIST",
@@ -16296,6 +16300,11 @@ public sealed class TwitchChatMessageEntry : ObservableObject
         if (ContainsBadgeSetId(badgeSetIds, "staff"))
         {
             return TwitchChatRoleCardKind.Staff;
+        }
+
+        if (ContainsBadgeSetId(badgeSetIds, "lead_moderator"))
+        {
+            return TwitchChatRoleCardKind.LeadModerator;
         }
 
         if (ContainsBadgeSetId(badgeSetIds, "moderator"))
