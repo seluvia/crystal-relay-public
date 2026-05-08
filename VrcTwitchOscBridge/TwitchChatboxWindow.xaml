@@ -131,6 +131,24 @@
             <GradientStop Color="#E70A3C2E" Offset="0.62" />
             <GradientStop Color="#E6082635" Offset="1" />
         </LinearGradientBrush>
+        <LinearGradientBrush x:Key="TwitchLeadModCardBrush" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#E7071A14" Offset="0" />
+            <GradientStop Color="#E70A4930" Offset="0.56" />
+            <GradientStop Color="#E807263C" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="TwitchLeadModBorderBrush" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#6BFF95" Offset="0" />
+            <GradientStop Color="#7DF9FF" Offset="0.52" />
+            <GradientStop Color="#E9FFF6" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="TwitchLeadModRailBrush" StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#6BFF95" Offset="0" />
+            <GradientStop Color="#7DF9FF" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="TwitchLeadModBadgeBrush" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#C7FFD6" Offset="0" />
+            <GradientStop Color="#C8FAFF" Offset="1" />
+        </LinearGradientBrush>
         <LinearGradientBrush x:Key="TwitchModBorderBrush" StartPoint="0,0" EndPoint="1,1">
             <GradientStop Color="#58E987" Offset="0" />
             <GradientStop Color="#5AE0FF" Offset="1" />
@@ -715,6 +733,10 @@
                     <Setter Property="Background" Value="{StaticResource TwitchStaffCardBrush}" />
                     <Setter Property="BorderBrush" Value="{StaticResource TwitchStaffBorderBrush}" />
                 </DataTrigger>
+                <DataTrigger Binding="{Binding IsLeadModeratorRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchLeadModCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource TwitchLeadModBorderBrush}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsModeratorRoleCard}" Value="True">
                     <Setter Property="Background" Value="{StaticResource TwitchModCardBrush}" />
                     <Setter Property="BorderBrush" Value="{StaticResource TwitchModBorderBrush}" />
@@ -768,6 +790,10 @@
                     <Setter Property="Background" Value="{StaticResource TwitchStaffCardBrush}" />
                     <Setter Property="BorderBrush" Value="{StaticResource TwitchStaffBorderBrush}" />
                 </DataTrigger>
+                <DataTrigger Binding="{Binding IsLeadModeratorRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchLeadModCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource TwitchLeadModBorderBrush}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsModeratorRoleCard}" Value="True">
                     <Setter Property="Background" Value="{StaticResource TwitchModCardBrush}" />
                     <Setter Property="BorderBrush" Value="{StaticResource TwitchModBorderBrush}" />
@@ -819,6 +845,10 @@
                 <DataTrigger Binding="{Binding IsTwitchStaffRoleCard}" Value="True">
                     <Setter Property="Background" Value="{StaticResource TwitchStaffCardBrush}" />
                     <Setter Property="BorderBrush" Value="{StaticResource TwitchStaffBorderBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsLeadModeratorRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchLeadModCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource TwitchLeadModBorderBrush}" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsModeratorRoleCard}" Value="True">
                     <Setter Property="Background" Value="{StaticResource TwitchModCardBrush}" />
@@ -954,6 +984,9 @@
                 <DataTrigger Binding="{Binding IsTwitchStaffRoleCard}" Value="True">
                     <Setter Property="Background" Value="{StaticResource TwitchStaffRailBrush}" />
                 </DataTrigger>
+                <DataTrigger Binding="{Binding IsLeadModeratorRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchLeadModRailBrush}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsModeratorRoleCard}" Value="True">
                     <Setter Property="Background" Value="{StaticResource TwitchModRailBrush}" />
                 </DataTrigger>
@@ -988,6 +1021,10 @@
                 <DataTrigger Binding="{Binding IsTwitchStaffRoleCard}" Value="True">
                     <Setter Property="Visibility" Value="Visible" />
                     <Setter Property="Background" Value="{StaticResource TwitchStaffRailBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsLeadModeratorRoleCard}" Value="True">
+                    <Setter Property="Visibility" Value="Visible" />
+                    <Setter Property="Background" Value="{StaticResource TwitchLeadModRailBrush}" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsModeratorRoleCard}" Value="True">
                     <Setter Property="Visibility" Value="Visible" />
@@ -1036,6 +1073,10 @@
                 <DataTrigger Binding="{Binding IsTwitchStaffRoleCard}" Value="True">
                     <Setter Property="Background" Value="{StaticResource TwitchStaffBadgeBrush}" />
                     <Setter Property="BorderBrush" Value="{StaticResource TwitchStaffBorderBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsLeadModeratorRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchLeadModBadgeBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource TwitchLeadModBorderBrush}" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsModeratorRoleCard}" Value="True">
                     <Setter Property="Background" Value="{StaticResource TwitchModBadgeBrush}" />
