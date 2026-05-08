@@ -28,7 +28,7 @@ Crystal Relay connects Twitch events to VRChat through local OSC and OSCQuery co
 | [What Crystal Relay Handles](#what-crystal-relay-handles) | [Avatar Scaling](#avatar-scaling) | [Local Data and Crash Logs](#local-data-and-crash-logs) | [License](#license) |
 | [Trigger Areas and Actions](#trigger-areas-and-actions) | [Reward Fire Sale](#reward-fire-sale) | [Build and Run From Source](#build-and-run-from-source) | [Versioning](#versioning) |
 | [Main Features](#main-features) | [Universal Triggers](#universal-triggers) | [Releases](#releases) | |
-| [Beta Highlights](#current-beta-highlights) | [Twitch Chatbox](#twitch-chatbox) | [VRChat and OSC](#vrchat-and-osc) | |
+| [Release Highlights](#current-release-highlights) | [Twitch Chatbox](#twitch-chatbox) | [VRChat and OSC](#vrchat-and-osc) | |
 
 ## Quick Start
 
@@ -70,13 +70,14 @@ Crystal Relay connects Twitch events to VRChat through local OSC and OSCQuery co
 - Theme support across the main window, dialogs, and chatbox
 - Built-in language support for English, Spanish, Japanese, German, French, Portuguese (Brazil), Swedish, Italian, Simplified Chinese, Traditional Chinese, Korean, Russian, Polish, and Thai
 
-## Current Beta Highlights
+## Current Release Highlights
 
-Recent beta builds include larger systems that are still being refined from streamer feedback:
+Recent releases include larger systems shaped by streamer feedback:
 
 - **Reward Fire Sale**: builds a Bits or channel-point funding goal, then discounts Crystal Relay-owned `VRC:` rewards by the reached tier.
 - **Fire Sale funding reward**: optional dedicated `VRC: Fire Sale Fund` reward with editable point-to-progress conversion, cooldown, and ready/cooldown colors.
 - **Reward descriptions**: Crystal Relay-created channel-point rewards can now use editable Twitch descriptions while linked rewards stay listen-only.
+- **Float redeem controls**: float Avatar Parameter redeems can use decimal or percent input, optional smooth transitions, and active boost rewards while a timed float redeem is running.
 - **Supporter Growth scale bank**: bits, subs, resubs, and gift subs feed one paid Avatar Scaling timer instead of replacing each other.
 - **Supporter Growth cheer keywords**: `Cheer100 grow` and `Cheer100 shrink` can choose positive or negative Bits scaling while still adding paid time.
 - **Reward scale overlay during paid growth**: optional channel-point or chat scale changes can temporarily overlay paid growth without shortening the paid timer.

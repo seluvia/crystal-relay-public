@@ -478,5 +478,17 @@
   "Current VRChat world: {0} - {1}": "Mundo atual do VRChat: {0} - {1}",
   "Crystal Relay could not find a public VRChat world to share right now.": "O Crystal Relay não encontrou um mundo público do VRChat para compartilhar agora.",
   "{0} used the VRChat world command.": "{0} usou o comando de mundo do VRChat.",
-  "VRChat world command lookup failed without exposing location details.": "A busca do comando de mundo do VRChat falhou sem expor detalhes de localização."
+  "VRChat world command lookup failed without exposing location details.": "A busca do comando de mundo do VRChat falhou sem expor detalhes de localização.",
+  "1 built-in bot command is enabled.": "1 comando de bot integrado esta ativado.",
+  "{0} built-in bot commands are enabled.": "{0} comandos de bot integrados estao ativados.",
+  "No built-in bot commands are enabled.": "Nenhum comando de bot integrado esta ativado.",
+  "Built-In Commands": "Comandos integrados",
+  "Built-In Commands | Crystal Relay": "Comandos integrados | Crystal Relay",
+  "Built-in bot commands": "Comandos de bot integrados",
+  "Commands...": "Comandos...",
+  "Enable command": "Ativar comando",
+  "Trigger Info Command": "Comando de info de gatilhos",
+  "Viewers can ask where the streamer is in VRChat. Crystal Relay only posts the public world name and world page link, never instance details.": "Os espectadores podem perguntar em qual mundo do VRChat o streamer esta. O Crystal Relay publica apenas o nome do mundo publico e o link da pagina, nunca detalhes da instancia.",
+  "Two built-in commands use the same chat command. The first matching built-in command runs first, so rename or disable one of them.": "Dois comandos integrados usam o mesmo comando de chat. O primeiro comando integrado correspondente roda primeiro, entao renomeie ou desative um deles.",
+  "A Universal Trigger uses the same command as an enabled built-in command. Built-in commands run first, so the Universal Trigger will only run if the built-in command is disabled or renamed.": "Um Universal Trigger usa o mesmo comando que um comando integrado ativado. Comandos integrados rodam primeiro, entao o Universal Trigger so rodara se o comando integrado for desativado ou renomeado."
 }

@@ -28,6 +28,7 @@
     <ApplicationDefinition Include="App.xaml" />
     <Page Include="MainWindow.xaml" />
     <Page Include="ActiveFloatBoostRewardWindow.xaml" />
+    <Page Include="BuiltInCommandsWindow.xaml" />
     <Page Include="BugReportWindow.xaml" />
     <Page Include="ThemeBackgrounds\*.xaml" />
     <Page Include="TwitchChatboxWindow.xaml" />
@@ -56,6 +57,7 @@
     <Compile Include="App.xaml.cs" />
     <Compile Include="ActiveFloatBoostRewardWindow.xaml.cs" />
     <Compile Include="AssemblyInfo.cs" />
+    <Compile Include="BuiltInCommandsWindow.xaml.cs" />
     <Compile Include="BugReportWindow.xaml.cs" />
     <Compile Include="ComboBoxInteraction.cs" />
     <Compile Include="MainWindow.xaml.cs" />

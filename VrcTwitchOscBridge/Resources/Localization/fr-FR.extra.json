@@ -478,5 +478,17 @@
   "Current VRChat world: {0} - {1}": "Monde VRChat actuel : {0} - {1}",
   "Crystal Relay could not find a public VRChat world to share right now.": "Crystal Relay n'a pas trouvé de monde VRChat public à partager pour le moment.",
   "{0} used the VRChat world command.": "{0} a utilisé la commande de monde VRChat.",
-  "VRChat world command lookup failed without exposing location details.": "La recherche de la commande de monde VRChat a échoué sans exposer de détails d'emplacement."
+  "VRChat world command lookup failed without exposing location details.": "La recherche de la commande de monde VRChat a échoué sans exposer de détails d'emplacement.",
+  "1 built-in bot command is enabled.": "1 commande de bot integree est activee.",
+  "{0} built-in bot commands are enabled.": "{0} commandes de bot integrees sont activees.",
+  "No built-in bot commands are enabled.": "Aucune commande de bot integree est activee.",
+  "Built-In Commands": "Commandes integrees",
+  "Built-In Commands | Crystal Relay": "Commandes integrees | Crystal Relay",
+  "Built-in bot commands": "Commandes de bot integrees",
+  "Commands...": "Commandes...",
+  "Enable command": "Activer la commande",
+  "Trigger Info Command": "Commande info des declencheurs",
+  "Viewers can ask where the streamer is in VRChat. Crystal Relay only posts the public world name and world page link, never instance details.": "Les spectateurs peuvent demander dans quel monde VRChat se trouve le streamer. Crystal Relay publie seulement le nom du monde public et le lien de sa page, jamais les details instance.",
+  "Two built-in commands use the same chat command. The first matching built-in command runs first, so rename or disable one of them.": "Deux commandes integrees utilisent la meme commande de chat. La premiere commande integree correspondante s execute abord, donc renommez en une ou desactivez la.",
+  "A Universal Trigger uses the same command as an enabled built-in command. Built-in commands run first, so the Universal Trigger will only run if the built-in command is disabled or renamed.": "Un Universal Trigger utilise la meme commande qu une commande integree activee. Les commandes integrees s executent abord, donc le Universal Trigger ne s executera que si la commande integree est desactivee ou renommee."
 }

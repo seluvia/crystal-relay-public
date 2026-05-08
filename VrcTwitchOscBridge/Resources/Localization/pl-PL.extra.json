@@ -478,5 +478,17 @@
   "Current VRChat world: {0} - {1}": "Obecny świat VRChat: {0} - {1}",
   "Crystal Relay could not find a public VRChat world to share right now.": "Crystal Relay nie znalazł teraz publicznego świata VRChat do udostępnienia.",
   "{0} used the VRChat world command.": "{0} użył polecenia świata VRChat.",
-  "VRChat world command lookup failed without exposing location details.": "Wyszukiwanie polecenia świata VRChat nie powiodło się bez ujawniania szczegółów lokalizacji."
+  "VRChat world command lookup failed without exposing location details.": "Wyszukiwanie polecenia świata VRChat nie powiodło się bez ujawniania szczegółów lokalizacji.",
+  "1 built-in bot command is enabled.": "Wlaczono 1 wbudowane polecenie bota.",
+  "{0} built-in bot commands are enabled.": "Wlaczono {0} wbudowane polecenia bota.",
+  "No built-in bot commands are enabled.": "Nie wlaczono zadnych wbudowanych polecen bota.",
+  "Built-In Commands": "Wbudowane polecenia",
+  "Built-In Commands | Crystal Relay": "Wbudowane polecenia | Crystal Relay",
+  "Built-in bot commands": "Wbudowane polecenia bota",
+  "Commands...": "Polecenia...",
+  "Enable command": "Wlacz polecenie",
+  "Trigger Info Command": "Polecenie informacji o wyzwalaczach",
+  "Viewers can ask where the streamer is in VRChat. Crystal Relay only posts the public world name and world page link, never instance details.": "Widzowie moga zapytac, w ktorym swiecie VRChat jest streamer. Crystal Relay publikuje tylko publiczna nazwe swiata i link do strony swiata, nigdy szczegoly instancji.",
+  "Two built-in commands use the same chat command. The first matching built-in command runs first, so rename or disable one of them.": "Dwa wbudowane polecenia uzywaja tej samej komendy czatu. Pierwsze pasujace wbudowane polecenie uruchamia sie jako pierwsze, wiec zmien nazwe albo wylacz jedno z nich.",
+  "A Universal Trigger uses the same command as an enabled built-in command. Built-in commands run first, so the Universal Trigger will only run if the built-in command is disabled or renamed.": "Universal Trigger uzywa tej samej komendy co wlaczone wbudowane polecenie. Wbudowane polecenia uruchamiaja sie jako pierwsze, wiec Universal Trigger zadziala tylko po wylaczeniu lub zmianie nazwy wbudowanego polecenia."
 }

@@ -213,6 +213,7 @@ public sealed record BridgeRuntimeConfiguration(
     int TriggerInfoCommandCooldownSeconds,
     ChatCommandPermission TriggerInfoCommandPermission,
     bool WorldCommandEnabled,
+    string WorldCommandText,
     int WorldCommandCooldownSeconds,
     ChatCommandPermission WorldCommandPermission,
     bool ChannelPointRewardTestModeEnabled,
@@ -311,6 +312,7 @@ public sealed record BridgeRuntimeConfiguration(
                 ? settings.TriggerInfoCommandPermission
                 : ChatCommandPermission.Everyone,
             settings.WorldCommandEnabled,
+            ChatCommandUtility.Normalize(settings.WorldCommandText),
             Math.Max(0, settings.WorldCommandCooldownSeconds),
             Enum.IsDefined(settings.WorldCommandPermission)
                 ? settings.WorldCommandPermission

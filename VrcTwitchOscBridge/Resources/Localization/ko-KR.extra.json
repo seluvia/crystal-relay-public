@@ -478,5 +478,17 @@
   "Current VRChat world: {0} - {1}": "현재 VRChat 월드: {0} - {1}",
   "Crystal Relay could not find a public VRChat world to share right now.": "Crystal Relay가 지금 공유할 수 있는 공개 VRChat 월드를 찾지 못했습니다.",
   "{0} used the VRChat world command.": "{0}님이 VRChat 월드 명령을 사용했습니다.",
-  "VRChat world command lookup failed without exposing location details.": "VRChat 월드 명령 조회가 실패했지만 위치 세부 정보는 노출되지 않았습니다."
+  "VRChat world command lookup failed without exposing location details.": "VRChat 월드 명령 조회가 실패했지만 위치 세부 정보는 노출되지 않았습니다.",
+  "1 built-in bot command is enabled.": "기본 제공 봇 명령 1개가 활성화되었습니다.",
+  "{0} built-in bot commands are enabled.": "기본 제공 봇 명령 {0}개가 활성화되었습니다.",
+  "No built-in bot commands are enabled.": "활성화된 기본 제공 봇 명령이 없습니다.",
+  "Built-In Commands": "기본 제공 명령",
+  "Built-In Commands | Crystal Relay": "기본 제공 명령 | Crystal Relay",
+  "Built-in bot commands": "기본 제공 봇 명령",
+  "Commands...": "명령...",
+  "Enable command": "명령 활성화",
+  "Trigger Info Command": "트리거 정보 명령",
+  "Viewers can ask where the streamer is in VRChat. Crystal Relay only posts the public world name and world page link, never instance details.": "시청자는 스트리머가 있는 VRChat 월드를 물어볼 수 있습니다. Crystal Relay는 공개 월드 이름과 월드 페이지 링크만 게시하며 인스턴스 세부 정보는 절대 게시하지 않습니다.",
+  "Two built-in commands use the same chat command. The first matching built-in command runs first, so rename or disable one of them.": "두 기본 제공 명령이 같은 채팅 명령을 사용합니다. 먼저 일치한 기본 제공 명령이 먼저 실행되므로 하나를 이름 변경하거나 비활성화하세요.",
+  "A Universal Trigger uses the same command as an enabled built-in command. Built-in commands run first, so the Universal Trigger will only run if the built-in command is disabled or renamed.": "Universal Trigger가 활성화된 기본 제공 명령과 같은 명령을 사용합니다. 기본 제공 명령이 먼저 실행되므로 해당 기본 제공 명령을 비활성화하거나 이름을 바꿔야 Universal Trigger가 실행됩니다."
 }

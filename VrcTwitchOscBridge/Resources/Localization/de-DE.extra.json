@@ -478,5 +478,17 @@
   "Current VRChat world: {0} - {1}": "Aktuelle VRChat-Welt: {0} - {1}",
   "Crystal Relay could not find a public VRChat world to share right now.": "Crystal Relay konnte gerade keine öffentliche VRChat-Welt zum Teilen finden.",
   "{0} used the VRChat world command.": "{0} hat den VRChat-Weltbefehl verwendet.",
-  "VRChat world command lookup failed without exposing location details.": "Die VRChat-Weltbefehl-Suche ist fehlgeschlagen, ohne Standortdetails offenzulegen."
+  "VRChat world command lookup failed without exposing location details.": "Die VRChat-Weltbefehl-Suche ist fehlgeschlagen, ohne Standortdetails offenzulegen.",
+  "1 built-in bot command is enabled.": "1 integrierter Bot-Befehl ist aktiviert.",
+  "{0} built-in bot commands are enabled.": "{0} integrierte Bot-Befehle sind aktiviert.",
+  "No built-in bot commands are enabled.": "Keine integrierten Bot-Befehle sind aktiviert.",
+  "Built-In Commands": "Integrierte Befehle",
+  "Built-In Commands | Crystal Relay": "Integrierte Befehle | Crystal Relay",
+  "Built-in bot commands": "Integrierte Bot-Befehle",
+  "Commands...": "Befehle...",
+  "Enable command": "Befehl aktivieren",
+  "Trigger Info Command": "Trigger-Info-Befehl",
+  "Viewers can ask where the streamer is in VRChat. Crystal Relay only posts the public world name and world page link, never instance details.": "Zuschauer koennen fragen, in welcher VRChat-Welt der Streamer ist. Crystal Relay postet nur den oeffentlichen Weltnamen und den Link zur Weltseite, niemals Instanzdetails.",
+  "Two built-in commands use the same chat command. The first matching built-in command runs first, so rename or disable one of them.": "Zwei integrierte Befehle verwenden denselben Chat-Befehl. Der zuerst passende integrierte Befehl wird zuerst ausgefuehrt, also benenne einen um oder deaktiviere ihn.",
+  "A Universal Trigger uses the same command as an enabled built-in command. Built-in commands run first, so the Universal Trigger will only run if the built-in command is disabled or renamed.": "Ein Universal Trigger verwendet denselben Befehl wie ein aktivierter integrierter Befehl. Integrierte Befehle werden zuerst ausgefuehrt, daher laeuft der Universal Trigger nur, wenn der integrierte Befehl deaktiviert oder umbenannt wird."
 }

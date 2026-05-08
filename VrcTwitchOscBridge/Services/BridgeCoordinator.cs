@@ -35,6 +35,7 @@ public sealed record RewardFireSaleContribution(
 public sealed class BridgeCoordinator : IAsyncDisposable
 {
     private static readonly TimeSpan AccessTokenRefreshLeadTime = TimeSpan.FromMinutes(15);
+    private static readonly TimeSpan CachedTokenValidationGraceWindow = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan PublicRefreshSessionWindow = TimeSpan.FromDays(30);
     private static readonly TimeSpan ChatboxRelayUnavailableLogThrottle = TimeSpan.FromSeconds(20);
     private static readonly TimeSpan ChatboxRelayBlockedLogThrottle = TimeSpan.FromSeconds(10);
@@ -925,7 +926,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     {
         if (!configuration.WorldCommandEnabled
             || !bridgeEvent.IsChatCommandTrigger
-            || !ChatCommandUtility.MessageMatches("!world", bridgeEvent.ChatCommandText))
+            || !ChatCommandUtility.MessageMatches(configuration.WorldCommandText, bridgeEvent.ChatCommandText))
         {
             return false;
         }
@@ -8172,24 +8173,38 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             throw new InvalidOperationException("Bridge settings are missing.");
         }
 
+        var requiredScopesArray = requiredScopes.ToArray();
         var shouldRefresh = !string.IsNullOrWhiteSpace(account.RefreshToken)
-            && account.AccessTokenExpiresAt is { } expiresAt
-            && expiresAt <= DateTimeOffset.UtcNow.Add(AccessTokenRefreshLeadTime);
+            && (string.IsNullOrWhiteSpace(account.AccessToken)
+                || account.AccessTokenExpiresAt is { } expiresAt
+                    && expiresAt <= DateTimeOffset.UtcNow.Add(AccessTokenRefreshLeadTime));
+        var refreshedThisAttempt = false;
 
         if (shouldRefresh)
         {
-            var refreshedToken = await RefreshAccountTokenAsync(account.RefreshToken, accountRole, cancellationToken);
-            account = account with
+            try
             {
-                AccessToken = refreshedToken.AccessToken,
-                RefreshToken = refreshedToken.RefreshToken,
-                AccessTokenExpiresAt = DateTimeOffset.UtcNow.AddSeconds(refreshedToken.ExpiresIn),
-                SessionRenewalDueAt = DateTimeOffset.UtcNow.Add(PublicRefreshSessionWindow),
-                Scopes = refreshedToken.Scope
-            };
+                account = await RefreshAccountTokenAndPersistAsync(account, accountRole, cancellationToken);
+                refreshedThisAttempt = true;
+            }
+            catch (TwitchApiException ex) when (CanUseCachedAccountAfterTemporaryValidationFailure(account, requiredScopesArray, ex))
+            {
+                WriteLog($"{accountRole} Twitch token refresh was temporarily unavailable, so Crystal Relay kept using the saved valid session.");
+                return account;
+            }
         }
 
-        var validation = await twitchApiClient.ValidateTokenAsync(account.AccessToken, cancellationToken);
+        TwitchApiClient.TokenValidationResponse? validation;
+        try
+        {
+            validation = await twitchApiClient.ValidateTokenAsync(account.AccessToken, cancellationToken);
+        }
+        catch (TwitchApiException ex) when (CanUseCachedAccountAfterTemporaryValidationFailure(account, requiredScopesArray, ex))
+        {
+            WriteLog($"{accountRole} Twitch token validation was temporarily unavailable, so Crystal Relay kept using the saved valid session.");
+            return account;
+        }
+
         if (validation is null)
         {
             if (string.IsNullOrWhiteSpace(account.RefreshToken))
@@ -8197,23 +8212,30 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 throw new InvalidOperationException($"{accountRole} OAuth token expired and no refresh token is available.");
             }
 
-            var refreshedToken = await RefreshAccountTokenAsync(account.RefreshToken, accountRole, cancellationToken);
-            account = account with
+            if (refreshedThisAttempt)
             {
-                AccessToken = refreshedToken.AccessToken,
-                RefreshToken = refreshedToken.RefreshToken,
-                AccessTokenExpiresAt = DateTimeOffset.UtcNow.AddSeconds(refreshedToken.ExpiresIn),
-                SessionRenewalDueAt = DateTimeOffset.UtcNow.Add(PublicRefreshSessionWindow),
-                Scopes = refreshedToken.Scope
-            };
+                throw new InvalidOperationException($"Unable to validate the refreshed {accountRole} token.");
+            }
 
-            validation = await twitchApiClient.ValidateTokenAsync(account.AccessToken, cancellationToken)
-                ?? throw new InvalidOperationException($"Unable to validate the refreshed {accountRole} token.");
+            account = await RefreshAccountTokenAndPersistAsync(account, accountRole, cancellationToken);
+            try
+            {
+                validation = await twitchApiClient.ValidateTokenAsync(account.AccessToken, cancellationToken)
+                    ?? throw new InvalidOperationException($"Unable to validate the refreshed {accountRole} token.");
+            }
+            catch (TwitchApiException ex) when (CanUseCachedAccountAfterTemporaryValidationFailure(account, requiredScopesArray, ex))
+            {
+                WriteLog($"{accountRole} Twitch token refreshed, but validation was temporarily unavailable. Crystal Relay kept the refreshed session for now.");
+                return account;
+            }
         }
 
-        var missingScopes = requiredScopes
-            .Where(scope => validation.Scopes.All(existing => !string.Equals(existing, scope, StringComparison.OrdinalIgnoreCase)))
-            .ToArray();
+        if (!string.Equals(validation.ClientId, activeConfiguration.TwitchClientId, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"{accountRole} OAuth token belongs to a different Twitch app.");
+        }
+
+        var missingScopes = GetMissingScopes(validation.Scopes, requiredScopesArray);
 
         if (missingScopes.Length > 0)
         {
@@ -8241,6 +8263,31 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         return updatedAccount;
     }
 
+    private async Task<TwitchAccountSnapshot> RefreshAccountTokenAndPersistAsync(
+        TwitchAccountSnapshot account,
+        BridgeAccountRole accountRole,
+        CancellationToken cancellationToken)
+    {
+        var refreshedToken = await RefreshAccountTokenAsync(account.RefreshToken, accountRole, cancellationToken);
+        var refreshedAccount = account with
+        {
+            AccessToken = refreshedToken.AccessToken,
+            RefreshToken = string.IsNullOrWhiteSpace(refreshedToken.RefreshToken)
+                ? account.RefreshToken
+                : refreshedToken.RefreshToken,
+            AccessTokenExpiresAt = DateTimeOffset.UtcNow.AddSeconds(refreshedToken.ExpiresIn),
+            SessionRenewalDueAt = DateTimeOffset.UtcNow.Add(PublicRefreshSessionWindow),
+            Scopes = refreshedToken.Scope.Count > 0 ? refreshedToken.Scope : account.Scopes
+        };
+
+        if (accountRole == BridgeAccountRole.Broadcaster)
+        {
+            AccountUpdated?.Invoke(accountRole, refreshedAccount);
+        }
+
+        return refreshedAccount;
+    }
+
     private async Task<TwitchApiClient.TokenExchangeResponse> RefreshAccountTokenAsync(
         string refreshToken,
         BridgeAccountRole accountRole,
@@ -8253,12 +8300,45 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
         try
         {
+            if (accountRole == BridgeAccountRole.Broadcaster)
+            {
+                return await twitchApiClient.RefreshBroadcasterAccessTokenAsync(activeConfiguration.TwitchClientId, refreshToken, cancellationToken);
+            }
+
             return await twitchApiClient.RefreshAccessTokenAsync(activeConfiguration.TwitchClientId, refreshToken, cancellationToken);
         }
         catch (TwitchApiException ex) when (ex.StatusCode is System.Net.HttpStatusCode.BadRequest or System.Net.HttpStatusCode.Unauthorized)
         {
             throw new TwitchAccountReconnectRequiredException(accountRole, ex);
         }
+    }
+
+    private static bool CanUseCachedAccountAfterTemporaryValidationFailure(
+        TwitchAccountSnapshot account,
+        IReadOnlyCollection<string> requiredScopes,
+        TwitchApiException exception)
+    {
+        return IsTemporaryTokenValidationFailure(exception)
+            && !string.IsNullOrWhiteSpace(account.AccessToken)
+            && !string.IsNullOrWhiteSpace(account.UserId)
+            && account.AccessTokenExpiresAt is { } expiresAt
+            && expiresAt > DateTimeOffset.UtcNow.Add(CachedTokenValidationGraceWindow)
+            && GetMissingScopes(account.Scopes, requiredScopes).Length == 0;
+    }
+
+    private static bool IsTemporaryTokenValidationFailure(TwitchApiException exception)
+    {
+        var statusCode = (int)exception.StatusCode;
+        return exception.StatusCode == System.Net.HttpStatusCode.RequestTimeout
+            || exception.StatusCode == System.Net.HttpStatusCode.TooManyRequests
+            || statusCode >= 500;
+    }
+
+    private static string[] GetMissingScopes(IEnumerable<string> existingScopes, IEnumerable<string> requiredScopes)
+    {
+        return requiredScopes
+            .Where(scope => existingScopes.All(existing => !string.Equals(existing, scope, StringComparison.OrdinalIgnoreCase)))
+            .ToArray();
     }
 
     private async Task StopOscRouterSafelyAsync()
@@ -8280,7 +8360,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             throw new InvalidOperationException("Crystal Relay could not load its built-in Twitch app ID.");
         }
 
-        if (string.IsNullOrWhiteSpace(configuration.Broadcaster.AccessToken))
+        if (string.IsNullOrWhiteSpace(configuration.Broadcaster.AccessToken)
+            && string.IsNullOrWhiteSpace(configuration.Broadcaster.RefreshToken))
         {
             throw new InvalidOperationException("Connect your broadcaster Twitch account before starting the bridge.");
         }

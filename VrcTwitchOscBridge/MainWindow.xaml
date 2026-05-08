@@ -2466,72 +2466,35 @@
                                                     BorderBrush="{DynamicResource InputBorderBrush}"
                                                     BorderThickness="1"
                                                     CornerRadius="12">
-                                                <StackPanel>
-                                                    <Grid>
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="*" />
-                                                            <ColumnDefinition Width="Auto" />
-                                                        </Grid.ColumnDefinitions>
-                                                        <TextBlock Grid.Column="0"
-                                                                   Text="{loc:Translate 'VRChat World Command'}"
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel Grid.Column="0">
+                                                        <TextBlock Text="{loc:Translate 'Built-in bot commands'}"
                                                                    Style="{StaticResource HeadingTextStyle}"
                                                                    FontSize="16"
                                                                    FontWeight="SemiBold"
                                                                    Foreground="{DynamicResource TextBrush}"
                                                                    TextWrapping="Wrap" />
-                                                        <Button Grid.Column="1"
-                                                                Margin="8,0,0,0"
-                                                                Style="{StaticResource HelpIconButtonStyle}"
-                                                                Click="OnHelpButtonClicked"
-                                                                CommandParameter="VRChat World Command"
-                                                                Tag="When enabled, viewers can use !world to ask where the streamer is in VRChat. Crystal Relay only posts the public world name and world page link. It never posts the instance ID, invite/private suffix, nonce, region, or full VRChat location." />
-                                                    </Grid>
-                                                    <CheckBox Margin="0,10,0,0"
-                                                              Content="{loc:Translate 'Enable !world command'}"
-                                                              IsChecked="{Binding Settings.WorldCommandEnabled, UpdateSourceTrigger=PropertyChanged}" />
-                                                    <Grid Margin="0,10,0,0">
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="*" />
-                                                            <ColumnDefinition Width="*" />
-                                                        </Grid.ColumnDefinitions>
-                                                        <StackPanel Grid.Column="0"
-                                                                    Margin="0,0,8,0">
-                                                            <TextBlock Text="{loc:Translate 'World Command Permission'}"
-                                                                       FontWeight="SemiBold"
-                                                                       Foreground="{DynamicResource TextBrush}" />
-                                                            <ComboBox Margin="0,6,0,0"
-                                                                      ItemsSource="{Binding DataContext.ChatCommandPermissionOptions, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                      DisplayMemberPath="Label"
-                                                                      SelectedValuePath="Value"
-                                                                      SelectedValue="{Binding Settings.WorldCommandPermission, UpdateSourceTrigger=PropertyChanged}" />
-                                                        </StackPanel>
-                                                        <StackPanel Grid.Column="1"
-                                                                    Margin="8,0,0,0">
-                                                            <TextBlock Text="{loc:Translate 'World command cooldown'}"
-                                                                       FontWeight="SemiBold"
-                                                                       Foreground="{DynamicResource TextBrush}" />
-                                                            <Grid Margin="0,6,0,0">
-                                                                <Grid.ColumnDefinitions>
-                                                                    <ColumnDefinition Width="96" />
-                                                                    <ColumnDefinition Width="*" />
-                                                                </Grid.ColumnDefinitions>
-                                                                <TextBox Grid.Column="0"
-                                                                         Text="{Binding Settings.WorldCommandCooldownSeconds, UpdateSourceTrigger=PropertyChanged}" />
-                                                                <TextBlock Grid.Column="1"
-                                                                           Margin="8,0,0,0"
-                                                                           VerticalAlignment="Center"
-                                                                           Text="{loc:Translate 'seconds'}"
-                                                                           Foreground="{DynamicResource TextBrush}"
-                                                                           FontWeight="SemiBold"
-                                                                           TextWrapping="Wrap" />
-                                                            </Grid>
-                                                        </StackPanel>
-                                                    </Grid>
-                                                    <TextBlock Margin="0,8,0,0"
-                                                               Text="{loc:Translate 'When enabled, viewers can use !world to ask where the streamer is in VRChat. Crystal Relay only posts the public world name and world page link. It never posts the instance ID, invite/private suffix, nonce, region, or full VRChat location.'}"
-                                                               Foreground="{DynamicResource MutedBrush}"
-                                                               TextWrapping="Wrap" />
-                                                </StackPanel>
+                                                        <TextBlock Margin="0,6,0,0"
+                                                                   Text="{Binding BuiltInCommandsSummaryText}"
+                                                                   Foreground="{DynamicResource MutedBrush}"
+                                                                   TextWrapping="Wrap" />
+                                                        <TextBlock Margin="0,4,0,0"
+                                                                   Text="{Binding BuiltInCommandsWarningText}"
+                                                                   Foreground="{DynamicResource DangerBrush}"
+                                                                   TextWrapping="Wrap"
+                                                                   Visibility="{Binding HasBuiltInCommandsWarning, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                                    </StackPanel>
+                                                    <Button Grid.Column="1"
+                                                            Margin="14,0,0,0"
+                                                            VerticalAlignment="Center"
+                                                            Style="{StaticResource SecondaryButtonStyle}"
+                                                            Content="{loc:Translate 'Commands...'}"
+                                                            Command="{Binding OpenBuiltInCommandsCommand}" />
+                                                </Grid>
                                             </Border>
 
                                             <Border Margin="0,14,0,0"
@@ -2588,67 +2551,6 @@
                                                                Text="{loc:Translate 'Crystal Relay only posts these automatic trigger messages while Twitch says the stream is live. It skips the timed message if no current-avatar trigger info is available.'}"
                                                                Foreground="{DynamicResource MutedBrush}"
                                                                TextWrapping="Wrap" />
-                                                    <Border Margin="0,14,0,0"
-                                                            Padding="12"
-                                                            Background="{DynamicResource NestedPanelBrush}"
-                                                            BorderBrush="{DynamicResource InputBorderBrush}"
-                                                            BorderThickness="1"
-                                                            CornerRadius="10">
-                                                        <StackPanel>
-                                                            <CheckBox Content="{loc:Translate 'Allow reminder command'}"
-                                                                      IsChecked="{Binding Settings.TriggerInfoCommandEnabled, UpdateSourceTrigger=PropertyChanged}" />
-                                                            <Grid Margin="0,10,0,0">
-                                                                <Grid.ColumnDefinitions>
-                                                                    <ColumnDefinition Width="*" />
-                                                                    <ColumnDefinition Width="*" />
-                                                                </Grid.ColumnDefinitions>
-                                                                <StackPanel Grid.Column="0"
-                                                                            Margin="0,0,8,0">
-                                                                    <TextBlock Text="{loc:Translate 'Reminder Command'}"
-                                                                               FontWeight="SemiBold"
-                                                                               Foreground="{DynamicResource TextBrush}" />
-                                                                    <TextBox Margin="0,6,0,0"
-                                                                             Text="{Binding Settings.TriggerInfoCommandText, UpdateSourceTrigger=PropertyChanged}" />
-                                                                </StackPanel>
-                                                                <StackPanel Grid.Column="1"
-                                                                            Margin="8,0,0,0">
-                                                                    <TextBlock Text="{loc:Translate 'Command Permission'}"
-                                                                               FontWeight="SemiBold"
-                                                                               Foreground="{DynamicResource TextBrush}" />
-                                                                    <ComboBox Margin="0,6,0,0"
-                                                                              ItemsSource="{Binding DataContext.ChatCommandPermissionOptions, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                              DisplayMemberPath="Label"
-                                                                              SelectedValuePath="Value"
-                                                                              SelectedValue="{Binding Settings.TriggerInfoCommandPermission, UpdateSourceTrigger=PropertyChanged}" />
-                                                                </StackPanel>
-                                                            </Grid>
-                                                            <Grid Margin="0,10,0,0">
-                                                                <Grid.ColumnDefinitions>
-                                                                    <ColumnDefinition Width="Auto" />
-                                                                    <ColumnDefinition Width="96" />
-                                                                    <ColumnDefinition Width="*" />
-                                                                </Grid.ColumnDefinitions>
-                                                                <TextBlock Grid.Column="0"
-                                                                           VerticalAlignment="Center"
-                                                                           Text="{loc:Translate 'Command cooldown'}"
-                                                                           Foreground="{DynamicResource TextBrush}"
-                                                                           FontWeight="SemiBold" />
-                                                                <TextBox Grid.Column="1"
-                                                                         Margin="8,0"
-                                                                         Text="{Binding Settings.TriggerInfoCommandCooldownSeconds, UpdateSourceTrigger=PropertyChanged}" />
-                                                                <TextBlock Grid.Column="2"
-                                                                           VerticalAlignment="Center"
-                                                                           Text="{loc:Translate 'seconds'}"
-                                                                           Foreground="{DynamicResource TextBrush}"
-                                                                           FontWeight="SemiBold"
-                                                                           TextWrapping="Wrap" />
-                                                            </Grid>
-                                                            <TextBlock Margin="0,8,0,0"
-                                                                       Text="{loc:Translate 'The reminder command posts the same current trigger info as the timed message, but uses its own cooldown so viewers can ask without waiting for the next automatic post.'}"
-                                                                       Foreground="{DynamicResource MutedBrush}"
-                                                                       TextWrapping="Wrap" />
-                                                        </StackPanel>
-                                                    </Border>
                                                 </StackPanel>
                                             </Border>
                                         </StackPanel>

@@ -372,6 +372,9 @@ public sealed class SettingsStore
                     ? profile.TriggerInfoCommandPermission.Value
                     : settings.TriggerInfoCommandPermission;
             settings.WorldCommandEnabled = profile.WorldCommandEnabled ?? settings.WorldCommandEnabled;
+            settings.WorldCommandText = string.IsNullOrWhiteSpace(profile.WorldCommandText)
+                ? settings.WorldCommandText
+                : profile.WorldCommandText;
             settings.WorldCommandCooldownSeconds = profile.WorldCommandCooldownSeconds is >= 0
                 ? profile.WorldCommandCooldownSeconds.Value
                 : settings.WorldCommandCooldownSeconds;
@@ -511,6 +514,7 @@ public sealed class SettingsStore
             TriggerInfoCommandCooldownSeconds = settings.TriggerInfoCommandCooldownSeconds,
             TriggerInfoCommandPermission = settings.TriggerInfoCommandPermission,
             WorldCommandEnabled = settings.WorldCommandEnabled,
+            WorldCommandText = settings.WorldCommandText,
             WorldCommandCooldownSeconds = settings.WorldCommandCooldownSeconds,
             WorldCommandPermission = settings.WorldCommandPermission,
             ChannelPointRewardTestModeEnabled = settings.ChannelPointRewardTestModeEnabled,
@@ -1652,7 +1656,10 @@ public sealed class SettingsStore
 
         var accessToken = credentialStore.LoadSecret(GetTwitchAccessTokenCredential(role));
         var refreshToken = credentialStore.LoadSecret(GetTwitchRefreshTokenCredential(role));
-        if (string.IsNullOrWhiteSpace(accessToken) || string.IsNullOrWhiteSpace(account.UserId))
+        var broadcasterCanRecoverFromRefreshToken = role == BridgeAccountRole.Broadcaster
+            && !string.IsNullOrWhiteSpace(refreshToken);
+        if ((string.IsNullOrWhiteSpace(accessToken) || string.IsNullOrWhiteSpace(account.UserId))
+            && !broadcasterCanRecoverFromRefreshToken)
         {
             return new TwitchAccountSettings();
         }
@@ -2044,6 +2051,8 @@ public sealed class SettingsStore
         public ChatCommandPermission? TriggerInfoCommandPermission { get; set; }
 
         public bool? WorldCommandEnabled { get; set; }
+
+        public string? WorldCommandText { get; set; }
 
         public int? WorldCommandCooldownSeconds { get; set; }
 

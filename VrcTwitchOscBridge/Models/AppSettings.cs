@@ -46,6 +46,7 @@ public sealed class AppSettings : ObservableObject
     private int triggerInfoCommandCooldownSeconds = 300;
     private ChatCommandPermission triggerInfoCommandPermission = ChatCommandPermission.Everyone;
     private bool worldCommandEnabled;
+    private string worldCommandText = "!world";
     private int worldCommandCooldownSeconds = 30;
     private ChatCommandPermission worldCommandPermission = ChatCommandPermission.Everyone;
     private bool channelPointRewardTestModeEnabled;
@@ -322,6 +323,12 @@ public sealed class AppSettings : ObservableObject
     {
         get => worldCommandEnabled;
         set => SetProperty(ref worldCommandEnabled, value);
+    }
+
+    public string WorldCommandText
+    {
+        get => worldCommandText;
+        set => SetProperty(ref worldCommandText, ChatCommandUtility.Normalize(value));
     }
 
     public int WorldCommandCooldownSeconds

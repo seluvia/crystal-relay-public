@@ -478,5 +478,17 @@
   "Current VRChat world: {0} - {1}": "โลก VRChat ปัจจุบัน: {0} - {1}",
   "Crystal Relay could not find a public VRChat world to share right now.": "Crystal Relay ไม่พบโลก VRChat สาธารณะที่จะแชร์ได้ในตอนนี้",
   "{0} used the VRChat world command.": "{0} ใช้คำสั่งโลก VRChat",
-  "VRChat world command lookup failed without exposing location details.": "การค้นหาคำสั่งโลก VRChat ล้มเหลวโดยไม่เปิดเผยรายละเอียดตำแหน่ง"
+  "VRChat world command lookup failed without exposing location details.": "การค้นหาคำสั่งโลก VRChat ล้มเหลวโดยไม่เปิดเผยรายละเอียดตำแหน่ง",
+  "1 built-in bot command is enabled.": "เปิดใช้คำสั่งบอตในตัว 1 คำสั่งแล้ว",
+  "{0} built-in bot commands are enabled.": "เปิดใช้คำสั่งบอตในตัว {0} คำสั่งแล้ว",
+  "No built-in bot commands are enabled.": "ยังไม่มีคำสั่งบอตในตัวที่เปิดใช้",
+  "Built-In Commands": "คำสั่งในตัว",
+  "Built-In Commands | Crystal Relay": "คำสั่งในตัว | Crystal Relay",
+  "Built-in bot commands": "คำสั่งบอตในตัว",
+  "Commands...": "คำสั่ง...",
+  "Enable command": "เปิดใช้คำสั่ง",
+  "Trigger Info Command": "คำสั่งข้อมูลทริกเกอร์",
+  "Viewers can ask where the streamer is in VRChat. Crystal Relay only posts the public world name and world page link, never instance details.": "ผู้ชมสามารถถามว่าสตรีมเมอร์อยู่ในโลก VRChat ใดได้ Crystal Relay จะโพสต์เฉพาะชื่อโลกสาธารณะและลิงก์หน้าโลกเท่านั้น ไม่โพสต์รายละเอียดอินสแตนซ์",
+  "Two built-in commands use the same chat command. The first matching built-in command runs first, so rename or disable one of them.": "คำสั่งในตัวสองรายการใช้คำสั่งแชทเดียวกัน คำสั่งในตัวที่ตรงรายการแรกจะทำงานก่อน ดังนั้นให้เปลี่ยนชื่อหรือปิดใช้งานหนึ่งรายการ",
+  "A Universal Trigger uses the same command as an enabled built-in command. Built-in commands run first, so the Universal Trigger will only run if the built-in command is disabled or renamed.": "Universal Trigger ใช้คำสั่งเดียวกับคำสั่งในตัวที่เปิดใช้อยู่ คำสั่งในตัวจะทำงานก่อน ดังนั้น Universal Trigger จะทำงานได้ก็ต่อเมื่อปิดใช้งานหรือเปลี่ยนชื่อคำสั่งในตัวนั้น"
 }

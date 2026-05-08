@@ -81,6 +81,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private static readonly TimeSpan ThrottledRewardSyncLogWindow = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan AvatarScaleLimitRewardSyncDebounce = TimeSpan.FromMilliseconds(750);
     private static readonly TimeSpan TwitchAccessTokenRefreshLeadTime = TimeSpan.FromMinutes(15);
+    private static readonly TimeSpan TwitchCachedValidationGraceWindow = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan TwitchPublicRefreshSessionWindow = TimeSpan.FromDays(30);
     private static readonly TimeSpan VrChatLocalStatePollInterval = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan VrChatCurrentAvatarPollInterval = TimeSpan.FromSeconds(15);
@@ -653,7 +654,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         vrChatCurrentAvatarTimer.Start();
 
         ConnectBroadcasterCommand = new AsyncRelayCommand(ConnectBroadcasterAsync);
-        DisconnectBroadcasterCommand = new AsyncRelayCommand(DisconnectBroadcasterAsync, () => Settings.Broadcaster.IsConnected);
+        DisconnectBroadcasterCommand = new AsyncRelayCommand(DisconnectBroadcasterAsync, () => HasRecoverableBroadcasterSession);
         OpenBroadcasterLoginCommand = new RelayCommand(() => OpenUri(BroadcasterVerificationUri), () => !string.IsNullOrWhiteSpace(BroadcasterVerificationUri));
 
         ConnectBotCommand = new AsyncRelayCommand(ConnectBotAsync);
@@ -680,6 +681,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ShowActivitySectionCommand = new RelayCommand(() => SetActiveSection(SectionView.Activity));
         ShowAboutSectionCommand = new RelayCommand(() => SetActiveSection(SectionView.About));
         OpenTwitchChatboxCommand = new RelayCommand(OpenTwitchChatbox);
+        OpenBuiltInCommandsCommand = new RelayCommand(OpenBuiltInCommands);
         ShowSettingsAccountsSectionCommand = new RelayCommand(() => SetActiveSettingsSection(SettingsSectionView.Accounts));
         ShowSettingsVisualsSectionCommand = new RelayCommand(() => SetActiveSettingsSection(SettingsSectionView.Visuals));
         ShowAvatarTriggerRulesCommand = new RelayCommand(ShowAvatarTriggerRules);
@@ -1048,6 +1050,18 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     public string AppDataFolderPath => settingsStore.RootFolderPath;
 
     private bool BroadcasterCanManageRewards => HasScope(Settings.Broadcaster, TwitchScopes.RewardManagement);
+
+    private bool HasRecoverableBroadcasterSession => HasRecoverableBroadcasterAccount(Settings.Broadcaster);
+
+    private static bool HasRecoverableBroadcasterAccount(TwitchAccountSettings account)
+    {
+        return account.IsConnected || !string.IsNullOrWhiteSpace(account.RefreshToken);
+    }
+
+    private static bool HasRecoverableBroadcasterAccount(BroadcasterRewardAccountSnapshot account)
+    {
+        return account.IsConnected || !string.IsNullOrWhiteSpace(account.RefreshToken);
+    }
 
     private bool BroadcasterRewardManagementScopeKnownMissing =>
         Settings.Broadcaster.IsConnected
@@ -2196,7 +2210,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         private set => SetProperty(ref vrChatAvatarStatus, value);
     }
 
-    public bool IsBroadcasterConnected => Settings.Broadcaster.IsConnected;
+    public bool IsBroadcasterConnected => HasRecoverableBroadcasterSession && !broadcasterReconnectRequired;
 
     public bool IsBroadcasterDisconnected => !IsBroadcasterConnected;
 
@@ -2205,6 +2219,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     public bool IsBotDisconnected => !IsBotConnected;
 
     public string EffectiveBotSenderStatusText => BuildEffectiveBotSenderStatusText();
+
+    public string BuiltInCommandsSummaryText => BuildBuiltInCommandsSummaryText();
+
+    public string BuiltInCommandsWarningText => BuildBuiltInCommandsWarningText();
+
+    public bool HasBuiltInCommandsWarning => !string.IsNullOrWhiteSpace(BuiltInCommandsWarningText);
 
     public bool IsVrChatConnected => Settings.VrChat.IsConnected;
 
@@ -2414,6 +2434,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     public RelayCommand ShowAboutSectionCommand { get; }
 
     public RelayCommand OpenTwitchChatboxCommand { get; }
+
+    public RelayCommand OpenBuiltInCommandsCommand { get; }
 
     public RelayCommand ShowSettingsAccountsSectionCommand { get; }
 
@@ -2761,6 +2783,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         twitchChatboxWindow.Closed += OnTwitchChatboxClosed;
         twitchChatboxWindow.Show();
         UpdateChatboxListenerStatus();
+    }
+
+    private void OpenBuiltInCommands()
+    {
+        var dialog = new BuiltInCommandsWindow(SelectedTheme, this)
+        {
+            Owner = Application.Current?.MainWindow
+        };
+        dialog.ShowDialog();
     }
 
     private void OnTwitchChatboxClosed(object? sender, EventArgs e)
@@ -5724,6 +5755,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RaisePropertyChanged(nameof(IsLanguageRestartNoticeVisible));
         RaisePropertyChanged(nameof(LanguageRestartNoticeText));
         RaiseUniversalTriggerGroupProperties();
+        RaiseBuiltInCommandStateProperties();
     }
 
     private void AvatarProfilesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -5958,6 +5990,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
 
         RaiseUniversalTriggerGroupProperties();
+        RaiseBuiltInCommandStateProperties();
         QueueSave();
         QueueBridgeRefresh();
         RefreshRuleCommandStates();
@@ -6031,6 +6064,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         QueueBridgeRefresh();
         RaiseRuleSelectionStateProperties();
         RaiseUniversalTriggerGroupProperties();
+        RaiseBuiltInCommandStateProperties();
         RaisePropertyChanged(nameof(UniversalManagedRewardStatusText));
 
         if (!isSynchronizingManagedRewards
@@ -6770,6 +6804,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RefreshCommandStates();
         RaisePropertyChanged(nameof(ChatboxOscRelayStatusText));
         RaisePropertyChanged(nameof(ChatCommandFallbackHelpText));
+        if (sender is AppSettings && IsBuiltInCommandSettingsProperty(e.PropertyName))
+        {
+            RaiseBuiltInCommandStateProperties();
+        }
+
         var saveDelayMilliseconds = 500;
 
         if (ReferenceEquals(sender, Settings.Broadcaster)
@@ -6996,7 +7035,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         await ReloadRuntimeConfigAsync();
         var configuration = BridgeRuntimeConfiguration.FromSettings(Settings, runtimeConfig, BuildLinkedRewardCooldownLookup());
 
-        if (!Settings.Broadcaster.IsConnected)
+        if (!HasRecoverableBroadcasterSession)
         {
             if (bridgeCoordinator.IsRunning)
             {
@@ -7418,13 +7457,13 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         CancellationToken cancellationToken)
     {
         var accountSnapshot = await GetBroadcasterRewardAccountSnapshotAsync(cancellationToken);
-        if (!accountSnapshot.IsConnected)
+        if (!HasRecoverableBroadcasterAccount(accountSnapshot))
         {
             return ManagedRewardSyncOutcome.Completed;
         }
 
-        if (string.IsNullOrWhiteSpace(accountSnapshot.AccessToken)
-            || string.IsNullOrWhiteSpace(accountSnapshot.UserId)
+        if ((string.IsNullOrWhiteSpace(accountSnapshot.AccessToken)
+                && string.IsNullOrWhiteSpace(accountSnapshot.RefreshToken))
             || string.IsNullOrWhiteSpace(accountSnapshot.TwitchClientId))
         {
             SetUniversalManagedRewardSyncStatus(status);
@@ -7514,22 +7553,48 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         var refreshToken = account.RefreshToken;
         var scopes = account.Scopes.ToArray();
         var expiresAt = account.AccessTokenExpiresAt;
+        var refreshedThisAttempt = false;
 
         if (!string.IsNullOrWhiteSpace(refreshToken)
-            && expiresAt is { } existingExpiresAt
-            && existingExpiresAt <= DateTimeOffset.UtcNow.Add(TwitchAccessTokenRefreshLeadTime))
+            && (string.IsNullOrWhiteSpace(accessToken)
+                || expiresAt is { } existingExpiresAt
+                    && existingExpiresAt <= DateTimeOffset.UtcNow.Add(TwitchAccessTokenRefreshLeadTime)))
         {
-            var refreshedToken = await RefreshBroadcasterAccessTokenForUiAsync(
-                account.TwitchClientId,
-                refreshToken,
-                cancellationToken);
+            TwitchApiClient.TokenExchangeResponse refreshedToken;
+            try
+            {
+                refreshedToken = await RefreshBroadcasterAccessTokenForUiAsync(
+                    account.TwitchClientId,
+                    refreshToken,
+                    cancellationToken);
+            }
+            catch (TwitchApiException ex) when (CanUseCachedBroadcasterToken(account.UserId, accessToken, expiresAt, ex))
+            {
+                return CreateBroadcasterSettingsFromSnapshot(account, accessToken, refreshToken, scopes, expiresAt);
+            }
+
             accessToken = refreshedToken.AccessToken;
-            refreshToken = refreshedToken.RefreshToken;
-            scopes = [.. refreshedToken.Scope];
+            refreshToken = string.IsNullOrWhiteSpace(refreshedToken.RefreshToken)
+                ? refreshToken
+                : refreshedToken.RefreshToken;
+            scopes = refreshedToken.Scope.Count > 0 ? [.. refreshedToken.Scope] : scopes;
             expiresAt = DateTimeOffset.UtcNow.AddSeconds(refreshedToken.ExpiresIn);
+            await PersistBroadcasterRefreshedTokenAsync(
+                CreateBroadcasterSettingsFromSnapshot(account, accessToken, refreshToken, scopes, expiresAt),
+                cancellationToken);
+            refreshedThisAttempt = true;
         }
 
-        var validation = await twitchApiClient.ValidateTokenAsync(accessToken, cancellationToken);
+        TwitchApiClient.TokenValidationResponse? validation;
+        try
+        {
+            validation = await twitchApiClient.ValidateTokenAsync(accessToken, cancellationToken);
+        }
+        catch (TwitchApiException ex) when (CanUseCachedBroadcasterToken(account.UserId, accessToken, expiresAt, ex))
+        {
+            return CreateBroadcasterSettingsFromSnapshot(account, accessToken, refreshToken, scopes, expiresAt);
+        }
+
         if (validation is null)
         {
             if (string.IsNullOrWhiteSpace(refreshToken))
@@ -7537,16 +7602,39 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 throw new InvalidOperationException("The saved broadcaster token expired and has no refresh token.");
             }
 
+            if (refreshedThisAttempt)
+            {
+                throw new InvalidOperationException("The refreshed broadcaster token could not be validated.");
+            }
+
             var refreshedToken = await RefreshBroadcasterAccessTokenForUiAsync(
                 account.TwitchClientId,
                 refreshToken,
                 cancellationToken);
             accessToken = refreshedToken.AccessToken;
-            refreshToken = refreshedToken.RefreshToken;
-            scopes = [.. refreshedToken.Scope];
+            refreshToken = string.IsNullOrWhiteSpace(refreshedToken.RefreshToken)
+                ? refreshToken
+                : refreshedToken.RefreshToken;
+            scopes = refreshedToken.Scope.Count > 0 ? [.. refreshedToken.Scope] : scopes;
             expiresAt = DateTimeOffset.UtcNow.AddSeconds(refreshedToken.ExpiresIn);
-            validation = await twitchApiClient.ValidateTokenAsync(accessToken, cancellationToken)
-                ?? throw new InvalidOperationException("The refreshed broadcaster token could not be validated.");
+            await PersistBroadcasterRefreshedTokenAsync(
+                CreateBroadcasterSettingsFromSnapshot(account, accessToken, refreshToken, scopes, expiresAt),
+                cancellationToken);
+
+            try
+            {
+                validation = await twitchApiClient.ValidateTokenAsync(accessToken, cancellationToken)
+                    ?? throw new InvalidOperationException("The refreshed broadcaster token could not be validated.");
+            }
+            catch (TwitchApiException ex) when (CanUseCachedBroadcasterToken(account.UserId, accessToken, expiresAt, ex))
+            {
+                return CreateBroadcasterSettingsFromSnapshot(account, accessToken, refreshToken, scopes, expiresAt);
+            }
+        }
+
+        if (!string.Equals(validation.ClientId, account.TwitchClientId, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("The saved broadcaster token belongs to a different Twitch app.");
         }
 
         var user = await twitchApiClient.GetUserAsync(
@@ -7570,6 +7658,27 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         };
     }
 
+    private static TwitchAccountSettings CreateBroadcasterSettingsFromSnapshot(
+        BroadcasterRewardAccountSnapshot account,
+        string accessToken,
+        string refreshToken,
+        IReadOnlyCollection<string> scopes,
+        DateTimeOffset? expiresAt)
+    {
+        return new TwitchAccountSettings
+        {
+            AccessToken = accessToken,
+            RefreshToken = refreshToken,
+            UserId = account.UserId,
+            Login = account.Login,
+            DisplayName = account.DisplayName,
+            ProfileImageUrl = account.ProfileImageUrl,
+            AccessTokenExpiresAt = expiresAt,
+            SessionRenewalDueAt = account.SessionRenewalDueAt ?? DateTimeOffset.UtcNow.Add(TwitchPublicRefreshSessionWindow),
+            Scopes = [.. scopes]
+        };
+    }
+
     private async Task<TwitchApiClient.TokenExchangeResponse> RefreshBroadcasterAccessTokenForUiAsync(
         string clientId,
         string refreshToken,
@@ -7577,12 +7686,70 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     {
         try
         {
-            return await twitchApiClient.RefreshAccessTokenAsync(clientId, refreshToken, cancellationToken);
+            return await twitchApiClient.RefreshBroadcasterAccessTokenAsync(clientId, refreshToken, cancellationToken);
         }
         catch (TwitchApiException ex) when (ex.StatusCode is System.Net.HttpStatusCode.BadRequest or System.Net.HttpStatusCode.Unauthorized)
         {
             throw new TwitchAccountReconnectRequiredException(BridgeAccountRole.Broadcaster, ex);
         }
+    }
+
+    private async Task PersistBroadcasterRefreshedTokenAsync(
+        TwitchAccountSettings refreshedAccount,
+        CancellationToken cancellationToken)
+    {
+        if (dispatcher.CheckAccess())
+        {
+            PersistBroadcasterRefreshedToken(refreshedAccount);
+            return;
+        }
+
+        await dispatcher.InvokeAsync(
+            () => PersistBroadcasterRefreshedToken(refreshedAccount),
+            DispatcherPriority.Normal,
+            cancellationToken).Task;
+    }
+
+    private void PersistBroadcasterRefreshedToken(TwitchAccountSettings refreshedAccount)
+    {
+        var bridgeSensitiveChange = HasBridgeSensitiveTwitchAccountChanges(Settings.Broadcaster, refreshedAccount);
+        Settings.Broadcaster.AccessToken = refreshedAccount.AccessToken;
+        Settings.Broadcaster.RefreshToken = refreshedAccount.RefreshToken;
+        Settings.Broadcaster.AccessTokenExpiresAt = refreshedAccount.AccessTokenExpiresAt;
+        Settings.Broadcaster.SessionRenewalDueAt = refreshedAccount.SessionRenewalDueAt;
+        if (refreshedAccount.Scopes.Count > 0)
+        {
+            Settings.Broadcaster.Scopes = [.. refreshedAccount.Scopes];
+        }
+
+        broadcasterReconnectRequired = false;
+        UpdateAccountStatuses();
+        QueueSave(0);
+        if (bridgeSensitiveChange)
+        {
+            QueueBridgeRefresh();
+        }
+    }
+
+    private static bool CanUseCachedBroadcasterToken(
+        string userId,
+        string accessToken,
+        DateTimeOffset? expiresAt,
+        TwitchApiException exception)
+    {
+        return IsTemporaryTokenValidationFailure(exception)
+            && !string.IsNullOrWhiteSpace(userId)
+            && !string.IsNullOrWhiteSpace(accessToken)
+            && expiresAt is { } existingExpiresAt
+            && existingExpiresAt > DateTimeOffset.UtcNow.Add(TwitchCachedValidationGraceWindow);
+    }
+
+    private static bool IsTemporaryTokenValidationFailure(TwitchApiException exception)
+    {
+        var statusCode = (int)exception.StatusCode;
+        return exception.StatusCode == System.Net.HttpStatusCode.RequestTimeout
+            || exception.StatusCode == System.Net.HttpStatusCode.TooManyRequests
+            || statusCode >= 500;
     }
 
     private async Task ApplyBroadcasterAccountRefreshAsync(TwitchAccountSettings refreshedAccount, CancellationToken cancellationToken)
@@ -7666,7 +7833,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             return;
         }
 
-        if (!Settings.Broadcaster.IsConnected)
+        if (!HasRecoverableBroadcasterSession)
         {
             RunOnUi(() => AppendThrottledLog(
                 "managed-rewards-refresh-no-broadcaster",
@@ -9435,14 +9602,14 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             SetUniversalManagedRewardSyncStatus("No Universal channel-point rewards are configured.");
         }
 
-        if (!Settings.Broadcaster.IsConnected)
+        if (!HasRecoverableBroadcasterSession)
         {
             SetUniversalManagedRewardSyncStatus("Universal Twitch reward sync skipped because the broadcaster account is disconnected.");
             return ManagedRewardSyncOutcome.Completed;
         }
 
-        if (string.IsNullOrWhiteSpace(Settings.Broadcaster.AccessToken)
-            || string.IsNullOrWhiteSpace(Settings.Broadcaster.UserId)
+        if ((string.IsNullOrWhiteSpace(Settings.Broadcaster.AccessToken)
+                && string.IsNullOrWhiteSpace(Settings.Broadcaster.RefreshToken))
             || string.IsNullOrWhiteSpace(runtimeConfig.TwitchClientId))
         {
             SetUniversalManagedRewardSyncStatus("Universal Twitch reward sync skipped because the broadcaster login is incomplete.");
@@ -11729,6 +11896,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                     ? $"Connected as {broadcasterDisplayName}, but reconnect Twitch to refresh the background listener."
                 : $"Connected as {broadcasterDisplayName}.";
         }
+        else if (HasRecoverableBroadcasterSession)
+        {
+            BroadcasterStatus = "Checking saved broadcaster login.";
+        }
         else
         {
             BroadcasterStatus = "Broadcaster account not connected.";
@@ -11797,7 +11968,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     private void RefreshStreamingStatusCard()
     {
-        var broadcasterConnected = Settings.Broadcaster.IsConnected;
+        var broadcasterConnected = HasRecoverableBroadcasterSession;
         var normalizedBridgeStatus = BridgeStatus?.Trim() ?? string.Empty;
         var normalizedBroadcasterStatus = BroadcasterStatus?.Trim() ?? string.Empty;
 
@@ -12546,6 +12717,76 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         return T("Connect a bot account or enable broadcaster-as-bot to send Twitch chat messages.");
     }
 
+    private string BuildBuiltInCommandsSummaryText()
+    {
+        var enabledCount = 0;
+        if (Settings.WorldCommandEnabled && ChatCommandUtility.IsConfigured(Settings.WorldCommandText))
+        {
+            enabledCount++;
+        }
+
+        if (Settings.TriggerInfoCommandEnabled && ChatCommandUtility.IsConfigured(Settings.TriggerInfoCommandText))
+        {
+            enabledCount++;
+        }
+
+        return enabledCount switch
+        {
+            0 => T("No built-in bot commands are enabled."),
+            1 => T("1 built-in bot command is enabled."),
+            _ => TF("{0} built-in bot commands are enabled.", enabledCount)
+        };
+    }
+
+    private string BuildBuiltInCommandsWarningText()
+    {
+        var worldCommand = Settings.WorldCommandEnabled
+            ? ChatCommandUtility.Normalize(Settings.WorldCommandText)
+            : string.Empty;
+        var triggerInfoCommand = Settings.TriggerInfoCommandEnabled
+            ? ChatCommandUtility.Normalize(Settings.TriggerInfoCommandText)
+            : string.Empty;
+
+        if (ChatCommandUtility.IsConfigured(worldCommand)
+            && ChatCommandUtility.MessageMatches(worldCommand, triggerInfoCommand))
+        {
+            return T("Two built-in commands use the same chat command. The first matching built-in command runs first, so rename or disable one of them.");
+        }
+
+        var builtInCommands = new[] { worldCommand, triggerInfoCommand }
+            .Where(ChatCommandUtility.IsConfigured)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (builtInCommands.Length > 0
+            && Settings.UniversalTriggers.Any(trigger =>
+                trigger.IsEnabled
+                && trigger.TriggerType == UniversalTriggerType.ChatCommand
+                && builtInCommands.Any(command => ChatCommandUtility.MessageMatches(command, trigger.CommandText))))
+        {
+            return T("A Universal Trigger uses the same command as an enabled built-in command. Built-in commands run first, so the Universal Trigger will only run if the built-in command is disabled or renamed.");
+        }
+
+        return string.Empty;
+    }
+
+    private void RaiseBuiltInCommandStateProperties()
+    {
+        RaisePropertyChanged(nameof(BuiltInCommandsSummaryText));
+        RaisePropertyChanged(nameof(BuiltInCommandsWarningText));
+        RaisePropertyChanged(nameof(HasBuiltInCommandsWarning));
+    }
+
+    private static bool IsBuiltInCommandSettingsProperty(string? propertyName) =>
+        propertyName is nameof(AppSettings.WorldCommandEnabled)
+            or nameof(AppSettings.WorldCommandText)
+            or nameof(AppSettings.WorldCommandCooldownSeconds)
+            or nameof(AppSettings.WorldCommandPermission)
+            or nameof(AppSettings.TriggerInfoCommandEnabled)
+            or nameof(AppSettings.TriggerInfoCommandText)
+            or nameof(AppSettings.TriggerInfoCommandCooldownSeconds)
+            or nameof(AppSettings.TriggerInfoCommandPermission);
+
     private void UpdateOscStatusFromLog(string message)
     {
         if (string.IsNullOrWhiteSpace(message))
@@ -13118,7 +13359,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             : !string.IsNullOrWhiteSpace(BotDeviceCode);
 
         var isConnected = accountRole == BridgeAccountRole.Broadcaster
-            ? Settings.Broadcaster.IsConnected
+            ? HasRecoverableBroadcasterSession
             : Settings.Bot.IsConnected;
 
         var reconnectRequired = accountRole == BridgeAccountRole.Broadcaster

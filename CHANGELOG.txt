@@ -3,9 +3,14 @@ Crystal Relay Changelog
 
 Newest updates appear first. This changelog focuses on the changes users will notice most.
 
-v3.1.2 beta 1
+v3.1.2
 - Added editable Twitch reward descriptions for Crystal Relay-created channel-point rewards, syncing to Twitch's reward prompt field.
 - Blank standard managed rewards now use a formal default description, while Set Trigger shared rewards keep their numbered choice instructions and Fire Sale funding rewards keep their automatic progress prompt.
+- Added float redeem setup improvements, including decimal/percent input modes, optional smooth transitions, and active boost rewards that can appear while a timed float redeem is active.
+- Active Float Boost rewards can add to the current float value, refresh the parent active timer, respect configured min/max values, and use their own reward title, description, cost, cooldown, and ready/cooldown colors.
+- Improved broadcaster Twitch sign-in recovery so Crystal Relay can restore the background listener from a saved refresh token when the access token expires.
+- Broadcaster token refreshes are now gated so startup, EventSub, reward sync, and validation do not spend the same Twitch refresh token at the same time.
+- Temporary Twitch validation or network trouble can keep a still-valid broadcaster session alive, while revoked consent, missing scopes, disconnected Twitch apps, and invalid refresh tokens still ask for reconnect.
 - Linked existing Twitch rewards remain listen-only, so Crystal Relay does not edit their name, cost, description, prompt, color, input settings, visibility, or cooldown.
 
 v3.1.1

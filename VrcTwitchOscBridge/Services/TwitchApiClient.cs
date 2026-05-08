@@ -26,6 +26,11 @@ public sealed class TwitchApiClient : IDisposable
     private static readonly Regex OgImageMetaRegex = new(
         "<meta\\s+property=[\"']og:image[\"']\\s+content=[\"'](?<url>[^\"']+)[\"']",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly TimeSpan BroadcasterRefreshReuseWindow = TimeSpan.FromMinutes(2);
+    private static readonly SemaphoreSlim BroadcasterRefreshGate = new(1, 1);
+    private static string lastBroadcasterRefreshInput = string.Empty;
+    private static TokenExchangeResponse? lastBroadcasterRefreshResponse;
+    private static DateTimeOffset lastBroadcasterRefreshAt = DateTimeOffset.MinValue;
 
     private readonly HttpClient httpClient = new()
     {
@@ -77,6 +82,42 @@ public sealed class TwitchApiClient : IDisposable
         string refreshToken,
         CancellationToken cancellationToken = default)
     {
+        return await RefreshAccessTokenCoreAsync(clientId, refreshToken, cancellationToken);
+    }
+
+    public async Task<TokenExchangeResponse> RefreshBroadcasterAccessTokenAsync(
+        string clientId,
+        string refreshToken,
+        CancellationToken cancellationToken = default)
+    {
+        await BroadcasterRefreshGate.WaitAsync(cancellationToken);
+        try
+        {
+            var now = DateTimeOffset.UtcNow;
+            if (lastBroadcasterRefreshResponse is not null
+                && string.Equals(lastBroadcasterRefreshInput, refreshToken, StringComparison.Ordinal)
+                && lastBroadcasterRefreshAt.Add(BroadcasterRefreshReuseWindow) > now)
+            {
+                return CloneTokenExchangeResponse(lastBroadcasterRefreshResponse);
+            }
+
+            var response = await RefreshAccessTokenCoreAsync(clientId, refreshToken, cancellationToken);
+            lastBroadcasterRefreshInput = refreshToken;
+            lastBroadcasterRefreshResponse = CloneTokenExchangeResponse(response);
+            lastBroadcasterRefreshAt = now;
+            return response;
+        }
+        finally
+        {
+            BroadcasterRefreshGate.Release();
+        }
+    }
+
+    private async Task<TokenExchangeResponse> RefreshAccessTokenCoreAsync(
+        string clientId,
+        string refreshToken,
+        CancellationToken cancellationToken)
+    {
         using var request = new HttpRequestMessage(HttpMethod.Post, "https://id.twitch.tv/oauth2/token")
         {
             Content = new FormUrlEncodedContent(new Dictionary<string, string?>
@@ -89,6 +130,18 @@ public sealed class TwitchApiClient : IDisposable
 
         using var response = await SendAsync(request, cancellationToken);
         return await ReadAsJsonAsync<TokenExchangeResponse>(response, cancellationToken);
+    }
+
+    private static TokenExchangeResponse CloneTokenExchangeResponse(TokenExchangeResponse response)
+    {
+        return new TokenExchangeResponse
+        {
+            AccessToken = response.AccessToken,
+            ExpiresIn = response.ExpiresIn,
+            RefreshToken = response.RefreshToken,
+            Scope = [.. response.Scope],
+            TokenType = response.TokenType
+        };
     }
 
     public async Task<TokenValidationResponse?> ValidateTokenAsync(

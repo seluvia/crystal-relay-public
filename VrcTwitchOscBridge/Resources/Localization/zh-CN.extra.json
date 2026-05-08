@@ -478,5 +478,17 @@
   "Current VRChat world: {0} - {1}": "当前 VRChat 世界：{0} - {1}",
   "Crystal Relay could not find a public VRChat world to share right now.": "Crystal Relay 现在找不到可分享的公开 VRChat 世界。",
   "{0} used the VRChat world command.": "{0} 使用了 VRChat 世界命令。",
-  "VRChat world command lookup failed without exposing location details.": "VRChat 世界命令查询失败，但没有暴露位置详情。"
+  "VRChat world command lookup failed without exposing location details.": "VRChat 世界命令查询失败，但没有暴露位置详情。",
+  "1 built-in bot command is enabled.": "已启用 1 个内置机器人命令。",
+  "{0} built-in bot commands are enabled.": "已启用 {0} 个内置机器人命令。",
+  "No built-in bot commands are enabled.": "没有启用内置机器人命令。",
+  "Built-In Commands": "内置命令",
+  "Built-In Commands | Crystal Relay": "内置命令 | Crystal Relay",
+  "Built-in bot commands": "内置机器人命令",
+  "Commands...": "命令...",
+  "Enable command": "启用命令",
+  "Trigger Info Command": "触发器信息命令",
+  "Viewers can ask where the streamer is in VRChat. Crystal Relay only posts the public world name and world page link, never instance details.": "观众可以询问主播所在的 VRChat 世界。Crystal Relay 只会发布公开世界名称和世界页面链接，绝不会发布实例详情。",
+  "Two built-in commands use the same chat command. The first matching built-in command runs first, so rename or disable one of them.": "两个内置命令使用了相同的聊天命令。第一个匹配的内置命令会先运行，所以请重命名或禁用其中一个。",
+  "A Universal Trigger uses the same command as an enabled built-in command. Built-in commands run first, so the Universal Trigger will only run if the built-in command is disabled or renamed.": "某个 Universal Trigger 使用了与已启用内置命令相同的命令。内置命令会先运行，所以只有禁用或重命名该内置命令后，Universal Trigger 才会运行。"
 }

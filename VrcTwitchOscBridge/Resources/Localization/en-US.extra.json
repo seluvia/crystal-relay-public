@@ -438,5 +438,17 @@
   "Current VRChat world: {0} - {1}": "Current VRChat world: {0} - {1}",
   "Crystal Relay could not find a public VRChat world to share right now.": "Crystal Relay could not find a public VRChat world to share right now.",
   "{0} used the VRChat world command.": "{0} used the VRChat world command.",
-  "VRChat world command lookup failed without exposing location details.": "VRChat world command lookup failed without exposing location details."
+  "VRChat world command lookup failed without exposing location details.": "VRChat world command lookup failed without exposing location details.",
+  "1 built-in bot command is enabled.": "1 built-in bot command is enabled.",
+  "{0} built-in bot commands are enabled.": "{0} built-in bot commands are enabled.",
+  "No built-in bot commands are enabled.": "No built-in bot commands are enabled.",
+  "Built-In Commands": "Built-In Commands",
+  "Built-In Commands | Crystal Relay": "Built-In Commands | Crystal Relay",
+  "Built-in bot commands": "Built-in bot commands",
+  "Commands...": "Commands...",
+  "Enable command": "Enable command",
+  "Trigger Info Command": "Trigger Info Command",
+  "Viewers can ask where the streamer is in VRChat. Crystal Relay only posts the public world name and world page link, never instance details.": "Viewers can ask where the streamer is in VRChat. Crystal Relay only posts the public world name and world page link, never instance details.",
+  "Two built-in commands use the same chat command. The first matching built-in command runs first, so rename or disable one of them.": "Two built-in commands use the same chat command. The first matching built-in command runs first, so rename or disable one of them.",
+  "A Universal Trigger uses the same command as an enabled built-in command. Built-in commands run first, so the Universal Trigger will only run if the built-in command is disabled or renamed.": "A Universal Trigger uses the same command as an enabled built-in command. Built-in commands run first, so the Universal Trigger will only run if the built-in command is disabled or renamed."
 }
