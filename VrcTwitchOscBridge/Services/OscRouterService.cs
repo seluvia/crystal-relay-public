@@ -238,6 +238,12 @@ public sealed class OscRouterService : IAsyncDisposable
 
     public async Task<OscObservedValue?> GetCurrentAvatarParameterValueAsync(string parameterName, CancellationToken cancellationToken = default)
     {
+        var normalizedAddress = VrChatOscClient.NormalizeAvatarParameterAddress(parameterName);
+        return await GetCurrentOscValueAsync(normalizedAddress, cancellationToken);
+    }
+
+    public async Task<OscObservedValue?> GetCurrentOscValueAsync(string address, CancellationToken cancellationToken = default)
+    {
         OSCQueryService service;
         var shouldRefreshDiscovery = false;
 
@@ -260,7 +266,7 @@ public sealed class OscRouterService : IAsyncDisposable
                 ?? throw new InvalidOperationException("Crystal Relay could not find VRChat through OSCQuery yet. Open VRChat with OSC enabled, then try again.");
         }
 
-        var normalizedAddress = VrChatOscClient.NormalizeAvatarParameterAddress(parameterName);
+        var normalizedAddress = VrChatOscClient.NormalizeOscAddress(address);
         OSCQueryRootNode? tree;
         try
         {
@@ -538,6 +544,7 @@ public sealed class OscRouterService : IAsyncDisposable
         }
 
         return tree.GetNodeWithPath("/avatar/change") is not null
+            || tree.GetNodeWithPath("/avatar/eyeheight") is not null
             || tree.GetNodeWithPath("/avatar/parameters") is not null
             || tree.GetNodeWithPath("/input") is not null;
     }
@@ -577,7 +584,11 @@ public sealed class OscRouterService : IAsyncDisposable
     {
         var endpoints = new Dictionary<string, OscParameterType>(StringComparer.Ordinal)
         {
-            ["/avatar/change"] = OscParameterType.String
+            ["/avatar/change"] = OscParameterType.String,
+            ["/avatar/eyeheight"] = OscParameterType.Float,
+            ["/avatar/eyeheightmin"] = OscParameterType.Float,
+            ["/avatar/eyeheightmax"] = OscParameterType.Float,
+            ["/avatar/eyeheightscalingallowed"] = OscParameterType.Bool
         };
 
         foreach (var rule in rules.Where(rule => rule.ActionType == OscActionType.AvatarParameter))
@@ -590,6 +601,40 @@ public sealed class OscRouterService : IAsyncDisposable
             catch (InvalidOperationException ex)
             {
                 LogWritten?.Invoke($"Skipped OSCQuery endpoint for '{rule.Name}' because the avatar parameter path is incomplete: {ex.Message}");
+            }
+        }
+
+        foreach (var rule in rules.Where(rule => rule.ActionType == OscActionType.SetTrigger))
+        {
+            foreach (var action in rule.SetTriggerActions.Where(action =>
+                         action.ParameterType is OscParameterType.Bool or OscParameterType.Int or OscParameterType.Float
+                         && !string.IsNullOrWhiteSpace(action.ParameterName)))
+            {
+                try
+                {
+                    var address = VrChatOscClient.NormalizeAvatarParameterAddress(action.ParameterName);
+                    if (VrChatLocalAvatarDataService.IsHeightOrScaleParameter(address))
+                    {
+                        LogWritten?.Invoke($"Skipped Set Trigger OSCQuery endpoint for '{rule.Name}' because {address} is height or avatar scale related.");
+                        continue;
+                    }
+
+                    if (endpoints.TryGetValue(address, out var existingType))
+                    {
+                        if (existingType != action.ParameterType)
+                        {
+                            LogWritten?.Invoke($"Skipped Set Trigger OSCQuery endpoint for '{rule.Name}' because {address} is already tracked as {existingType}, not {action.ParameterType}.");
+                        }
+
+                        continue;
+                    }
+
+                    endpoints[address] = action.ParameterType;
+                }
+                catch (InvalidOperationException ex)
+                {
+                    LogWritten?.Invoke($"Skipped Set Trigger OSCQuery endpoint for '{rule.Name}' because the avatar parameter path is incomplete: {ex.Message}");
+                }
             }
         }
 

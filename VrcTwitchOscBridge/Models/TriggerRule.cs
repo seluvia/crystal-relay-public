@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using System.ComponentModel;
+using System.Text.Json.Serialization;
 using System.Windows.Media;
 using VrcTwitchOscBridge.Infrastructure;
 using VrcTwitchOscBridge.Services;
@@ -19,7 +21,9 @@ public sealed class TriggerRule : ObservableObject
     private TwitchTriggerType triggerType = TwitchTriggerType.ChannelPoints;
     private string channelPointRewardId = string.Empty;
     private string channelPointRewardTitle = string.Empty;
+    private string channelPointRewardDescription = string.Empty;
     private int channelPointRewardCost = 100;
+    private TwitchRewardSyncMode rewardSyncMode = TwitchRewardSyncMode.CreateOrManage;
     private string managedRewardReadyColor = ManagedRewardPresentation.ReadyBackgroundColor;
     private string managedRewardCooldownColor = ManagedRewardPresentation.InUseBackgroundColor;
     private bool deleteManagedRewardWhenInactive;
@@ -42,6 +46,8 @@ public sealed class TriggerRule : ObservableObject
     private OscParameterType parameterType = OscParameterType.Int;
     private IntZeroDurationMode intZeroDurationMode = global::VrcTwitchOscBridge.Models.IntZeroDurationMode.Fixed;
     private string parameterValue = "1";
+    private FloatValueMode floatValueMode = global::VrcTwitchOscBridge.Models.FloatValueMode.Decimal;
+    private double floatTransitionSeconds;
     private string avatarChangeTargetId = string.Empty;
     private string avatarTargetName = string.Empty;
     private string resetValue = "0";
@@ -54,13 +60,34 @@ public sealed class TriggerRule : ObservableObject
     private int durationSeconds = 10;
     private int cooldownSeconds = 30;
     private string botMessageTemplate = "{user} triggered {rule}. Active for {duration}. Cooldown {cooldown}.";
+    private Guid supporterAvatarProfileId = Guid.Empty;
+    private string supporterAvatarId = string.Empty;
+    private string supporterAvatarName = string.Empty;
+    private bool sharedRewardChoiceEnabled;
+    private int sharedRewardChoiceNumber;
+    private string sharedRewardHelpText = string.Empty;
+    private Guid activeFloatBoostRewardOwnerId = Guid.NewGuid();
+    private bool activeFloatBoostRewardEnabled;
+    private string activeFloatBoostRewardId = string.Empty;
+    private string activeFloatBoostRewardTitle = string.Empty;
+    private string activeFloatBoostRewardDescription = string.Empty;
+    private int activeFloatBoostRewardCost = 100;
+    private int activeFloatBoostRewardCooldownSeconds;
+    private string activeFloatBoostRewardReadyColor = ManagedRewardPresentation.ReadyBackgroundColor;
+    private string activeFloatBoostRewardCooldownColor = ManagedRewardPresentation.InUseBackgroundColor;
+    private string activeFloatBoostAddValue = "0.05";
+    private string activeFloatBoostMinimumValue = "0";
+    private string activeFloatBoostMaximumValue = "1";
+    private ObservableCollection<SetTriggerAction> setTriggerActions = [];
     private ObservableCollection<Guid> temporarilyDisabledRuleIds = [];
+    private string supporterAvatarScopeLabel = string.Empty;
 
     public TriggerRule()
     {
         temporarilyDisabledRuleIds.CollectionChanged += OnTemporarilyDisabledRuleIdsChanged;
         avatarRouletAvatarIds.CollectionChanged += OnAvatarRouletAvatarIdsChanged;
         avatarRouletAvatarNames.CollectionChanged += OnAvatarRouletAvatarNamesChanged;
+        setTriggerActions.CollectionChanged += OnSetTriggerActionsChanged;
     }
 
     public Guid Id
@@ -99,6 +126,8 @@ public sealed class TriggerRule : ObservableObject
                 RaisePropertyChanged(nameof(UsesChannelPointReward));
                 RaisePropertyChanged(nameof(UsesAmountThreshold));
                 RaisePropertyChanged(nameof(UsesAmountScaledDuration));
+                RaisePropertyChanged(nameof(UsesBitsOutfitSetTrigger));
+                RaisePropertyChanged(nameof(UsesSupporterAmountTimerSettings));
                 RaisePropertyChanged(nameof(DurationHelpText));
                 RaisePropertyChanged(nameof(TriggerSummary));
             }
@@ -131,6 +160,12 @@ public sealed class TriggerRule : ObservableObject
         }
     }
 
+    public string ChannelPointRewardDescription
+    {
+        get => channelPointRewardDescription;
+        set => SetProperty(ref channelPointRewardDescription, value ?? string.Empty);
+    }
+
     public int ChannelPointRewardCost
     {
         get => channelPointRewardCost;
@@ -143,6 +178,27 @@ public sealed class TriggerRule : ObservableObject
             }
         }
     }
+
+    public TwitchRewardSyncMode RewardSyncMode
+    {
+        get => rewardSyncMode;
+        set
+        {
+            var normalizedValue = Enum.IsDefined(value)
+                ? value
+                : TwitchRewardSyncMode.CreateOrManage;
+            if (SetProperty(ref rewardSyncMode, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(UsesCreateOrManageReward));
+                RaisePropertyChanged(nameof(UsesLinkedExistingReward));
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public bool UsesCreateOrManageReward => RewardSyncMode == TwitchRewardSyncMode.CreateOrManage;
+
+    public bool UsesLinkedExistingReward => RewardSyncMode == TwitchRewardSyncMode.LinkExisting;
 
     public string ManagedRewardReadyColor
     {
@@ -349,6 +405,17 @@ public sealed class TriggerRule : ObservableObject
         {
             if (SetProperty(ref actionType, value))
             {
+                if (value == OscActionType.SetTrigger)
+                {
+                    SharedRewardChoiceEnabled = true;
+                    if (DurationSeconds <= 0)
+                    {
+                        DurationSeconds = 3;
+                    }
+
+                    EnsureSetTriggerAction();
+                }
+
                 if (value == OscActionType.PlayerMovement && DurationSeconds <= 0)
                 {
                     DurationSeconds = 1;
@@ -362,7 +429,11 @@ public sealed class TriggerRule : ObservableObject
                 RaisePropertyChanged(nameof(UsesAvatarChange));
                 RaisePropertyChanged(nameof(UsesAvatarRoulet));
                 RaisePropertyChanged(nameof(UsesPlayerMovement));
+                RaisePropertyChanged(nameof(UsesSetTrigger));
                 RaisePropertyChanged(nameof(UsesCooldown));
+                RaisePropertyChanged(nameof(UsesBitsOutfitSetTrigger));
+                RaisePropertyChanged(nameof(UsesSupporterAmountTimerSettings));
+                RaisePropertyChanged(nameof(AvatarRedeemListSummary));
                 RaiseActionVisibilityProperties();
                 RaisePropertyChanged(nameof(TriggerSummary));
             }
@@ -453,6 +524,40 @@ public sealed class TriggerRule : ObservableObject
         {
             if (SetProperty(ref parameterValue, value))
             {
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public FloatValueMode FloatValueMode
+    {
+        get => floatValueMode;
+        set
+        {
+            var normalizedValue = Enum.IsDefined(value) ? value : global::VrcTwitchOscBridge.Models.FloatValueMode.Decimal;
+            var previousValue = floatValueMode;
+            if (SetProperty(ref floatValueMode, normalizedValue))
+            {
+                ParameterValue = FloatValueModeConverter.ConvertDisplayText(ParameterValue, previousValue, normalizedValue);
+                ResetValue = FloatValueModeConverter.ConvertDisplayText(ResetValue, previousValue, normalizedValue);
+                ActiveFloatBoostAddValue = FloatValueModeConverter.ConvertDisplayText(ActiveFloatBoostAddValue, previousValue, normalizedValue);
+                ActiveFloatBoostMinimumValue = FloatValueModeConverter.ConvertDisplayText(ActiveFloatBoostMinimumValue, previousValue, normalizedValue);
+                ActiveFloatBoostMaximumValue = FloatValueModeConverter.ConvertDisplayText(ActiveFloatBoostMaximumValue, previousValue, normalizedValue);
+                RaisePropertyChanged(nameof(FloatValueModeHelpText));
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public double FloatTransitionSeconds
+    {
+        get => floatTransitionSeconds;
+        set
+        {
+            var normalizedValue = Math.Clamp(value, 0, 30);
+            if (SetProperty(ref floatTransitionSeconds, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(UsesFloatTransition));
                 RaisePropertyChanged(nameof(TriggerSummary));
             }
         }
@@ -590,10 +695,19 @@ public sealed class TriggerRule : ObservableObject
         get => durationSeconds;
         set
         {
-            var normalizedValue = ActionType == OscActionType.PlayerMovement ? Math.Max(1, value) : value;
+            var normalizedValue = ActionType switch
+            {
+                OscActionType.PlayerMovement => Math.Max(1, value),
+                OscActionType.SetTrigger => value <= 0 ? 3 : value,
+                _ => value
+            };
             if (SetProperty(ref durationSeconds, normalizedValue))
             {
                 RaiseActionVisibilityProperties();
+                RaisePropertyChanged(nameof(UsesFloatTimedValues));
+                RaisePropertyChanged(nameof(UsesFloatTransition));
+                RaisePropertyChanged(nameof(UsesActiveFloatBoostReward));
+                RaisePropertyChanged(nameof(ActiveFloatBoostRewardStatusText));
                 RaisePropertyChanged(nameof(TriggerSummary));
             }
         }
@@ -609,6 +723,233 @@ public sealed class TriggerRule : ObservableObject
     {
         get => botMessageTemplate;
         set => SetProperty(ref botMessageTemplate, value);
+    }
+
+    public Guid SupporterAvatarProfileId
+    {
+        get => supporterAvatarProfileId;
+        set
+        {
+            if (SetProperty(ref supporterAvatarProfileId, value))
+            {
+                RaisePropertyChanged(nameof(HasSupporterAvatarScope));
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public string SupporterAvatarId
+    {
+        get => supporterAvatarId;
+        set
+        {
+            if (SetProperty(ref supporterAvatarId, value ?? string.Empty))
+            {
+                RaisePropertyChanged(nameof(HasSupporterAvatarScope));
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public string SupporterAvatarName
+    {
+        get => supporterAvatarName;
+        set
+        {
+            if (SetProperty(ref supporterAvatarName, value ?? string.Empty))
+            {
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public bool SharedRewardChoiceEnabled
+    {
+        get => sharedRewardChoiceEnabled;
+        set
+        {
+            if (SetProperty(ref sharedRewardChoiceEnabled, value))
+            {
+                if (value && sharedRewardChoiceNumber <= 0)
+                {
+                    SharedRewardChoiceNumber = 1;
+                }
+                else if (!value && ActionType == OscActionType.SetTrigger)
+                {
+                    ActionType = OscActionType.AvatarParameter;
+                }
+
+                RaisePropertyChanged(nameof(UsesSharedRewardChoice));
+                RaisePropertyChanged(nameof(SharedRewardChoiceSummary));
+                RaisePropertyChanged(nameof(AvatarRedeemListSummary));
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public int SharedRewardChoiceNumber
+    {
+        get => sharedRewardChoiceNumber;
+        set
+        {
+            var normalizedValue = Math.Max(0, value);
+            if (SetProperty(ref sharedRewardChoiceNumber, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(UsesSharedRewardChoice));
+                RaisePropertyChanged(nameof(SharedRewardChoiceSummary));
+                RaisePropertyChanged(nameof(AvatarRedeemListSummary));
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public string SharedRewardHelpText
+    {
+        get => sharedRewardHelpText;
+        set
+        {
+            if (SetProperty(ref sharedRewardHelpText, value ?? string.Empty))
+            {
+                RaisePropertyChanged(nameof(SharedRewardChoiceSummary));
+                RaisePropertyChanged(nameof(AvatarRedeemListSummary));
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public Guid ActiveFloatBoostRewardOwnerId
+    {
+        get => activeFloatBoostRewardOwnerId;
+        set => SetProperty(ref activeFloatBoostRewardOwnerId, value == Guid.Empty ? Guid.NewGuid() : value);
+    }
+
+    public bool ActiveFloatBoostRewardEnabled
+    {
+        get => activeFloatBoostRewardEnabled;
+        set
+        {
+            if (SetProperty(ref activeFloatBoostRewardEnabled, value))
+            {
+                RaisePropertyChanged(nameof(UsesActiveFloatBoostReward));
+                RaisePropertyChanged(nameof(ActiveFloatBoostRewardStatusText));
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public string ActiveFloatBoostRewardId
+    {
+        get => activeFloatBoostRewardId;
+        set => SetProperty(ref activeFloatBoostRewardId, value ?? string.Empty);
+    }
+
+    public string ActiveFloatBoostRewardTitle
+    {
+        get => activeFloatBoostRewardTitle;
+        set
+        {
+            if (SetProperty(ref activeFloatBoostRewardTitle, value ?? string.Empty))
+            {
+                RaisePropertyChanged(nameof(ActiveFloatBoostRewardStatusText));
+            }
+        }
+    }
+
+    public string ActiveFloatBoostRewardDescription
+    {
+        get => activeFloatBoostRewardDescription;
+        set => SetProperty(ref activeFloatBoostRewardDescription, value ?? string.Empty);
+    }
+
+    public int ActiveFloatBoostRewardCost
+    {
+        get => activeFloatBoostRewardCost;
+        set => SetProperty(ref activeFloatBoostRewardCost, Math.Max(1, value));
+    }
+
+    public int ActiveFloatBoostRewardCooldownSeconds
+    {
+        get => activeFloatBoostRewardCooldownSeconds;
+        set => SetProperty(ref activeFloatBoostRewardCooldownSeconds, Math.Max(0, value));
+    }
+
+    public string ActiveFloatBoostRewardReadyColor
+    {
+        get => activeFloatBoostRewardReadyColor;
+        set
+        {
+            var normalizedValue = ManagedRewardPresentation.NormalizeReadyBackgroundColor(value);
+            if (SetProperty(ref activeFloatBoostRewardReadyColor, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(ActiveFloatBoostRewardReadyColorBrush));
+            }
+        }
+    }
+
+    public string ActiveFloatBoostRewardCooldownColor
+    {
+        get => activeFloatBoostRewardCooldownColor;
+        set
+        {
+            var normalizedValue = ManagedRewardPresentation.NormalizeCooldownBackgroundColor(value);
+            if (SetProperty(ref activeFloatBoostRewardCooldownColor, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(ActiveFloatBoostRewardCooldownColorBrush));
+            }
+        }
+    }
+
+    public string ActiveFloatBoostAddValue
+    {
+        get => activeFloatBoostAddValue;
+        set
+        {
+            if (SetProperty(ref activeFloatBoostAddValue, value ?? string.Empty))
+            {
+                RaisePropertyChanged(nameof(ActiveFloatBoostRewardStatusText));
+            }
+        }
+    }
+
+    public string ActiveFloatBoostMinimumValue
+    {
+        get => activeFloatBoostMinimumValue;
+        set => SetProperty(ref activeFloatBoostMinimumValue, value ?? string.Empty);
+    }
+
+    public string ActiveFloatBoostMaximumValue
+    {
+        get => activeFloatBoostMaximumValue;
+        set => SetProperty(ref activeFloatBoostMaximumValue, value ?? string.Empty);
+    }
+
+    public ObservableCollection<SetTriggerAction> SetTriggerActions
+    {
+        get => setTriggerActions;
+        set
+        {
+            if (ReferenceEquals(setTriggerActions, value))
+            {
+                return;
+            }
+
+            setTriggerActions.CollectionChanged -= OnSetTriggerActionsChanged;
+            foreach (var action in setTriggerActions)
+            {
+                action.PropertyChanged -= OnSetTriggerActionPropertyChanged;
+            }
+
+            if (SetProperty(ref setTriggerActions, value ?? []))
+            {
+                setTriggerActions.CollectionChanged += OnSetTriggerActionsChanged;
+                foreach (var action in setTriggerActions)
+                {
+                    action.PropertyChanged += OnSetTriggerActionPropertyChanged;
+                }
+
+                RaiseSetTriggerProperties();
+            }
+        }
     }
 
     public ObservableCollection<Guid> TemporarilyDisabledRuleIds
@@ -636,6 +977,28 @@ public sealed class TriggerRule : ObservableObject
 
     public bool UsesAmountScaledDuration => UsesAmountThreshold && AmountScaledDurationEnabled;
 
+    public bool UsesBitsOutfitSetTrigger => TriggerType == TwitchTriggerType.Bits && UsesSetTrigger;
+
+    public bool UsesSupporterAmountTimerSettings => UsesAmountThreshold && !UsesSetTrigger;
+
+    public bool HasSupporterAvatarScope => !string.IsNullOrWhiteSpace(SupporterAvatarId);
+
+    [JsonIgnore]
+    public string SupporterAvatarScopeLabel
+    {
+        get => supporterAvatarScopeLabel;
+        set
+        {
+            if (SetProperty(ref supporterAvatarScopeLabel, value ?? string.Empty))
+            {
+                RaisePropertyChanged(nameof(HasSupporterAvatarScopeLabel));
+            }
+        }
+    }
+
+    [JsonIgnore]
+    public bool HasSupporterAvatarScopeLabel => !string.IsNullOrWhiteSpace(SupporterAvatarScopeLabel);
+
     public bool UsesAvatarParameter => ActionType == OscActionType.AvatarParameter;
 
     public bool UsesAvatarChange => ActionType == OscActionType.AvatarChange;
@@ -644,11 +1007,19 @@ public sealed class TriggerRule : ObservableObject
 
     public bool UsesPlayerMovement => ActionType == OscActionType.PlayerMovement;
 
+    public bool UsesSetTrigger => ActionType == OscActionType.SetTrigger;
+
     public bool UsesCooldown => ActionType != OscActionType.PlayerMovement;
 
     public bool HasSpecialRuleLockouts => TemporarilyDisabledRuleIds.Count > 0;
 
     public bool HasConfiguredChatCommand => ChatCommandUtility.IsConfigured(ChatCommandText);
+
+    public bool UsesSharedRewardChoice => UsesChannelPointReward && SharedRewardChoiceEnabled && SharedRewardChoiceNumber > 0;
+
+    public bool HasSetTriggerActions => SetTriggerActions.Count > 0;
+
+    public int SetTriggerActionCount => SetTriggerActions.Count;
 
     public Brush ManagedRewardReadyColorBrush => CreateColorBrush(ManagedRewardReadyColor);
 
@@ -679,9 +1050,27 @@ public sealed class TriggerRule : ObservableObject
             : "Set reward name"
         : ChannelPointRewardTitle.Trim();
 
-    public string AvatarRedeemListSummary => string.IsNullOrWhiteSpace(ParameterName)
-        ? "Pick the avatar parameter below."
-        : $"Parameter: {ParameterName.Trim()}";
+    public string AvatarRedeemListSummary
+    {
+        get
+        {
+            var parameterSummary = UsesSetTrigger
+                ? SetTriggerSummary
+                : string.IsNullOrWhiteSpace(ParameterName)
+                    ? T("Pick the avatar parameter below.")
+                    : TF("Parameter: {0}", ParameterName.Trim());
+
+            return UsesSharedRewardChoice
+                ? TF("{0} | {1}", SharedRewardChoiceSummary, parameterSummary)
+                : parameterSummary;
+        }
+    }
+
+    public string SharedRewardChoiceSummary => UsesSharedRewardChoice
+        ? TF("Shared reward choice #{0}", SharedRewardChoiceNumber)
+        : T("Shared reward choice not enabled");
+
+    public string SetTriggerSummary => TF("Set Trigger ({0} params)", SetTriggerActions.Count);
 
     public bool UsesTimedAction => DurationSeconds > 0;
 
@@ -692,6 +1081,14 @@ public sealed class TriggerRule : ObservableObject
     public bool UsesIntParameter => UsesAvatarParameter && ParameterType == OscParameterType.Int;
 
     public bool UsesTextOrFloatParameter => UsesAvatarParameter && (ParameterType == OscParameterType.Float || ParameterType == OscParameterType.String);
+
+    public bool UsesFloatParameter => UsesAvatarParameter && ParameterType == OscParameterType.Float;
+
+    public bool UsesFloatTimedValues => UsesFloatParameter && UsesTimedAction;
+
+    public bool UsesFloatTransition => UsesFloatTimedValues && FloatTransitionSeconds > 0;
+
+    public bool UsesActiveFloatBoostReward => UsesFloatTimedValues && ActiveFloatBoostRewardEnabled;
 
     public bool UsesBoolTimedValues => UsesBoolParameter && UsesTimedAction;
 
@@ -710,6 +1107,37 @@ public sealed class TriggerRule : ObservableObject
     public bool UsesDirectTimedValues => UsesTextOrFloatParameter && UsesTimedAction;
 
     public bool UsesAvatarChangeTimedReset => UsesAvatarChange && UsesTimedAction;
+
+    public string FloatValueModeHelpText => FloatValueMode == global::VrcTwitchOscBridge.Models.FloatValueMode.Percent
+        ? T("Percent mode accepts 0 to 100 and sends the converted 0.00 to 1.00 OSC float value.")
+        : T("Decimal mode sends the value directly as a 0.00 to 1.00 OSC float.");
+
+    public string ActiveFloatBoostRewardStatusText
+    {
+        get
+        {
+            if (!UsesActiveFloatBoostReward)
+            {
+                return UsesLinkedExistingReward
+                    ? T("Active boost rewards need a Crystal Relay-managed parent reward.")
+                    : T("Enable this only on timed float Avatar Parameter redeems.");
+            }
+
+            if (UsesLinkedExistingReward)
+            {
+                return T("Active boost reward is configured, but parent hide/show requires a Crystal Relay-managed parent reward.");
+            }
+
+            var title = string.IsNullOrWhiteSpace(ActiveFloatBoostRewardTitle)
+                ? T("Active Boost Reward")
+                : ActiveFloatBoostRewardTitle.Trim();
+            return TF("{0} adds {1} while this redeem is active.", title, ActiveFloatBoostAddValue);
+        }
+    }
+
+    public Brush ActiveFloatBoostRewardReadyColorBrush => CreateColorBrush(ActiveFloatBoostRewardReadyColor);
+
+    public Brush ActiveFloatBoostRewardCooldownColorBrush => CreateColorBrush(ActiveFloatBoostRewardCooldownColor);
 
     public bool HasAvatarRouletPool => AvatarRouletAvatarIds.Count > 0;
 
@@ -775,6 +1203,9 @@ public sealed class TriggerRule : ObservableObject
                         ? TF("Command: {0}", ChatCommandText)
                         : T("Set redeem name")
                     : TF("Redeem: {0} ({1} pts)", ChannelPointRewardTitle, Math.Max(1, ChannelPointRewardCost)),
+                TwitchTriggerType.Bits when UsesBitsOutfitSetTrigger => string.IsNullOrWhiteSpace(SharedRewardHelpText)
+                    ? TF("Bits >= {0} + Outfit name needed", Math.Max(1, MinimumAmount))
+                    : TF("Bits >= {0} + Outfit: {1}", Math.Max(1, MinimumAmount), SharedRewardHelpText.Trim()),
                 TwitchTriggerType.Bits => AmountScaledDurationEnabled
                     ? TF("Bits >= {0} ({1}s per {2} bits)", Math.Max(1, MinimumAmount), Math.Max(1, BitsSecondsPerAmountUnit), Math.Max(1, BitsAmountUnitsPerDuration))
                     : TF("Bits >= {0}", Math.Max(1, MinimumAmount)),
@@ -788,6 +1219,11 @@ public sealed class TriggerRule : ObservableObject
                 && (TriggerType != TwitchTriggerType.ChannelPoints || !string.IsNullOrWhiteSpace(ChannelPointRewardTitle)))
             {
                 trigger = TF("{0} + Command: {1}", trigger, ChatCommandText);
+            }
+
+            if (UsesSharedRewardChoice)
+            {
+                trigger = TF("{0} + Choice #{1}", trigger, SharedRewardChoiceNumber);
             }
 
             var action = ActionType switch
@@ -806,6 +1242,7 @@ public sealed class TriggerRule : ObservableObject
                     TF("Random {0} ({1}-{2})", ParameterName, Math.Min(RangeMinimum, RangeMaximum), Math.Max(RangeMinimum, RangeMaximum)),
                 OscActionType.AvatarParameter when UsesIntParameter && UsesInstantAction && IntZeroDurationMode == global::VrcTwitchOscBridge.Models.IntZeroDurationMode.Cycle =>
                     TF("Cycle {0} ({1}-{2})", ParameterName, Math.Min(RangeMinimum, RangeMaximum), Math.Max(RangeMinimum, RangeMaximum)),
+                OscActionType.SetTrigger => SetTriggerSummary,
                 _ => $"{ParameterName} -> {ParameterValue}"
             };
 
@@ -836,10 +1273,15 @@ public sealed class TriggerRule : ObservableObject
         RaisePropertyChanged(nameof(UsesTimedAction));
         RaisePropertyChanged(nameof(UsesInstantAction));
         RaisePropertyChanged(nameof(UsesPlayerMovement));
+        RaisePropertyChanged(nameof(UsesSetTrigger));
         RaisePropertyChanged(nameof(UsesCooldown));
         RaisePropertyChanged(nameof(UsesBoolParameter));
         RaisePropertyChanged(nameof(UsesIntParameter));
         RaisePropertyChanged(nameof(UsesTextOrFloatParameter));
+        RaisePropertyChanged(nameof(UsesFloatParameter));
+        RaisePropertyChanged(nameof(UsesFloatTimedValues));
+        RaisePropertyChanged(nameof(UsesFloatTransition));
+        RaisePropertyChanged(nameof(UsesActiveFloatBoostReward));
         RaisePropertyChanged(nameof(UsesBoolTimedValues));
         RaisePropertyChanged(nameof(UsesBoolToggleHint));
         RaisePropertyChanged(nameof(UsesIntInstantModeOptions));
@@ -852,6 +1294,11 @@ public sealed class TriggerRule : ObservableObject
         RaisePropertyChanged(nameof(UsesAvatarRoulet));
         RaisePropertyChanged(nameof(HasAvatarRouletPool));
         RaisePropertyChanged(nameof(AvatarRouletPoolSummary));
+        RaisePropertyChanged(nameof(FloatValueModeHelpText));
+        RaisePropertyChanged(nameof(ActiveFloatBoostRewardStatusText));
+        RaisePropertyChanged(nameof(HasSetTriggerActions));
+        RaisePropertyChanged(nameof(SetTriggerActionCount));
+        RaisePropertyChanged(nameof(SetTriggerSummary));
         RaisePropertyChanged(nameof(DurationHelpText));
         RaisePropertyChanged(nameof(IntModeHelpText));
     }
@@ -862,6 +1309,7 @@ public sealed class TriggerRule : ObservableObject
         PlayerMovementDirection.Backward => T("Move Backward"),
         PlayerMovementDirection.Left => T("Move Left"),
         PlayerMovementDirection.Right => T("Move Right"),
+        PlayerMovementDirection.Jump => T("Jump"),
         PlayerMovementDirection.SpinLeft => T("Spin Left"),
         PlayerMovementDirection.SpinRight => T("Spin Right"),
         PlayerMovementDirection.StopMovement => T("Stop Movement"),
@@ -891,5 +1339,71 @@ public sealed class TriggerRule : ObservableObject
         RaisePropertyChanged(nameof(AvatarRouletAvatarNames));
         RaisePropertyChanged(nameof(AvatarRouletPoolSummary));
         RaisePropertyChanged(nameof(TriggerSummary));
+    }
+
+    private void OnSetTriggerActionsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.OldItems is not null)
+        {
+            foreach (SetTriggerAction action in e.OldItems)
+            {
+                action.PropertyChanged -= OnSetTriggerActionPropertyChanged;
+            }
+        }
+
+        if (e.NewItems is not null)
+        {
+            foreach (SetTriggerAction action in e.NewItems)
+            {
+                action.PropertyChanged += OnSetTriggerActionPropertyChanged;
+            }
+        }
+
+        RaiseSetTriggerProperties();
+    }
+
+    private void OnSetTriggerActionPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        RaiseSetTriggerProperties();
+    }
+
+    private void RaiseSetTriggerProperties()
+    {
+        RaisePropertyChanged(nameof(SetTriggerActions));
+        RaisePropertyChanged(nameof(HasSetTriggerActions));
+        RaisePropertyChanged(nameof(SetTriggerActionCount));
+        RaisePropertyChanged(nameof(SetTriggerSummary));
+        RaisePropertyChanged(nameof(AvatarRedeemListSummary));
+        RaisePropertyChanged(nameof(TriggerSummary));
+    }
+
+    private void EnsureSetTriggerAction()
+    {
+        if (SetTriggerActions.Count > 0)
+        {
+            return;
+        }
+
+        SetTriggerActions.Add(CreateSetTriggerActionFromCurrentParameter());
+    }
+
+    private SetTriggerAction CreateSetTriggerActionFromCurrentParameter()
+    {
+        var normalizedType = ParameterType is OscParameterType.Bool or OscParameterType.Int or OscParameterType.Float
+            ? ParameterType
+            : OscParameterType.Int;
+        return new SetTriggerAction
+        {
+            ParameterName = string.IsNullOrWhiteSpace(ParameterName) ? "VRCEmote" : ParameterName.Trim(),
+            ParameterType = normalizedType,
+            ParameterValue = string.IsNullOrWhiteSpace(ParameterValue)
+                ? normalizedType switch
+                {
+                    OscParameterType.Bool => "True",
+                    OscParameterType.Float => "0.0",
+                    _ => "1"
+                }
+                : ParameterValue.Trim()
+        };
     }
 }

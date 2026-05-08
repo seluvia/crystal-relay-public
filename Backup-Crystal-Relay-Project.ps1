@@ -81,6 +81,7 @@ $rootFiles =
 @(
     'AGENTS.md',
     'Backup-Crystal-Relay-AppData.ps1',
+    'Build-Crystal-Relay-Beta.ps1',
     'Build-Crystal-Relay-Release.ps1',
     'Build-Crystal-Relay-Test.ps1',
     'Backup-Crystal-Relay-Project.ps1',

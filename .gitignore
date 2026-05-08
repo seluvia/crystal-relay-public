@@ -1,4 +1,4 @@
-﻿.vs/
+.vs/
 .vscode/
 .idea/
 
@@ -6,11 +6,14 @@
 .dotnet/
 .dotnet-home/
 .nuget/
+.wrangler/
+**/.wrangler/
 
 Backups/
 Releases/
 TestBuilds/
 Code Review/
+temp-build/
 
 **/bin/
 **/obj/
@@ -19,6 +22,9 @@ Code Review/
 *.suo
 *.cache
 *.tmp
+*.nupkg
 
 appsettings.Development.json
 secrets.json
+bridge.runtime.local.json
+*.local.json

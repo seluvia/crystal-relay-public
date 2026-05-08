@@ -11,7 +11,7 @@ namespace VrcTwitchOscBridge.Services;
 /// <summary>
 /// Small Twitch HTTP wrapper used by Crystal Relay.
 /// It handles OAuth/device flow, Helix lookups, EventSub management, reward management,
-/// chat sends, and the protected About-page fallback relay.
+/// chat sends, and optional About-page profile lookups.
 /// </summary>
 public sealed class TwitchApiClient : IDisposable
 {
@@ -20,47 +20,17 @@ public sealed class TwitchApiClient : IDisposable
     {
         PropertyNameCaseInsensitive = true
     };
-    // The About fallback relay values are split into segments so the desktop app does not
-    // advertise the full relay endpoint as one obvious string in plain text.
-    private static readonly string[] AboutLiveRelayHostSegments =
-    [
-        "https://crystal",
-        "-relay",
-        "-live",
-        "-status",
-        ".screminpal",
-        "-animation",
-        ".workers",
-        ".dev"
-    ];
-    private static readonly string[] AboutLiveRelayPathSegments =
-    [
-        "/live",
-        "-status"
-    ];
-    private static readonly string[] AboutLiveRelayHeaderNameSegments =
-    [
-        "x",
-        "-crystal",
-        "-relay",
-        "-about",
-        "-key"
-    ];
-    private static readonly string[] AboutLiveRelayHeaderValueSegments =
-    [
-        "crl",
-        "_abt",
-        "_2026",
-        "_wk",
-        "_screm",
-        "_lock"
-    ];
     private static readonly Regex TwitterImageMetaRegex = new(
         "<meta\\s+name=[\"']twitter:image[\"']\\s+content=[\"'](?<url>[^\"']+)[\"']",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
     private static readonly Regex OgImageMetaRegex = new(
         "<meta\\s+property=[\"']og:image[\"']\\s+content=[\"'](?<url>[^\"']+)[\"']",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly TimeSpan BroadcasterRefreshReuseWindow = TimeSpan.FromMinutes(2);
+    private static readonly SemaphoreSlim BroadcasterRefreshGate = new(1, 1);
+    private static string lastBroadcasterRefreshInput = string.Empty;
+    private static TokenExchangeResponse? lastBroadcasterRefreshResponse;
+    private static DateTimeOffset lastBroadcasterRefreshAt = DateTimeOffset.MinValue;
 
     private readonly HttpClient httpClient = new()
     {
@@ -112,6 +82,42 @@ public sealed class TwitchApiClient : IDisposable
         string refreshToken,
         CancellationToken cancellationToken = default)
     {
+        return await RefreshAccessTokenCoreAsync(clientId, refreshToken, cancellationToken);
+    }
+
+    public async Task<TokenExchangeResponse> RefreshBroadcasterAccessTokenAsync(
+        string clientId,
+        string refreshToken,
+        CancellationToken cancellationToken = default)
+    {
+        await BroadcasterRefreshGate.WaitAsync(cancellationToken);
+        try
+        {
+            var now = DateTimeOffset.UtcNow;
+            if (lastBroadcasterRefreshResponse is not null
+                && string.Equals(lastBroadcasterRefreshInput, refreshToken, StringComparison.Ordinal)
+                && lastBroadcasterRefreshAt.Add(BroadcasterRefreshReuseWindow) > now)
+            {
+                return CloneTokenExchangeResponse(lastBroadcasterRefreshResponse);
+            }
+
+            var response = await RefreshAccessTokenCoreAsync(clientId, refreshToken, cancellationToken);
+            lastBroadcasterRefreshInput = refreshToken;
+            lastBroadcasterRefreshResponse = CloneTokenExchangeResponse(response);
+            lastBroadcasterRefreshAt = now;
+            return response;
+        }
+        finally
+        {
+            BroadcasterRefreshGate.Release();
+        }
+    }
+
+    private async Task<TokenExchangeResponse> RefreshAccessTokenCoreAsync(
+        string clientId,
+        string refreshToken,
+        CancellationToken cancellationToken)
+    {
         using var request = new HttpRequestMessage(HttpMethod.Post, "https://id.twitch.tv/oauth2/token")
         {
             Content = new FormUrlEncodedContent(new Dictionary<string, string?>
@@ -124,6 +130,18 @@ public sealed class TwitchApiClient : IDisposable
 
         using var response = await SendAsync(request, cancellationToken);
         return await ReadAsJsonAsync<TokenExchangeResponse>(response, cancellationToken);
+    }
+
+    private static TokenExchangeResponse CloneTokenExchangeResponse(TokenExchangeResponse response)
+    {
+        return new TokenExchangeResponse
+        {
+            AccessToken = response.AccessToken,
+            ExpiresIn = response.ExpiresIn,
+            RefreshToken = response.RefreshToken,
+            Scope = [.. response.Scope],
+            TokenType = response.TokenType
+        };
     }
 
     public async Task<TokenValidationResponse?> ValidateTokenAsync(
@@ -240,11 +258,20 @@ public sealed class TwitchApiClient : IDisposable
         string accessToken,
         string clientId,
         string broadcasterId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool onlyManageableRewards = false)
     {
+        var rewardsUrl = new StringBuilder("https://api.twitch.tv/helix/channel_points/custom_rewards");
+        rewardsUrl.Append("?broadcaster_id=");
+        rewardsUrl.Append(Uri.EscapeDataString(broadcasterId));
+        if (onlyManageableRewards)
+        {
+            rewardsUrl.Append("&only_manageable_rewards=true");
+        }
+
         using var request = CreateHelixRequest(
             HttpMethod.Get,
-            $"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={Uri.EscapeDataString(broadcasterId)}",
+            rewardsUrl.ToString(),
             accessToken,
             clientId);
 
@@ -262,14 +289,16 @@ public sealed class TwitchApiClient : IDisposable
         bool isEnabled,
         int cooldownSeconds,
         string backgroundColor,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string prompt = "",
+        bool isUserInputRequired = false)
     {
         using var request = CreateHelixRequest(
             HttpMethod.Post,
             $"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={Uri.EscapeDataString(broadcasterId)}",
             accessToken,
             clientId);
-        request.Content = JsonContent.Create(BuildCustomRewardPayload(title, cost, isEnabled, cooldownSeconds, backgroundColor));
+        request.Content = JsonContent.Create(BuildCustomRewardPayload(title, cost, isEnabled, cooldownSeconds, backgroundColor, prompt, isUserInputRequired));
 
         using var response = await SendAsync(request, cancellationToken);
         var payload = await ReadAsJsonAsync<CustomRewardListResponse>(response, cancellationToken);
@@ -287,6 +316,29 @@ public sealed class TwitchApiClient : IDisposable
         bool isEnabled,
         int cooldownSeconds,
         string backgroundColor,
+        CancellationToken cancellationToken = default,
+        string prompt = "",
+        bool isUserInputRequired = false)
+    {
+        using var request = CreateHelixRequest(
+            new HttpMethod("PATCH"),
+            $"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={Uri.EscapeDataString(broadcasterId)}&id={Uri.EscapeDataString(rewardId)}",
+            accessToken,
+            clientId);
+        request.Content = JsonContent.Create(BuildCustomRewardPayload(title, cost, isEnabled, cooldownSeconds, backgroundColor, prompt, isUserInputRequired));
+
+        using var response = await SendAsync(request, cancellationToken);
+        var payload = await ReadAsJsonAsync<CustomRewardListResponse>(response, cancellationToken);
+        return payload.Data.FirstOrDefault()
+            ?? throw new InvalidOperationException("Twitch updated the reward, but returned no reward details.");
+    }
+
+    public async Task<CustomRewardResponse> UpdateCustomRewardVisibilityAsync(
+        string accessToken,
+        string clientId,
+        string broadcasterId,
+        string rewardId,
+        bool isEnabled,
         CancellationToken cancellationToken = default)
     {
         using var request = CreateHelixRequest(
@@ -294,12 +346,15 @@ public sealed class TwitchApiClient : IDisposable
             $"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={Uri.EscapeDataString(broadcasterId)}&id={Uri.EscapeDataString(rewardId)}",
             accessToken,
             clientId);
-        request.Content = JsonContent.Create(BuildCustomRewardPayload(title, cost, isEnabled, cooldownSeconds, backgroundColor));
+        request.Content = JsonContent.Create(new CustomRewardVisibilityMutationPayload
+        {
+            IsEnabled = isEnabled
+        });
 
         using var response = await SendAsync(request, cancellationToken);
         var payload = await ReadAsJsonAsync<CustomRewardListResponse>(response, cancellationToken);
         return payload.Data.FirstOrDefault()
-            ?? throw new InvalidOperationException("Twitch updated the reward, but returned no reward details.");
+            ?? throw new InvalidOperationException("Twitch updated the reward visibility, but returned no reward details.");
     }
 
     public async Task DeleteCustomRewardAsync(
@@ -567,17 +622,28 @@ public sealed class TwitchApiClient : IDisposable
         return ExtractPublicMetaImageUrl(html, OgImageMetaRegex);
     }
 
-    // Supplemental About data is the no-login fallback path. The Worker returns live state,
-    // display names, and profile image URLs so creator/tester cards still work on clean installs.
+    // Supplemental About data is optional and configured outside source control.
     public async Task<IReadOnlyDictionary<string, SupplementalAboutProfileData>> GetSupplementalAboutProfilesAsync(
+        string supplementalAboutProfilesEndpoint,
+        string supplementalAboutProfilesHeaderName = "",
+        string supplementalAboutProfilesHeaderValue = "",
         CancellationToken cancellationToken = default)
     {
-        var relayUri = BuildAboutLiveRelayUri();
+        if (!Uri.TryCreate(supplementalAboutProfilesEndpoint.Trim(), UriKind.Absolute, out var relayUri)
+            || relayUri.Scheme != Uri.UriSchemeHttps)
+        {
+            throw new InvalidOperationException("The supplemental About profile endpoint must be a valid HTTPS URL.");
+        }
+
         using var request = new HttpRequestMessage(HttpMethod.Get, relayUri);
         request.Headers.UserAgent.ParseAdd("CrystalRelayTwitchOsc/desktop");
-        request.Headers.TryAddWithoutValidation(
-            string.Concat(AboutLiveRelayHeaderNameSegments),
-            string.Concat(AboutLiveRelayHeaderValueSegments));
+        if (!string.IsNullOrWhiteSpace(supplementalAboutProfilesHeaderName)
+            && !string.IsNullOrWhiteSpace(supplementalAboutProfilesHeaderValue))
+        {
+            request.Headers.TryAddWithoutValidation(
+                supplementalAboutProfilesHeaderName.Trim(),
+                supplementalAboutProfilesHeaderValue.Trim());
+        }
 
         using var response = await SendAsync(request, cancellationToken);
         var payload = await ReadAsJsonAsync<PublicLiveStatusResponse>(response, cancellationToken);
@@ -650,7 +716,9 @@ public sealed class TwitchApiClient : IDisposable
         int cost,
         bool isEnabled,
         int cooldownSeconds,
-        string backgroundColor)
+        string backgroundColor,
+        string prompt,
+        bool isUserInputRequired)
     {
         var normalizedCooldown = Math.Max(0, cooldownSeconds);
         return new CustomRewardMutationPayload
@@ -660,7 +728,9 @@ public sealed class TwitchApiClient : IDisposable
             IsEnabled = isEnabled,
             IsGlobalCooldownEnabled = normalizedCooldown > 0,
             GlobalCooldownSeconds = normalizedCooldown,
-            BackgroundColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(backgroundColor)
+            BackgroundColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(backgroundColor),
+            Prompt = prompt?.Trim() ?? string.Empty,
+            IsUserInputRequired = isUserInputRequired
         };
     }
 
@@ -696,7 +766,37 @@ public sealed class TwitchApiClient : IDisposable
         }
 
         var message = await ReadErrorMessageAsync(response, cancellationToken);
-        throw new TwitchApiException(response.StatusCode, message);
+        throw new TwitchApiException(response.StatusCode, message, GetRetryAfterUtc(response));
+    }
+
+    private static DateTimeOffset? GetRetryAfterUtc(HttpResponseMessage response)
+    {
+        if (response.Headers.RetryAfter?.Delta is { } retryAfterDelta)
+        {
+            return DateTimeOffset.UtcNow.Add(retryAfterDelta);
+        }
+
+        if (response.Headers.RetryAfter?.Date is { } retryAfterDate)
+        {
+            return retryAfterDate;
+        }
+
+        if (response.Headers.TryGetValues("Ratelimit-Reset", out var resetValues))
+        {
+            var resetValue = resetValues.FirstOrDefault();
+            if (long.TryParse(resetValue, out var resetUnixSeconds))
+            {
+                try
+                {
+                    return DateTimeOffset.FromUnixTimeSeconds(resetUnixSeconds);
+                }
+                catch (ArgumentOutOfRangeException)
+                {
+                }
+            }
+        }
+
+        return null;
     }
 
     private static async Task<string> ReadErrorMessageAsync(HttpResponseMessage response, CancellationToken cancellationToken)
@@ -749,17 +849,6 @@ public sealed class TwitchApiClient : IDisposable
         }
 
         return imageUrl;
-    }
-
-    // Builds the About relay URL. The Worker now serves the app's fixed About dataset only.
-    private static Uri BuildAboutLiveRelayUri()
-    {
-        var builder = new UriBuilder(string.Concat(AboutLiveRelayHostSegments))
-        {
-            Path = string.Concat(AboutLiveRelayPathSegments)
-        };
-
-        return builder.Uri;
     }
 
     public sealed class DeviceCodeResponse
@@ -912,6 +1001,12 @@ public sealed class TwitchApiClient : IDisposable
 
         [JsonPropertyName("background_color")]
         public string BackgroundColor { get; set; } = string.Empty;
+
+        [JsonPropertyName("prompt")]
+        public string Prompt { get; set; } = string.Empty;
+
+        [JsonPropertyName("is_user_input_required")]
+        public bool IsUserInputRequired { get; set; }
     }
 
     private sealed class CustomRewardMutationPayload
@@ -933,6 +1028,18 @@ public sealed class TwitchApiClient : IDisposable
 
         [JsonPropertyName("background_color")]
         public string BackgroundColor { get; set; } = ManagedRewardPresentation.ReadyBackgroundColor;
+
+        [JsonPropertyName("prompt")]
+        public string Prompt { get; set; } = string.Empty;
+
+        [JsonPropertyName("is_user_input_required")]
+        public bool IsUserInputRequired { get; set; }
+    }
+
+    private sealed class CustomRewardVisibilityMutationPayload
+    {
+        [JsonPropertyName("is_enabled")]
+        public bool IsEnabled { get; set; }
     }
 
     public sealed class ChatBadgeSetListResponse
@@ -1046,6 +1153,9 @@ public sealed class TwitchApiClient : IDisposable
     {
         [JsonPropertyName("broadcaster_user_id")]
         public string BroadcasterUserId { get; set; } = string.Empty;
+
+        [JsonPropertyName("to_broadcaster_user_id")]
+        public string ToBroadcasterUserId { get; set; } = string.Empty;
     }
 
     public sealed class EventSubTransportInfo

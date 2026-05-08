@@ -16,5 +16,8 @@ public enum AppTheme
     MainFrame,
     TrashKitty,
     CarrotPatch,
-    TreetendersArm
+    TreetendersArm,
+    Bratwurst,
+    NeonBorb,
+    StinkyOnline
 }

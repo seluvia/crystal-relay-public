@@ -1,0 +1,79 @@
+name: Translation help
+description: Suggest a new translation or improve an existing Crystal Relay translation.
+title: "[Translation]: "
+labels:
+  - translation
+  - community-help
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping translate Crystal Relay.
+
+        Please translate only user-facing text. Keep placeholders such as `{0}`, `{1}`, and `{0:N0}` exactly the same.
+  - type: dropdown
+    id: language
+    attributes:
+      label: Language
+      description: Which language is this for?
+      options:
+        - Spanish (es-ES)
+        - Japanese (ja-JP)
+        - German (de-DE)
+        - French (fr-FR)
+        - Portuguese, Brazil (pt-BR)
+        - Swedish (sv-SE)
+        - Italian (it-IT)
+        - Simplified Chinese (zh-CN)
+        - Traditional Chinese (zh-TW)
+        - Korean (ko-KR)
+        - Russian (ru-RU)
+        - Polish (pl-PL)
+        - Thai (th-TH)
+        - Other / new language
+    validations:
+      required: true
+  - type: input
+    id: file
+    attributes:
+      label: Translation file
+      description: If you know it, name the file, such as `es-ES.extra.json`.
+      placeholder: "es-ES.extra.json"
+    validations:
+      required: false
+  - type: textarea
+    id: english
+    attributes:
+      label: English text or JSON key
+      description: Paste the English text, JSON key, or screen text that needs translation.
+      placeholder: |
+        "Post current trigger info while live"
+    validations:
+      required: true
+  - type: textarea
+    id: translation
+    attributes:
+      label: Suggested translation
+      description: Paste your translated wording here.
+      placeholder: |
+        Your translated text here.
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Add context, tone notes, or explain why the current translation feels wrong.
+    validations:
+      required: false
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Translation safety checklist
+      options:
+        - label: I kept placeholders like `{0}`, `{1}`, and `{0:N0}` unchanged.
+          required: true
+        - label: I did not translate OSC paths such as `/avatar/eyeheight` or `/avatar/parameters/...`.
+          required: true
+        - label: I kept product/platform names recognizable, such as Crystal Relay, Twitch, VRChat, OSC, Bits, Cheer, and `VRC:`.
+          required: true

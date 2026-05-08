@@ -3,6 +3,58 @@ Crystal Relay Changelog
 
 Newest updates appear first. This changelog focuses on the changes users will notice most.
 
+v3.1.2
+- Added editable Twitch reward descriptions for Crystal Relay-created channel-point rewards, syncing to Twitch's reward prompt field.
+- Blank standard managed rewards now use a formal default description, while Set Trigger shared rewards keep their numbered choice instructions and Fire Sale funding rewards keep their automatic progress prompt.
+- Added float redeem setup improvements, including decimal/percent input modes, optional smooth transitions, and active boost rewards that can appear while a timed float redeem is active.
+- Active Float Boost rewards can add to the current float value, refresh the parent active timer, respect configured min/max values, and use their own reward title, description, cost, cooldown, and ready/cooldown colors.
+- Improved broadcaster Twitch sign-in recovery so Crystal Relay can restore the background listener from a saved refresh token when the access token expires.
+- Broadcaster token refreshes are now gated so startup, EventSub, reward sync, and validation do not spend the same Twitch refresh token at the same time.
+- Temporary Twitch validation or network trouble can keep a still-valid broadcaster session alive, while revoked consent, missing scopes, disconnected Twitch apps, and invalid refresh tokens still ask for reconnect.
+- Linked existing Twitch rewards remain listen-only, so Crystal Relay does not edit their name, cost, description, prompt, color, input settings, visibility, or cooldown.
+
+v3.1.1
+- Fixed Avatar Scaling carryover during VRChat avatar swaps so active scale height waits for the new avatar to finish loading, reapplies across repeated swaps, and restores to the configured return height only after the active timer ends.
+
+v3.1.0
+- Added Movement Sets so Movement Redeems can be organized into folders while keeping existing movement rewards, active times, cooldowns, and runtime behavior global.
+- Added real Twitch reward cooldown controls for Universal Trigger and Movement channel-point rewards created by Crystal Relay, while linked rewards stay listen-only.
+- Expanded Trigger Info chat messages and the `!rewards` reminder command so viewers can see current-avatar outfit choices, Bits outfit names, Bits grow/shrink scale words, and sub/gift-sub scale effects.
+- Twitch Chatbox now shows special cards for channel-point redemptions, Bits cheers, subscriptions, resubs, gift subs, and incoming raids, separate from normal chat and not relayed to VRChat chatbox OSC.
+- Supporter Growth Bits can use editable grow/shrink keywords such as `Cheer100 grow` or `Cheer100 shrink`, with ambiguous cheer text rejected instead of guessed.
+- Fire Sale funding rewards now have managed ready/cooldown colors and cooldown control, and Fire Sale progress/log trimming was tightened so large sanitized bug-report logs are trimmed instead of rejected.
+- Crash logs and bug report diagnostics now share stronger sanitization for tokens, cookies, authorization headers, Twitch codes, VRChat auth text, and local Windows usernames.
+- Added a dependency vulnerability scan script and README security notes for local OSC/OSCQuery port behavior.
+- Added TheRaccoonCat to the Cloudflare live-status playtester list so the About page can show the card as live when Twitch reports the channel online.
+
+v3.0.2
+- Added Reward Fire Sale, a new Redeem Library section that can build a shared Bits and optional funding reward goal for temporary or permanent channel-point discounts.
+- Fire Sale tiers can use one discount or the highest reached tier, then apply the discount only to Crystal Relay-created `VRC:` rewards while linked Twitch rewards stay listen-only and unchanged.
+- Temporary Fire Sales restore normal reward prices when the timer ends, and permanent Fire Sales stay active until stopped.
+- Fire Sale progress uses Bits amounts and an optional Crystal Relay-owned funding reward with an editable channel-point conversion rate, without polling Twitch or syncing rewards while progress is only filling.
+- Added Fire Sale test-mode warning text so streamers know starting or stopping a sale can update Crystal Relay-owned Twitch reward prices.
+- Added an in-app Report Bug flow on the About page, with optional sanitized logs and a source-only Cloudflare Worker scaffold for creating public GitHub issues safely.
+- Polished the Report Bug window to match Crystal Relay themes, moved the Report Bug button to the top action bar, and tightened the Worker path so normal browser submissions are rejected while the desktop app can still send reports.
+
+v3.0.1
+- Reworked Avatar Scaling paid support so bits, new subs, resubs, and gift subs feed one Supporter Growth height timer with soft cap, max cap, and fair time-add controls.
+- Added an option that lets channel-point and chat scale redeems temporarily overlay height changes during paid Supporter Growth without shortening, resetting, or canceling the paid timer.
+- Cleaned up the Avatar Scaling setup UI so Supporter Growth is the guided paid-scale path, legacy paid scale trigger types still load, and reward cooldown controls only show where Crystal Relay manages the channel-point reward.
+- Reward and chat scale restores now return to the active paid Supporter Growth height while paid growth is still running, then Supporter Growth restores to Normal Height when its paid timer ends.
+
+v3.0.0
+- Reworked Avatar Sets with shared numbered rewards, Master Outfit Set Rewards, and Set Trigger outfit actions that can change multiple bool, int, and float parameters together.
+- Set Trigger outfit restores now use safe LocalAvatarData snapshots and a 70-second diff window so changed outfit parameters restore back to the values captured before the trigger ran.
+- Added Bits outfit triggers with outfit-name matching, including exact, compact, and fuzzy spelling matching, plus queueing so paid outfit changes restore safely in order.
+- Reorganized Bits + Subs into direct VRChat-avatar scoped supporter triggers and separate avatar-change overrides, with clearer avatar pickers and Use Current Avatar shortcuts.
+- Improved Avatar Scaling with cooldown-free stress tests, transition-gated scale queues, explicit Return Height restores, VRChat min/max bypass per scale redeem, master reward gating, and stronger avatar-swap carryover.
+- Linked existing Twitch rewards are now listen-only: Crystal Relay listens for redemptions without changing Twitch name, cost, cooldown, color, prompt, visibility, or deletion settings.
+- Managed Twitch reward sync now makes fewer API calls, backs off on Twitch rate limits, preserves reward IDs more carefully, and can recycle disabled Crystal Relay-owned `VRC:` rewards only when Twitch's 50 reward cap blocks current-avatar rewards.
+- Added broadcaster-as-bot chat sending and optional live-only outfit trigger announcement messages for current-avatar redeem and Bits outfit triggers.
+- Added the Stinky Online built-in theme and polished Home, Redeem Library, About/support, dropdown, and grouped-list layouts.
+- Fixed Avatar Set parameter picker/type syncing, timed bool restores, Int organizer row selection, Set Trigger dropdown display, reward dropdown stability, streaming status flicker, broadcaster scope recovery, and Test Mode reward population issues.
+- Improved Twitch Chatbox emote handling, including animated GIF emotes, while keeping static emotes working.
+
 v2.9.2
 - Added an optional managed reward cleanup setting that can delete inactive Crystal Relay Twitch rewards instead of only hiding them, helping avoid Twitch's 50 custom reward limit.
 - The cleanup option is available on Avatar Sets, Avatar Change, Movement Redeems, and Universal channel-point rewards, and Crystal Relay recreates or relinks those rewards when they become active again.

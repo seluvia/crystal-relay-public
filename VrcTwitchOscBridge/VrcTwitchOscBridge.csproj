@@ -11,10 +11,10 @@
     <EnableDefaultPageItems>false</EnableDefaultPageItems>
     <ApplicationIcon>Assets\crystal-relay-icon.ico</ApplicationIcon>
     <UseWindowsForms>true</UseWindowsForms>
-    <Version>2.9.2</Version>
-    <AssemblyVersion>2.9.2.0</AssemblyVersion>
-    <FileVersion>2.9.2.0</FileVersion>
-    <InformationalVersion>2.9.2</InformationalVersion>
+    <Version>3.1.2</Version>
+    <AssemblyVersion>3.1.2.0</AssemblyVersion>
+    <FileVersion>3.1.2.0</FileVersion>
+    <InformationalVersion>3.1.2</InformationalVersion>
     <AssemblyName>CrystalRelayTwitchOsc</AssemblyName>
     <Product>Crystal Relay</Product>
     <Title>Crystal Relay - Twitch to OSC</Title>
@@ -27,6 +27,9 @@
   <ItemGroup>
     <ApplicationDefinition Include="App.xaml" />
     <Page Include="MainWindow.xaml" />
+    <Page Include="ActiveFloatBoostRewardWindow.xaml" />
+    <Page Include="BuiltInCommandsWindow.xaml" />
+    <Page Include="BugReportWindow.xaml" />
     <Page Include="ThemeBackgrounds\*.xaml" />
     <Page Include="TwitchChatboxWindow.xaml" />
     <Page Include="ThemedDialogWindow.xaml" />
@@ -52,7 +55,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="App.xaml.cs" />
+    <Compile Include="ActiveFloatBoostRewardWindow.xaml.cs" />
     <Compile Include="AssemblyInfo.cs" />
+    <Compile Include="BuiltInCommandsWindow.xaml.cs" />
+    <Compile Include="BugReportWindow.xaml.cs" />
     <Compile Include="ComboBoxInteraction.cs" />
     <Compile Include="MainWindow.xaml.cs" />
     <Compile Include="TwitchChatboxWindow.xaml.cs" />
@@ -69,14 +75,20 @@
     <Compile Include="Models\AppLanguage.cs" />
     <Compile Include="Models\AppSettings.cs" />
     <Compile Include="Models\AvatarTriggerProfile.cs" />
+    <Compile Include="Models\AvatarScaleRule.cs" />
     <Compile Include="Models\ChatCommandPermission.cs" />
     <Compile Include="Models\ChatCommandUtility.cs" />
+    <Compile Include="Models\FloatValueMode.cs" />
     <Compile Include="Models\IntZeroDurationMode.cs" />
+    <Compile Include="Models\MovementRedeemSet.cs" />
     <Compile Include="Models\OscActionType.cs" />
     <Compile Include="Models\OscParameterType.cs" />
     <Compile Include="Models\PlayerMovementDirection.cs" />
+    <Compile Include="Models\RewardFireSaleSettings.cs" />
+    <Compile Include="Models\SetTriggerAction.cs" />
     <Compile Include="Models\TriggerRule.cs" />
     <Compile Include="Models\TwitchAccountSettings.cs" />
+    <Compile Include="Models\TwitchRewardSyncMode.cs" />
     <Compile Include="Models\TwitchTriggerType.cs" />
     <Compile Include="Models\UniversalTriggerAction.cs" />
     <Compile Include="Models\UniversalTriggerRule.cs" />
@@ -91,11 +103,13 @@
     <Compile Include="Services\BridgeAccountRole.cs" />
     <Compile Include="Services\BridgeCoordinator.cs" />
     <Compile Include="Services\BridgeRuntimeConfiguration.cs" />
+    <Compile Include="Services\BugReportService.cs" />
     <Compile Include="Services\ChatboxRelayModerationFilter.cs" />
     <Compile Include="Services\CrashLogService.cs" />
     <Compile Include="Services\DesktopInputLockService.cs" />
     <Compile Include="Services\EmbeddedMediaCacheService.cs" />
     <Compile Include="Services\FoomaInteractionConfigImporter.cs" />
+    <Compile Include="Services\FloatValueModeConverter.cs" />
     <Compile Include="Services\LocalizationService.cs" />
     <Compile Include="Services\ManagedRewardPresentation.cs" />
     <Compile Include="Services\OscRouterService.cs" />
@@ -103,14 +117,17 @@
     <Compile Include="Services\RuntimeConfigStore.cs" />
     <Compile Include="Services\ShutdownRecoveryStateStore.cs" />
     <Compile Include="Services\SettingsStore.cs" />
+    <Compile Include="Services\SensitiveTextSanitizer.cs" />
     <Compile Include="Services\TwitchApiClient.cs" />
     <Compile Include="Services\TwitchApiException.cs" />
     <Compile Include="Services\ThemeManager.cs" />
+    <Compile Include="Services\TwitchAccountReconnectRequiredException.cs" />
     <Compile Include="Services\TwitchEventSubSession.cs" />
     <Compile Include="Services\TwitchScopes.cs" />
     <Compile Include="Services\UniversalTriggerFusionService.cs" />
     <Compile Include="Services\VrChatApiClient.cs" />
     <Compile Include="Services\VrChatApiException.cs" />
+    <Compile Include="Services\VrChatLocalAvatarDataService.cs" />
     <Compile Include="Services\VrChatLocalClientStateService.cs" />
     <Compile Include="Services\VrChatLocalOscCacheService.cs" />
     <Compile Include="Services\VrChatOscClient.cs" />

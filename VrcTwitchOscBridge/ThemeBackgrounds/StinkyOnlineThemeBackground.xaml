@@ -1,0 +1,139 @@
+<Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid.Background>
+        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#050505" Offset="0" />
+            <GradientStop Color="#130D0A" Offset="0.42" />
+            <GradientStop Color="#080607" Offset="0.74" />
+            <GradientStop Color="#030303" Offset="1" />
+        </LinearGradientBrush>
+    </Grid.Background>
+
+    <Canvas ClipToBounds="True">
+        <Ellipse Width="540" Height="540" Canvas.Left="-210" Canvas.Top="-170" Fill="#1822D3EE" />
+        <Ellipse Width="440" Height="440" Canvas.Left="1120" Canvas.Top="-110" Fill="#1CFF4FB8" />
+        <Ellipse Width="560" Height="560" Canvas.Left="980" Canvas.Top="430" Fill="#1022D3EE" />
+        <Ellipse Width="360" Height="360" Canvas.Left="320" Canvas.Top="585" Fill="#18FF4FB8" />
+
+        <Rectangle Width="1720"
+                   Height="240"
+                   Canvas.Left="-80"
+                   Canvas.Top="690"
+                   Fill="#AA0D0A08" />
+
+        <Path Data="M 0,730 H 1540 M 0,772 H 1540 M 0,818 H 1540 M 0,866 H 1540"
+              Stroke="#5B4A34"
+              StrokeThickness="1.2"
+              Opacity="0.48" />
+
+        <Line X1="180" Y1="820" X2="760" Y2="120" Stroke="#22D3EE" StrokeThickness="1.4" Opacity="0.28" />
+        <Line X1="420" Y1="900" X2="820" Y2="130" Stroke="#FF4FB8" StrokeThickness="1.2" Opacity="0.24" />
+        <Line X1="1360" Y1="840" X2="790" Y2="125" Stroke="#22D3EE" StrokeThickness="1.4" Opacity="0.25" />
+        <Line X1="1120" Y1="930" X2="730" Y2="130" Stroke="#FF4FB8" StrokeThickness="1.2" Opacity="0.22" />
+
+        <Path Data="M 96,156 H 206 V 214 H 316 V 132 H 446 V 188 H 574"
+              Stroke="#22D3EE"
+              StrokeThickness="2.3"
+              Opacity="0.58"
+              StrokeStartLineCap="Round"
+              StrokeEndLineCap="Round"
+              StrokeLineJoin="Round" />
+        <Path Data="M 940,146 H 1050 V 206 H 1160 V 126 H 1292 V 230 H 1438"
+              Stroke="#FF4FB8"
+              StrokeThickness="2.3"
+              Opacity="0.54"
+              StrokeStartLineCap="Round"
+              StrokeEndLineCap="Round"
+              StrokeLineJoin="Round" />
+        <Path Data="M 184,450 H 322 V 530 H 462 V 468 H 610 V 590 H 790"
+              Stroke="#F4CE92"
+              StrokeThickness="2"
+              Opacity="0.38"
+              StrokeStartLineCap="Round"
+              StrokeEndLineCap="Round"
+              StrokeLineJoin="Round" />
+        <Path Data="M 912,430 H 1040 V 520 H 1188 V 456 H 1328 V 582 H 1508"
+              Stroke="#22D3EE"
+              StrokeThickness="2"
+              Opacity="0.38"
+              StrokeStartLineCap="Round"
+              StrokeEndLineCap="Round"
+              StrokeLineJoin="Round" />
+
+        <Rectangle Width="36" Height="130" Canvas.Left="616" Canvas.Top="688" Fill="#4A22D3EE" RadiusX="8" RadiusY="8" />
+        <Rectangle Width="36" Height="190" Canvas.Left="668" Canvas.Top="628" Fill="#5CFF4FB8" RadiusX="8" RadiusY="8" />
+        <Rectangle Width="36" Height="106" Canvas.Left="720" Canvas.Top="712" Fill="#70F4CE92" RadiusX="8" RadiusY="8" />
+        <Rectangle Width="36" Height="226" Canvas.Left="772" Canvas.Top="592" Fill="#6622D3EE" RadiusX="8" RadiusY="8" />
+        <Rectangle Width="36" Height="152" Canvas.Left="824" Canvas.Top="666" Fill="#56FF4FB8" RadiusX="8" RadiusY="8" />
+        <Rectangle Width="36" Height="178" Canvas.Left="876" Canvas.Top="640" Fill="#63F4CE92" RadiusX="8" RadiusY="8" />
+
+        <Ellipse Width="180"
+                 Height="180"
+                 Canvas.Left="118"
+                 Canvas.Top="286"
+                 Fill="#35120F0D"
+                 Stroke="#22D3EE"
+                 StrokeThickness="2.2" />
+        <Ellipse Width="84"
+                 Height="84"
+                 Canvas.Left="166"
+                 Canvas.Top="334"
+                 Fill="#3DFF4FB8"
+                 Stroke="#F4CE92"
+                 StrokeThickness="1.4" />
+        <Ellipse Width="180"
+                 Height="180"
+                 Canvas.Left="1244"
+                 Canvas.Top="286"
+                 Fill="#35120F0D"
+                 Stroke="#FF4FB8"
+                 StrokeThickness="2.2" />
+        <Ellipse Width="84"
+                 Height="84"
+                 Canvas.Left="1292"
+                 Canvas.Top="334"
+                 Fill="#3522D3EE"
+                 Stroke="#F4CE92"
+                 StrokeThickness="1.4" />
+
+        <Path Data="M 540,310 C 610,250 700,224 772,224 C 852,224 940,258 1008,318"
+              Stroke="#F4CE92"
+              StrokeThickness="2"
+              Opacity="0.38"
+              StrokeStartLineCap="Round"
+              StrokeEndLineCap="Round" />
+        <Path Data="M 574,350 C 638,304 708,284 772,284 C 842,284 914,306 976,354"
+              Stroke="#22D3EE"
+              StrokeThickness="2.2"
+              Opacity="0.48"
+              StrokeStartLineCap="Round"
+              StrokeEndLineCap="Round" />
+        <Path Data="M 620,394 C 668,362 718,348 772,348 C 830,348 878,364 924,398"
+              Stroke="#FF4FB8"
+              StrokeThickness="2.2"
+              Opacity="0.48"
+              StrokeStartLineCap="Round"
+              StrokeEndLineCap="Round" />
+
+        <Path Data="M 292,86 L 336,162 L 292,238 L 248,162 Z"
+              Stroke="#F4CE92"
+              StrokeThickness="1.2"
+              Fill="#00000000"
+              Opacity="0.34" />
+        <Path Data="M 1186,72 L 1236,162 L 1186,252 L 1136,162 Z"
+              Stroke="#22D3EE"
+              StrokeThickness="1.2"
+              Fill="#00000000"
+              Opacity="0.36" />
+        <Path Data="M 438,596 L 488,686 L 438,776 L 388,686 Z"
+              Stroke="#FF4FB8"
+              StrokeThickness="1.2"
+              Fill="#00000000"
+              Opacity="0.32" />
+        <Path Data="M 1102,604 L 1152,692 L 1102,780 L 1052,692 Z"
+              Stroke="#F4CE92"
+              StrokeThickness="1.2"
+              Fill="#00000000"
+              Opacity="0.28" />
+    </Canvas>
+</Grid>
