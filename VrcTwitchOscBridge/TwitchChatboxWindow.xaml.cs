@@ -317,6 +317,7 @@ public partial class TwitchChatboxWindow : Window
                 current.MessageText,
                 current.RawUserColor,
                 current.BadgeImageUrls,
+                current.BadgeSetIds,
                 current.InlineFragments,
                 current.ShouldPlayViewerSound,
                 current.ReceivedAt,

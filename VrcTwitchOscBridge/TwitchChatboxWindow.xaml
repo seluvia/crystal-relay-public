@@ -100,6 +100,152 @@
                           ShadowDepth="0"
                           Opacity="0.45"
                           Color="#B388FF" />
+        <SolidColorBrush x:Key="ChatboxRoleCardTextBrush" Color="#FFFDF7" />
+        <SolidColorBrush x:Key="ChatboxRoleCardMutedBrush" Color="#F0E8FF" />
+        <SolidColorBrush x:Key="ChatboxRoleBadgeTextBrush" Color="#150B18" />
+        <DropShadowEffect x:Key="ChatboxRoleCardGlowEffect"
+                          BlurRadius="11"
+                          ShadowDepth="0"
+                          Opacity="0.28"
+                          Color="#7DF9FF" />
+        <LinearGradientBrush x:Key="TwitchStaffCardBrush" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#E9081824" Offset="0" />
+            <GradientStop Color="#E7083442" Offset="0.55" />
+            <GradientStop Color="#E60C1F2C" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="TwitchStaffBorderBrush" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#C7F9FF" Offset="0" />
+            <GradientStop Color="#78D8FF" Offset="0.55" />
+            <GradientStop Color="#D6F7FF" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="TwitchStaffRailBrush" StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#D6F7FF" Offset="0" />
+            <GradientStop Color="#78D8FF" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="TwitchStaffBadgeBrush" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#F7FDFF" Offset="0" />
+            <GradientStop Color="#C7F9FF" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="TwitchModCardBrush" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#E9062014" Offset="0" />
+            <GradientStop Color="#E70A3C2E" Offset="0.62" />
+            <GradientStop Color="#E6082635" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="TwitchModBorderBrush" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#58E987" Offset="0" />
+            <GradientStop Color="#5AE0FF" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="TwitchModRailBrush" StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#50F28D" Offset="0" />
+            <GradientStop Color="#3AD6FF" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="TwitchModBadgeBrush" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#A7F7B8" Offset="0" />
+            <GradientStop Color="#8BE8FF" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="TwitchVipCardBrush" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#E91D0B22" Offset="0" />
+            <GradientStop Color="#E8421238" Offset="0.58" />
+            <GradientStop Color="#E5201430" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="TwitchVipBorderBrush" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#FFD166" Offset="0" />
+            <GradientStop Color="#FF78C7" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="TwitchVipRailBrush" StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#FFD166" Offset="0" />
+            <GradientStop Color="#FF4FB8" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="TwitchVipBadgeBrush" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#FFE89A" Offset="0" />
+            <GradientStop Color="#FFB3DA" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="TwitchArtistCardBrush" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#E91D1832" Offset="0" />
+            <GradientStop Color="#E7073444" Offset="0.58" />
+            <GradientStop Color="#E62A1736" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="TwitchArtistBorderBrush" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#FF8B6E" Offset="0" />
+            <GradientStop Color="#66E8FF" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="TwitchArtistRailBrush" StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#FF7A6A" Offset="0" />
+            <GradientStop Color="#51E7FF" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="TwitchArtistBadgeBrush" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#FFD0C2" Offset="0" />
+            <GradientStop Color="#BDF9FF" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="TwitchTierOneCardBrush" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#E90B1636" Offset="0" />
+            <GradientStop Color="#E81C2858" Offset="0.64" />
+            <GradientStop Color="#E70A3552" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="TwitchTierOneBorderBrush" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#8FB7FF" Offset="0" />
+            <GradientStop Color="#B89CFF" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="TwitchTierOneRailBrush" StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#8FB7FF" Offset="0" />
+            <GradientStop Color="#B89CFF" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="TwitchTierOneBadgeBrush" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#D8E5FF" Offset="0" />
+            <GradientStop Color="#D9CBFF" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="TwitchTierTwoCardBrush" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#E91C1034" Offset="0" />
+            <GradientStop Color="#E93A1554" Offset="0.58" />
+            <GradientStop Color="#E718274C" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="TwitchTierTwoBorderBrush" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#FF9AC7" Offset="0" />
+            <GradientStop Color="#C6A0FF" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="TwitchTierTwoRailBrush" StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#FF9AC7" Offset="0" />
+            <GradientStop Color="#C6A0FF" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="TwitchTierTwoBadgeBrush" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#FFD3E7" Offset="0" />
+            <GradientStop Color="#E3D1FF" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="TwitchTierThreeCardBrush" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#EA26140F" Offset="0" />
+            <GradientStop Color="#E8492326" Offset="0.48" />
+            <GradientStop Color="#E916163B" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="TwitchTierThreeBorderBrush" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#FFE9A6" Offset="0" />
+            <GradientStop Color="#FF9FCF" Offset="0.52" />
+            <GradientStop Color="#FFFFFF" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="TwitchTierThreeRailBrush" StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#FFE9A6" Offset="0" />
+            <GradientStop Color="#FF83C9" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="TwitchTierThreeBadgeBrush" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#FFF5C9" Offset="0" />
+            <GradientStop Color="#FFD0E7" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="TwitchSubscriberCardBrush" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#E80B1D32" Offset="0" />
+            <GradientStop Color="#E7133248" Offset="0.6" />
+            <GradientStop Color="#E61E1842" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="TwitchSubscriberBorderBrush" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#74F1D2" Offset="0" />
+            <GradientStop Color="#B99AFF" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="TwitchSubscriberRailBrush" StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#74F1D2" Offset="0" />
+            <GradientStop Color="#B99AFF" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="TwitchSubscriberBadgeBrush" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#C8F8EC" Offset="0" />
+            <GradientStop Color="#D9CCFF" Offset="1" />
+        </LinearGradientBrush>
 
         <Style TargetType="TextBlock">
             <Setter Property="FontFamily" Value="{DynamicResource BodyFontFamily}" />
@@ -561,6 +707,42 @@
             <Setter Property="CornerRadius" Value="12" />
             <Setter Property="TextElement.Foreground" Value="{DynamicResource TextBrush}" />
             <Style.Triggers>
+                <DataTrigger Binding="{Binding HasBadgeRoleCard}" Value="True">
+                    <Setter Property="BorderThickness" Value="1.5" />
+                    <Setter Property="Effect" Value="{StaticResource ChatboxRoleCardGlowEffect}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsTwitchStaffRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchStaffCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource TwitchStaffBorderBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsModeratorRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchModCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource TwitchModBorderBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsVipRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchVipCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource TwitchVipBorderBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsArtistRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchArtistCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource TwitchArtistBorderBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsTierThreeRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchTierThreeCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource TwitchTierThreeBorderBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsTierTwoRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchTierTwoCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource TwitchTierTwoBorderBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsTierOneRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchTierOneCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource TwitchTierOneBorderBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsSubscriberRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchSubscriberCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource TwitchSubscriberBorderBrush}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Background" Value="{StaticResource CrystalRelayDevCardBrush}" />
                     <Setter Property="BorderBrush" Value="{StaticResource CrystalRelayDevBorderBrush}" />
@@ -578,6 +760,42 @@
             <Setter Property="CornerRadius" Value="12" />
             <Setter Property="TextElement.Foreground" Value="{DynamicResource TextBrush}" />
             <Style.Triggers>
+                <DataTrigger Binding="{Binding HasBadgeRoleCard}" Value="True">
+                    <Setter Property="BorderThickness" Value="1.5" />
+                    <Setter Property="Effect" Value="{StaticResource ChatboxRoleCardGlowEffect}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsTwitchStaffRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchStaffCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource TwitchStaffBorderBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsModeratorRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchModCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource TwitchModBorderBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsVipRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchVipCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource TwitchVipBorderBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsArtistRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchArtistCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource TwitchArtistBorderBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsTierThreeRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchTierThreeCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource TwitchTierThreeBorderBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsTierTwoRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchTierTwoCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource TwitchTierTwoBorderBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsTierOneRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchTierOneCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource TwitchTierOneBorderBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsSubscriberRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchSubscriberCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource TwitchSubscriberBorderBrush}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Background" Value="{StaticResource CrystalRelayDevCardBrush}" />
                     <Setter Property="BorderBrush" Value="{StaticResource CrystalRelayDevBorderBrush}" />
@@ -595,6 +813,41 @@
             <Setter Property="CornerRadius" Value="12" />
             <Setter Property="TextElement.Foreground" Value="{DynamicResource TextBrush}" />
             <Style.Triggers>
+                <DataTrigger Binding="{Binding HasBadgeRoleCard}" Value="True">
+                    <Setter Property="Effect" Value="{StaticResource ChatboxRoleCardGlowEffect}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsTwitchStaffRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchStaffCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource TwitchStaffBorderBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsModeratorRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchModCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource TwitchModBorderBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsVipRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchVipCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource TwitchVipBorderBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsArtistRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchArtistCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource TwitchArtistBorderBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsTierThreeRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchTierThreeCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource TwitchTierThreeBorderBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsTierTwoRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchTierTwoCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource TwitchTierTwoBorderBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsTierOneRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchTierOneCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource TwitchTierOneBorderBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsSubscriberRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchSubscriberCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource TwitchSubscriberBorderBrush}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Background" Value="{StaticResource CrystalRelayDevCardBrush}" />
                     <Setter Property="BorderBrush" Value="{StaticResource CrystalRelayDevBorderBrush}" />
@@ -607,6 +860,9 @@
         <Style x:Key="ChatboxDevContentOffsetStyle" TargetType="StackPanel">
             <Setter Property="Margin" Value="0" />
             <Style.Triggers>
+                <DataTrigger Binding="{Binding HasBadgeRoleCard}" Value="True">
+                    <Setter Property="Margin" Value="12,0,0,0" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Margin" Value="12,0,0,0" />
                 </DataTrigger>
@@ -617,6 +873,9 @@
             <Setter Property="FontSize" Value="11" />
             <Setter Property="Foreground" Value="{DynamicResource TimestampBrush}" />
             <Style.Triggers>
+                <DataTrigger Binding="{Binding HasBadgeRoleCard}" Value="True">
+                    <Setter Property="Foreground" Value="{StaticResource ChatboxRoleCardMutedBrush}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Foreground" Value="{StaticResource CrystalRelayDevMutedBrush}" />
                 </DataTrigger>
@@ -626,6 +885,9 @@
         <Style x:Key="ChatboxPrimaryEntryTextStyle" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
             <Style.Triggers>
+                <DataTrigger Binding="{Binding HasBadgeRoleCard}" Value="True">
+                    <Setter Property="Foreground" Value="{StaticResource ChatboxRoleCardTextBrush}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Foreground" Value="{StaticResource CrystalRelayDevTextBrush}" />
                 </DataTrigger>
@@ -635,6 +897,9 @@
         <Style x:Key="ChatboxMessageBodyTextStyle" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource MessageTextBrush}" />
             <Style.Triggers>
+                <DataTrigger Binding="{Binding HasBadgeRoleCard}" Value="True">
+                    <Setter Property="Foreground" Value="{StaticResource ChatboxRoleCardTextBrush}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Foreground" Value="{StaticResource CrystalRelayDevTextBrush}" />
                 </DataTrigger>
@@ -644,6 +909,9 @@
         <Style x:Key="ChatboxMutedEntryTextStyle" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
             <Style.Triggers>
+                <DataTrigger Binding="{Binding HasBadgeRoleCard}" Value="True">
+                    <Setter Property="Foreground" Value="{StaticResource ChatboxRoleCardMutedBrush}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Foreground" Value="{StaticResource CrystalRelayDevMutedBrush}" />
                 </DataTrigger>
@@ -654,6 +922,10 @@
             <Setter Property="Background" Value="{DynamicResource MessageCardBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource MessageBorderBrush}" />
             <Style.Triggers>
+                <DataTrigger Binding="{Binding HasBadgeRoleCard}" Value="True">
+                    <Setter Property="Background" Value="#55130B24" />
+                    <Setter Property="BorderBrush" Value="{StaticResource ChatboxRoleCardMutedBrush}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Background" Value="{StaticResource CrystalRelayDevInsetBrush}" />
                     <Setter Property="BorderBrush" Value="{StaticResource CrystalRelayDevInsetBorderBrush}" />
@@ -665,6 +937,10 @@
             <Setter Property="Background" Value="{DynamicResource InputBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource MessageBorderBrush}" />
             <Style.Triggers>
+                <DataTrigger Binding="{Binding HasBadgeRoleCard}" Value="True">
+                    <Setter Property="Background" Value="#55130B24" />
+                    <Setter Property="BorderBrush" Value="{StaticResource ChatboxRoleCardMutedBrush}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Background" Value="{StaticResource CrystalRelayDevInsetBrush}" />
                     <Setter Property="BorderBrush" Value="{StaticResource CrystalRelayDevInsetBorderBrush}" />
@@ -675,8 +951,115 @@
         <Style x:Key="ChatboxEventRailStyle" TargetType="Border">
             <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
             <Style.Triggers>
+                <DataTrigger Binding="{Binding IsTwitchStaffRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchStaffRailBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsModeratorRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchModRailBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsVipRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchVipRailBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsArtistRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchArtistRailBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsTierThreeRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchTierThreeRailBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsTierTwoRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchTierTwoRailBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsTierOneRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchTierOneRailBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsSubscriberRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchSubscriberRailBrush}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Background" Value="{StaticResource CrystalRelayDevRailBrush}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="ChatboxRoleRailStyle" TargetType="Border">
+            <Setter Property="Visibility" Value="Collapsed" />
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsTwitchStaffRoleCard}" Value="True">
+                    <Setter Property="Visibility" Value="Visible" />
+                    <Setter Property="Background" Value="{StaticResource TwitchStaffRailBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsModeratorRoleCard}" Value="True">
+                    <Setter Property="Visibility" Value="Visible" />
+                    <Setter Property="Background" Value="{StaticResource TwitchModRailBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsVipRoleCard}" Value="True">
+                    <Setter Property="Visibility" Value="Visible" />
+                    <Setter Property="Background" Value="{StaticResource TwitchVipRailBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsArtistRoleCard}" Value="True">
+                    <Setter Property="Visibility" Value="Visible" />
+                    <Setter Property="Background" Value="{StaticResource TwitchArtistRailBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsTierThreeRoleCard}" Value="True">
+                    <Setter Property="Visibility" Value="Visible" />
+                    <Setter Property="Background" Value="{StaticResource TwitchTierThreeRailBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsTierTwoRoleCard}" Value="True">
+                    <Setter Property="Visibility" Value="Visible" />
+                    <Setter Property="Background" Value="{StaticResource TwitchTierTwoRailBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsTierOneRoleCard}" Value="True">
+                    <Setter Property="Visibility" Value="Visible" />
+                    <Setter Property="Background" Value="{StaticResource TwitchTierOneRailBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsSubscriberRoleCard}" Value="True">
+                    <Setter Property="Visibility" Value="Visible" />
+                    <Setter Property="Background" Value="{StaticResource TwitchSubscriberRailBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
+                    <Setter Property="Visibility" Value="Visible" />
+                    <Setter Property="Background" Value="{StaticResource CrystalRelayDevRailBrush}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="ChatboxRoleBadgeBorderStyle" TargetType="Border">
+            <Setter Property="Margin" Value="8,0,0,0" />
+            <Setter Property="Padding" Value="7,2" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Background" Value="{StaticResource TwitchSubscriberBadgeBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource TwitchSubscriberBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsTwitchStaffRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchStaffBadgeBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource TwitchStaffBorderBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsModeratorRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchModBadgeBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource TwitchModBorderBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsVipRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchVipBadgeBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource TwitchVipBorderBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsArtistRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchArtistBadgeBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource TwitchArtistBorderBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsTierThreeRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchTierThreeBadgeBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource TwitchTierThreeBorderBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsTierTwoRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchTierTwoBadgeBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource TwitchTierTwoBorderBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsTierOneRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource TwitchTierOneBadgeBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource TwitchTierOneBorderBrush}" />
                 </DataTrigger>
             </Style.Triggers>
         </Style>
@@ -689,9 +1072,8 @@
                     <Grid>
                         <Border Width="4"
                                 HorizontalAlignment="Left"
-                                Background="{StaticResource CrystalRelayDevRailBrush}"
                                 CornerRadius="4"
-                                Visibility="{Binding IsCrystalRelayDeveloper, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                Style="{StaticResource ChatboxRoleRailStyle}" />
 
                         <StackPanel Style="{StaticResource ChatboxDevContentOffsetStyle}">
                         <DockPanel LastChildFill="True">
@@ -742,6 +1124,14 @@
                                                FontSize="9"
                                                FontWeight="Bold"
                                                Foreground="{StaticResource CrystalRelayDevBadgeTextBrush}" />
+                                </Border>
+
+                                <Border Style="{StaticResource ChatboxRoleBadgeBorderStyle}"
+                                        Visibility="{Binding HasBadgeRoleCard, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <TextBlock Text="{Binding RoleCardLabel}"
+                                               FontSize="9"
+                                               FontWeight="Bold"
+                                               Foreground="{StaticResource ChatboxRoleBadgeTextBrush}" />
                                 </Border>
                             </StackPanel>
                         </DockPanel>
@@ -801,6 +1191,14 @@
                                                    FontSize="9"
                                                    FontWeight="Bold"
                                                    Foreground="{StaticResource CrystalRelayDevBadgeTextBrush}" />
+                                    </Border>
+
+                                    <Border Style="{StaticResource ChatboxRoleBadgeBorderStyle}"
+                                            Visibility="{Binding HasBadgeRoleCard, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                        <TextBlock Text="{Binding RoleCardLabel}"
+                                                   FontSize="9"
+                                                   FontWeight="Bold"
+                                                   Foreground="{StaticResource ChatboxRoleBadgeTextBrush}" />
                                     </Border>
                                 </StackPanel>
                             </DockPanel>
@@ -889,6 +1287,14 @@
                                                    FontSize="9"
                                                    FontWeight="Bold"
                                                    Foreground="{StaticResource CrystalRelayDevBadgeTextBrush}" />
+                                    </Border>
+
+                                    <Border Style="{StaticResource ChatboxRoleBadgeBorderStyle}"
+                                            Visibility="{Binding HasBadgeRoleCard, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                        <TextBlock Text="{Binding RoleCardLabel}"
+                                                   FontSize="9"
+                                                   FontWeight="Bold"
+                                                   Foreground="{StaticResource ChatboxRoleBadgeTextBrush}" />
                                     </Border>
                                 </StackPanel>
                             </DockPanel>
