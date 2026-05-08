@@ -60,6 +60,46 @@
         <SolidColorBrush x:Key="TitleBarButtonPressedBrush" Color="#543183" />
         <SolidColorBrush x:Key="TitleBarCloseHoverBrush" Color="#B43D62" />
         <SolidColorBrush x:Key="TitleBarClosePressedBrush" Color="#8C2648" />
+        <SolidColorBrush x:Key="CrystalRelayDevTextBrush" Color="#FFF8FF" />
+        <SolidColorBrush x:Key="CrystalRelayDevMutedBrush" Color="#D8C8FF" />
+        <SolidColorBrush x:Key="CrystalRelayDevInsetBrush" Color="#70130B24" />
+        <SolidColorBrush x:Key="CrystalRelayDevInsetBorderBrush" Color="#80B388FF" />
+        <SolidColorBrush x:Key="CrystalRelayDevBadgeTextBrush" Color="#16071F" />
+        <LinearGradientBrush x:Key="CrystalRelayDevCardBrush"
+                             StartPoint="0,0"
+                             EndPoint="1,1">
+            <GradientStop Color="#F5090612" Offset="0" />
+            <GradientStop Color="#EA1D0B39" Offset="0.42" />
+            <GradientStop Color="#E9082038" Offset="0.72" />
+            <GradientStop Color="#EC2B0B36" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="CrystalRelayDevBorderBrush"
+                             StartPoint="0,0"
+                             EndPoint="1,1">
+            <GradientStop Color="#C47DF9FF" Offset="0" />
+            <GradientStop Color="#D8B388FF" Offset="0.34" />
+            <GradientStop Color="#F0FF78D8" Offset="0.68" />
+            <GradientStop Color="#D957F7C7" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="CrystalRelayDevRailBrush"
+                             StartPoint="0,0"
+                             EndPoint="0,1">
+            <GradientStop Color="#7DF9FF" Offset="0" />
+            <GradientStop Color="#B388FF" Offset="0.48" />
+            <GradientStop Color="#FF78D8" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="CrystalRelayDevBadgeBrush"
+                             StartPoint="0,0"
+                             EndPoint="1,1">
+            <GradientStop Color="#F6FAFF" Offset="0" />
+            <GradientStop Color="#BFF8FF" Offset="0.46" />
+            <GradientStop Color="#FBB9FF" Offset="1" />
+        </LinearGradientBrush>
+        <DropShadowEffect x:Key="CrystalRelayDevGlowEffect"
+                          BlurRadius="18"
+                          ShadowDepth="0"
+                          Opacity="0.45"
+                          Color="#B388FF" />
 
         <Style TargetType="TextBlock">
             <Setter Property="FontFamily" Value="{DynamicResource BodyFontFamily}" />
@@ -513,22 +553,151 @@
             <Setter Property="Margin" Value="0,12,0,0" />
         </Style>
 
+        <Style x:Key="ChatboxChatCardBorderStyle" TargetType="Border">
+            <Setter Property="Padding" Value="12,10" />
+            <Setter Property="Background" Value="{DynamicResource MessageCardBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource MessageBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource TextBrush}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource CrystalRelayDevCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource CrystalRelayDevBorderBrush}" />
+                    <Setter Property="BorderThickness" Value="1.5" />
+                    <Setter Property="Effect" Value="{StaticResource CrystalRelayDevGlowEffect}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="ChatboxChannelPointCardBorderStyle" TargetType="Border">
+            <Setter Property="Padding" Value="10" />
+            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource TextBrush}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource CrystalRelayDevCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource CrystalRelayDevBorderBrush}" />
+                    <Setter Property="BorderThickness" Value="1.5" />
+                    <Setter Property="Effect" Value="{StaticResource CrystalRelayDevGlowEffect}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="ChatboxSupportCardBorderStyle" TargetType="Border">
+            <Setter Property="Padding" Value="10" />
+            <Setter Property="Background" Value="{DynamicResource MessageCardBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="BorderThickness" Value="1.5" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource TextBrush}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource CrystalRelayDevCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource CrystalRelayDevBorderBrush}" />
+                    <Setter Property="BorderThickness" Value="1.5" />
+                    <Setter Property="Effect" Value="{StaticResource CrystalRelayDevGlowEffect}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="ChatboxDevContentOffsetStyle" TargetType="StackPanel">
+            <Setter Property="Margin" Value="0" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
+                    <Setter Property="Margin" Value="12,0,0,0" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="ChatboxTimestampTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="{DynamicResource TimestampBrush}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
+                    <Setter Property="Foreground" Value="{StaticResource CrystalRelayDevMutedBrush}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="ChatboxPrimaryEntryTextStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
+                    <Setter Property="Foreground" Value="{StaticResource CrystalRelayDevTextBrush}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="ChatboxMessageBodyTextStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource MessageTextBrush}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
+                    <Setter Property="Foreground" Value="{StaticResource CrystalRelayDevTextBrush}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="ChatboxMutedEntryTextStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
+                    <Setter Property="Foreground" Value="{StaticResource CrystalRelayDevMutedBrush}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="ChatboxInlinePanelStyle" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource MessageCardBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource MessageBorderBrush}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource CrystalRelayDevInsetBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource CrystalRelayDevInsetBorderBrush}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="ChatboxInputInlinePanelStyle" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource MessageBorderBrush}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource CrystalRelayDevInsetBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource CrystalRelayDevInsetBorderBrush}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="ChatboxEventRailStyle" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource CrystalRelayDevRailBrush}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
         <DataTemplate DataType="{x:Type vm:TwitchChatMessageEntry}">
             <Grid Margin="0,0,0,10"
                   Opacity="{Binding DataContext.Settings.ChatOpacity, RelativeSource={RelativeSource AncestorType=Window}}">
-                <Border Padding="12,10"
-                        Background="{DynamicResource MessageCardBrush}"
-                        BorderBrush="{DynamicResource MessageBorderBrush}"
-                        BorderThickness="1"
-                        CornerRadius="12"
-                        TextElement.Foreground="{DynamicResource TextBrush}"
+                <Border Style="{StaticResource ChatboxChatCardBorderStyle}"
                         Visibility="{Binding IsChatMessage, Converter={StaticResource BooleanToVisibilityConverter}}">
-                    <StackPanel>
+                    <Grid>
+                        <Border Width="4"
+                                HorizontalAlignment="Left"
+                                Background="{StaticResource CrystalRelayDevRailBrush}"
+                                CornerRadius="4"
+                                Visibility="{Binding IsCrystalRelayDeveloper, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+                        <StackPanel Style="{StaticResource ChatboxDevContentOffsetStyle}">
                         <DockPanel LastChildFill="True">
                             <TextBlock DockPanel.Dock="Right"
                                        Margin="10,0,0,0"
-                                       FontSize="11"
-                                       Foreground="{DynamicResource TimestampBrush}"
+                                       Style="{StaticResource ChatboxTimestampTextStyle}"
                                        Text="{Binding TimestampText}"
                                        Visibility="{Binding DataContext.Settings.ChatShowTimestamps, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BooleanToVisibilityConverter}}" />
 
@@ -560,25 +729,35 @@
                                            FontSize="{Binding DataContext.Settings.ChatTextSize, RelativeSource={RelativeSource AncestorType=Window}}"
                                            Foreground="{Binding NameBrush}"
                                            Text="{Binding UserDisplayName}" />
+
+                                <Border Margin="8,0,0,0"
+                                        Padding="7,2"
+                                        VerticalAlignment="Center"
+                                        Background="{StaticResource CrystalRelayDevBadgeBrush}"
+                                        BorderBrush="{StaticResource CrystalRelayDevBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        Visibility="{Binding IsCrystalRelayDeveloper, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <TextBlock Text="{loc:Translate 'CRYSTAL RELAY DEV'}"
+                                               FontSize="9"
+                                               FontWeight="Bold"
+                                               Foreground="{StaticResource CrystalRelayDevBadgeTextBrush}" />
+                                </Border>
                             </StackPanel>
                         </DockPanel>
 
                         <TextBlock Margin="0,6,0,0"
+                                   Style="{StaticResource ChatboxMessageBodyTextStyle}"
                                    FontFamily="{Binding DataContext.Settings.ChatFontFamily, RelativeSource={RelativeSource AncestorType=Window}}"
                                    FontSize="{Binding DataContext.Settings.ChatTextSize, RelativeSource={RelativeSource AncestorType=Window}}"
-                                   Foreground="{DynamicResource MessageTextBrush}"
                                    TextWrapping="Wrap"
                                    local:ChatMessageInlinePresenter.Fragments="{Binding InlineFragments}"
                                    local:ChatMessageInlinePresenter.FontScaleKey="{Binding DataContext.Settings.ChatTextSize, RelativeSource={RelativeSource AncestorType=Window}}" />
-                    </StackPanel>
+                        </StackPanel>
+                    </Grid>
                 </Border>
 
-                <Border Padding="10"
-                        Background="{DynamicResource InputBrush}"
-                        BorderBrush="{DynamicResource AccentBrush}"
-                        BorderThickness="1"
-                        CornerRadius="12"
-                        TextElement.Foreground="{DynamicResource TextBrush}"
+                <Border Style="{StaticResource ChatboxChannelPointCardBorderStyle}"
                         Visibility="{Binding IsChannelPointRedemption, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -587,64 +766,78 @@
                         </Grid.ColumnDefinitions>
 
                         <Border Grid.Column="0"
-                                Background="{DynamicResource AccentBrush}"
-                                CornerRadius="4" />
+                                CornerRadius="4"
+                                Style="{StaticResource ChatboxEventRailStyle}" />
 
                         <StackPanel Grid.Column="1"
                                     Margin="10,0,0,0">
                             <DockPanel LastChildFill="True">
                                 <TextBlock DockPanel.Dock="Right"
                                            Margin="10,0,0,0"
-                                           FontSize="11"
-                                           Foreground="{DynamicResource TimestampBrush}"
+                                           Style="{StaticResource ChatboxTimestampTextStyle}"
                                            Text="{Binding TimestampText}"
                                            Visibility="{Binding DataContext.Settings.ChatShowTimestamps, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BooleanToVisibilityConverter}}" />
 
-                                <Border HorizontalAlignment="Left"
-                                        Padding="9,3"
-                                        Background="{DynamicResource AccentBrush}"
-                                        CornerRadius="9">
-                                    <TextBlock Text="{loc:Translate 'Channel Point Redeem'}"
-                                               FontSize="11"
-                                               FontWeight="Bold"
-                                               Foreground="White" />
-                                </Border>
+                                <StackPanel Orientation="Horizontal">
+                                    <Border HorizontalAlignment="Left"
+                                            Padding="9,3"
+                                            Background="{DynamicResource AccentBrush}"
+                                            CornerRadius="9">
+                                        <TextBlock Text="{loc:Translate 'Channel Point Redeem'}"
+                                                   FontSize="11"
+                                                   FontWeight="Bold"
+                                                   Foreground="White" />
+                                    </Border>
+
+                                    <Border Margin="8,0,0,0"
+                                            Padding="7,2"
+                                            VerticalAlignment="Center"
+                                            Background="{StaticResource CrystalRelayDevBadgeBrush}"
+                                            BorderBrush="{StaticResource CrystalRelayDevBorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="8"
+                                            Visibility="{Binding IsCrystalRelayDeveloper, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                        <TextBlock Text="{loc:Translate 'CRYSTAL RELAY DEV'}"
+                                                   FontSize="9"
+                                                   FontWeight="Bold"
+                                                   Foreground="{StaticResource CrystalRelayDevBadgeTextBrush}" />
+                                    </Border>
+                                </StackPanel>
                             </DockPanel>
 
                             <TextBlock Margin="0,7,0,0"
+                                       Style="{StaticResource ChatboxPrimaryEntryTextStyle}"
                                        FontFamily="{Binding DataContext.Settings.ChatFontFamily, RelativeSource={RelativeSource AncestorType=Window}}"
                                        FontSize="{Binding DataContext.Settings.ChatTextSize, RelativeSource={RelativeSource AncestorType=Window}}"
                                        FontWeight="Bold"
-                                       Foreground="{DynamicResource TextBrush}"
                                        Text="{Binding RewardTitle}"
                                        TextWrapping="Wrap" />
 
                             <WrapPanel Margin="0,4,0,0">
                                 <TextBlock Text="{Binding RedemptionViewerText}"
-                                           Foreground="{DynamicResource MutedBrush}"
+                                           Style="{StaticResource ChatboxMutedEntryTextStyle}"
                                            TextWrapping="Wrap" />
                                 <TextBlock Margin="10,0,0,0"
                                            Text="{Binding RedemptionCostText}"
-                                           Foreground="{DynamicResource MutedBrush}"
+                                           Style="{StaticResource ChatboxMutedEntryTextStyle}"
                                            TextWrapping="Wrap"
                                            Visibility="{Binding HasRewardCost, Converter={StaticResource BooleanToVisibilityConverter}}" />
                             </WrapPanel>
 
                             <Border Margin="0,8,0,0"
                                     Padding="9,7"
-                                    Background="{DynamicResource MessageCardBrush}"
-                                    BorderBrush="{DynamicResource MessageBorderBrush}"
                                     BorderThickness="1"
                                     CornerRadius="9"
+                                    Style="{StaticResource ChatboxInlinePanelStyle}"
                                     Visibility="{Binding HasRewardUserInput, Converter={StaticResource BooleanToVisibilityConverter}}">
                                 <StackPanel>
                                     <TextBlock Text="{loc:Translate 'Viewer input'}"
-                                               Foreground="{DynamicResource MutedBrush}"
+                                               Style="{StaticResource ChatboxMutedEntryTextStyle}"
                                                FontSize="11"
                                                FontWeight="Bold" />
                                     <TextBlock Margin="0,3,0,0"
+                                               Style="{StaticResource ChatboxMessageBodyTextStyle}"
                                                Text="{Binding RewardUserInput}"
-                                               Foreground="{DynamicResource MessageTextBrush}"
                                                TextWrapping="Wrap" />
                                 </StackPanel>
                             </Border>
@@ -652,12 +845,7 @@
                     </Grid>
                 </Border>
 
-                <Border Padding="10"
-                        Background="{DynamicResource MessageCardBrush}"
-                        BorderBrush="{DynamicResource AccentBrush}"
-                        BorderThickness="1.5"
-                        CornerRadius="12"
-                        TextElement.Foreground="{DynamicResource TextBrush}"
+                <Border Style="{StaticResource ChatboxSupportCardBorderStyle}"
                         Visibility="{Binding IsSupportEvent, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -666,59 +854,73 @@
                         </Grid.ColumnDefinitions>
 
                         <Border Grid.Column="0"
-                                Background="{DynamicResource AccentBrush}"
-                                CornerRadius="5" />
+                                CornerRadius="5"
+                                Style="{StaticResource ChatboxEventRailStyle}" />
 
                         <StackPanel Grid.Column="1"
                                     Margin="11,0,0,0">
                             <DockPanel LastChildFill="True">
                                 <TextBlock DockPanel.Dock="Right"
                                            Margin="10,0,0,0"
-                                           FontSize="11"
-                                           Foreground="{DynamicResource TimestampBrush}"
+                                           Style="{StaticResource ChatboxTimestampTextStyle}"
                                            Text="{Binding TimestampText}"
                                            Visibility="{Binding DataContext.Settings.ChatShowTimestamps, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BooleanToVisibilityConverter}}" />
 
-                                <Border HorizontalAlignment="Left"
-                                        Padding="9,3"
-                                        Background="{DynamicResource AccentBrush}"
-                                        CornerRadius="9">
-                                    <TextBlock Text="{Binding SupportEventLabel}"
-                                               FontSize="11"
-                                               FontWeight="Bold"
-                                               Foreground="White" />
-                                </Border>
+                                <StackPanel Orientation="Horizontal">
+                                    <Border HorizontalAlignment="Left"
+                                            Padding="9,3"
+                                            Background="{DynamicResource AccentBrush}"
+                                            CornerRadius="9">
+                                        <TextBlock Text="{Binding SupportEventLabel}"
+                                                   FontSize="11"
+                                                   FontWeight="Bold"
+                                                   Foreground="White" />
+                                    </Border>
+
+                                    <Border Margin="8,0,0,0"
+                                            Padding="7,2"
+                                            VerticalAlignment="Center"
+                                            Background="{StaticResource CrystalRelayDevBadgeBrush}"
+                                            BorderBrush="{StaticResource CrystalRelayDevBorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="8"
+                                            Visibility="{Binding IsCrystalRelayDeveloper, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                        <TextBlock Text="{loc:Translate 'CRYSTAL RELAY DEV'}"
+                                                   FontSize="9"
+                                                   FontWeight="Bold"
+                                                   Foreground="{StaticResource CrystalRelayDevBadgeTextBrush}" />
+                                    </Border>
+                                </StackPanel>
                             </DockPanel>
 
                             <TextBlock Margin="0,8,0,0"
+                                       Style="{StaticResource ChatboxPrimaryEntryTextStyle}"
                                        FontFamily="{Binding DataContext.Settings.ChatFontFamily, RelativeSource={RelativeSource AncestorType=Window}}"
                                        FontSize="{Binding DataContext.Settings.ChatTextSize, RelativeSource={RelativeSource AncestorType=Window}}"
                                        FontWeight="Bold"
-                                       Foreground="{DynamicResource TextBrush}"
                                        Text="{Binding SupportHeadlineText}"
                                        TextWrapping="Wrap" />
 
                             <TextBlock Margin="0,4,0,0"
                                        Text="{Binding SupportDetailText}"
-                                       Foreground="{DynamicResource MutedBrush}"
+                                       Style="{StaticResource ChatboxMutedEntryTextStyle}"
                                        TextWrapping="Wrap"
                                        Visibility="{Binding HasSupportDetailText, Converter={StaticResource BooleanToVisibilityConverter}}" />
 
                             <Border Margin="0,8,0,0"
                                     Padding="9,7"
-                                    Background="{DynamicResource InputBrush}"
-                                    BorderBrush="{DynamicResource MessageBorderBrush}"
                                     BorderThickness="1"
                                     CornerRadius="9"
+                                    Style="{StaticResource ChatboxInputInlinePanelStyle}"
                                     Visibility="{Binding HasSupportMessage, Converter={StaticResource BooleanToVisibilityConverter}}">
                                 <StackPanel>
                                     <TextBlock Text="{loc:Translate 'Message'}"
-                                               Foreground="{DynamicResource MutedBrush}"
+                                               Style="{StaticResource ChatboxMutedEntryTextStyle}"
                                                FontSize="11"
                                                FontWeight="Bold" />
                                     <TextBlock Margin="0,3,0,0"
                                                Text="{Binding SupportMessage}"
-                                               Foreground="{DynamicResource MessageTextBrush}"
+                                               Style="{StaticResource ChatboxMessageBodyTextStyle}"
                                                TextWrapping="Wrap" />
                                 </StackPanel>
                             </Border>

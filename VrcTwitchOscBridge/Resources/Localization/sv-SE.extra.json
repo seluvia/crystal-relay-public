@@ -490,5 +490,6 @@
   "Trigger Info Command": "Triggerinfokommando",
   "Viewers can ask where the streamer is in VRChat. Crystal Relay only posts the public world name and world page link, never instance details.": "Tittare kan fraga vilken VRChat-varld streamern ar i. Crystal Relay postar bara det offentliga varldsnamnet och lanken till varldssidan, aldrig instansdetaljer.",
   "Two built-in commands use the same chat command. The first matching built-in command runs first, so rename or disable one of them.": "Tva inbyggda kommandon anvander samma chattkommando. Det forsta matchande inbyggda kommandot kors forst, sa byt namn pa eller inaktivera ett av dem.",
-  "A Universal Trigger uses the same command as an enabled built-in command. Built-in commands run first, so the Universal Trigger will only run if the built-in command is disabled or renamed.": "En Universal Trigger anvander samma kommando som ett aktiverat inbyggt kommando. Inbyggda kommandon kors forst, sa Universal Trigger kors bara om det inbyggda kommandot inaktiveras eller byter namn."
+  "A Universal Trigger uses the same command as an enabled built-in command. Built-in commands run first, so the Universal Trigger will only run if the built-in command is disabled or renamed.": "En Universal Trigger anvander samma kommando som ett aktiverat inbyggt kommando. Inbyggda kommandon kors forst, sa Universal Trigger kors bara om det inbyggda kommandot inaktiveras eller byter namn.",
+  "CRYSTAL RELAY DEV": "CRYSTAL RELAY DEV"
 }

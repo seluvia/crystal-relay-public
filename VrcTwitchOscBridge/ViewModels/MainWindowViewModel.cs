@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -553,19 +553,19 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         [
             new AppLanguageOption(AppLanguage.SystemDefault, T("System Default")),
             new AppLanguageOption(AppLanguage.English, "English"),
-            new AppLanguageOption(AppLanguage.Spanish, "EspaÃ±ol"),
-            new AppLanguageOption(AppLanguage.Japanese, "æ—¥æœ¬èªž"),
+            new AppLanguageOption(AppLanguage.Spanish, "Español"),
+            new AppLanguageOption(AppLanguage.Japanese, "日本語"),
             new AppLanguageOption(AppLanguage.German, "Deutsch"),
-            new AppLanguageOption(AppLanguage.French, "FranÃ§ais"),
-            new AppLanguageOption(AppLanguage.PortugueseBrazil, "PortuguÃªs (Brasil)"),
+            new AppLanguageOption(AppLanguage.French, "Français"),
+            new AppLanguageOption(AppLanguage.PortugueseBrazil, "Português (Brasil)"),
             new AppLanguageOption(AppLanguage.Swedish, "Svenska"),
             new AppLanguageOption(AppLanguage.Italian, "Italiano"),
-            new AppLanguageOption(AppLanguage.ChineseSimplified, "ç®€ä½“ä¸­æ–‡"),
-            new AppLanguageOption(AppLanguage.ChineseTraditional, "ç¹é«”ä¸­æ–‡"),
-            new AppLanguageOption(AppLanguage.Korean, "í•œêµ­ì–´"),
-            new AppLanguageOption(AppLanguage.Russian, "Ð ÑƒÑÑÐºÐ¸Ð¹"),
+            new AppLanguageOption(AppLanguage.ChineseSimplified, "简体中文"),
+            new AppLanguageOption(AppLanguage.ChineseTraditional, "繁體中文"),
+            new AppLanguageOption(AppLanguage.Korean, "한국어"),
+            new AppLanguageOption(AppLanguage.Russian, "Русский"),
             new AppLanguageOption(AppLanguage.Polish, "Polski"),
-            new AppLanguageOption(AppLanguage.Thai, "à¹„à¸—à¸¢")
+            new AppLanguageOption(AppLanguage.Thai, "ไทย")
         ];
         ChatFontOptions =
         [
@@ -11653,7 +11653,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     }
 
     // About refresh prefers normal authenticated Twitch API calls when possible.
-    // If the app does not have a usable token, it falls back to public image-only lookups.
+    // If the app does not have a usable token, it falls back to optional configured profile data.
     private async Task RefreshAboutProfilesAsync()
     {
         if (isRefreshingAboutProfiles)
@@ -11734,16 +11734,38 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     }
 
     // No-login About refresh path. This keeps creator/playtester cards useful on
-    // fresh installs by clearing live state before trying public image-only fallbacks.
+    // fresh installs by using configured supplemental data before image-only fallbacks.
     private async Task RefreshAboutProfilesWithoutAuthAsync(IReadOnlyList<AboutTwitchProfile> profiles)
     {
-        RunOnUi(() => ApplyAboutProfileLiveStates(
-            profiles,
-            new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase)));
+        if (!string.IsNullOrWhiteSpace(runtimeConfig.SupplementalAboutProfilesEndpoint))
+        {
+            try
+            {
+                var supplementalProfiles = await twitchApiClient.GetSupplementalAboutProfilesAsync(
+                    runtimeConfig.SupplementalAboutProfilesEndpoint,
+                    runtimeConfig.SupplementalAboutProfilesHeaderName,
+                    runtimeConfig.SupplementalAboutProfilesHeaderValue);
+                RunOnUi(() => ApplySupplementalAboutProfiles(profiles, supplementalProfiles));
+            }
+            catch
+            {
+                RunOnUi(() => ApplyAboutProfileLiveStates(
+                    profiles,
+                    new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase)));
+            }
+        }
+        else
+        {
+            RunOnUi(() => ApplyAboutProfileLiveStates(
+                profiles,
+                new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase)));
+        }
+
         await RefreshAboutProfileImagesWithoutAuthAsync(profiles);
 
         aboutProfilesLastRefreshedAt = DateTimeOffset.UtcNow;
     }
+
     private async Task RefreshAboutProfileImagesWithoutAuthAsync(IReadOnlyList<AboutTwitchProfile> profiles)
     {
         var profilesNeedingImages = profiles
@@ -11788,6 +11810,32 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         foreach (var profile in profiles)
         {
             profile.IsLive = liveStates.TryGetValue(profile.TwitchLogin, out var isLive) && isLive;
+        }
+    }
+
+    private static void ApplySupplementalAboutProfiles(
+        IEnumerable<AboutTwitchProfile> profiles,
+        IReadOnlyDictionary<string, TwitchApiClient.SupplementalAboutProfileData> supplementalProfiles)
+    {
+        foreach (var profile in profiles)
+        {
+            if (!supplementalProfiles.TryGetValue(profile.TwitchLogin, out var supplementalProfile))
+            {
+                profile.IsLive = false;
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(supplementalProfile.DisplayName))
+            {
+                profile.DisplayName = supplementalProfile.DisplayName;
+            }
+
+            if (!string.IsNullOrWhiteSpace(supplementalProfile.ProfileImageUrl))
+            {
+                profile.ProfileImageUrl = supplementalProfile.ProfileImageUrl;
+            }
+
+            profile.IsLive = supplementalProfile.IsLive;
         }
     }
 
@@ -12983,6 +13031,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
         ChatMessages.Add(new TwitchChatMessageEntry(
             message.UserDisplayName,
+            message.UserLogin,
             message.MessageText,
             message.UserColor,
             [.. message.BadgeImageUrls],
@@ -15979,13 +16028,16 @@ public enum TwitchChatMessageEntryKind
 
 public sealed class TwitchChatMessageEntry : ObservableObject
 {
+    private const string CrystalRelayDeveloperLogin = "Screminpal_";
     private static readonly SolidColorBrush DefaultNameBrush = CreateFrozenBrush("#F5EEFF");
     private static readonly SolidColorBrush BubblegumNameBrush = CreateFrozenBrush("#5A426B");
+    private static readonly LinearGradientBrush CrystalRelayDeveloperNameBrush = CreateFrozenDeveloperNameBrush();
     private static readonly Color DarkCardReferenceColor = Color.FromRgb(40, 23, 60);
     private ChatTimestampFormat timestampFormat;
 
     public TwitchChatMessageEntry(
         string userDisplayName,
+        string userLogin,
         string messageText,
         string userColor,
         IReadOnlyList<string> badgeImageUrls,
@@ -16005,6 +16057,8 @@ public sealed class TwitchChatMessageEntry : ObservableObject
     {
         Kind = Enum.IsDefined(kind) ? kind : TwitchChatMessageEntryKind.Chat;
         UserDisplayName = string.IsNullOrWhiteSpace(userDisplayName) ? "Viewer" : userDisplayName.Trim();
+        UserLogin = userLogin?.Trim() ?? string.Empty;
+        IsCrystalRelayDeveloper = IsCrystalRelayDeveloperAccount(UserDisplayName, UserLogin);
         MessageText = messageText;
         BadgeImageUrls = badgeImageUrls;
         InlineFragments = inlineFragments.Count == 0
@@ -16013,7 +16067,7 @@ public sealed class TwitchChatMessageEntry : ObservableObject
         ShouldPlayViewerSound = shouldPlayViewerSound;
         ReceivedAt = receivedAt;
         RawUserColor = userColor;
-        NameBrush = ParseNameBrush(userColor, theme);
+        NameBrush = IsCrystalRelayDeveloper ? CrystalRelayDeveloperNameBrush : ParseNameBrush(userColor, theme);
         RewardTitle = string.IsNullOrWhiteSpace(rewardTitle) ? MessageText.Trim() : rewardTitle.Trim();
         RewardCost = Math.Max(0, rewardCost);
         RewardUserInput = rewardUserInput?.Trim() ?? string.Empty;
@@ -16037,6 +16091,10 @@ public sealed class TwitchChatMessageEntry : ObservableObject
         or TwitchChatMessageEntryKind.Raid;
 
     public string UserDisplayName { get; }
+
+    public string UserLogin { get; }
+
+    public bool IsCrystalRelayDeveloper { get; }
 
     public string MessageText { get; }
 
@@ -16206,6 +16264,32 @@ public sealed class TwitchChatMessageEntry : ObservableObject
         brush.Freeze();
         return brush;
     }
+
+    private static LinearGradientBrush CreateFrozenDeveloperNameBrush()
+    {
+        var brush = new LinearGradientBrush
+        {
+            StartPoint = new Point(0, 0.5),
+            EndPoint = new Point(1, 0.5)
+        };
+        brush.GradientStops.Add(new GradientStop(Color.FromRgb(255, 246, 255), 0d));
+        brush.GradientStops.Add(new GradientStop(Color.FromRgb(125, 249, 255), 0.45d));
+        brush.GradientStops.Add(new GradientStop(Color.FromRgb(255, 127, 229), 1d));
+        brush.Freeze();
+        return brush;
+    }
+
+    private static bool IsCrystalRelayDeveloperAccount(string displayName, string login) =>
+        IsCrystalRelayDeveloperName(displayName) || IsCrystalRelayDeveloperName(login);
+
+    private static bool IsCrystalRelayDeveloperName(string value)
+    {
+        var normalized = NormalizeTwitchName(value);
+        return string.Equals(normalized, CrystalRelayDeveloperLogin, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizeTwitchName(string value) =>
+        (value ?? string.Empty).Trim().TrimStart('@').Trim();
 
     private static ChatTimestampFormat NormalizeTimestampFormat(ChatTimestampFormat value) =>
         Enum.IsDefined(value) ? value : ChatTimestampFormat.TwentyFourHour;

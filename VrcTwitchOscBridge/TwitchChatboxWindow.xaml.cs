@@ -313,6 +313,7 @@ public partial class TwitchChatboxWindow : Window
             // Recreate entry so name color follows active theme contrast rules.
             viewModel.ChatMessages[i] = new TwitchChatMessageEntry(
                 current.UserDisplayName,
+                current.UserLogin,
                 current.MessageText,
                 current.RawUserColor,
                 current.BadgeImageUrls,

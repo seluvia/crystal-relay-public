@@ -490,5 +490,6 @@
   "Trigger Info Command": "觸發資訊指令",
   "Viewers can ask where the streamer is in VRChat. Crystal Relay only posts the public world name and world page link, never instance details.": "觀眾可以詢問主播所在的 VRChat 世界。Crystal Relay 只會發布公開世界名稱和世界頁面連結，絕不會發布實例詳細資訊。",
   "Two built-in commands use the same chat command. The first matching built-in command runs first, so rename or disable one of them.": "兩個內建指令使用相同的聊天指令。第一個符合的內建指令會先執行，因此請重新命名或停用其中一個。",
-  "A Universal Trigger uses the same command as an enabled built-in command. Built-in commands run first, so the Universal Trigger will only run if the built-in command is disabled or renamed.": "某個 Universal Trigger 使用了與已啟用內建指令相同的指令。內建指令會先執行，因此只有停用或重新命名該內建指令後，Universal Trigger 才會執行。"
+  "A Universal Trigger uses the same command as an enabled built-in command. Built-in commands run first, so the Universal Trigger will only run if the built-in command is disabled or renamed.": "某個 Universal Trigger 使用了與已啟用內建指令相同的指令。內建指令會先執行，因此只有停用或重新命名該內建指令後，Universal Trigger 才會執行。",
+  "CRYSTAL RELAY DEV": "CRYSTAL RELAY DEV"
 }
