@@ -16,9 +16,14 @@ public sealed class AppSettings : ObservableObject
     private VrChatAccountSettings vrChat = new();
     private CustomThemeSettings customTheme = new();
     private ObservableCollection<AvatarTriggerProfile> avatarProfiles = [];
+    private ObservableCollection<MovementRedeemSet> movementRedeemSets = [];
     private ObservableCollection<TriggerRule> globalMovementRules = [];
     private ObservableCollection<TriggerRule> globalOverrideRules = [];
     private ObservableCollection<UniversalTriggerRule> universalTriggers = [];
+    private ObservableCollection<AvatarScaleSet> avatarScaleSets = [];
+    private ObservableCollection<AvatarScaleRule> avatarScaleRules = [];
+    private AvatarScaleMasterRewardSettings avatarScaleMasterReward = new();
+    private RewardFireSaleSettings rewardFireSale = new();
     private ObservableCollection<TriggerRule> rules = [];
     private int interfaceOpacityPercent = 88;
     private int chatTextSize = 20;
@@ -32,7 +37,18 @@ public sealed class AppSettings : ObservableObject
     private bool chatboxOscEnabled;
     private int chatboxOscDelaySeconds = 3;
     private bool chatboxViewerSoundEnabled;
+    private bool useBroadcasterAsBotSender;
     private bool supporterOverrideInfoMessageEnabled;
+    private bool triggerInfoAnnouncementsEnabled;
+    private int triggerInfoAnnouncementIntervalMinutes = 10;
+    private bool triggerInfoCommandEnabled = true;
+    private string triggerInfoCommandText = "!rewards";
+    private int triggerInfoCommandCooldownSeconds = 300;
+    private ChatCommandPermission triggerInfoCommandPermission = ChatCommandPermission.Everyone;
+    private bool worldCommandEnabled;
+    private string worldCommandText = "!world";
+    private int worldCommandCooldownSeconds = 30;
+    private ChatCommandPermission worldCommandPermission = ChatCommandPermission.Everyone;
     private bool channelPointRewardTestModeEnabled;
     private bool emergencyRedeemStopEnabled;
     private bool desktopModeInputLockEnabled;
@@ -101,10 +117,40 @@ public sealed class AppSettings : ObservableObject
         set => SetProperty(ref globalMovementRules, value ?? []);
     }
 
+    public ObservableCollection<MovementRedeemSet> MovementRedeemSets
+    {
+        get => movementRedeemSets;
+        set => SetProperty(ref movementRedeemSets, value ?? []);
+    }
+
     public ObservableCollection<UniversalTriggerRule> UniversalTriggers
     {
         get => universalTriggers;
         set => SetProperty(ref universalTriggers, value ?? []);
+    }
+
+    public ObservableCollection<AvatarScaleSet> AvatarScaleSets
+    {
+        get => avatarScaleSets;
+        set => SetProperty(ref avatarScaleSets, value ?? []);
+    }
+
+    public ObservableCollection<AvatarScaleRule> AvatarScaleRules
+    {
+        get => avatarScaleRules;
+        set => SetProperty(ref avatarScaleRules, value ?? []);
+    }
+
+    public AvatarScaleMasterRewardSettings AvatarScaleMasterReward
+    {
+        get => avatarScaleMasterReward;
+        set => SetProperty(ref avatarScaleMasterReward, value ?? new AvatarScaleMasterRewardSettings());
+    }
+
+    public RewardFireSaleSettings RewardFireSale
+    {
+        get => rewardFireSale;
+        set => SetProperty(ref rewardFireSale, value ?? new RewardFireSaleSettings());
     }
 
     public ObservableCollection<TriggerRule> Rules
@@ -223,10 +269,80 @@ public sealed class AppSettings : ObservableObject
         set => SetProperty(ref chatboxViewerSoundEnabled, value);
     }
 
+    public bool UseBroadcasterAsBotSender
+    {
+        get => useBroadcasterAsBotSender;
+        set => SetProperty(ref useBroadcasterAsBotSender, value);
+    }
+
     public bool SupporterOverrideInfoMessageEnabled
     {
         get => supporterOverrideInfoMessageEnabled;
         set => SetProperty(ref supporterOverrideInfoMessageEnabled, value);
+    }
+
+    public bool TriggerInfoAnnouncementsEnabled
+    {
+        get => triggerInfoAnnouncementsEnabled;
+        set => SetProperty(ref triggerInfoAnnouncementsEnabled, value);
+    }
+
+    public int TriggerInfoAnnouncementIntervalMinutes
+    {
+        get => triggerInfoAnnouncementIntervalMinutes;
+        set => SetProperty(ref triggerInfoAnnouncementIntervalMinutes, Math.Max(1, value));
+    }
+
+    public bool TriggerInfoCommandEnabled
+    {
+        get => triggerInfoCommandEnabled;
+        set => SetProperty(ref triggerInfoCommandEnabled, value);
+    }
+
+    public string TriggerInfoCommandText
+    {
+        get => triggerInfoCommandText;
+        set => SetProperty(ref triggerInfoCommandText, ChatCommandUtility.Normalize(value));
+    }
+
+    public int TriggerInfoCommandCooldownSeconds
+    {
+        get => triggerInfoCommandCooldownSeconds;
+        set => SetProperty(ref triggerInfoCommandCooldownSeconds, Math.Max(0, value));
+    }
+
+    public ChatCommandPermission TriggerInfoCommandPermission
+    {
+        get => triggerInfoCommandPermission;
+        set => SetProperty(
+            ref triggerInfoCommandPermission,
+            Enum.IsDefined(value) ? value : ChatCommandPermission.Everyone);
+    }
+
+    public bool WorldCommandEnabled
+    {
+        get => worldCommandEnabled;
+        set => SetProperty(ref worldCommandEnabled, value);
+    }
+
+    public string WorldCommandText
+    {
+        get => worldCommandText;
+        set => SetProperty(ref worldCommandText, ChatCommandUtility.Normalize(value));
+    }
+
+    public int WorldCommandCooldownSeconds
+    {
+        get => worldCommandCooldownSeconds;
+        set => SetProperty(ref worldCommandCooldownSeconds, Math.Max(0, value));
+    }
+
+    public ChatCommandPermission WorldCommandPermission
+    {
+        get => worldCommandPermission;
+        set => SetProperty(
+            ref worldCommandPermission,
+            Enum.IsDefined(value) ? value : ChatCommandPermission.Everyone);
     }
 
     public bool ChannelPointRewardTestModeEnabled

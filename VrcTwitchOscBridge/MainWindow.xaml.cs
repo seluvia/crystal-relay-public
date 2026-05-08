@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
@@ -348,6 +349,18 @@ public partial class MainWindow : Window
             UniversalTriggerRule trigger => isCooldownColor
                 ? trigger.ManagedRewardCooldownColor
                 : trigger.ManagedRewardReadyColor,
+            AvatarScaleRule scaleRule => isCooldownColor
+                ? scaleRule.ManagedRewardCooldownColor
+                : scaleRule.ManagedRewardReadyColor,
+            AvatarScaleMasterRewardSettings masterReward => isCooldownColor
+                ? masterReward.ManagedRewardCooldownColor
+                : masterReward.ManagedRewardReadyColor,
+            AvatarTriggerProfile profile => isCooldownColor
+                ? profile.SetTriggerMasterRewardCooldownColor
+                : profile.SetTriggerMasterRewardReadyColor,
+            RewardFireSaleSettings fireSale => isCooldownColor
+                ? fireSale.FundingRewardCooldownColor
+                : fireSale.FundingRewardReadyColor,
             _ => string.Empty
         };
         if (string.IsNullOrWhiteSpace(initialColor))
@@ -388,7 +401,53 @@ public partial class MainWindow : Window
             case UniversalTriggerRule trigger:
                 trigger.ManagedRewardReadyColor = selectedColor;
                 break;
+            case AvatarScaleRule scaleRule when isCooldownColor:
+                scaleRule.ManagedRewardCooldownColor = selectedColor;
+                break;
+            case AvatarScaleRule scaleRule:
+                scaleRule.ManagedRewardReadyColor = selectedColor;
+                break;
+            case AvatarScaleMasterRewardSettings masterReward when isCooldownColor:
+                masterReward.ManagedRewardCooldownColor = selectedColor;
+                break;
+            case AvatarScaleMasterRewardSettings masterReward:
+                masterReward.ManagedRewardReadyColor = selectedColor;
+                break;
+            case AvatarTriggerProfile profile when isCooldownColor:
+                profile.SetTriggerMasterRewardCooldownColor = selectedColor;
+                break;
+            case AvatarTriggerProfile profile:
+                profile.SetTriggerMasterRewardReadyColor = selectedColor;
+                break;
+            case RewardFireSaleSettings fireSale when isCooldownColor:
+                fireSale.FundingRewardCooldownColor = selectedColor;
+                break;
+            case RewardFireSaleSettings fireSale:
+                fireSale.FundingRewardReadyColor = selectedColor;
+                break;
         }
+    }
+
+    private void OnAddSupporterGrowthBitRangeClicked(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel { SelectedAvatarScaleRule: { } rule })
+        {
+            return;
+        }
+
+        rule.SupporterGrowthBitRanges.Add(new AvatarScaleBitGrowthRange());
+    }
+
+    private void OnRemoveSupporterGrowthBitRangeClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: AvatarScaleBitGrowthRange range }
+            || DataContext is not MainWindowViewModel { SelectedAvatarScaleRule: { } rule }
+            || rule.SupporterGrowthBitRanges.Count <= 1)
+        {
+            return;
+        }
+
+        rule.SupporterGrowthBitRanges.Remove(range);
     }
 
     private void ApplyTheme(AppTheme theme)
@@ -424,6 +483,7 @@ public partial class MainWindow : Window
             AppTheme.DreamScape => "ThemeBackgrounds/DreamScapeThemeBackground.xaml",
             AppTheme.MainFrame => "ThemeBackgrounds/MainFrameThemeBackground.xaml",
             AppTheme.TrashKitty => "ThemeBackgrounds/TrashKittyThemeBackground.xaml",
+            AppTheme.Bratwurst => "ThemeBackgrounds/BratwurstThemeBackground.xaml",
             AppTheme.CarrotPatch => "ThemeBackgrounds/CarrotPatchThemeBackground.xaml",
             AppTheme.Bubblegum => "ThemeBackgrounds/BubblegumThemeBackground.xaml",
             AppTheme.CosmicPuppyGirl => "ThemeBackgrounds/CosmicPuppyGirlThemeBackground.xaml",
@@ -431,6 +491,8 @@ public partial class MainWindow : Window
             AppTheme.MoonBunnyWink => "ThemeBackgrounds/MoonBunnyWinkThemeBackground.xaml",
             AppTheme.DreadNightBar => "ThemeBackgrounds/DreadNightBarThemeBackground.xaml",
             AppTheme.Baked => "ThemeBackgrounds/BakedThemeBackground.xaml",
+            AppTheme.NeonBorb => "ThemeBackgrounds/NeonBorbThemeBackground.xaml",
+            AppTheme.StinkyOnline => "ThemeBackgrounds/StinkyOnlineThemeBackground.xaml",
             _ => "ThemeBackgrounds/VoidCrystalThemeBackground.xaml"
         };
 
@@ -1525,14 +1587,21 @@ public partial class MainWindow : Window
 
     private static bool IsTextInputFocused(DependencyObject? originalSource)
     {
-        if (FindAncestor<TextBox>(originalSource) is not null
-            || FindAncestor<PasswordBox>(originalSource) is not null
-            || FindAncestor<RichTextBox>(originalSource) is not null)
+        return IsTextInputElement(originalSource)
+            || IsTextInputElement(Keyboard.FocusedElement as DependencyObject);
+    }
+
+    private static bool IsTextInputElement(DependencyObject? source)
+    {
+        if (source is TextBoxBase or PasswordBox
+            || FindAncestor<TextBoxBase>(source) is not null
+            || FindAncestor<PasswordBox>(source) is not null)
         {
             return true;
         }
 
-        if (FindAncestor<ComboBox>(originalSource) is ComboBox comboBox && comboBox.IsEditable)
+        if (source is ComboBox { IsEditable: true }
+            || FindAncestor<ComboBox>(source) is ComboBox { IsEditable: true })
         {
             return true;
         }

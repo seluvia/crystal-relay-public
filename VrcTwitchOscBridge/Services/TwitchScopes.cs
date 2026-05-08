@@ -5,6 +5,7 @@ public static class TwitchScopes
     public const string RewardManagement = "channel:manage:redemptions";
     public const string UserEmotes = "user:read:emotes";
     public const string FollowRead = "moderator:read:followers";
+    public const string ChatWrite = "user:write:chat";
 
     public static readonly string[] BroadcasterRequired =
     [
@@ -18,12 +19,13 @@ public static class TwitchScopes
         .. BroadcasterRequired,
         RewardManagement,
         "user:read:chat",
+        ChatWrite,
         FollowRead,
         UserEmotes
     ];
 
     public static readonly string[] Bot =
     [
-        "user:write:chat"
+        ChatWrite
     ];
 }

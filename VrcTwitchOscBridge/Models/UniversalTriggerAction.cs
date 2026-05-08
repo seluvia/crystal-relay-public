@@ -5,11 +5,11 @@ namespace VrcTwitchOscBridge.Models;
 public sealed class UniversalTriggerAction : ObservableObject
 {
     private Guid id = Guid.NewGuid();
-    private string oscAddress = "/avatar/parameters/VRCEmote";
+    private string oscAddress = string.Empty;
     private UniversalTriggerValueKind valueKind = UniversalTriggerValueKind.Int;
-    private string targetValue = "1";
-    private string defaultValue = "0";
-    private double durationSeconds = 1;
+    private string targetValue = string.Empty;
+    private string defaultValue = string.Empty;
+    private double durationSeconds;
     private bool addToQueue = true;
     private string importGroupKey = string.Empty;
 

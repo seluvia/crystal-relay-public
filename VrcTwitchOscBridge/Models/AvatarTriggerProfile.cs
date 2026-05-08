@@ -1,7 +1,10 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using System.Windows.Media;
 using VrcTwitchOscBridge.Infrastructure;
+using VrcTwitchOscBridge.Services;
+using Brush = System.Windows.Media.Brush;
 
 namespace VrcTwitchOscBridge.Models;
 
@@ -15,6 +18,15 @@ public sealed class AvatarTriggerProfile : ObservableObject
     private string avatarName = string.Empty;
     private bool isCurrentAvatarActive;
     private bool isRewardTestOverrideEnabled;
+    private string setTriggerMasterRewardId = string.Empty;
+    private string setTriggerMasterRewardTitle = string.Empty;
+    private string setTriggerMasterRewardDescription = string.Empty;
+    private int setTriggerMasterRewardCost = 100;
+    private TwitchRewardSyncMode setTriggerMasterRewardSyncMode = TwitchRewardSyncMode.CreateOrManage;
+    private int setTriggerMasterRewardCooldownSeconds;
+    private string setTriggerMasterRewardReadyColor = ManagedRewardPresentation.ReadyBackgroundColor;
+    private string setTriggerMasterRewardCooldownColor = ManagedRewardPresentation.InUseBackgroundColor;
+    private bool deleteSetTriggerMasterRewardWhenInactive;
     private ObservableCollection<TriggerRule> channelPointRules = [];
 
     public AvatarTriggerProfile()
@@ -41,6 +53,7 @@ public sealed class AvatarTriggerProfile : ObservableObject
         {
             if (SetProperty(ref isMasterProfile, value))
             {
+                RaisePropertyChanged(nameof(DisplayTitle));
                 RaisePropertyChanged(nameof(MasterStatusText));
             }
         }
@@ -66,6 +79,7 @@ public sealed class AvatarTriggerProfile : ObservableObject
             if (SetProperty(ref avatarId, value))
             {
                 RaisePropertyChanged(nameof(HasAvatarSelected));
+                RaisePropertyChanged(nameof(DisplayTitle));
                 RaisePropertyChanged(nameof(AvatarDisplayName));
             }
         }
@@ -108,6 +122,97 @@ public sealed class AvatarTriggerProfile : ObservableObject
         }
     }
 
+    public string SetTriggerMasterRewardId
+    {
+        get => setTriggerMasterRewardId;
+        set => SetProperty(ref setTriggerMasterRewardId, value ?? string.Empty);
+    }
+
+    public string SetTriggerMasterRewardTitle
+    {
+        get => setTriggerMasterRewardTitle;
+        set
+        {
+            if (SetProperty(ref setTriggerMasterRewardTitle, value ?? string.Empty))
+            {
+                RaisePropertyChanged(nameof(SetTriggerMasterRewardDisplayTitle));
+            }
+        }
+    }
+
+    public string SetTriggerMasterRewardDescription
+    {
+        get => setTriggerMasterRewardDescription;
+        set => SetProperty(ref setTriggerMasterRewardDescription, value ?? string.Empty);
+    }
+
+    public int SetTriggerMasterRewardCost
+    {
+        get => setTriggerMasterRewardCost;
+        set => SetProperty(ref setTriggerMasterRewardCost, Math.Max(1, value));
+    }
+
+    public TwitchRewardSyncMode SetTriggerMasterRewardSyncMode
+    {
+        get => setTriggerMasterRewardSyncMode;
+        set
+        {
+            var normalizedValue = Enum.IsDefined(value)
+                ? value
+                : TwitchRewardSyncMode.CreateOrManage;
+            if (SetProperty(ref setTriggerMasterRewardSyncMode, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(UsesCreateOrManageSetTriggerMasterReward));
+                RaisePropertyChanged(nameof(UsesLinkedExistingSetTriggerMasterReward));
+                RaisePropertyChanged(nameof(SetTriggerMasterRewardDisplayTitle));
+            }
+        }
+    }
+
+    public bool UsesCreateOrManageSetTriggerMasterReward =>
+        SetTriggerMasterRewardSyncMode == TwitchRewardSyncMode.CreateOrManage;
+
+    public bool UsesLinkedExistingSetTriggerMasterReward =>
+        SetTriggerMasterRewardSyncMode == TwitchRewardSyncMode.LinkExisting;
+
+    public int SetTriggerMasterRewardCooldownSeconds
+    {
+        get => setTriggerMasterRewardCooldownSeconds;
+        set => SetProperty(ref setTriggerMasterRewardCooldownSeconds, Math.Max(0, value));
+    }
+
+    public string SetTriggerMasterRewardReadyColor
+    {
+        get => setTriggerMasterRewardReadyColor;
+        set
+        {
+            var normalizedValue = ManagedRewardPresentation.NormalizeReadyBackgroundColor(value);
+            if (SetProperty(ref setTriggerMasterRewardReadyColor, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(SetTriggerMasterRewardReadyColorBrush));
+            }
+        }
+    }
+
+    public string SetTriggerMasterRewardCooldownColor
+    {
+        get => setTriggerMasterRewardCooldownColor;
+        set
+        {
+            var normalizedValue = ManagedRewardPresentation.NormalizeCooldownBackgroundColor(value);
+            if (SetProperty(ref setTriggerMasterRewardCooldownColor, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(SetTriggerMasterRewardCooldownColorBrush));
+            }
+        }
+    }
+
+    public bool DeleteSetTriggerMasterRewardWhenInactive
+    {
+        get => deleteSetTriggerMasterRewardWhenInactive;
+        set => SetProperty(ref deleteSetTriggerMasterRewardWhenInactive, value);
+    }
+
     public ObservableCollection<TriggerRule> ChannelPointRules
     {
         get => channelPointRules;
@@ -127,11 +232,22 @@ public sealed class AvatarTriggerProfile : ObservableObject
         }
     }
 
-    public string DisplayTitle => !string.IsNullOrWhiteSpace(Name)
-        ? Name
-        : !string.IsNullOrWhiteSpace(AvatarName)
-            ? AvatarName
-            : "New Avatar Set";
+    public string DisplayTitle
+    {
+        get
+        {
+            if (IsMasterProfile)
+            {
+                return HasAvatarSelected ? AvatarDisplayName : "Return Avatar";
+            }
+
+            return !string.IsNullOrWhiteSpace(Name)
+                ? Name
+                : !string.IsNullOrWhiteSpace(AvatarName)
+                    ? AvatarName
+                    : "New Avatar Set";
+        }
+    }
 
     public bool HasAvatarSelected => !string.IsNullOrWhiteSpace(AvatarId);
 
@@ -151,6 +267,21 @@ public sealed class AvatarTriggerProfile : ObservableObject
     public string CurrentAvatarStatusText => IsCurrentAvatarActive
         ? "Live now"
         : "Waiting for this avatar";
+
+    public string SetTriggerMasterRewardDisplayTitle => !string.IsNullOrWhiteSpace(SetTriggerMasterRewardTitle)
+        ? SetTriggerMasterRewardTitle.Trim()
+        : "Set Trigger Master Reward";
+
+    public Brush SetTriggerMasterRewardReadyColorBrush => CreateColorBrush(SetTriggerMasterRewardReadyColor);
+
+    public Brush SetTriggerMasterRewardCooldownColorBrush => CreateColorBrush(SetTriggerMasterRewardCooldownColor);
+
+    private static Brush CreateColorBrush(string colorText)
+    {
+        var brush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(colorText));
+        brush.Freeze();
+        return brush;
+    }
 
     private void OnChannelPointRulesChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {

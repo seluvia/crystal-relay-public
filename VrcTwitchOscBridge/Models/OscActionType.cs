@@ -5,5 +5,6 @@ public enum OscActionType
     AvatarParameter,
     AvatarChange,
     PlayerMovement,
-    AvatarRoulet
+    AvatarRoulet,
+    SetTrigger
 }

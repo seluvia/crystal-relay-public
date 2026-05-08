@@ -7,8 +7,8 @@ Purpose:
 - This file is for internal release prep and record-keeping. It should stay out of the public repo unless you explicitly choose otherwise.
 
 Current Baseline:
-- Last published version: v2.9.2
-- Current working source version: v2.9.2
+- Last published version: v3.0.0
+- Current working source version: v3.0.0
 
 How To Use:
 1. Add new lines under Added, Changed, or Removed while work is happening.
@@ -17,19 +17,24 @@ How To Use:
 4. After the release is published, update the baseline version and clear the pending draft section for the next release.
 
 Pending Release Draft
-- Target version: v2.9.2
-- Release date: 2026-04-27
+- Target version: v3.0.0
+- Release date: 2026-05-01
 - Build status: Published to GitHub
 
 Added:
-- Added an optional managed reward cleanup setting that deletes inactive Crystal Relay Twitch rewards instead of only hiding them, helping avoid Twitch's 50 custom reward limit.
+- Added shared numbered Avatar Set rewards and Set Trigger outfit actions for multi-parameter outfit changes.
+- Added Master Outfit Set Rewards, Bits outfit triggers, fuzzy outfit-name matching, and queued paid outfit restore behavior.
+- Added broadcaster-as-bot chat sending, live-only outfit trigger announcements, the Stinky Online theme, and parameter path copy/paste.
 
 Changed:
-- The cleanup option is available on Avatar Sets, Avatar Change, Movement Redeems, and Universal channel-point rewards.
-- Cooldown and temporary in-use reward states are preserved so active reward flows do not churn Twitch rewards.
+- Avatar Scaling now uses cooldown-free tests, transition-gated queues, explicit Return Height restores, per-rule VRChat min/max bypass, stronger master reward behavior, and better avatar-swap carryover.
+- Bits + Subs now uses direct VRChat-avatar scoped supporter triggers with separate global avatar-change overrides.
+- Linked existing Twitch rewards are listen-only, while managed rewards use reduced API calls, rate-limit backoff, and cap-safe app-owned `VRC:` reward recycling.
+- Set Trigger restore now uses safe LocalAvatarData snapshots with a 70-second diff window.
+- Reward dropdowns, Test Mode reward population, broadcaster scope recovery, streaming status, Avatar Set bool restores, Int row selection, and Set Trigger dropdowns were stabilized.
 
 Removed:
-- None yet.
+- Removed linked reward editing/cooldown control from Crystal Relay; linked Twitch rewards now keep their website-side setup.
 
 Release Checklist:
 - Update the app version in VrcTwitchOscBridge.csproj.

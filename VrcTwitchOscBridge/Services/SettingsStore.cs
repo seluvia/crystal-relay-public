@@ -354,7 +354,34 @@ public sealed class SettingsStore
                 ? profile.ChatboxOscDelaySeconds.Value
                 : settings.ChatboxOscDelaySeconds;
             settings.ChatboxViewerSoundEnabled = profile.ChatboxViewerSoundEnabled ?? settings.ChatboxViewerSoundEnabled;
+            settings.UseBroadcasterAsBotSender = profile.UseBroadcasterAsBotSender ?? settings.UseBroadcasterAsBotSender;
             settings.SupporterOverrideInfoMessageEnabled = profile.SupporterOverrideInfoMessageEnabled ?? settings.SupporterOverrideInfoMessageEnabled;
+            settings.TriggerInfoAnnouncementsEnabled = profile.TriggerInfoAnnouncementsEnabled ?? settings.TriggerInfoAnnouncementsEnabled;
+            settings.TriggerInfoAnnouncementIntervalMinutes = profile.TriggerInfoAnnouncementIntervalMinutes is > 0
+                ? profile.TriggerInfoAnnouncementIntervalMinutes.Value
+                : settings.TriggerInfoAnnouncementIntervalMinutes;
+            settings.TriggerInfoCommandEnabled = profile.TriggerInfoCommandEnabled ?? settings.TriggerInfoCommandEnabled;
+            settings.TriggerInfoCommandText = string.IsNullOrWhiteSpace(profile.TriggerInfoCommandText)
+                ? settings.TriggerInfoCommandText
+                : profile.TriggerInfoCommandText;
+            settings.TriggerInfoCommandCooldownSeconds = profile.TriggerInfoCommandCooldownSeconds is >= 0
+                ? profile.TriggerInfoCommandCooldownSeconds.Value
+                : settings.TriggerInfoCommandCooldownSeconds;
+            settings.TriggerInfoCommandPermission = profile.TriggerInfoCommandPermission is not null
+                && Enum.IsDefined(profile.TriggerInfoCommandPermission.Value)
+                    ? profile.TriggerInfoCommandPermission.Value
+                    : settings.TriggerInfoCommandPermission;
+            settings.WorldCommandEnabled = profile.WorldCommandEnabled ?? settings.WorldCommandEnabled;
+            settings.WorldCommandText = string.IsNullOrWhiteSpace(profile.WorldCommandText)
+                ? settings.WorldCommandText
+                : profile.WorldCommandText;
+            settings.WorldCommandCooldownSeconds = profile.WorldCommandCooldownSeconds is >= 0
+                ? profile.WorldCommandCooldownSeconds.Value
+                : settings.WorldCommandCooldownSeconds;
+            settings.WorldCommandPermission = profile.WorldCommandPermission is not null
+                && Enum.IsDefined(profile.WorldCommandPermission.Value)
+                    ? profile.WorldCommandPermission.Value
+                    : settings.WorldCommandPermission;
             settings.ChannelPointRewardTestModeEnabled = profile.ChannelPointRewardTestModeEnabled ?? settings.ChannelPointRewardTestModeEnabled;
             settings.EmergencyRedeemStopEnabled = profile.EmergencyRedeemStopEnabled ?? settings.EmergencyRedeemStopEnabled;
             settings.DesktopModeInputLockEnabled = profile.DesktopModeInputLockEnabled ?? settings.DesktopModeInputLockEnabled;
@@ -366,8 +393,18 @@ public sealed class SettingsStore
                 : ToCustomThemeSettings(profile.CustomTheme);
             settings.AvatarProfiles = new ObservableCollection<AvatarTriggerProfile>((profile.AvatarProfiles ?? []).Select(ToAvatarProfile));
             settings.GlobalMovementRules = new ObservableCollection<TriggerRule>((profile.GlobalMovementRules ?? []).Select(ToRule));
+            settings.MovementRedeemSets = BuildMovementRedeemSets(profile, settings.GlobalMovementRules);
+            settings.GlobalMovementRules = new ObservableCollection<TriggerRule>(settings.MovementRedeemSets.SelectMany(set => set.MovementRules));
             settings.GlobalOverrideRules = new ObservableCollection<TriggerRule>((profile.GlobalOverrideRules ?? []).Select(ToRule));
             settings.UniversalTriggers = new ObservableCollection<UniversalTriggerRule>((profile.UniversalTriggers ?? []).Select(ToUniversalTriggerRule));
+            settings.AvatarScaleSets = BuildAvatarScaleSets(profile);
+            settings.AvatarScaleRules = [];
+            settings.AvatarScaleMasterReward = profile.AvatarScaleMasterReward is null
+                ? settings.AvatarScaleMasterReward
+                : ToAvatarScaleMasterReward(profile.AvatarScaleMasterReward);
+            settings.RewardFireSale = profile.RewardFireSale is null
+                ? settings.RewardFireSale
+                : ToRewardFireSaleSettings(profile.RewardFireSale);
             settings.Rules = new ObservableCollection<TriggerRule>((profile.Rules ?? []).Select(ToRule));
         }
 
@@ -414,6 +451,7 @@ public sealed class SettingsStore
 
         if (settings.AvatarProfiles.Count == 0
             && settings.GlobalMovementRules.Count == 0
+            && settings.MovementRedeemSets.Count == 0
             && settings.GlobalOverrideRules.Count == 0
             && settings.Rules.Count > 0)
         {
@@ -467,7 +505,18 @@ public sealed class SettingsStore
             ChatboxOscEnabled = settings.ChatboxOscEnabled,
             ChatboxOscDelaySeconds = settings.ChatboxOscDelaySeconds,
             ChatboxViewerSoundEnabled = settings.ChatboxViewerSoundEnabled,
+            UseBroadcasterAsBotSender = settings.UseBroadcasterAsBotSender,
             SupporterOverrideInfoMessageEnabled = settings.SupporterOverrideInfoMessageEnabled,
+            TriggerInfoAnnouncementsEnabled = settings.TriggerInfoAnnouncementsEnabled,
+            TriggerInfoAnnouncementIntervalMinutes = settings.TriggerInfoAnnouncementIntervalMinutes,
+            TriggerInfoCommandEnabled = settings.TriggerInfoCommandEnabled,
+            TriggerInfoCommandText = settings.TriggerInfoCommandText,
+            TriggerInfoCommandCooldownSeconds = settings.TriggerInfoCommandCooldownSeconds,
+            TriggerInfoCommandPermission = settings.TriggerInfoCommandPermission,
+            WorldCommandEnabled = settings.WorldCommandEnabled,
+            WorldCommandText = settings.WorldCommandText,
+            WorldCommandCooldownSeconds = settings.WorldCommandCooldownSeconds,
+            WorldCommandPermission = settings.WorldCommandPermission,
             ChannelPointRewardTestModeEnabled = settings.ChannelPointRewardTestModeEnabled,
             EmergencyRedeemStopEnabled = settings.EmergencyRedeemStopEnabled,
             DesktopModeInputLockEnabled = settings.DesktopModeInputLockEnabled,
@@ -476,9 +525,13 @@ public sealed class SettingsStore
             IgnoredUpdateVersion = settings.IgnoredUpdateVersion,
             CustomTheme = ToPersistedCustomThemeSettings(settings.CustomTheme),
             AvatarProfiles = [.. settings.AvatarProfiles.Select(ToPersistedAvatarProfile)],
-            GlobalMovementRules = [.. settings.GlobalMovementRules.Select(ToPersistedRule)],
+            MovementRedeemSets = [.. settings.MovementRedeemSets.Select(ToPersistedMovementRedeemSet)],
+            GlobalMovementRules = [.. settings.MovementRedeemSets.SelectMany(set => set.MovementRules).Select(ToPersistedRule)],
             GlobalOverrideRules = [.. settings.GlobalOverrideRules.Select(ToPersistedRule)],
-            UniversalTriggers = [.. settings.UniversalTriggers.Select(ToPersistedUniversalTriggerRule)]
+            UniversalTriggers = [.. settings.UniversalTriggers.Select(ToPersistedUniversalTriggerRule)],
+            AvatarScaleSets = [.. settings.AvatarScaleSets.Select(ToPersistedAvatarScaleSet)],
+            AvatarScaleMasterReward = ToPersistedAvatarScaleMasterReward(settings.AvatarScaleMasterReward),
+            RewardFireSale = ToPersistedRewardFireSaleSettings(settings.RewardFireSale)
         };
 
         await SaveTextFileAtomicallyAsync(
@@ -734,8 +787,10 @@ public sealed class SettingsStore
         {
             AvatarProfiles = new ObservableCollection<AvatarTriggerProfile>(),
             GlobalMovementRules = new ObservableCollection<TriggerRule>(),
+            MovementRedeemSets = new ObservableCollection<MovementRedeemSet>(),
             GlobalOverrideRules = new ObservableCollection<TriggerRule>(),
             UniversalTriggers = new ObservableCollection<UniversalTriggerRule>(),
+            AvatarScaleSets = new ObservableCollection<AvatarScaleSet>(),
             Rules = new ObservableCollection<TriggerRule>()
         };
     }
@@ -751,6 +806,15 @@ public sealed class SettingsStore
             Name = profile.Name,
             AvatarId = profile.AvatarId,
             AvatarName = profile.AvatarName,
+            SetTriggerMasterRewardId = profile.SetTriggerMasterRewardId,
+            SetTriggerMasterRewardTitle = profile.SetTriggerMasterRewardTitle,
+            SetTriggerMasterRewardDescription = profile.SetTriggerMasterRewardDescription,
+            SetTriggerMasterRewardCost = profile.SetTriggerMasterRewardCost,
+            SetTriggerMasterRewardSyncMode = profile.SetTriggerMasterRewardSyncMode,
+            SetTriggerMasterRewardCooldownSeconds = profile.SetTriggerMasterRewardCooldownSeconds,
+            SetTriggerMasterRewardReadyColor = profile.SetTriggerMasterRewardReadyColor,
+            SetTriggerMasterRewardCooldownColor = profile.SetTriggerMasterRewardCooldownColor,
+            DeleteSetTriggerMasterRewardWhenInactive = profile.DeleteSetTriggerMasterRewardWhenInactive,
             ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)]
         };
     }
@@ -766,6 +830,17 @@ public sealed class SettingsStore
             Name = string.IsNullOrWhiteSpace(profile.Name) ? "New Avatar Set" : profile.Name,
             AvatarId = profile.AvatarId ?? string.Empty,
             AvatarName = profile.AvatarName ?? string.Empty,
+            SetTriggerMasterRewardId = profile.SetTriggerMasterRewardId ?? string.Empty,
+            SetTriggerMasterRewardTitle = profile.SetTriggerMasterRewardTitle ?? string.Empty,
+            SetTriggerMasterRewardDescription = profile.SetTriggerMasterRewardDescription ?? string.Empty,
+            SetTriggerMasterRewardCost = profile.SetTriggerMasterRewardCost <= 0 ? 100 : profile.SetTriggerMasterRewardCost,
+            SetTriggerMasterRewardSyncMode = Enum.IsDefined(profile.SetTriggerMasterRewardSyncMode)
+                ? profile.SetTriggerMasterRewardSyncMode
+                : TwitchRewardSyncMode.CreateOrManage,
+            SetTriggerMasterRewardCooldownSeconds = Math.Max(0, profile.SetTriggerMasterRewardCooldownSeconds),
+            SetTriggerMasterRewardReadyColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(profile.SetTriggerMasterRewardReadyColor),
+            SetTriggerMasterRewardCooldownColor = ManagedRewardPresentation.NormalizeCooldownBackgroundColor(profile.SetTriggerMasterRewardCooldownColor),
+            DeleteSetTriggerMasterRewardWhenInactive = profile.DeleteSetTriggerMasterRewardWhenInactive,
             ChannelPointRules = new ObservableCollection<TriggerRule>((profile.ChannelPointRules ?? [])
                 .Select(ToRule)
                 .Select(rule =>
@@ -786,7 +861,9 @@ public sealed class SettingsStore
             TriggerType = rule.TriggerType,
             ChannelPointRewardId = rule.ChannelPointRewardId,
             ChannelPointRewardTitle = rule.ChannelPointRewardTitle,
+            ChannelPointRewardDescription = rule.ChannelPointRewardDescription,
             ChannelPointRewardCost = rule.ChannelPointRewardCost,
+            RewardSyncMode = rule.RewardSyncMode,
             ManagedRewardReadyColor = rule.ManagedRewardReadyColor,
             ManagedRewardCooldownColor = rule.ManagedRewardCooldownColor,
             DeleteManagedRewardWhenInactive = rule.DeleteManagedRewardWhenInactive,
@@ -809,6 +886,8 @@ public sealed class SettingsStore
             ParameterType = rule.ParameterType,
             IntZeroDurationMode = rule.IntZeroDurationMode,
             ParameterValue = rule.ParameterValue,
+            FloatValueMode = rule.FloatValueMode,
+            FloatTransitionSeconds = rule.FloatTransitionSeconds,
             AvatarChangeTargetId = rule.AvatarChangeTargetId,
             AvatarTargetName = rule.AvatarTargetName,
             ResetValue = rule.ResetValue,
@@ -820,10 +899,35 @@ public sealed class SettingsStore
             RangeMaximum = rule.RangeMaximum,
             DurationSeconds = rule.DurationSeconds,
             CooldownSeconds = rule.CooldownSeconds,
+            SharedRewardChoiceEnabled = rule.SharedRewardChoiceEnabled,
+            SharedRewardChoiceNumber = rule.SharedRewardChoiceNumber,
+            SharedRewardHelpText = rule.SharedRewardHelpText,
+            ActiveFloatBoostRewardOwnerId = rule.ActiveFloatBoostRewardOwnerId,
+            ActiveFloatBoostRewardEnabled = rule.ActiveFloatBoostRewardEnabled,
+            ActiveFloatBoostRewardId = rule.ActiveFloatBoostRewardId,
+            ActiveFloatBoostRewardTitle = rule.ActiveFloatBoostRewardTitle,
+            ActiveFloatBoostRewardDescription = rule.ActiveFloatBoostRewardDescription,
+            ActiveFloatBoostRewardCost = rule.ActiveFloatBoostRewardCost,
+            ActiveFloatBoostRewardCooldownSeconds = rule.ActiveFloatBoostRewardCooldownSeconds,
+            ActiveFloatBoostRewardReadyColor = rule.ActiveFloatBoostRewardReadyColor,
+            ActiveFloatBoostRewardCooldownColor = rule.ActiveFloatBoostRewardCooldownColor,
+            ActiveFloatBoostAddValue = rule.ActiveFloatBoostAddValue,
+            ActiveFloatBoostMinimumValue = rule.ActiveFloatBoostMinimumValue,
+            ActiveFloatBoostMaximumValue = rule.ActiveFloatBoostMaximumValue,
+            SetTriggerActions = [.. rule.SetTriggerActions.Select(ToPersistedSetTriggerAction)],
             BotMessageTemplate = rule.BotMessageTemplate,
             TemporarilyDisabledRuleIds = [.. rule.TemporarilyDisabledRuleIds]
         };
     }
+
+    private static PersistedSetTriggerAction ToPersistedSetTriggerAction(SetTriggerAction action) =>
+        new()
+        {
+            Id = action.Id,
+            ParameterName = action.ParameterName,
+            ParameterType = action.ParameterType,
+            ParameterValue = action.ParameterValue
+        };
 
     private static TriggerRule ToRule(PersistedTriggerRule rule)
     {
@@ -854,7 +958,11 @@ public sealed class SettingsStore
             ChannelPointRewardTitle = !string.IsNullOrWhiteSpace(rule.ChannelPointRewardTitle)
                 ? rule.ChannelPointRewardTitle
                 : (rule.MatchText ?? string.Empty),
+            ChannelPointRewardDescription = rule.ChannelPointRewardDescription ?? string.Empty,
             ChannelPointRewardCost = rule.ChannelPointRewardCost <= 0 ? 100 : rule.ChannelPointRewardCost,
+            RewardSyncMode = Enum.IsDefined(rule.RewardSyncMode)
+                ? rule.RewardSyncMode
+                : TwitchRewardSyncMode.CreateOrManage,
             ManagedRewardReadyColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(rule.ManagedRewardReadyColor),
             ManagedRewardCooldownColor = ManagedRewardPresentation.NormalizeCooldownBackgroundColor(rule.ManagedRewardCooldownColor),
             DeleteManagedRewardWhenInactive = rule.DeleteManagedRewardWhenInactive,
@@ -889,6 +997,8 @@ public sealed class SettingsStore
             ParameterType = rule.ParameterType,
             IntZeroDurationMode = rule.IntZeroDurationMode,
             ParameterValue = migratedParameterValue,
+            FloatValueMode = Enum.IsDefined(rule.FloatValueMode) ? rule.FloatValueMode : FloatValueMode.Decimal,
+            FloatTransitionSeconds = Math.Clamp(rule.FloatTransitionSeconds, 0, 30),
             AvatarChangeTargetId = migratedAvatarChangeTargetId ?? string.Empty,
             AvatarTargetName = rule.AvatarTargetName ?? string.Empty,
             ResetValue = migratedResetValue,
@@ -904,12 +1014,45 @@ public sealed class SettingsStore
             RangeMaximum = rule.RangeMaximum == 0 && rule.RangeMinimum == 0 ? 5 : rule.RangeMaximum,
             DurationSeconds = Math.Max(0, rule.DurationSeconds),
             CooldownSeconds = Math.Max(0, rule.CooldownSeconds),
+            SharedRewardChoiceEnabled = rule.SharedRewardChoiceEnabled,
+            SharedRewardChoiceNumber = Math.Max(0, rule.SharedRewardChoiceNumber),
+            SharedRewardHelpText = rule.SharedRewardHelpText ?? string.Empty,
+            ActiveFloatBoostRewardOwnerId = rule.ActiveFloatBoostRewardOwnerId == Guid.Empty
+                ? Guid.NewGuid()
+                : rule.ActiveFloatBoostRewardOwnerId,
+            ActiveFloatBoostRewardEnabled = rule.ActiveFloatBoostRewardEnabled,
+            ActiveFloatBoostRewardId = rule.ActiveFloatBoostRewardId ?? string.Empty,
+            ActiveFloatBoostRewardTitle = rule.ActiveFloatBoostRewardTitle ?? string.Empty,
+            ActiveFloatBoostRewardDescription = rule.ActiveFloatBoostRewardDescription ?? string.Empty,
+            ActiveFloatBoostRewardCost = rule.ActiveFloatBoostRewardCost <= 0 ? 100 : rule.ActiveFloatBoostRewardCost,
+            ActiveFloatBoostRewardCooldownSeconds = Math.Max(0, rule.ActiveFloatBoostRewardCooldownSeconds),
+            ActiveFloatBoostRewardReadyColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(rule.ActiveFloatBoostRewardReadyColor),
+            ActiveFloatBoostRewardCooldownColor = ManagedRewardPresentation.NormalizeCooldownBackgroundColor(rule.ActiveFloatBoostRewardCooldownColor),
+            ActiveFloatBoostAddValue = string.IsNullOrWhiteSpace(rule.ActiveFloatBoostAddValue) ? "0.05" : rule.ActiveFloatBoostAddValue,
+            ActiveFloatBoostMinimumValue = string.IsNullOrWhiteSpace(rule.ActiveFloatBoostMinimumValue) ? "0" : rule.ActiveFloatBoostMinimumValue,
+            ActiveFloatBoostMaximumValue = string.IsNullOrWhiteSpace(rule.ActiveFloatBoostMaximumValue) ? "1" : rule.ActiveFloatBoostMaximumValue,
+            SetTriggerActions = new ObservableCollection<SetTriggerAction>((rule.SetTriggerActions ?? [])
+                .Select(ToSetTriggerAction)
+                .Where(action => !string.IsNullOrWhiteSpace(action.ParameterName))),
             TemporarilyDisabledRuleIds = new ObservableCollection<Guid>((rule.TemporarilyDisabledRuleIds ?? [])
                 .Where(ruleId => ruleId != Guid.Empty)
                 .Distinct()),
             BotMessageTemplate = string.IsNullOrWhiteSpace(rule.BotMessageTemplate)
                 ? "{user} triggered {rule}. Active for {duration}. Cooldown {cooldown}."
                 : rule.BotMessageTemplate
+        };
+    }
+
+    private static SetTriggerAction ToSetTriggerAction(PersistedSetTriggerAction action)
+    {
+        return new SetTriggerAction
+        {
+            Id = action.Id == Guid.Empty ? Guid.NewGuid() : action.Id,
+            ParameterName = action.ParameterName ?? string.Empty,
+            ParameterType = action.ParameterType is OscParameterType.Bool or OscParameterType.Int or OscParameterType.Float
+                ? action.ParameterType
+                : OscParameterType.Int,
+            ParameterValue = action.ParameterValue ?? string.Empty
         };
     }
 
@@ -926,7 +1069,10 @@ public sealed class SettingsStore
             ChatCommandPermission = rule.ChatCommandPermission,
             RewardId = rule.RewardId,
             RewardTitle = rule.RewardTitle,
+            RewardDescription = rule.RewardDescription,
             RewardCost = rule.RewardCost,
+            RewardCooldownSeconds = rule.RewardCooldownSeconds,
+            RewardSyncMode = rule.RewardSyncMode,
             ManagedRewardReadyColor = rule.ManagedRewardReadyColor,
             ManagedRewardCooldownColor = rule.ManagedRewardCooldownColor,
             DeleteManagedRewardWhenInactive = rule.DeleteManagedRewardWhenInactive,
@@ -973,7 +1119,12 @@ public sealed class SettingsStore
                 : ChatCommandPermission.Moderators,
             RewardId = rule.RewardId ?? string.Empty,
             RewardTitle = rule.RewardTitle ?? string.Empty,
+            RewardDescription = rule.RewardDescription ?? string.Empty,
             RewardCost = rule.RewardCost <= 0 ? 100 : rule.RewardCost,
+            RewardCooldownSeconds = Math.Max(0, rule.RewardCooldownSeconds),
+            RewardSyncMode = Enum.IsDefined(rule.RewardSyncMode)
+                ? rule.RewardSyncMode
+                : TwitchRewardSyncMode.CreateOrManage,
             ManagedRewardReadyColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(rule.ManagedRewardReadyColor),
             ManagedRewardCooldownColor = ManagedRewardPresentation.NormalizeCooldownBackgroundColor(rule.ManagedRewardCooldownColor),
             DeleteManagedRewardWhenInactive = rule.DeleteManagedRewardWhenInactive,
@@ -1005,6 +1156,424 @@ public sealed class SettingsStore
         };
     }
 
+    private static ObservableCollection<AvatarScaleSet> BuildAvatarScaleSets(PersistedProfileSettings profile)
+    {
+        if (profile.AvatarScaleSets?.Count > 0)
+        {
+            return new ObservableCollection<AvatarScaleSet>(profile.AvatarScaleSets.Select(ToAvatarScaleSet));
+        }
+
+        var legacyRules = (profile.AvatarScaleRules ?? [])
+            .Select(ToAvatarScaleRule)
+            .ToArray();
+        if (legacyRules.Length == 0)
+        {
+            return [];
+        }
+
+        return
+        [
+            new AvatarScaleSet
+            {
+                Name = "Default Scale Set",
+                ScaleRules = new ObservableCollection<AvatarScaleRule>(legacyRules)
+            }
+        ];
+    }
+
+    private static ObservableCollection<MovementRedeemSet> BuildMovementRedeemSets(
+        PersistedProfileSettings profile,
+        IEnumerable<TriggerRule> legacyMovementRules)
+    {
+        if (profile.MovementRedeemSets?.Count > 0)
+        {
+            return new ObservableCollection<MovementRedeemSet>(profile.MovementRedeemSets.Select(ToMovementRedeemSet));
+        }
+
+        var legacyRules = legacyMovementRules.ToArray();
+        if (legacyRules.Length == 0)
+        {
+            return [];
+        }
+
+        return
+        [
+            new MovementRedeemSet
+            {
+                Name = "Default Movement Set",
+                MovementRules = new ObservableCollection<TriggerRule>(legacyRules)
+            }
+        ];
+    }
+
+    private static PersistedMovementRedeemSet ToPersistedMovementRedeemSet(MovementRedeemSet set)
+    {
+        return new PersistedMovementRedeemSet
+        {
+            Id = set.Id,
+            Name = set.Name,
+            MovementRules = [.. set.MovementRules.Select(ToPersistedRule)]
+        };
+    }
+
+    private static MovementRedeemSet ToMovementRedeemSet(PersistedMovementRedeemSet set)
+    {
+        return new MovementRedeemSet
+        {
+            Id = set.Id == Guid.Empty ? Guid.NewGuid() : set.Id,
+            Name = string.IsNullOrWhiteSpace(set.Name) ? "Default Movement Set" : set.Name,
+            MovementRules = new ObservableCollection<TriggerRule>((set.MovementRules ?? []).Select(ToRule))
+        };
+    }
+
+    private static PersistedAvatarScaleSet ToPersistedAvatarScaleSet(AvatarScaleSet set)
+    {
+        return new PersistedAvatarScaleSet
+        {
+            Id = set.Id,
+            Name = set.Name,
+            ScaleRules = [.. set.ScaleRules.Select(ToPersistedAvatarScaleRule)]
+        };
+    }
+
+    private static AvatarScaleSet ToAvatarScaleSet(PersistedAvatarScaleSet set)
+    {
+        return new AvatarScaleSet
+        {
+            Id = set.Id == Guid.Empty ? Guid.NewGuid() : set.Id,
+            Name = string.IsNullOrWhiteSpace(set.Name) ? "Default Scale Set" : set.Name,
+            ScaleRules = new ObservableCollection<AvatarScaleRule>((set.ScaleRules ?? []).Select(ToAvatarScaleRule))
+        };
+    }
+
+    private static PersistedAvatarScaleMasterRewardSettings ToPersistedAvatarScaleMasterReward(
+        AvatarScaleMasterRewardSettings settings)
+    {
+        return new PersistedAvatarScaleMasterRewardSettings
+        {
+            IsEnabled = settings.IsEnabled,
+            RewardId = settings.RewardId,
+            RewardTitle = settings.RewardTitle,
+            RewardDescription = settings.RewardDescription,
+            RewardCost = settings.RewardCost,
+            RewardSyncMode = settings.RewardSyncMode,
+            UnlockDurationSeconds = settings.UnlockDurationSeconds,
+            CooldownSeconds = settings.CooldownSeconds,
+            ManagedRewardReadyColor = settings.ManagedRewardReadyColor,
+            ManagedRewardCooldownColor = settings.ManagedRewardCooldownColor,
+            DeleteMasterRewardWhenInactive = settings.DeleteMasterRewardWhenInactive,
+            FreeChildRewardSlotsWhenLocked = settings.FreeChildRewardSlotsWhenLocked,
+            PreventAvatarChangesDuringActiveScaling = settings.PreventAvatarChangesDuringActiveScaling
+        };
+    }
+
+    private static AvatarScaleMasterRewardSettings ToAvatarScaleMasterReward(
+        PersistedAvatarScaleMasterRewardSettings settings)
+    {
+        return new AvatarScaleMasterRewardSettings
+        {
+            IsEnabled = settings.IsEnabled,
+            RewardId = settings.RewardId ?? string.Empty,
+            RewardTitle = string.IsNullOrWhiteSpace(settings.RewardTitle)
+                ? "Avatar Scaling"
+                : settings.RewardTitle,
+            RewardDescription = settings.RewardDescription ?? string.Empty,
+            RewardCost = settings.RewardCost <= 0 ? 100 : settings.RewardCost,
+            RewardSyncMode = Enum.IsDefined(settings.RewardSyncMode)
+                ? settings.RewardSyncMode
+                : TwitchRewardSyncMode.CreateOrManage,
+            UnlockDurationSeconds = settings.UnlockDurationSeconds <= 0 ? 60 : settings.UnlockDurationSeconds,
+            CooldownSeconds = Math.Max(0, settings.CooldownSeconds),
+            ManagedRewardReadyColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(settings.ManagedRewardReadyColor),
+            ManagedRewardCooldownColor = ManagedRewardPresentation.NormalizeCooldownBackgroundColor(settings.ManagedRewardCooldownColor),
+            DeleteMasterRewardWhenInactive = settings.DeleteMasterRewardWhenInactive,
+            FreeChildRewardSlotsWhenLocked = settings.FreeChildRewardSlotsWhenLocked ?? true,
+            PreventAvatarChangesDuringActiveScaling = settings.PreventAvatarChangesDuringActiveScaling
+        };
+    }
+
+    private static PersistedRewardFireSaleSettings ToPersistedRewardFireSaleSettings(
+        RewardFireSaleSettings settings)
+    {
+        return new PersistedRewardFireSaleSettings
+        {
+            IsEnabled = settings.IsEnabled,
+            CountBits = settings.CountBits,
+            CountManagedRewards = settings.CountManagedRewards,
+            FundingRewardEnabled = settings.FundingRewardEnabled,
+            FundingRewardId = settings.FundingRewardId,
+            FundingRewardTitle = settings.FundingRewardTitle,
+            FundingRewardDescription = settings.FundingRewardDescription,
+            FundingRewardCost = settings.FundingRewardCost,
+            FundingRewardCooldownSeconds = settings.FundingRewardCooldownSeconds,
+            FundingRewardReadyColor = settings.FundingRewardReadyColor,
+            FundingRewardCooldownColor = settings.FundingRewardCooldownColor,
+            RewardPointsPerProgressUnit = settings.RewardPointsPerProgressUnit,
+            MultiTierEnabled = settings.MultiTierEnabled,
+            SaleMode = settings.SaleMode,
+            TemporaryDurationSeconds = settings.TemporaryDurationSeconds,
+            CurrentProgress = settings.CurrentProgress,
+            IsSaleActive = settings.IsSaleActive,
+            ActiveDiscountPercent = settings.ActiveDiscountPercent,
+            ActiveTierGoalAmount = settings.ActiveTierGoalAmount,
+            ActiveUntilUtc = settings.ActiveUntilUtc,
+            Tiers = [.. settings.Tiers.Select(ToPersistedRewardFireSaleTier)]
+        };
+    }
+
+    private static PersistedRewardFireSaleTier ToPersistedRewardFireSaleTier(RewardFireSaleTier tier)
+    {
+        return new PersistedRewardFireSaleTier
+        {
+            Id = tier.Id,
+            GoalAmount = tier.GoalAmount,
+            DiscountPercent = tier.DiscountPercent
+        };
+    }
+
+    private static RewardFireSaleSettings ToRewardFireSaleSettings(PersistedRewardFireSaleSettings settings)
+    {
+        var tiers = (settings.Tiers ?? [])
+            .Select(ToRewardFireSaleTier)
+            .Where(tier => tier.GoalAmount > 0)
+            .OrderBy(tier => tier.GoalAmount)
+            .ToArray();
+
+        return new RewardFireSaleSettings
+        {
+            IsEnabled = settings.IsEnabled,
+            CountBits = settings.CountBits ?? true,
+            CountManagedRewards = settings.CountManagedRewards ?? true,
+            FundingRewardEnabled = settings.FundingRewardEnabled,
+            FundingRewardId = settings.FundingRewardId?.Trim() ?? string.Empty,
+            FundingRewardTitle = string.IsNullOrWhiteSpace(settings.FundingRewardTitle)
+                ? "Fire Sale Fund"
+                : settings.FundingRewardTitle.Trim(),
+            FundingRewardDescription = settings.FundingRewardDescription ?? string.Empty,
+            FundingRewardCost = settings.FundingRewardCost <= 0 ? 100 : settings.FundingRewardCost,
+            FundingRewardCooldownSeconds = Math.Max(0, settings.FundingRewardCooldownSeconds),
+            FundingRewardReadyColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(settings.FundingRewardReadyColor),
+            FundingRewardCooldownColor = ManagedRewardPresentation.NormalizeCooldownBackgroundColor(settings.FundingRewardCooldownColor),
+            RewardPointsPerProgressUnit = settings.RewardPointsPerProgressUnit <= 0 ? 10 : settings.RewardPointsPerProgressUnit,
+            MultiTierEnabled = settings.MultiTierEnabled ?? true,
+            SaleMode = Enum.IsDefined(settings.SaleMode) ? settings.SaleMode : RewardFireSaleMode.Temporary,
+            TemporaryDurationSeconds = settings.TemporaryDurationSeconds <= 0 ? 300 : settings.TemporaryDurationSeconds,
+            CurrentProgress = Math.Max(0, settings.CurrentProgress),
+            IsSaleActive = settings.IsSaleActive,
+            ActiveDiscountPercent = Math.Clamp(settings.ActiveDiscountPercent, 0, 100),
+            ActiveTierGoalAmount = Math.Max(0, settings.ActiveTierGoalAmount),
+            ActiveUntilUtc = settings.ActiveUntilUtc,
+            Tiers = new ObservableCollection<RewardFireSaleTier>(
+                tiers.Length == 0
+                    ? new[] { new RewardFireSaleTier() }
+                    : tiers)
+        };
+    }
+
+    private static RewardFireSaleTier ToRewardFireSaleTier(PersistedRewardFireSaleTier tier)
+    {
+        return new RewardFireSaleTier
+        {
+            Id = tier.Id == Guid.Empty ? Guid.NewGuid() : tier.Id,
+            GoalAmount = tier.GoalAmount <= 0 ? 5000 : tier.GoalAmount,
+            DiscountPercent = tier.DiscountPercent <= 0 ? 25 : tier.DiscountPercent
+        };
+    }
+
+    private static PersistedAvatarScaleRule ToPersistedAvatarScaleRule(AvatarScaleRule rule)
+    {
+        return new PersistedAvatarScaleRule
+        {
+            Id = rule.Id,
+            IsEnabled = rule.IsEnabled,
+            Name = rule.Name,
+            TriggerType = rule.TriggerType,
+            ChatCommandEnabled = rule.ChatCommandEnabled,
+            CommandText = rule.CommandText,
+            ChatCommandPermission = rule.ChatCommandPermission,
+            RewardId = rule.RewardId,
+            RewardTitle = rule.RewardTitle,
+            RewardDescription = rule.RewardDescription,
+            RewardCost = rule.RewardCost,
+            RewardSyncMode = rule.RewardSyncMode,
+            ManagedRewardReadyColor = rule.ManagedRewardReadyColor,
+            ManagedRewardCooldownColor = rule.ManagedRewardCooldownColor,
+            DeleteManagedRewardWhenInactive = rule.DeleteManagedRewardWhenInactive,
+            MinimumBits = rule.MinimumBits,
+            MaximumBits = rule.MaximumBits,
+            SubscriptionTier = rule.SubscriptionTier,
+            MinimumMonths = rule.MinimumMonths,
+            MaximumMonths = rule.MaximumMonths,
+            CooldownSeconds = rule.CooldownSeconds,
+            TemporarilyDisabledScaleRuleIds = [.. rule.TemporarilyDisabledScaleRuleIds],
+            ScaleMode = rule.ScaleMode,
+            TargetHeightMeters = rule.TargetHeightMeters,
+            MinimumHeightMeters = rule.MinimumHeightMeters,
+            MaximumHeightMeters = rule.MaximumHeightMeters,
+            RelativeHeightMeters = rule.RelativeHeightMeters,
+            RelativeMinimumHeightMeters = rule.RelativeMinimumHeightMeters,
+            RelativeMaximumHeightMeters = rule.RelativeMaximumHeightMeters,
+            HeightMultiplier = rule.HeightMultiplier,
+            Preset = rule.Preset,
+            ActiveTimeSeconds = rule.ActiveTimeSeconds,
+            RestoreMode = rule.RestoreMode,
+            RestoreHeightMeters = rule.RestoreHeightMeters,
+            SmoothTransitionSeconds = rule.SmoothTransitionSeconds,
+            AdvancedRangeEnabled = rule.AdvancedRangeEnabled,
+            BypassVrChatScaleLimits = rule.BypassVrChatScaleLimits,
+            SupporterGrowthNormalHeightMeters = rule.SupporterGrowthNormalHeightMeters,
+            SupporterGrowthMaxAddedHeightMeters = rule.SupporterGrowthMaxAddedHeightMeters,
+            SupporterGrowthInactivityTimerSeconds = rule.SupporterGrowthInactivityTimerSeconds,
+            SupporterGrowthAllowRewardScaleOverlay = rule.SupporterGrowthAllowRewardScaleOverlay,
+            SupporterGrowthBitsTimerUnit = rule.SupporterGrowthBitsTimerUnit,
+            SupporterGrowthSecondsPerBitsUnit = rule.SupporterGrowthSecondsPerBitsUnit,
+            SupporterGrowthTier1Seconds = rule.SupporterGrowthTier1Seconds,
+            SupporterGrowthTier2Seconds = rule.SupporterGrowthTier2Seconds,
+            SupporterGrowthTier3Seconds = rule.SupporterGrowthTier3Seconds,
+            SupporterGrowthSoftCapSeconds = rule.SupporterGrowthSoftCapSeconds,
+            SupporterGrowthSoftCapMultiplierPercent = rule.SupporterGrowthSoftCapMultiplierPercent,
+            SupporterGrowthMaxPaidTimeSeconds = rule.SupporterGrowthMaxPaidTimeSeconds,
+            SupporterGrowthGrowKeyword = rule.SupporterGrowthGrowKeyword,
+            SupporterGrowthShrinkKeyword = rule.SupporterGrowthShrinkKeyword,
+            SupporterGrowthTier1HeightMeters = rule.SupporterGrowthTier1HeightMeters,
+            SupporterGrowthTier2HeightMeters = rule.SupporterGrowthTier2HeightMeters,
+            SupporterGrowthTier3HeightMeters = rule.SupporterGrowthTier3HeightMeters,
+            SupporterGrowthBitRanges = [.. rule.SupporterGrowthBitRanges.Select(ToPersistedAvatarScaleBitGrowthRange)]
+        };
+    }
+
+    private static PersistedAvatarScaleBitGrowthRange ToPersistedAvatarScaleBitGrowthRange(AvatarScaleBitGrowthRange range)
+    {
+        return new PersistedAvatarScaleBitGrowthRange
+        {
+            MinimumBits = range.MinimumBits,
+            MaximumBits = range.MaximumBits,
+            HeightAddedMeters = range.HeightAddedMeters
+        };
+    }
+
+    private static AvatarScaleRule ToAvatarScaleRule(PersistedAvatarScaleRule rule)
+    {
+        var scaleRule = new AvatarScaleRule
+        {
+            Id = rule.Id == Guid.Empty ? Guid.NewGuid() : rule.Id,
+            IsEnabled = rule.IsEnabled,
+            Name = string.IsNullOrWhiteSpace(rule.Name) ? "New Avatar Scale" : rule.Name,
+            TriggerType = Enum.IsDefined(rule.TriggerType) ? rule.TriggerType : AvatarScaleTriggerType.ChannelPointReward,
+            ChatCommandEnabled = rule.ChatCommandEnabled,
+            CommandText = rule.CommandText ?? string.Empty,
+            ChatCommandPermission = Enum.IsDefined(rule.ChatCommandPermission)
+                ? rule.ChatCommandPermission
+                : ChatCommandPermission.Moderators,
+            RewardId = rule.RewardId ?? string.Empty,
+            RewardTitle = rule.RewardTitle ?? string.Empty,
+            RewardDescription = rule.RewardDescription ?? string.Empty,
+            RewardCost = rule.RewardCost <= 0 ? 100 : rule.RewardCost,
+            RewardSyncMode = Enum.IsDefined(rule.RewardSyncMode)
+                ? rule.RewardSyncMode
+                : TwitchRewardSyncMode.CreateOrManage,
+            ManagedRewardReadyColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(rule.ManagedRewardReadyColor),
+            ManagedRewardCooldownColor = ManagedRewardPresentation.NormalizeCooldownBackgroundColor(rule.ManagedRewardCooldownColor),
+            DeleteManagedRewardWhenInactive = rule.DeleteManagedRewardWhenInactive,
+            MinimumBits = rule.MinimumBits <= 0 ? 1 : rule.MinimumBits,
+            MaximumBits = rule.MaximumBits <= 0 ? Math.Max(1, rule.MinimumBits) : rule.MaximumBits,
+            SubscriptionTier = rule.SubscriptionTier ?? string.Empty,
+            MinimumMonths = rule.MinimumMonths,
+            MaximumMonths = rule.MaximumMonths,
+            CooldownSeconds = Math.Max(0, rule.CooldownSeconds),
+            TemporarilyDisabledScaleRuleIds = new ObservableCollection<Guid>((rule.TemporarilyDisabledScaleRuleIds ?? [])
+                .Where(ruleId => ruleId != Guid.Empty)
+                .Distinct()),
+            AdvancedRangeEnabled = rule.AdvancedRangeEnabled,
+            BypassVrChatScaleLimits = rule.BypassVrChatScaleLimits,
+            ScaleMode = Enum.IsDefined(rule.ScaleMode) ? rule.ScaleMode : AvatarScaleMode.SetHeight,
+            TargetHeightMeters = rule.TargetHeightMeters <= 0 ? 1.6 : rule.TargetHeightMeters,
+            MinimumHeightMeters = rule.MinimumHeightMeters <= 0 ? 0.5 : rule.MinimumHeightMeters,
+            MaximumHeightMeters = rule.MaximumHeightMeters <= 0 ? 2.5 : rule.MaximumHeightMeters,
+            RelativeHeightMeters = rule.RelativeHeightMeters == 0 ? 0.25 : rule.RelativeHeightMeters,
+            RelativeMinimumHeightMeters = rule.RelativeMinimumHeightMeters <= 0
+                ? AvatarScaleRule.SafeMinimumHeightMeters
+                : rule.RelativeMinimumHeightMeters,
+            RelativeMaximumHeightMeters = rule.RelativeMaximumHeightMeters <= 0
+                ? AvatarScaleRule.SafeMaximumHeightMeters
+                : rule.RelativeMaximumHeightMeters,
+            HeightMultiplier = rule.HeightMultiplier <= 0 ? 1.25 : rule.HeightMultiplier,
+            Preset = Enum.IsDefined(rule.Preset) ? rule.Preset : AvatarScalePreset.Normal,
+            ActiveTimeSeconds = Math.Max(0, rule.ActiveTimeSeconds),
+            RestoreMode = AvatarScaleRestoreMode.ConfiguredHeight,
+            RestoreHeightMeters = rule.RestoreHeightMeters <= 0 ? 1.6 : rule.RestoreHeightMeters,
+            SmoothTransitionSeconds = Math.Max(0, rule.SmoothTransitionSeconds),
+            SupporterGrowthNormalHeightMeters = rule.SupporterGrowthNormalHeightMeters <= 0
+                ? 1.6
+                : rule.SupporterGrowthNormalHeightMeters,
+            SupporterGrowthMaxAddedHeightMeters = Math.Max(0, rule.SupporterGrowthMaxAddedHeightMeters),
+            SupporterGrowthInactivityTimerSeconds = rule.SupporterGrowthInactivityTimerSeconds <= 0
+                ? 60
+                : rule.SupporterGrowthInactivityTimerSeconds,
+            SupporterGrowthAllowRewardScaleOverlay = rule.SupporterGrowthAllowRewardScaleOverlay,
+            SupporterGrowthBitsTimerUnit = rule.SupporterGrowthBitsTimerUnit <= 0
+                ? 100
+                : rule.SupporterGrowthBitsTimerUnit,
+            SupporterGrowthSecondsPerBitsUnit = rule.SupporterGrowthSecondsPerBitsUnit <= 0
+                ? 30
+                : rule.SupporterGrowthSecondsPerBitsUnit,
+            SupporterGrowthTier1Seconds = rule.SupporterGrowthTier1Seconds <= 0
+                ? 300
+                : rule.SupporterGrowthTier1Seconds,
+            SupporterGrowthTier2Seconds = rule.SupporterGrowthTier2Seconds <= 0
+                ? 600
+                : rule.SupporterGrowthTier2Seconds,
+            SupporterGrowthTier3Seconds = rule.SupporterGrowthTier3Seconds <= 0
+                ? 1500
+                : rule.SupporterGrowthTier3Seconds,
+            SupporterGrowthSoftCapSeconds = rule.SupporterGrowthSoftCapSeconds <= 0
+                ? 1800
+                : rule.SupporterGrowthSoftCapSeconds,
+            SupporterGrowthSoftCapMultiplierPercent = rule.SupporterGrowthSoftCapMultiplierPercent <= 0
+                ? 50
+                : Math.Clamp(rule.SupporterGrowthSoftCapMultiplierPercent, 0, 100),
+            SupporterGrowthMaxPaidTimeSeconds = rule.SupporterGrowthMaxPaidTimeSeconds <= 0
+                ? 3600
+                : rule.SupporterGrowthMaxPaidTimeSeconds,
+            SupporterGrowthGrowKeyword = string.IsNullOrWhiteSpace(rule.SupporterGrowthGrowKeyword)
+                ? "grow"
+                : rule.SupporterGrowthGrowKeyword.Trim(),
+            SupporterGrowthShrinkKeyword = string.IsNullOrWhiteSpace(rule.SupporterGrowthShrinkKeyword)
+                ? "shrink"
+                : rule.SupporterGrowthShrinkKeyword.Trim(),
+            SupporterGrowthTier1HeightMeters = rule.SupporterGrowthTier1HeightMeters <= 0
+                ? 0.10
+                : rule.SupporterGrowthTier1HeightMeters,
+            SupporterGrowthTier2HeightMeters = rule.SupporterGrowthTier2HeightMeters <= 0
+                ? 0.20
+                : rule.SupporterGrowthTier2HeightMeters,
+            SupporterGrowthTier3HeightMeters = rule.SupporterGrowthTier3HeightMeters <= 0
+                ? 0.30
+                : rule.SupporterGrowthTier3HeightMeters,
+            SupporterGrowthBitRanges = new ObservableCollection<AvatarScaleBitGrowthRange>(
+                (rule.SupporterGrowthBitRanges is { Count: > 0 }
+                    ? rule.SupporterGrowthBitRanges.Select(ToAvatarScaleBitGrowthRange)
+                    : [new AvatarScaleBitGrowthRange()]))
+        };
+
+        if (scaleRule.MaximumHeightMeters < scaleRule.MinimumHeightMeters)
+        {
+            scaleRule.MaximumHeightMeters = scaleRule.MinimumHeightMeters;
+        }
+
+        return scaleRule;
+    }
+
+    private static AvatarScaleBitGrowthRange ToAvatarScaleBitGrowthRange(PersistedAvatarScaleBitGrowthRange range)
+    {
+        return new AvatarScaleBitGrowthRange
+        {
+            MinimumBits = range.MinimumBits <= 0 ? 1 : range.MinimumBits,
+            MaximumBits = Math.Max(0, range.MaximumBits),
+            HeightAddedMeters = Math.Max(0, range.HeightAddedMeters)
+        };
+    }
+
     private static AppSettings ToSettings(PersistedLegacySettings persisted)
     {
         var settings = new AppSettings
@@ -1027,17 +1596,29 @@ public sealed class SettingsStore
 
         settings.AvatarProfiles.Clear();
         settings.GlobalMovementRules.Clear();
+        settings.MovementRedeemSets.Clear();
         settings.GlobalOverrideRules.Clear();
 
         var legacyChannelPointRules = clonedRules
             .Where(rule => rule.TriggerType == TwitchTriggerType.ChannelPoints && rule.ActionType != OscActionType.PlayerMovement)
             .ToArray();
 
-        foreach (var movementRule in clonedRules.Where(rule =>
+        var movementRules = clonedRules.Where(rule =>
                      rule.TriggerType == TwitchTriggerType.ChannelPoints
-                     && rule.ActionType == OscActionType.PlayerMovement))
+                     && rule.ActionType == OscActionType.PlayerMovement)
+            .ToArray();
+        foreach (var movementRule in movementRules)
         {
             settings.GlobalMovementRules.Add(movementRule);
+        }
+
+        if (movementRules.Length > 0)
+        {
+            settings.MovementRedeemSets.Add(new MovementRedeemSet
+            {
+                Name = "Default Movement Set",
+                MovementRules = new ObservableCollection<TriggerRule>(movementRules)
+            });
         }
 
         if (legacyChannelPointRules.Length > 0)
@@ -1075,7 +1656,10 @@ public sealed class SettingsStore
 
         var accessToken = credentialStore.LoadSecret(GetTwitchAccessTokenCredential(role));
         var refreshToken = credentialStore.LoadSecret(GetTwitchRefreshTokenCredential(role));
-        if (string.IsNullOrWhiteSpace(accessToken) || string.IsNullOrWhiteSpace(account.UserId))
+        var broadcasterCanRecoverFromRefreshToken = role == BridgeAccountRole.Broadcaster
+            && !string.IsNullOrWhiteSpace(refreshToken);
+        if ((string.IsNullOrWhiteSpace(accessToken) || string.IsNullOrWhiteSpace(account.UserId))
+            && !broadcasterCanRecoverFromRefreshToken)
         {
             return new TwitchAccountSettings();
         }
@@ -1450,7 +2034,29 @@ public sealed class SettingsStore
 
         public bool? ChatboxViewerSoundEnabled { get; set; }
 
+        public bool? UseBroadcasterAsBotSender { get; set; }
+
         public bool? SupporterOverrideInfoMessageEnabled { get; set; }
+
+        public bool? TriggerInfoAnnouncementsEnabled { get; set; }
+
+        public int? TriggerInfoAnnouncementIntervalMinutes { get; set; }
+
+        public bool? TriggerInfoCommandEnabled { get; set; }
+
+        public string? TriggerInfoCommandText { get; set; }
+
+        public int? TriggerInfoCommandCooldownSeconds { get; set; }
+
+        public ChatCommandPermission? TriggerInfoCommandPermission { get; set; }
+
+        public bool? WorldCommandEnabled { get; set; }
+
+        public string? WorldCommandText { get; set; }
+
+        public int? WorldCommandCooldownSeconds { get; set; }
+
+        public ChatCommandPermission? WorldCommandPermission { get; set; }
 
         public bool? ChannelPointRewardTestModeEnabled { get; set; }
 
@@ -1468,11 +2074,21 @@ public sealed class SettingsStore
 
         public List<PersistedAvatarTriggerProfile>? AvatarProfiles { get; set; }
 
+        public List<PersistedMovementRedeemSet>? MovementRedeemSets { get; set; }
+
         public List<PersistedTriggerRule>? GlobalMovementRules { get; set; }
 
         public List<PersistedTriggerRule>? GlobalOverrideRules { get; set; }
 
         public List<PersistedUniversalTriggerRule>? UniversalTriggers { get; set; }
+
+        public List<PersistedAvatarScaleSet>? AvatarScaleSets { get; set; }
+
+        public PersistedAvatarScaleMasterRewardSettings? AvatarScaleMasterReward { get; set; }
+
+        public PersistedRewardFireSaleSettings? RewardFireSale { get; set; }
+
+        public List<PersistedAvatarScaleRule>? AvatarScaleRules { get; set; }
 
         public List<PersistedTriggerRule>? Rules { get; set; }
     }
@@ -1660,6 +2276,24 @@ public sealed class SettingsStore
 
         public string? AvatarName { get; set; }
 
+        public string? SetTriggerMasterRewardId { get; set; }
+
+        public string? SetTriggerMasterRewardTitle { get; set; }
+
+        public string? SetTriggerMasterRewardDescription { get; set; }
+
+        public int SetTriggerMasterRewardCost { get; set; }
+
+        public TwitchRewardSyncMode SetTriggerMasterRewardSyncMode { get; set; }
+
+        public int SetTriggerMasterRewardCooldownSeconds { get; set; }
+
+        public string? SetTriggerMasterRewardReadyColor { get; set; }
+
+        public string? SetTriggerMasterRewardCooldownColor { get; set; }
+
+        public bool DeleteSetTriggerMasterRewardWhenInactive { get; set; }
+
         public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
     }
 
@@ -1679,7 +2313,11 @@ public sealed class SettingsStore
 
         public string? ChannelPointRewardTitle { get; set; }
 
+        public string? ChannelPointRewardDescription { get; set; }
+
         public int ChannelPointRewardCost { get; set; }
+
+        public TwitchRewardSyncMode RewardSyncMode { get; set; }
 
         public string? ManagedRewardReadyColor { get; set; }
 
@@ -1725,6 +2363,10 @@ public sealed class SettingsStore
 
         public string? ParameterValue { get; set; }
 
+        public FloatValueMode FloatValueMode { get; set; }
+
+        public double FloatTransitionSeconds { get; set; }
+
         public string? AvatarChangeTargetId { get; set; }
 
         public string? AvatarTargetName { get; set; }
@@ -1747,9 +2389,52 @@ public sealed class SettingsStore
 
         public int CooldownSeconds { get; set; }
 
+        public bool SharedRewardChoiceEnabled { get; set; }
+
+        public int SharedRewardChoiceNumber { get; set; }
+
+        public string? SharedRewardHelpText { get; set; }
+
+        public Guid ActiveFloatBoostRewardOwnerId { get; set; }
+
+        public bool ActiveFloatBoostRewardEnabled { get; set; }
+
+        public string? ActiveFloatBoostRewardId { get; set; }
+
+        public string? ActiveFloatBoostRewardTitle { get; set; }
+
+        public string? ActiveFloatBoostRewardDescription { get; set; }
+
+        public int ActiveFloatBoostRewardCost { get; set; }
+
+        public int ActiveFloatBoostRewardCooldownSeconds { get; set; }
+
+        public string? ActiveFloatBoostRewardReadyColor { get; set; }
+
+        public string? ActiveFloatBoostRewardCooldownColor { get; set; }
+
+        public string? ActiveFloatBoostAddValue { get; set; }
+
+        public string? ActiveFloatBoostMinimumValue { get; set; }
+
+        public string? ActiveFloatBoostMaximumValue { get; set; }
+
+        public List<PersistedSetTriggerAction>? SetTriggerActions { get; set; }
+
         public List<Guid>? TemporarilyDisabledRuleIds { get; set; }
 
         public string? BotMessageTemplate { get; set; }
+    }
+
+    private sealed class PersistedSetTriggerAction
+    {
+        public Guid Id { get; set; }
+
+        public string? ParameterName { get; set; }
+
+        public OscParameterType ParameterType { get; set; }
+
+        public string? ParameterValue { get; set; }
     }
 
     private sealed class PersistedUniversalTriggerRule
@@ -1772,7 +2457,13 @@ public sealed class SettingsStore
 
         public string? RewardTitle { get; set; }
 
+        public string? RewardDescription { get; set; }
+
         public int RewardCost { get; set; }
+
+        public int RewardCooldownSeconds { get; set; }
+
+        public TwitchRewardSyncMode RewardSyncMode { get; set; }
 
         public string? ManagedRewardReadyColor { get; set; }
 
@@ -1799,6 +2490,229 @@ public sealed class SettingsStore
         public string? ImportSource { get; set; }
 
         public List<PersistedUniversalTriggerAction>? Actions { get; set; }
+    }
+
+    private sealed class PersistedAvatarScaleSet
+    {
+        public Guid Id { get; set; }
+
+        public string? Name { get; set; }
+
+        public List<PersistedAvatarScaleRule>? ScaleRules { get; set; }
+    }
+
+    private sealed class PersistedMovementRedeemSet
+    {
+        public Guid Id { get; set; }
+
+        public string? Name { get; set; }
+
+        public List<PersistedTriggerRule>? MovementRules { get; set; }
+    }
+
+    private sealed class PersistedAvatarScaleMasterRewardSettings
+    {
+        public bool IsEnabled { get; set; }
+
+        public string? RewardId { get; set; }
+
+        public string? RewardTitle { get; set; }
+
+        public string? RewardDescription { get; set; }
+
+        public int RewardCost { get; set; }
+
+        public TwitchRewardSyncMode RewardSyncMode { get; set; }
+
+        public int UnlockDurationSeconds { get; set; }
+
+        public int CooldownSeconds { get; set; }
+
+        public string? ManagedRewardReadyColor { get; set; }
+
+        public string? ManagedRewardCooldownColor { get; set; }
+
+        public bool DeleteMasterRewardWhenInactive { get; set; }
+
+        public bool? FreeChildRewardSlotsWhenLocked { get; set; }
+
+        public bool PreventAvatarChangesDuringActiveScaling { get; set; }
+    }
+
+    private sealed class PersistedRewardFireSaleSettings
+    {
+        public bool IsEnabled { get; set; }
+
+        public bool? CountBits { get; set; }
+
+        public bool? CountManagedRewards { get; set; }
+
+        public bool FundingRewardEnabled { get; set; }
+
+        public string? FundingRewardId { get; set; }
+
+        public string? FundingRewardTitle { get; set; }
+
+        public string? FundingRewardDescription { get; set; }
+
+        public int FundingRewardCost { get; set; }
+
+        public int FundingRewardCooldownSeconds { get; set; }
+
+        public string? FundingRewardReadyColor { get; set; }
+
+        public string? FundingRewardCooldownColor { get; set; }
+
+        public int RewardPointsPerProgressUnit { get; set; }
+
+        public bool? MultiTierEnabled { get; set; }
+
+        public List<PersistedRewardFireSaleTier>? Tiers { get; set; }
+
+        public RewardFireSaleMode SaleMode { get; set; }
+
+        public int TemporaryDurationSeconds { get; set; }
+
+        public long CurrentProgress { get; set; }
+
+        public bool IsSaleActive { get; set; }
+
+        public int ActiveDiscountPercent { get; set; }
+
+        public int ActiveTierGoalAmount { get; set; }
+
+        public DateTimeOffset? ActiveUntilUtc { get; set; }
+    }
+
+    private sealed class PersistedRewardFireSaleTier
+    {
+        public Guid Id { get; set; }
+
+        public int GoalAmount { get; set; }
+
+        public int DiscountPercent { get; set; }
+    }
+
+    private sealed class PersistedAvatarScaleRule
+    {
+        public Guid Id { get; set; }
+
+        public bool IsEnabled { get; set; }
+
+        public string? Name { get; set; }
+
+        public AvatarScaleTriggerType TriggerType { get; set; }
+
+        public bool ChatCommandEnabled { get; set; }
+
+        public string? CommandText { get; set; }
+
+        public ChatCommandPermission ChatCommandPermission { get; set; }
+
+        public string? RewardId { get; set; }
+
+        public string? RewardTitle { get; set; }
+
+        public string? RewardDescription { get; set; }
+
+        public int RewardCost { get; set; }
+
+        public TwitchRewardSyncMode RewardSyncMode { get; set; }
+
+        public string? ManagedRewardReadyColor { get; set; }
+
+        public string? ManagedRewardCooldownColor { get; set; }
+
+        public bool DeleteManagedRewardWhenInactive { get; set; }
+
+        public int MinimumBits { get; set; }
+
+        public int MaximumBits { get; set; }
+
+        public string? SubscriptionTier { get; set; }
+
+        public int MinimumMonths { get; set; }
+
+        public int MaximumMonths { get; set; }
+
+        public int CooldownSeconds { get; set; }
+
+        public List<Guid>? TemporarilyDisabledScaleRuleIds { get; set; }
+
+        public AvatarScaleMode ScaleMode { get; set; }
+
+        public double TargetHeightMeters { get; set; }
+
+        public double MinimumHeightMeters { get; set; }
+
+        public double MaximumHeightMeters { get; set; }
+
+        public double RelativeHeightMeters { get; set; }
+
+        public double RelativeMinimumHeightMeters { get; set; }
+
+        public double RelativeMaximumHeightMeters { get; set; }
+
+        public double HeightMultiplier { get; set; }
+
+        public AvatarScalePreset Preset { get; set; }
+
+        public double ActiveTimeSeconds { get; set; }
+
+        public AvatarScaleRestoreMode RestoreMode { get; set; }
+
+        public double RestoreHeightMeters { get; set; }
+
+        public double SmoothTransitionSeconds { get; set; }
+
+        public bool AdvancedRangeEnabled { get; set; }
+
+        public bool BypassVrChatScaleLimits { get; set; }
+
+        public double SupporterGrowthNormalHeightMeters { get; set; }
+
+        public double SupporterGrowthMaxAddedHeightMeters { get; set; }
+
+        public int SupporterGrowthInactivityTimerSeconds { get; set; }
+
+        public bool SupporterGrowthAllowRewardScaleOverlay { get; set; } = true;
+
+        public int SupporterGrowthBitsTimerUnit { get; set; }
+
+        public int SupporterGrowthSecondsPerBitsUnit { get; set; }
+
+        public int SupporterGrowthTier1Seconds { get; set; }
+
+        public int SupporterGrowthTier2Seconds { get; set; }
+
+        public int SupporterGrowthTier3Seconds { get; set; }
+
+        public int SupporterGrowthSoftCapSeconds { get; set; }
+
+        public int SupporterGrowthSoftCapMultiplierPercent { get; set; }
+
+        public int SupporterGrowthMaxPaidTimeSeconds { get; set; }
+
+        public string? SupporterGrowthGrowKeyword { get; set; }
+
+        public string? SupporterGrowthShrinkKeyword { get; set; }
+
+        public double SupporterGrowthTier1HeightMeters { get; set; }
+
+        public double SupporterGrowthTier2HeightMeters { get; set; }
+
+        public double SupporterGrowthTier3HeightMeters { get; set; }
+
+        public List<PersistedAvatarScaleBitGrowthRange>? SupporterGrowthBitRanges { get; set; }
+    }
+
+    private sealed class PersistedAvatarScaleBitGrowthRange
+    {
+        public int MinimumBits { get; set; }
+
+        public int MaximumBits { get; set; }
+
+        public double HeightAddedMeters { get; set; }
     }
 
     private sealed class PersistedUniversalTriggerAction

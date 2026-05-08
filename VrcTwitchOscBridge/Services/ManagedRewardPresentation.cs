@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace VrcTwitchOscBridge.Services;
 
 /// <summary>
@@ -27,6 +29,45 @@ public static class ManagedRewardPresentation
         }
 
         return trimmedTitle;
+    }
+
+    public static string NormalizeTitleIdentityKey(string? title)
+    {
+        var strippedTitle = StripPrefix(title);
+        if (string.IsNullOrWhiteSpace(strippedTitle))
+        {
+            return string.Empty;
+        }
+
+        var builder = new StringBuilder(strippedTitle.Length);
+        var previousWasWhitespace = true;
+        foreach (var character in strippedTitle)
+        {
+            if (char.IsWhiteSpace(character))
+            {
+                if (!previousWasWhitespace)
+                {
+                    builder.Append(' ');
+                    previousWasWhitespace = true;
+                }
+
+                continue;
+            }
+
+            builder.Append(character);
+            previousWasWhitespace = false;
+        }
+
+        return builder.ToString().Trim();
+    }
+
+    public static bool HasSameTitleIdentity(string? firstTitle, string? secondTitle)
+    {
+        var firstKey = NormalizeTitleIdentityKey(firstTitle);
+        var secondKey = NormalizeTitleIdentityKey(secondTitle);
+        return !string.IsNullOrWhiteSpace(firstKey)
+            && !string.IsNullOrWhiteSpace(secondKey)
+            && string.Equals(firstKey, secondKey, StringComparison.OrdinalIgnoreCase);
     }
 
     // BuildTitle always normalizes the configured title into the managed reward format.
@@ -76,16 +117,5 @@ public static class ManagedRewardPresentation
     // Reward title matching accepts either the raw configured title or the managed prefixed title
     // so older saved data and live Twitch rewards can still line up cleanly.
     public static bool TitleMatches(string? actualTitle, string? configuredTitle)
-    {
-        var normalizedActualTitle = actualTitle?.Trim() ?? string.Empty;
-        var normalizedConfiguredTitle = StripPrefix(configuredTitle);
-        if (string.IsNullOrWhiteSpace(normalizedActualTitle)
-            || string.IsNullOrWhiteSpace(normalizedConfiguredTitle))
-        {
-            return false;
-        }
-
-        return string.Equals(normalizedActualTitle, normalizedConfiguredTitle, StringComparison.Ordinal)
-            || string.Equals(normalizedActualTitle, BuildTitle(normalizedConfiguredTitle), StringComparison.Ordinal);
-    }
+        => HasSameTitleIdentity(actualTitle, configuredTitle);
 }

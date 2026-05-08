@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Translation guide
+    url: https://github.com/seluvia/crystal-relay-public/blob/main/TRANSLATING.md
+    about: Read this before translating Crystal Relay.

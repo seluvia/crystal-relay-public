@@ -1,7 +1,7 @@
 param(
     [string]$Version,
-    [string]$PrivateRepoPath = 'C:\Users\screm\Documents\GitHub\crystal-relay-private',
-    [string]$PublicRepoPath = 'C:\Users\screm\Documents\GitHub\crystal-relay-public',
+    [string]$PrivateRepoPath = (Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'GitHub\crystal-relay-private'),
+    [string]$PublicRepoPath = (Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'GitHub\crystal-relay-public'),
     [switch]$SkipOpenDesktop
 )
 
@@ -33,7 +33,7 @@ $syncScriptPath = Join-Path $root 'Sync-Crystal-Relay-GitHub-Repos.ps1'
 $uploadRoot = Join-Path $root 'Code Review\GitHub Upload'
 $templatesDir = Join-Path $uploadRoot 'Commit Templates'
 $workflowPath = Join-Path $uploadRoot 'GITHUB-DESKTOP-WORKFLOW.txt'
-$githubDesktopExePath = 'C:\Users\screm\AppData\Local\GitHubDesktop\GitHubDesktop.exe'
+$githubDesktopExePath = Join-Path $env:LOCALAPPDATA 'GitHubDesktop\GitHubDesktop.exe'
 $openDesktop = -not $SkipOpenDesktop
 
 [xml]$projectXml = Get-Content -Path $projectPath
@@ -44,6 +44,8 @@ $syncArguments = @{}
 if (-not [string]::IsNullOrWhiteSpace($Version)) {
     $syncArguments['Version'] = $Version.Trim()
 }
+$syncArguments['PrivateRepoPath'] = $PrivateRepoPath
+$syncArguments['PublicRepoPath'] = $PublicRepoPath
 
 & $syncScriptPath @syncArguments
 
@@ -92,6 +94,10 @@ Crystal Relay GitHub Desktop quick workflow
 Commit template files:
 - $privateTemplatePath
 - $publicTemplatePath
+
+Repository paths:
+- Private: $PrivateRepoPath
+- Public:  $PublicRepoPath
 "@
 Set-Utf8File -Path $workflowPath -Content $workflow.Trim()
 

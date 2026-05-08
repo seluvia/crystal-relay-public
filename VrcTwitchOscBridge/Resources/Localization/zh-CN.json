@@ -93,6 +93,7 @@
   "Desktop mode input lock is off. Stop Movement, Stop Turning, and Stop All will stay on the safer VRChat-side soft lock path. Turn this on only when you are streaming in VRChat desktop mode. Emergency unlock: {0}.": "桌面模式输入锁定已关闭。停止移动、停止转动和停止全部将保留在更安全的 VRChat 端软锁定路径上。仅当您在 VRChat 桌面模式下进行流式传输时才打开此功能。紧急解锁：{0}。",
   "Desktop mode input lock is on. Stop Movement, Stop Turning, and Stop All will block local desktop movement input for their timer. VR mode still uses a softer VRChat-side lock. Emergency unlock: {0}.": "桌面模式输入锁定已打开。停止移动、停止转动和停止全部将阻止其计时器的本地桌面移动输入。 VR模式仍然使用更软的VRChat端锁定。紧急解锁：{0}。",
   "Disable Pairing": "禁用配对",
+  "Disable Pairing lets this scale redeem temporarily turn off other scale redeems in the same scale set while it is active. Use it when two height effects would fight each other or should behave like separate modes instead of stacking together.": "Disable Pairing lets this scale redeem temporarily turn off other scale redeems in the same scale set while it is active. Use it when two height effects would fight each other or should behave like separate modes instead of stacking together.",
   "Disable Pairing lets this redeem temporarily turn off other redeems in the same avatar set while it is active. Use it when two redeems would fight each other, overlap visually, or should behave like separate modes instead of stacking together.": "禁用配对可让此兑换在激活时暂时关闭同一头像集中的其他兑换。当两个兑换会互相争斗、视觉上重叠或者应该表现得像单独的模式而不是堆叠在一起时，请使用它。",
   "Disable pairing: {0}": "禁用配对：{0}",
   "Disable pairings: {0}": "禁用配对：{0}",

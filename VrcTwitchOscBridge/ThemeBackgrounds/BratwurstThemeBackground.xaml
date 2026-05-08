@@ -1,0 +1,69 @@
+<Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid.Background>
+        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#090503" Offset="0" />
+            <GradientStop Color="#180705" Offset="0.34" />
+            <GradientStop Color="#281008" Offset="0.68" />
+            <GradientStop Color="#0B0704" Offset="1" />
+        </LinearGradientBrush>
+    </Grid.Background>
+
+    <Canvas ClipToBounds="True">
+        <Ellipse Width="760" Height="760" Canvas.Left="-250" Canvas.Top="-170" Fill="#25D92D1E" />
+        <Ellipse Width="620" Height="620" Canvas.Left="1040" Canvas.Top="390" Fill="#2038B348" />
+        <Ellipse Width="520" Height="520" Canvas.Left="480" Canvas.Top="560" Fill="#18E5B427" />
+        <Ellipse Width="340" Height="340" Canvas.Left="1030" Canvas.Top="70" Fill="#16D92D1E" />
+
+        <Path Fill="#4AD92D1E"
+              Data="M0,0 L1600,0 L1600,74 C1510,86 1454,34 1380,58 C1290,88 1262,144 1194,100 C1134,62 1088,68 1056,120 C1018,178 950,162 924,102 C894,32 830,42 790,104 C746,174 684,146 652,92 C614,28 552,42 516,102 C478,166 408,150 376,90 C340,32 276,48 236,110 C194,176 128,148 98,84 C72,28 38,38 0,62 Z" />
+        <Path Fill="#4BE5B427"
+              Data="M0,0 L1600,0 L1600,28 C1480,54 1398,20 1296,40 C1178,64 1086,24 976,44 C860,66 772,22 656,44 C538,68 430,24 316,48 C194,76 100,30 0,48 Z" />
+
+        <Path Fill="#4438B348"
+              Stroke="#8A4AC45A"
+              StrokeThickness="2"
+              Data="M126,706 C208,540 278,456 340,332 C306,506 384,574 456,724 C356,646 252,646 126,706 Z" />
+        <Path Fill="#3BD92D1E"
+              Stroke="#8FE1472D"
+              StrokeThickness="2"
+              Data="M1028,236 C1088,74 1198,30 1330,16 C1222,96 1222,178 1298,320 C1198,238 1112,228 1028,236 Z" />
+
+        <Polygon Points="212,176 264,80 322,176" Fill="#66E5B427" Stroke="#D6A11D" StrokeThickness="2" />
+        <Polygon Points="1298,814 1358,696 1420,814" Fill="#58E5B427" Stroke="#D6A11D" StrokeThickness="2" />
+        <Polygon Points="682,808 742,674 804,808" Fill="#4ED92D1E" Stroke="#E1472D" StrokeThickness="2" />
+
+        <Path Stroke="#8FD92D1E"
+              StrokeThickness="26"
+              StrokeStartLineCap="Round"
+              StrokeEndLineCap="Round"
+              Fill="Transparent"
+              Data="M126,430 C236,384 328,468 438,420 C562,366 650,426 760,384 C902,330 1012,402 1128,348 C1252,292 1360,344 1482,296" />
+        <Path Stroke="#96E5B427"
+              StrokeThickness="9"
+              StrokeStartLineCap="Round"
+              StrokeEndLineCap="Round"
+              Fill="Transparent"
+              Data="M126,430 C236,384 328,468 438,420 C562,366 650,426 760,384 C902,330 1012,402 1128,348 C1252,292 1360,344 1482,296" />
+        <Path Stroke="#8238B348"
+              StrokeThickness="6"
+              StrokeStartLineCap="Round"
+              StrokeEndLineCap="Round"
+              Fill="Transparent"
+              Data="M144,466 C252,420 344,502 454,456 C574,406 668,462 782,420 C918,370 1024,438 1140,386 C1266,330 1378,382 1490,334" />
+
+        <Line X1="120" Y1="742" X2="330" Y2="532" Stroke="#46E5B427" StrokeThickness="2" />
+        <Line X1="330" Y1="742" X2="120" Y2="532" Stroke="#46D92D1E" StrokeThickness="2" />
+        <Line X1="1240" Y1="180" X2="1510" Y2="18" Stroke="#3FE5B427" StrokeThickness="2" />
+        <Line X1="1510" Y1="180" X2="1240" Y2="18" Stroke="#3F38B348" StrokeThickness="2" />
+
+        <Ellipse Width="14" Height="14" Canvas.Left="390" Canvas.Top="128" Fill="#D92D1E" />
+        <Ellipse Width="12" Height="12" Canvas.Left="752" Canvas.Top="104" Fill="#E5B427" />
+        <Ellipse Width="10" Height="10" Canvas.Left="856" Canvas.Top="148" Fill="#38B348" />
+        <Ellipse Width="13" Height="13" Canvas.Left="1190" Canvas.Top="188" Fill="#E5B427" />
+        <Ellipse Width="9" Height="9" Canvas.Left="1510" Canvas.Top="154" Fill="#D92D1E" />
+        <Ellipse Width="12" Height="12" Canvas.Left="170" Canvas.Top="744" Fill="#38B348" />
+        <Ellipse Width="9" Height="9" Canvas.Left="1120" Canvas.Top="830" Fill="#E5B427" />
+        <Ellipse Width="11" Height="11" Canvas.Left="1496" Canvas.Top="812" Fill="#D92D1E" />
+    </Canvas>
+</Grid>
