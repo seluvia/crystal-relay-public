@@ -1,0 +1,30 @@
+name: Build
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Windows Release build
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore .\VrcTwitchOscBridge\VrcTwitchOscBridge.csproj
+
+      - name: Build
+        run: dotnet build .\VrcTwitchOscBridge\VrcTwitchOscBridge.csproj --no-restore -c Release
