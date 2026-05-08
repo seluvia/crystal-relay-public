@@ -1,0 +1,148 @@
+name: Public Safety
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  public-safety:
+    name: Public Safety
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Scan public repository
+        shell: python
+        run: |
+          import pathlib
+          import re
+          import subprocess
+          import sys
+
+          root = pathlib.Path.cwd()
+          tracked = subprocess.check_output(["git", "ls-files"], text=True).splitlines()
+          existing_tracked = [relative for relative in tracked if (root / relative).exists()]
+
+          def join(*parts):
+              return "".join(parts)
+
+          blocked_dir_names = {
+              ".appdata",
+              ".dotnet",
+              ".nuget",
+              ".wrangler",
+              ".vs",
+              "backups",
+              "releases",
+              "testbuilds",
+              "code review",
+              "temp-build",
+              "tools",
+              "cloudflare",
+              "bin",
+              "obj",
+              join(".", "c", "o", "d", "e", "x"),
+          }
+
+          blocked_file_names = {
+              join("A", "G", "E", "N", "T", "S", ".", "m", "d").lower(),
+              "backup-crystal-relay-project.ps1",
+              "backup-crystal-relay-appdata.ps1",
+              "open-crystal-relay-github-desktop-workflow.ps1",
+              "prepare-crystal-relay-github-uploads.ps1",
+              "sync-crystal-relay-github-repos.ps1",
+              "github-upload-notes.txt",
+              "release-change-record.txt",
+          }
+
+          blocked_literals = [
+              join("c", "r", "y", "s", "t", "a", "l", "-", "r", "e", "l", "a", "y", "-", "p", "r", "i", "v", "a", "t", "e"),
+              join("C", "o", "d", "e", "x"),
+              join("C", "h", "a", "t", "G", "P", "T"),
+              join("O", "p", "e", "n", "A", "I"),
+              join("A", "I", "-", "g", "e", "n", "e", "r", "a", "t", "e", "d"),
+              join("A", "I", " ", "g", "e", "n", "e", "r", "a", "t", "e", "d"),
+              join("p", "r", "o", "m", "p", "t", " ", "t", "r", "a", "n", "s", "c", "r", "i", "p", "t"),
+              join("s", "y", "s", "t", "e", "m", " ", "p", "r", "o", "m", "p", "t"),
+              join("d", "e", "v", "e", "l", "o", "p", "e", "r", " ", "m", "e", "s", "s", "a", "g", "e"),
+              join("A", "G", "E", "N", "T", "S", ".", "m", "d"),
+          ]
+
+          blocked_regexes = [
+              ("Windows absolute path", re.compile(r"(?<![A-Za-z0-9])[A-Za-z]:[\\/][^\s\"'`<>|]+")),
+              ("GitHub token", re.compile(r"\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9_]{20,}\b")),
+              ("GitHub fine-grained token", re.compile(r"\bgithub_pat_[A-Za-z0-9_]{20,}\b")),
+              ("generic API key", re.compile(r"\bsk-[A-Za-z0-9]{20,}\b")),
+              ("Slack token", re.compile(r"\bxox[baprs]-[A-Za-z0-9-]{20,}\b")),
+              ("bearer token", re.compile(r"\bBearer\s+[A-Za-z0-9._~+/=-]{20,}\b")),
+              ("OAuth token", re.compile(r"\bOAuth\s+[A-Za-z0-9._~+/=-]{20,}\b")),
+              ("Twitch OAuth token", re.compile(r"\boauth:[A-Za-z0-9._~+/=-]{20,}\b", re.IGNORECASE)),
+              ("credential assignment", re.compile(r"\b(?:access[_-]?token|refresh[_-]?token|client[_-]?secret|api[_-]?key|password|set-cookie|authcookie)\b\s*[:=]\s*['\"][A-Za-z0-9._~+/=-]{12,}['\"]", re.IGNORECASE)),
+          ]
+
+          binary_extensions = {
+              ".avi",
+              ".dll",
+              ".ico",
+              ".jpeg",
+              ".jpg",
+              ".m4a",
+              ".mov",
+              ".mp3",
+              ".mp4",
+              ".nupkg",
+              ".png",
+              ".wav",
+              ".webm",
+              ".zip",
+          }
+
+          failures = []
+
+          for relative in existing_tracked:
+              normalized = relative.replace("\\", "/")
+              parts = [part.lower() for part in normalized.split("/")]
+              if any(part in blocked_dir_names for part in parts):
+                  failures.append(f"{relative}: blocked public path")
+              if parts and parts[-1] in blocked_file_names:
+                  failures.append(f"{relative}: blocked public file")
+
+          for relative in existing_tracked:
+              path = root / relative
+              if path.suffix.lower() in binary_extensions:
+                  continue
+
+              try:
+                  content = path.read_bytes()
+              except OSError as exc:
+                  failures.append(f"{relative}: could not read file: {exc}")
+                  continue
+
+              if b"\0" in content:
+                  continue
+
+              text = content.decode("utf-8", errors="ignore")
+              lower_text = text.lower()
+
+              for literal in blocked_literals:
+                  if literal.lower() in lower_text:
+                      failures.append(f"{relative}: blocked public marker")
+
+              for label, pattern in blocked_regexes:
+                  if pattern.search(text):
+                      failures.append(f"{relative}: {label}")
+
+          if failures:
+              print("Public safety scan failed:")
+              for failure in failures:
+                  print(f" - {failure}")
+              sys.exit(1)
+
+          print("Public safety scan passed.")
