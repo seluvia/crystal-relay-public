@@ -490,5 +490,6 @@
   "Trigger Info Command": "Comando de info de gatilhos",
   "Viewers can ask where the streamer is in VRChat. Crystal Relay only posts the public world name and world page link, never instance details.": "Os espectadores podem perguntar em qual mundo do VRChat o streamer esta. O Crystal Relay publica apenas o nome do mundo publico e o link da pagina, nunca detalhes da instancia.",
   "Two built-in commands use the same chat command. The first matching built-in command runs first, so rename or disable one of them.": "Dois comandos integrados usam o mesmo comando de chat. O primeiro comando integrado correspondente roda primeiro, entao renomeie ou desative um deles.",
-  "A Universal Trigger uses the same command as an enabled built-in command. Built-in commands run first, so the Universal Trigger will only run if the built-in command is disabled or renamed.": "Um Universal Trigger usa o mesmo comando que um comando integrado ativado. Comandos integrados rodam primeiro, entao o Universal Trigger so rodara se o comando integrado for desativado ou renomeado."
+  "A Universal Trigger uses the same command as an enabled built-in command. Built-in commands run first, so the Universal Trigger will only run if the built-in command is disabled or renamed.": "Um Universal Trigger usa o mesmo comando que um comando integrado ativado. Comandos integrados rodam primeiro, entao o Universal Trigger so rodara se o comando integrado for desativado ou renomeado.",
+  "CRYSTAL RELAY DEV": "CRYSTAL RELAY DEV"
 }

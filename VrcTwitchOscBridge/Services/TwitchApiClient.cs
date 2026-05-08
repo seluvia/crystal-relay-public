@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text;
@@ -11,7 +11,7 @@ namespace VrcTwitchOscBridge.Services;
 /// <summary>
 /// Small Twitch HTTP wrapper used by Crystal Relay.
 /// It handles OAuth/device flow, Helix lookups, EventSub management, reward management,
-/// chat sends, and public About-page profile lookups.
+/// chat sends, and optional About-page profile lookups.
 /// </summary>
 public sealed class TwitchApiClient : IDisposable
 {
@@ -622,6 +622,79 @@ public sealed class TwitchApiClient : IDisposable
         return ExtractPublicMetaImageUrl(html, OgImageMetaRegex);
     }
 
+    // Supplemental About data is optional and configured outside source control.
+    public async Task<IReadOnlyDictionary<string, SupplementalAboutProfileData>> GetSupplementalAboutProfilesAsync(
+        string supplementalAboutProfilesEndpoint,
+        string supplementalAboutProfilesHeaderName = "",
+        string supplementalAboutProfilesHeaderValue = "",
+        CancellationToken cancellationToken = default)
+    {
+        if (!Uri.TryCreate(supplementalAboutProfilesEndpoint.Trim(), UriKind.Absolute, out var relayUri)
+            || relayUri.Scheme != Uri.UriSchemeHttps)
+        {
+            throw new InvalidOperationException("The supplemental About profile endpoint must be a valid HTTPS URL.");
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, relayUri);
+        request.Headers.UserAgent.ParseAdd("CrystalRelayTwitchOsc/desktop");
+        if (!string.IsNullOrWhiteSpace(supplementalAboutProfilesHeaderName)
+            && !string.IsNullOrWhiteSpace(supplementalAboutProfilesHeaderValue))
+        {
+            request.Headers.TryAddWithoutValidation(
+                supplementalAboutProfilesHeaderName.Trim(),
+                supplementalAboutProfilesHeaderValue.Trim());
+        }
+
+        using var response = await SendAsync(request, cancellationToken);
+        var payload = await ReadAsJsonAsync<PublicLiveStatusResponse>(response, cancellationToken);
+        if (!payload.Ok)
+        {
+            throw new InvalidOperationException("About live status relay returned an unsuccessful response.");
+        }
+
+        var profiles = new Dictionary<string, SupplementalAboutProfileData>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var entry in payload.Profiles)
+        {
+            if (string.IsNullOrWhiteSpace(entry.Key))
+            {
+                continue;
+            }
+
+            var normalizedLogin = entry.Key.Trim().ToLowerInvariant();
+            var profile = entry.Value ?? new PublicProfileSummary();
+            profiles[normalizedLogin] = new SupplementalAboutProfileData
+            {
+                DisplayName = profile.DisplayName?.Trim() ?? string.Empty,
+                ProfileImageUrl = profile.ProfileImageUrl?.Trim() ?? string.Empty,
+                IsLive = profile.IsLive
+            };
+        }
+
+        foreach (var entry in payload.Live)
+        {
+            if (string.IsNullOrWhiteSpace(entry.Key))
+            {
+                continue;
+            }
+
+            var normalizedLogin = entry.Key.Trim().ToLowerInvariant();
+            if (profiles.TryGetValue(normalizedLogin, out var existingProfile))
+            {
+                existingProfile.IsLive = entry.Value;
+                profiles[normalizedLogin] = existingProfile;
+                continue;
+            }
+
+            profiles[normalizedLogin] = new SupplementalAboutProfileData
+            {
+                IsLive = entry.Value
+            };
+        }
+
+        return profiles;
+    }
+
     public void Dispose() => httpClient.Dispose();
 
     private async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -865,6 +938,39 @@ public sealed class TwitchApiClient : IDisposable
 
         [JsonPropertyName("user_id")]
         public string UserId { get; set; } = string.Empty;
+    }
+
+    public sealed class PublicLiveStatusResponse
+    {
+        [JsonPropertyName("ok")]
+        public bool Ok { get; set; }
+
+        [JsonPropertyName("live")]
+        public Dictionary<string, bool> Live { get; set; } = [];
+
+        [JsonPropertyName("profiles")]
+        public Dictionary<string, PublicProfileSummary> Profiles { get; set; } = [];
+    }
+
+    public sealed class PublicProfileSummary
+    {
+        [JsonPropertyName("displayName")]
+        public string DisplayName { get; set; } = string.Empty;
+
+        [JsonPropertyName("profileImageUrl")]
+        public string ProfileImageUrl { get; set; } = string.Empty;
+
+        [JsonPropertyName("isLive")]
+        public bool IsLive { get; set; }
+    }
+
+    public sealed class SupplementalAboutProfileData
+    {
+        public string DisplayName { get; set; } = string.Empty;
+
+        public string ProfileImageUrl { get; set; } = string.Empty;
+
+        public bool IsLive { get; set; }
     }
 
     public sealed class CustomRewardListResponse

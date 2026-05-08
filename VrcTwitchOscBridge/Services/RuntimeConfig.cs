@@ -9,7 +9,19 @@ public sealed class RuntimeConfig
     [JsonIgnore]
     public string TwitchClientId => DefaultTwitchClientId;
 
-    public RuntimeConfig Normalize() => this;
+    public string SupplementalAboutProfilesEndpoint { get; set; } = string.Empty;
+
+    public string SupplementalAboutProfilesHeaderName { get; set; } = string.Empty;
+
+    public string SupplementalAboutProfilesHeaderValue { get; set; } = string.Empty;
+
+    public RuntimeConfig Normalize()
+    {
+        SupplementalAboutProfilesEndpoint = SupplementalAboutProfilesEndpoint.Trim();
+        SupplementalAboutProfilesHeaderName = SupplementalAboutProfilesHeaderName.Trim();
+        SupplementalAboutProfilesHeaderValue = SupplementalAboutProfilesHeaderValue.Trim();
+        return this;
+    }
 
     public static RuntimeConfig CreateDefault() => new RuntimeConfig().Normalize();
 }
