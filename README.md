@@ -1,5 +1,7 @@
 # Crystal Relay
 
+[![Join the Crystal Relay Discord](https://img.shields.io/badge/Join%20the%20Crystal%20Relay%20Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/6DvWJXN6A2)
+
 **Windows desktop Twitch-to-VRChat control through OSC and OSCQuery.**
 
 **Want the Windows download right away?** Open the [Crystal Relay Releases page](https://github.com/seluvia/crystal-relay-public/releases), or use **Releases** on the right side of the GitHub page.
