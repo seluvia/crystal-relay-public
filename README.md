@@ -30,7 +30,8 @@ Crystal Relay connects Twitch events to VRChat through local OSC and OSCQuery co
 | [What Crystal Relay Handles](#what-crystal-relay-handles) | [Avatar Scaling](#avatar-scaling) | [Local Data and Crash Logs](#local-data-and-crash-logs) | [License](#license) |
 | [Trigger Areas and Actions](#trigger-areas-and-actions) | [Reward Fire Sale](#reward-fire-sale) | [Build and Run From Source](#build-and-run-from-source) | [Versioning](#versioning) |
 | [Main Features](#main-features) | [Universal Triggers](#universal-triggers) | [Releases](#releases) | |
-| [Release Highlights](#current-release-highlights) | [Twitch Chatbox](#twitch-chatbox) | [VRChat and OSC](#vrchat-and-osc) | |
+| [Release Highlights](#current-release-highlights) | [Cash Payments](#cash-payments) | [VRChat and OSC](#vrchat-and-osc) | |
+| | [Twitch Chatbox](#twitch-chatbox) | | |
 
 ## Quick Start
 
@@ -47,8 +48,9 @@ Crystal Relay connects Twitch events to VRChat through local OSC and OSCQuery co
 | Category | Supported Areas |
 | --- | --- |
 | **Twitch triggers** | Channel Points, Chat Commands, Bits, Subscriptions, Gift Subs, Follows |
+| **Cash payment triggers** | StreamElements tips, Streamlabs donations, and Ko-fi tips |
 | **OSC actions** | Avatar Parameters, Set Trigger outfit groups, Avatar Changes, Player Movement, Avatar Scaling |
-| **Rule areas** | Avatar Sets, Avatar Change, Movement Redeems, Bits + Subs Overrides, Universal Triggers, Avatar Scaling, Reward Fire Sale |
+| **Rule areas** | Avatar Sets, Avatar Change, Movement Redeems, Bits + Subs Overrides, Universal Triggers, Cash Payments, Avatar Scaling, Reward Fire Sale |
 | **Managed rewards** | Twitch reward creation, adoption, syncing, cap-safe recycling, cooldown-aware state, per-redeem colors |
 | **Chat tools** | Built-in Twitch Chatbox, optional VRChat chat relay, optional bot/broadcaster trigger announcements |
 | **VRChat tools** | VRChat login with 2FA, avatar cache, OSC parameter cache, OSCQuery discovery |
@@ -63,6 +65,7 @@ Crystal Relay connects Twitch events to VRChat through local OSC and OSCQuery co
 - Per-redeem ready and cooldown colors for managed Channel Point rewards
 - Avatar Set **Set Trigger** outfit actions that snapshot safe VRChat LocalAvatarData values, send grouped outfit parameters, and restore changed values after Active Time
 - Avatar Scaling with channel-point rewards, chat commands, bits, subs, gift subs, follows, master reward gating, and paid Supporter Growth
+- Cash Payments for StreamElements, Streamlabs, and Ko-fi tips that can trigger OSC parameters, Set Trigger outfits, avatar changes, avatar roulette, and Avatar Scaling without creating Twitch rewards
 - Reward Fire Sale goals that can discount Crystal Relay-owned `VRC:` rewards for temporary or permanent sale moments
 - Avatar-scoped Bits + Subs supporter triggers, including Bits outfit names with fuzzy matching for casing, spacing, and spelling mistakes
 - Optional bot info messages for supporter overrides
@@ -76,6 +79,7 @@ Crystal Relay connects Twitch events to VRChat through local OSC and OSCQuery co
 
 Recent releases include larger systems shaped by streamer feedback:
 
+- **Cash Payments and Ko-fi hosted relay**: StreamElements, Streamlabs, and Ko-fi tips can trigger Crystal Relay actions, and Ko-fi can use a Crystal Relay relay so streamers do not need Cloudflare Tunnel, ngrok, router forwarding, or a public local webhook.
 - **Reward Fire Sale**: builds a Bits or channel-point funding goal, then discounts Crystal Relay-owned `VRC:` rewards by the reached tier.
 - **Fire Sale funding reward**: optional dedicated `VRC: Fire Sale Fund` reward with editable point-to-progress conversion, cooldown, and ready/cooldown colors.
 - **Reward descriptions**: Crystal Relay-created channel-point rewards can now use editable Twitch descriptions while linked rewards stay listen-only.
@@ -99,6 +103,7 @@ Recent releases include larger systems shaped by streamer feedback:
 | **Movement Redeems** | Sends timed VRChat movement inputs that are not tied to one avatar. |
 | **Bits + Subs Overrides** | Runs paid avatar-scoped supporter triggers and global avatar-change overrides. |
 | **Universal Triggers** | Imports or creates general Twitch interactions for commands, rewards, bits, subs, gift subs, and follows. |
+| **Cash Payments** | Runs StreamElements, Streamlabs, and Ko-fi tip rules without creating or managing Twitch rewards. |
 | **Avatar Scaling** | Controls VRChat Avatar Scaling through `/avatar/eyeheight`, including Supporter Growth and timed restore behavior. |
 | **Reward Fire Sale** | Builds a stream goal that can temporarily or permanently discount Crystal Relay-owned `VRC:` rewards. |
 
@@ -165,6 +170,25 @@ Need the Fooma Twitch Interaction system? Get it here:
 
 [Fooma Twitch Interaction on Gumroad](https://foomaring.gumroad.com/l/lmrjbl)
 
+## Cash Payments
+
+Cash Payments let StreamElements tips, Streamlabs donations, and Ko-fi tips run Crystal Relay actions without making a Twitch Channel Point reward.
+
+- Supported actions include avatar parameters, Set Trigger outfit groups, Avatar Change, Avatar Roulette, and Avatar Scaling.
+- Amount filters use the provider amount and currency exactly as the provider sends them. Crystal Relay does not convert currencies in this system.
+- Cash-triggered avatar changes count as paid support actions, so they can bypass Avatar Scaling's optional avatar-change blocker like Bits and Subs overrides.
+- Provider failures stay isolated. A Ko-fi relay issue should not stop Twitch, OSC, VRChat, StreamElements, or Streamlabs behavior.
+
+### Ko-fi Hosted Relay Privacy
+
+Ko-fi sends payment automation through webhooks, which means it needs a public HTTPS URL. Crystal Relay's hosted Ko-fi relay exists only to carry that Ko-fi webhook to your running desktop app, so streamers do not need to set up Cloudflare Tunnel, ngrok, router port forwarding, or a public local server.
+
+The relay does **not** save Ko-fi webhook payloads, payment history, emails, messages, verification tokens, client secrets, or payment databases. It keeps only live in-memory connection state long enough to forward a minimal tip event to your running Crystal Relay app and receive an acknowledgement. If Crystal Relay is offline, the relay returns a retry response to Ko-fi instead of storing the payment for later.
+
+Crystal Relay stores your Ko-fi verification token and relay client secret locally through **Windows Credential Manager**. The hosted relay uses those secrets only to verify that the webhook belongs to your Crystal Relay setup and to deliver the trigger to the connected desktop app.
+
+Advanced users can still use the local Ko-fi webhook mode, but the hosted relay is the recommended setup for most streamers because it avoids network setup outside the app.
+
 ## Twitch Chatbox
 
 Open the **Twitch Chatbox** from inside Crystal Relay to add a compact, theme-aware chat display for stream use.
@@ -218,6 +242,7 @@ Crystal Relay uses standard network connections only for the services needed to 
 | **VRChat** | Outbound HTTPS for login, 2FA, logout, and avatar list refreshes. Runtime avatar control uses local OSC and OSCQuery traffic between Crystal Relay and VRChat. |
 | **GitHub** | Outbound HTTPS to the public Crystal Relay releases API for update checks. |
 | **Cloudflare** | Outbound HTTPS to Crystal Relay Cloudflare Workers for About-page beta live-status cards and optional in-app bug reports. Bug reports are user-submitted, logs are opt-in and sanitized before sending, and Twitch tokens, VRChat auth cookies, passwords, and private app data must never be sent. |
+| **Ko-fi relay** | Optional outbound WebSocket from Crystal Relay to the hosted Ko-fi relay, plus Ko-fi HTTPS webhook delivery to the relay. The relay forwards only minimal tip trigger fields to the connected app and does not save webhook payloads, payment history, emails, messages, tokens, or secrets. |
 | **Local machine** | OSC and OSCQuery use local UDP/TCP ports for discovery, avatar parameters, movement inputs, avatar changes, and chatbox messages. Crystal Relay advertises loopback OSCQuery endpoints and uses local dynamic UDP/TCP ports for app-to-VRChat communication. This is not a public remote-control server. |
 
 Crystal Relay does **not** publish Twitch tokens, VRChat auth cookies, private IP addresses, local usernames, downloaded VRChat avatar files, or runtime app data into the README or public repository.
