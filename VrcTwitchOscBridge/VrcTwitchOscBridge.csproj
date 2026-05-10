@@ -61,6 +61,7 @@
     <Compile Include="BugReportWindow.xaml.cs" />
     <Compile Include="ComboBoxInteraction.cs" />
     <Compile Include="MainWindow.xaml.cs" />
+    <Compile Include="PasswordBoxBinding.cs" />
     <Compile Include="TwitchChatboxWindow.xaml.cs" />
     <Compile Include="ThemedDialogWindow.xaml.cs" />
     <Compile Include="RuleLockoutPickerWindow.xaml.cs" />
@@ -76,6 +77,7 @@
     <Compile Include="Models\AppSettings.cs" />
     <Compile Include="Models\AvatarTriggerProfile.cs" />
     <Compile Include="Models\AvatarScaleRule.cs" />
+    <Compile Include="Models\CashPaymentRule.cs" />
     <Compile Include="Models\ChatCommandPermission.cs" />
     <Compile Include="Models\ChatCommandUtility.cs" />
     <Compile Include="Models\FloatValueMode.cs" />
@@ -104,6 +106,7 @@
     <Compile Include="Services\BridgeCoordinator.cs" />
     <Compile Include="Services\BridgeRuntimeConfiguration.cs" />
     <Compile Include="Services\BugReportService.cs" />
+    <Compile Include="Services\CashPaymentProviderService.cs" />
     <Compile Include="Services\ChatboxRelayModerationFilter.cs" />
     <Compile Include="Services\CrashLogService.cs" />
     <Compile Include="Services\DesktopInputLockService.cs" />

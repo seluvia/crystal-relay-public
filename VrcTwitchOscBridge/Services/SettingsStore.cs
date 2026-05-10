@@ -25,6 +25,10 @@ public sealed class SettingsStore
     private const string BotAccessTokenCredential = "CrystalRelay:Twitch:Bot:AccessToken";
     private const string BotRefreshTokenCredential = "CrystalRelay:Twitch:Bot:RefreshToken";
     private const string VrChatAuthCookieCredential = "CrystalRelay:VRChat:AuthCookie";
+    private const string StreamElementsJwtCredential = "CrystalRelay:CashPayments:StreamElements:JwtToken";
+    private const string StreamlabsAccessTokenCredential = "CrystalRelay:CashPayments:Streamlabs:AccessToken";
+    private const string KoFiVerificationTokenCredential = "CrystalRelay:CashPayments:KoFi:VerificationToken";
+    private const string KoFiRelayClientSecretCredential = "CrystalRelay:CashPayments:KoFi:RelayClientSecret";
 
     private readonly string legacySettingsPath;
     private readonly string legacyPortableProfileFolderPath;
@@ -405,6 +409,11 @@ public sealed class SettingsStore
             settings.RewardFireSale = profile.RewardFireSale is null
                 ? settings.RewardFireSale
                 : ToRewardFireSaleSettings(profile.RewardFireSale);
+            settings.CashPayments = profile.CashPayments is null
+                ? settings.CashPayments
+                : ToCashPaymentConnectionSettings(profile.CashPayments);
+            settings.CashPaymentRules = new ObservableCollection<CashPaymentRule>(
+                (profile.CashPaymentRules ?? []).Select(ToCashPaymentRule));
             settings.Rules = new ObservableCollection<TriggerRule>((profile.Rules ?? []).Select(ToRule));
         }
 
@@ -448,6 +457,8 @@ public sealed class SettingsStore
             settings.Bot = ToAccountSettings(secureMetadata.Bot, BridgeAccountRole.Bot);
             settings.VrChat = ToVrChatAccountSettings(secureMetadata.VrChat);
         }
+
+        LoadCashPaymentSecrets(settings.CashPayments);
 
         if (settings.AvatarProfiles.Count == 0
             && settings.GlobalMovementRules.Count == 0
@@ -531,7 +542,9 @@ public sealed class SettingsStore
             UniversalTriggers = [.. settings.UniversalTriggers.Select(ToPersistedUniversalTriggerRule)],
             AvatarScaleSets = [.. settings.AvatarScaleSets.Select(ToPersistedAvatarScaleSet)],
             AvatarScaleMasterReward = ToPersistedAvatarScaleMasterReward(settings.AvatarScaleMasterReward),
-            RewardFireSale = ToPersistedRewardFireSaleSettings(settings.RewardFireSale)
+            RewardFireSale = ToPersistedRewardFireSaleSettings(settings.RewardFireSale),
+            CashPayments = ToPersistedCashPaymentConnectionSettings(settings.CashPayments),
+            CashPaymentRules = [.. settings.CashPaymentRules.Select(ToPersistedCashPaymentRule)]
         };
 
         await SaveTextFileAtomicallyAsync(
@@ -557,12 +570,29 @@ public sealed class SettingsStore
         SaveTwitchSecrets(settings.Broadcaster, BridgeAccountRole.Broadcaster);
         SaveTwitchSecrets(settings.Bot, BridgeAccountRole.Bot);
         SaveSecretIfChanged(VrChatAuthCookieCredential, settings.VrChat.AuthCookie);
+        SaveCashPaymentSecrets(settings.CashPayments);
     }
 
     private void SaveTwitchSecrets(TwitchAccountSettings account, BridgeAccountRole role)
     {
         SaveSecretIfChanged(GetTwitchAccessTokenCredential(role), account.AccessToken);
         SaveSecretIfChanged(GetTwitchRefreshTokenCredential(role), account.RefreshToken);
+    }
+
+    private void SaveCashPaymentSecrets(CashPaymentConnectionSettings settings)
+    {
+        SaveSecretIfChanged(StreamElementsJwtCredential, settings.StreamElementsJwtToken);
+        SaveSecretIfChanged(StreamlabsAccessTokenCredential, settings.StreamlabsAccessToken);
+        SaveSecretIfChanged(KoFiVerificationTokenCredential, settings.KoFiVerificationToken);
+        SaveSecretIfChanged(KoFiRelayClientSecretCredential, settings.KoFiRelayClientSecret);
+    }
+
+    private void LoadCashPaymentSecrets(CashPaymentConnectionSettings settings)
+    {
+        settings.StreamElementsJwtToken = credentialStore.LoadSecret(StreamElementsJwtCredential);
+        settings.StreamlabsAccessToken = credentialStore.LoadSecret(StreamlabsAccessTokenCredential);
+        settings.KoFiVerificationToken = credentialStore.LoadSecret(KoFiVerificationTokenCredential);
+        settings.KoFiRelayClientSecret = credentialStore.LoadSecret(KoFiRelayClientSecretCredential);
     }
 
     private void SaveSecretIfChanged(string targetName, string? value)
@@ -791,6 +821,8 @@ public sealed class SettingsStore
             GlobalOverrideRules = new ObservableCollection<TriggerRule>(),
             UniversalTriggers = new ObservableCollection<UniversalTriggerRule>(),
             AvatarScaleSets = new ObservableCollection<AvatarScaleSet>(),
+            CashPayments = new CashPaymentConnectionSettings(),
+            CashPaymentRules = new ObservableCollection<CashPaymentRule>(),
             Rules = new ObservableCollection<TriggerRule>()
         };
     }
@@ -1413,6 +1445,8 @@ public sealed class SettingsStore
             RelativeHeightMeters = rule.RelativeHeightMeters,
             RelativeMinimumHeightMeters = rule.RelativeMinimumHeightMeters,
             RelativeMaximumHeightMeters = rule.RelativeMaximumHeightMeters,
+            HideRewardWhenMinimumHeightReached = rule.HideRewardWhenMinimumHeightReached,
+            HideRewardWhenMaximumHeightReached = rule.HideRewardWhenMaximumHeightReached,
             HeightMultiplier = rule.HeightMultiplier,
             Preset = rule.Preset,
             ActiveTimeSeconds = rule.ActiveTimeSeconds,
@@ -1497,6 +1531,8 @@ public sealed class SettingsStore
             RelativeMaximumHeightMeters = rule.RelativeMaximumHeightMeters <= 0
                 ? AvatarScaleRule.SafeMaximumHeightMeters
                 : rule.RelativeMaximumHeightMeters,
+            HideRewardWhenMinimumHeightReached = rule.HideRewardWhenMinimumHeightReached,
+            HideRewardWhenMaximumHeightReached = rule.HideRewardWhenMaximumHeightReached,
             HeightMultiplier = rule.HeightMultiplier <= 0 ? 1.25 : rule.HeightMultiplier,
             Preset = Enum.IsDefined(rule.Preset) ? rule.Preset : AvatarScalePreset.Normal,
             ActiveTimeSeconds = Math.Max(0, rule.ActiveTimeSeconds),
@@ -2004,6 +2040,84 @@ public sealed class SettingsStore
             BackgroundImageRelativePath = settings.BackgroundImageRelativePath
         };
 
+    private static PersistedCashPaymentConnectionSettings ToPersistedCashPaymentConnectionSettings(
+        CashPaymentConnectionSettings settings) =>
+        new()
+        {
+            StreamElementsEnabled = settings.StreamElementsEnabled,
+            StreamElementsAccountId = settings.StreamElementsAccountId,
+            StreamlabsEnabled = settings.StreamlabsEnabled,
+            KoFiEnabled = settings.KoFiEnabled,
+            KoFiConnectionMode = settings.KoFiConnectionMode,
+            KoFiRelayBaseUrl = settings.KoFiRelayBaseUrl,
+            KoFiRelayChannelId = settings.KoFiRelayChannelId,
+            KoFiLocalPort = settings.KoFiLocalPort,
+            KoFiWebhookPath = settings.KoFiWebhookPath,
+            KoFiPublicWebhookUrl = settings.KoFiPublicWebhookUrl
+        };
+
+    private static CashPaymentConnectionSettings ToCashPaymentConnectionSettings(
+        PersistedCashPaymentConnectionSettings settings) =>
+        new()
+        {
+            StreamElementsEnabled = settings.StreamElementsEnabled ?? false,
+            StreamElementsAccountId = settings.StreamElementsAccountId ?? string.Empty,
+            StreamlabsEnabled = settings.StreamlabsEnabled ?? false,
+            KoFiEnabled = settings.KoFiEnabled ?? false,
+            KoFiConnectionMode = settings.KoFiConnectionMode
+                ?? (string.IsNullOrWhiteSpace(settings.KoFiPublicWebhookUrl)
+                    ? KoFiConnectionMode.HostedRelay
+                    : KoFiConnectionMode.LocalWebhook),
+            KoFiRelayBaseUrl = settings.KoFiRelayBaseUrl ?? CashPaymentConnectionSettings.DefaultKoFiRelayBaseUrl,
+            KoFiRelayChannelId = settings.KoFiRelayChannelId ?? string.Empty,
+            KoFiLocalPort = settings.KoFiLocalPort is >= 1 and <= 65535
+                ? settings.KoFiLocalPort.Value
+                : 47891,
+            KoFiWebhookPath = settings.KoFiWebhookPath ?? "/kofi",
+            KoFiPublicWebhookUrl = settings.KoFiPublicWebhookUrl ?? string.Empty
+        };
+
+    private static PersistedCashPaymentRule ToPersistedCashPaymentRule(CashPaymentRule rule) =>
+        new()
+        {
+            Id = rule.Id,
+            IsEnabled = rule.IsEnabled,
+            Name = rule.Name,
+            Provider = rule.Provider,
+            MinimumAmount = rule.MinimumAmount,
+            MaximumAmount = rule.MaximumAmount,
+            CurrencyCode = rule.CurrencyCode,
+            MessageContains = rule.MessageContains,
+            CooldownSeconds = rule.CooldownSeconds,
+            ActionKind = rule.ActionKind,
+            TriggerAction = ToPersistedRule(rule.TriggerAction),
+            ScaleAction = ToPersistedAvatarScaleRule(rule.ScaleAction)
+        };
+
+    private static CashPaymentRule ToCashPaymentRule(PersistedCashPaymentRule rule)
+    {
+        var cashRule = new CashPaymentRule
+        {
+            Id = rule.Id == Guid.Empty ? Guid.NewGuid() : rule.Id,
+            IsEnabled = rule.IsEnabled ?? true,
+            Name = string.IsNullOrWhiteSpace(rule.Name) ? "New Cash Payment" : rule.Name.Trim(),
+            Provider = Enum.IsDefined(rule.Provider) ? rule.Provider : CashPaymentProvider.StreamElements,
+            MinimumAmount = rule.MinimumAmount < 0 ? 0 : rule.MinimumAmount,
+            MaximumAmount = rule.MaximumAmount < 0 ? 0 : rule.MaximumAmount,
+            CurrencyCode = rule.CurrencyCode ?? string.Empty,
+            MessageContains = rule.MessageContains ?? string.Empty,
+            CooldownSeconds = Math.Max(0, rule.CooldownSeconds ?? 30),
+            ActionKind = Enum.IsDefined(rule.ActionKind) ? rule.ActionKind : CashPaymentActionKind.TriggerAction,
+            TriggerAction = rule.TriggerAction is null
+                ? CashPaymentRule.CreateDefaultTriggerAction()
+                : ToRule(rule.TriggerAction),
+            ScaleAction = rule.ScaleAction is null
+                ? CashPaymentRule.CreateDefaultScaleAction()
+                : ToAvatarScaleRule(rule.ScaleAction)
+        };
+        return cashRule;
+    }
+
     private sealed class PersistedProfileSettings
     {
         public AppLanguage Language { get; set; }
@@ -2088,6 +2202,10 @@ public sealed class SettingsStore
 
         public PersistedRewardFireSaleSettings? RewardFireSale { get; set; }
 
+        public PersistedCashPaymentConnectionSettings? CashPayments { get; set; }
+
+        public List<PersistedCashPaymentRule>? CashPaymentRules { get; set; }
+
         public List<PersistedAvatarScaleRule>? AvatarScaleRules { get; set; }
 
         public List<PersistedTriggerRule>? Rules { get; set; }
@@ -2126,6 +2244,56 @@ public sealed class SettingsStore
         public string? HeadingFontFamily { get; set; }
 
         public string? BackgroundImageRelativePath { get; set; }
+    }
+
+    private sealed class PersistedCashPaymentConnectionSettings
+    {
+        public bool? StreamElementsEnabled { get; set; }
+
+        public string? StreamElementsAccountId { get; set; }
+
+        public bool? StreamlabsEnabled { get; set; }
+
+        public bool? KoFiEnabled { get; set; }
+
+        public KoFiConnectionMode? KoFiConnectionMode { get; set; }
+
+        public string? KoFiRelayBaseUrl { get; set; }
+
+        public string? KoFiRelayChannelId { get; set; }
+
+        public int? KoFiLocalPort { get; set; }
+
+        public string? KoFiWebhookPath { get; set; }
+
+        public string? KoFiPublicWebhookUrl { get; set; }
+    }
+
+    private sealed class PersistedCashPaymentRule
+    {
+        public Guid Id { get; set; }
+
+        public bool? IsEnabled { get; set; }
+
+        public string? Name { get; set; }
+
+        public CashPaymentProvider Provider { get; set; }
+
+        public decimal MinimumAmount { get; set; }
+
+        public decimal MaximumAmount { get; set; }
+
+        public string? CurrencyCode { get; set; }
+
+        public string? MessageContains { get; set; }
+
+        public int? CooldownSeconds { get; set; }
+
+        public CashPaymentActionKind ActionKind { get; set; }
+
+        public PersistedTriggerRule? TriggerAction { get; set; }
+
+        public PersistedAvatarScaleRule? ScaleAction { get; set; }
     }
 
     private sealed class PersistedSecureSettings
@@ -2652,6 +2820,10 @@ public sealed class SettingsStore
         public double RelativeMinimumHeightMeters { get; set; }
 
         public double RelativeMaximumHeightMeters { get; set; }
+
+        public bool HideRewardWhenMinimumHeightReached { get; set; } = true;
+
+        public bool HideRewardWhenMaximumHeightReached { get; set; } = true;
 
         public double HeightMultiplier { get; set; }
 

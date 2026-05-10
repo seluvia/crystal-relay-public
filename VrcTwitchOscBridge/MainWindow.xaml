@@ -406,6 +406,17 @@
             <Setter Property="Margin" Value="0,6,0,0" />
         </Style>
 
+        <Style TargetType="PasswordBox">
+            <Setter Property="FontFamily" Value="{DynamicResource BodyFontFamily}" />
+            <Setter Property="Padding" Value="12,10" />
+            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CaretBrush" Value="{DynamicResource TextBrush}" />
+            <Setter Property="Margin" Value="0,6,0,0" />
+        </Style>
+
         <Style x:Key="ComboBoxEditableTextBoxStyle" TargetType="TextBox">
             <Setter Property="FontFamily" Value="{DynamicResource BodyFontFamily}" />
             <Setter Property="Background" Value="Transparent" />
@@ -3050,6 +3061,23 @@
                                 </Button.Style>
                             </Button>
                         </UniformGrid>
+                        <Button Content="{loc:Translate 'Cash Payments'}"
+                                Command="{Binding ShowCashPaymentsCommand}"
+                                Width="340"
+                                Margin="0,10,0,0"
+                                HorizontalAlignment="Center">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource RuleLibraryTabButtonStyle}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsViewingCashPayments}" Value="True">
+                                            <Setter Property="Background" Value="{DynamicResource SectionActiveBrush}" />
+                                            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                            <Setter Property="Foreground" Value="White" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
                         <Button Content="{loc:Translate 'Reward Fire Sale'}"
                                 Command="{Binding ShowRewardFireSaleCommand}"
                                 Width="340"
@@ -3115,6 +3143,9 @@
                                         <DataTrigger Binding="{Binding IsViewingAvatarScaling}" Value="True">
                                             <Setter Property="Visibility" Value="Collapsed" />
                                         </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsViewingCashPayments}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
                                         <DataTrigger Binding="{Binding IsViewingRewardFireSale}" Value="True">
                                             <Setter Property="Visibility" Value="Collapsed" />
                                         </DataTrigger>
@@ -3137,6 +3168,171 @@
                                     HorizontalAlignment="Center"
                                     Content="{loc:Translate 'Delete All Avatar Sets'}"
                                     Command="{Binding DeleteAllAvatarProfilesCommand}" />
+                        </StackPanel>
+
+                        <StackPanel Margin="0,14,0,0"
+                                    Width="340"
+                                    HorizontalAlignment="Center">
+                            <StackPanel.Style>
+                                <Style TargetType="StackPanel">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsViewingCashPayments}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </StackPanel.Style>
+                            <Button Style="{StaticResource RuleLibraryPrimaryButtonStyle}"
+                                    Content="{loc:Translate 'Add Cash Rule'}"
+                                    Command="{Binding AddCashPaymentRuleCommand}" />
+                            <UniformGrid Margin="0,10,0,0"
+                                         Columns="2">
+                                <Button Style="{StaticResource RuleLibraryButtonStyle}"
+                                        Margin="0,0,10,0"
+                                        Content="{loc:Translate 'Enable All'}"
+                                        Command="{Binding EnableAllCashPaymentRulesCommand}" />
+                                <Button Style="{StaticResource RuleLibraryButtonStyle}"
+                                        Margin="10,0,0,0"
+                                        Content="{loc:Translate 'Disable All'}"
+                                        Command="{Binding DisableAllCashPaymentRulesCommand}" />
+                            </UniformGrid>
+                            <Button Style="{StaticResource RuleLibraryButtonStyle}"
+                                    Margin="0,10,0,0"
+                                    Width="188"
+                                    HorizontalAlignment="Center"
+                                    Content="{loc:Translate 'Delete Cash Rule'}"
+                                    Command="{Binding RemoveSelectedCashPaymentRuleCommand}" />
+                            <Button Style="{StaticResource RuleLibraryDangerButtonStyle}"
+                                    Margin="0,10,0,0"
+                                    Width="214"
+                                    HorizontalAlignment="Center"
+                                    Content="{loc:Translate 'Delete All Cash Rules'}"
+                                    Command="{Binding DeleteAllCashPaymentRulesCommand}" />
+                            <Border Margin="0,16,0,0"
+                                    Padding="14"
+                                    Background="{DynamicResource NestedPanelBrush}"
+                                    BorderBrush="{DynamicResource HighlightBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="14">
+                                <StackPanel>
+                                    <DockPanel LastChildFill="False">
+                                        <TextBlock Text="{loc:Translate 'Provider Connections'}"
+                                                   Foreground="{DynamicResource TextBrush}"
+                                                   FontWeight="SemiBold"
+                                                   TextWrapping="Wrap" />
+                                        <Button Style="{StaticResource HelpIconButtonStyle}"
+                                                Width="22"
+                                                Height="22"
+                                                MinWidth="22"
+                                                MinHeight="22"
+                                                Margin="6,0,0,0"
+                                                Click="OnHelpButtonClicked"
+                                                CommandParameter="Cash Payment Connections"
+                                                Tag="{Binding CashPaymentConnectionHelpText}" />
+                                    </DockPanel>
+
+                                    <CheckBox Margin="0,10,0,0"
+                                              Content="{loc:Translate 'Enable StreamElements'}"
+                                              IsChecked="{Binding Settings.CashPayments.StreamElementsEnabled, UpdateSourceTrigger=PropertyChanged}" />
+                                    <TextBlock Margin="0,8,0,0"
+                                               Text="{loc:Translate 'StreamElements account / room ID'}"
+                                               Foreground="{DynamicResource TextBrush}"
+                                               FontWeight="SemiBold" />
+                                    <TextBox Text="{Binding Settings.CashPayments.StreamElementsAccountId, UpdateSourceTrigger=PropertyChanged}" />
+                                    <TextBlock Margin="0,8,0,0"
+                                               Text="{loc:Translate 'StreamElements JWT token'}"
+                                               Foreground="{DynamicResource TextBrush}"
+                                               FontWeight="SemiBold" />
+                                    <TextBox Text="{Binding Settings.CashPayments.StreamElementsJwtToken, UpdateSourceTrigger=PropertyChanged}" />
+
+                                    <CheckBox Margin="0,14,0,0"
+                                              Content="{loc:Translate 'Enable Streamlabs'}"
+                                              IsChecked="{Binding Settings.CashPayments.StreamlabsEnabled, UpdateSourceTrigger=PropertyChanged}" />
+                                    <TextBlock Margin="0,8,0,0"
+                                               Text="{loc:Translate 'Streamlabs access token'}"
+                                               Foreground="{DynamicResource TextBrush}"
+                                               FontWeight="SemiBold" />
+                                    <TextBox Text="{Binding Settings.CashPayments.StreamlabsAccessToken, UpdateSourceTrigger=PropertyChanged}" />
+
+                                    <CheckBox Margin="0,14,0,0"
+                                              Content="{loc:Translate 'Enable Ko-fi'}"
+                                              IsChecked="{Binding Settings.CashPayments.KoFiEnabled, UpdateSourceTrigger=PropertyChanged}" />
+                                    <CheckBox Margin="0,8,0,0"
+                                              Content="{loc:Translate 'Use Crystal Relay hosted Ko-fi relay'}"
+                                              IsChecked="{Binding Settings.CashPayments.KoFiUseHostedRelay, UpdateSourceTrigger=PropertyChanged}" />
+                                    <StackPanel Margin="0,8,0,0">
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Settings.CashPayments.KoFiUseHostedRelay}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
+                                        <TextBlock Text="{loc:Translate 'Ko-fi webhook URL'}"
+                                                   Foreground="{DynamicResource TextBrush}"
+                                                   FontWeight="SemiBold" />
+                                        <TextBox Text="{Binding Settings.CashPayments.KoFiRelayWebhookUrl, Mode=OneWay}"
+                                                 IsReadOnly="True" />
+                                        <Button Margin="0,8,0,0"
+                                                Style="{StaticResource RuleLibraryButtonStyle}"
+                                                Content="{loc:Translate 'Regenerate Ko-fi Relay Link'}"
+                                                Command="{Binding RegenerateKoFiRelayIdentityCommand}" />
+                                        <TextBlock Margin="0,8,0,0"
+                                                   Text="{loc:Translate 'Paste this webhook URL into Ko-fi. Crystal Relay connects outward to the hosted relay, so streamers do not need Cloudflare, ngrok, port forwarding, or a public local URL.'}"
+                                                   Foreground="{DynamicResource MutedBrush}"
+                                                   TextWrapping="Wrap" />
+                                        <Button Margin="0,8,0,0"
+                                                Style="{StaticResource RuleLibraryButtonStyle}"
+                                                Content="{loc:Translate 'Open Ko-fi Webhooks Page'}"
+                                                Command="{Binding OpenKoFiWebhooksCommand}" />
+                                    </StackPanel>
+                                    <StackPanel Margin="0,8,0,0">
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Settings.CashPayments.KoFiUseLocalWebhook}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
+                                        <UniformGrid Columns="2">
+                                            <StackPanel Margin="0,0,10,0">
+                                                <TextBlock Text="{loc:Translate 'Local port'}"
+                                                           Foreground="{DynamicResource TextBrush}"
+                                                           FontWeight="SemiBold" />
+                                                <TextBox Text="{Binding Settings.CashPayments.KoFiLocalPort, UpdateSourceTrigger=PropertyChanged}" />
+                                            </StackPanel>
+                                            <StackPanel Margin="10,0,0,0">
+                                                <TextBlock Text="{loc:Translate 'Webhook path'}"
+                                                           Foreground="{DynamicResource TextBrush}"
+                                                           FontWeight="SemiBold" />
+                                                <TextBox Text="{Binding Settings.CashPayments.KoFiWebhookPath, UpdateSourceTrigger=PropertyChanged}" />
+                                            </StackPanel>
+                                        </UniformGrid>
+                                        <TextBlock Margin="0,8,0,0"
+                                                   Text="{loc:Translate 'Ko-fi public webhook URL'}"
+                                                   Foreground="{DynamicResource TextBrush}"
+                                                   FontWeight="SemiBold" />
+                                        <TextBox Text="{Binding Settings.CashPayments.KoFiPublicWebhookUrl, UpdateSourceTrigger=PropertyChanged}" />
+                                        <TextBlock Margin="0,8,0,0"
+                                                   Text="{Binding Settings.CashPayments.KoFiLocalWebhookUrl}"
+                                                   Foreground="{DynamicResource MutedBrush}"
+                                                   TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <TextBlock Margin="0,8,0,0"
+                                               Text="{loc:Translate 'Ko-fi verification token'}"
+                                               Foreground="{DynamicResource TextBrush}"
+                                               FontWeight="SemiBold" />
+                                    <PasswordBox local:PasswordBoxBinding.BindPassword="True"
+                                                 local:PasswordBoxBinding.BoundPassword="{Binding Settings.CashPayments.KoFiVerificationToken, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                </StackPanel>
+                            </Border>
                         </StackPanel>
 
                         <StackPanel Margin="0,14,0,0"
@@ -3446,6 +3642,9 @@
                                         <DataTrigger Binding="{Binding IsViewingAvatarScaling}" Value="True">
                                             <Setter Property="Visibility" Value="Collapsed" />
                                         </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsViewingCashPayments}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
                                         <DataTrigger Binding="{Binding IsViewingRewardFireSale}" Value="True">
                                             <Setter Property="Visibility" Value="Collapsed" />
                                         </DataTrigger>
@@ -3606,6 +3805,44 @@
                             </ListBox.Style>
                         </ListBox>
 
+                        <ListBox ItemsSource="{Binding CashPaymentRules}"
+                                 SelectedItem="{Binding SelectedCashPaymentRule}"
+                                 ScrollViewer.CanContentScroll="True"
+                                 VirtualizingStackPanel.IsVirtualizing="True"
+                                 VirtualizingStackPanel.VirtualizationMode="Recycling">
+                            <ListBox.Style>
+                                <Style TargetType="ListBox" BasedOn="{StaticResource {x:Type ListBox}}">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsViewingCashPayments}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ListBox.Style>
+                            <ListBox.ItemTemplate>
+                                <DataTemplate DataType="{x:Type models:CashPaymentRule}">
+                                    <Border Margin="0,0,0,10"
+                                            Padding="12"
+                                            Background="{DynamicResource RuleCardBrush}"
+                                            BorderBrush="{DynamicResource HighlightBorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="14">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding DisplayTitle}"
+                                                       Foreground="{DynamicResource TextBrush}"
+                                                       FontWeight="SemiBold"
+                                                       TextWrapping="Wrap" />
+                                            <TextBlock Margin="0,5,0,0"
+                                                       Text="{Binding TriggerSummary}"
+                                                       Foreground="{DynamicResource MutedBrush}"
+                                                       TextWrapping="Wrap" />
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+
                         <TextBlock HorizontalAlignment="Center"
                                    VerticalAlignment="Center"
                                    Foreground="{DynamicResource MutedBrush}"
@@ -3649,6 +3886,14 @@
                                             </MultiDataTrigger.Conditions>
                                             <Setter Property="Visibility" Value="Visible" />
                                             <Setter Property="Text" Value="{loc:Translate 'Add a scale set to get started.'}" />
+                                        </MultiDataTrigger>
+                                        <MultiDataTrigger>
+                                            <MultiDataTrigger.Conditions>
+                                                <Condition Binding="{Binding IsViewingCashPayments}" Value="True" />
+                                                <Condition Binding="{Binding Settings.CashPaymentRules.Count}" Value="0" />
+                                            </MultiDataTrigger.Conditions>
+                                            <Setter Property="Visibility" Value="Visible" />
+                                            <Setter Property="Text" Value="{loc:Translate 'Add a cash payment rule to get started.'}" />
                                         </MultiDataTrigger>
                                     </Style.Triggers>
                                 </Style>
@@ -4035,6 +4280,9 @@
                                                 <Setter Property="Visibility" Value="Collapsed" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsViewingAvatarScaling}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsViewingCashPayments}" Value="True">
                                                 <Setter Property="Visibility" Value="Collapsed" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding SelectedAvatarProfile}" Value="{x:Null}">
@@ -5360,6 +5608,30 @@
                                                                        Text="{loc:Translate 'Minimum Height stops negative relative scaling at this height.'}"
                                                                        Foreground="{DynamicResource MutedBrush}"
                                                                        TextWrapping="Wrap" />
+                                                            <StackPanel Margin="0,10,0,0">
+                                                                <StackPanel.Style>
+                                                                    <Style TargetType="StackPanel">
+                                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                                        <Style.Triggers>
+                                                                            <MultiDataTrigger>
+                                                                                <MultiDataTrigger.Conditions>
+                                                                                    <Condition Binding="{Binding UsesChannelPointReward}" Value="True" />
+                                                                                    <Condition Binding="{Binding UsesCreateOrManageReward}" Value="True" />
+                                                                                </MultiDataTrigger.Conditions>
+                                                                                <Setter Property="Visibility" Value="Visible" />
+                                                                            </MultiDataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </StackPanel.Style>
+                                                                <CheckBox IsChecked="{Binding HideRewardWhenMinimumHeightReached, UpdateSourceTrigger=PropertyChanged}">
+                                                                    <TextBlock Text="{loc:Translate 'Hide reward at minimum height'}"
+                                                                               TextWrapping="Wrap" />
+                                                                </CheckBox>
+                                                                <TextBlock Margin="26,6,0,0"
+                                                                           Text="{loc:Translate 'When enabled, Crystal Relay hides this managed Twitch reward while the current height is at the effective minimum, then shows it again after height increases.'}"
+                                                                           Foreground="{DynamicResource MutedBrush}"
+                                                                           TextWrapping="Wrap" />
+                                                            </StackPanel>
                                                         </StackPanel>
                                                         <StackPanel Margin="0,12,0,0">
                                                             <StackPanel.Style>
@@ -5382,6 +5654,30 @@
                                                                        Text="{loc:Translate 'Maximum Height stops positive relative scaling at this height.'}"
                                                                        Foreground="{DynamicResource MutedBrush}"
                                                                        TextWrapping="Wrap" />
+                                                            <StackPanel Margin="0,10,0,0">
+                                                                <StackPanel.Style>
+                                                                    <Style TargetType="StackPanel">
+                                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                                        <Style.Triggers>
+                                                                            <MultiDataTrigger>
+                                                                                <MultiDataTrigger.Conditions>
+                                                                                    <Condition Binding="{Binding UsesChannelPointReward}" Value="True" />
+                                                                                    <Condition Binding="{Binding UsesCreateOrManageReward}" Value="True" />
+                                                                                </MultiDataTrigger.Conditions>
+                                                                                <Setter Property="Visibility" Value="Visible" />
+                                                                            </MultiDataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </StackPanel.Style>
+                                                                <CheckBox IsChecked="{Binding HideRewardWhenMaximumHeightReached, UpdateSourceTrigger=PropertyChanged}">
+                                                                    <TextBlock Text="{loc:Translate 'Hide reward at maximum height'}"
+                                                                               TextWrapping="Wrap" />
+                                                                </CheckBox>
+                                                                <TextBlock Margin="26,6,0,0"
+                                                                           Text="{loc:Translate 'When enabled, Crystal Relay hides this managed Twitch reward while the current height is at the effective maximum, then shows it again after height decreases.'}"
+                                                                           Foreground="{DynamicResource MutedBrush}"
+                                                                           TextWrapping="Wrap" />
+                                                            </StackPanel>
                                                         </StackPanel>
                                                     </StackPanel>
 
@@ -5875,6 +6171,263 @@
                                         </StackPanel>
                                     </Border>
                                 </StackPanel>
+                            </Border>
+
+                            <Border Margin="0,18,0,0"
+                                    Background="{DynamicResource PanelHighlightBrush}"
+                                    BorderBrush="{DynamicResource HighlightBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="18"
+                                    Padding="18">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsViewingCashPayments}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding SelectedCashPaymentRule}" Value="{x:Null}">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <ContentControl Content="{Binding SelectedCashPaymentRule}">
+                                    <ContentControl.ContentTemplate>
+                                        <DataTemplate DataType="{x:Type models:CashPaymentRule}">
+                                            <StackPanel>
+                                                <DockPanel LastChildFill="False">
+                                                    <TextBlock Text="{loc:Translate 'Cash Payment Rule'}"
+                                                               Style="{StaticResource HeadingTextStyle}"
+                                                               FontSize="22"
+                                                               FontWeight="Bold"
+                                                               Foreground="{DynamicResource TextBrush}" />
+                                                    <Button Style="{StaticResource HelpIconButtonStyle}"
+                                                            Click="OnHelpButtonClicked"
+                                                            CommandParameter="Cash Payment Rule"
+                                                            Tag="{Binding DataContext.CashPaymentActionEditorHelpText, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                                </DockPanel>
+                                                <TextBlock Margin="0,10,0,0"
+                                                           Text="{Binding DataContext.CashPaymentRuleStatusText, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                           Foreground="{DynamicResource MutedBrush}"
+                                                           TextWrapping="Wrap" />
+                                                <WrapPanel Margin="0,14,0,0">
+                                                    <Button Style="{StaticResource SecondaryButtonStyle}"
+                                                            Content="{loc:Translate 'Test Cash Rule'}"
+                                                            Command="{Binding DataContext.TestSelectedCashPaymentRuleCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                                </WrapPanel>
+
+                                                <Border Margin="0,18,0,0"
+                                                        Background="{DynamicResource NestedPanelBrush}"
+                                                        BorderBrush="{DynamicResource HighlightBorderBrush}"
+                                                        BorderThickness="1"
+                                                        CornerRadius="18"
+                                                        Padding="16">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{loc:Translate 'Payment Match'}"
+                                                                   Foreground="{DynamicResource TextBrush}"
+                                                                   FontWeight="SemiBold"
+                                                                   FontSize="17" />
+                                                        <CheckBox Margin="0,10,0,0"
+                                                                  Content="{loc:Translate 'Rule enabled'}"
+                                                                  IsChecked="{Binding IsEnabled, UpdateSourceTrigger=PropertyChanged}" />
+                                                        <UniformGrid Columns="2"
+                                                                     Margin="0,12,0,0">
+                                                            <StackPanel Margin="0,0,14,0">
+                                                                <TextBlock Text="{loc:Translate 'Rule Name'}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                            <StackPanel Margin="14,0,0,0">
+                                                                <TextBlock Text="{loc:Translate 'Provider'}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold" />
+                                                                <ComboBox ItemsSource="{Binding DataContext.CashPaymentProviderOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                          DisplayMemberPath="Label"
+                                                                          SelectedValuePath="Value"
+                                                                          SelectedValue="{Binding Provider, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                        </UniformGrid>
+                                                        <UniformGrid Columns="3"
+                                                                     Margin="0,12,0,0">
+                                                            <StackPanel Margin="0,0,10,0">
+                                                                <TextBlock Text="{loc:Translate 'Minimum Amount'}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding MinimumAmount, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                            <StackPanel Margin="10,0,10,0">
+                                                                <TextBlock Text="{loc:Translate 'Maximum Amount'}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding MaximumAmount, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                            <StackPanel Margin="10,0,0,0">
+                                                                <TextBlock Text="{loc:Translate 'Currency'}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding CurrencyCode, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                        </UniformGrid>
+                                                        <UniformGrid Columns="2"
+                                                                     Margin="0,12,0,0">
+                                                            <StackPanel Margin="0,0,14,0">
+                                                                <TextBlock Text="{loc:Translate 'Message Contains'}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding MessageContains, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                            <StackPanel Margin="14,0,0,0">
+                                                                <TextBlock Text="{loc:Translate 'Cooldown Seconds'}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding CooldownSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                        </UniformGrid>
+                                                        <TextBlock Margin="0,8,0,0"
+                                                                   Text="{loc:Translate 'Leave maximum amount at 0 for no upper limit. Leave currency blank to accept any currency; v1 does not convert between currencies.'}"
+                                                                   Foreground="{DynamicResource MutedBrush}"
+                                                                   TextWrapping="Wrap" />
+                                                    </StackPanel>
+                                                </Border>
+
+                                                <Border Margin="0,18,0,0"
+                                                        Background="{DynamicResource NestedPanelBrush}"
+                                                        BorderBrush="{DynamicResource HighlightBorderBrush}"
+                                                        BorderThickness="1"
+                                                        CornerRadius="18"
+                                                        Padding="16">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{loc:Translate 'Cash Action'}"
+                                                                   Foreground="{DynamicResource TextBrush}"
+                                                                   FontWeight="SemiBold"
+                                                                   FontSize="17" />
+                                                        <TextBlock Margin="0,10,0,0"
+                                                                   Text="{loc:Translate 'Action Family'}"
+                                                                   Foreground="{DynamicResource TextBrush}"
+                                                                   FontWeight="SemiBold" />
+                                                        <ComboBox ItemsSource="{Binding DataContext.CashPaymentActionKindOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                  DisplayMemberPath="Label"
+                                                                  SelectedValuePath="Value"
+                                                                  SelectedValue="{Binding ActionKind, UpdateSourceTrigger=PropertyChanged}" />
+                                                        <TextBlock Margin="0,8,0,0"
+                                                                   Foreground="{DynamicResource MutedBrush}"
+                                                                   TextWrapping="Wrap">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Setter Property="Text" Value="{loc:Translate 'Use the action editor below for OSC parameters, Set Trigger, Avatar Change, or Avatar Roulette.'}" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding UsesAvatarScaling}" Value="True">
+                                                                            <Setter Property="Text" Value="{loc:Translate 'Use the scaling controls below for this cash payment rule.'}" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                    </StackPanel>
+                                                </Border>
+
+                                                <Border Margin="0,18,0,0"
+                                                        Background="{DynamicResource NestedPanelBrush}"
+                                                        BorderBrush="{DynamicResource HighlightBorderBrush}"
+                                                        BorderThickness="1"
+                                                        CornerRadius="18"
+                                                        Padding="16">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding UsesAvatarScaling}" Value="True">
+                                                                    <Setter Property="Visibility" Value="Visible" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <StackPanel DataContext="{Binding ScaleAction}">
+                                                        <TextBlock Text="{loc:Translate 'Avatar Scaling Action'}"
+                                                                   Foreground="{DynamicResource TextBrush}"
+                                                                   FontWeight="SemiBold"
+                                                                   FontSize="17" />
+                                                        <TextBlock Margin="0,10,0,0"
+                                                                   Text="{loc:Translate 'Scale Mode'}"
+                                                                   Foreground="{DynamicResource TextBrush}"
+                                                                   FontWeight="SemiBold" />
+                                                        <ComboBox ItemsSource="{Binding DataContext.AvatarScaleModes, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                  SelectedItem="{Binding ScaleMode, UpdateSourceTrigger=PropertyChanged}" />
+                                                        <UniformGrid Columns="2"
+                                                                     Margin="0,12,0,0">
+                                                            <StackPanel Margin="0,0,14,0">
+                                                                <TextBlock Text="{loc:Translate 'Target Height'}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding TargetHeightMeters, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                            <StackPanel Margin="14,0,0,0">
+                                                                <TextBlock Text="{loc:Translate 'Relative Height'}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding RelativeHeightMeters, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                        </UniformGrid>
+                                                        <UniformGrid Columns="2"
+                                                                     Margin="0,12,0,0">
+                                                            <StackPanel Margin="0,0,14,0">
+                                                                <TextBlock Text="{loc:Translate 'Random Minimum'}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding MinimumHeightMeters, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                            <StackPanel Margin="14,0,0,0">
+                                                                <TextBlock Text="{loc:Translate 'Random Maximum'}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding MaximumHeightMeters, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                        </UniformGrid>
+                                                        <UniformGrid Columns="2"
+                                                                     Margin="0,12,0,0">
+                                                            <StackPanel Margin="0,0,14,0">
+                                                                <TextBlock Text="{loc:Translate 'Height Multiplier'}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding HeightMultiplier, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                            <StackPanel Margin="14,0,0,0">
+                                                                <TextBlock Text="{loc:Translate 'Preset'}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold" />
+                                                                <ComboBox ItemsSource="{Binding DataContext.AvatarScalePresets, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                          SelectedItem="{Binding Preset, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                        </UniformGrid>
+                                                        <UniformGrid Columns="3"
+                                                                     Margin="0,12,0,0">
+                                                            <StackPanel Margin="0,0,10,0">
+                                                                <TextBlock Text="{loc:Translate 'Active Time'}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding ActiveTimeSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                            <StackPanel Margin="10,0,10,0">
+                                                                <TextBlock Text="{loc:Translate 'Restore Height'}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding RestoreHeightMeters, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                            <StackPanel Margin="10,0,0,0">
+                                                                <TextBlock Text="{loc:Translate 'Smooth Seconds'}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding SmoothTransitionSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                        </UniformGrid>
+                                                    </StackPanel>
+                                                </Border>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ContentControl.ContentTemplate>
+                                </ContentControl>
                             </Border>
 
                             <Border Margin="0,18,0,0"
@@ -6823,6 +7376,9 @@
                                                                     <DataTrigger Binding="{Binding DataContext.IsViewingAvatarTriggers, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
                                                                         <Setter Property="Text" Value="{loc:Translate 'Redeem Editor'}" />
                                                                     </DataTrigger>
+                                                                    <DataTrigger Binding="{Binding DataContext.IsViewingCashPayments, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                                        <Setter Property="Text" Value="{loc:Translate 'Cash Payment Action'}" />
+                                                                    </DataTrigger>
                                                                 </Style.Triggers>
                                                             </Style>
                                                         </TextBlock.Style>
@@ -6849,6 +7405,16 @@
                                                 </WrapPanel>
 
                                                 <Grid Margin="0,22,0,0">
+                                                    <Grid.Style>
+                                                        <Style TargetType="Grid">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding DataContext.IsViewingCashPayments, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Grid.Style>
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="*" />
                                                         <ColumnDefinition Width="28" />
@@ -6943,6 +7509,16 @@
                                                         BorderThickness="1"
                                                         CornerRadius="18"
                                                         Padding="16">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding DataContext.IsViewingCashPayments, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
                                                     <StackPanel>
                                                         <TextBlock Text="{loc:Translate 'Twitch Trigger Settings'}"
                                                                    Foreground="{DynamicResource TextBrush}"
@@ -7640,6 +8216,9 @@
                                                                             <Setter Property="Visibility" Value="Visible" />
                                                                         </DataTrigger>
                                                                         <DataTrigger Binding="{Binding DataContext.IsViewingSupporterOverrides, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                                            <Setter Property="Visibility" Value="Visible" />
+                                                                        </DataTrigger>
+                                                                        <DataTrigger Binding="{Binding DataContext.IsViewingCashPayments, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
                                                                             <Setter Property="Visibility" Value="Visible" />
                                                                         </DataTrigger>
                                                                         <MultiDataTrigger>

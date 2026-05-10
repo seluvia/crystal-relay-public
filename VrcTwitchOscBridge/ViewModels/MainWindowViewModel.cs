@@ -67,9 +67,16 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         string[] Scopes,
         string TwitchClientId);
 
+    private readonly record struct AvatarScaleRelativeLimitState(
+        bool IsAtLimit,
+        bool IsMinimumLimit,
+        double CurrentHeightMeters,
+        double EffectiveLimitMeters);
+
     private const string TwitchActivationUri = "https://www.twitch.tv/activate";
     private const string TwitchDeveloperConsoleUri = "https://dev.twitch.tv/console/apps";
     private const string KoFiSupportUri = "https://ko-fi.com/screminpal";
+    private const string KoFiWebhookSettingsUri = "https://ko-fi.com/manage/webhooks";
     private const string SettingsTestAudioRelativePath = "Assets\\engineer_no01.mp3";
     private const string TestBuildMarkerFileName = "test-build.flag";
     private const string BetaBuildMarkerFileName = "beta-build.flag";
@@ -80,6 +87,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private static readonly TimeSpan ManagedRewardCreateBackoffWindow = TimeSpan.FromSeconds(45);
     private static readonly TimeSpan ThrottledRewardSyncLogWindow = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan AvatarScaleLimitRewardSyncDebounce = TimeSpan.FromMilliseconds(750);
+    private const double AvatarScaleLimitHeightToleranceMeters = 0.001;
+    private const double AvatarScaleLimitHeightReleaseToleranceMeters = 0.003;
     private static readonly TimeSpan TwitchAccessTokenRefreshLeadTime = TimeSpan.FromMinutes(15);
     private static readonly TimeSpan TwitchCachedValidationGraceWindow = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan TwitchPublicRefreshSessionWindow = TimeSpan.FromDays(30);
@@ -279,6 +288,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         nameof(AvatarScaleRule.RelativeHeightMeters),
         nameof(AvatarScaleRule.RelativeMinimumHeightMeters),
         nameof(AvatarScaleRule.RelativeMaximumHeightMeters),
+        nameof(AvatarScaleRule.HideRewardWhenMinimumHeightReached),
+        nameof(AvatarScaleRule.HideRewardWhenMaximumHeightReached),
         nameof(AvatarScaleRule.HeightMultiplier),
         nameof(AvatarScaleRule.TemporarilyDisabledScaleRuleIds)
     };
@@ -343,6 +354,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private MovementRedeemSet? selectedMovementRedeemSet;
     private AvatarScaleSet? selectedAvatarScaleSet;
     private AvatarScaleRule? selectedAvatarScaleRule;
+    private CashPaymentRule? selectedCashPaymentRule;
     private AvatarTriggerProfile? selectedAvatarProfile;
     private VrChatOscParameterSummary? selectedAvatarParameterOption;
     private VrChatOscParameterSummary? selectedSetTriggerParameterOption;
@@ -410,6 +422,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private readonly Dictionary<string, DateTime> vrChatLocalOscAvatarWriteTimes = new(StringComparer.Ordinal);
     private readonly HashSet<string> retiredManagedRewardIds = new(StringComparer.Ordinal);
     private readonly Dictionary<string, DateTimeOffset> managedRewardCreateBackoffByTitle = new(StringComparer.OrdinalIgnoreCase);
+    private readonly object avatarScaleLimitStateGate = new();
     private readonly Dictionary<Guid, bool> avatarScaleLimitInactiveStateByRuleId = [];
     private readonly Dictionary<string, DateTimeOffset> throttledLogExpiryByKey = new(StringComparer.Ordinal);
     private readonly List<ActionTypeOption> allActionTypes;
@@ -429,6 +442,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private Guid lastSelectedUniversalTriggerId = Guid.Empty;
     private Guid lastSelectedAvatarScaleSetId = Guid.Empty;
     private Guid lastSelectedAvatarScaleRuleId = Guid.Empty;
+    private Guid lastSelectedCashPaymentRuleId = Guid.Empty;
     private AppLanguage activeLanguageAtStartup = AppLanguage.SystemDefault;
     private ICollectionView? universalTriggersGroupedView;
     private bool isUniversalChatCommandsExpanded = true;
@@ -522,6 +536,17 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         AvatarScaleModes = Enum.GetValues<AvatarScaleMode>();
         AvatarScalePresets = Enum.GetValues<AvatarScalePreset>();
         AvatarScaleRestoreModes = Enum.GetValues<AvatarScaleRestoreMode>();
+        CashPaymentProviderOptions =
+        [
+            new CashPaymentProviderOption(CashPaymentProvider.StreamElements, "StreamElements"),
+            new CashPaymentProviderOption(CashPaymentProvider.Streamlabs, "Streamlabs"),
+            new CashPaymentProviderOption(CashPaymentProvider.KoFi, "Ko-fi")
+        ];
+        CashPaymentActionKindOptions =
+        [
+            new CashPaymentActionKindOption(CashPaymentActionKind.TriggerAction, T("OSC / Avatar Action")),
+            new CashPaymentActionKindOption(CashPaymentActionKind.AvatarScaling, T("Avatar Scaling"))
+        ];
         AvatarScaleSubscriptionTierOptions =
         [
             new AvatarScaleSubscriptionTierOption(string.Empty, T("Any tier")),
@@ -670,6 +695,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         OpenTwitchDeveloperConsoleCommand = new RelayCommand(OpenTwitchDeveloperConsole);
         OpenSaveFolderCommand = new RelayCommand(OpenSaveFolder);
         OpenKoFiSupportCommand = new RelayCommand(OpenKoFiSupportPage);
+        OpenKoFiWebhooksCommand = new RelayCommand(OpenKoFiWebhooksPage);
         OpenBugReportCommand = new AsyncRelayCommand(OpenBugReportAsync);
         RefreshOscConnectionCommand = new AsyncRelayCommand(RefreshOscConnectionAsync);
         RefreshTwitchRewardsCommand = new AsyncRelayCommand(RefreshTwitchRewardsAsync);
@@ -690,6 +716,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ShowSupporterOverridesCommand = new RelayCommand(ShowSupporterOverrides);
         ShowUniversalTriggersCommand = new RelayCommand(ShowUniversalTriggers);
         ShowAvatarScalingCommand = new RelayCommand(ShowAvatarScaling);
+        ShowCashPaymentsCommand = new RelayCommand(ShowCashPayments);
         ShowRewardFireSaleCommand = new RelayCommand(ShowRewardFireSale);
         AddAvatarProfileCommand = new RelayCommand(AddAvatarProfile);
         DeleteSelectedAvatarProfileCommand = new RelayCommand(DeleteSelectedAvatarProfile, () => SelectedAvatarProfile is not null);
@@ -738,6 +765,13 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         DeleteAllAvatarScaleRulesCommand = new RelayCommand(DeleteAllAvatarScaleSets, () => Settings.AvatarScaleSets.Count > 0);
         TestSelectedAvatarScaleRuleCommand = new RelayCommand(StartSelectedAvatarScaleRuleTest, CanTestSelectedAvatarScaleRule);
         OpenAvatarScaleRuleLockoutPickerCommand = new RelayCommand(OpenAvatarScaleRuleLockoutPicker, CanOpenAvatarScaleRuleLockoutPicker);
+        AddCashPaymentRuleCommand = new RelayCommand(AddCashPaymentRule);
+        RemoveSelectedCashPaymentRuleCommand = new RelayCommand(RemoveSelectedCashPaymentRule, () => SelectedCashPaymentRule is not null);
+        EnableAllCashPaymentRulesCommand = new RelayCommand(EnableAllCashPaymentRules, () => Settings.CashPaymentRules.Count > 0);
+        DisableAllCashPaymentRulesCommand = new RelayCommand(DisableAllCashPaymentRules, () => Settings.CashPaymentRules.Count > 0);
+        DeleteAllCashPaymentRulesCommand = new RelayCommand(DeleteAllCashPaymentRules, () => Settings.CashPaymentRules.Count > 0);
+        TestSelectedCashPaymentRuleCommand = new AsyncRelayCommand(TestSelectedCashPaymentRuleAsync, () => SelectedCashPaymentRule is not null);
+        RegenerateKoFiRelayIdentityCommand = new RelayCommand(RegenerateKoFiRelayIdentity);
         OpenSpecialRuleLockoutPickerCommand = new RelayCommand(OpenSpecialRuleLockoutPicker, CanOpenSpecialRuleLockoutPicker);
         OpenAvatarRouletPoolPickerCommand = new RelayCommand(OpenAvatarRouletPoolPicker, CanOpenAvatarRouletPoolPicker);
         OpenActiveFloatBoostRewardCommand = new RelayCommand(OpenActiveFloatBoostReward, CanOpenActiveFloatBoostReward);
@@ -947,6 +981,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public IReadOnlyList<AvatarScaleRestoreMode> AvatarScaleRestoreModes { get; }
 
+    public IReadOnlyList<CashPaymentProviderOption> CashPaymentProviderOptions { get; }
+
+    public IReadOnlyList<CashPaymentActionKindOption> CashPaymentActionKindOptions { get; }
+
     public IReadOnlyList<AvatarScaleSubscriptionTierOption> AvatarScaleSubscriptionTierOptions { get; }
 
     public IReadOnlyList<ActionTypeOption> ActionTypes { get; }
@@ -1080,6 +1118,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public bool IsViewingAvatarScaling => activeRuleListView == RuleListView.AvatarScaling;
 
+    public bool IsViewingCashPayments => activeRuleListView == RuleListView.CashPayments;
+
     public bool IsViewingRewardFireSale => activeRuleListView == RuleListView.RewardFireSale;
 
     public bool IsRewardFireSaleTemporary => Settings.RewardFireSale.SaleMode == RewardFireSaleMode.Temporary;
@@ -1192,6 +1232,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     public IReadOnlyList<AvatarScaleSet> AvatarScaleSets => Settings.AvatarScaleSets.ToArray();
 
     public IReadOnlyList<AvatarScaleRule> AvatarScaleRules => SelectedAvatarScaleSet?.ScaleRules.ToArray() ?? [];
+
+    public IReadOnlyList<CashPaymentRule> CashPaymentRules => Settings.CashPaymentRules.ToArray();
 
     public IReadOnlyList<UniversalTriggerRule> UniversalChatCommandTriggers => GetUniversalTriggersByType(UniversalTriggerType.ChatCommand);
 
@@ -1332,6 +1374,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public string SelectedRuleCollectionTitle => IsViewingRewardFireSale
         ? T("Reward Fire Sale")
+        : IsViewingCashPayments
+        ? T("Cash Payments")
         : IsViewingAvatarScaling
         ? T("Avatar Scaling")
         : IsViewingUniversalTriggers
@@ -1346,6 +1390,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public string SelectedRuleCollectionHelpText => IsViewingRewardFireSale
         ? T("Build a shared Bits and funding reward goal that discounts Crystal Relay-owned channel point redeems. Linked Twitch rewards stay listen-only and are never repriced.")
+        : IsViewingCashPayments
+        ? T("Use Cash Payments for tip and donation triggers from StreamElements, Streamlabs, and Ko-fi. These rules do not create Twitch rewards.")
         : IsViewingAvatarScaling
         ? T("Use Scale Sets to organize VRChat OSC avatar height scaling. Scale redeems send /avatar/eyeheight and stay separate from avatar sets, movement, universal triggers, and paid overrides.")
         : IsViewingUniversalTriggers
@@ -1362,6 +1408,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public string RuleLibraryHelpText => IsViewingRewardFireSale
         ? T("Reward Fire Sale tracks Bits and the optional Fire Sale funding reward toward a discount goal. The sale changes only Crystal Relay-created reward prices when the goal starts or ends.")
+        : IsViewingCashPayments
+            ? T("This tab is for cash payment triggers. Connect StreamElements, Streamlabs, or Ko-fi, then add rules that fire OSC, avatar-change, roulette, Set Trigger, or avatar-scaling actions.")
         : IsViewingAvatarScaling
         ? T("This tab is for avatar height scale redeems using VRChat OSC Avatar Scaling. Use Scale Sets to keep different height reward ideas organized without changing how the triggers run.")
         : IsViewingUniversalTriggers
@@ -1376,6 +1424,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public string AddRuleButtonText => IsViewingRewardFireSale
         ? T("Add Fire Sale Tier")
+        : IsViewingCashPayments
+        ? T("Add Cash Rule")
         : IsViewingAvatarScaling
         ? T("Add Scale Redeem")
         : IsViewingUniversalTriggers
@@ -1390,6 +1440,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public string DeleteRuleButtonText => IsViewingRewardFireSale
         ? T("Delete Fire Sale Tier")
+        : IsViewingCashPayments
+        ? T("Delete Cash Rule")
         : IsViewingAvatarScaling
         ? T("Delete Scale Redeem")
         : IsViewingUniversalTriggers
@@ -1404,6 +1456,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public string DeleteAllRulesButtonText => IsViewingRewardFireSale
         ? T("Reset Fire Sale Progress")
+        : IsViewingCashPayments
+        ? T("Delete All Cash Rules")
         : IsViewingAvatarScaling
         ? T("Delete All Scale Sets")
         : IsViewingUniversalTriggers
@@ -1418,6 +1472,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public string SelectedRuleEmptyStateText => IsViewingRewardFireSale
         ? T("Use the Reward Fire Sale setup to edit sale sources, tiers, and duration.")
+        : IsViewingCashPayments
+        ? T("Add or select a cash payment rule to edit it.")
         : IsViewingAvatarScaling
         ? T("Select or add a scale set, then add a scale redeem to edit it.")
         : IsViewingUniversalTriggers
@@ -1627,6 +1683,30 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
     }
 
+    public string CashPaymentConnectionHelpText => T("Cash Payments listen for StreamElements tips, Streamlabs donations, and Ko-fi payments. Ko-fi uses the Crystal Relay hosted relay by default, with a local webhook fallback for advanced setups. Tokens, client secrets, and webhook verification secrets are stored in Windows Credential Manager.");
+
+    public string CashPaymentRuleStatusText
+    {
+        get
+        {
+            var rule = SelectedCashPaymentRule;
+            if (rule is null)
+            {
+                return T("Add or select a cash payment rule to edit its provider, amount filters, and action.");
+            }
+
+            var rangeText = rule.MaximumAmount > 0
+                ? $"{rule.MinimumAmount:0.##}-{rule.MaximumAmount:0.##}"
+                : $"{rule.MinimumAmount:0.##}+";
+            var currencyText = string.IsNullOrWhiteSpace(rule.CurrencyCode) ? T("any currency") : rule.CurrencyCode;
+            return TF("{0} listens for {1} {2} payments from {3}.", rule.DisplayTitle, rangeText, currencyText, rule.ProviderDisplayName);
+        }
+    }
+
+    public string CashPaymentActionEditorHelpText => SelectedCashPaymentRule?.UsesAvatarScaling == true
+        ? T("This cash rule runs an Avatar Scaling action and does not create a Twitch reward.")
+        : T("This cash rule runs the same OSC, Set Trigger, Avatar Change, or Avatar Roulette actions as other redeems, but it is triggered by a cash payment instead of Twitch.");
+
     private string WithUniversalManagedRewardSyncStatus(string status)
     {
         var syncStatus = universalManagedRewardSyncStatusText.Trim();
@@ -1710,6 +1790,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             if (IsViewingSupporterOverrides)
             {
                 return GetSupporterActionTypeOptionsForSelectedRule();
+            }
+
+            if (IsViewingCashPayments)
+            {
+                return GetActionTypeOptionsForSelectedContext(option =>
+                    option.Value is OscActionType.AvatarParameter
+                        or OscActionType.SetTrigger
+                        or OscActionType.AvatarChange
+                        or OscActionType.AvatarRoulet);
             }
 
             if (IsViewingAvatarTriggers)
@@ -2082,6 +2171,32 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
     }
 
+    public CashPaymentRule? SelectedCashPaymentRule
+    {
+        get => selectedCashPaymentRule;
+        set
+        {
+            if (SetProperty(ref selectedCashPaymentRule, value))
+            {
+                lastSelectedCashPaymentRuleId = value?.Id ?? Guid.Empty;
+                if (IsViewingCashPayments)
+                {
+                    SelectedRule = value?.UsesTriggerAction == true ? value.TriggerAction : null;
+                    SelectedAvatarScaleRule = value?.UsesAvatarScaling == true ? value.ScaleAction : null;
+                }
+
+                RemoveSelectedCashPaymentRuleCommand.NotifyCanExecuteChanged();
+                TestSelectedCashPaymentRuleCommand.NotifyCanExecuteChanged();
+                RaisePropertyChanged(nameof(SelectedCashPaymentRule));
+                RaisePropertyChanged(nameof(CashPaymentRuleStatusText));
+                RaisePropertyChanged(nameof(CashPaymentActionEditorHelpText));
+                RefreshAvailableActionTypes();
+                RefreshAvatarParameterOptions();
+                _ = EnsureSelectedAvatarParameterCacheLoadedAsync();
+            }
+        }
+    }
+
     public string BridgeStatus
     {
         get => bridgeStatus;
@@ -2413,6 +2528,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public RelayCommand OpenKoFiSupportCommand { get; }
 
+    public RelayCommand OpenKoFiWebhooksCommand { get; }
+
     public AsyncRelayCommand OpenBugReportCommand { get; }
 
     public AsyncRelayCommand RefreshOscConnectionCommand { get; }
@@ -2452,6 +2569,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     public RelayCommand ShowUniversalTriggersCommand { get; }
 
     public RelayCommand ShowAvatarScalingCommand { get; }
+
+    public RelayCommand ShowCashPaymentsCommand { get; }
 
     public RelayCommand ShowRewardFireSaleCommand { get; }
 
@@ -2534,6 +2653,20 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     public RelayCommand TestSelectedAvatarScaleRuleCommand { get; }
 
     public RelayCommand OpenAvatarScaleRuleLockoutPickerCommand { get; }
+
+    public RelayCommand AddCashPaymentRuleCommand { get; }
+
+    public RelayCommand RemoveSelectedCashPaymentRuleCommand { get; }
+
+    public RelayCommand EnableAllCashPaymentRulesCommand { get; }
+
+    public RelayCommand DisableAllCashPaymentRulesCommand { get; }
+
+    public RelayCommand DeleteAllCashPaymentRulesCommand { get; }
+
+    public AsyncRelayCommand TestSelectedCashPaymentRuleCommand { get; }
+
+    public RelayCommand RegenerateKoFiRelayIdentityCommand { get; }
 
     public RelayCommand OpenSpecialRuleLockoutPickerCommand { get; }
 
@@ -3865,6 +3998,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         QueueManagedRewardSync(0);
     }
 
+    private void ShowCashPayments()
+    {
+        SwitchRuleView(RuleListView.CashPayments, profile: null, rule: null);
+        SelectedCashPaymentRule = GetRememberedCashPaymentRule();
+    }
+
     private void ShowRewardFireSale()
     {
         SwitchRuleView(RuleListView.RewardFireSale, profile: null, rule: null);
@@ -5165,6 +5304,104 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         AppendLog($"Deleted {removedCount} avatar scale set{(removedCount == 1 ? string.Empty : "s")}.");
     }
 
+    private static CashPaymentRule CreateDefaultCashPaymentRule()
+    {
+        var rule = new CashPaymentRule
+        {
+            Name = "New Cash Payment",
+            Provider = CashPaymentProvider.StreamElements,
+            MinimumAmount = 1m,
+            MaximumAmount = 0m,
+            CurrencyCode = string.Empty,
+            MessageContains = string.Empty,
+            CooldownSeconds = 30,
+            ActionKind = CashPaymentActionKind.TriggerAction
+        };
+        rule.TriggerAction = CashPaymentRule.CreateDefaultTriggerAction();
+        rule.TriggerAction.Name = rule.Name;
+        rule.ScaleAction = CashPaymentRule.CreateDefaultScaleAction();
+        rule.ScaleAction.Name = rule.Name;
+        return rule;
+    }
+
+    private void AddCashPaymentRule()
+    {
+        var rule = CreateDefaultCashPaymentRule();
+        Settings.CashPaymentRules.Add(rule);
+        SelectedCashPaymentRule = rule;
+        QueueSave();
+        QueueBridgeRefresh();
+        AppendLog($"Added cash payment rule '{rule.DisplayTitle}'.");
+    }
+
+    private void RemoveSelectedCashPaymentRule()
+    {
+        if (SelectedCashPaymentRule is null)
+        {
+            return;
+        }
+
+        var removedName = SelectedCashPaymentRule.DisplayTitle;
+        Settings.CashPaymentRules.Remove(SelectedCashPaymentRule);
+        SelectedCashPaymentRule = GetRememberedCashPaymentRule();
+        QueueSave();
+        QueueBridgeRefresh();
+        AppendLog($"Removed cash payment rule '{removedName}'.");
+    }
+
+    private void EnableAllCashPaymentRules()
+    {
+        foreach (var rule in Settings.CashPaymentRules.Where(rule => !rule.IsEnabled))
+        {
+            rule.IsEnabled = true;
+        }
+
+        QueueSave();
+        QueueBridgeRefresh();
+        AppendLog("Enabled all cash payment rules.");
+    }
+
+    private void DisableAllCashPaymentRules()
+    {
+        foreach (var rule in Settings.CashPaymentRules.Where(rule => rule.IsEnabled))
+        {
+            rule.IsEnabled = false;
+        }
+
+        QueueSave();
+        QueueBridgeRefresh();
+        AppendLog("Disabled all cash payment rules.");
+    }
+
+    private void DeleteAllCashPaymentRules()
+    {
+        var warningResult = ThemedDialogWindow.ShowYesNo(
+            Application.Current?.MainWindow,
+            SelectedTheme,
+            T("Delete Cash Payment Rules"),
+            T("Delete every cash payment rule? Provider connection settings and saved credentials are kept."));
+
+        if (!warningResult)
+        {
+            return;
+        }
+
+        var removedCount = Settings.CashPaymentRules.Count;
+        Settings.CashPaymentRules.Clear();
+        SelectedCashPaymentRule = null;
+        QueueSave();
+        QueueBridgeRefresh();
+        AppendLog($"Deleted {removedCount} cash payment rule{(removedCount == 1 ? string.Empty : "s")}.");
+    }
+
+    private void RegenerateKoFiRelayIdentity()
+    {
+        Settings.CashPayments.RegenerateKoFiRelayIdentity();
+        QueueSave();
+        QueueBridgeRefresh();
+        AppendLog("Regenerated the Ko-fi hosted relay webhook URL.");
+    }
+
     private async Task ImportFoomaInteractionConfigAsync()
     {
         var dialog = new OpenFileDialog
@@ -5423,6 +5660,20 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         return rememberedRuleOwner ?? Settings.AvatarScaleSets.FirstOrDefault();
     }
 
+    private CashPaymentRule? GetRememberedCashPaymentRule()
+    {
+        if (lastSelectedCashPaymentRuleId != Guid.Empty)
+        {
+            var rememberedRule = Settings.CashPaymentRules.FirstOrDefault(rule => rule.Id == lastSelectedCashPaymentRuleId);
+            if (rememberedRule is not null)
+            {
+                return rememberedRule;
+            }
+        }
+
+        return Settings.CashPaymentRules.FirstOrDefault();
+    }
+
     private MovementRedeemSet? GetRememberedMovementRedeemSet()
     {
         if (lastSelectedMovementSetId != Guid.Empty)
@@ -5606,6 +5857,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 SelectedAvatarScaleSet = null;
                 SelectedAvatarScaleRule = null;
             }
+
+            if (targetView != RuleListView.CashPayments)
+            {
+                SelectedCashPaymentRule = null;
+            }
         }
         finally
         {
@@ -5641,6 +5897,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         appSettings.UniversalTriggers.CollectionChanged += UniversalTriggersCollectionChanged;
         appSettings.AvatarScaleSets.CollectionChanged += AvatarScaleSetsCollectionChanged;
         appSettings.AvatarScaleMasterReward.PropertyChanged += AvatarScaleMasterRewardChanged;
+        appSettings.CashPayments.PropertyChanged += CashPaymentConnectionsChanged;
+        appSettings.CashPaymentRules.CollectionChanged += CashPaymentRulesCollectionChanged;
         WireRewardFireSale(appSettings.RewardFireSale);
 
         foreach (var profile in appSettings.AvatarProfiles)
@@ -5667,6 +5925,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         {
             WireAvatarScaleSet(scaleSet);
         }
+
+        foreach (var cashRule in appSettings.CashPaymentRules)
+        {
+            WireCashPaymentRule(cashRule);
+        }
     }
 
     private void UnwireSettings(AppSettings appSettings)
@@ -5681,6 +5944,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         appSettings.UniversalTriggers.CollectionChanged -= UniversalTriggersCollectionChanged;
         appSettings.AvatarScaleSets.CollectionChanged -= AvatarScaleSetsCollectionChanged;
         appSettings.AvatarScaleMasterReward.PropertyChanged -= AvatarScaleMasterRewardChanged;
+        appSettings.CashPayments.PropertyChanged -= CashPaymentConnectionsChanged;
+        appSettings.CashPaymentRules.CollectionChanged -= CashPaymentRulesCollectionChanged;
         UnwireRewardFireSale(appSettings.RewardFireSale);
 
         foreach (var profile in appSettings.AvatarProfiles)
@@ -5706,6 +5971,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         foreach (var scaleSet in appSettings.AvatarScaleSets)
         {
             UnwireAvatarScaleSet(scaleSet);
+        }
+
+        foreach (var cashRule in appSettings.CashPaymentRules)
+        {
+            UnwireCashPaymentRule(cashRule);
         }
     }
 
@@ -5751,6 +6021,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RaisePropertyChanged(nameof(MovementRedeemRules));
         RaisePropertyChanged(nameof(AvatarScaleSets));
         RaisePropertyChanged(nameof(AvatarScaleRules));
+        RaisePropertyChanged(nameof(CashPaymentRules));
         RaisePropertyChanged(nameof(SelectedLanguageOption));
         RaisePropertyChanged(nameof(IsLanguageRestartNoticeVisible));
         RaisePropertyChanged(nameof(LanguageRestartNoticeText));
@@ -6248,6 +6519,78 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
     }
 
+    private void CashPaymentConnectionsChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        QueueSave();
+        QueueBridgeRefresh();
+        RaisePropertyChanged(nameof(CashPaymentConnectionHelpText));
+    }
+
+    private void CashPaymentRulesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.NewItems is not null)
+        {
+            foreach (CashPaymentRule rule in e.NewItems)
+            {
+                WireCashPaymentRule(rule);
+            }
+        }
+
+        if (e.OldItems is not null)
+        {
+            foreach (CashPaymentRule rule in e.OldItems)
+            {
+                UnwireCashPaymentRule(rule);
+                if (lastSelectedCashPaymentRuleId == rule.Id)
+                {
+                    lastSelectedCashPaymentRuleId = Guid.Empty;
+                }
+            }
+        }
+
+        if (IsViewingCashPayments && SelectedCashPaymentRule is not null && !Settings.CashPaymentRules.Contains(SelectedCashPaymentRule))
+        {
+            SelectedCashPaymentRule = GetRememberedCashPaymentRule();
+        }
+
+        RaisePropertyChanged(nameof(CashPaymentRules));
+        QueueSave();
+        QueueBridgeRefresh();
+        RefreshRuleCommandStates();
+    }
+
+    private void WireCashPaymentRule(CashPaymentRule rule)
+    {
+        rule.PropertyChanged += CashPaymentRuleChanged;
+    }
+
+    private void UnwireCashPaymentRule(CashPaymentRule rule)
+    {
+        rule.PropertyChanged -= CashPaymentRuleChanged;
+    }
+
+    private void CashPaymentRuleChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (sender is CashPaymentRule rule && ReferenceEquals(rule, SelectedCashPaymentRule))
+        {
+            if (e.PropertyName == nameof(CashPaymentRule.ActionKind)
+                || e.PropertyName == nameof(CashPaymentRule.TriggerAction)
+                || e.PropertyName == nameof(CashPaymentRule.ScaleAction))
+            {
+                SelectedRule = rule.UsesTriggerAction ? rule.TriggerAction : null;
+                SelectedAvatarScaleRule = rule.UsesAvatarScaling ? rule.ScaleAction : null;
+            }
+
+            RaisePropertyChanged(nameof(CashPaymentRuleStatusText));
+            RaisePropertyChanged(nameof(CashPaymentActionEditorHelpText));
+        }
+
+        RaisePropertyChanged(nameof(CashPaymentRules));
+        QueueSave();
+        QueueBridgeRefresh();
+        RefreshRuleCommandStates();
+    }
+
     private void AvatarScaleMasterRewardChanged(object? sender, PropertyChangedEventArgs e)
     {
         QueueSave();
@@ -6383,18 +6726,47 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         foreach (var rule in GetAllAvatarScaleRules().Where(IsManagedAvatarScaleChannelPointRule))
         {
             activeRuleIds.Add(rule.Id);
-            var isInactiveAtLimit = IsAvatarScaleRuleInactiveAtRelativeLimit(rule, status.CurrentHeightMeters);
-            if (!avatarScaleLimitInactiveStateByRuleId.TryGetValue(rule.Id, out var previousState)
+            bool hadPreviousState;
+            bool previousState;
+            lock (avatarScaleLimitStateGate)
+            {
+                hadPreviousState = avatarScaleLimitInactiveStateByRuleId.TryGetValue(rule.Id, out previousState);
+            }
+
+            var hasLimitState = TryGetAvatarScaleRelativeLimitState(
+                rule,
+                status,
+                hadPreviousState ? previousState : null,
+                out var limitState);
+            var isInactiveAtLimit = hasLimitState && limitState.IsAtLimit;
+            if (!hadPreviousState
                 || previousState != isInactiveAtLimit)
             {
-                avatarScaleLimitInactiveStateByRuleId[rule.Id] = isInactiveAtLimit;
-                shouldSync = shouldSync || previousState != isInactiveAtLimit;
+                lock (avatarScaleLimitStateGate)
+                {
+                    avatarScaleLimitInactiveStateByRuleId[rule.Id] = isInactiveAtLimit;
+                }
+
+                if (hasLimitState)
+                {
+                    if (hadPreviousState || isInactiveAtLimit)
+                    {
+                        LogAvatarScaleLimitVisibilityChange(rule, limitState);
+                    }
+
+                    // First visible observations are still synced so a reward hidden by an earlier
+                    // startup/settings pass can be shown again once the height leaves the limit.
+                    shouldSync = true;
+                }
             }
         }
 
-        foreach (var removedRuleId in avatarScaleLimitInactiveStateByRuleId.Keys.Except(activeRuleIds).ToArray())
+        lock (avatarScaleLimitStateGate)
         {
-            avatarScaleLimitInactiveStateByRuleId.Remove(removedRuleId);
+            foreach (var removedRuleId in avatarScaleLimitInactiveStateByRuleId.Keys.Except(activeRuleIds).ToArray())
+            {
+                avatarScaleLimitInactiveStateByRuleId.Remove(removedRuleId);
+            }
         }
 
         if (shouldSync)
@@ -6403,6 +6775,20 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 (int)AvatarScaleLimitRewardSyncDebounce.TotalMilliseconds,
                 ManagedRewardSyncReason.AvatarScaleStatus);
         }
+    }
+
+    private void LogAvatarScaleLimitVisibilityChange(AvatarScaleRule rule, AvatarScaleRelativeLimitState limitState)
+    {
+        var limitName = limitState.IsMinimumLimit ? "minimum" : "maximum";
+        var movedDirection = limitState.IsMinimumLimit ? "above" : "below";
+        var message = limitState.IsAtLimit
+            ? $"Avatar scale reward '{rule.DisplayTitle}' is hidden on Twitch because current height {limitState.CurrentHeightMeters:0.###}m reached the effective {limitName} {limitState.EffectiveLimitMeters:0.###}m."
+            : $"Avatar scale reward '{rule.DisplayTitle}' can show on Twitch again because current height {limitState.CurrentHeightMeters:0.###}m moved {movedDirection} the effective {limitName} {limitState.EffectiveLimitMeters:0.###}m.";
+
+        AppendThrottledLog(
+            $"avatar-scale-limit-visibility:{rule.Id}:{limitName}:{limitState.IsAtLimit}",
+            message,
+            ThrottledRewardSyncLogWindow);
     }
 
     private void RefreshCurrentAvatarMoreOftenDuringActiveScale(AvatarScaleRuntimeStatus status)
@@ -7423,6 +7809,37 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         {
             BridgeStatus = "Avatar scale test did not run.";
             AppendLog($"Could not test the selected avatar scale redeem: {ex.Message}");
+        }
+    }
+
+    private async Task TestSelectedCashPaymentRuleAsync()
+    {
+        if (SelectedCashPaymentRule is null)
+        {
+            return;
+        }
+
+        await ReloadRuntimeConfigAsync();
+
+        await bridgeRefreshGate.WaitAsync();
+        try
+        {
+            await EnsureBridgeStateAsync(CancellationToken.None, allowOscOnly: true);
+
+            var ruleSnapshot = BridgeRuntimeConfiguration.CreateManualTestSnapshot(SelectedCashPaymentRule);
+            await bridgeCoordinator.SendTestCashPaymentRuleAsync(ruleSnapshot, CancellationToken.None);
+
+            BridgeStatus = $"Sent cash payment test for '{ruleSnapshot.Name}'.";
+            RaisePropertyChanged(nameof(AvatarScaleRuntimeStatusText));
+        }
+        catch (Exception ex)
+        {
+            BridgeStatus = "Cash payment test did not run.";
+            AppendLog($"Could not test the selected cash payment rule: {ex.Message}");
+        }
+        finally
+        {
+            bridgeRefreshGate.Release();
         }
     }
 
@@ -9354,7 +9771,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         bool masterRewardUnlocked,
         bool freeChildRewardSlotsWhenLocked)
     {
-        var currentHeight = bridgeCoordinator.GetAvatarScaleRuntimeStatus().CurrentHeightMeters;
+        var scaleStatus = bridgeCoordinator.GetAvatarScaleRuntimeStatus();
+        var isHiddenAtRelativeLimit = IsAvatarScaleRuleInactiveAtRelativeLimit(
+            rule,
+            scaleStatus,
+            GetAvatarScaleLimitInactiveState(rule.Id));
         var isOnLocalCooldown = cooldownRuleIds.Contains(rule.Id);
         var isTemporarilyDisabledByPairing = temporarilyDisabledRuleIds.Contains(rule.Id);
         var isActiveScaleEffect = activeAvatarScaleEffectRuleIds.Contains(rule.Id);
@@ -9366,7 +9787,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         var desiredEnabled = allowManagedRewardActivation
             && rule.IsEnabled
             && IsRuntimeReadyAvatarScaleRule(rule)
-            && !IsAvatarScaleRuleInactiveAtRelativeLimit(rule, currentHeight)
+            && !isHiddenAtRelativeLimit
             && !isTemporarilyDisabledByPairing
             && masterGateAllowsReward;
         var backgroundColor = isOnLocalCooldown
@@ -9389,9 +9810,19 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             requireUserInput: false,
             desiredEnabled: desiredEnabled,
             isCooldownActive: isOnLocalCooldown,
-            deleteWhenInactive: shouldDeleteWhenInactive && !isOnLocalCooldown && !isActiveScaleEffect && !isQueuedScaleRedeem && !isTemporarilyDisabledByPairing,
-            protectFromCapReclaim: desiredEnabled || isOnLocalCooldown || isActiveScaleEffect || isQueuedScaleRedeem || isTemporarilyDisabledByPairing,
+            deleteWhenInactive: shouldDeleteWhenInactive && !isHiddenAtRelativeLimit && !isOnLocalCooldown && !isActiveScaleEffect && !isQueuedScaleRedeem && !isTemporarilyDisabledByPairing,
+            protectFromCapReclaim: desiredEnabled || isHiddenAtRelativeLimit || isOnLocalCooldown || isActiveScaleEffect || isQueuedScaleRedeem || isTemporarilyDisabledByPairing,
             applyRewardId: rewardId => rule.RewardId = rewardId);
+    }
+
+    private bool? GetAvatarScaleLimitInactiveState(Guid ruleId)
+    {
+        lock (avatarScaleLimitStateGate)
+        {
+            return avatarScaleLimitInactiveStateByRuleId.TryGetValue(ruleId, out var isInactiveAtLimit)
+                ? isInactiveAtLimit
+                : null;
+        }
     }
 
     private ManagedRewardSyncTarget? CreateManagedRewardTargetForRewardFireSaleFundingReward(
@@ -10618,18 +11049,74 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         && (!string.IsNullOrWhiteSpace(rule.ActiveFloatBoostRewardTitle)
             || !string.IsNullOrWhiteSpace(rule.ActiveFloatBoostRewardId));
 
-    private static bool IsAvatarScaleRuleInactiveAtRelativeLimit(AvatarScaleRule rule, double? currentHeight)
+    private static bool IsAvatarScaleRuleInactiveAtRelativeLimit(
+        AvatarScaleRule rule,
+        AvatarScaleRuntimeStatus status,
+        bool? previousIsAtLimit = null)
     {
+        return TryGetAvatarScaleRelativeLimitState(rule, status, previousIsAtLimit, out var limitState)
+            && limitState.IsAtLimit;
+    }
+
+    private static bool TryGetAvatarScaleRelativeLimitState(
+        AvatarScaleRule rule,
+        AvatarScaleRuntimeStatus status,
+        bool? previousIsAtLimit,
+        out AvatarScaleRelativeLimitState limitState)
+    {
+        limitState = default;
         if (rule.ScaleMode != AvatarScaleMode.RelativeHeight
-            || currentHeight is null
+            || rule.RewardSyncMode != TwitchRewardSyncMode.CreateOrManage
+            || status.CurrentHeightMeters is null
             || rule.RelativeHeightMeters == 0)
         {
             return false;
         }
 
-        return rule.RelativeHeightMeters < 0
-            ? currentHeight.Value <= rule.RelativeMinimumHeightMeters
-            : currentHeight.Value >= rule.RelativeMaximumHeightMeters;
+        if (rule.RelativeHeightMeters < 0)
+        {
+            if (!rule.HideRewardWhenMinimumHeightReached)
+            {
+                return false;
+            }
+
+            var effectiveMinimum = rule.RelativeMinimumHeightMeters;
+            if (!rule.BypassVrChatScaleLimits && status.MinimumHeightMeters is > 0)
+            {
+                effectiveMinimum = Math.Max(effectiveMinimum, status.MinimumHeightMeters.Value);
+            }
+
+            var tolerance = previousIsAtLimit == true
+                ? AvatarScaleLimitHeightReleaseToleranceMeters
+                : AvatarScaleLimitHeightToleranceMeters;
+            limitState = new AvatarScaleRelativeLimitState(
+                status.CurrentHeightMeters.Value <= effectiveMinimum + tolerance,
+                IsMinimumLimit: true,
+                status.CurrentHeightMeters.Value,
+                effectiveMinimum);
+            return true;
+        }
+
+        if (!rule.HideRewardWhenMaximumHeightReached)
+        {
+            return false;
+        }
+
+        var effectiveMaximum = rule.RelativeMaximumHeightMeters;
+        if (!rule.BypassVrChatScaleLimits && status.MaximumHeightMeters is > 0)
+        {
+            effectiveMaximum = Math.Min(effectiveMaximum, status.MaximumHeightMeters.Value);
+        }
+
+        var maximumTolerance = previousIsAtLimit == true
+            ? AvatarScaleLimitHeightReleaseToleranceMeters
+            : AvatarScaleLimitHeightToleranceMeters;
+        limitState = new AvatarScaleRelativeLimitState(
+            status.CurrentHeightMeters.Value >= effectiveMaximum - maximumTolerance,
+            IsMinimumLimit: false,
+            status.CurrentHeightMeters.Value,
+            effectiveMaximum);
+        return true;
     }
 
     private static bool HasUniversalTriggerAvatarParameterGate(UniversalTriggerRule trigger) =>
@@ -13132,6 +13619,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RemoveSelectedAvatarScaleSetCommand.NotifyCanExecuteChanged();
         RemoveSelectedAvatarScaleRuleCommand.NotifyCanExecuteChanged();
         TestSelectedAvatarScaleRuleCommand.NotifyCanExecuteChanged();
+        RemoveSelectedCashPaymentRuleCommand.NotifyCanExecuteChanged();
+        EnableAllCashPaymentRulesCommand.NotifyCanExecuteChanged();
+        DisableAllCashPaymentRulesCommand.NotifyCanExecuteChanged();
+        DeleteAllCashPaymentRulesCommand.NotifyCanExecuteChanged();
+        TestSelectedCashPaymentRuleCommand.NotifyCanExecuteChanged();
         OpenBroadcasterLoginCommand.NotifyCanExecuteChanged();
         OpenBotLoginCommand.NotifyCanExecuteChanged();
         RefreshOscConnectionCommand.NotifyCanExecuteChanged();
@@ -13181,6 +13673,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         DeleteAllAvatarScaleRulesCommand.NotifyCanExecuteChanged();
         TestSelectedAvatarScaleRuleCommand.NotifyCanExecuteChanged();
         OpenAvatarScaleRuleLockoutPickerCommand.NotifyCanExecuteChanged();
+        AddCashPaymentRuleCommand.NotifyCanExecuteChanged();
+        RemoveSelectedCashPaymentRuleCommand.NotifyCanExecuteChanged();
+        EnableAllCashPaymentRulesCommand.NotifyCanExecuteChanged();
+        DisableAllCashPaymentRulesCommand.NotifyCanExecuteChanged();
+        DeleteAllCashPaymentRulesCommand.NotifyCanExecuteChanged();
+        TestSelectedCashPaymentRuleCommand.NotifyCanExecuteChanged();
         DeleteSelectedAvatarProfileCommand.NotifyCanExecuteChanged();
         DeleteAllAvatarProfilesCommand.NotifyCanExecuteChanged();
         SetSelectedAvatarProfileAsMasterCommand.NotifyCanExecuteChanged();
@@ -13302,6 +13800,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private void OpenKoFiSupportPage()
     {
         OpenUri(KoFiSupportUri);
+    }
+
+    private void OpenKoFiWebhooksPage()
+    {
+        OpenUri(KoFiWebhookSettingsUri);
     }
 
     private async Task OpenBugReportAsync()
@@ -13868,7 +14371,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     private bool CanOpenAvatarRouletPoolPicker()
     {
-        return IsViewingMasterAvatar
+        return (IsViewingMasterAvatar || IsViewingCashPayments)
             && SelectedRule?.ActionType == OscActionType.AvatarRoulet
             && Settings.VrChat.IsConnected;
     }
@@ -13890,7 +14393,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             .ToArray();
         var dialog = new AvatarRouletPickerWindow(
             SelectedTheme,
-            MasterAvatarProfile?.DisplayTitle ?? "Return Avatar",
+            IsViewingCashPayments ? "Cash Payments" : MasterAvatarProfile?.DisplayTitle ?? "Return Avatar",
             SelectedRule.RewardDisplayTitle,
             availableOptions,
             configuredOptions)
@@ -14184,11 +14687,13 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RaisePropertyChanged(nameof(IsViewingSupporterOverrides));
         RaisePropertyChanged(nameof(IsViewingUniversalTriggers));
         RaisePropertyChanged(nameof(IsViewingAvatarScaling));
+        RaisePropertyChanged(nameof(IsViewingCashPayments));
         RaisePropertyChanged(nameof(IsViewingRewardFireSale));
         RaisePropertyChanged(nameof(MovementRedeemSets));
         RaisePropertyChanged(nameof(MovementRedeemRules));
         RaisePropertyChanged(nameof(AvatarScaleSets));
         RaisePropertyChanged(nameof(AvatarScaleRules));
+        RaisePropertyChanged(nameof(CashPaymentRules));
         RaisePropertyChanged(nameof(MasterAvatarDisplayName));
         RaisePropertyChanged(nameof(MasterAvatarRules));
         RaisePropertyChanged(nameof(SelectedRuleCollectionTitle));
@@ -14208,6 +14713,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RaisePropertyChanged(nameof(UniversalManagedChannelPointRewardHelpText));
         RaisePropertyChanged(nameof(UniversalManagedRewardStatusText));
         RaisePropertyChanged(nameof(AvatarScaleRuntimeStatusText));
+        RaisePropertyChanged(nameof(CashPaymentRuleStatusText));
+        RaisePropertyChanged(nameof(CashPaymentActionEditorHelpText));
         RefreshRewardFireSaleStateProperties();
         RaisePropertyChanged(nameof(IsSetTriggerMasterRewardEditorVisible));
         RaisePropertyChanged(nameof(SelectedActionTypeOption));
@@ -14548,6 +15055,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             MinimumHeightMeters = 0.5,
             MaximumHeightMeters = 2.5,
             RelativeHeightMeters = 0.25,
+            HideRewardWhenMinimumHeightReached = true,
+            HideRewardWhenMaximumHeightReached = true,
             HeightMultiplier = 1.25,
             Preset = AvatarScalePreset.Normal,
             ActiveTimeSeconds = 0,
@@ -14890,6 +15399,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
 
         if (IsViewingUniversalTriggers)
+        {
+            return Settings.VrChat.CurrentAvatarId?.Trim() ?? string.Empty;
+        }
+
+        if (IsViewingCashPayments)
         {
             return Settings.VrChat.CurrentAvatarId?.Trim() ?? string.Empty;
         }
@@ -15807,6 +16321,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         SupporterOverrides,
         UniversalTriggers,
         AvatarScaling,
+        CashPayments,
         RewardFireSale
     }
 
@@ -16574,6 +17089,16 @@ public sealed record ChatCommandPermissionOption(ChatCommandPermission Value, st
 public sealed record PlayerMovementOption(PlayerMovementDirection Value, string Label);
 
 public sealed record AvatarScaleSubscriptionTierOption(string Value, string Label)
+{
+    public override string ToString() => Label;
+}
+
+public sealed record CashPaymentProviderOption(CashPaymentProvider Value, string Label)
+{
+    public override string ToString() => Label;
+}
+
+public sealed record CashPaymentActionKindOption(CashPaymentActionKind Value, string Label)
 {
     public override string ToString() => Label;
 }

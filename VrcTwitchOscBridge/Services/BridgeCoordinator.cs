@@ -99,6 +99,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private readonly VrChatOscClient vrChatOscClient = new();
     private readonly OscRouterService oscRouterService = new();
     private readonly VrChatLocalAvatarDataService vrChatLocalAvatarDataService = new();
+    private readonly CashPaymentProviderService cashPaymentProviderService = new();
     private readonly DesktopInputLockService desktopInputLockService;
     private readonly object stateGate = new();
     // Runtime state for cooldowns, queued redeems, movement lanes, active timed resets,
@@ -419,7 +420,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             }
         }
 
-        await oscRouterService.StartAsync(configuration.Rules, CancellationToken.None);
+        await oscRouterService.StartAsync(GetOscSubscriptionRules(configuration), CancellationToken.None);
 
         runtimeCancellation ??= new CancellationTokenSource();
         runtimeTask = Task.Run(() => RunBridgeAsync(runtimeCancellation.Token));
@@ -438,8 +439,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         RefreshSupporterOverrideBlockedRuleIds(configuration.Rules);
         SetCurrentVrChatAvatar(configuration.CurrentVrChatAvatarId, notify: false);
         SetSharedReturnAvatar(configuration.SharedReturnAvatarId, configuration.SharedReturnAvatarName, notify: false);
-        await oscRouterService.StartAsync(configuration.Rules, cancellationToken);
-        oscRouterService.UpdateRuleSubscriptions(configuration.Rules);
+        await oscRouterService.StartAsync(GetOscSubscriptionRules(configuration), cancellationToken);
+        oscRouterService.UpdateRuleSubscriptions(GetOscSubscriptionRules(configuration));
         runtimeCancellation ??= CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         oscSessionMode = OscSessionMode.OscOnly;
 
@@ -458,6 +459,11 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         }
 
         if (!StringComparer.Ordinal.Equals(activeConfiguration.TwitchClientId, configuration.TwitchClientId))
+        {
+            return false;
+        }
+
+        if (!Equals(activeConfiguration.CashPayments, configuration.CashPayments))
         {
             return false;
         }
@@ -501,6 +507,14 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         RefreshAvatarScaleMasterStateForConfiguration(configuration.AvatarScaleMasterReward);
     }
 
+    private static IReadOnlyList<TriggerRuleSnapshot> GetOscSubscriptionRules(BridgeRuntimeConfiguration configuration)
+    {
+        var cashTriggerRules = configuration.CashPaymentRules
+            .Select(rule => rule.TriggerAction)
+            .OfType<TriggerRuleSnapshot>();
+        return configuration.Rules.Concat(cashTriggerRules).ToArray();
+    }
+
     private void ClearActiveConfiguration()
     {
         activeConfiguration = null;
@@ -519,7 +533,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         bot = configuration.Bot;
         SetCurrentVrChatAvatar(configuration.CurrentVrChatAvatarId, notify: false);
         SetSharedReturnAvatar(configuration.SharedReturnAvatarId, configuration.SharedReturnAvatarName, notify: false);
-        oscRouterService.UpdateRuleSubscriptions(configuration.Rules);
+        oscRouterService.UpdateRuleSubscriptions(GetOscSubscriptionRules(configuration));
         RefreshActiveRuleLockoutsForConfiguration(configuration.Rules, configuration.AvatarScaleRules);
         RefreshActiveAvatarSwitchLockoutsForConfiguration(configuration.Rules);
         RefreshAvatarScaleSupporterGrowthStatesForConfiguration(configuration.AvatarScaleRules);
@@ -606,6 +620,27 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             isTest: true,
             waitForCompletion: true,
             cancellationToken);
+    }
+
+    public async Task SendTestCashPaymentRuleAsync(CashPaymentRuleSnapshot rule, CancellationToken cancellationToken = default)
+    {
+        if (!IsOscActive)
+        {
+            throw new InvalidOperationException("OSC is not running yet, so Crystal Relay cannot send a cash payment test to VRChat.");
+        }
+
+        if (rule.ActionKind == CashPaymentActionKind.AvatarScaling && rule.ScaleAction is not null)
+        {
+            await SendTestAvatarScaleRuleAsync(rule.ScaleAction, cancellationToken);
+            return;
+        }
+
+        if (rule.TriggerAction is null)
+        {
+            throw new InvalidOperationException("Finish the cash payment action setup before testing it.");
+        }
+
+        await SendTestRuleAsync(rule.TriggerAction, cancellationToken);
     }
 
     public AvatarScaleRuntimeStatus GetAvatarScaleRuntimeStatus()
@@ -712,6 +747,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         vrChatApiClient.Dispose();
         thirdPartyChatEmoteRefreshGate.Dispose();
         worldCommandLookupGate.Dispose();
+        await cashPaymentProviderService.DisposeAsync();
         await oscRouterService.DisposeAsync();
     }
 
@@ -721,6 +757,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     {
         var validationTask = Task.Run(() => RunValidationLoopAsync(cancellationToken), cancellationToken);
         var triggerInfoAnnouncementTask = Task.Run(() => RunTriggerInfoAnnouncementLoopAsync(cancellationToken), cancellationToken);
+        var cashPaymentTask = Task.Run(() => RunCashPaymentLoopAsync(cancellationToken), cancellationToken);
 
         try
         {
@@ -760,8 +797,36 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 WriteLog($"Trigger info announcement loop ended with an error: {ex.Message}");
             }
 
+            try
+            {
+                await cashPaymentTask;
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception ex)
+            {
+                WriteLog($"Cash payment listener ended with an error: {SensitiveTextSanitizer.Sanitize(ex.Message)}");
+            }
+
             await ResetPendingRulesAsync();
         }
+    }
+
+    private async Task RunCashPaymentLoopAsync(CancellationToken cancellationToken)
+    {
+        var configuration = activeConfiguration;
+        if (configuration is null)
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            return;
+        }
+
+        await cashPaymentProviderService.RunAsync(
+            configuration.CashPayments,
+            HandleCashPaymentEventAsync,
+            WriteLog,
+            cancellationToken);
     }
 
     private async Task RunValidationLoopAsync(CancellationToken cancellationToken)
@@ -1334,6 +1399,125 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             await ExecuteRuleAsync(rule, bridgeEvent, cancellationToken);
         }
     }
+
+    private async Task HandleCashPaymentEventAsync(CashPaymentEvent paymentEvent, CancellationToken cancellationToken)
+    {
+        var eventKey = string.IsNullOrWhiteSpace(paymentEvent.EventId)
+            ? $"cash:{paymentEvent.Provider}:{paymentEvent.UserDisplayName}:{paymentEvent.Amount:0.####}:{paymentEvent.CurrencyCode}:{paymentEvent.ReceivedAt:O}"
+            : $"cash:{paymentEvent.Provider}:{paymentEvent.EventId}";
+        if (!RememberMessage(eventKey))
+        {
+            return;
+        }
+
+        var configuration = activeConfiguration;
+        if (configuration is null)
+        {
+            return;
+        }
+
+        var matchingRules = configuration.CashPaymentRules
+            .Where(rule => CashPaymentRuleMatches(rule, paymentEvent))
+            .ToArray();
+        if (matchingRules.Length == 0)
+        {
+            WriteLog($"Received {DescribeCashPaymentProvider(paymentEvent.Provider)} cash payment, but no enabled cash payment rule matched its filters.");
+            return;
+        }
+
+        if (AreRedeemsPaused())
+        {
+            LogRedeemsPaused();
+            return;
+        }
+
+        foreach (var rule in matchingRules)
+        {
+            var amountUnits = Math.Max(1, (int)Math.Floor(paymentEvent.Amount));
+            if (rule.ActionKind == CashPaymentActionKind.AvatarScaling && rule.ScaleAction is not null)
+            {
+                var incomingEvent = new UniversalIncomingEvent(
+                    UniversalTriggerType.Bits,
+                    string.IsNullOrWhiteSpace(paymentEvent.UserDisplayName) ? "Cash supporter" : paymentEvent.UserDisplayName,
+                    string.Empty,
+                    string.Empty,
+                    amountUnits,
+                    null,
+                    null,
+                    paymentEvent.Message,
+                    string.Empty,
+                    0,
+                    [],
+                    false,
+                    false);
+                WriteLog($"{paymentEvent.UserDisplayName} triggered cash payment scale '{rule.Name}' through {DescribeCashPaymentProvider(paymentEvent.Provider)}.");
+                await ExecuteAvatarScaleRuleAsync(rule.ScaleAction, incomingEvent, isTest: false, cancellationToken);
+                continue;
+            }
+
+            if (rule.TriggerAction is null)
+            {
+                continue;
+            }
+
+            var bridgeEvent = new BridgeIncomingEvent(
+                TwitchTriggerType.Bits,
+                string.IsNullOrWhiteSpace(paymentEvent.UserDisplayName) ? "Cash supporter" : paymentEvent.UserDisplayName,
+                amountUnits,
+                null,
+                null,
+                DescribeCashPaymentProvider(paymentEvent.Provider),
+                false,
+                string.Empty,
+                string.Empty,
+                string.Empty,
+                [],
+                false,
+                false)
+            {
+                MessageText = paymentEvent.Message,
+                RewardUserInput = paymentEvent.Message
+            };
+
+            WriteLog($"{bridgeEvent.UserDisplayName} triggered cash payment rule '{rule.Name}' through {DescribeCashPaymentProvider(paymentEvent.Provider)}.");
+            await ExecuteRuleAsync(rule.TriggerAction, bridgeEvent, cancellationToken);
+        }
+    }
+
+    private static bool CashPaymentRuleMatches(CashPaymentRuleSnapshot rule, CashPaymentEvent paymentEvent)
+    {
+        if (!rule.IsEnabled || rule.Provider != paymentEvent.Provider)
+        {
+            return false;
+        }
+
+        if (paymentEvent.Amount < rule.MinimumAmount)
+        {
+            return false;
+        }
+
+        if (rule.MaximumAmount > 0 && paymentEvent.Amount > rule.MaximumAmount)
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(rule.CurrencyCode)
+            && !string.Equals(rule.CurrencyCode.Trim(), paymentEvent.CurrencyCode?.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return string.IsNullOrWhiteSpace(rule.MessageContains)
+            || (!string.IsNullOrWhiteSpace(paymentEvent.Message)
+                && paymentEvent.Message.Contains(rule.MessageContains, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string DescribeCashPaymentProvider(CashPaymentProvider provider) => provider switch
+    {
+        CashPaymentProvider.Streamlabs => "Streamlabs",
+        CashPaymentProvider.KoFi => "Ko-fi",
+        _ => "StreamElements"
+    };
 
     private object BuildSubscriptionCondition(string subscriptionType)
     {
