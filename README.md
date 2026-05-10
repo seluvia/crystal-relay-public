@@ -12,7 +12,7 @@
 [![Twitch](https://img.shields.io/badge/Twitch-EventSub%20%2B%20Helix-9146FF?style=for-the-badge)](#network-and-privacy-basics)
 [![VRChat](https://img.shields.io/badge/VRChat-OSC%20%2B%20OSCQuery-1DA1F2?style=for-the-badge)](#vrchat-and-osc)
 
-![Crystal Relay main window](docs/images/crystal-relay-main-window-v2-8-6.png)
+![Crystal Relay main window](docs/images/crystal-relay-main-window-v3-1-3.png)
 
 Crystal Relay connects Twitch events to VRChat through local OSC and OSCQuery control. It is built for streamers who want Channel Point rewards, chat commands, bits, subs, follows, avatar parameters, avatar changes, movement redeems, and chatbox relay tools without turning setup into a maze.
 
