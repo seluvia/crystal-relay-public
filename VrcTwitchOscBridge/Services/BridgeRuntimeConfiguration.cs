@@ -194,6 +194,35 @@ public sealed record AvatarScaleRuleSnapshot(
     double SupporterGrowthTier3HeightMeters,
     IReadOnlyList<AvatarScaleBitGrowthRangeSnapshot> SupporterGrowthBitRanges);
 
+public sealed record CashPaymentConnectionSnapshot(
+    bool StreamElementsEnabled,
+    string StreamElementsAccountId,
+    string StreamElementsJwtToken,
+    bool StreamlabsEnabled,
+    string StreamlabsAccessToken,
+    bool KoFiEnabled,
+    KoFiConnectionMode KoFiConnectionMode,
+    string KoFiRelayBaseUrl,
+    string KoFiRelayChannelId,
+    string KoFiRelayClientSecret,
+    int KoFiLocalPort,
+    string KoFiWebhookPath,
+    string KoFiVerificationToken);
+
+public sealed record CashPaymentRuleSnapshot(
+    Guid Id,
+    bool IsEnabled,
+    string Name,
+    CashPaymentProvider Provider,
+    decimal MinimumAmount,
+    decimal MaximumAmount,
+    string CurrencyCode,
+    string MessageContains,
+    int CooldownSeconds,
+    CashPaymentActionKind ActionKind,
+    TriggerRuleSnapshot? TriggerAction,
+    AvatarScaleRuleSnapshot? ScaleAction);
+
 public sealed record BridgeRuntimeConfiguration(
     string TwitchClientId,
     TwitchAccountSnapshot Broadcaster,
@@ -220,9 +249,11 @@ public sealed record BridgeRuntimeConfiguration(
     bool EmergencyRedeemStopEnabled,
     bool DesktopModeInputLockEnabled,
     AvatarScaleMasterRewardSnapshot AvatarScaleMasterReward,
+    CashPaymentConnectionSnapshot CashPayments,
     IReadOnlyList<TriggerRuleSnapshot> Rules,
     IReadOnlyList<UniversalTriggerRuleSnapshot> UniversalTriggers,
-    IReadOnlyList<AvatarScaleRuleSnapshot> AvatarScaleRules)
+    IReadOnlyList<AvatarScaleRuleSnapshot> AvatarScaleRules,
+    IReadOnlyList<CashPaymentRuleSnapshot> CashPaymentRules)
 {
     public static BridgeRuntimeConfiguration FromSettings(
         AppSettings settings,
@@ -232,6 +263,7 @@ public sealed record BridgeRuntimeConfiguration(
         var rules = new List<TriggerRuleSnapshot>();
         var universalTriggers = new List<UniversalTriggerRuleSnapshot>();
         var avatarScaleRules = new List<AvatarScaleRuleSnapshot>();
+        var cashPaymentRules = new List<CashPaymentRuleSnapshot>();
         var masterProfile = settings.AvatarProfiles.FirstOrDefault(profile => profile.IsMasterProfile);
 
         foreach (var profile in settings.AvatarProfiles)
@@ -286,6 +318,14 @@ public sealed record BridgeRuntimeConfiguration(
             }
         }
 
+        foreach (var cashRule in settings.CashPaymentRules)
+        {
+            if (TryToCashPaymentSnapshot(cashRule, out var snapshot))
+            {
+                cashPaymentRules.Add(snapshot);
+            }
+        }
+
         return new BridgeRuntimeConfiguration(
             runtimeConfig.TwitchClientId.Trim(),
             ToSnapshot(settings.Broadcaster),
@@ -321,9 +361,11 @@ public sealed record BridgeRuntimeConfiguration(
             settings.EmergencyRedeemStopEnabled,
             settings.DesktopModeInputLockEnabled,
             ToAvatarScaleMasterRewardSnapshot(settings.AvatarScaleMasterReward),
+            ToCashPaymentConnectionSnapshot(settings.CashPayments),
             rules.ToArray(),
             universalTriggers.ToArray(),
-            avatarScaleRules.ToArray());
+            avatarScaleRules.ToArray(),
+            cashPaymentRules.ToArray());
     }
 
     public static TwitchAccountSnapshot ToSnapshot(TwitchAccountSettings settings)
@@ -387,6 +429,85 @@ public sealed record BridgeRuntimeConfiguration(
         }
 
         return snapshot;
+    }
+
+    public static CashPaymentRuleSnapshot CreateManualTestSnapshot(CashPaymentRule rule)
+    {
+        if (!TryToCashPaymentSnapshot(rule, out var snapshot))
+        {
+            throw new InvalidOperationException("Finish the cash payment rule before testing it.");
+        }
+
+        return snapshot;
+    }
+
+    private static bool TryToCashPaymentSnapshot(CashPaymentRule rule, out CashPaymentRuleSnapshot snapshot)
+    {
+        snapshot = default!;
+        TriggerRuleSnapshot? triggerAction = null;
+        AvatarScaleRuleSnapshot? scaleAction = null;
+
+        if (rule.ActionKind == CashPaymentActionKind.AvatarScaling)
+        {
+            if (!TryToAvatarScaleSnapshot(rule.ScaleAction, requireTriggerFilter: false, out var scaleSnapshot))
+            {
+                return false;
+            }
+
+            scaleAction = scaleSnapshot with
+            {
+                Id = rule.Id,
+                IsEnabled = rule.IsEnabled && scaleSnapshot.IsEnabled,
+                Name = rule.DisplayTitle,
+                TriggerType = AvatarScaleTriggerType.Bits,
+                RewardId = string.Empty,
+                RewardTitle = string.Empty,
+                CooldownSeconds = Math.Max(0, rule.CooldownSeconds)
+            };
+        }
+        else
+        {
+            if (!IsManualTestReady(rule.TriggerAction))
+            {
+                return false;
+            }
+
+            var triggerSnapshot = CreateSnapshot(
+                rule.TriggerAction,
+                isGlobalOverride: true,
+                profile: null,
+                linkedRewardCooldownSecondsById: null);
+            triggerAction = triggerSnapshot with
+            {
+                Id = rule.Id,
+                IsEnabled = rule.IsEnabled && triggerSnapshot.IsEnabled,
+                Name = rule.DisplayTitle,
+                TriggerType = TwitchTriggerType.Bits,
+                ChannelPointRewardId = string.Empty,
+                ChannelPointRewardTitle = string.Empty,
+                ChatCommandEnabled = false,
+                ChatCommandText = string.Empty,
+                MinimumAmount = 1,
+                CooldownSeconds = Math.Max(0, rule.CooldownSeconds),
+                UsesLinkedChannelPointReward = false,
+                BotMessageCooldownSeconds = Math.Max(0, rule.CooldownSeconds)
+            };
+        }
+
+        snapshot = new CashPaymentRuleSnapshot(
+            rule.Id,
+            rule.IsEnabled,
+            rule.DisplayTitle,
+            rule.Provider,
+            Math.Max(0m, rule.MinimumAmount),
+            Math.Max(0m, rule.MaximumAmount),
+            rule.CurrencyCode.Trim().ToUpperInvariant(),
+            rule.MessageContains.Trim(),
+            Math.Max(0, rule.CooldownSeconds),
+            rule.ActionKind,
+            triggerAction,
+            scaleAction);
+        return true;
     }
 
     private static bool TryToSnapshot(
@@ -701,6 +822,27 @@ public sealed record BridgeRuntimeConfiguration(
             Math.Max(1, settings.UnlockDurationSeconds),
             Math.Max(0, settings.CooldownSeconds),
             settings.PreventAvatarChangesDuringActiveScaling);
+    }
+
+    private static CashPaymentConnectionSnapshot ToCashPaymentConnectionSnapshot(
+        CashPaymentConnectionSettings settings)
+    {
+        return new CashPaymentConnectionSnapshot(
+            settings.StreamElementsEnabled,
+            settings.StreamElementsAccountId.Trim(),
+            settings.StreamElementsJwtToken,
+            settings.StreamlabsEnabled,
+            settings.StreamlabsAccessToken,
+            settings.KoFiEnabled,
+            Enum.IsDefined(settings.KoFiConnectionMode) ? settings.KoFiConnectionMode : KoFiConnectionMode.HostedRelay,
+            string.IsNullOrWhiteSpace(settings.KoFiRelayBaseUrl)
+                ? CashPaymentConnectionSettings.DefaultKoFiRelayBaseUrl
+                : settings.KoFiRelayBaseUrl.Trim().TrimEnd('/'),
+            settings.KoFiRelayChannelId.Trim(),
+            settings.KoFiRelayClientSecret,
+            Math.Clamp(settings.KoFiLocalPort, 1, 65535),
+            string.IsNullOrWhiteSpace(settings.KoFiWebhookPath) ? "/kofi" : settings.KoFiWebhookPath.Trim(),
+            settings.KoFiVerificationToken);
     }
 
     private static AvatarScaleBitGrowthRangeSnapshot ToAvatarScaleBitGrowthRangeSnapshot(AvatarScaleBitGrowthRange range)

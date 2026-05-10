@@ -1,0 +1,16 @@
+name = "crystal-relay-kofi-relay"
+main = "src/index.js"
+compatibility_date = "2026-05-10"
+compatibility_flags = ["nodejs_compat"]
+
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+[[durable_objects.bindings]]
+name = "KOFI_RELAY_ROOMS"
+class_name = "KoFiRelayRoom"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["KoFiRelayRoom"]

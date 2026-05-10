@@ -308,6 +308,8 @@ public sealed class AvatarScaleRule : ObservableObject
     private double relativeHeightMeters = 0.25;
     private double relativeMinimumHeightMeters = SafeMinimumHeightMeters;
     private double relativeMaximumHeightMeters = SafeMaximumHeightMeters;
+    private bool hideRewardWhenMinimumHeightReached = true;
+    private bool hideRewardWhenMaximumHeightReached = true;
     private double heightMultiplier = 1.25;
     private AvatarScalePreset preset = AvatarScalePreset.Normal;
     private double activeTimeSeconds;
@@ -572,6 +574,18 @@ public sealed class AvatarScaleRule : ObservableObject
     {
         get => relativeMaximumHeightMeters;
         set => SetAndRaiseScale(ref relativeMaximumHeightMeters, ClampHeight(value));
+    }
+
+    public bool HideRewardWhenMinimumHeightReached
+    {
+        get => hideRewardWhenMinimumHeightReached;
+        set => SetProperty(ref hideRewardWhenMinimumHeightReached, value);
+    }
+
+    public bool HideRewardWhenMaximumHeightReached
+    {
+        get => hideRewardWhenMaximumHeightReached;
+        set => SetProperty(ref hideRewardWhenMaximumHeightReached, value);
     }
 
     public double HeightMultiplier

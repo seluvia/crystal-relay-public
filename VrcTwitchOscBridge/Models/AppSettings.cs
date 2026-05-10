@@ -24,6 +24,8 @@ public sealed class AppSettings : ObservableObject
     private ObservableCollection<AvatarScaleRule> avatarScaleRules = [];
     private AvatarScaleMasterRewardSettings avatarScaleMasterReward = new();
     private RewardFireSaleSettings rewardFireSale = new();
+    private CashPaymentConnectionSettings cashPayments = new();
+    private ObservableCollection<CashPaymentRule> cashPaymentRules = [];
     private ObservableCollection<TriggerRule> rules = [];
     private int interfaceOpacityPercent = 88;
     private int chatTextSize = 20;
@@ -151,6 +153,18 @@ public sealed class AppSettings : ObservableObject
     {
         get => rewardFireSale;
         set => SetProperty(ref rewardFireSale, value ?? new RewardFireSaleSettings());
+    }
+
+    public CashPaymentConnectionSettings CashPayments
+    {
+        get => cashPayments;
+        set => SetProperty(ref cashPayments, value ?? new CashPaymentConnectionSettings());
+    }
+
+    public ObservableCollection<CashPaymentRule> CashPaymentRules
+    {
+        get => cashPaymentRules;
+        set => SetProperty(ref cashPaymentRules, value ?? []);
     }
 
     public ObservableCollection<TriggerRule> Rules

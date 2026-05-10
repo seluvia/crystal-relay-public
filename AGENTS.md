@@ -78,6 +78,8 @@ Use these locations only unless a change is explicitly required.
   `C:\Users\screm\Documents\GitHub\crystal-relay-private`
 - Public repo folder:
   `C:\Users\screm\Documents\GitHub\crystal-relay-public`
+- For publish/release pushes, update and verify the private repo first, then update the public repo only after the private copy is confirmed good.
+- When pushing a public release build, upload the release package/file with the public GitHub release after the public repo update is verified.
 - Public sync must not include secrets, private workflow notes, app data, tokens, auth cookies, or local runtime state.
 - `Sync-Crystal-Relay-GitHub-Repos.ps1` calls the public export script directly:
   `E:\!!!Program to work on\Proper Crystal Relay\tools\github\Export-Crystal-Relay-Public.ps1`

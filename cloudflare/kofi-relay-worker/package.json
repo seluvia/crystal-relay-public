@@ -1,0 +1,14 @@
+{
+  "name": "crystal-relay-kofi-relay-worker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Crystal Relay hosted Ko-fi webhook to desktop WebSocket relay.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "dry-run": "wrangler deploy --dry-run"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

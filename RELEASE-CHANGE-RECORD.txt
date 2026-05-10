@@ -28,6 +28,7 @@ Added:
 
 Changed:
 - Avatar Scaling now uses cooldown-free tests, transition-gated queues, explicit Return Height restores, per-rule VRChat min/max bypass, stronger master reward behavior, and better avatar-swap carryover.
+- Avatar Scaling relative shrink/grow rewards can hide Crystal Relay-managed Twitch rewards at effective min/max height and show them again when scaling can continue.
 - Bits + Subs now uses direct VRChat-avatar scoped supporter triggers with separate global avatar-change overrides.
 - Linked existing Twitch rewards are listen-only, while managed rewards use reduced API calls, rate-limit backoff, and cap-safe app-owned `VRC:` reward recycling.
 - Set Trigger restore now uses safe LocalAvatarData snapshots with a 70-second diff window.
@@ -41,5 +42,6 @@ Release Checklist:
 - Update CHANGELOG.txt with the final user-facing notes.
 - Run a test build first if the change is visual, risky, or user-requested.
 - Run the release build and verify the package output.
-- Sync the private and public repos if the release is meant to go to GitHub.
-- Publish or update the matching GitHub release asset.
+- Sync and verify the private repo first if the release is meant to go to GitHub.
+- Sync and verify the public repo only after the private repo is confirmed good.
+- Publish or update the matching GitHub release asset with the public release package/file.

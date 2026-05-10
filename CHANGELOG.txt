@@ -3,6 +3,11 @@ Crystal Relay Changelog
 
 Newest updates appear first. This changelog focuses on the changes users will notice most.
 
+v3.1.3 beta 2
+- Added Cash Payments in the Redeem Library for StreamElements tips, Streamlabs donations, and Ko-fi tips, letting cash support trigger OSC actions, Set Trigger actions, Avatar Change, Avatar Roulette, and Avatar Scaling without creating Twitch rewards.
+- Added hosted Ko-fi relay support so streamers can paste a Crystal Relay webhook URL into Ko-fi without setting up Cloudflare Tunnel, ngrok, router ports, or a public local webhook URL.
+- Ko-fi setup now keeps the fixed hosted relay address hidden, masks the verification token field, and includes a quick button to open Ko-fi's webhook settings page.
+
 v3.1.2
 - Added editable Twitch reward descriptions for Crystal Relay-created channel-point rewards, syncing to Twitch's reward prompt field.
 - Blank standard managed rewards now use a formal default description, while Set Trigger shared rewards keep their numbered choice instructions and Fire Sale funding rewards keep their automatic progress prompt.
