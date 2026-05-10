@@ -120,8 +120,8 @@ function Assert-PublicExportClean {
     )
 
     $blockedRegexPatterns = @(
-        '(?<![A-Za-z0-9])[A-Za-z]:[\\/][^\s"<>|]+',
-        'SupplementalAboutProfilesHeaderValue\s*=\s*"[^"]+',
+        '(?<![A-Za-z0-9])[A-Za-z]:[\\/][^[:space:]\x22<>|]+',
+        'SupplementalAboutProfilesHeaderValue\s*=\s*\x22[^\x22]+',
         '\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9_]{20,}\b',
         '\bgithub_pat_[A-Za-z0-9_]{20,}\b',
         '\bsk-[A-Za-z0-9]{20,}\b',
@@ -129,7 +129,7 @@ function Assert-PublicExportClean {
         '\bBearer\s+[A-Za-z0-9._~+/=-]{20,}\b',
         '\bOAuth\s+[A-Za-z0-9._~+/=-]{20,}\b',
         '\boauth:[A-Za-z0-9._~+/=-]{20,}\b',
-        '\b(access[_-]?token|refresh[_-]?token|client[_-]?secret|api[_-]?key|password|set-cookie|authcookie)\b\s*[:=]\s*[''"][A-Za-z0-9._~+/=-]{12,}[''"]'
+        '\b(access[_-]?token|refresh[_-]?token|client[_-]?secret|api[_-]?key|password|set-cookie|authcookie)\b\s*[:=]\s*[''\x22][A-Za-z0-9._~+/=-]{12,}[''\x22]'
     )
 
     foreach ($pattern in $blockedPatterns) {
