@@ -57,6 +57,7 @@ public sealed class AppSettings : ObservableObject
     private bool easterEggsEnabled = true;
     private bool mainWindowTrayTipShown;
     private string ignoredUpdateVersion = string.Empty;
+    private string ignoredBetaUpdateBaseVersion = string.Empty;
     private AppLanguage language = AppLanguage.SystemDefault;
     private AppTheme theme = AppTheme.VoidCrystal;
 
@@ -393,6 +394,12 @@ public sealed class AppSettings : ObservableObject
     {
         get => ignoredUpdateVersion;
         set => SetProperty(ref ignoredUpdateVersion, string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim());
+    }
+
+    public string IgnoredBetaUpdateBaseVersion
+    {
+        get => ignoredBetaUpdateBaseVersion;
+        set => SetProperty(ref ignoredBetaUpdateBaseVersion, string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim());
     }
 
     private void WireCustomTheme(CustomThemeSettings settings)

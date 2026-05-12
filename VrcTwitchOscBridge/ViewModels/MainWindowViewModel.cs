@@ -77,6 +77,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private const string TwitchDeveloperConsoleUri = "https://dev.twitch.tv/console/apps";
     private const string KoFiSupportUri = "https://ko-fi.com/screminpal";
     private const string KoFiWebhookSettingsUri = "https://ko-fi.com/manage/webhooks";
+    private const string DiscordInviteUri = "https://discord.gg/6DvWJXN6A2";
     private const string SettingsTestAudioRelativePath = "Assets\\engineer_no01.mp3";
     private const string TestBuildMarkerFileName = "test-build.flag";
     private const string BetaBuildMarkerFileName = "beta-build.flag";
@@ -117,6 +118,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private const int VrChatOscParameterAutoRefreshPassCount = 4;
     private static readonly string AppVersion = GetAppVersion();
     private static readonly string BetaBuildLabel = DetectBetaBuildLabel();
+    private static readonly string AppUpdateVersion = GetAppUpdateVersion();
     private static readonly bool IsTestBuild = DetectTestBuild();
     private static readonly HashSet<string> KnownViewerNotificationBotLogins = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -179,6 +181,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         nameof(TriggerRule.SharedRewardChoiceEnabled),
         nameof(TriggerRule.SharedRewardChoiceNumber),
         nameof(TriggerRule.SharedRewardHelpText),
+        nameof(TriggerRule.SupporterKeywordText),
         nameof(TriggerRule.ActiveFloatBoostRewardEnabled),
         nameof(TriggerRule.ActiveFloatBoostRewardId),
         nameof(TriggerRule.ActiveFloatBoostRewardTitle),
@@ -696,6 +699,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         OpenSaveFolderCommand = new RelayCommand(OpenSaveFolder);
         OpenKoFiSupportCommand = new RelayCommand(OpenKoFiSupportPage);
         OpenKoFiWebhooksCommand = new RelayCommand(OpenKoFiWebhooksPage);
+        OpenDiscordInviteCommand = new RelayCommand(OpenDiscordInvite);
         OpenBugReportCommand = new AsyncRelayCommand(OpenBugReportAsync);
         RefreshOscConnectionCommand = new AsyncRelayCommand(RefreshOscConnectionAsync);
         RefreshTwitchRewardsCommand = new AsyncRelayCommand(RefreshTwitchRewardsAsync);
@@ -740,6 +744,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         SelectRuleCommand = new RelayCommand(SelectRule, target => target is TriggerRule);
         AddAvatarSupporterTriggerCommand = new RelayCommand(AddAvatarSupporterTrigger);
         AddAvatarChangeOverrideCommand = new RelayCommand(AddAvatarChangeOverride);
+        AddForceMovementOverrideCommand = new RelayCommand(AddForceMovementOverride);
         RemoveSelectedRuleCommand = new RelayCommand(RemoveSelectedRule, () => SelectedRule is not null);
         EnableAllRulesCommand = new RelayCommand(EnableAllRules, () => GetCurrentEditableRuleCollection().Count > 0);
         DisableAllRulesCommand = new RelayCommand(DisableAllRules, () => GetCurrentEditableRuleCollection().Count > 0);
@@ -861,6 +866,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             {
                 RaiseSupporterRuleGroupProperties();
                 AddAvatarSupporterTriggerCommand.NotifyCanExecuteChanged();
+                AddForceMovementOverrideCommand.NotifyCanExecuteChanged();
             }
         }
     }
@@ -955,6 +961,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     public IReadOnlyList<TwitchTriggerType> TriggerTypes { get; }
 
     public IReadOnlyList<TwitchTriggerType> OverrideTriggerTypes { get; }
+
+    public IReadOnlyList<TwitchTriggerType> AvailableOverrideTriggerTypesForSelectedRule =>
+        IsViewingSupporterOverrides && SelectedRule?.ActionType == OscActionType.PlayerMovement
+            ? [TwitchTriggerType.Bits]
+            : OverrideTriggerTypes;
 
     public IReadOnlyList<UniversalTriggerType> UniversalTriggerTypes { get; }
 
@@ -1210,7 +1221,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     }
 
     public IReadOnlyList<TriggerRule> SelectedAvatarSupporterRules => Settings.GlobalOverrideRules
-        .Where(rule => !IsSupporterAvatarChangeOverride(rule))
+        .Where(rule => !IsSupporterAvatarChangeOverride(rule) && !IsSupporterForceMovementOverride(rule))
+        .ToArray();
+
+    public IReadOnlyList<TriggerRule> ForceMovementOverrideRules => Settings.GlobalOverrideRules
+        .Where(IsSupporterForceMovementOverride)
         .ToArray();
 
     public IReadOnlyList<TriggerRule> AvatarChangeOverrideRules => Settings.GlobalOverrideRules
@@ -1220,6 +1235,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     public IReadOnlyList<TriggerRule> GlobalSupporterRules => [];
 
     public bool HasSelectedAvatarSupporterRules => SelectedAvatarSupporterRules.Count > 0;
+
+    public bool HasForceMovementOverrideRules => ForceMovementOverrideRules.Count > 0;
 
     public bool HasAvatarChangeOverrideRules => AvatarChangeOverrideRules.Count > 0;
 
@@ -1861,6 +1878,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         {
             return GetActionTypeOptionsForSelectedContext(option =>
                 option.Value is OscActionType.AvatarChange or OscActionType.AvatarRoulet);
+        }
+
+        if (IsSupporterForceMovementOverride(SelectedRule))
+        {
+            return GetActionTypeOptionsForSelectedContext(option => option.Value == OscActionType.PlayerMovement);
         }
 
         if (!string.IsNullOrWhiteSpace(SelectedRule.SupporterAvatarId))
@@ -2530,6 +2552,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public RelayCommand OpenKoFiWebhooksCommand { get; }
 
+    public RelayCommand OpenDiscordInviteCommand { get; }
+
     public AsyncRelayCommand OpenBugReportCommand { get; }
 
     public AsyncRelayCommand RefreshOscConnectionCommand { get; }
@@ -2603,6 +2627,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     public RelayCommand AddAvatarSupporterTriggerCommand { get; }
 
     public RelayCommand AddAvatarChangeOverrideCommand { get; }
+
+    public RelayCommand AddForceMovementOverrideCommand { get; }
 
     public RelayCommand RemoveSelectedRuleCommand { get; }
 
@@ -4923,6 +4949,17 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         AppendLog($"Added avatar change override '{rule.DisplayTitle}'.");
     }
 
+    private void AddForceMovementOverride()
+    {
+        var rule = CreateDefaultForceMovementOverrideRule();
+        Settings.GlobalOverrideRules.Add(rule);
+        SelectedRule = rule;
+        QueueSave();
+        QueueBridgeRefresh();
+        RaiseSupporterRuleGroupProperties();
+        AppendLog($"Added force movement override '{rule.DisplayTitle}'.");
+    }
+
     private void RemoveSelectedRule()
     {
         if (SelectedRule is null)
@@ -7035,8 +7072,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             }
 
             if (Settings.GlobalOverrideRules.Contains(rule)
+                && rule.ActionType == OscActionType.PlayerMovement
+                && rule.TriggerType != TwitchTriggerType.Bits)
+            {
+                rule.TriggerType = TwitchTriggerType.Bits;
+            }
+
+            if (Settings.GlobalOverrideRules.Contains(rule)
                 && e.PropertyName == nameof(TriggerRule.ActionType)
-                && rule.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet)
+                && rule.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet or OscActionType.PlayerMovement)
             {
                 if (rule.SupporterAvatarProfileId != Guid.Empty)
                 {
@@ -7106,7 +7150,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 ApplyMovementRuleDefaults(rule);
             }
             else if (e.PropertyName == nameof(TriggerRule.ActionType)
-                     && rule.ActionType == OscActionType.PlayerMovement)
+                     && rule.ActionType == OscActionType.PlayerMovement
+                     && !IsSupporterForceMovementOverride(rule))
             {
                 RelocateRuleToGlobalMovementRules(rule);
                 return;
@@ -7123,6 +7168,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                     or nameof(TriggerRule.SupporterAvatarId)
                     or nameof(TriggerRule.SupporterAvatarName)
                     or nameof(TriggerRule.SupporterAvatarProfileId)
+                    or nameof(TriggerRule.SupporterKeywordText)
                     or nameof(TriggerRule.SharedRewardChoiceEnabled)
                     or nameof(TriggerRule.SetTriggerActions))
             {
@@ -7147,7 +7193,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                     or nameof(TriggerRule.TriggerType)
                     or nameof(TriggerRule.SupporterAvatarId)
                     or nameof(TriggerRule.SupporterAvatarName)
-                    or nameof(TriggerRule.SupporterAvatarProfileId))
+                    or nameof(TriggerRule.SupporterAvatarProfileId)
+                    or nameof(TriggerRule.SupporterKeywordText))
             {
                 RaiseSupporterRuleGroupProperties();
             }
@@ -7344,7 +7391,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ApplicationUpdateCheckResult result;
         try
         {
-            result = await applicationUpdateService.CheckForUpdateAsync(AppVersion, Settings.IgnoredUpdateVersion, cancellationToken);
+            result = await applicationUpdateService.CheckForUpdateAsync(
+                AppUpdateVersion,
+                Settings.IgnoredUpdateVersion,
+                Settings.IgnoredBetaUpdateBaseVersion,
+                cancellationToken);
         }
         catch (OperationCanceledException)
         {
@@ -7369,6 +7420,18 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
 
         Settings.IgnoredUpdateVersion = normalizedVersion;
+        QueueSave(0);
+    }
+
+    internal void IgnoreBetaApplicationUpdatesUntilStable(string baseVersion)
+    {
+        var normalizedVersion = string.IsNullOrWhiteSpace(baseVersion) ? string.Empty : baseVersion.Trim();
+        if (string.Equals(Settings.IgnoredBetaUpdateBaseVersion, normalizedVersion, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        Settings.IgnoredBetaUpdateBaseVersion = normalizedVersion;
         QueueSave(0);
     }
 
@@ -13643,6 +13706,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         AddRuleCommand.NotifyCanExecuteChanged();
         AddAvatarSupporterTriggerCommand.NotifyCanExecuteChanged();
         AddAvatarChangeOverrideCommand.NotifyCanExecuteChanged();
+        AddForceMovementOverrideCommand.NotifyCanExecuteChanged();
         AddAvatarProfileCommand.NotifyCanExecuteChanged();
         RemoveSelectedRuleCommand.NotifyCanExecuteChanged();
         OpenSpecialRuleLockoutPickerCommand.NotifyCanExecuteChanged();
@@ -13805,6 +13869,22 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private void OpenKoFiWebhooksPage()
     {
         OpenUri(KoFiWebhookSettingsUri);
+    }
+
+    private void OpenDiscordInvite()
+    {
+        var shouldOpenDiscord = ThemedDialogWindow.ShowYesNo(
+            Application.Current?.MainWindow,
+            SelectedTheme,
+            T("Join the Crystal Relay Discord"),
+            $"{T("Join the Crystal Relay Discord for update pings, beta announcements, and community news.")}{Environment.NewLine}{Environment.NewLine}{T("This invite is temporary-protected. If you join while offline or leave before receiving the verification role, Discord may automatically remove you from the server. If that happens, just rejoin while you are online and try the verification step again.")}",
+            T("Open Discord"),
+            T("Close"));
+
+        if (shouldOpenDiscord)
+        {
+            OpenUri(DiscordInviteUri);
+        }
     }
 
     private async Task OpenBugReportAsync()
@@ -14679,6 +14759,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private static bool IsSupporterAvatarChangeOverride(TriggerRule rule) =>
         rule.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet;
 
+    private static bool IsSupporterForceMovementOverride(TriggerRule rule) =>
+        rule.TriggerType == TwitchTriggerType.Bits
+        && rule.ActionType == OscActionType.PlayerMovement;
+
     private void RaiseRuleSelectionStateProperties()
     {
         RaisePropertyChanged(nameof(IsViewingAvatarTriggers));
@@ -14737,11 +14821,13 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RaisePropertyChanged(nameof(DesktopModeInputLockHelpText));
         RaisePropertyChanged(nameof(DesktopModeInputLockStatusText));
         RaisePropertyChanged(nameof(IsDesktopModeInputLockEnabled));
+        RaisePropertyChanged(nameof(AvailableOverrideTriggerTypesForSelectedRule));
     }
 
     private void RefreshAvailableActionTypes()
     {
         RaisePropertyChanged(nameof(AvailableActionTypesForSelectedContext));
+        RaisePropertyChanged(nameof(AvailableOverrideTriggerTypesForSelectedRule));
         RaisePropertyChanged(nameof(SelectedActionTypeOption));
     }
 
@@ -14932,9 +15018,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     {
         RefreshSupporterRuleScopeLabels();
         RaisePropertyChanged(nameof(SelectedAvatarSupporterRules));
+        RaisePropertyChanged(nameof(ForceMovementOverrideRules));
         RaisePropertyChanged(nameof(AvatarChangeOverrideRules));
         RaisePropertyChanged(nameof(GlobalSupporterRules));
         RaisePropertyChanged(nameof(HasSelectedAvatarSupporterRules));
+        RaisePropertyChanged(nameof(HasForceMovementOverrideRules));
         RaisePropertyChanged(nameof(HasAvatarChangeOverrideRules));
         RaisePropertyChanged(nameof(HasGlobalSupporterRules));
     }
@@ -15122,6 +15210,21 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         rule.MinimumAmount = 100;
         rule.DurationSeconds = 20;
         rule.CooldownSeconds = 30;
+        return rule;
+    }
+
+    private static TriggerRule CreateDefaultForceMovementOverrideRule()
+    {
+        var rule = CreateBaseRule("New Force Movement", TwitchTriggerType.Bits);
+        rule.ActionType = OscActionType.PlayerMovement;
+        rule.MovementDirection = PlayerMovementDirection.Forward;
+        rule.SupporterAvatarProfileId = Guid.Empty;
+        rule.SupporterAvatarId = string.Empty;
+        rule.SupporterAvatarName = string.Empty;
+        rule.SupporterKeywordText = "forward";
+        rule.MinimumAmount = 100;
+        rule.DurationSeconds = 3;
+        rule.CooldownSeconds = 10;
         return rule;
     }
 
@@ -16054,6 +16157,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
         var misplacedOverrideRules = Settings.GlobalOverrideRules
             .Where(rule => rule.ActionType == OscActionType.PlayerMovement)
+            .Where(rule => !IsSupporterForceMovementOverride(rule))
             .ToArray();
 
         foreach (var rule in misplacedOverrideRules)
@@ -16280,6 +16384,24 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         {
             return false;
         }
+    }
+
+    private static string GetAppUpdateVersion()
+    {
+        if (string.IsNullOrWhiteSpace(BetaBuildLabel))
+        {
+            return AppVersion;
+        }
+
+        var compactLabel = new string(BetaBuildLabel
+            .Trim()
+            .ToLowerInvariant()
+            .Where(char.IsLetterOrDigit)
+            .ToArray());
+        var betaIdentity = compactLabel.StartsWith("beta", StringComparison.Ordinal)
+            ? compactLabel
+            : "beta";
+        return $"{AppVersion}-{betaIdentity}";
     }
 
     private static string GetAppVersionDisplay()

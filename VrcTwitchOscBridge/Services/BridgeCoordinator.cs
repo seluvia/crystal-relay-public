@@ -1571,6 +1571,11 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         && rule.TriggerType == TwitchTriggerType.Bits
         && rule.ActionType == OscActionType.SetTrigger;
 
+    private static bool IsBitsForceMovementRule(TriggerRuleSnapshot rule) =>
+        rule.IsGlobalOverride
+        && rule.TriggerType == TwitchTriggerType.Bits
+        && rule.ActionType == OscActionType.PlayerMovement;
+
     private bool ShouldBlockAvatarChangeDuringActiveScaling(TriggerRuleSnapshot rule, bool isTest)
     {
         if (isTest
@@ -8680,8 +8685,14 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             .Where(rule => bridgeEvent.Amount >= Math.Max(1, rule.MinimumAmount))
             .Where(rule => !string.IsNullOrWhiteSpace(rule.SharedRewardHelpText))
             .ToArray();
+        var forceMovementRules = globalRules
+            .Where(IsBitsForceMovementRule)
+            .Where(rule => bridgeEvent.Amount >= Math.Max(1, rule.MinimumAmount))
+            .Where(rule => !string.IsNullOrWhiteSpace(rule.SupporterKeywordText))
+            .ToArray();
 
         var choiceText = ExtractBitsOutfitChoiceText(bridgeEvent.MessageText);
+        string? noOutfitMatchDiagnostic = null;
         if (!string.IsNullOrWhiteSpace(choiceText))
         {
             var outfitRules = currentAvatarOutfitRules.Length > 0
@@ -8696,12 +8707,38 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                     return [match.Rule];
                 }
 
+                if (match.IsAmbiguous)
+                {
+                    WriteLog(match.Diagnostic ?? $"Bits outfit cheer text '{choiceText}' was too close to multiple outfits. Crystal Relay did not guess.");
+                    return [];
+                }
+
+                noOutfitMatchDiagnostic = match.Diagnostic;
+            }
+
+            if (forceMovementRules.Length > 0)
+            {
+                var match = FindBitsForceMovementKeywordMatch(forceMovementRules, choiceText);
+                if (match.Rule is not null)
+                {
+                    WriteLog($"Matched Bits force movement '{match.Rule.Name}' from cheer text '{choiceText}' using {match.MatchKind} matching ({match.Score:P0}).");
+                    return [match.Rule];
+                }
+
+                if (match.IsAmbiguous)
+                {
+                    WriteLog(match.Diagnostic ?? $"Bits force movement cheer text '{choiceText}' was too close to multiple movement words. Crystal Relay did not guess.");
+                    return [];
+                }
+
                 if (!string.IsNullOrWhiteSpace(match.Diagnostic))
                 {
                     WriteLog(match.Diagnostic);
                 }
-
-                return [];
+            }
+            else if (!string.IsNullOrWhiteSpace(noOutfitMatchDiagnostic))
+            {
+                WriteLog(noOutfitMatchDiagnostic);
             }
         }
 
@@ -8728,6 +8765,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         return SelectBestThresholdMatch(
             globalRules
                 .Where(rule => !IsBitsOutfitSetTriggerRule(rule))
+                .Where(rule => !IsBitsForceMovementRule(rule))
                 .Where(rule => !IsAvatarChangeOverrideRule(rule))
                 .ToArray(),
             bridgeEvent.Amount);
@@ -8784,7 +8822,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     }
 
     private static bool IsGlobalSupporterRule(TriggerRuleSnapshot rule) =>
-        IsAvatarChangeOverrideRule(rule);
+        IsAvatarChangeOverrideRule(rule) || IsBitsForceMovementRule(rule);
 
     private static bool IsAvatarChangeOverrideRule(TriggerRuleSnapshot rule) =>
         rule.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet;
@@ -8936,7 +8974,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 null,
                 "exact",
                 0,
-                $"Bits outfit cheer text '{choiceText}' matched more than one outfit exactly. Rename one of these outfits so Crystal Relay can choose safely: {DescribeBitsOutfitCandidates(exactMatches)}.");
+                $"Bits outfit cheer text '{choiceText}' matched more than one outfit exactly. Rename one of these outfits so Crystal Relay can choose safely: {DescribeBitsOutfitCandidates(exactMatches)}.",
+                true);
         }
 
         var compactMatches = candidates
@@ -8953,7 +8992,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 null,
                 "compact",
                 0,
-                $"Bits outfit cheer text '{choiceText}' matched more than one outfit after removing spaces and punctuation. Rename one of these outfits so Crystal Relay can choose safely: {DescribeBitsOutfitCandidates(compactMatches)}.");
+                $"Bits outfit cheer text '{choiceText}' matched more than one outfit after removing spaces and punctuation. Rename one of these outfits so Crystal Relay can choose safely: {DescribeBitsOutfitCandidates(compactMatches)}.",
+                true);
         }
 
         var fuzzyMatches = candidates
@@ -8987,7 +9027,102 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 null,
                 "fuzzy",
                 best.Score,
-                $"Bits outfit cheer text '{choiceText}' was too close to multiple outfits. Crystal Relay did not guess. Close matches: {DescribeBitsOutfitCandidates([best.Candidate, second.Candidate])}.");
+                $"Bits outfit cheer text '{choiceText}' was too close to multiple outfits. Crystal Relay did not guess. Close matches: {DescribeBitsOutfitCandidates([best.Candidate, second.Candidate])}.",
+                true);
+        }
+
+        return new BitsOutfitNameMatch(best.Candidate.Rule, "fuzzy", best.Score, null);
+    }
+
+    private static BitsOutfitNameMatch FindBitsForceMovementKeywordMatch(
+        IReadOnlyList<TriggerRuleSnapshot> rules,
+        string choiceText)
+    {
+        var normalizedChoice = NormalizeBitsOutfitPhrase(choiceText);
+        var compactChoice = NormalizeBitsOutfitCompact(choiceText);
+        if (string.IsNullOrWhiteSpace(compactChoice))
+        {
+            return new BitsOutfitNameMatch(null, string.Empty, 0, null);
+        }
+
+        var candidates = rules
+            .Select(rule => new BitsOutfitNameCandidate(
+                rule,
+                rule.SupporterKeywordText.Trim(),
+                NormalizeBitsOutfitPhrase(rule.SupporterKeywordText),
+                NormalizeBitsOutfitCompact(rule.SupporterKeywordText)))
+            .Where(candidate => !string.IsNullOrWhiteSpace(candidate.CompactName))
+            .ToArray();
+
+        var exactMatches = candidates
+            .Where(candidate => string.Equals(candidate.NormalizedName, normalizedChoice, StringComparison.Ordinal))
+            .ToArray();
+        if (exactMatches.Length == 1)
+        {
+            return new BitsOutfitNameMatch(exactMatches[0].Rule, "exact", 1, null);
+        }
+
+        if (exactMatches.Length > 1)
+        {
+            return new BitsOutfitNameMatch(
+                null,
+                "exact",
+                0,
+                $"Bits force movement cheer text '{choiceText}' matched more than one movement word exactly. Rename one of these words so Crystal Relay can choose safely: {DescribeBitsOutfitCandidates(exactMatches)}.",
+                true);
+        }
+
+        var compactMatches = candidates
+            .Where(candidate => string.Equals(candidate.CompactName, compactChoice, StringComparison.Ordinal))
+            .ToArray();
+        if (compactMatches.Length == 1)
+        {
+            return new BitsOutfitNameMatch(compactMatches[0].Rule, "compact", 1, null);
+        }
+
+        if (compactMatches.Length > 1)
+        {
+            return new BitsOutfitNameMatch(
+                null,
+                "compact",
+                0,
+                $"Bits force movement cheer text '{choiceText}' matched more than one movement word after removing spaces and punctuation. Rename one of these words so Crystal Relay can choose safely: {DescribeBitsOutfitCandidates(compactMatches)}.",
+                true);
+        }
+
+        var fuzzyMatches = candidates
+            .Select(candidate =>
+            {
+                var distance = CalculateDamerauLevenshteinDistance(compactChoice, candidate.CompactName);
+                var length = Math.Max(compactChoice.Length, candidate.CompactName.Length);
+                var score = length <= 0 ? 0 : 1d - (distance / (double)length);
+                return new BitsOutfitFuzzyCandidate(candidate, distance, score, GetMaximumBitsOutfitFuzzyDistance(length));
+            })
+            .Where(candidate => candidate.Distance <= candidate.MaximumDistance)
+            .OrderBy(candidate => candidate.Distance)
+            .ThenByDescending(candidate => candidate.Score)
+            .ToArray();
+
+        if (fuzzyMatches.Length == 0)
+        {
+            return new BitsOutfitNameMatch(
+                null,
+                "fuzzy",
+                0,
+                $"Bits force movement cheer text '{choiceText}' did not confidently match any configured movement word.");
+        }
+
+        var best = fuzzyMatches[0];
+        var second = fuzzyMatches.Length > 1 ? fuzzyMatches[1] : null;
+        if (second is not null
+            && (second.Distance - best.Distance <= 1 || best.Score - second.Score < 0.12d))
+        {
+            return new BitsOutfitNameMatch(
+                null,
+                "fuzzy",
+                best.Score,
+                $"Bits force movement cheer text '{choiceText}' was too close to multiple movement words. Crystal Relay did not guess. Close matches: {DescribeBitsOutfitCandidates([best.Candidate, second.Candidate])}.",
+                true);
         }
 
         return new BitsOutfitNameMatch(best.Candidate.Rule, "fuzzy", best.Score, null);
@@ -11633,6 +11768,12 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             sections.Add(TF("Subs/gifts: {0}", BuildCompactAnnouncementOptionList(supporterGrowthSubs, maxOptions)));
         }
 
+        var forceMovementOptions = BuildForceMovementAnnouncementOptions(configuration.Rules);
+        if (forceMovementOptions.Count > 0)
+        {
+            sections.Add(TF("Force movement: {0}", BuildCompactAnnouncementOptionList(forceMovementOptions, maxOptions)));
+        }
+
         var paidOptions = BuildCurrentAvatarSupporterAnnouncementOptions(configuration.Rules, normalizedCurrentAvatarId);
         if (paidOptions.Count > 0)
         {
@@ -11746,6 +11887,16 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         {
             options.Add(TF("{0} {1} each", tierLabel, string.Join(" ", parts)));
         }
+    }
+
+    private static IReadOnlyList<string> BuildForceMovementAnnouncementOptions(IReadOnlyList<TriggerRuleSnapshot> rules)
+    {
+        return rules
+            .Where(rule => rule.IsEnabled && IsBitsForceMovementRule(rule) && !string.IsNullOrWhiteSpace(rule.SupporterKeywordText))
+            .OrderBy(rule => Math.Max(1, rule.MinimumAmount))
+            .ThenBy(rule => rule.SupporterKeywordText, StringComparer.CurrentCultureIgnoreCase)
+            .Select(rule => TF("Cheer{0} {1}", Math.Max(1, rule.MinimumAmount), rule.SupporterKeywordText.Trim()))
+            .ToArray();
     }
 
     private static IReadOnlyList<string> BuildCurrentAvatarSupporterAnnouncementOptions(
@@ -11914,6 +12065,19 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private static string DescribeSupporterOverrideOption(TriggerRuleSnapshot rule)
     {
         var threshold = Math.Max(1, rule.MinimumAmount);
+        if (IsBitsForceMovementRule(rule))
+        {
+            var keyword = string.IsNullOrWhiteSpace(rule.SupporterKeywordText)
+                ? T("movement word")
+                : rule.SupporterKeywordText.Trim();
+            return TF(
+                "Cheer{0} {1}: {2} for {3}",
+                threshold,
+                keyword,
+                DescribeMovementAction(rule.MovementDirection),
+                DescribeDuration(Math.Max(1, rule.DurationSeconds)));
+        }
+
         if (rule.TriggerType == TwitchTriggerType.Bits)
         {
             return rule.AmountScaledDurationEnabled
@@ -13173,7 +13337,9 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     };
 
     private static int GetCooldownSeconds(TriggerRuleSnapshot rule) =>
-        rule.ActionType == OscActionType.PlayerMovement ? 0 : Math.Max(0, rule.CooldownSeconds);
+        rule.ActionType == OscActionType.PlayerMovement && !IsBitsForceMovementRule(rule)
+            ? 0
+            : Math.Max(0, rule.CooldownSeconds);
 
     private static string DescribeMovementAction(PlayerMovementDirection movementDirection) => movementDirection switch
     {
@@ -13846,7 +14012,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         TriggerRuleSnapshot? Rule,
         string MatchKind,
         double Score,
-        string? Diagnostic);
+        string? Diagnostic,
+        bool IsAmbiguous = false);
 
     private sealed record BridgeIncomingEvent(
         TwitchTriggerType TriggerType,

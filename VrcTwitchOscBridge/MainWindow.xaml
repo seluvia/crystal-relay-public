@@ -1944,6 +1944,40 @@
                                                 Command="{Binding OpenKoFiSupportCommand}" />
                                     </Grid>
                                 </Border>
+                                <Border Margin="0,8,0,0"
+                                        Background="{DynamicResource PanelSecondaryBrush}"
+                                        BorderBrush="{DynamicResource InputBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="16"
+                                        Padding="10">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0"
+                                                    Margin="0,0,10,0">
+                                            <TextBlock Text="{loc:Translate 'Crystal Relay Discord'}"
+                                                       FontSize="14"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource TextBrush}"
+                                                       TextWrapping="Wrap" />
+                                            <TextBlock Margin="0,3,0,0"
+                                                       Text="{loc:Translate 'Update pings, beta announcements, and community news.'}"
+                                                       FontSize="12"
+                                                       Foreground="{DynamicResource MutedBrush}"
+                                                       TextWrapping="Wrap" />
+                                        </StackPanel>
+                                        <Button Grid.Column="1"
+                                                MinWidth="136"
+                                                Padding="16,9"
+                                                HorizontalAlignment="Right"
+                                                VerticalAlignment="Center"
+                                                Style="{StaticResource SecondaryButtonStyle}"
+                                                Content="{loc:Translate 'Join Discord'}"
+                                                Command="{Binding OpenDiscordInviteCommand}" />
+                                    </Grid>
+                                </Border>
                             </StackPanel>
                             <WrapPanel Margin="0,14,0,0">
                                 <Button Style="{StaticResource SecondaryButtonStyle}" Content="{loc:Translate 'Open Crystal Relay Folder'}" Command="{Binding OpenSaveFolderCommand}" />
@@ -3424,6 +3458,10 @@
                                     Command="{Binding AddAvatarChangeOverrideCommand}" />
                             <Button Style="{StaticResource RuleLibraryButtonStyle}"
                                     Margin="0,8,0,0"
+                                    Content="{loc:Translate 'Add Force Movement'}"
+                                    Command="{Binding AddForceMovementOverrideCommand}" />
+                            <Button Style="{StaticResource RuleLibraryButtonStyle}"
+                                    Margin="0,8,0,0"
                                     Content="{loc:Translate 'Delete Override'}"
                                     Command="{Binding RemoveSelectedRuleCommand}" />
                             <Button Style="{StaticResource RuleLibraryDangerButtonStyle}"
@@ -3727,6 +3765,40 @@
                                                  Margin="0,8,0,0"
                                                  MinHeight="54"
                                                  MaxHeight="220"
+                                                 ScrollViewer.CanContentScroll="True"
+                                                 VirtualizingStackPanel.IsVirtualizing="True"
+                                                 VirtualizingStackPanel.VirtualizationMode="Recycling" />
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Margin="0,8,0,0"
+                                        Background="{DynamicResource NestedPanelBrush}"
+                                        BorderBrush="{DynamicResource HighlightBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="14"
+                                        Padding="8">
+                                    <StackPanel>
+                                        <DockPanel LastChildFill="False">
+                                            <TextBlock Text="{loc:Translate 'Force Movement Overrides'}"
+                                                       Foreground="{DynamicResource TextBrush}"
+                                                       FontWeight="SemiBold"
+                                                       TextWrapping="Wrap"
+                                                       VerticalAlignment="Center" />
+                                            <Button Style="{StaticResource HelpIconButtonStyle}"
+                                                    Width="22"
+                                                    Height="22"
+                                                    MinWidth="22"
+                                                    MinHeight="22"
+                                                    Margin="6,0,0,0"
+                                                    Click="OnHelpButtonClicked"
+                                                    CommandParameter="Force Movement Overrides"
+                                                    Tag="Force Movement Overrides listen for Bits cheers with a configured word, then hold the selected VRChat movement input for the active time. Small spelling mistakes are okay, but unclear words will not trigger." />
+                                        </DockPanel>
+                                        <ListBox ItemsSource="{Binding ForceMovementOverrideRules}"
+                                                 SelectedItem="{Binding SelectedRule, Mode=OneWayToSource}"
+                                                 Margin="0,8,0,0"
+                                                 MinHeight="54"
+                                                 MaxHeight="190"
                                                  ScrollViewer.CanContentScroll="True"
                                                  VirtualizingStackPanel.IsVirtualizing="True"
                                                  VirtualizingStackPanel.VirtualizationMode="Recycling" />
@@ -7472,7 +7544,7 @@
                                                             <TextBlock Text="{loc:Translate 'Twitch Trigger'}"
                                                                        Foreground="{DynamicResource TextBrush}"
                                                                        FontWeight="SemiBold" />
-                                                            <ComboBox ItemsSource="{Binding DataContext.OverrideTriggerTypes, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                            <ComboBox ItemsSource="{Binding DataContext.AvailableOverrideTriggerTypesForSelectedRule, RelativeSource={RelativeSource AncestorType=Window}}"
                                                                       SelectedItem="{Binding TriggerType, UpdateSourceTrigger=PropertyChanged}" />
                                                         </StackPanel>
                                                         <StackPanel>
@@ -7542,6 +7614,9 @@
                                                                             <Setter Property="Visibility" Value="Collapsed" />
                                                                         </DataTrigger>
                                                                         <DataTrigger Binding="{Binding UsesAvatarRoulet}" Value="True">
+                                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                                        </DataTrigger>
+                                                                        <DataTrigger Binding="{Binding UsesForceMovementBitsTrigger}" Value="True">
                                                                             <Setter Property="Visibility" Value="Collapsed" />
                                                                         </DataTrigger>
                                                                     </Style.Triggers>
@@ -7944,6 +8019,39 @@
                                                             </StackPanel>
                                                         </Border>
 
+                                                        <Border Margin="0,12,0,0"
+                                                                Background="{DynamicResource PanelSecondaryBrush}"
+                                                                BorderBrush="{DynamicResource InputBorderBrush}"
+                                                                BorderThickness="1"
+                                                                CornerRadius="14"
+                                                                Padding="12">
+                                                            <Border.Style>
+                                                                <Style TargetType="Border">
+                                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding UsesForceMovementBitsTrigger}" Value="True">
+                                                                            <Setter Property="Visibility" Value="Visible" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Border.Style>
+                                                            <StackPanel>
+                                                                <TextBlock Text="{loc:Translate 'Force Movement Word Trigger'}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           FontWeight="SemiBold" />
+                                                                <TextBlock Margin="0,6,0,0"
+                                                                           Foreground="{DynamicResource MutedBrush}"
+                                                                           TextWrapping="Wrap"
+                                                                           Text="{loc:Translate 'Viewers cheer at least the minimum bits and type this word in the cheer message. Capitalization, spaces, punctuation, and small spelling mistakes are okay, but unclear words will not trigger.'}" />
+                                                                <StackPanel Margin="0,12,0,0">
+                                                                    <TextBlock Text="{loc:Translate 'Word Trigger'}"
+                                                                               Foreground="{DynamicResource TextBrush}"
+                                                                               FontWeight="SemiBold" />
+                                                                    <TextBox Text="{Binding SupporterKeywordText, UpdateSourceTrigger=PropertyChanged}" />
+                                                                </StackPanel>
+                                                            </StackPanel>
+                                                        </Border>
+
                                                         <StackPanel Margin="0,10,0,0"
                                                                     Visibility="{Binding UsesAmountThreshold, Converter={StaticResource BoolToVisibilityConverter}}">
                                                             <DockPanel LastChildFill="False">
@@ -7954,6 +8062,9 @@
                                                                             <Setter Property="Text" Value="{loc:Translate 'Minimum Amount'}" />
                                                                             <Style.Triggers>
                                                                                 <DataTrigger Binding="{Binding UsesBitsOutfitSetTrigger}" Value="True">
+                                                                                    <Setter Property="Text" Value="{loc:Translate 'Minimum Bits'}" />
+                                                                                </DataTrigger>
+                                                                                <DataTrigger Binding="{Binding UsesForceMovementBitsTrigger}" Value="True">
                                                                                     <Setter Property="Text" Value="{loc:Translate 'Minimum Bits'}" />
                                                                                 </DataTrigger>
                                                                             </Style.Triggers>

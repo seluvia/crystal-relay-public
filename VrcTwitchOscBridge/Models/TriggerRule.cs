@@ -66,6 +66,7 @@ public sealed class TriggerRule : ObservableObject
     private bool sharedRewardChoiceEnabled;
     private int sharedRewardChoiceNumber;
     private string sharedRewardHelpText = string.Empty;
+    private string supporterKeywordText = string.Empty;
     private Guid activeFloatBoostRewardOwnerId = Guid.NewGuid();
     private bool activeFloatBoostRewardEnabled;
     private string activeFloatBoostRewardId = string.Empty;
@@ -127,6 +128,7 @@ public sealed class TriggerRule : ObservableObject
                 RaisePropertyChanged(nameof(UsesAmountThreshold));
                 RaisePropertyChanged(nameof(UsesAmountScaledDuration));
                 RaisePropertyChanged(nameof(UsesBitsOutfitSetTrigger));
+                RaisePropertyChanged(nameof(UsesForceMovementBitsTrigger));
                 RaisePropertyChanged(nameof(UsesSupporterAmountTimerSettings));
                 RaisePropertyChanged(nameof(DurationHelpText));
                 RaisePropertyChanged(nameof(TriggerSummary));
@@ -432,6 +434,7 @@ public sealed class TriggerRule : ObservableObject
                 RaisePropertyChanged(nameof(UsesSetTrigger));
                 RaisePropertyChanged(nameof(UsesCooldown));
                 RaisePropertyChanged(nameof(UsesBitsOutfitSetTrigger));
+                RaisePropertyChanged(nameof(UsesForceMovementBitsTrigger));
                 RaisePropertyChanged(nameof(UsesSupporterAmountTimerSettings));
                 RaisePropertyChanged(nameof(AvatarRedeemListSummary));
                 RaiseActionVisibilityProperties();
@@ -817,6 +820,20 @@ public sealed class TriggerRule : ObservableObject
         }
     }
 
+    public string SupporterKeywordText
+    {
+        get => supporterKeywordText;
+        set
+        {
+            var normalizedValue = string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
+            if (SetProperty(ref supporterKeywordText, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(UsesForceMovementBitsTrigger));
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
     public Guid ActiveFloatBoostRewardOwnerId
     {
         get => activeFloatBoostRewardOwnerId;
@@ -979,7 +996,9 @@ public sealed class TriggerRule : ObservableObject
 
     public bool UsesBitsOutfitSetTrigger => TriggerType == TwitchTriggerType.Bits && UsesSetTrigger;
 
-    public bool UsesSupporterAmountTimerSettings => UsesAmountThreshold && !UsesSetTrigger;
+    public bool UsesForceMovementBitsTrigger => TriggerType == TwitchTriggerType.Bits && UsesPlayerMovement;
+
+    public bool UsesSupporterAmountTimerSettings => UsesAmountThreshold && !UsesSetTrigger && !UsesForceMovementBitsTrigger;
 
     public bool HasSupporterAvatarScope => !string.IsNullOrWhiteSpace(SupporterAvatarId);
 
@@ -1009,7 +1028,7 @@ public sealed class TriggerRule : ObservableObject
 
     public bool UsesSetTrigger => ActionType == OscActionType.SetTrigger;
 
-    public bool UsesCooldown => ActionType != OscActionType.PlayerMovement;
+    public bool UsesCooldown => ActionType != OscActionType.PlayerMovement || UsesForceMovementBitsTrigger;
 
     public bool HasSpecialRuleLockouts => TemporarilyDisabledRuleIds.Count > 0;
 
@@ -1173,7 +1192,9 @@ public sealed class TriggerRule : ObservableObject
         }
     }
 
-    public string DurationHelpText => UsesPlayerMovement
+    public string DurationHelpText => UsesForceMovementBitsTrigger
+        ? T("Use whole seconds. Crystal Relay holds the selected VRChat movement input for the full Active Time after a matching Bits cheer word, then releases it automatically.")
+        : UsesPlayerMovement
         ? T("Use whole seconds. Crystal Relay holds the selected VRChat movement input for the full Active Time, then releases it automatically. Movement redeems do not use 0-second instant mode.")
         : UsesAvatarRoulet
             ? T("Use whole seconds. Avatar Roulette is always a timed temporary switch, so 0 is not used here. Crystal Relay stays on the rolled avatar for this long, then returns to the shared return avatar.")
@@ -1206,6 +1227,9 @@ public sealed class TriggerRule : ObservableObject
                 TwitchTriggerType.Bits when UsesBitsOutfitSetTrigger => string.IsNullOrWhiteSpace(SharedRewardHelpText)
                     ? TF("Bits >= {0} + Outfit name needed", Math.Max(1, MinimumAmount))
                     : TF("Bits >= {0} + Outfit: {1}", Math.Max(1, MinimumAmount), SharedRewardHelpText.Trim()),
+                TwitchTriggerType.Bits when UsesForceMovementBitsTrigger => string.IsNullOrWhiteSpace(SupporterKeywordText)
+                    ? TF("Bits >= {0} + movement word needed", Math.Max(1, MinimumAmount))
+                    : TF("Bits >= {0} + Word: {1}", Math.Max(1, MinimumAmount), SupporterKeywordText.Trim()),
                 TwitchTriggerType.Bits => AmountScaledDurationEnabled
                     ? TF("Bits >= {0} ({1}s per {2} bits)", Math.Max(1, MinimumAmount), Math.Max(1, BitsSecondsPerAmountUnit), Math.Max(1, BitsAmountUnitsPerDuration))
                     : TF("Bits >= {0}", Math.Max(1, MinimumAmount)),
@@ -1275,6 +1299,7 @@ public sealed class TriggerRule : ObservableObject
         RaisePropertyChanged(nameof(UsesPlayerMovement));
         RaisePropertyChanged(nameof(UsesSetTrigger));
         RaisePropertyChanged(nameof(UsesCooldown));
+        RaisePropertyChanged(nameof(UsesForceMovementBitsTrigger));
         RaisePropertyChanged(nameof(UsesBoolParameter));
         RaisePropertyChanged(nameof(UsesIntParameter));
         RaisePropertyChanged(nameof(UsesTextOrFloatParameter));

@@ -7,6 +7,14 @@ using VrcTwitchOscBridge.Services;
 
 namespace VrcTwitchOscBridge;
 
+public enum ThemedDialogChoice
+{
+    None,
+    Primary,
+    Secondary,
+    Tertiary
+}
+
 public partial class ThemedDialogWindow : Window
 {
     private ThemedDialogWindow(
@@ -15,6 +23,7 @@ public partial class ThemedDialogWindow : Window
         string message,
         string primaryButtonText,
         string? secondaryButtonText = null,
+        string? tertiaryButtonText = null,
         string? finePrint = null)
     {
         InitializeComponent();
@@ -36,7 +45,15 @@ public partial class ThemedDialogWindow : Window
             SecondaryButton.Content = secondaryButtonText;
             SecondaryButton.Visibility = Visibility.Visible;
         }
+
+        if (!string.IsNullOrWhiteSpace(tertiaryButtonText))
+        {
+            TertiaryButton.Content = tertiaryButtonText;
+            TertiaryButton.Visibility = Visibility.Visible;
+        }
     }
+
+    public ThemedDialogChoice SelectedChoice { get; private set; } = ThemedDialogChoice.None;
 
     public static void ShowOk(
         Window? owner,
@@ -49,7 +66,7 @@ public partial class ThemedDialogWindow : Window
         primaryButtonText = string.IsNullOrWhiteSpace(primaryButtonText)
             ? LocalizationService.Translate("OK")
             : primaryButtonText;
-        var dialog = new ThemedDialogWindow(theme, title, message, primaryButtonText, null, finePrint)
+        var dialog = new ThemedDialogWindow(theme, title, message, primaryButtonText, null, null, finePrint)
         {
             Owner = owner
         };
@@ -73,11 +90,50 @@ public partial class ThemedDialogWindow : Window
         return dialog.ShowDialog() == true;
     }
 
-    private void OnPrimaryClicked(object sender, RoutedEventArgs e) => DialogResult = true;
+    public static ThemedDialogChoice ShowThreeChoice(
+        Window? owner,
+        AppTheme theme,
+        string title,
+        string message,
+        string primaryButtonText,
+        string secondaryButtonText,
+        string tertiaryButtonText)
+    {
+        var dialog = new ThemedDialogWindow(theme, title, message, primaryButtonText, secondaryButtonText, tertiaryButtonText)
+        {
+            Owner = owner
+        };
 
-    private void OnSecondaryClicked(object sender, RoutedEventArgs e) => DialogResult = false;
+        return dialog.ShowDialog() == true
+            ? ThemedDialogChoice.Primary
+            : dialog.SelectedChoice == ThemedDialogChoice.Tertiary
+                ? ThemedDialogChoice.Tertiary
+                : ThemedDialogChoice.Secondary;
+    }
 
-    private void OnCloseButtonClicked(object sender, RoutedEventArgs e) => DialogResult = false;
+    private void OnPrimaryClicked(object sender, RoutedEventArgs e)
+    {
+        SelectedChoice = ThemedDialogChoice.Primary;
+        DialogResult = true;
+    }
+
+    private void OnSecondaryClicked(object sender, RoutedEventArgs e)
+    {
+        SelectedChoice = ThemedDialogChoice.Secondary;
+        DialogResult = false;
+    }
+
+    private void OnTertiaryClicked(object sender, RoutedEventArgs e)
+    {
+        SelectedChoice = ThemedDialogChoice.Tertiary;
+        DialogResult = false;
+    }
+
+    private void OnCloseButtonClicked(object sender, RoutedEventArgs e)
+    {
+        SelectedChoice = ThemedDialogChoice.None;
+        DialogResult = false;
+    }
 
     private void OnWindowClosed(object? sender, EventArgs e)
     {
