@@ -1012,14 +1012,43 @@ public partial class MainWindow : Window
                 return;
             }
 
+            var updateMessage = LocalizationService.Format(
+                "A newer Crystal Relay update is available.\n\nCurrent version: {0}\nLatest version: {1}\n\nIf you continue, Crystal Relay will open the GitHub release page in your browser.",
+                availableUpdate.CurrentVersion,
+                availableUpdate.LatestVersion);
+
+            if (availableUpdate.IsBeta)
+            {
+                var betaChoice = ThemedDialogWindow.ShowThreeChoice(
+                    this,
+                    viewModel.SelectedTheme,
+                    LocalizationService.Translate("Update Available"),
+                    updateMessage,
+                    LocalizationService.Translate("Open Update Page"),
+                    LocalizationService.Translate("Not Now"),
+                    LocalizationService.Translate("Hide Betas Until Stable"));
+
+                if (betaChoice == ThemedDialogChoice.Primary)
+                {
+                    OpenExternalUri(availableUpdate.ReleasePageUrl);
+                    return;
+                }
+
+                if (betaChoice == ThemedDialogChoice.Tertiary)
+                {
+                    viewModel.IgnoreBetaApplicationUpdatesUntilStable(availableUpdate.LatestBaseVersion);
+                    return;
+                }
+
+                viewModel.IgnoreApplicationUpdate(availableUpdate.LatestVersion);
+                return;
+            }
+
             var shouldOpenUpdatePage = ThemedDialogWindow.ShowYesNo(
                 this,
                 viewModel.SelectedTheme,
                 LocalizationService.Translate("Update Available"),
-                LocalizationService.Format(
-                    "A newer Crystal Relay update is available.\n\nCurrent version: {0}\nLatest version: {1}\n\nIf you continue, Crystal Relay will open the GitHub release page in your browser.",
-                    availableUpdate.CurrentVersion,
-                    availableUpdate.LatestVersion),
+                updateMessage,
                 LocalizationService.Translate("Open Update Page"),
                 LocalizationService.Translate("Not Now"));
 

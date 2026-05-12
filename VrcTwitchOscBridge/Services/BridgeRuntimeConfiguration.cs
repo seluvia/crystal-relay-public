@@ -95,6 +95,7 @@ public sealed record TriggerRuleSnapshot(
     bool SharedRewardChoiceEnabled,
     int SharedRewardChoiceNumber,
     string SharedRewardHelpText,
+    string SupporterKeywordText,
     IReadOnlyList<SetTriggerActionSnapshot> SetTriggerActions,
     IReadOnlyList<Guid> TemporarilyDisabledRuleIds,
     string BotMessageTemplate);
@@ -650,6 +651,7 @@ public sealed record BridgeRuntimeConfiguration(
             rule.SharedRewardChoiceEnabled,
             Math.Max(0, rule.SharedRewardChoiceNumber),
             rule.SharedRewardHelpText.Trim(),
+            rule.SupporterKeywordText.Trim(),
             [.. rule.SetTriggerActions.Select(ToSetTriggerActionSnapshot).Where(action => HasAvatarParameterPath(action.ParameterName) && !string.IsNullOrWhiteSpace(action.ParameterValue))],
             [.. rule.TemporarilyDisabledRuleIds.Where(ruleId => ruleId != Guid.Empty).Distinct()],
             rule.BotMessageTemplate.Trim());
@@ -869,9 +871,19 @@ public sealed record BridgeRuntimeConfiguration(
             return false;
         }
 
+        var isForceMovementSupporterRule = isGlobalOverride
+            && rule.TriggerType == TwitchTriggerType.Bits
+            && rule.ActionType == OscActionType.PlayerMovement;
+
+        if (isForceMovementSupporterRule && string.IsNullOrWhiteSpace(rule.SupporterKeywordText))
+        {
+            return false;
+        }
+
         if (isGlobalOverride
             && rule.TriggerType is TwitchTriggerType.Bits or TwitchTriggerType.Subscriptions
             && rule.ActionType is not (OscActionType.AvatarChange or OscActionType.AvatarRoulet)
+            && !isForceMovementSupporterRule
             && string.IsNullOrWhiteSpace(rule.SupporterAvatarId)
             && string.IsNullOrWhiteSpace(profile?.AvatarId))
         {

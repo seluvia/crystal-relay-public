@@ -253,6 +253,11 @@
                                     Margin="0,22,0,0"
                                     Orientation="Horizontal"
                                     HorizontalAlignment="Right">
+                            <Button x:Name="TertiaryButton"
+                                    Margin="0,0,10,0"
+                                    Style="{StaticResource SecondaryButtonStyle}"
+                                    Visibility="Collapsed"
+                                    Click="OnTertiaryClicked" />
                             <Button x:Name="SecondaryButton"
                                     Margin="0,0,10,0"
                                     Style="{StaticResource SecondaryButtonStyle}"

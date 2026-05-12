@@ -16,6 +16,7 @@ internal enum ApplicationUpdateCheckStatus
 internal sealed record ApplicationUpdateInfo(
     string CurrentVersion,
     string LatestVersion,
+    string LatestBaseVersion,
     string ReleasePageUrl,
     bool IsBeta = false);
 
@@ -46,6 +47,7 @@ internal sealed class ApplicationUpdateService : IDisposable
     public async Task<ApplicationUpdateCheckResult> CheckForUpdateAsync(
         string currentVersionText,
         string ignoredVersionText,
+        string ignoredBetaBaseVersionText,
         CancellationToken cancellationToken = default)
     {
         if (!TryParseReleaseVersion(currentVersionText, out var currentVersion))
@@ -100,6 +102,7 @@ internal sealed class ApplicationUpdateService : IDisposable
             .Where(candidate => candidate.IsBeta)
             .Where(candidate => IsNewerBetaCandidate(candidate.Version, currentVersion))
             .Where(candidate => !IsIgnoredUpdate(ignoredVersionText, candidate.Version, betaCandidate: true))
+            .Where(candidate => !IsIgnoredBetaBaseVersion(ignoredBetaBaseVersionText, candidate.Version))
             .OrderByDescending(candidate => candidate.Version)
             .FirstOrDefault();
 
@@ -114,6 +117,7 @@ internal sealed class ApplicationUpdateService : IDisposable
             new ApplicationUpdateInfo(
                 currentVersion.ToDisplayString(),
                 update.Version.ToDisplayString(),
+                update.Version.ToBaseDisplayString(),
                 update.ReleasePageUrl,
                 update.IsBeta));
     }
@@ -204,6 +208,19 @@ internal sealed class ApplicationUpdateService : IDisposable
         }
 
         return candidateVersion.CompareTo(ignoredVersion) <= 0;
+    }
+
+    private static bool IsIgnoredBetaBaseVersion(string ignoredBetaBaseVersionText, AppReleaseVersion candidateVersion)
+    {
+        if (string.IsNullOrWhiteSpace(ignoredBetaBaseVersionText))
+        {
+            return false;
+        }
+
+        return string.Equals(
+            candidateVersion.ToBaseDisplayString(),
+            ignoredBetaBaseVersionText.Trim(),
+            StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsBetaRelease(GitHubReleaseResponse release, AppReleaseVersion version)
@@ -326,6 +343,8 @@ internal sealed class ApplicationUpdateService : IDisposable
             IsPrerelease
                 ? $"{Major}.{Minor}.{Patch}-{Prerelease}"
                 : $"{Major}.{Minor}.{Patch}";
+
+        public string ToBaseDisplayString() => $"{Major}.{Minor}.{Patch}";
     }
 
     private static int ComparePrerelease(string left, string right)

@@ -392,6 +392,7 @@ public sealed class SettingsStore
             settings.EasterEggsEnabled = profile.EasterEggsEnabled ?? settings.EasterEggsEnabled;
             settings.MainWindowTrayTipShown = profile.MainWindowTrayTipShown ?? settings.MainWindowTrayTipShown;
             settings.IgnoredUpdateVersion = profile.IgnoredUpdateVersion ?? settings.IgnoredUpdateVersion;
+            settings.IgnoredBetaUpdateBaseVersion = profile.IgnoredBetaUpdateBaseVersion ?? settings.IgnoredBetaUpdateBaseVersion;
             settings.CustomTheme = profile.CustomTheme is null
                 ? settings.CustomTheme
                 : ToCustomThemeSettings(profile.CustomTheme);
@@ -534,6 +535,7 @@ public sealed class SettingsStore
             EasterEggsEnabled = settings.EasterEggsEnabled,
             MainWindowTrayTipShown = settings.MainWindowTrayTipShown,
             IgnoredUpdateVersion = settings.IgnoredUpdateVersion,
+            IgnoredBetaUpdateBaseVersion = settings.IgnoredBetaUpdateBaseVersion,
             CustomTheme = ToPersistedCustomThemeSettings(settings.CustomTheme),
             AvatarProfiles = [.. settings.AvatarProfiles.Select(ToPersistedAvatarProfile)],
             MovementRedeemSets = [.. settings.MovementRedeemSets.Select(ToPersistedMovementRedeemSet)],
@@ -934,6 +936,7 @@ public sealed class SettingsStore
             SharedRewardChoiceEnabled = rule.SharedRewardChoiceEnabled,
             SharedRewardChoiceNumber = rule.SharedRewardChoiceNumber,
             SharedRewardHelpText = rule.SharedRewardHelpText,
+            SupporterKeywordText = rule.SupporterKeywordText,
             ActiveFloatBoostRewardOwnerId = rule.ActiveFloatBoostRewardOwnerId,
             ActiveFloatBoostRewardEnabled = rule.ActiveFloatBoostRewardEnabled,
             ActiveFloatBoostRewardId = rule.ActiveFloatBoostRewardId,
@@ -1049,6 +1052,7 @@ public sealed class SettingsStore
             SharedRewardChoiceEnabled = rule.SharedRewardChoiceEnabled,
             SharedRewardChoiceNumber = Math.Max(0, rule.SharedRewardChoiceNumber),
             SharedRewardHelpText = rule.SharedRewardHelpText ?? string.Empty,
+            SupporterKeywordText = rule.SupporterKeywordText ?? string.Empty,
             ActiveFloatBoostRewardOwnerId = rule.ActiveFloatBoostRewardOwnerId == Guid.Empty
                 ? Guid.NewGuid()
                 : rule.ActiveFloatBoostRewardOwnerId,
@@ -2184,6 +2188,8 @@ public sealed class SettingsStore
 
         public string? IgnoredUpdateVersion { get; set; }
 
+        public string? IgnoredBetaUpdateBaseVersion { get; set; }
+
         public PersistedCustomThemeSettings? CustomTheme { get; set; }
 
         public List<PersistedAvatarTriggerProfile>? AvatarProfiles { get; set; }
@@ -2562,6 +2568,8 @@ public sealed class SettingsStore
         public int SharedRewardChoiceNumber { get; set; }
 
         public string? SharedRewardHelpText { get; set; }
+
+        public string? SupporterKeywordText { get; set; }
 
         public Guid ActiveFloatBoostRewardOwnerId { get; set; }
 
