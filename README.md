@@ -336,13 +336,17 @@ Programmers are welcome to study it, improve it properly, or make their own vers
 
 ## License
 
-Crystal Relay is licensed under the **MIT License** (`MIT`).
+Crystal Relay is released under the **MIT License** (`MIT`).
 
-You are welcome to use, study, share, modify, and distribute the source code under the MIT License.
+| Item | Details |
+| --- | --- |
+| License | MIT License |
+| Copyright | Copyright (c) 2026 ScreminPal |
+| Full text | [LICENSE](LICENSE) |
 
-See [LICENSE](LICENSE) for the full license text.
+You are welcome to use, study, share, modify, and distribute the source code under the MIT License, including in your own projects, as long as the copyright notice and license text are included.
 
-The license protects the source code. The Crystal Relay name, project identity, and branding should not be used to imply that an unofficial fork or modified build is the official Crystal Relay release.
+The license covers the source code. The Crystal Relay name, project identity, and branding should not be used to imply that an unofficial fork or modified build is the official Crystal Relay release.
 
 ## Versioning
 
