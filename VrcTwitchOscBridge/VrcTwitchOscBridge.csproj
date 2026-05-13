@@ -19,6 +19,11 @@
     <Product>Crystal Relay</Product>
     <Title>Crystal Relay - Twitch to OSC</Title>
     <Description>Crystal Relay Twitch to OSC bridge for VRChat</Description>
+    <Authors>ScreminPal</Authors>
+    <Company>ScreminPal</Company>
+    <Copyright>Copyright (c) 2026 ScreminPal</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/seluvia/crystal-relay-public</RepositoryUrl>
   </PropertyGroup>
   <ItemGroup>
     <Using Remove="System.Drawing" />
