@@ -33,6 +33,7 @@ public sealed class UniversalTriggerRule : ObservableObject
     private int userDelaySeconds;
     private bool executeRandomAction;
     private string importSource = string.Empty;
+    private string importIdentity = string.Empty;
     private ObservableCollection<UniversalTriggerAction> actions = [];
 
     public UniversalTriggerRule()
@@ -307,6 +308,12 @@ public sealed class UniversalTriggerRule : ObservableObject
     {
         get => importSource;
         set => SetProperty(ref importSource, value?.Trim() ?? string.Empty);
+    }
+
+    public string ImportIdentity
+    {
+        get => importIdentity;
+        set => SetProperty(ref importIdentity, value?.Trim() ?? string.Empty);
     }
 
     public ObservableCollection<UniversalTriggerAction> Actions

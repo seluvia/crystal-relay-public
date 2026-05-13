@@ -35,6 +35,7 @@
     <Page Include="ActiveFloatBoostRewardWindow.xaml" />
     <Page Include="BuiltInCommandsWindow.xaml" />
     <Page Include="BugReportWindow.xaml" />
+    <Page Include="SupporterOverrideTimeSettingsWindow.xaml" />
     <Page Include="ThemeBackgrounds\*.xaml" />
     <Page Include="TestModeWindow.xaml" />
     <Page Include="TwitchChatboxWindow.xaml" />
@@ -68,6 +69,7 @@
     <Compile Include="ComboBoxInteraction.cs" />
     <Compile Include="MainWindow.xaml.cs" />
     <Compile Include="PasswordBoxBinding.cs" />
+    <Compile Include="SupporterOverrideTimeSettingsWindow.xaml.cs" />
     <Compile Include="TestModeWindow.xaml.cs" />
     <Compile Include="TwitchChatboxWindow.xaml.cs" />
     <Compile Include="ThemedDialogWindow.xaml.cs" />
