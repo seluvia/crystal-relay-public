@@ -38,6 +38,9 @@ public sealed class TriggerRule : ObservableObject
     private int bitsSecondsPerAmountUnit = 1;
     private int subscriptionsAmountUnitsPerDuration = 1;
     private int subscriptionsSecondsPerAmountUnit = 1;
+    private int subscriptionTier1SecondsPerSub = 1;
+    private int subscriptionTier2SecondsPerSub = 1;
+    private int subscriptionTier3SecondsPerSub = 1;
     private bool maxAccumulatedDurationEnabled;
     private int maxAccumulatedDurationSeconds = 1800;
     private OscActionType actionType = OscActionType.AvatarParameter;
@@ -131,6 +134,7 @@ public sealed class TriggerRule : ObservableObject
                 RaisePropertyChanged(nameof(UsesForceMovementBitsTrigger));
                 RaisePropertyChanged(nameof(UsesSupporterAmountTimerSettings));
                 RaisePropertyChanged(nameof(DurationHelpText));
+                RaisePropertyChanged(nameof(SupporterTimeSettingsSummary));
                 RaisePropertyChanged(nameof(TriggerSummary));
             }
         }
@@ -301,6 +305,7 @@ public sealed class TriggerRule : ObservableObject
             {
                 RaisePropertyChanged(nameof(UsesAmountScaledDuration));
                 RaisePropertyChanged(nameof(DurationHelpText));
+                RaisePropertyChanged(nameof(SupporterTimeSettingsSummary));
                 RaisePropertyChanged(nameof(TriggerSummary));
             }
         }
@@ -341,6 +346,7 @@ public sealed class TriggerRule : ObservableObject
             if (SetProperty(ref bitsAmountUnitsPerDuration, normalizedValue))
             {
                 RaisePropertyChanged(nameof(TriggerSummary));
+                RaisePropertyChanged(nameof(SupporterTimeSettingsSummary));
             }
         }
     }
@@ -354,6 +360,7 @@ public sealed class TriggerRule : ObservableObject
             if (SetProperty(ref bitsSecondsPerAmountUnit, normalizedValue))
             {
                 RaisePropertyChanged(nameof(TriggerSummary));
+                RaisePropertyChanged(nameof(SupporterTimeSettingsSummary));
             }
         }
     }
@@ -367,6 +374,7 @@ public sealed class TriggerRule : ObservableObject
             if (SetProperty(ref subscriptionsAmountUnitsPerDuration, normalizedValue))
             {
                 RaisePropertyChanged(nameof(TriggerSummary));
+                RaisePropertyChanged(nameof(SupporterTimeSettingsSummary));
             }
         }
     }
@@ -380,6 +388,49 @@ public sealed class TriggerRule : ObservableObject
             if (SetProperty(ref subscriptionsSecondsPerAmountUnit, normalizedValue))
             {
                 RaisePropertyChanged(nameof(TriggerSummary));
+                RaisePropertyChanged(nameof(SupporterTimeSettingsSummary));
+            }
+        }
+    }
+
+    public int SubscriptionTier1SecondsPerSub
+    {
+        get => subscriptionTier1SecondsPerSub;
+        set
+        {
+            var normalizedValue = Math.Max(1, value);
+            if (SetProperty(ref subscriptionTier1SecondsPerSub, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(TriggerSummary));
+                RaisePropertyChanged(nameof(SupporterTimeSettingsSummary));
+            }
+        }
+    }
+
+    public int SubscriptionTier2SecondsPerSub
+    {
+        get => subscriptionTier2SecondsPerSub;
+        set
+        {
+            var normalizedValue = Math.Max(1, value);
+            if (SetProperty(ref subscriptionTier2SecondsPerSub, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(TriggerSummary));
+                RaisePropertyChanged(nameof(SupporterTimeSettingsSummary));
+            }
+        }
+    }
+
+    public int SubscriptionTier3SecondsPerSub
+    {
+        get => subscriptionTier3SecondsPerSub;
+        set
+        {
+            var normalizedValue = Math.Max(1, value);
+            if (SetProperty(ref subscriptionTier3SecondsPerSub, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(TriggerSummary));
+                RaisePropertyChanged(nameof(SupporterTimeSettingsSummary));
             }
         }
     }
@@ -387,7 +438,13 @@ public sealed class TriggerRule : ObservableObject
     public bool MaxAccumulatedDurationEnabled
     {
         get => maxAccumulatedDurationEnabled;
-        set => SetProperty(ref maxAccumulatedDurationEnabled, value);
+        set
+        {
+            if (SetProperty(ref maxAccumulatedDurationEnabled, value))
+            {
+                RaisePropertyChanged(nameof(SupporterTimeSettingsSummary));
+            }
+        }
     }
 
     public int MaxAccumulatedDurationSeconds
@@ -396,7 +453,10 @@ public sealed class TriggerRule : ObservableObject
         set
         {
             var normalizedValue = Math.Max(1, value);
-            SetProperty(ref maxAccumulatedDurationSeconds, normalizedValue);
+            if (SetProperty(ref maxAccumulatedDurationSeconds, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(SupporterTimeSettingsSummary));
+            }
         }
     }
 
@@ -994,6 +1054,31 @@ public sealed class TriggerRule : ObservableObject
 
     public bool UsesAmountScaledDuration => UsesAmountThreshold && AmountScaledDurationEnabled;
 
+    public string SupporterTimeSettingsSummary
+    {
+        get
+        {
+            if (!UsesAmountScaledDuration)
+            {
+                return T("Amount scaling is off. This override uses fixed Active Time.");
+            }
+
+            var bitsText = TF(
+                "Bits: {0}s per {1} bits",
+                Math.Max(1, BitsSecondsPerAmountUnit),
+                Math.Max(1, BitsAmountUnitsPerDuration));
+            var subsText = TF(
+                "Subs: T1 {0}s, T2 {1}s, T3 {2}s",
+                Math.Max(1, SubscriptionTier1SecondsPerSub),
+                Math.Max(1, SubscriptionTier2SecondsPerSub),
+                Math.Max(1, SubscriptionTier3SecondsPerSub));
+            var capText = MaxAccumulatedDurationEnabled
+                ? TF("Cap: {0}s max", Math.Max(1, MaxAccumulatedDurationSeconds))
+                : T("Cap: off");
+            return $"{bitsText} | {subsText} | {capText}";
+        }
+    }
+
     public bool UsesBitsOutfitSetTrigger => TriggerType == TwitchTriggerType.Bits && UsesSetTrigger;
 
     public bool UsesForceMovementBitsTrigger => TriggerType == TwitchTriggerType.Bits && UsesPlayerMovement;
@@ -1234,7 +1319,7 @@ public sealed class TriggerRule : ObservableObject
                     ? TF("Bits >= {0} ({1}s per {2} bits)", Math.Max(1, MinimumAmount), Math.Max(1, BitsSecondsPerAmountUnit), Math.Max(1, BitsAmountUnitsPerDuration))
                     : TF("Bits >= {0}", Math.Max(1, MinimumAmount)),
                 TwitchTriggerType.Subscriptions => AmountScaledDurationEnabled
-                    ? TF("Subs >= {0} ({1}s per {2} subs)", Math.Max(1, MinimumAmount), Math.Max(1, SubscriptionsSecondsPerAmountUnit), Math.Max(1, SubscriptionsAmountUnitsPerDuration))
+                    ? TF("Subs >= {0} (T1 {1}s, T2 {2}s, T3 {3}s)", Math.Max(1, MinimumAmount), Math.Max(1, SubscriptionTier1SecondsPerSub), Math.Max(1, SubscriptionTier2SecondsPerSub), Math.Max(1, SubscriptionTier3SecondsPerSub))
                     : TF("Subs >= {0}", Math.Max(1, MinimumAmount)),
                 _ => Name
             };

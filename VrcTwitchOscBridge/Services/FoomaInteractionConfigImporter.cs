@@ -14,6 +14,8 @@ public sealed record FoomaInteractionImportResult(
 
 public static class FoomaInteractionConfigImporter
 {
+    public const string ImportSourceName = "Fooma Twitch Interaction";
+
     public static async Task<FoomaInteractionImportResult> ImportAsync(
         string path,
         CancellationToken cancellationToken = default)
@@ -29,7 +31,8 @@ public static class FoomaInteractionConfigImporter
         {
             foreach (var commandProperty in commandsNode.EnumerateObject())
             {
-                if (TryCreateCommandTrigger(commandProperty.Name, commandProperty.Value, out var trigger))
+                var importIdentity = $"command:{NormalizeIdentityPart(commandProperty.Name)}";
+                if (TryCreateCommandTrigger(commandProperty.Name, commandProperty.Value, importIdentity, out var trigger))
                 {
                     triggers.Add(trigger);
                 }
@@ -49,6 +52,24 @@ public static class FoomaInteractionConfigImporter
         return new FoomaInteractionImportResult(fusedTriggers, fusedTriggers.Count, fusedCommandCount, skipped);
     }
 
+    public static bool IsFoomaImport(UniversalTriggerRule trigger) =>
+        string.Equals(trigger.ImportSource?.Trim() ?? string.Empty, ImportSourceName, StringComparison.OrdinalIgnoreCase);
+
+    public static string BuildLegacyImportIdentity(UniversalTriggerRule trigger)
+    {
+        if (!IsFoomaImport(trigger))
+        {
+            return string.Empty;
+        }
+
+        return string.Join(
+            "|",
+            NormalizeIdentityPart(trigger.ImportSource),
+            trigger.TriggerType,
+            BuildTriggerFilterIdentity(trigger),
+            BuildActionIdentity(trigger));
+    }
+
     private static int ImportArray(
         JsonElement root,
         string propertyName,
@@ -62,9 +83,11 @@ public static class FoomaInteractionConfigImporter
             return skipped;
         }
 
+        var index = 0;
         foreach (var item in node.EnumerateArray())
         {
-            if (createTrigger(item, out var trigger))
+            var importIdentity = BuildArrayImportIdentity(propertyName, item, index);
+            if (createTrigger(item, importIdentity, out var trigger))
             {
                 triggers.Add(trigger);
             }
@@ -72,6 +95,8 @@ public static class FoomaInteractionConfigImporter
             {
                 skipped++;
             }
+
+            index++;
         }
 
         return skipped;
@@ -80,42 +105,43 @@ public static class FoomaInteractionConfigImporter
     private static bool TryCreateCommandTrigger(
         string commandName,
         JsonElement node,
+        string importIdentity,
         out UniversalTriggerRule trigger)
     {
-        trigger = CreateBaseTrigger(node, commandName);
+        trigger = CreateBaseTrigger(node, commandName, importIdentity);
         trigger.TriggerType = UniversalTriggerType.ChatCommand;
         trigger.CommandText = commandName;
         trigger.ChatCommandPermission = ResolveCommandPermission(node);
         return IsImportReady(trigger);
     }
 
-    private static bool TryCreateRewardTrigger(JsonElement node, out UniversalTriggerRule trigger)
+    private static bool TryCreateRewardTrigger(JsonElement node, string importIdentity, out UniversalTriggerRule trigger)
     {
         var rewardName = GetString(node, "Name");
-        trigger = CreateBaseTrigger(node, string.IsNullOrWhiteSpace(rewardName) ? "Imported Reward" : rewardName);
+        trigger = CreateBaseTrigger(node, string.IsNullOrWhiteSpace(rewardName) ? "Imported Reward" : rewardName, importIdentity);
         trigger.TriggerType = UniversalTriggerType.ChannelPointReward;
         trigger.RewardId = GetString(node, "Id");
         trigger.RewardTitle = rewardName;
         return IsImportReady(trigger);
     }
 
-    private static bool TryCreateBitsTrigger(JsonElement node, out UniversalTriggerRule trigger)
+    private static bool TryCreateBitsTrigger(JsonElement node, string importIdentity, out UniversalTriggerRule trigger)
     {
         var minimumBits = Math.Max(1, GetInt(node, "MinBits", 1));
         var maximumBits = Math.Max(minimumBits, GetInt(node, "MaxBits", minimumBits));
-        trigger = CreateBaseTrigger(node, $"Bits {minimumBits}-{maximumBits}");
+        trigger = CreateBaseTrigger(node, $"Bits {minimumBits}-{maximumBits}", importIdentity);
         trigger.TriggerType = UniversalTriggerType.Bits;
         trigger.MinimumBits = minimumBits;
         trigger.MaximumBits = maximumBits;
         return IsImportReady(trigger);
     }
 
-    private static bool TryCreateSubscriptionTrigger(JsonElement node, out UniversalTriggerRule trigger)
+    private static bool TryCreateSubscriptionTrigger(JsonElement node, string importIdentity, out UniversalTriggerRule trigger)
     {
         var type = GetInt(node, "Type", 0);
         var tier = GetString(node, "Tiers");
         var label = type == 1 ? "Gift Subscription" : "Subscription";
-        trigger = CreateBaseTrigger(node, string.IsNullOrWhiteSpace(tier) ? label : $"{label} Tier {tier}");
+        trigger = CreateBaseTrigger(node, string.IsNullOrWhiteSpace(tier) ? label : $"{label} Tier {tier}", importIdentity);
         trigger.TriggerType = type == 1 ? UniversalTriggerType.GiftSubscription : UniversalTriggerType.Subscription;
         trigger.SubscriptionTier = tier;
         trigger.MinimumMonths = GetInt(node, "MinMonths", -1);
@@ -123,14 +149,14 @@ public static class FoomaInteractionConfigImporter
         return IsImportReady(trigger);
     }
 
-    private static bool TryCreateFollowTrigger(JsonElement node, out UniversalTriggerRule trigger)
+    private static bool TryCreateFollowTrigger(JsonElement node, string importIdentity, out UniversalTriggerRule trigger)
     {
-        trigger = CreateBaseTrigger(node, "Follow");
+        trigger = CreateBaseTrigger(node, "Follow", importIdentity);
         trigger.TriggerType = UniversalTriggerType.Follow;
         return IsImportReady(trigger);
     }
 
-    private static UniversalTriggerRule CreateBaseTrigger(JsonElement node, string name)
+    private static UniversalTriggerRule CreateBaseTrigger(JsonElement node, string name, string importIdentity)
     {
         return new UniversalTriggerRule
         {
@@ -139,7 +165,8 @@ public static class FoomaInteractionConfigImporter
             ExecuteRandomAction = GetBool(node, "ExecuteRandomAction", false),
             GlobalDelaySeconds = GetDelaySeconds(node, "GlobalDelay"),
             UserDelaySeconds = GetDelaySeconds(node, "UserDelay"),
-            ImportSource = "Fooma Twitch Interaction",
+            ImportSource = ImportSourceName,
+            ImportIdentity = importIdentity,
             Actions = new ObservableCollection<UniversalTriggerAction>(FlattenActions(node))
         };
     }
@@ -306,5 +333,66 @@ public static class FoomaInteractionConfigImporter
             : 0;
     }
 
-    private delegate bool TryCreateTrigger(JsonElement node, out UniversalTriggerRule trigger);
+    private static string BuildArrayImportIdentity(string propertyName, JsonElement node, int index)
+    {
+        var minimumBits = Math.Max(1, GetInt(node, "MinBits", 1));
+        var maximumBits = Math.Max(minimumBits, GetInt(node, "MaxBits", minimumBits));
+        return propertyName switch
+        {
+            "Rewards" => $"reward:{NormalizeIdentityPart(GetString(node, "Id"))}:{NormalizeIdentityPart(GetString(node, "Name"))}",
+            "Bits" => $"bits:{minimumBits}:{maximumBits}",
+            "Subscriptions" => $"subscription:{GetInt(node, "Type", 0)}:{NormalizeIdentityPart(GetString(node, "Tiers"))}:{GetInt(node, "MinMonths", -1)}:{GetInt(node, "MaxMonths", -1)}:{index}",
+            "Follows" => $"follow:{index}",
+            _ => $"{NormalizeIdentityPart(propertyName)}:{index}"
+        };
+    }
+
+    private static string BuildTriggerFilterIdentity(UniversalTriggerRule trigger)
+    {
+        return trigger.TriggerType switch
+        {
+            UniversalTriggerType.ChatCommand => ChatCommandUtility.Normalize(trigger.CommandText),
+            UniversalTriggerType.ChannelPointReward => string.Join(
+                ":",
+                NormalizeIdentityPart(trigger.RewardTitle),
+                ChatCommandUtility.Normalize(trigger.CommandText)),
+            UniversalTriggerType.Bits => $"{Math.Min(trigger.MinimumBits, trigger.MaximumBits)}:{Math.Max(trigger.MinimumBits, trigger.MaximumBits)}",
+            UniversalTriggerType.Subscription or UniversalTriggerType.GiftSubscription => string.Join(
+                ":",
+                NormalizeIdentityPart(trigger.SubscriptionTier),
+                Math.Min(trigger.MinimumMonths, trigger.MaximumMonths),
+                Math.Max(trigger.MinimumMonths, trigger.MaximumMonths)),
+            UniversalTriggerType.Follow => "follow",
+            _ => string.Empty
+        };
+    }
+
+    private static string BuildActionIdentity(UniversalTriggerRule trigger)
+    {
+        return string.Join(
+            ";",
+            trigger.Actions
+                .Where(action => !string.IsNullOrWhiteSpace(action.OscAddress)
+                    && !string.IsNullOrWhiteSpace(action.TargetValue)
+                    && (action.DurationSeconds <= 0 || !string.IsNullOrWhiteSpace(action.DefaultValue)))
+                .Select(BuildActionIdentity)
+                .OrderBy(action => action, StringComparer.Ordinal));
+    }
+
+    private static string BuildActionIdentity(UniversalTriggerAction action)
+    {
+        return string.Join(
+            ":",
+            NormalizeIdentityPart(action.OscAddress),
+            action.ValueKind,
+            NormalizeIdentityPart(action.TargetValue),
+            NormalizeIdentityPart(action.DefaultValue),
+            Math.Max(0, action.DurationSeconds).ToString("G17", CultureInfo.InvariantCulture),
+            action.AddToQueue,
+            NormalizeIdentityPart(action.ImportGroupKey));
+    }
+
+    private static string NormalizeIdentityPart(string? value) => (value ?? string.Empty).Trim().ToUpperInvariant();
+
+    private delegate bool TryCreateTrigger(JsonElement node, string importIdentity, out UniversalTriggerRule trigger);
 }

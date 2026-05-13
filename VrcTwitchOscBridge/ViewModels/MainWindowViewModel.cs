@@ -178,6 +178,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         nameof(TriggerRule.BitsSecondsPerAmountUnit),
         nameof(TriggerRule.SubscriptionsAmountUnitsPerDuration),
         nameof(TriggerRule.SubscriptionsSecondsPerAmountUnit),
+        nameof(TriggerRule.SubscriptionTier1SecondsPerSub),
+        nameof(TriggerRule.SubscriptionTier2SecondsPerSub),
+        nameof(TriggerRule.SubscriptionTier3SecondsPerSub),
         nameof(TriggerRule.MaxAccumulatedDurationEnabled),
         nameof(TriggerRule.MaxAccumulatedDurationSeconds),
         nameof(TriggerRule.ActionType),
@@ -861,6 +864,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         OpenSpecialRuleLockoutPickerCommand = new RelayCommand(OpenSpecialRuleLockoutPicker, CanOpenSpecialRuleLockoutPicker);
         OpenAvatarRouletPoolPickerCommand = new RelayCommand(OpenAvatarRouletPoolPicker, CanOpenAvatarRouletPoolPicker);
         OpenActiveFloatBoostRewardCommand = new RelayCommand(OpenActiveFloatBoostReward, CanOpenActiveFloatBoostReward);
+        OpenSupporterOverrideTimeSettingsCommand = new RelayCommand(OpenSupporterOverrideTimeSettings, CanOpenSupporterOverrideTimeSettings);
         AddSetTriggerActionCommand = new RelayCommand(AddSetTriggerAction, () => SelectedRule?.ActionType == OscActionType.SetTrigger);
         RemoveSelectedSetTriggerActionCommand = new RelayCommand(RemoveSelectedSetTriggerAction, () => SelectedRule?.ActionType == OscActionType.SetTrigger && SelectedSetTriggerAction is not null);
         CopySelectedAvatarParameterPathCommand = new RelayCommand(CopySelectedAvatarParameterPath, CanCopySelectedAvatarParameterPath);
@@ -1720,7 +1724,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 return "Redeems are paused right now. Crystal Relay is intentionally keeping managed Twitch redeems turned off until you resume.";
             }
 
-            return "Crystal Relay will create or link this Twitch redeem and keep it available in Test Mode or while live when the current avatar's OSC file supports this trigger.";
+            return T("Crystal Relay will create or link this Twitch redeem and keep it available in Test Mode or while live when the current avatar local OSC file has at least one matching avatar parameter action.");
         }
     }
 
@@ -2212,6 +2216,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 AddSetTriggerActionCommand.NotifyCanExecuteChanged();
                 RemoveSelectedSetTriggerActionCommand.NotifyCanExecuteChanged();
                 OpenActiveFloatBoostRewardCommand.NotifyCanExecuteChanged();
+                OpenSupporterOverrideTimeSettingsCommand.NotifyCanExecuteChanged();
                 RefreshAvatarParameterPathCommandStates();
                 RememberSelectedRuleForCurrentView(value);
                 RaisePropertyChanged(nameof(ChatCommandFallbackHelpText));
@@ -2855,6 +2860,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     public RelayCommand OpenAvatarRouletPoolPickerCommand { get; }
 
     public RelayCommand OpenActiveFloatBoostRewardCommand { get; }
+
+    public RelayCommand OpenSupporterOverrideTimeSettingsCommand { get; }
 
     public RelayCommand AddSetTriggerActionCommand { get; }
 
@@ -5652,21 +5659,22 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         try
         {
             var result = await FoomaInteractionConfigImporter.ImportAsync(dialog.FileName);
-            foreach (var trigger in result.Triggers)
-            {
-                Settings.UniversalTriggers.Add(trigger);
-            }
+            var upsertResult = UpsertImportedUniversalTriggers(result.Triggers);
 
             var additionalFusedCount = UniversalTriggerFusionService.FuseMatchingCommandFallbacks(Settings.UniversalTriggers);
-            SelectedUniversalTrigger = result.Triggers.FirstOrDefault(Settings.UniversalTriggers.Contains) ?? SelectedUniversalTrigger;
+            SelectedUniversalTrigger = upsertResult.FirstTouchedTrigger is not null
+                && Settings.UniversalTriggers.Contains(upsertResult.FirstTouchedTrigger)
+                    ? upsertResult.FirstTouchedTrigger
+                    : result.Triggers.FirstOrDefault(Settings.UniversalTriggers.Contains) ?? SelectedUniversalTrigger;
+            SelectedUniversalTriggerAction = SelectedUniversalTrigger?.Actions.FirstOrDefault();
             QueueSave(0);
             QueueBridgeRefresh();
             QueueManagedRewardSync(0);
             RefreshRuleCommandStates();
             var fusedCount = result.FusedCommandCount + additionalFusedCount;
             var summary = fusedCount > 0
-                ? TF("Imported {0} universal trigger(s). Fused {1} matching chat command(s) into rewards. Skipped {2} invalid item(s).", result.ImportedCount, fusedCount, result.SkippedCount)
-                : TF("Imported {0} universal trigger(s). Skipped {1} invalid item(s).", result.ImportedCount, result.SkippedCount);
+                ? TF("Imported {0} universal trigger(s): {1} added, {2} updated. Fused {3} matching chat command(s) into rewards. Skipped {4} invalid item(s).", result.ImportedCount, upsertResult.AddedCount, upsertResult.UpdatedCount, fusedCount, result.SkippedCount)
+                : TF("Imported {0} universal trigger(s): {1} added, {2} updated. Skipped {3} invalid item(s).", result.ImportedCount, upsertResult.AddedCount, upsertResult.UpdatedCount, result.SkippedCount);
             AppendLog(summary);
             ThemedDialogWindow.ShowOk(
                 Application.Current?.MainWindow,
@@ -5685,6 +5693,124 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 ex.Message,
                 T("OK"));
         }
+    }
+
+    private (int AddedCount, int UpdatedCount, UniversalTriggerRule? FirstTouchedTrigger) UpsertImportedUniversalTriggers(
+        IReadOnlyList<UniversalTriggerRule> importedTriggers)
+    {
+        var addedCount = 0;
+        var updatedCount = 0;
+        UniversalTriggerRule? firstTouchedTrigger = null;
+
+        foreach (var importedTrigger in importedTriggers)
+        {
+            var existingTrigger = FindExistingImportedUniversalTrigger(importedTrigger);
+            if (existingTrigger is null)
+            {
+                Settings.UniversalTriggers.Add(importedTrigger);
+                firstTouchedTrigger ??= importedTrigger;
+                addedCount++;
+                continue;
+            }
+
+            ApplyImportedUniversalTriggerUpdate(existingTrigger, importedTrigger);
+            firstTouchedTrigger ??= existingTrigger;
+            updatedCount++;
+        }
+
+        return (addedCount, updatedCount, firstTouchedTrigger);
+    }
+
+    private UniversalTriggerRule? FindExistingImportedUniversalTrigger(UniversalTriggerRule importedTrigger)
+    {
+        if (!FoomaInteractionConfigImporter.IsFoomaImport(importedTrigger))
+        {
+            return null;
+        }
+
+        var importIdentity = importedTrigger.ImportIdentity.Trim();
+        var legacyImportIdentity = FoomaInteractionConfigImporter.BuildLegacyImportIdentity(importedTrigger);
+
+        return Settings.UniversalTriggers.FirstOrDefault(existingTrigger =>
+        {
+            if (!FoomaInteractionConfigImporter.IsFoomaImport(existingTrigger))
+            {
+                return false;
+            }
+
+            if (!string.IsNullOrWhiteSpace(importIdentity)
+                && string.Equals(existingTrigger.ImportIdentity?.Trim() ?? string.Empty, importIdentity, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            return string.IsNullOrWhiteSpace(existingTrigger.ImportIdentity)
+                && !string.IsNullOrWhiteSpace(legacyImportIdentity)
+                && string.Equals(
+                    FoomaInteractionConfigImporter.BuildLegacyImportIdentity(existingTrigger),
+                    legacyImportIdentity,
+                    StringComparison.OrdinalIgnoreCase);
+        });
+    }
+
+    private static void ApplyImportedUniversalTriggerUpdate(
+        UniversalTriggerRule existingTrigger,
+        UniversalTriggerRule importedTrigger)
+    {
+        var preservedRewardId = existingTrigger.RewardId;
+        var preservedRewardDescription = existingTrigger.RewardDescription;
+        var preservedRewardCost = existingTrigger.RewardCost;
+        var preservedRewardCooldownSeconds = existingTrigger.RewardCooldownSeconds;
+        var preservedRewardSyncMode = existingTrigger.RewardSyncMode;
+        var preservedReadyColor = existingTrigger.ManagedRewardReadyColor;
+        var preservedCooldownColor = existingTrigger.ManagedRewardCooldownColor;
+        var preservedDeleteWhenInactive = existingTrigger.DeleteManagedRewardWhenInactive;
+
+        existingTrigger.IsEnabled = importedTrigger.IsEnabled;
+        existingTrigger.Name = importedTrigger.Name;
+        existingTrigger.TriggerType = importedTrigger.TriggerType;
+        existingTrigger.ChatCommandEnabled = importedTrigger.ChatCommandEnabled;
+        existingTrigger.CommandText = importedTrigger.CommandText;
+        existingTrigger.ChatCommandPermission = importedTrigger.ChatCommandPermission;
+        existingTrigger.RewardTitle = importedTrigger.RewardTitle;
+        existingTrigger.RewardId = string.IsNullOrWhiteSpace(preservedRewardId)
+            ? importedTrigger.RewardId
+            : preservedRewardId;
+        existingTrigger.RewardDescription = string.IsNullOrWhiteSpace(preservedRewardDescription)
+            ? importedTrigger.RewardDescription
+            : preservedRewardDescription;
+        existingTrigger.RewardCost = preservedRewardCost;
+        existingTrigger.RewardCooldownSeconds = preservedRewardCooldownSeconds;
+        existingTrigger.RewardSyncMode = preservedRewardSyncMode;
+        existingTrigger.ManagedRewardReadyColor = preservedReadyColor;
+        existingTrigger.ManagedRewardCooldownColor = preservedCooldownColor;
+        existingTrigger.DeleteManagedRewardWhenInactive = preservedDeleteWhenInactive;
+        existingTrigger.MinimumBits = importedTrigger.MinimumBits;
+        existingTrigger.MaximumBits = importedTrigger.MaximumBits;
+        existingTrigger.SubscriptionTier = importedTrigger.SubscriptionTier;
+        existingTrigger.MinimumMonths = importedTrigger.MinimumMonths;
+        existingTrigger.MaximumMonths = importedTrigger.MaximumMonths;
+        existingTrigger.GlobalDelaySeconds = importedTrigger.GlobalDelaySeconds;
+        existingTrigger.UserDelaySeconds = importedTrigger.UserDelaySeconds;
+        existingTrigger.ExecuteRandomAction = importedTrigger.ExecuteRandomAction;
+        existingTrigger.ImportSource = importedTrigger.ImportSource;
+        existingTrigger.ImportIdentity = importedTrigger.ImportIdentity;
+        existingTrigger.Actions = new ObservableCollection<UniversalTriggerAction>(
+            importedTrigger.Actions.Select(CloneUniversalTriggerAction));
+    }
+
+    private static UniversalTriggerAction CloneUniversalTriggerAction(UniversalTriggerAction action)
+    {
+        return new UniversalTriggerAction
+        {
+            OscAddress = action.OscAddress,
+            ValueKind = action.ValueKind,
+            TargetValue = action.TargetValue,
+            DefaultValue = action.DefaultValue,
+            DurationSeconds = action.DurationSeconds,
+            AddToQueue = action.AddToQueue,
+            ImportGroupKey = action.ImportGroupKey
+        };
     }
 
     private (string DestinationName, string WarningMessage) GetDeleteAllWarningContent()
@@ -7378,6 +7504,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 RefreshAvatarParameterOptions();
                 OpenAvatarRouletPoolPickerCommand.NotifyCanExecuteChanged();
                 OpenActiveFloatBoostRewardCommand.NotifyCanExecuteChanged();
+                OpenSupporterOverrideTimeSettingsCommand.NotifyCanExecuteChanged();
                 AddSetTriggerActionCommand.NotifyCanExecuteChanged();
                 RemoveSelectedSetTriggerActionCommand.NotifyCanExecuteChanged();
                 RefreshAvatarParameterPathCommandStates();
@@ -11587,10 +11714,22 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private static string? TryNormalizeUniversalAvatarParameterAddress(string oscAddress)
     {
         var normalizedAddress = oscAddress?.Trim() ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(normalizedAddress)
-            || !normalizedAddress.StartsWith("/avatar/parameters/", StringComparison.Ordinal))
+        if (string.IsNullOrWhiteSpace(normalizedAddress))
         {
             return null;
+        }
+
+        const string avatarParameterPrefix = "/avatar/parameters/";
+        const string avatarParameterPrefixWithoutSlash = "avatar/parameters/";
+        if (normalizedAddress.StartsWith("/", StringComparison.Ordinal)
+            && !normalizedAddress.StartsWith(avatarParameterPrefix, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        if (normalizedAddress.StartsWith(avatarParameterPrefixWithoutSlash, StringComparison.Ordinal))
+        {
+            normalizedAddress = $"/{normalizedAddress}";
         }
 
         try
@@ -14000,6 +14139,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         OpenSpecialRuleLockoutPickerCommand.NotifyCanExecuteChanged();
         OpenAvatarRouletPoolPickerCommand.NotifyCanExecuteChanged();
         OpenActiveFloatBoostRewardCommand.NotifyCanExecuteChanged();
+        OpenSupporterOverrideTimeSettingsCommand.NotifyCanExecuteChanged();
         EnableAllRulesCommand.NotifyCanExecuteChanged();
         DisableAllRulesCommand.NotifyCanExecuteChanged();
         DeleteAllRulesCommand.NotifyCanExecuteChanged();
@@ -14838,6 +14978,29 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
 
         var dialog = new ActiveFloatBoostRewardWindow(SelectedTheme, rule)
+        {
+            Owner = Application.Current?.MainWindow
+        };
+        dialog.ShowDialog();
+    }
+
+    private bool CanOpenSupporterOverrideTimeSettings(object? parameter = null)
+    {
+        var rule = parameter as TriggerRule ?? SelectedRule;
+        return IsViewingSupporterOverrides
+            && rule is not null
+            && rule.UsesSupporterAmountTimerSettings;
+    }
+
+    private void OpenSupporterOverrideTimeSettings(object? parameter)
+    {
+        var rule = parameter as TriggerRule ?? SelectedRule;
+        if (rule is null || !CanOpenSupporterOverrideTimeSettings(rule))
+        {
+            return;
+        }
+
+        var dialog = new SupporterOverrideTimeSettingsWindow(SelectedTheme, rule)
         {
             Owner = Application.Current?.MainWindow
         };

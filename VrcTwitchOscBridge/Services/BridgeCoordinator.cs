@@ -715,7 +715,10 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             string.Empty,
             [],
             false,
-            true);
+            true)
+        {
+            SubscriptionTier = normalizedTier
+        };
         var universalEvent = new UniversalIncomingEvent(
             isGiftSubscription ? UniversalTriggerType.GiftSubscription : UniversalTriggerType.Subscription,
             isGiftSubscription ? "Local Gifter" : "Local Subscriber",
@@ -1930,7 +1933,15 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             _ => OscParameterType.Int
         };
 
-        return vrChatOscClient.BuildAvatarParameterPacket(action.OscAddress, parameterType, rawValue);
+        var normalizedAddress = action.OscAddress?.Trim() ?? string.Empty;
+        if (normalizedAddress.StartsWith("avatar/parameters/", StringComparison.Ordinal))
+        {
+            normalizedAddress = $"/{normalizedAddress}";
+        }
+
+        return normalizedAddress.StartsWith("/", StringComparison.Ordinal)
+            ? vrChatOscClient.BuildPacketForAddress(normalizedAddress, parameterType, rawValue)
+            : vrChatOscClient.BuildAvatarParameterPacket(normalizedAddress, parameterType, rawValue);
     }
 
     private SemaphoreSlim GetUniversalTriggerQueueGate(Guid triggerId)
@@ -4057,13 +4068,35 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
     private static TimeSpan GetSupporterOverrideDuration(TriggerRuleSnapshot rule, BridgeIncomingEvent bridgeEvent)
     {
-        var (amountUnits, secondsPerUnit) = rule.TriggerType == TwitchTriggerType.Subscriptions
-            ? (rule.SubscriptionsAmountUnitsPerDuration, rule.SubscriptionsSecondsPerAmountUnit)
-            : (rule.BitsAmountUnitsPerDuration, rule.BitsSecondsPerAmountUnit);
         var seconds = rule.AmountScaledDurationEnabled
-            ? (double)Math.Max(1, bridgeEvent.Amount) / Math.Max(1, amountUnits) * Math.Max(1, secondsPerUnit)
+            ? GetSupporterOverrideAmountScaledDurationSeconds(rule, bridgeEvent)
             : Math.Max(1, rule.DurationSeconds);
         return TimeSpan.FromSeconds(Math.Min(Math.Max(1, seconds), TimeSpan.MaxValue.TotalSeconds));
+    }
+
+    private static double GetSupporterOverrideAmountScaledDurationSeconds(
+        TriggerRuleSnapshot rule,
+        BridgeIncomingEvent bridgeEvent)
+    {
+        var amount = Math.Max(1, bridgeEvent.Amount);
+        if (rule.TriggerType == TwitchTriggerType.Subscriptions)
+        {
+            return amount * GetSupporterOverrideSubscriptionSecondsPerSub(rule, bridgeEvent.SubscriptionTier);
+        }
+
+        return (double)amount / Math.Max(1, rule.BitsAmountUnitsPerDuration) * Math.Max(1, rule.BitsSecondsPerAmountUnit);
+    }
+
+    private static int GetSupporterOverrideSubscriptionSecondsPerSub(
+        TriggerRuleSnapshot rule,
+        string subscriptionTier)
+    {
+        return subscriptionTier?.Trim() switch
+        {
+            "2000" => Math.Max(1, rule.SubscriptionTier2SecondsPerSub),
+            "3000" => Math.Max(1, rule.SubscriptionTier3SecondsPerSub),
+            _ => Math.Max(1, rule.SubscriptionTier1SecondsPerSub)
+        };
     }
 
     private static TimeSpan ClampSupporterOverrideAddedDuration(
@@ -10410,7 +10443,10 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 string.Empty,
                 [],
                 false,
-                false),
+                false)
+            {
+                SubscriptionTier = GetString(eventData, "tier") ?? string.Empty
+            },
 
             "channel.subscription.message" => new BridgeIncomingEvent(
                 TwitchTriggerType.Subscriptions,
@@ -10425,7 +10461,10 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 string.Empty,
                 [],
                 false,
-                false),
+                false)
+            {
+                SubscriptionTier = GetString(eventData, "tier") ?? string.Empty
+            },
 
             "channel.subscription.gift" => new BridgeIncomingEvent(
                 TwitchTriggerType.Subscriptions,
@@ -10440,7 +10479,10 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 string.Empty,
                 [],
                 false,
-                false),
+                false)
+            {
+                SubscriptionTier = GetString(eventData, "tier") ?? string.Empty
+            },
 
             _ => null
         };
@@ -12301,10 +12343,11 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         {
             return rule.AmountScaledDurationEnabled
                 ? TF(
-                    "Subs {0}+: every {1} subs adds {2}",
+                    "Subs {0}+: T1 {1}, T2 {2}, T3 {3}",
                     threshold,
-                    Math.Max(1, rule.SubscriptionsAmountUnitsPerDuration),
-                    DescribeDuration(Math.Max(1, rule.SubscriptionsSecondsPerAmountUnit)))
+                    DescribeDuration(Math.Max(1, rule.SubscriptionTier1SecondsPerSub)),
+                    DescribeDuration(Math.Max(1, rule.SubscriptionTier2SecondsPerSub)),
+                    DescribeDuration(Math.Max(1, rule.SubscriptionTier3SecondsPerSub)))
                 : TF("Subs {0}+: {1}", threshold, DescribeDuration(rule.DurationSeconds));
         }
 
@@ -14241,6 +14284,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         public string RewardUserInput { get; init; } = string.Empty;
 
         public string MessageText { get; init; } = string.Empty;
+
+        public string SubscriptionTier { get; init; } = string.Empty;
     }
 
     private sealed record UniversalIncomingEvent(

@@ -1,0 +1,256 @@
+<Window x:Class="VrcTwitchOscBridge.SupporterOverrideTimeSettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:VrcTwitchOscBridge.Services"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="{loc:Translate 'Added Time Settings | Crystal Relay'}"
+        Icon="Assets/crystal-relay-icon.ico"
+        Width="660"
+        Height="620"
+        MinWidth="660"
+        MinHeight="620"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        FontFamily="{DynamicResource BodyFontFamily}"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        Background="{DynamicResource WindowBackgroundBrush}">
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="0"
+                            CornerRadius="0"
+                            GlassFrameThickness="0"
+                            ResizeBorderThickness="0"
+                            UseAeroCaptionButtons="False" />
+    </shell:WindowChrome.WindowChrome>
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+        <FontFamily x:Key="BodyFontFamily">Verdana</FontFamily>
+        <FontFamily x:Key="HeadingFontFamily">Constantia</FontFamily>
+        <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#130B1E" />
+        <SolidColorBrush x:Key="PanelBrush" Color="#CC1C132B" />
+        <SolidColorBrush x:Key="PanelSecondaryBrush" Color="#C8241739" />
+        <SolidColorBrush x:Key="BorderBrush" Color="#4B2B78" />
+        <SolidColorBrush x:Key="AccentBrush" Color="#A855F7" />
+        <SolidColorBrush x:Key="TextBrush" Color="#F5EEFF" />
+        <SolidColorBrush x:Key="MutedBrush" Color="#C9B8E3" />
+        <SolidColorBrush x:Key="InputBrush" Color="#B8271A3D" />
+        <SolidColorBrush x:Key="InputBorderBrush" Color="#5B3A8E" />
+        <SolidColorBrush x:Key="SecondaryButtonBrush" Color="#2C1C48" />
+        <SolidColorBrush x:Key="SecondaryButtonBorderBrush" Color="#6942A7" />
+        <SolidColorBrush x:Key="TitleBarBrush" Color="#20122F" />
+        <SolidColorBrush x:Key="TitleBarTextBrush" Color="#F5EEFF" />
+        <SolidColorBrush x:Key="TitleBarSubTextBrush" Color="#CBB9E5" />
+        <SolidColorBrush x:Key="TitleBarButtonBrush" Color="#00000000" />
+        <SolidColorBrush x:Key="TitleBarButtonHoverBrush" Color="#3B235B" />
+        <SolidColorBrush x:Key="TitleBarButtonPressedBrush" Color="#543183" />
+        <SolidColorBrush x:Key="TitleBarCloseHoverBrush" Color="#B43D62" />
+        <SolidColorBrush x:Key="TitleBarClosePressedBrush" Color="#8C2648" />
+
+        <Style TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{DynamicResource BodyFontFamily}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="Margin" Value="0,6,0,0" />
+            <Setter Property="Padding" Value="10,7" />
+            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style TargetType="CheckBox">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style x:Key="PrimaryButtonStyle" TargetType="Button">
+            <Setter Property="FontFamily" Value="{DynamicResource HeadingFontFamily}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="15,10" />
+            <Setter Property="MinWidth" Value="116" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style x:Key="TitleBarButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="40" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="{DynamicResource TitleBarButtonBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TitleBarTextBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+    </Window.Resources>
+
+    <Border Margin="1"
+            Background="{DynamicResource WindowBackgroundBrush}"
+            BorderBrush="{DynamicResource BorderBrush}"
+            BorderThickness="1">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="48" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0"
+                    Background="{DynamicResource TitleBarBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="0,0,0,1"
+                    MouseLeftButtonDown="OnTitleBarMouseLeftButtonDown">
+                <Grid Margin="12,0,8,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <DockPanel VerticalAlignment="Center">
+                        <Image Source="Assets/crystal-relay-icon.png"
+                               Width="18"
+                               Height="18"
+                               Margin="0,0,10,0"
+                               Stretch="Uniform" />
+                        <StackPanel Orientation="Horizontal"
+                                    VerticalAlignment="Center">
+                            <TextBlock Text="{loc:Translate 'Added Time Settings'}"
+                                       FontFamily="{DynamicResource HeadingFontFamily}"
+                                       FontSize="16"
+                                       FontWeight="Bold"
+                                       Foreground="{DynamicResource TitleBarTextBrush}" />
+                            <TextBlock Margin="8,0,0,0"
+                                       Text="{loc:Translate 'Crystal Relay'}"
+                                       Foreground="{DynamicResource TitleBarSubTextBrush}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DockPanel>
+                    <Button Grid.Column="1"
+                            Style="{StaticResource TitleBarButtonStyle}"
+                            Click="OnCloseButtonClicked">
+                        <TextBlock Text="&#x2715;"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TitleBarTextBrush}" />
+                    </Button>
+                </Grid>
+            </Border>
+
+            <Border Grid.Row="1"
+                    Margin="20"
+                    Padding="20"
+                    Background="{DynamicResource PanelBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="18">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock Text="{Binding DisplayTitle}"
+                                   FontFamily="{DynamicResource HeadingFontFamily}"
+                                   FontSize="20"
+                                   FontWeight="Bold"
+                                   TextWrapping="Wrap" />
+                        <TextBlock Margin="0,6,0,14"
+                                   Text="{loc:Translate 'Use this window to tune how Bits and subscription tiers add time to this paid override. Changes save right away.'}"
+                                   Foreground="{DynamicResource MutedBrush}"
+                                   TextWrapping="Wrap" />
+
+                        <CheckBox Content="{loc:Translate 'Scale active time by amount'}"
+                                  IsChecked="{Binding AmountScaledDurationEnabled, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBlock Margin="0,8,0,0"
+                                   Text="{Binding SupporterTimeSettingsSummary}"
+                                   Foreground="{DynamicResource MutedBrush}"
+                                   TextWrapping="Wrap" />
+
+                        <StackPanel Margin="0,16,0,0"
+                                    Visibility="{Binding AmountScaledDurationEnabled, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <Border Padding="14"
+                                    Background="{DynamicResource PanelSecondaryBrush}"
+                                    BorderBrush="{DynamicResource InputBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="14">
+                                <StackPanel>
+                                    <TextBlock Text="{loc:Translate 'Bits timer'}"
+                                               FontWeight="SemiBold" />
+                                    <UniformGrid Columns="2"
+                                                 Margin="0,8,0,0">
+                                        <StackPanel Margin="0,0,12,0">
+                                            <TextBlock Text="{loc:Translate 'Every this many bits'}"
+                                                       FontWeight="SemiBold" />
+                                            <TextBox Text="{Binding BitsAmountUnitsPerDuration, UpdateSourceTrigger=LostFocus}" />
+                                        </StackPanel>
+                                        <StackPanel Margin="12,0,0,0">
+                                            <TextBlock Text="{loc:Translate 'Adds this many seconds'}"
+                                                       FontWeight="SemiBold" />
+                                            <TextBox Text="{Binding BitsSecondsPerAmountUnit, UpdateSourceTrigger=LostFocus}" />
+                                        </StackPanel>
+                                    </UniformGrid>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Margin="0,14,0,0"
+                                    Padding="14"
+                                    Background="{DynamicResource PanelSecondaryBrush}"
+                                    BorderBrush="{DynamicResource InputBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="14">
+                                <StackPanel>
+                                    <TextBlock Text="{loc:Translate 'Subs timer'}"
+                                               FontWeight="SemiBold" />
+                                    <UniformGrid Columns="3"
+                                                 Margin="0,8,0,0">
+                                        <StackPanel Margin="0,0,10,0">
+                                            <TextBlock Text="{loc:Translate 'Tier 1 Seconds'}"
+                                                       FontWeight="SemiBold" />
+                                            <TextBox Text="{Binding SubscriptionTier1SecondsPerSub, UpdateSourceTrigger=LostFocus}" />
+                                        </StackPanel>
+                                        <StackPanel Margin="10,0,10,0">
+                                            <TextBlock Text="{loc:Translate 'Tier 2 Seconds'}"
+                                                       FontWeight="SemiBold" />
+                                            <TextBox Text="{Binding SubscriptionTier2SecondsPerSub, UpdateSourceTrigger=LostFocus}" />
+                                        </StackPanel>
+                                        <StackPanel Margin="10,0,0,0">
+                                            <TextBlock Text="{loc:Translate 'Tier 3 Seconds'}"
+                                                       FontWeight="SemiBold" />
+                                            <TextBox Text="{Binding SubscriptionTier3SecondsPerSub, UpdateSourceTrigger=LostFocus}" />
+                                        </StackPanel>
+                                    </UniformGrid>
+                                    <TextBlock Margin="0,8,0,0"
+                                               Text="{loc:Translate 'Gift subs multiply the selected tier seconds by the number of gifted subs. Unknown or blank Twitch tiers use Tier 1.'}"
+                                               Foreground="{DynamicResource MutedBrush}"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+
+                            <Border Margin="0,14,0,0"
+                                    Padding="14"
+                                    Background="{DynamicResource PanelSecondaryBrush}"
+                                    BorderBrush="{DynamicResource InputBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="14">
+                                <StackPanel>
+                                    <TextBlock Text="{loc:Translate 'Max Added Time'}"
+                                               FontWeight="SemiBold" />
+                                    <CheckBox Margin="0,8,0,0"
+                                              Content="{loc:Translate 'Limit total added time'}"
+                                              IsChecked="{Binding MaxAccumulatedDurationEnabled, UpdateSourceTrigger=PropertyChanged}" />
+                                    <StackPanel Margin="0,10,0,0"
+                                                Visibility="{Binding MaxAccumulatedDurationEnabled, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <TextBlock Text="{loc:Translate 'Maximum total time in seconds'}"
+                                                   FontWeight="SemiBold" />
+                                        <TextBox Text="{Binding MaxAccumulatedDurationSeconds, UpdateSourceTrigger=LostFocus}" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <Button Margin="0,18,0,0"
+                                Style="{StaticResource PrimaryButtonStyle}"
+                                HorizontalAlignment="Right"
+                                Content="{loc:Translate 'Close'}"
+                                Click="OnCloseButtonClicked" />
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

@@ -914,6 +914,9 @@ public sealed class SettingsStore
             BitsSecondsPerAmountUnit = rule.BitsSecondsPerAmountUnit,
             SubscriptionsAmountUnitsPerDuration = rule.SubscriptionsAmountUnitsPerDuration,
             SubscriptionsSecondsPerAmountUnit = rule.SubscriptionsSecondsPerAmountUnit,
+            SubscriptionTier1SecondsPerSub = rule.SubscriptionTier1SecondsPerSub,
+            SubscriptionTier2SecondsPerSub = rule.SubscriptionTier2SecondsPerSub,
+            SubscriptionTier3SecondsPerSub = rule.SubscriptionTier3SecondsPerSub,
             MaxAccumulatedDurationEnabled = rule.MaxAccumulatedDurationEnabled,
             MaxAccumulatedDurationSeconds = rule.MaxAccumulatedDurationSeconds,
             ActionType = rule.ActionType,
@@ -985,6 +988,10 @@ public sealed class SettingsStore
             ? string.Empty
             : (rule.ResetValue ?? string.Empty);
 
+        var migratedSubscriptionSecondsPerAmountUnit = rule.SubscriptionsSecondsPerAmountUnit <= 0
+            ? (rule.SecondsPerAmountUnit <= 0 ? 1 : rule.SecondsPerAmountUnit)
+            : rule.SubscriptionsSecondsPerAmountUnit;
+
         return new TriggerRule
         {
             Id = rule.Id == Guid.Empty ? Guid.NewGuid() : rule.Id,
@@ -1021,9 +1028,16 @@ public sealed class SettingsStore
             SubscriptionsAmountUnitsPerDuration = rule.SubscriptionsAmountUnitsPerDuration <= 0
                 ? (rule.AmountUnitsPerDuration <= 0 ? 1 : rule.AmountUnitsPerDuration)
                 : rule.SubscriptionsAmountUnitsPerDuration,
-            SubscriptionsSecondsPerAmountUnit = rule.SubscriptionsSecondsPerAmountUnit <= 0
-                ? (rule.SecondsPerAmountUnit <= 0 ? 1 : rule.SecondsPerAmountUnit)
-                : rule.SubscriptionsSecondsPerAmountUnit,
+            SubscriptionsSecondsPerAmountUnit = migratedSubscriptionSecondsPerAmountUnit,
+            SubscriptionTier1SecondsPerSub = rule.SubscriptionTier1SecondsPerSub <= 0
+                ? migratedSubscriptionSecondsPerAmountUnit
+                : rule.SubscriptionTier1SecondsPerSub,
+            SubscriptionTier2SecondsPerSub = rule.SubscriptionTier2SecondsPerSub <= 0
+                ? migratedSubscriptionSecondsPerAmountUnit
+                : rule.SubscriptionTier2SecondsPerSub,
+            SubscriptionTier3SecondsPerSub = rule.SubscriptionTier3SecondsPerSub <= 0
+                ? migratedSubscriptionSecondsPerAmountUnit
+                : rule.SubscriptionTier3SecondsPerSub,
             MaxAccumulatedDurationEnabled = rule.MaxAccumulatedDurationEnabled,
             MaxAccumulatedDurationSeconds = rule.MaxAccumulatedDurationSeconds <= 0
                 ? 1800
@@ -1123,6 +1137,7 @@ public sealed class SettingsStore
             UserDelaySeconds = rule.UserDelaySeconds,
             ExecuteRandomAction = rule.ExecuteRandomAction,
             ImportSource = rule.ImportSource,
+            ImportIdentity = rule.ImportIdentity,
             Actions = [.. rule.Actions.Select(ToPersistedUniversalTriggerAction)]
         };
     }
@@ -1175,6 +1190,7 @@ public sealed class SettingsStore
             UserDelaySeconds = Math.Max(0, rule.UserDelaySeconds),
             ExecuteRandomAction = rule.ExecuteRandomAction,
             ImportSource = rule.ImportSource ?? string.Empty,
+            ImportIdentity = rule.ImportIdentity ?? string.Empty,
             Actions = new ObservableCollection<UniversalTriggerAction>((rule.Actions ?? []).Select(ToUniversalTriggerAction))
         };
     }
@@ -2525,6 +2541,12 @@ public sealed class SettingsStore
 
         public int SubscriptionsSecondsPerAmountUnit { get; set; }
 
+        public int SubscriptionTier1SecondsPerSub { get; set; }
+
+        public int SubscriptionTier2SecondsPerSub { get; set; }
+
+        public int SubscriptionTier3SecondsPerSub { get; set; }
+
         public bool MaxAccumulatedDurationEnabled { get; set; }
 
         public int MaxAccumulatedDurationSeconds { get; set; }
@@ -2668,6 +2690,8 @@ public sealed class SettingsStore
         public bool ExecuteRandomAction { get; set; }
 
         public string? ImportSource { get; set; }
+
+        public string? ImportIdentity { get; set; }
 
         public List<PersistedUniversalTriggerAction>? Actions { get; set; }
     }

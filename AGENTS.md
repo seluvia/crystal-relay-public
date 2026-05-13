@@ -3,7 +3,7 @@
 ## Project Identity
 - Product name: `Crystal Relay`
 - Legacy source/project name may still appear as `VrcTwitchOscBridge`
-- Current source version: `v3.1.2`
+- Current source version: `v3.1.3`
 - Platform: Windows desktop app
 - Primary purpose: Twitch-to-OSC / OSCQuery control for VRChat
 - Public GitHub repo: `seluvia/crystal-relay-public`
@@ -135,6 +135,13 @@ Do not store runtime data in the repo.
 - Rollover rule is decimal-per-segment:
   - `1.0.9 -> 1.1.0`
   - `1.9.9 -> 2.0.0`
+- Before choosing a test-build version, check all three sources:
+  - `VrcTwitchOscBridge\VrcTwitchOscBridge.csproj` `<Version>`
+  - highest semantic version folder under `Releases`
+  - highest semantic version folder under `TestBuilds`
+- Sort version folders by semantic version, not by folder modified time. A freshly rebuilt older test package can have a newer timestamp.
+- If the current stable release version is the same as the latest test-build version, treat active development as the next patch version above stable unless the user explicitly asks to rebuild that exact existing test package.
+- If `AGENTS.md` disagrees with the project file or latest semantic test-build folder, trust the project file and version folders, then update `AGENTS.md` as part of the housekeeping.
 - Update version in `VrcTwitchOscBridge\VrcTwitchOscBridge.csproj` before release packaging.
 - Update `CHANGELOG.txt` for official releases.
 - Use `RELEASE-CHANGE-RECORD.txt` for in-progress release notes before finalizing `CHANGELOG.txt`.
@@ -303,8 +310,8 @@ Do not store runtime data in the repo.
 - Do not revert unrelated user changes.
 - Build after code changes that affect runtime behavior or XAML:
   `dotnet build "E:\!!!Program to work on\Proper Crystal Relay\VrcTwitchOscBridge\VrcTwitchOscBridge.csproj" --no-restore`
-- Refresh a test package after test-build changes:
-  `powershell -ExecutionPolicy Bypass -File "E:\!!!Program to work on\Proper Crystal Relay\Build-Crystal-Relay-Test.ps1" -Version 3.1.2`
+- Refresh a test package after test-build changes, using the active test version discovered from the Versioning Rules:
+  `powershell -ExecutionPolicy Bypass -File "E:\!!!Program to work on\Proper Crystal Relay\Build-Crystal-Relay-Test.ps1" -Version 3.1.3`
 - Update release packages only after the change is confirmed good.
 - If a temporary test tool is added, remove it before release unless explicitly requested.
 - Keep changelog wording user-facing and generic for hidden easter eggs.
