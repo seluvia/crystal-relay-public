@@ -36,6 +36,7 @@
     <Page Include="BuiltInCommandsWindow.xaml" />
     <Page Include="BugReportWindow.xaml" />
     <Page Include="ThemeBackgrounds\*.xaml" />
+    <Page Include="TestModeWindow.xaml" />
     <Page Include="TwitchChatboxWindow.xaml" />
     <Page Include="ThemedDialogWindow.xaml" />
     <Page Include="RuleLockoutPickerWindow.xaml" />
@@ -67,6 +68,7 @@
     <Compile Include="ComboBoxInteraction.cs" />
     <Compile Include="MainWindow.xaml.cs" />
     <Compile Include="PasswordBoxBinding.cs" />
+    <Compile Include="TestModeWindow.xaml.cs" />
     <Compile Include="TwitchChatboxWindow.xaml.cs" />
     <Compile Include="ThemedDialogWindow.xaml.cs" />
     <Compile Include="RuleLockoutPickerWindow.xaml.cs" />

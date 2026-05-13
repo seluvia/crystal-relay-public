@@ -52,6 +52,7 @@ public sealed class AppSettings : ObservableObject
     private int worldCommandCooldownSeconds = 30;
     private ChatCommandPermission worldCommandPermission = ChatCommandPermission.Everyone;
     private bool channelPointRewardTestModeEnabled;
+    private bool avatarChangeCooldownOnlyModeEnabled;
     private bool emergencyRedeemStopEnabled;
     private bool desktopModeInputLockEnabled;
     private bool easterEggsEnabled = true;
@@ -364,6 +365,12 @@ public sealed class AppSettings : ObservableObject
     {
         get => channelPointRewardTestModeEnabled;
         set => SetProperty(ref channelPointRewardTestModeEnabled, value);
+    }
+
+    public bool AvatarChangeCooldownOnlyModeEnabled
+    {
+        get => avatarChangeCooldownOnlyModeEnabled;
+        set => SetProperty(ref avatarChangeCooldownOnlyModeEnabled, value);
     }
 
     public bool EmergencyRedeemStopEnabled

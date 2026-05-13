@@ -387,6 +387,7 @@ public sealed class SettingsStore
                     ? profile.WorldCommandPermission.Value
                     : settings.WorldCommandPermission;
             settings.ChannelPointRewardTestModeEnabled = profile.ChannelPointRewardTestModeEnabled ?? settings.ChannelPointRewardTestModeEnabled;
+            settings.AvatarChangeCooldownOnlyModeEnabled = profile.AvatarChangeCooldownOnlyModeEnabled ?? settings.AvatarChangeCooldownOnlyModeEnabled;
             settings.EmergencyRedeemStopEnabled = profile.EmergencyRedeemStopEnabled ?? settings.EmergencyRedeemStopEnabled;
             settings.DesktopModeInputLockEnabled = profile.DesktopModeInputLockEnabled ?? settings.DesktopModeInputLockEnabled;
             settings.EasterEggsEnabled = profile.EasterEggsEnabled ?? settings.EasterEggsEnabled;
@@ -530,6 +531,7 @@ public sealed class SettingsStore
             WorldCommandCooldownSeconds = settings.WorldCommandCooldownSeconds,
             WorldCommandPermission = settings.WorldCommandPermission,
             ChannelPointRewardTestModeEnabled = settings.ChannelPointRewardTestModeEnabled,
+            AvatarChangeCooldownOnlyModeEnabled = settings.AvatarChangeCooldownOnlyModeEnabled,
             EmergencyRedeemStopEnabled = settings.EmergencyRedeemStopEnabled,
             DesktopModeInputLockEnabled = settings.DesktopModeInputLockEnabled,
             EasterEggsEnabled = settings.EasterEggsEnabled,
@@ -2177,6 +2179,8 @@ public sealed class SettingsStore
         public ChatCommandPermission? WorldCommandPermission { get; set; }
 
         public bool? ChannelPointRewardTestModeEnabled { get; set; }
+
+        public bool? AvatarChangeCooldownOnlyModeEnabled { get; set; }
 
         public bool? EmergencyRedeemStopEnabled { get; set; }
 
