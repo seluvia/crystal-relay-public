@@ -8,7 +8,7 @@
 
 [![Platform](https://img.shields.io/badge/platform-Windows-0078D4?style=for-the-badge)](#build-and-run-from-source)
 [![.NET](https://img.shields.io/badge/.NET-10-512BD4?style=for-the-badge)](#build-and-run-from-source)
-[![License](https://img.shields.io/badge/license-GPL--3.0--or--later-2E8B57?style=for-the-badge)](LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-2E8B57?style=for-the-badge)](LICENSE)
 [![Twitch](https://img.shields.io/badge/Twitch-EventSub%20%2B%20Helix-9146FF?style=for-the-badge)](#network-and-privacy-basics)
 [![VRChat](https://img.shields.io/badge/VRChat-OSC%20%2B%20OSCQuery-1DA1F2?style=for-the-badge)](#vrchat-and-osc)
 
@@ -336,9 +336,9 @@ Programmers are welcome to study it, improve it properly, or make their own vers
 
 ## License
 
-Crystal Relay is licensed under the **GNU General Public License v3.0 or later** (`GPL-3.0-or-later`).
+Crystal Relay is licensed under the **MIT License** (`MIT`).
 
-You are welcome to use, study, share, and modify the source code under the GPL. If you distribute a modified version, you must keep it under the same GPL terms and provide the corresponding source code.
+You are welcome to use, study, share, modify, and distribute the source code under the MIT License.
 
 See [LICENSE](LICENSE) for the full license text.
 
