@@ -3,6 +3,18 @@ Crystal Relay Changelog
 
 Newest updates appear first. This changelog focuses on the changes users will notice most.
 
+v3.1.3
+- Added Cash Payments in the Redeem Library for StreamElements tips, Streamlabs donations, and Ko-fi tips, including OSC actions, Set Trigger actions, Avatar Change, Avatar Roulette, and Avatar Scaling without creating Twitch rewards.
+- Added hosted Ko-fi relay support so streamers can paste a Crystal Relay webhook URL into Ko-fi without setting up Cloudflare Tunnel, ngrok, router ports, or a public local webhook URL.
+- Added a themed Test Mode simulator window for Bits, subs, gift subs, and cash payments so streamers can test matching rules without waiting for live events.
+- Added Bits + Subs Force Movement overrides, plus a themed added-time popup for configuring Bits ratios, sub tier seconds, gift-sub multiplication, and maximum added time caps per override.
+- Improved Universal Triggers so managed rewards ignore Avatar Sets but only show when the current VRChat avatar's LocalLow OSC data contains a matching `/avatar/parameters/...` action path.
+- Improved Fooma config import so matching imported triggers update in place instead of duplicating, while preserving existing Crystal Relay/Twitch reward links when safe.
+- Added the missing advanced range and VRChat scale-limit bypass controls to Cash Payment Avatar Scaling actions, matching the normal Avatar Scaling controls.
+- Polished Provider Connections, Test Mode, Built-In Commands, update prompts, Bot + Broadcaster settings, and Bits + Subs editor layouts so large setup sections stay more compact and themed.
+- Fixed Cash Payment restore-height decimal entry, direct OSC path handling for Universal Triggers, and beta update checks for full beta identities such as `3.1.3-beta4`.
+- Switched the root project license and repo metadata to MIT while keeping Crystal Relay branding guidance in the README.
+
 v3.1.3 beta 4
 - Added a themed Test Mode simulator window for Bits, subs, gift subs, and cash payments so streamers can test matching rules without waiting for live events.
 - Test simulations now run through the same local matching paths as real events, including Universal Triggers, Avatar Scaling, paid override checks, cooldowns, lockouts, OSC sends, and bot messages without calling Twitch APIs.
