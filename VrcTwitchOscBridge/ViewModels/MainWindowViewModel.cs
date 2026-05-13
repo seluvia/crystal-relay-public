@@ -102,6 +102,28 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private static readonly TimeSpan AboutProfileRefreshInterval = TimeSpan.FromMinutes(5);
     private static readonly Guid AvatarScaleMasterRewardOwnerId = new("c69a2537-6c74-450f-9c5a-b6d9f04a7d95");
     private static readonly Guid RewardFireSaleFundingRewardOwnerId = new("f31cdb57-052f-4dd4-96d3-1c2b044e2fd9");
+    private static readonly string[] IsoCurrencyCodeSeeds =
+    [
+        "USD", "EUR", "GBP", "CAD", "AUD", "NZD", "JPY", "CHF", "CNY", "HKD",
+        "AED", "AFN", "ALL", "AMD", "ANG", "AOA", "ARS", "AWG", "AZN", "BAM",
+        "BBD", "BDT", "BGN", "BHD", "BIF", "BMD", "BND", "BOB", "BOV", "BRL",
+        "BSD", "BTN", "BWP", "BYN", "BZD", "CDF", "CHE", "CHW", "CLF", "CLP",
+        "COP", "COU", "CRC", "CUC", "CUP", "CVE", "CZK", "DJF", "DKK", "DOP",
+        "DZD", "EGP", "ERN", "ETB", "FJD", "FKP", "GEL", "GHS", "GIP", "GMD",
+        "GNF", "GTQ", "GYD", "HNL", "HTG", "HUF", "IDR", "ILS", "INR", "IQD",
+        "IRR", "ISK", "JMD", "JOD", "KES", "KGS", "KHR", "KMF", "KPW", "KRW",
+        "KWD", "KYD", "KZT", "LAK", "LBP", "LKR", "LRD", "LSL", "LYD", "MAD",
+        "MDL", "MGA", "MKD", "MMK", "MNT", "MOP", "MRU", "MUR", "MVR", "MWK",
+        "MXN", "MXV", "MYR", "MZN", "NAD", "NGN", "NIO", "NOK", "NPR", "OMR",
+        "PAB", "PEN", "PGK", "PHP", "PKR", "PLN", "PYG", "QAR", "RON", "RSD",
+        "RUB", "RWF", "SAR", "SBD", "SCR", "SDG", "SEK", "SGD", "SHP", "SLE",
+        "SLL", "SOS", "SRD", "SSP", "STN", "SVC", "SYP", "SZL", "THB", "TJS",
+        "TMT", "TND", "TOP", "TRY", "TTD", "TWD", "TZS", "UAH", "UGX", "USN",
+        "UYI", "UYU", "UYW", "UZS", "VED", "VES", "VND", "VUV", "WST", "XAF",
+        "XAG", "XAU", "XBA", "XBB", "XBC", "XBD", "XCD", "XCG", "XDR", "XOF",
+        "XPD", "XPF", "XPT", "XSU", "XTS", "XUA", "XXX", "YER", "ZAR", "ZMW",
+        "ZWG"
+    ];
     private static readonly AvatarScaleTriggerType[] PrimaryAvatarScaleTriggerTypes =
     [
         AvatarScaleTriggerType.ChannelPointReward,
@@ -392,6 +414,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private SettingsSectionView activeSettingsSection = SettingsSectionView.Accounts;
     private RuleListView activeRuleListView = RuleListView.AvatarTriggers;
     private TwitchChatboxWindow? twitchChatboxWindow;
+    private TestModeWindow? testModeWindow;
     private bool isInitialized;
     private bool isRestoringAvatarParameterSelection;
     private bool isRestoringSetTriggerParameterSelection;
@@ -418,6 +441,16 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private CancellationTokenSource? rewardFireSaleExpirationCancellation;
     private CancellationTokenSource? rewardFireSaleFundingCooldownCancellation;
     private DateTimeOffset? rewardFireSaleFundingRewardCooldownUntil;
+    private int testModeBitsAmount = 100;
+    private string testModeBitsMessage = string.Empty;
+    private int testModeSubscriptionCount = 1;
+    private string testModeSubscriptionTier = "1000";
+    private bool testModeSubscriptionIsGift;
+    private CashPaymentProvider testModeCashProvider = CashPaymentProvider.StreamElements;
+    private decimal testModeCashAmount = 5m;
+    private string testModeCashCurrencyCode = "USD";
+    private string testModeCashMessage = string.Empty;
+    private string testModeSimulationStatusText = T("Choose a simulated event and Crystal Relay will run it through the same matching path as a real stream event.");
     private FileSystemWatcher? vrChatLocalOscWatcher;
     private readonly List<VrChatAvatarSummary> availableVrChatAvatars = [];
     private readonly Dictionary<string, string> availableVrChatAvatarNamesById = new(StringComparer.Ordinal);
@@ -464,6 +497,49 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private static string T(string sourceText) => LocalizationService.Translate(sourceText);
 
     private static string TF(string sourceFormat, params object[] args) => LocalizationService.Format(sourceFormat, args);
+
+    private static IReadOnlyList<string> BuildCashPaymentCurrencyCodeOptions()
+    {
+        var codes = new SortedSet<string>(StringComparer.Ordinal);
+
+        foreach (var code in IsoCurrencyCodeSeeds)
+        {
+            AddCurrencyCode(code);
+        }
+
+        foreach (var culture in CultureInfo.GetCultures(CultureTypes.SpecificCultures))
+        {
+            try
+            {
+                AddCurrencyCode(new RegionInfo(culture.Name).ISOCurrencySymbol);
+            }
+            catch
+            {
+            }
+        }
+
+        var preferredCodes = new[] { "USD", "EUR", "GBP", "CAD", "AUD", "NZD", "JPY", "CHF", "CNY", "HKD" };
+        var orderedCodes = new List<string>();
+        foreach (var code in preferredCodes)
+        {
+            if (codes.Remove(code))
+            {
+                orderedCodes.Add(code);
+            }
+        }
+
+        orderedCodes.AddRange(codes);
+        return orderedCodes;
+
+        void AddCurrencyCode(string? code)
+        {
+            var normalizedCode = (code ?? string.Empty).Trim().ToUpperInvariant();
+            if (normalizedCode.Length == 3 && normalizedCode.All(char.IsLetter))
+            {
+                codes.Add(normalizedCode);
+            }
+        }
+    }
 
     // Constructor setup for option lists, status defaults, commands, and About-page profiles.
     public MainWindowViewModel()
@@ -545,6 +621,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             new CashPaymentProviderOption(CashPaymentProvider.Streamlabs, "Streamlabs"),
             new CashPaymentProviderOption(CashPaymentProvider.KoFi, "Ko-fi")
         ];
+        CashPaymentCurrencyCodeOptions = BuildCashPaymentCurrencyCodeOptions();
         CashPaymentActionKindOptions =
         [
             new CashPaymentActionKindOption(CashPaymentActionKind.TriggerAction, T("OSC / Avatar Action")),
@@ -705,11 +782,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RefreshTwitchRewardsCommand = new AsyncRelayCommand(RefreshTwitchRewardsAsync);
         UnlinkTwitchRewardCommand = new RelayCommand(UnlinkTwitchReward);
         TestSelectedRuleCommand = new AsyncRelayCommand(TestSelectedRuleAsync, () => SelectedRule is not null);
+        SimulateTestModeBitsCommand = new AsyncRelayCommand(SimulateTestModeBitsAsync);
+        SimulateTestModeSubscriptionCommand = new AsyncRelayCommand(SimulateTestModeSubscriptionAsync);
+        SimulateTestModeCashPaymentCommand = new AsyncRelayCommand(SimulateTestModeCashPaymentAsync);
         ShowSettingsTestCommand = new RelayCommand(ShowSettingsTestPopup);
         ShowHomeSectionCommand = new RelayCommand(() => SetActiveSection(SectionView.Home));
         ShowSettingsSectionCommand = new RelayCommand(() => SetActiveSection(SectionView.Settings));
         ShowActivitySectionCommand = new RelayCommand(() => SetActiveSection(SectionView.Activity));
         ShowAboutSectionCommand = new RelayCommand(() => SetActiveSection(SectionView.About));
+        OpenTestModeWindowCommand = new RelayCommand(OpenTestModeWindow);
         OpenTwitchChatboxCommand = new RelayCommand(OpenTwitchChatbox);
         OpenBuiltInCommandsCommand = new RelayCommand(OpenBuiltInCommands);
         ShowSettingsAccountsSectionCommand = new RelayCommand(() => SetActiveSettingsSection(SettingsSectionView.Accounts));
@@ -994,9 +1075,71 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public IReadOnlyList<CashPaymentProviderOption> CashPaymentProviderOptions { get; }
 
+    public IReadOnlyList<string> CashPaymentCurrencyCodeOptions { get; }
+
     public IReadOnlyList<CashPaymentActionKindOption> CashPaymentActionKindOptions { get; }
 
     public IReadOnlyList<AvatarScaleSubscriptionTierOption> AvatarScaleSubscriptionTierOptions { get; }
+
+    public int TestModeBitsAmount
+    {
+        get => testModeBitsAmount;
+        set => SetProperty(ref testModeBitsAmount, Math.Max(1, value));
+    }
+
+    public string TestModeBitsMessage
+    {
+        get => testModeBitsMessage;
+        set => SetProperty(ref testModeBitsMessage, value ?? string.Empty);
+    }
+
+    public int TestModeSubscriptionCount
+    {
+        get => testModeSubscriptionCount;
+        set => SetProperty(ref testModeSubscriptionCount, Math.Max(1, value));
+    }
+
+    public string TestModeSubscriptionTier
+    {
+        get => testModeSubscriptionTier;
+        set => SetProperty(ref testModeSubscriptionTier, value ?? string.Empty);
+    }
+
+    public bool TestModeSubscriptionIsGift
+    {
+        get => testModeSubscriptionIsGift;
+        set => SetProperty(ref testModeSubscriptionIsGift, value);
+    }
+
+    public CashPaymentProvider TestModeCashProvider
+    {
+        get => testModeCashProvider;
+        set => SetProperty(ref testModeCashProvider, Enum.IsDefined(value) ? value : CashPaymentProvider.StreamElements);
+    }
+
+    public decimal TestModeCashAmount
+    {
+        get => testModeCashAmount;
+        set => SetProperty(ref testModeCashAmount, Math.Max(0m, value));
+    }
+
+    public string TestModeCashCurrencyCode
+    {
+        get => testModeCashCurrencyCode;
+        set => SetProperty(ref testModeCashCurrencyCode, string.IsNullOrWhiteSpace(value) ? "USD" : value.Trim().ToUpperInvariant());
+    }
+
+    public string TestModeCashMessage
+    {
+        get => testModeCashMessage;
+        set => SetProperty(ref testModeCashMessage, value ?? string.Empty);
+    }
+
+    public string TestModeSimulationStatusText
+    {
+        get => testModeSimulationStatusText;
+        private set => SetProperty(ref testModeSimulationStatusText, value);
+    }
 
     public IReadOnlyList<ActionTypeOption> ActionTypes { get; }
 
@@ -1925,14 +2068,19 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
             if (IsViewingMasterAvatar)
             {
+                if (Settings.AvatarChangeCooldownOnlyModeEnabled)
+                {
+                    return T("Cooldown-only Avatar Change mode is enabled. Direct Avatar Change redeems do not use the Return Avatar card; they hide the avatar you are already wearing and use cooldown to control when other avatar-change rewards return.");
+                }
+
                 if (string.IsNullOrWhiteSpace(SelectedAvatarProfile.AvatarId))
                 {
-                    return T("Pick the return avatar first. Timed avatar-change redeems will switch back to it when they finish.");
+                    return T("Pick the Return Avatar first. Timed Avatar Change and Avatar Roulette redeems switch back to this exact VRChat avatar ID when they finish.");
                 }
 
                 return SelectedAvatarProfile.IsCurrentAvatarActive
-                    ? TF("Return avatar is {0}, and you are using it right now.", SelectedAvatarProfile.AvatarDisplayName)
-                    : TF("Return avatar is {0}. Avatar Change and Avatar Roulette redeems turn on while you are on this avatar, and timed switches return here when they finish.", SelectedAvatarProfile.AvatarDisplayName);
+                    ? TF("Return Avatar is {0}, and you are using it right now. Timed avatar switches will come back here when they finish.", SelectedAvatarProfile.AvatarDisplayName)
+                    : TF("Return Avatar is {0}. Avatar Change and Avatar Roulette redeems turn on while you are on this exact avatar, and timed switches return here when they finish.", SelectedAvatarProfile.AvatarDisplayName);
             }
 
             if (string.IsNullOrWhiteSpace(SelectedAvatarProfile.AvatarId))
@@ -1991,8 +2139,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         : T("Use Current VRChat Avatar");
 
     public string MasterAvatarReturnText => string.IsNullOrWhiteSpace(MasterAvatarProfile?.AvatarId)
-        ? T("Pick the return avatar first so timed avatar-change redeems know where to switch back. Avatar-change redeems set to 0 seconds will become the new return avatar.")
-        : TF("Timed avatar-change redeems will switch back to {0} when they finish. Avatar-change redeems set to 0 seconds will make their new avatar the return avatar instead.", MasterAvatarDisplayName);
+        ? T("Pick the Return Avatar first so timed Avatar Change and Avatar Roulette redeems know the exact VRChat avatar ID to switch back to. If this is wrong, timed avatar switches cannot return correctly.")
+        : TF("Timed Avatar Change and Avatar Roulette redeems switch back to {0} when they finish. In the normal return-avatar mode, direct Avatar Change redeems set to 0 seconds make their new avatar the Return Avatar instead.", MasterAvatarDisplayName);
 
     public string RewardTestOverrideButtonText => Settings.ChannelPointRewardTestModeEnabled
         ? T("Test Mode On")
@@ -2564,6 +2712,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public AsyncRelayCommand TestSelectedRuleCommand { get; }
 
+    public AsyncRelayCommand SimulateTestModeBitsCommand { get; }
+
+    public AsyncRelayCommand SimulateTestModeSubscriptionCommand { get; }
+
+    public AsyncRelayCommand SimulateTestModeCashPaymentCommand { get; }
+
     public RelayCommand ShowSettingsTestCommand { get; }
 
     public RelayCommand ShowHomeSectionCommand { get; }
@@ -2573,6 +2727,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     public RelayCommand ShowActivitySectionCommand { get; }
 
     public RelayCommand ShowAboutSectionCommand { get; }
+
+    public RelayCommand OpenTestModeWindowCommand { get; }
 
     public RelayCommand OpenTwitchChatboxCommand { get; }
 
@@ -2801,6 +2957,13 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             twitchChatboxWindow = null;
         }
 
+        if (testModeWindow is { IsLoaded: true })
+        {
+            testModeWindow.Closed -= OnTestModeWindowClosed;
+            testModeWindow.Close();
+            testModeWindow = null;
+        }
+
         saveDebounceCancellation?.Cancel();
         saveDebounceCancellation?.Dispose();
         bridgeRefreshCancellation?.Cancel();
@@ -2944,6 +3107,28 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         UpdateChatboxListenerStatus();
     }
 
+    private void OpenTestModeWindow()
+    {
+        if (testModeWindow is { IsLoaded: true })
+        {
+            if (testModeWindow.WindowState == WindowState.Minimized)
+            {
+                testModeWindow.WindowState = WindowState.Normal;
+            }
+
+            testModeWindow.Activate();
+            testModeWindow.Focus();
+            return;
+        }
+
+        testModeWindow = new TestModeWindow(this, SelectedTheme)
+        {
+            Owner = Application.Current?.MainWindow
+        };
+        testModeWindow.Closed += OnTestModeWindowClosed;
+        testModeWindow.Show();
+    }
+
     private void OpenBuiltInCommands()
     {
         var dialog = new BuiltInCommandsWindow(SelectedTheme, this)
@@ -2961,6 +3146,16 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
 
         twitchChatboxWindow = null;
+    }
+
+    private void OnTestModeWindowClosed(object? sender, EventArgs e)
+    {
+        if (testModeWindow is not null)
+        {
+            testModeWindow.Closed -= OnTestModeWindowClosed;
+        }
+
+        testModeWindow = null;
     }
 
     private void RaiseThemeStateChanged()
@@ -7270,6 +7465,16 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
 
         if (sender is AppSettings
+            && e.PropertyName == nameof(AppSettings.AvatarChangeCooldownOnlyModeEnabled))
+        {
+            RaiseRuleSelectionStateProperties();
+            RaisePropertyChanged(nameof(MasterAvatarReturnText));
+            RaisePropertyChanged(nameof(SelectedAvatarProfileStatusText));
+            QueueBridgeRefresh();
+            QueueManagedRewardSync(0);
+        }
+
+        if (sender is AppSettings
             && e.PropertyName == nameof(AppSettings.ChatTimestampFormat))
         {
             RefreshChatMessageTimestampDisplay();
@@ -7774,6 +7979,69 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         {
             BridgeStatus = "Rule test did not run.";
             AppendLog($"Could not test the selected rule: {ex.Message}");
+        }
+        finally
+        {
+            bridgeRefreshGate.Release();
+        }
+    }
+
+    private async Task SimulateTestModeBitsAsync()
+    {
+        await RunTestModeSimulationAsync(
+            () => bridgeCoordinator.SimulateBitsAsync(TestModeBitsAmount, TestModeBitsMessage, CancellationToken.None),
+            TF("Simulated {0:N0} Bits.", Math.Max(1, TestModeBitsAmount)),
+            T("Could not simulate Bits"));
+    }
+
+    private async Task SimulateTestModeSubscriptionAsync()
+    {
+        await RunTestModeSimulationAsync(
+            () => bridgeCoordinator.SimulateSubscriptionAsync(
+                TestModeSubscriptionCount,
+                TestModeSubscriptionTier,
+                TestModeSubscriptionIsGift,
+                CancellationToken.None),
+            TestModeSubscriptionIsGift
+                ? TF("Simulated {0:N0} gift sub(s).", Math.Max(1, TestModeSubscriptionCount))
+                : TF("Simulated {0:N0} subscription(s).", Math.Max(1, TestModeSubscriptionCount)),
+            T("Could not simulate subscriptions"));
+    }
+
+    private async Task SimulateTestModeCashPaymentAsync()
+    {
+        await RunTestModeSimulationAsync(
+            () => bridgeCoordinator.SimulateCashPaymentAsync(
+                TestModeCashProvider,
+                TestModeCashAmount,
+                TestModeCashCurrencyCode,
+                TestModeCashMessage,
+                CancellationToken.None),
+            TF("Simulated cash payment of {0:0.##} {1}.", Math.Max(0m, TestModeCashAmount), TestModeCashCurrencyCode),
+            T("Could not simulate cash payment"));
+    }
+
+    private async Task RunTestModeSimulationAsync(
+        Func<Task> simulateAsync,
+        string successStatus,
+        string failurePrefix)
+    {
+        await ReloadRuntimeConfigAsync();
+
+        await bridgeRefreshGate.WaitAsync();
+        try
+        {
+            await EnsureBridgeStateAsync(CancellationToken.None, allowOscOnly: true);
+            await simulateAsync();
+
+            BridgeStatus = successStatus;
+            TestModeSimulationStatusText = successStatus;
+        }
+        catch (Exception ex)
+        {
+            BridgeStatus = T("Test simulation did not run.");
+            TestModeSimulationStatusText = TF("{0}: {1}", failurePrefix, ex.Message);
+            AppendLog($"{failurePrefix}: {ex.Message}");
         }
         finally
         {
@@ -9404,6 +9672,23 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         IReadOnlyCollection<Guid> activeTimedRuleIds)
     {
         var ruleHasRuntimeReadyAction = HasRuntimeReadyAction(rule);
+        var isOnLocalCooldown = cooldownRuleIds.Contains(rule.Id);
+        var normalizedCurrentAvatarId = currentAvatarId?.Trim() ?? string.Empty;
+        var normalizedAvatarChangeTargetId = rule.AvatarChangeTargetId?.Trim() ?? string.Empty;
+        var isCooldownOnlyDirectAvatarChange = Settings.AvatarChangeCooldownOnlyModeEnabled
+            && profile?.IsMasterProfile == true
+            && rule.ActionType == OscActionType.AvatarChange;
+        var isCurrentAvatarChangeTarget = isCooldownOnlyDirectAvatarChange
+            && !string.IsNullOrWhiteSpace(normalizedCurrentAvatarId)
+            && !string.IsNullOrWhiteSpace(normalizedAvatarChangeTargetId)
+            && string.Equals(normalizedAvatarChangeTargetId, normalizedCurrentAvatarId, StringComparison.Ordinal);
+        var anyCooldownOnlyAvatarChangeOnCooldown = isCooldownOnlyDirectAvatarChange
+            && profile!.ChannelPointRules.Any(candidate =>
+                candidate.ActionType == OscActionType.AvatarChange
+                && cooldownRuleIds.Contains(candidate.Id));
+        var cooldownOnlyAvatarChangeVisible = isCooldownOnlyDirectAvatarChange
+            && !string.IsNullOrWhiteSpace(normalizedCurrentAvatarId)
+            && (isOnLocalCooldown || (!anyCooldownOnlyAvatarChangeOnCooldown && !isCurrentAvatarChangeTarget));
         var profileIsEffectivelyActive = AvatarRuleActivationPolicy.IsRuleActiveForCurrentAvatar(
             isGlobalOverride: profile is null,
             belongsToMasterAvatarProfile: profile?.IsMasterProfile ?? false,
@@ -9411,16 +9696,19 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             avatarChangeTargetId: rule.AvatarChangeTargetId,
             requiredAvatarId: profile?.AvatarId,
             currentAvatarId: currentAvatarId,
-            avatarChangeTransitionActive: avatarChangeTransitionActive);
+            avatarChangeTransitionActive: avatarChangeTransitionActive,
+            avatarChangeCooldownOnlyModeEnabled: Settings.AvatarChangeCooldownOnlyModeEnabled);
         var isActiveFloatBoostParent = IsActiveFloatBoostParentRule(rule) && activeTimedRuleIds.Contains(rule.Id);
+        var ruleIsVisibleForCurrentAvatar = isCooldownOnlyDirectAvatarChange
+            ? cooldownOnlyAvatarChangeVisible
+            : profileIsEffectivelyActive;
         var desiredEnabled = allowManagedRewardActivation
             && ruleHasRuntimeReadyAction
             && (profile?.IsEnabled ?? true)
             && rule.IsEnabled
             && !temporarilyDisabledRuleIds.Contains(rule.Id)
-            && profileIsEffectivelyActive
+            && ruleIsVisibleForCurrentAvatar
             && !isActiveFloatBoostParent;
-        var isOnLocalCooldown = cooldownRuleIds.Contains(rule.Id);
         var backgroundColor = isOnLocalCooldown
             ? ManagedRewardPresentation.NormalizeCooldownBackgroundColor(rule.ManagedRewardCooldownColor)
             : ManagedRewardPresentation.NormalizeReadyBackgroundColor(rule.ManagedRewardReadyColor);
@@ -9438,8 +9726,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             requireUserInput: false,
             desiredEnabled: desiredEnabled,
             isCooldownActive: isOnLocalCooldown,
-            deleteWhenInactive: rule.DeleteManagedRewardWhenInactive && !temporarilyDisabledRuleIds.Contains(rule.Id) && !isActiveFloatBoostParent,
-            protectFromCapReclaim: desiredEnabled || isOnLocalCooldown || temporarilyDisabledRuleIds.Contains(rule.Id) || isActiveFloatBoostParent,
+            deleteWhenInactive: rule.DeleteManagedRewardWhenInactive && !isCooldownOnlyDirectAvatarChange && !temporarilyDisabledRuleIds.Contains(rule.Id) && !isActiveFloatBoostParent,
+            protectFromCapReclaim: desiredEnabled || isOnLocalCooldown || temporarilyDisabledRuleIds.Contains(rule.Id) || isActiveFloatBoostParent || isCooldownOnlyDirectAvatarChange,
             applyRewardId: rewardId => rule.ChannelPointRewardId = rewardId);
     }
 

@@ -643,6 +643,182 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         await SendTestRuleAsync(rule.TriggerAction, cancellationToken);
     }
 
+    public async Task SimulateBitsAsync(int bitsAmount, string messageText, CancellationToken cancellationToken = default)
+    {
+        if (!IsOscActive)
+        {
+            throw new InvalidOperationException("OSC is not running yet, so Crystal Relay cannot simulate Bits to VRChat.");
+        }
+
+        var amount = Math.Max(1, bitsAmount);
+        var normalizedMessage = messageText?.Trim() ?? string.Empty;
+        var bridgeEvent = new BridgeIncomingEvent(
+            TwitchTriggerType.Bits,
+            "Local Test",
+            amount,
+            null,
+            null,
+            "Simulated Bits",
+            false,
+            string.Empty,
+            string.Empty,
+            string.Empty,
+            [],
+            false,
+            true)
+        {
+            MessageText = normalizedMessage
+        };
+        var universalEvent = new UniversalIncomingEvent(
+            UniversalTriggerType.Bits,
+            "Local Test",
+            string.Empty,
+            string.Empty,
+            amount,
+            null,
+            null,
+            normalizedMessage,
+            string.Empty,
+            0,
+            [],
+            false,
+            true);
+
+        WriteLog($"Simulating {amount:N0} Bits{(string.IsNullOrWhiteSpace(normalizedMessage) ? string.Empty : $" with message '{normalizedMessage}'")}.");
+        await HandleSimulatedTwitchEventAsync(bridgeEvent, universalEvent, cancellationToken);
+    }
+
+    public async Task SimulateSubscriptionAsync(
+        int subscriptionCount,
+        string subscriptionTier,
+        bool isGiftSubscription,
+        CancellationToken cancellationToken = default)
+    {
+        if (!IsOscActive)
+        {
+            throw new InvalidOperationException("OSC is not running yet, so Crystal Relay cannot simulate subscriptions to VRChat.");
+        }
+
+        var amount = Math.Max(1, subscriptionCount);
+        var normalizedTier = subscriptionTier?.Trim() ?? string.Empty;
+        var label = isGiftSubscription ? "Simulated Gift Sub" : "Simulated Subscription";
+        var bridgeEvent = new BridgeIncomingEvent(
+            TwitchTriggerType.Subscriptions,
+            isGiftSubscription ? "Local Gifter" : "Local Subscriber",
+            amount,
+            null,
+            null,
+            label,
+            false,
+            string.Empty,
+            string.Empty,
+            string.Empty,
+            [],
+            false,
+            true);
+        var universalEvent = new UniversalIncomingEvent(
+            isGiftSubscription ? UniversalTriggerType.GiftSubscription : UniversalTriggerType.Subscription,
+            isGiftSubscription ? "Local Gifter" : "Local Subscriber",
+            string.Empty,
+            string.Empty,
+            amount,
+            null,
+            null,
+            string.Empty,
+            normalizedTier,
+            0,
+            [],
+            false,
+            true);
+
+        WriteLog($"Simulating {amount:N0} {(isGiftSubscription ? "gift " : string.Empty)}subscription{(amount == 1 ? string.Empty : "s")}{(string.IsNullOrWhiteSpace(normalizedTier) ? string.Empty : $" at tier {normalizedTier}")}.");
+        await HandleSimulatedTwitchEventAsync(bridgeEvent, universalEvent, cancellationToken);
+    }
+
+    public async Task SimulateCashPaymentAsync(
+        CashPaymentProvider provider,
+        decimal amount,
+        string currencyCode,
+        string messageText,
+        CancellationToken cancellationToken = default)
+    {
+        if (!IsOscActive)
+        {
+            throw new InvalidOperationException("OSC is not running yet, so Crystal Relay cannot simulate a cash payment to VRChat.");
+        }
+
+        var normalizedAmount = Math.Max(0m, amount);
+        var normalizedCurrencyCode = string.IsNullOrWhiteSpace(currencyCode) ? "USD" : currencyCode.Trim().ToUpperInvariant();
+        var paymentEvent = new CashPaymentEvent(
+            Enum.IsDefined(provider) ? provider : CashPaymentProvider.StreamElements,
+            $"local-test:{Guid.NewGuid():N}",
+            "Local Supporter",
+            normalizedAmount,
+            normalizedCurrencyCode,
+            messageText?.Trim() ?? string.Empty,
+            DateTimeOffset.UtcNow);
+
+        WriteLog($"Simulating {DescribeCashPaymentProvider(paymentEvent.Provider)} cash payment of {paymentEvent.Amount:0.##} {paymentEvent.CurrencyCode}.");
+        await HandleCashPaymentEventAsync(paymentEvent, cancellationToken);
+    }
+
+    private async Task HandleSimulatedTwitchEventAsync(
+        BridgeIncomingEvent? bridgeEvent,
+        UniversalIncomingEvent? universalEvent,
+        CancellationToken cancellationToken)
+    {
+        var configuration = activeConfiguration
+            ?? throw new InvalidOperationException("Crystal Relay runtime is not ready for simulation yet.");
+        var ruleIndex = activeRuleIndex;
+
+        var avatarScaleHandled = false;
+        if (universalEvent is not null)
+        {
+            await ExecuteMatchingUniversalTriggersAsync(configuration.UniversalTriggers, universalEvent, cancellationToken);
+            avatarScaleHandled = StartMatchingAvatarScaleRules(configuration.AvatarScaleRules, universalEvent);
+        }
+
+        if (bridgeEvent is null)
+        {
+            return;
+        }
+
+        var currentAvatarId = GetCurrentVrChatAvatarId();
+        var temporarilyDisabledRuleIds = GetTemporarilyDisabledRuleIds();
+        var avatarChangeTransitionActive = IsAvatarChangeTransitionActive();
+        var matchingRules = SelectMatchingRules(
+            configuration,
+            ruleIndex,
+            bridgeEvent,
+            currentAvatarId,
+            avatarChangeTransitionActive,
+            temporarilyDisabledRuleIds);
+
+        if (AreRedeemsPaused())
+        {
+            LogRedeemsPaused();
+            return;
+        }
+
+        var fireSaleContributionHandled = TryBuildRewardFireSaleContribution(bridgeEvent, out var fireSaleContribution)
+            && RewardFireSaleContributionReceived?.Invoke(fireSaleContribution) == true;
+
+        if (matchingRules.Length == 0)
+        {
+            if (!avatarScaleHandled && !fireSaleContributionHandled)
+            {
+                WriteLog($"No configured rule matched the simulated {bridgeEvent.TriggerLabel} event.");
+            }
+
+            return;
+        }
+
+        foreach (var rule in matchingRules)
+        {
+            await ExecuteRuleAsync(rule, bridgeEvent, cancellationToken);
+        }
+    }
+
     public AvatarScaleRuntimeStatus GetAvatarScaleRuntimeStatus()
     {
         lock (stateGate)
@@ -1322,12 +1498,14 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
         var matchingRules = bridgeEvent.IsChatCommandTrigger
             ? SelectMatchingChatCommandRules(
+                configuration,
                 ruleIndex,
                 bridgeEvent,
                 currentAvatarId,
                 avatarChangeTransitionActive,
                 temporarilyDisabledRuleIds)
             : SelectMatchingRules(
+                configuration,
                 ruleIndex,
                 bridgeEvent,
                 currentAvatarId,
@@ -1588,6 +1766,12 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
         return IsAvatarScalingActiveForAvatarChangeBlock();
     }
+
+    private bool IsCooldownOnlyDirectAvatarChange(TriggerRuleSnapshot rule) =>
+        activeConfiguration?.AvatarChangeCooldownOnlyModeEnabled == true
+        && !rule.IsGlobalOverride
+        && rule.BelongsToMasterAvatarProfile
+        && rule.ActionType == OscActionType.AvatarChange;
 
     private bool IsAvatarScalingActiveForAvatarChangeBlock()
     {
@@ -4201,6 +4385,12 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             return;
         }
 
+        var suppressSharedReturnAvatarUpdate = IsCooldownOnlyDirectAvatarChange(rule);
+        if (suppressSharedReturnAvatarUpdate)
+        {
+            rule = rule with { DurationSeconds = 0 };
+        }
+
         var queuedLaneCount = 0;
         if (allowLaneQueue && TryEnqueueLaneAction(rule, bridgeEvent, isTest, out queuedLaneCount))
         {
@@ -4375,9 +4565,10 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             SetCurrentVrChatAvatar(
                 action.AvatarTargetId,
                 notify: true,
-                GetAvatarScaleAvatarChangeCarryoverMode(rule));
+            GetAvatarScaleAvatarChangeCarryoverMode(rule));
             if (rule.ActionType == OscActionType.AvatarChange
-                && rule.DurationSeconds <= 0)
+                && rule.DurationSeconds <= 0
+                && !suppressSharedReturnAvatarUpdate)
             {
                 SetSharedReturnAvatar(action.AvatarTargetId, action.AvatarTargetName, notify: true);
             }
@@ -7965,7 +8156,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
     private void UpdateActiveAvatarSwitchLockoutState(TriggerRuleSnapshot rule)
     {
-        if (rule.ActionType != OscActionType.AvatarRoulet)
+        var isCooldownOnlyDirectAvatarChange = IsCooldownOnlyDirectAvatarChange(rule);
+        if (rule.ActionType != OscActionType.AvatarRoulet && !isCooldownOnlyDirectAvatarChange)
         {
             ReleaseActiveAvatarSwitchLockoutState(rule.Id, logRelease: false);
             return;
@@ -7975,6 +8167,11 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         var masterAvatarSwitchRuleIds = activeConfiguration is null
             ? []
             : GetMasterAvatarSwitchRuleIds(activeConfiguration.Rules);
+        if (isCooldownOnlyDirectAvatarChange)
+        {
+            masterAvatarSwitchRuleIds = [.. masterAvatarSwitchRuleIds.Where(ruleId => ruleId != rule.Id)];
+        }
+
         if (cooldownSeconds <= 0 || masterAvatarSwitchRuleIds.Length == 0)
         {
             ReleaseActiveAvatarSwitchLockoutState(rule.Id, logRelease: false);
@@ -7998,7 +8195,9 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
         if (changed)
         {
-            WriteLog($"'{rule.Name}' kept avatar-switch redeems turned off during its cooldown.");
+            WriteLog(isCooldownOnlyDirectAvatarChange
+                ? $"'{rule.Name}' kept other avatar-change redeems turned off during its cooldown."
+                : $"'{rule.Name}' kept avatar-switch redeems turned off during its cooldown.");
             ManagedRewardAvailabilityChanged?.Invoke();
         }
     }
@@ -8586,6 +8785,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     }
 
     private TriggerRuleSnapshot[] SelectMatchingRules(
+        BridgeRuntimeConfiguration configuration,
         RuntimeRuleIndex ruleIndex,
         BridgeIncomingEvent bridgeEvent,
         string currentAvatarId,
@@ -8601,7 +8801,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 bridgeEvent.RewardUserInput,
                 currentAvatarId,
                 temporarilyDisabledRuleIds,
-                avatarChangeTransitionActive),
+                avatarChangeTransitionActive,
+                configuration.AvatarChangeCooldownOnlyModeEnabled),
             TwitchTriggerType.Bits => SelectBitsMatchingRules(
                 ruleIndex.GetGlobalOverrideRulesByTriggerType(bridgeEvent.TriggerType)
                     .Where(rule => rule.IsEnabled && !temporarilyDisabledRuleIds.Contains(rule.Id))
@@ -8834,7 +9035,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         string? rewardUserInput,
         string currentAvatarId,
         IReadOnlyCollection<Guid> temporarilyDisabledRuleIds,
-        bool avatarChangeTransitionActive)
+        bool avatarChangeTransitionActive,
+        bool avatarChangeCooldownOnlyModeEnabled)
     {
         var normalizedRewardId = rewardId?.Trim() ?? string.Empty;
         var normalizedRewardTitle = NormalizeRewardTitle(rewardTitle);
@@ -8850,7 +9052,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             normalizedRewardTitle,
             normalizedCurrentAvatarId,
             temporarilyDisabledRuleIds,
-            avatarChangeTransitionActive);
+            avatarChangeTransitionActive,
+            avatarChangeCooldownOnlyModeEnabled);
 
         if (activeCandidates.Length == 0)
         {
@@ -8876,6 +9079,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     }
 
     private static TriggerRuleSnapshot[] SelectMatchingChatCommandRules(
+        BridgeRuntimeConfiguration configuration,
         RuntimeRuleIndex ruleIndex,
         BridgeIncomingEvent bridgeEvent,
         string currentAvatarId,
@@ -8904,7 +9108,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                     rule.AvatarChangeTargetId,
                     rule.RequiredAvatarId,
                     normalizedCurrentAvatarId,
-                    avatarChangeTransitionActive))
+                    avatarChangeTransitionActive,
+                    configuration.AvatarChangeCooldownOnlyModeEnabled))
             {
                 continue;
             }
@@ -9320,7 +9525,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         string normalizedRewardTitle,
         string normalizedCurrentAvatarId,
         IReadOnlyCollection<Guid> temporarilyDisabledRuleIds,
-        bool avatarChangeTransitionActive)
+        bool avatarChangeTransitionActive,
+        bool avatarChangeCooldownOnlyModeEnabled)
     {
         var activeCandidates = new List<TriggerRuleSnapshot>();
         foreach (var rule in ruleIndex.GetChannelPointCandidates(normalizedRewardId, normalizedRewardTitle))
@@ -9337,7 +9543,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                     rule.AvatarChangeTargetId,
                     rule.RequiredAvatarId,
                     normalizedCurrentAvatarId,
-                    avatarChangeTransitionActive))
+                    avatarChangeTransitionActive,
+                    avatarChangeCooldownOnlyModeEnabled))
             {
                 continue;
             }
@@ -9396,7 +9603,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 rewardTitle,
                 normalizedCurrentAvatarId,
                 temporarilyDisabledRuleIds,
-                avatarChangeTransitionActive)
+                avatarChangeTransitionActive,
+                avatarChangeCooldownOnlyModeEnabled: false)
             .Where(IsSharedRewardChoiceRule)
             .OrderBy(rule => rule.SharedRewardChoiceNumber)
             .ThenBy(rule => rule.Name, StringComparer.CurrentCultureIgnoreCase)

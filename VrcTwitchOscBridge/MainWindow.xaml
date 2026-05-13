@@ -1761,7 +1761,8 @@
                     </Button>
                     <Button Margin="0,0,10,0"
                             Content="{Binding RewardTestOverrideButtonText}"
-                            Command="{Binding ToggleSelectedAvatarRewardTestOverrideCommand}">
+                            ToolTip="{Binding RewardTestOverrideHelpText}"
+                            Command="{Binding OpenTestModeWindowCommand}">
                         <Button.Style>
                             <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
                                 <Setter Property="Visibility" Value="Visible" />
@@ -2511,44 +2512,42 @@
                                                     BorderBrush="{DynamicResource InputBorderBrush}"
                                                     BorderThickness="1"
                                                     CornerRadius="12">
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="*" />
-                                                        <ColumnDefinition Width="Auto" />
-                                                    </Grid.ColumnDefinitions>
-                                                    <StackPanel Grid.Column="0">
-                                                        <TextBlock Text="{loc:Translate 'Built-in bot commands'}"
-                                                                   Style="{StaticResource HeadingTextStyle}"
-                                                                   FontSize="16"
-                                                                   FontWeight="SemiBold"
-                                                                   Foreground="{DynamicResource TextBrush}"
-                                                                   TextWrapping="Wrap" />
-                                                        <TextBlock Margin="0,6,0,0"
-                                                                   Text="{Binding BuiltInCommandsSummaryText}"
-                                                                   Foreground="{DynamicResource MutedBrush}"
-                                                                   TextWrapping="Wrap" />
-                                                        <TextBlock Margin="0,4,0,0"
-                                                                   Text="{Binding BuiltInCommandsWarningText}"
-                                                                   Foreground="{DynamicResource DangerBrush}"
-                                                                   TextWrapping="Wrap"
-                                                                   Visibility="{Binding HasBuiltInCommandsWarning, Converter={StaticResource BoolToVisibilityConverter}}" />
-                                                    </StackPanel>
-                                                    <Button Grid.Column="1"
-                                                            Margin="14,0,0,0"
-                                                            VerticalAlignment="Center"
-                                                            Style="{StaticResource SecondaryButtonStyle}"
-                                                            Content="{loc:Translate 'Commands...'}"
-                                                            Command="{Binding OpenBuiltInCommandsCommand}" />
-                                                </Grid>
-                                            </Border>
-
-                                            <Border Margin="0,14,0,0"
-                                                    Padding="14"
-                                                    Background="{DynamicResource PanelBrush}"
-                                                    BorderBrush="{DynamicResource InputBorderBrush}"
-                                                    BorderThickness="1"
-                                                    CornerRadius="12">
                                                 <StackPanel>
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <StackPanel Grid.Column="0">
+                                                            <TextBlock Text="{loc:Translate 'Built-in bot commands'}"
+                                                                       Style="{StaticResource HeadingTextStyle}"
+                                                                       FontSize="16"
+                                                                       FontWeight="SemiBold"
+                                                                       Foreground="{DynamicResource TextBrush}"
+                                                                       TextWrapping="Wrap" />
+                                                            <TextBlock Margin="0,6,0,0"
+                                                                       Text="{Binding BuiltInCommandsSummaryText}"
+                                                                       Foreground="{DynamicResource MutedBrush}"
+                                                                       TextWrapping="Wrap" />
+                                                            <TextBlock Margin="0,4,0,0"
+                                                                       Text="{Binding BuiltInCommandsWarningText}"
+                                                                       Foreground="{DynamicResource DangerBrush}"
+                                                                       TextWrapping="Wrap"
+                                                                       Visibility="{Binding HasBuiltInCommandsWarning, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                                        </StackPanel>
+                                                        <Button Grid.Column="1"
+                                                                Margin="14,0,0,0"
+                                                                VerticalAlignment="Center"
+                                                                Style="{StaticResource SecondaryButtonStyle}"
+                                                                Content="{loc:Translate 'Commands...'}"
+                                                                Command="{Binding OpenBuiltInCommandsCommand}" />
+                                                    </Grid>
+
+                                                    <Border Margin="0,14,0,12"
+                                                            Height="1"
+                                                            Background="{DynamicResource InputBorderBrush}"
+                                                            Opacity="0.75" />
+
                                                     <Grid>
                                                         <Grid.ColumnDefinitions>
                                                             <ColumnDefinition Width="*" />
@@ -4336,6 +4335,33 @@
                                     </Border>
                                 </StackPanel>
                             </Border>
+                            <Border Margin="0,18,0,0"
+                                    Padding="14"
+                                    CornerRadius="14"
+                                    Background="{DynamicResource NestedPanelBrush}"
+                                    BorderBrush="{DynamicResource HighlightBorderBrush}"
+                                    BorderThickness="1">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsViewingMasterAvatar}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <StackPanel>
+                                    <CheckBox IsChecked="{Binding Settings.AvatarChangeCooldownOnlyModeEnabled, UpdateSourceTrigger=PropertyChanged}">
+                                        <TextBlock Text="{loc:Translate 'Use cooldown-only avatar changes (no return avatar)'}"
+                                                   TextWrapping="Wrap" />
+                                    </CheckBox>
+                                    <TextBlock Margin="36,6,0,0"
+                                               Text="{loc:Translate 'When enabled, direct Avatar Change redeems use cooldown visibility instead of Active Time. Crystal Relay hides the avatar you are already wearing and keeps the used reward visible only while its cooldown is active.'}"
+                                               Foreground="{DynamicResource MutedBrush}"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
                             <ContentControl Margin="0,18,0,0"
                                             Content="{Binding SelectedAvatarProfile}">
                                 <ContentControl.Style>
@@ -4360,6 +4386,13 @@
                                             <DataTrigger Binding="{Binding SelectedAvatarProfile}" Value="{x:Null}">
                                                 <Setter Property="Visibility" Value="Collapsed" />
                                             </DataTrigger>
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding IsViewingMasterAvatar}" Value="True" />
+                                                    <Condition Binding="{Binding Settings.AvatarChangeCooldownOnlyModeEnabled}" Value="True" />
+                                                </MultiDataTrigger.Conditions>
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </MultiDataTrigger>
                                         </Style.Triggers>
                                     </Style>
                                 </ContentControl.Style>
@@ -8782,6 +8815,20 @@
 
                                                 <UniformGrid Columns="2" Margin="0,20,0,0">
                                                     <StackPanel Margin="0,0,14,0">
+                                                        <StackPanel.Style>
+                                                            <Style TargetType="StackPanel">
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                                <Style.Triggers>
+                                                                    <MultiDataTrigger>
+                                                                        <MultiDataTrigger.Conditions>
+                                                                            <Condition Binding="{Binding UsesAvatarChange}" Value="True" />
+                                                                            <Condition Binding="{Binding DataContext.Settings.AvatarChangeCooldownOnlyModeEnabled, RelativeSource={RelativeSource AncestorType=Window}}" Value="True" />
+                                                                        </MultiDataTrigger.Conditions>
+                                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                                    </MultiDataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </StackPanel.Style>
                                                         <DockPanel LastChildFill="False">
                                                             <TextBlock Text="{loc:Translate 'Active Time (seconds)'}"
                                                                        Foreground="{DynamicResource TextBrush}"

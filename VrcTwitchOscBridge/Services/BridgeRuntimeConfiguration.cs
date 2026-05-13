@@ -247,6 +247,7 @@ public sealed record BridgeRuntimeConfiguration(
     int WorldCommandCooldownSeconds,
     ChatCommandPermission WorldCommandPermission,
     bool ChannelPointRewardTestModeEnabled,
+    bool AvatarChangeCooldownOnlyModeEnabled,
     bool EmergencyRedeemStopEnabled,
     bool DesktopModeInputLockEnabled,
     AvatarScaleMasterRewardSnapshot AvatarScaleMasterReward,
@@ -359,6 +360,7 @@ public sealed record BridgeRuntimeConfiguration(
                 ? settings.WorldCommandPermission
                 : ChatCommandPermission.Everyone,
             settings.ChannelPointRewardTestModeEnabled,
+            settings.AvatarChangeCooldownOnlyModeEnabled,
             settings.EmergencyRedeemStopEnabled,
             settings.DesktopModeInputLockEnabled,
             ToAvatarScaleMasterRewardSnapshot(settings.AvatarScaleMasterReward),
@@ -1094,15 +1096,26 @@ internal static class AvatarRuleActivationPolicy
         string? avatarChangeTargetId,
         string? requiredAvatarId,
         string? currentAvatarId,
-        bool avatarChangeTransitionActive)
+        bool avatarChangeTransitionActive,
+        bool avatarChangeCooldownOnlyModeEnabled = false)
     {
         if (isGlobalOverride)
         {
             return true;
         }
 
-        var normalizedRequiredAvatarId = requiredAvatarId?.Trim() ?? string.Empty;
         var normalizedCurrentAvatarId = currentAvatarId?.Trim() ?? string.Empty;
+        if (avatarChangeCooldownOnlyModeEnabled
+            && belongsToMasterAvatarProfile
+            && actionType == OscActionType.AvatarChange)
+        {
+            var normalizedAvatarChangeTargetId = avatarChangeTargetId?.Trim() ?? string.Empty;
+            return !string.IsNullOrWhiteSpace(normalizedCurrentAvatarId)
+                && !string.IsNullOrWhiteSpace(normalizedAvatarChangeTargetId)
+                && !string.Equals(normalizedAvatarChangeTargetId, normalizedCurrentAvatarId, StringComparison.Ordinal);
+        }
+
+        var normalizedRequiredAvatarId = requiredAvatarId?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(normalizedRequiredAvatarId)
             || string.IsNullOrWhiteSpace(normalizedCurrentAvatarId)
             || !string.Equals(normalizedRequiredAvatarId, normalizedCurrentAvatarId, StringComparison.Ordinal))

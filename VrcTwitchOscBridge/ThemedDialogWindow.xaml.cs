@@ -101,7 +101,9 @@ public partial class ThemedDialogWindow : Window
     {
         var dialog = new ThemedDialogWindow(theme, title, message, primaryButtonText, secondaryButtonText, tertiaryButtonText)
         {
-            Owner = owner
+            Owner = owner,
+            Width = 560,
+            MinWidth = 560
         };
 
         return dialog.ShowDialog() == true
