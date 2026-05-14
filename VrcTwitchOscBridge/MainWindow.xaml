@@ -8168,7 +8168,7 @@
                                                                         MinHeight="24"
                                                                         Click="OnHelpButtonClicked"
                                                                         CommandParameter="Bits/Subs Amount Timer"
-                                                                        Tag="{loc:Translate 'When enabled, Crystal Relay ignores the fixed Active Time for this paid override and calculates the timer from separate Bits and Subs ratios. Bits use the bit count, normal subs count as 1, and gift subs use the gift total.'}" />
+                                                                        Tag="{loc:Translate 'When enabled, Crystal Relay starts this paid override with Active Time, then adds time from separate Bits and Subs ratios. Bits use the bit count, normal subs count as 1, and gift subs use the gift total. Later same-rule events extend the running timer by the amount only.'}" />
                                                             </DockPanel>
                                                             <CheckBox Margin="0,8,0,0"
                                                                       Content="{loc:Translate 'Scale active time by amount'}"
@@ -8176,7 +8176,7 @@
                                                             <TextBlock Margin="0,6,0,0"
                                                                        Foreground="{DynamicResource MutedBrush}"
                                                                        TextWrapping="Wrap"
-                                                                       Text="{loc:Translate 'When enabled, Crystal Relay ignores the fixed Active Time for this paid override and calculates the timer from separate Bits and Subs ratios. Bits use the bit count, normal subs count as 1, and gift subs use the gift total.'}" />
+                                                                       Text="{loc:Translate 'When enabled, Crystal Relay starts this paid override with Active Time, then adds time from separate Bits and Subs ratios. Bits use the bit count, normal subs count as 1, and gift subs use the gift total. Later same-rule events extend the running timer by the amount only.'}" />
                                                             <Button Margin="0,10,0,0"
                                                                     HorizontalAlignment="Left"
                                                                     Style="{StaticResource SecondaryButtonStyle}"
@@ -8811,21 +8811,11 @@
                                                                     CommandParameter="Active Time"
                                                                     Tag="{Binding DurationHelpText}" />
                                                         </DockPanel>
-                                                        <TextBox Text="{Binding DurationSeconds, UpdateSourceTrigger=PropertyChanged}">
-                                                            <TextBox.Style>
-                                                                <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
-                                                                    <Style.Triggers>
-                                                                        <DataTrigger Binding="{Binding UsesAmountScaledDuration}" Value="True">
-                                                                            <Setter Property="IsEnabled" Value="False" />
-                                                                        </DataTrigger>
-                                                                    </Style.Triggers>
-                                                                </Style>
-                                                            </TextBox.Style>
-                                                        </TextBox>
+                                                        <TextBox Text="{Binding DurationSeconds, UpdateSourceTrigger=PropertyChanged}" />
                                                         <TextBlock Margin="0,6,0,0"
                                                                    Foreground="{DynamicResource MutedBrush}"
                                                                    TextWrapping="Wrap"
-                                                                   Text="{loc:Translate 'Amount-scaled timer is enabled, so Active Time is calculated from the incoming bits/sub amount.'}"
+                                                                   Text="{loc:Translate 'Amount-scaled timer is enabled, so Active Time is the starting time before Bits/Subs added time extends the override.'}"
                                                                    Visibility="{Binding UsesAmountScaledDuration, Converter={StaticResource BoolToVisibilityConverter}}" />
                                                     </StackPanel>
                                                     <StackPanel Margin="14,0,0,0">

@@ -4066,11 +4066,21 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         _ => 0
     };
 
-    private static TimeSpan GetSupporterOverrideDuration(TriggerRuleSnapshot rule, BridgeIncomingEvent bridgeEvent)
+    private static TimeSpan GetSupporterOverrideDuration(
+        TriggerRuleSnapshot rule,
+        BridgeIncomingEvent bridgeEvent,
+        bool includeStartingDuration)
     {
-        var seconds = rule.AmountScaledDurationEnabled
-            ? GetSupporterOverrideAmountScaledDurationSeconds(rule, bridgeEvent)
-            : Math.Max(1, rule.DurationSeconds);
+        double seconds = Math.Max(1, rule.DurationSeconds);
+        if (rule.AmountScaledDurationEnabled)
+        {
+            seconds = GetSupporterOverrideAmountScaledDurationSeconds(rule, bridgeEvent);
+            if (includeStartingDuration)
+            {
+                seconds += Math.Max(0, rule.DurationSeconds);
+            }
+        }
+
         return TimeSpan.FromSeconds(Math.Min(Math.Max(1, seconds), TimeSpan.MaxValue.TotalSeconds));
     }
 
@@ -5262,7 +5272,12 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             existingRemainingDuration = GetCurrentSupporterOverrideRemainingDurationLocked(rule.Id, now);
         }
 
-        var requestedDuration = GetSupporterOverrideDuration(rule, bridgeEvent);
+        var hasSameRuleActive = activeState is not null
+            && activeState.ActiveUntil > now
+            && activeState.Rule.Id == rule.Id;
+        var hasSameRuleQueued = queuedIndex >= 0;
+        var includeStartingDuration = !hasSameRuleActive && !hasSameRuleQueued;
+        var requestedDuration = GetSupporterOverrideDuration(rule, bridgeEvent, includeStartingDuration);
         var triggerDuration = ClampSupporterOverrideAddedDuration(rule, requestedDuration, existingRemainingDuration);
         if (triggerDuration <= TimeSpan.Zero)
         {
@@ -12331,23 +12346,38 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         if (rule.TriggerType == TwitchTriggerType.Bits)
         {
             return rule.AmountScaledDurationEnabled
-                ? TF(
-                    "Bits {0}+: every {1} bits adds {2}",
-                    threshold,
-                    Math.Max(1, rule.BitsAmountUnitsPerDuration),
-                    DescribeDuration(Math.Max(1, rule.BitsSecondsPerAmountUnit)))
+                ? rule.DurationSeconds > 0
+                    ? TF(
+                        "Bits {0}+: start {1}, then every {2} bits adds {3}",
+                        threshold,
+                        DescribeDuration(rule.DurationSeconds),
+                        Math.Max(1, rule.BitsAmountUnitsPerDuration),
+                        DescribeDuration(Math.Max(1, rule.BitsSecondsPerAmountUnit)))
+                    : TF(
+                        "Bits {0}+: every {1} bits adds {2}",
+                        threshold,
+                        Math.Max(1, rule.BitsAmountUnitsPerDuration),
+                        DescribeDuration(Math.Max(1, rule.BitsSecondsPerAmountUnit)))
                 : TF("Bits {0}+: {1}", threshold, DescribeDuration(rule.DurationSeconds));
         }
 
         if (rule.TriggerType == TwitchTriggerType.Subscriptions)
         {
             return rule.AmountScaledDurationEnabled
-                ? TF(
-                    "Subs {0}+: T1 {1}, T2 {2}, T3 {3}",
-                    threshold,
-                    DescribeDuration(Math.Max(1, rule.SubscriptionTier1SecondsPerSub)),
-                    DescribeDuration(Math.Max(1, rule.SubscriptionTier2SecondsPerSub)),
-                    DescribeDuration(Math.Max(1, rule.SubscriptionTier3SecondsPerSub)))
+                ? rule.DurationSeconds > 0
+                    ? TF(
+                        "Subs {0}+: start {1}, then T1 {2}, T2 {3}, T3 {4}",
+                        threshold,
+                        DescribeDuration(rule.DurationSeconds),
+                        DescribeDuration(Math.Max(1, rule.SubscriptionTier1SecondsPerSub)),
+                        DescribeDuration(Math.Max(1, rule.SubscriptionTier2SecondsPerSub)),
+                        DescribeDuration(Math.Max(1, rule.SubscriptionTier3SecondsPerSub)))
+                    : TF(
+                        "Subs {0}+: T1 {1}, T2 {2}, T3 {3}",
+                        threshold,
+                        DescribeDuration(Math.Max(1, rule.SubscriptionTier1SecondsPerSub)),
+                        DescribeDuration(Math.Max(1, rule.SubscriptionTier2SecondsPerSub)),
+                        DescribeDuration(Math.Max(1, rule.SubscriptionTier3SecondsPerSub)))
                 : TF("Subs {0}+: {1}", threshold, DescribeDuration(rule.DurationSeconds));
         }
 
@@ -12384,7 +12414,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
     private static double GetBotMessageDurationSeconds(TriggerRuleSnapshot rule, BridgeIncomingEvent bridgeEvent) =>
         IsTimedSupporterOverrideRule(rule)
-            ? GetSupporterOverrideDuration(rule, bridgeEvent).TotalSeconds
+            ? GetSupporterOverrideDuration(rule, bridgeEvent, includeStartingDuration: true).TotalSeconds
             : rule.DurationSeconds;
 
     private void ApplyChatboxRelayConfiguration(BridgeRuntimeConfiguration configuration)
