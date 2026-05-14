@@ -771,6 +771,7 @@ public sealed class TriggerRule : ObservableObject
                 RaisePropertyChanged(nameof(UsesFloatTransition));
                 RaisePropertyChanged(nameof(UsesActiveFloatBoostReward));
                 RaisePropertyChanged(nameof(ActiveFloatBoostRewardStatusText));
+                RaisePropertyChanged(nameof(SupporterTimeSettingsSummary));
                 RaisePropertyChanged(nameof(TriggerSummary));
             }
         }
@@ -1075,7 +1076,8 @@ public sealed class TriggerRule : ObservableObject
             var capText = MaxAccumulatedDurationEnabled
                 ? TF("Cap: {0}s max", Math.Max(1, MaxAccumulatedDurationSeconds))
                 : T("Cap: off");
-            return $"{bitsText} | {subsText} | {capText}";
+            var startText = TF("Start: {0}s", Math.Max(0, DurationSeconds));
+            return $"{startText} | {bitsText} | {subsText} | {capText}";
         }
     }
 
@@ -1284,7 +1286,7 @@ public sealed class TriggerRule : ObservableObject
         : UsesAvatarRoulet
             ? T("Use whole seconds. Avatar Roulette is always a timed temporary switch, so 0 is not used here. Crystal Relay stays on the rolled avatar for this long, then returns to the shared return avatar.")
             : UsesAmountScaledDuration
-                ? T("Amount-scaled timer is enabled, so Active Time is calculated from the incoming bits/sub amount.")
+                ? T("Amount-scaled timer is enabled, so Active Time is the starting time. Bits and subs add time on top when the override first starts; later same-rule triggers extend the current timer by the amount only.")
                 : UsesAvatarChange
                     ? T("Use whole seconds. Set this to 0 if you want the avatar change to stay active and become the new shared return avatar. Any value above 0 makes it a temporary switch that returns to the shared return avatar when the timer ends.")
                     : T("Use whole seconds. Set this to 0 for an instant one-shot action, or use a higher value when you want Crystal Relay to hold the parameter active for a timed redeem.");

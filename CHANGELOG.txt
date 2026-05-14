@@ -3,6 +3,11 @@ Crystal Relay Changelog
 
 Newest updates appear first. This changelog focuses on the changes users will notice most.
 
+v3.1.4
+- Hotfix: Bits + Subs paid avatar-change overrides now keep Active Time editable when amount scaling is enabled.
+- Amount-scaled paid overrides now start with the configured Active Time, then add Bits/Subs time on top, while later same-rule triggers extend only by the amount-added time.
+- Max Added Time now clearly caps the total remaining paid override time, including the starting Active Time and any Bits/Subs extensions.
+
 v3.1.3
 - Added Cash Payments in the Redeem Library for StreamElements tips, Streamlabs donations, and Ko-fi tips, including OSC actions, Set Trigger actions, Avatar Change, Avatar Roulette, and Avatar Scaling without creating Twitch rewards.
 - Added hosted Ko-fi relay support so streamers can paste a Crystal Relay webhook URL into Ko-fi without setting up Cloudflare Tunnel, ngrok, router ports, or a public local webhook URL.
