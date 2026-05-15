@@ -32,8 +32,17 @@ public partial class App : Application
 
     public static int ActivateExistingWindowMessageId => activateExistingWindowMessageId;
 
-    protected override void OnStartup(StartupEventArgs e)
+    protected override async void OnStartup(StartupEventArgs e)
     {
+        if (SavedLoginStateRecoveryService.TryCreateHelperRequest(e.Args, out var recoveryHelperRequest))
+        {
+            ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            base.OnStartup(e);
+            await SavedLoginStateRecoveryService.RunRecoveryHelperAsync(recoveryHelperRequest);
+            Shutdown();
+            return;
+        }
+
         singleInstanceMutex = new Mutex(initiallyOwned: true, SingleInstanceMutexName, out var createdNew);
         ownsSingleInstanceMutex = createdNew;
 

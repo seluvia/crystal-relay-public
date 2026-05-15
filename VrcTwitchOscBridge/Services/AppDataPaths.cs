@@ -60,6 +60,21 @@ internal static class AppDataPaths
         }
     }
 
+    public static void MarkLegacyMigrationComplete()
+    {
+        try
+        {
+            EnsureCoreFolders();
+            File.WriteAllText(legacyMigrationMarkerPath, DateTime.UtcNow.ToString("O"));
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+    }
+
     private static void CopyDirectoryContentsIfMissing(string sourceFolder, string destinationFolder)
     {
         Directory.CreateDirectory(destinationFolder);

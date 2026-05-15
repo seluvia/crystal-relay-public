@@ -11,10 +11,10 @@
     <EnableDefaultPageItems>false</EnableDefaultPageItems>
     <ApplicationIcon>Assets\crystal-relay-icon.ico</ApplicationIcon>
     <UseWindowsForms>true</UseWindowsForms>
-    <Version>3.1.4</Version>
-    <AssemblyVersion>3.1.4.0</AssemblyVersion>
-    <FileVersion>3.1.4.0</FileVersion>
-    <InformationalVersion>3.1.4</InformationalVersion>
+    <Version>3.1.5</Version>
+    <AssemblyVersion>3.1.5.0</AssemblyVersion>
+    <FileVersion>3.1.5.0</FileVersion>
+    <InformationalVersion>3.1.5</InformationalVersion>
     <AssemblyName>CrystalRelayTwitchOsc</AssemblyName>
     <Product>Crystal Relay</Product>
     <Title>Crystal Relay - Twitch to OSC</Title>
@@ -118,6 +118,7 @@
     <Compile Include="Services\CashPaymentProviderService.cs" />
     <Compile Include="Services\ChatboxRelayModerationFilter.cs" />
     <Compile Include="Services\CrashLogService.cs" />
+    <Compile Include="Services\DevChatCommandParser.cs" />
     <Compile Include="Services\DesktopInputLockService.cs" />
     <Compile Include="Services\EmbeddedMediaCacheService.cs" />
     <Compile Include="Services\FoomaInteractionConfigImporter.cs" />
@@ -127,6 +128,7 @@
     <Compile Include="Services\OscRouterService.cs" />
     <Compile Include="Services\RuntimeConfig.cs" />
     <Compile Include="Services\RuntimeConfigStore.cs" />
+    <Compile Include="Services\SavedLoginStateRecoveryService.cs" />
     <Compile Include="Services\ShutdownRecoveryStateStore.cs" />
     <Compile Include="Services\SettingsStore.cs" />
     <Compile Include="Services\SensitiveTextSanitizer.cs" />

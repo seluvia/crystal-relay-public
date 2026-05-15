@@ -3,6 +3,11 @@ Crystal Relay Changelog
 
 Newest updates appear first. This changelog focuses on the changes users will notice most.
 
+v3.1.5 beta 1
+- Added Saved Login Repair for login/sign-out loops, backing up redeem setup and custom theme assets before clearing saved sessions and restoring redeems.
+- Added a guided repair prompt after repeated recoverable auth/session failures, plus a manual Repair and Restart action in Settings > Accounts.
+- Added developer testing chat commands for faster troubleshooting of avatar scaling, movement, and Fire Sale behavior.
+
 v3.1.4
 - Hotfix: Bits + Subs paid avatar-change overrides now keep Active Time editable when amount scaling is enabled.
 - Amount-scaled paid overrides now start with the configured Active Time, then add Bits/Subs time on top, while later same-rule triggers extend only by the amount-added time.

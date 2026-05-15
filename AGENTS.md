@@ -3,7 +3,7 @@
 ## Project Identity
 - Product name: `Crystal Relay`
 - Legacy source/project name may still appear as `VrcTwitchOscBridge`
-- Current source version: `v3.1.4`
+- Current source version: `v3.1.5`
 - Platform: Windows desktop app
 - Primary purpose: Twitch-to-OSC / OSCQuery control for VRChat
 - Public GitHub repo: `seluvia/crystal-relay-public`
@@ -311,7 +311,7 @@ Do not store runtime data in the repo.
 - Build after code changes that affect runtime behavior or XAML:
   `dotnet build "E:\!!!Program to work on\Proper Crystal Relay\VrcTwitchOscBridge\VrcTwitchOscBridge.csproj" --no-restore`
 - Refresh a test package after test-build changes, using the active test version discovered from the Versioning Rules:
-  `powershell -ExecutionPolicy Bypass -File "E:\!!!Program to work on\Proper Crystal Relay\Build-Crystal-Relay-Test.ps1" -Version 3.1.4`
+  `powershell -ExecutionPolicy Bypass -File "E:\!!!Program to work on\Proper Crystal Relay\Build-Crystal-Relay-Test.ps1" -Version 3.1.5`
 - Update release packages only after the change is confirmed good.
 - If a temporary test tool is added, remove it before release unless explicitly requested.
 - Keep changelog wording user-facing and generic for hidden easter eggs.

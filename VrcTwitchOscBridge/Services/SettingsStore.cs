@@ -29,6 +29,18 @@ public sealed class SettingsStore
     private const string StreamlabsAccessTokenCredential = "CrystalRelay:CashPayments:Streamlabs:AccessToken";
     private const string KoFiVerificationTokenCredential = "CrystalRelay:CashPayments:KoFi:VerificationToken";
     private const string KoFiRelayClientSecretCredential = "CrystalRelay:CashPayments:KoFi:RelayClientSecret";
+    internal static readonly string[] SavedSecretCredentialTargets =
+    [
+        BroadcasterAccessTokenCredential,
+        BroadcasterRefreshTokenCredential,
+        BotAccessTokenCredential,
+        BotRefreshTokenCredential,
+        VrChatAuthCookieCredential,
+        StreamElementsJwtCredential,
+        StreamlabsAccessTokenCredential,
+        KoFiVerificationTokenCredential,
+        KoFiRelayClientSecretCredential
+    ];
 
     private readonly string legacySettingsPath;
     private readonly string legacyPortableProfileFolderPath;

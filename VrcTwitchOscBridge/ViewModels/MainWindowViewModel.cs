@@ -85,6 +85,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private const int MaxChatMessageCount = 250;
     private const int TwitchCustomRewardPromptMaxLength = 200;
     private const int TwitchCustomRewardLimit = 50;
+    private const int SavedLoginRecoveryPromptFailureThreshold = 2;
     private static readonly TimeSpan ManagedRewardCreateBackoffWindow = TimeSpan.FromSeconds(45);
     private static readonly TimeSpan ThrottledRewardSyncLogWindow = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan AvatarScaleLimitRewardSyncDebounce = TimeSpan.FromMilliseconds(750);
@@ -433,7 +434,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private bool broadcasterManagedRewardsUnavailableForSession;
     private bool broadcasterReconnectRequired;
     private bool botReconnectRequired;
+    private bool savedLoginRecoveryPromptShownThisRun;
+    private bool isStartingSavedLoginRecovery;
     private string universalManagedRewardSyncStatusText = "Universal Twitch reward sync has not run yet.";
+    private int savedLoginRecoveryFailureCount;
     private CancellationTokenSource? saveDebounceCancellation;
     private CancellationTokenSource? bridgeRefreshCancellation;
     private CancellationTokenSource? managedRewardSyncCancellation;
@@ -777,6 +781,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         OpenRuntimeConfigFolderCommand = new RelayCommand(OpenRuntimeConfigFolder);
         OpenTwitchDeveloperConsoleCommand = new RelayCommand(OpenTwitchDeveloperConsole);
         OpenSaveFolderCommand = new RelayCommand(OpenSaveFolder);
+        RepairSavedLoginStateCommand = new AsyncRelayCommand(RepairSavedLoginStateAsync, () => !isStartingSavedLoginRecovery);
         OpenKoFiSupportCommand = new RelayCommand(OpenKoFiSupportPage);
         OpenKoFiWebhooksCommand = new RelayCommand(OpenKoFiWebhooksPage);
         OpenDiscordInviteCommand = new RelayCommand(OpenDiscordInvite);
@@ -907,6 +912,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         });
         bridgeCoordinator.AvatarScaleStatusChanged += () => RunOnUi(HandleAvatarScaleStatusChanged);
         bridgeCoordinator.RewardFireSaleContributionReceived += contribution => RunOnUi(() => HandleRewardFireSaleContribution(contribution));
+        bridgeCoordinator.DevFireSaleRequested += request => RunOnUi(() => HandleDevFireSaleRequest(request));
 
     }
 
@@ -2701,6 +2707,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public RelayCommand OpenSaveFolderCommand { get; }
 
+    public AsyncRelayCommand RepairSavedLoginStateCommand { get; }
+
     public RelayCommand OpenKoFiSupportCommand { get; }
 
     public RelayCommand OpenKoFiWebhooksCommand { get; }
@@ -2885,6 +2893,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     {
         var previousSessionNeedsRecovery = ShutdownRecoveryStateStore.BeginSession();
         ReplaceSettings(await settingsStore.LoadAsync());
+        var savedLoginRecoveryResult = SavedLoginStateRecoveryService.TryConsumeRecoveryResult();
         activeLanguageAtStartup = Settings.Language;
         ResetStartupSectionState();
         var resetStreamingTestModeOnLaunch = Settings.ChannelPointRewardTestModeEnabled;
@@ -2945,6 +2954,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
 
         AppendLog("Loaded saved settings.");
+        ReportSavedLoginRecoveryResult(savedLoginRecoveryResult);
         await InitializeVrChatAsync();
         await QueueRewardRefreshAsync();
         QueueManagedRewardSync(reason: ManagedRewardSyncReason.Startup);
@@ -3620,6 +3630,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 ResetVrChatLocalRuntimeTracking();
                 DisposeVrChatLocalOscWatcher();
                 AppendLog(T("Saved VRChat avatar session expired and was cleared."));
+                RecordSavedLoginRecoverySignal();
                 QueueSave();
             }
             else
@@ -4458,6 +4469,42 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RefreshRewardFireSaleStateProperties();
         QueueSave();
         return isFundingReward;
+    }
+
+    private bool HandleDevFireSaleRequest(DevFireSaleRequest request)
+    {
+        if (!isInitialized || isShuttingDown)
+        {
+            return false;
+        }
+
+        var discountPercent = Math.Clamp(request.DiscountPercent, 1, 100);
+        var durationSeconds = Math.Max(1, request.DurationSeconds);
+        var fireSale = Settings.RewardFireSale;
+
+        CancelAndDisposeQueuedCancellationSource(ref rewardFireSaleExpirationCancellation);
+        suppressRewardFireSaleChangeSideEffects = true;
+        try
+        {
+            fireSale.IsEnabled = true;
+            fireSale.SaleMode = RewardFireSaleMode.Temporary;
+            fireSale.IsSaleActive = true;
+            fireSale.ActiveDiscountPercent = discountPercent;
+            fireSale.ActiveTierGoalAmount = 0;
+            fireSale.ActiveUntilUtc = DateTimeOffset.UtcNow.AddSeconds(durationSeconds);
+        }
+        finally
+        {
+            suppressRewardFireSaleChangeSideEffects = false;
+        }
+
+        ScheduleRewardFireSaleExpirationIfNeeded();
+        RefreshRewardFireSaleStateProperties();
+        QueueSave(0);
+        QueueManagedRewardSync(0, ManagedRewardSyncReason.FireSaleChanged);
+        AppendLog(
+            $"Dev Fire Sale started by {request.UserDisplayName}: {discountPercent}% off for {durationSeconds:N0}s. Crystal Relay-owned reward prices will restore when it ends.");
+        return true;
     }
 
     private int ResolveRewardFireSaleContributionAmount(RewardFireSaleContribution contribution)
@@ -7950,6 +7997,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             RunOnUi(() =>
             {
                 AppendLog($"{ex.AccountRole} Twitch login needs reconnecting. Crystal Relay did not reuse the rejected saved refresh token.");
+                RecordSavedLoginRecoverySignal();
                 UpdateAccountStatuses();
 
                 if (oscFallbackStarted || bridgeCoordinator.IsOscActive)
@@ -8372,6 +8420,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         {
             broadcasterReconnectRequired = true;
             UpdateAccountStatuses();
+            RecordSavedLoginRecoverySignal();
             SetUniversalManagedRewardSyncStatus(status);
             RunOnUi(() => AppendThrottledLog(
                 $"{logKey}:reconnect",
@@ -9419,6 +9468,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             ResetVrChatLocalRuntimeTracking();
             DisposeVrChatLocalOscWatcher();
             AppendLog(T("Saved VRChat avatar session expired and was cleared."));
+            RecordSavedLoginRecoverySignal();
             QueueSave();
         }
     }
@@ -14282,6 +14332,142 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private void OpenSaveFolder()
     {
         OpenUri(AppDataFolderPath);
+    }
+
+    private async Task RepairSavedLoginStateAsync()
+    {
+        await StartSavedLoginRecoveryAsync(requireConfirmation: true);
+    }
+
+    private async Task StartSavedLoginRecoveryAsync(bool requireConfirmation)
+    {
+        if (isStartingSavedLoginRecovery)
+        {
+            return;
+        }
+
+        if (requireConfirmation)
+        {
+            var confirmed = ThemedDialogWindow.ShowYesNo(
+                Application.Current?.MainWindow,
+                SelectedTheme,
+                T("Repair Saved Login State"),
+                T("Crystal Relay will back up your redeem setup and custom theme assets, clear saved login/session files and stored tokens, restore the redeems, then restart. You will need to reconnect Twitch, VRChat, and payment providers."),
+                T("Start Repair"),
+                T("Cancel"));
+            if (!confirmed)
+            {
+                return;
+            }
+        }
+
+        isStartingSavedLoginRecovery = true;
+        RepairSavedLoginStateCommand.NotifyCanExecuteChanged();
+
+        try
+        {
+            await settingsStore.SaveAsync(Settings, CancellationToken.None);
+            var preparation = await SavedLoginStateRecoveryService.PrepareRecoveryBackupAsync(CancellationToken.None);
+            SavedLoginStateRecoveryService.StartRecoveryHelper(preparation);
+            AppendLog(T("Starting saved login repair. Crystal Relay will restart after the backup is restored."));
+            Application.Current?.MainWindow?.Close();
+        }
+        catch (Exception ex)
+        {
+            isStartingSavedLoginRecovery = false;
+            RepairSavedLoginStateCommand.NotifyCanExecuteChanged();
+            AppendLog(TF("Saved login repair could not start: {0}", ex.Message));
+            ThemedDialogWindow.ShowOk(
+                Application.Current?.MainWindow,
+                SelectedTheme,
+                T("Saved Login Repair"),
+                TF("Saved login repair could not start.\n\n{0}", ex.Message));
+        }
+    }
+
+    private void RecordSavedLoginRecoverySignal()
+    {
+        if (isStartingSavedLoginRecovery || savedLoginRecoveryPromptShownThisRun)
+        {
+            return;
+        }
+
+        savedLoginRecoveryFailureCount++;
+        if (savedLoginRecoveryFailureCount < SavedLoginRecoveryPromptFailureThreshold)
+        {
+            return;
+        }
+
+        savedLoginRecoveryPromptShownThisRun = true;
+        RunOnUi(() => _ = ShowSavedLoginRecoverySuggestionAsync());
+    }
+
+    private async Task ShowSavedLoginRecoverySuggestionAsync()
+    {
+        if (isStartingSavedLoginRecovery)
+        {
+            return;
+        }
+
+        var choice = ThemedDialogWindow.ShowThreeChoice(
+            Application.Current?.MainWindow,
+            SelectedTheme,
+            T("Repair Saved Login State"),
+            T("Crystal Relay noticed saved login/session failures more than once this run. The repair flow can back up your redeems, clear saved login state, restore your redeems, and restart Crystal Relay."),
+            T("Repair and Restart"),
+            T("Open Settings"),
+            T("Not Now"));
+
+        if (choice == ThemedDialogChoice.Primary)
+        {
+            await StartSavedLoginRecoveryAsync(requireConfirmation: false);
+            return;
+        }
+
+        if (choice == ThemedDialogChoice.Secondary)
+        {
+            SetActiveSection(SectionView.Settings);
+            SetActiveSettingsSection(SettingsSectionView.Accounts);
+        }
+    }
+
+    private void ReportSavedLoginRecoveryResult(SavedLoginRecoveryResult? result)
+    {
+        if (result is null)
+        {
+            return;
+        }
+
+        if (result.Succeeded)
+        {
+            AppendLog(T("Saved login repair restored your redeem setup and theme assets. Reconnect Twitch, VRChat, and payment providers before going live."));
+            _ = dispatcher.BeginInvoke(() =>
+                ThemedDialogWindow.ShowOk(
+                    Application.Current?.MainWindow,
+                    SelectedTheme,
+                    T("Saved Login Repair"),
+                    T("Saved login repair finished. Your redeem setup and custom theme assets were restored. Reconnect Twitch, VRChat, and payment providers before going live."),
+                    T("OK"),
+                    string.IsNullOrWhiteSpace(result.QuarantineFolderPath)
+                        ? null
+                        : TF("Safety backup: {0}", result.QuarantineFolderPath)),
+                DispatcherPriority.ContextIdle);
+            return;
+        }
+
+        var errorMessage = string.IsNullOrWhiteSpace(result.ErrorMessage)
+            ? T("Unknown error.")
+            : result.ErrorMessage;
+        AppendLog(TF("Saved login repair could not finish: {0}", errorMessage));
+        _ = dispatcher.BeginInvoke(() =>
+            ThemedDialogWindow.ShowOk(
+                Application.Current?.MainWindow,
+                SelectedTheme,
+                T("Saved Login Repair"),
+                TF("Saved login repair could not finish. Your safety backup is still available at:\n{0}", result.BackupFolderPath),
+                T("OK"),
+                errorMessage),
+            DispatcherPriority.ContextIdle);
     }
 
     private void OpenTwitchDeveloperConsole()

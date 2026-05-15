@@ -2677,6 +2677,43 @@
                                             </WrapPanel>
                                         </StackPanel>
                                     </Border>
+
+                                    <Border Margin="0,14,0,0" Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1" CornerRadius="18" Padding="16">
+                                        <StackPanel>
+                                            <TextBlock Text="{loc:Translate 'Saved Login Repair'}"
+                                                       Style="{StaticResource HeadingTextStyle}"
+                                                       FontSize="17"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource TextBrush}"
+                                                       TextWrapping="Wrap" />
+                                            <TextBlock Margin="0,8,0,0"
+                                                       Text="{loc:Translate 'Use this if Crystal Relay keeps signing out, rejects saved sessions, or gets stuck in login loops. It backs up your redeem setup and theme assets, clears saved login state, restores the redeems, and restarts Crystal Relay.'}"
+                                                       Foreground="{DynamicResource MutedBrush}"
+                                                       TextWrapping="Wrap" />
+                                            <Border Margin="0,10,0,0"
+                                                    Padding="10"
+                                                    Background="{DynamicResource PanelBrush}"
+                                                    BorderBrush="{DynamicResource DangerBrush}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="10">
+                                                <TextBlock Text="{loc:Translate 'This clears Twitch, VRChat, StreamElements, Streamlabs, and Ko-fi saved login tokens. Redeems and custom theme assets are restored from the backup.'}"
+                                                           Foreground="{DynamicResource TextBrush}"
+                                                           FontWeight="SemiBold"
+                                                           TextWrapping="Wrap" />
+                                            </Border>
+                                            <WrapPanel Margin="0,12,0,0">
+                                                <Button Content="{loc:Translate 'Repair and Restart'}"
+                                                        Command="{Binding RepairSavedLoginStateCommand}">
+                                                    <Button.Style>
+                                                        <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                                                            <Setter Property="Background" Value="{DynamicResource DangerBrush}" />
+                                                            <Setter Property="BorderBrush" Value="{DynamicResource DangerBrush}" />
+                                                        </Style>
+                                                    </Button.Style>
+                                                </Button>
+                                            </WrapPanel>
+                                        </StackPanel>
+                                    </Border>
                                 </StackPanel>
                             </Border>
                             </StackPanel>
