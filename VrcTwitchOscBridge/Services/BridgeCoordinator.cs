@@ -220,6 +220,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
     public event Func<RewardFireSaleContribution, bool>? RewardFireSaleContributionReceived;
 
+    public event Func<DevFireSaleRequest, bool>? DevFireSaleRequested;
+
     public bool IsRunning => runtimeTask is { IsCompleted: false };
 
     public bool IsOscActive => oscRouterService.IsRunning;
@@ -763,6 +765,140 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
         WriteLog($"Simulating {DescribeCashPaymentProvider(paymentEvent.Provider)} cash payment of {paymentEvent.Amount:0.##} {paymentEvent.CurrencyCode}.");
         await HandleCashPaymentEventAsync(paymentEvent, cancellationToken);
+    }
+
+    private async Task<bool> TryHandleDevChatCommandAsync(
+        BridgeIncomingEvent bridgeEvent,
+        CancellationToken cancellationToken)
+    {
+        if (!DevChatCommandParser.IsDevCommandMessage(bridgeEvent.ChatCommandText))
+        {
+            return false;
+        }
+
+        if (!DevChatCommandParser.IsAuthorizedUser(bridgeEvent.UserLogin, bridgeEvent.UserDisplayName))
+        {
+            return true;
+        }
+
+        if (!DevChatCommandParser.TryParse(bridgeEvent.ChatCommandText, out var command, out var diagnostic))
+        {
+            WriteLog($"Dev chat command skipped: {diagnostic}");
+            return true;
+        }
+
+        try
+        {
+            switch (command.Kind)
+            {
+                case DevChatCommandKind.RelativeAvatarScale:
+                    await ExecuteDevRelativeAvatarScaleAsync(
+                        command.RelativeHeightMeters,
+                        command.DurationSeconds,
+                        bridgeEvent.UserDisplayName,
+                        cancellationToken);
+                    break;
+
+                case DevChatCommandKind.Movement:
+                    await ExecuteDevMovementAsync(
+                        command.MovementDirection,
+                        command.DurationSeconds,
+                        bridgeEvent.UserDisplayName,
+                        cancellationToken);
+                    break;
+
+                case DevChatCommandKind.FireSale:
+                    RequestDevFireSale(
+                        command.DiscountPercent,
+                        command.DurationSeconds,
+                        bridgeEvent.UserDisplayName);
+                    break;
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            WriteLog($"Dev chat command '{command.CommandText}' failed: {ex.Message}");
+        }
+
+        return true;
+    }
+
+    private async Task ExecuteDevRelativeAvatarScaleAsync(
+        double relativeHeightMeters,
+        int durationSeconds,
+        string userDisplayName,
+        CancellationToken cancellationToken)
+    {
+        if (!IsOscActive)
+        {
+            WriteLog("Dev avatar scale command skipped because OSC is not running yet.");
+            return;
+        }
+
+        var previousHeight = await TryGetCurrentAvatarHeightAsync(cancellationToken) ?? 1.6;
+        var rule = new AvatarScaleRule
+        {
+            Name = relativeHeightMeters >= 0 ? "Dev Grow" : "Dev Shrink",
+            ScaleMode = AvatarScaleMode.RelativeHeight,
+            RelativeHeightMeters = relativeHeightMeters,
+            ActiveTimeSeconds = Math.Max(1, durationSeconds),
+            RestoreHeightMeters = previousHeight,
+            SmoothTransitionSeconds = 0
+        };
+        var snapshot = BridgeRuntimeConfiguration.CreateManualTestSnapshot(rule);
+
+        WriteLog(
+            $"{userDisplayName} ran dev avatar scale {relativeHeightMeters:+0.###;-0.###;0}m for {DescribeDuration(durationSeconds)}.");
+        await SendTestAvatarScaleRuleAsync(snapshot, cancellationToken);
+    }
+
+    private async Task ExecuteDevMovementAsync(
+        PlayerMovementDirection movementDirection,
+        int durationSeconds,
+        string userDisplayName,
+        CancellationToken cancellationToken)
+    {
+        if (!IsOscActive)
+        {
+            WriteLog("Dev movement command skipped because OSC is not running yet.");
+            return;
+        }
+
+        var rule = new TriggerRule
+        {
+            Name = $"Dev {DescribeMovementAction(movementDirection)}",
+            TriggerType = TwitchTriggerType.ChannelPoints,
+            ActionType = OscActionType.PlayerMovement,
+            MovementDirection = movementDirection,
+            DurationSeconds = Math.Max(1, durationSeconds)
+        };
+        var snapshot = BridgeRuntimeConfiguration.CreateManualTestSnapshot(
+            rule,
+            isGlobalOverride: true,
+            profile: null);
+
+        WriteLog($"{userDisplayName} ran dev movement '{DescribeMovementAction(movementDirection)}' for {DescribeDuration(durationSeconds)}.");
+        await SendTestRuleAsync(snapshot, cancellationToken);
+    }
+
+    private void RequestDevFireSale(
+        int discountPercent,
+        int durationSeconds,
+        string userDisplayName)
+    {
+        var request = new DevFireSaleRequest(
+            Math.Clamp(discountPercent, 1, 100),
+            Math.Max(1, durationSeconds),
+            string.IsNullOrWhiteSpace(userDisplayName) ? "Screminpal_" : userDisplayName.Trim());
+
+        if (DevFireSaleRequested?.Invoke(request) != true)
+        {
+            WriteLog("Dev Fire Sale command skipped because Crystal Relay's Fire Sale state is not ready.");
+        }
     }
 
     private async Task HandleSimulatedTwitchEventAsync(
@@ -1455,6 +1591,12 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         var configuration = activeConfiguration;
         var ruleIndex = activeRuleIndex;
         if (configuration is null)
+        {
+            return;
+        }
+
+        if (bridgeEvent is { IsChatCommandTrigger: true }
+            && await TryHandleDevChatCommandAsync(bridgeEvent, cancellationToken))
         {
             return;
         }
