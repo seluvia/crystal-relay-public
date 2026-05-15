@@ -637,7 +637,7 @@
   "Repair and Restart": "Reparera och starta om",
   "Safety backup: {0}": "Säkerhetskopia: {0}",
   "Saved Login Repair": "Reparation av sparad inloggning",
-  "Saved login repair could not finish. Your safety backup is still available at:\n{0}": "Reparationen kunde inte slutföras. Säkerhetskopian finns kvar här:\n{0}",
+  "Saved login repair could not finish. Your safety backup is still available at:\n{0}": "Reparationen kunde inte slutföras. Säkerhetskopian finns kvar på denna plats:\n{0}",
   "Saved login repair could not finish: {0}": "Reparationen kunde inte slutföras: {0}",
   "Saved login repair could not start.\n\n{0}": "Reparationen kunde inte starta.\n\n{0}",
   "Saved login repair could not start: {0}": "Reparationen kunde inte starta: {0}",
