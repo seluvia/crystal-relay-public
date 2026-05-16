@@ -3,6 +3,12 @@ Crystal Relay Changelog
 
 Newest updates appear first. This changelog focuses on the changes users will notice most.
 
+v3.1.5 beta 2
+- Added in-app update installing from GitHub release ZIPs, with stable/beta channel handling and safe fallback to the release page.
+- Reorganized Settings into Twitch, VRChat, App, Visuals, and Safety sections so account, update, visual, and repair controls are easier to find.
+- Added Live Feedback Heartbeat and About-page live-status support for beta testing visibility.
+- Improved developer avatar-scaling chat commands so grow/shrink can use advanced height ranges, bypass VRChat world height limits, and include optional transition time.
+
 v3.1.5 beta 1
 - Added Saved Login Repair for login/sign-out loops, backing up redeem setup and custom theme assets before clearing saved sessions and restoring redeems.
 - Added a guided repair prompt after repeated recoverable auth/session failures, plus a manual Repair and Restart action in Settings > Accounts.

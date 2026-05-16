@@ -110,6 +110,7 @@
     <Compile Include="Models\VrChatOscParameterSummary.cs" />
     <Compile Include="Models\VrChatTwoFactorMethod.cs" />
     <Compile Include="Services\AppDataPaths.cs" />
+    <Compile Include="Services\ApplicationSelfUpdateService.cs" />
     <Compile Include="Services\ApplicationUpdateService.cs" />
     <Compile Include="Services\BridgeAccountRole.cs" />
     <Compile Include="Services\BridgeCoordinator.cs" />
@@ -124,6 +125,7 @@
     <Compile Include="Services\FoomaInteractionConfigImporter.cs" />
     <Compile Include="Services\FloatValueModeConverter.cs" />
     <Compile Include="Services\LocalizationService.cs" />
+    <Compile Include="Services\LiveFeedbackHeartbeatService.cs" />
     <Compile Include="Services\ManagedRewardPresentation.cs" />
     <Compile Include="Services\OscRouterService.cs" />
     <Compile Include="Services\RuntimeConfig.cs" />

@@ -1012,8 +1012,29 @@ public partial class MainWindow : Window
                 return;
             }
 
+            if (!viewModel.IsApplicationSelfUpdateSupported)
+            {
+                var fallbackMessage = LocalizationService.Format(
+                    "A newer Crystal Relay update is available.\n\nCurrent version: {0}\nLatest version: {1}\n\nIf you continue, Crystal Relay will open the GitHub release page in your browser.",
+                    availableUpdate.CurrentVersion,
+                    availableUpdate.LatestVersion);
+                var shouldOpenReleasePage = ThemedDialogWindow.ShowYesNo(
+                    this,
+                    viewModel.SelectedTheme,
+                    LocalizationService.Translate("Update Available"),
+                    fallbackMessage,
+                    LocalizationService.Translate("Open Update Page"),
+                    LocalizationService.Translate("Not Now"));
+                if (shouldOpenReleasePage)
+                {
+                    OpenExternalUri(availableUpdate.ReleasePageUrl);
+                }
+
+                return;
+            }
+
             var updateMessage = LocalizationService.Format(
-                "A newer Crystal Relay update is available.\n\nCurrent version: {0}\nLatest version: {1}\n\nIf you continue, Crystal Relay will open the GitHub release page in your browser.",
+                "A newer Crystal Relay update is available.\n\nCurrent version: {0}\nLatest version: {1}\n\nIf you continue, Crystal Relay will download the update, close, replace the app files, and reopen.",
                 availableUpdate.CurrentVersion,
                 availableUpdate.LatestVersion);
 
@@ -1024,13 +1045,13 @@ public partial class MainWindow : Window
                     viewModel.SelectedTheme,
                     LocalizationService.Translate("Update Available"),
                     updateMessage,
-                    LocalizationService.Translate("Open Update Page"),
-                    LocalizationService.Translate("Not Now"),
+                    LocalizationService.Translate("Download & Restart"),
+                    LocalizationService.Translate("Remind Me Later"),
                     LocalizationService.Translate("Hide Betas Until Stable"));
 
                 if (betaChoice == ThemedDialogChoice.Primary)
                 {
-                    OpenExternalUri(availableUpdate.ReleasePageUrl);
+                    await StartApplicationSelfUpdateAsync(availableUpdate, cancellationToken);
                     return;
                 }
 
@@ -1040,28 +1061,87 @@ public partial class MainWindow : Window
                     return;
                 }
 
-                viewModel.IgnoreApplicationUpdate(availableUpdate.LatestVersion);
                 return;
             }
 
-            var shouldOpenUpdatePage = ThemedDialogWindow.ShowYesNo(
+            var updateChoice = ThemedDialogWindow.ShowThreeChoice(
                 this,
                 viewModel.SelectedTheme,
                 LocalizationService.Translate("Update Available"),
                 updateMessage,
-                LocalizationService.Translate("Open Update Page"),
-                LocalizationService.Translate("Not Now"));
+                LocalizationService.Translate("Download & Restart"),
+                LocalizationService.Translate("Remind Me Later"),
+                LocalizationService.Translate("Skip This Version"));
 
-            if (shouldOpenUpdatePage)
+            if (updateChoice == ThemedDialogChoice.Primary)
             {
-                OpenExternalUri(availableUpdate.ReleasePageUrl);
+                await StartApplicationSelfUpdateAsync(availableUpdate, cancellationToken);
                 return;
             }
 
-            viewModel.IgnoreApplicationUpdate(availableUpdate.LatestVersion);
+            if (updateChoice == ThemedDialogChoice.Tertiary)
+            {
+                viewModel.IgnoreApplicationUpdate(availableUpdate.LatestVersion);
+            }
         }
         catch (OperationCanceledException)
         {
+        }
+    }
+
+    private async Task StartApplicationSelfUpdateAsync(
+        ApplicationUpdateInfo availableUpdate,
+        CancellationToken cancellationToken)
+    {
+        var updateLaunched = false;
+        try
+        {
+            IsEnabled = false;
+            Mouse.OverrideCursor = Cursors.Wait;
+            using var updater = new ApplicationSelfUpdateService();
+            var progress = new Progress<ApplicationSelfUpdateProgress>(updateProgress =>
+            {
+                if (!string.IsNullOrWhiteSpace(updateProgress.Message))
+                {
+                    viewModel.AppendDiagnosticLog(updateProgress.Message);
+                }
+            });
+
+            await updater.PrepareAndLaunchUpdateAsync(availableUpdate, progress, cancellationToken);
+            updateLaunched = true;
+            Close();
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            viewModel.AppendDiagnosticLog(
+                LocalizationService.Format(
+                    "Crystal Relay could not install the update automatically: {0}",
+                    ex.Message));
+            var shouldOpenReleasePage = ThemedDialogWindow.ShowYesNo(
+                this,
+                viewModel.SelectedTheme,
+                LocalizationService.Translate("Update Failed"),
+                LocalizationService.Format(
+                    "Crystal Relay could not install the update automatically.\n\n{0}\n\nOpen the GitHub release page instead?",
+                    ex.Message),
+                LocalizationService.Translate("Open Update Page"),
+                LocalizationService.Translate("Close"));
+            if (shouldOpenReleasePage)
+            {
+                OpenExternalUri(availableUpdate.ReleasePageUrl);
+            }
+        }
+        finally
+        {
+            if (!updateLaunched)
+            {
+                Mouse.OverrideCursor = null;
+                IsEnabled = true;
+            }
         }
     }
 

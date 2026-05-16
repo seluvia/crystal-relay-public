@@ -21,6 +21,10 @@ internal static class AppDataPaths
 
     public static string CrashLogFolder => Path.Combine(RootFolder, "CrashLogs");
 
+    public static string UpdatesFolder => Path.Combine(RootFolder, "Updates");
+
+    public static string UpdateBackupsFolder => Path.Combine(RootFolder, "UpdateBackups");
+
     public static string RuntimeConfigPath => Path.Combine(RootFolder, "bridge.runtime.json");
 
     public static void EnsureCoreFolders()
@@ -30,6 +34,8 @@ internal static class AppDataPaths
         Directory.CreateDirectory(ThemeAssetsFolder);
         Directory.CreateDirectory(SecureFolder);
         Directory.CreateDirectory(CrashLogFolder);
+        Directory.CreateDirectory(UpdatesFolder);
+        Directory.CreateDirectory(UpdateBackupsFolder);
     }
 
     public static void MigrateLegacyRootIfNeeded()

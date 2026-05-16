@@ -1035,9 +1035,11 @@
         </Style>
 
         <Style x:Key="SettingsSubsectionButtonStyle" TargetType="Button" BasedOn="{StaticResource SectionButtonStyle}">
-            <Setter Property="MinWidth" Value="112" />
+            <Setter Property="Width" Value="118" />
             <Setter Property="MinHeight" Value="40" />
-            <Setter Property="Padding" Value="16,0" />
+            <Setter Property="Padding" Value="12,0" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
         </Style>
 
         <Style x:Key="HomeSectionButtonStyle" TargetType="Button" BasedOn="{StaticResource SectionButtonStyle}">
@@ -1081,9 +1083,29 @@
             </Style.Triggers>
         </Style>
 
-        <Style x:Key="SettingsAccountsSubsectionButtonStyle" TargetType="Button" BasedOn="{StaticResource SettingsSubsectionButtonStyle}">
+        <Style x:Key="SettingsTwitchSubsectionButtonStyle" TargetType="Button" BasedOn="{StaticResource SettingsSubsectionButtonStyle}">
             <Style.Triggers>
-                <DataTrigger Binding="{Binding IsSettingsAccountsSectionSelected}" Value="True">
+                <DataTrigger Binding="{Binding IsSettingsTwitchSectionSelected}" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource SectionActiveBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                    <Setter Property="Foreground" Value="White" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="SettingsVrChatSubsectionButtonStyle" TargetType="Button" BasedOn="{StaticResource SettingsSubsectionButtonStyle}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsSettingsVrChatSectionSelected}" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource SectionActiveBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                    <Setter Property="Foreground" Value="White" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="SettingsAppSubsectionButtonStyle" TargetType="Button" BasedOn="{StaticResource SettingsSubsectionButtonStyle}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsSettingsAppSectionSelected}" Value="True">
                     <Setter Property="Background" Value="{DynamicResource SectionActiveBrush}" />
                     <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                     <Setter Property="Foreground" Value="White" />
@@ -1094,6 +1116,16 @@
         <Style x:Key="SettingsVisualsSubsectionButtonStyle" TargetType="Button" BasedOn="{StaticResource SettingsSubsectionButtonStyle}">
             <Style.Triggers>
                 <DataTrigger Binding="{Binding IsSettingsVisualsSectionSelected}" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource SectionActiveBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                    <Setter Property="Foreground" Value="White" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="SettingsSafetySubsectionButtonStyle" TargetType="Button" BasedOn="{StaticResource SettingsSubsectionButtonStyle}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsSettingsSafetySectionSelected}" Value="True">
                     <Setter Property="Background" Value="{DynamicResource SectionActiveBrush}" />
                     <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                     <Setter Property="Foreground" Value="White" />
@@ -2220,36 +2252,159 @@
                         </Style>
                     </ScrollViewer.Style>
                     <StackPanel>
-                            <WrapPanel Margin="0,0,0,14">
-                                <Button Style="{StaticResource SettingsAccountsSubsectionButtonStyle}"
-                                        Content="{loc:Translate 'Accounts'}"
-                                        Command="{Binding ShowSettingsAccountsSectionCommand}" />
-                                <Button Style="{StaticResource SettingsVisualsSubsectionButtonStyle}"
-                                        Content="{loc:Translate 'Visuals'}"
-                                        Command="{Binding ShowSettingsVisualsSectionCommand}" />
-                            </WrapPanel>
+                            <StackPanel Margin="0,0,0,16"
+                                        HorizontalAlignment="Left"
+                                        Width="390">
+                                <UniformGrid Columns="3">
+                                    <Button Style="{StaticResource SettingsTwitchSubsectionButtonStyle}"
+                                            Content="{loc:Translate 'Twitch'}"
+                                            Command="{Binding ShowSettingsTwitchSectionCommand}" />
+                                    <Button Style="{StaticResource SettingsVrChatSubsectionButtonStyle}"
+                                            Content="{loc:Translate 'VRChat'}"
+                                            Command="{Binding ShowSettingsVrChatSectionCommand}" />
+                                    <Button Style="{StaticResource SettingsAppSubsectionButtonStyle}"
+                                            Content="{loc:Translate 'App'}"
+                                            Command="{Binding ShowSettingsAppSectionCommand}" />
+                                </UniformGrid>
+                                <UniformGrid Columns="2"
+                                             Width="260"
+                                             Margin="0,10,0,0"
+                                             HorizontalAlignment="Center">
+                                    <Button Style="{StaticResource SettingsVisualsSubsectionButtonStyle}"
+                                            Content="{loc:Translate 'Visuals'}"
+                                            Command="{Binding ShowSettingsVisualsSectionCommand}" />
+                                    <Button Style="{StaticResource SettingsSafetySubsectionButtonStyle}"
+                                            Content="{loc:Translate 'Safety'}"
+                                            Command="{Binding ShowSettingsSafetySectionCommand}" />
+                                </UniformGrid>
+                            </StackPanel>
                             <StackPanel>
                                 <StackPanel.Style>
                                     <Style TargetType="StackPanel">
-                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Setter Property="Visibility" Value="Collapsed" />
                                         <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsSettingsAccountsSectionSelected}" Value="False">
-                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            <DataTrigger Binding="{Binding IsSettingsTwitchSectionSelected}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsSettingsVrChatSectionSelected}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsSettingsAppSectionSelected}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsSettingsSafetySectionSelected}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
                                 </StackPanel.Style>
                             <Border Style="{StaticResource PanelBorderStyle}">
                                 <StackPanel>
-                                    <DockPanel LastChildFill="False">
-                                        <TextBlock Text="{loc:Translate 'Twitch Accounts'}" Style="{StaticResource HeadingTextStyle}" FontSize="19" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                                    <DockPanel LastChildFill="False"
+                                               Visibility="{Binding IsSettingsTwitchSectionSelected, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <TextBlock Text="{loc:Translate 'Twitch Settings'}" Style="{StaticResource HeadingTextStyle}" FontSize="19" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                                         <Button Style="{StaticResource HelpIconButtonStyle}"
                                                 Click="OnHelpButtonClicked"
                                                 CommandParameter="Twitch Accounts"
                                                 Tag="Connect the Twitch accounts Crystal Relay uses here. The broadcaster account listens for channel points, chat commands, stream status, and managed reward sync, while the optional bot account is only for sending chat messages back to Twitch. If Twitch shows a device code while linking, copy the code shown under that account into Twitch to finish the sign-in." />
                                     </DockPanel>
+                                    <TextBlock Text="{loc:Translate 'VRChat Settings'}"
+                                               Style="{StaticResource HeadingTextStyle}"
+                                               FontSize="19"
+                                               FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextBrush}"
+                                               Visibility="{Binding IsSettingsVrChatSectionSelected, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                    <TextBlock Text="{loc:Translate 'App Settings'}"
+                                               Style="{StaticResource HeadingTextStyle}"
+                                               FontSize="19"
+                                               FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextBrush}"
+                                               Visibility="{Binding IsSettingsAppSectionSelected, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                    <TextBlock Text="{loc:Translate 'Safety Settings'}"
+                                               Style="{StaticResource HeadingTextStyle}"
+                                               FontSize="19"
+                                               FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextBrush}"
+                                               Visibility="{Binding IsSettingsSafetySectionSelected, Converter={StaticResource BoolToVisibilityConverter}}" />
 
-                                    <Border Margin="0,14,0,0" Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1" CornerRadius="18" Padding="16">
+                                    <Border Margin="0,14,0,0" Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1" CornerRadius="18" Padding="16"
+                                            Visibility="{Binding IsSettingsAppSectionSelected, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <StackPanel>
+                                            <TextBlock Text="{loc:Translate 'Live Feedback Heartbeat'}"
+                                                       Style="{StaticResource HeadingTextStyle}"
+                                                       FontSize="17"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource TextBrush}"
+                                                       TextWrapping="Wrap" />
+                                            <TextBlock Margin="0,8,0,0"
+                                                       Text="{loc:Translate 'Crystal Relay includes a Live Feedback Heartbeat. This helps the developer find live Crystal Relay streams for feedback, support, and community interaction. You can turn this off anytime in Settings.'}"
+                                                       Foreground="{DynamicResource MutedBrush}"
+                                                       TextWrapping="Wrap" />
+                                            <Grid Margin="0,12,0,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0"
+                                                            Margin="0,0,14,0">
+                                                    <TextBlock Text="{loc:Translate 'Enable Live Feedback Heartbeat'}"
+                                                               FontSize="16"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource TextBrush}"
+                                                               TextWrapping="Wrap" />
+                                                    <TextBlock Margin="0,6,0,0"
+                                                               Text="{loc:Translate 'When enabled, Crystal Relay lets the developer know when your Twitch channel is live so they can visit your stream, observe real usage, and offer feedback or support. This does not send Twitch tokens, VRChat credentials, OSC data, chat messages, or private VRChat information.'}"
+                                                               Foreground="{DynamicResource MutedBrush}"
+                                                               TextWrapping="Wrap" />
+                                                </StackPanel>
+                                                <ToggleButton Grid.Column="1"
+                                                              VerticalAlignment="Center"
+                                                              Style="{StaticResource RuleToggleStyle}"
+                                                              IsChecked="{Binding Settings.LiveFeedbackHeartbeatEnabled, UpdateSourceTrigger=PropertyChanged}" />
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Margin="0,14,0,0" Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1" CornerRadius="18" Padding="16"
+                                            Visibility="{Binding IsSettingsAppSectionSelected, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <StackPanel>
+                                            <TextBlock Text="{loc:Translate 'Update Preferences'}"
+                                                       Style="{StaticResource HeadingTextStyle}"
+                                                       FontSize="17"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource TextBrush}"
+                                                       TextWrapping="Wrap" />
+                                            <TextBlock Margin="0,8,0,0"
+                                                       Text="{loc:Translate 'Crystal Relay can check beta releases when you want early access. Stable builds stay on stable updates unless this is enabled.'}"
+                                                       Foreground="{DynamicResource MutedBrush}"
+                                                       TextWrapping="Wrap" />
+                                            <Grid Margin="0,12,0,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0"
+                                                            Margin="0,0,14,0">
+                                                    <TextBlock Text="{loc:Translate 'Include beta updates'}"
+                                                               FontSize="16"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource TextBrush}"
+                                                               TextWrapping="Wrap" />
+                                                    <TextBlock Margin="0,6,0,0"
+                                                               Text="{loc:Translate 'When enabled, stable builds may offer beta updates from GitHub Releases. Beta builds always keep checking beta updates.'}"
+                                                               Foreground="{DynamicResource MutedBrush}"
+                                                               TextWrapping="Wrap" />
+                                                </StackPanel>
+                                                <ToggleButton Grid.Column="1"
+                                                              VerticalAlignment="Center"
+                                                              Style="{StaticResource RuleToggleStyle}"
+                                                              IsChecked="{Binding Settings.BetaApplicationUpdatesEnabled, UpdateSourceTrigger=PropertyChanged}" />
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Margin="0,14,0,0" Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1" CornerRadius="18" Padding="16"
+                                            Visibility="{Binding IsSettingsTwitchSectionSelected, Converter={StaticResource BoolToVisibilityConverter}}">
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*" />
@@ -2363,7 +2518,8 @@
                                         </Grid>
                                     </Border>
 
-                                    <Border Margin="0,14,0,0" Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1" CornerRadius="18" Padding="16">
+                                    <Border Margin="0,14,0,0" Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1" CornerRadius="18" Padding="16"
+                                            Visibility="{Binding IsSettingsTwitchSectionSelected, Converter={StaticResource BoolToVisibilityConverter}}">
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*" />
@@ -2477,7 +2633,8 @@
                                         </Grid>
                                     </Border>
 
-                                    <Border Margin="0,14,0,0" Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1" CornerRadius="18" Padding="16">
+                                    <Border Margin="0,14,0,0" Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1" CornerRadius="18" Padding="16"
+                                            Visibility="{Binding IsSettingsTwitchSectionSelected, Converter={StaticResource BoolToVisibilityConverter}}">
                                         <StackPanel>
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
@@ -2600,7 +2757,8 @@
                                         </StackPanel>
                                     </Border>
 
-                                    <Border Margin="0,14,0,0" Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1" CornerRadius="18" Padding="16">
+                                    <Border Margin="0,14,0,0" Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1" CornerRadius="18" Padding="16"
+                                            Visibility="{Binding IsSettingsTwitchSectionSelected, Converter={StaticResource BoolToVisibilityConverter}}">
                                         <StackPanel>
                                             <DockPanel LastChildFill="False">
                                                 <TextBlock Text="{loc:Translate 'Bits/Subs override info messages'}" Style="{StaticResource HeadingTextStyle}" FontSize="17" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
@@ -2619,7 +2777,8 @@
                                         </StackPanel>
                                     </Border>
 
-                                    <Border Margin="0,14,0,0" Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1" CornerRadius="18" Padding="16">
+                                    <Border Margin="0,14,0,0" Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1" CornerRadius="18" Padding="16"
+                                            Visibility="{Binding IsSettingsVrChatSectionSelected, Converter={StaticResource BoolToVisibilityConverter}}">
                                         <StackPanel>
                                             <DockPanel LastChildFill="False">
                                                 <TextBlock Text="{loc:Translate 'VRChat Avatar Access'}" Style="{StaticResource HeadingTextStyle}" FontSize="17" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
@@ -2678,7 +2837,8 @@
                                         </StackPanel>
                                     </Border>
 
-                                    <Border Margin="0,14,0,0" Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1" CornerRadius="18" Padding="16">
+                                    <Border Margin="0,14,0,0" Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1" CornerRadius="18" Padding="16"
+                                            Visibility="{Binding IsSettingsSafetySectionSelected, Converter={StaticResource BoolToVisibilityConverter}}">
                                         <StackPanel>
                                             <TextBlock Text="{loc:Translate 'Saved Login Repair'}"
                                                        Style="{StaticResource HeadingTextStyle}"

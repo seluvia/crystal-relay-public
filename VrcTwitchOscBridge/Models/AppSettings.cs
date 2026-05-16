@@ -55,6 +55,8 @@ public sealed class AppSettings : ObservableObject
     private bool avatarChangeCooldownOnlyModeEnabled;
     private bool emergencyRedeemStopEnabled;
     private bool desktopModeInputLockEnabled;
+    private bool liveFeedbackHeartbeatEnabled = true;
+    private bool betaApplicationUpdatesEnabled;
     private bool easterEggsEnabled = true;
     private bool mainWindowTrayTipShown;
     private string ignoredUpdateVersion = string.Empty;
@@ -383,6 +385,18 @@ public sealed class AppSettings : ObservableObject
     {
         get => desktopModeInputLockEnabled;
         set => SetProperty(ref desktopModeInputLockEnabled, value);
+    }
+
+    public bool LiveFeedbackHeartbeatEnabled
+    {
+        get => liveFeedbackHeartbeatEnabled;
+        set => SetProperty(ref liveFeedbackHeartbeatEnabled, value);
+    }
+
+    public bool BetaApplicationUpdatesEnabled
+    {
+        get => betaApplicationUpdatesEnabled;
+        set => SetProperty(ref betaApplicationUpdatesEnabled, value);
     }
 
     public bool EasterEggsEnabled

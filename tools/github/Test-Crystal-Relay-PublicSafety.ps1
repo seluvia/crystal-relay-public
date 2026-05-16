@@ -173,6 +173,8 @@ Assert-NoBlockedPaths `
         'Code Review',
         'temp-build',
         'tools',
+        'private',
+        'crystal-relay-live-list',
         'cloudflare',
         'bin',
         'obj'
@@ -202,6 +204,7 @@ Assert-NoContentMatches `
         'Codex',
         'ChatGPT',
         'OpenAI',
+        'crystal-relay-live-list',
         'AI-generated',
         'AI generated',
         'prompt transcript',

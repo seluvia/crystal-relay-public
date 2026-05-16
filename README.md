@@ -232,6 +232,44 @@ Crystal Relay accepts public translation help through GitHub issues and pull req
 
 Want to help improve wording in your language? See [TRANSLATING.md](TRANSLATING.md). You can either open a translation issue with suggested wording or submit a pull request that edits the JSON translation files directly.
 
+## Live Feedback Heartbeat
+
+Crystal Relay includes a Live Feedback Heartbeat that may send a small temporary ping to the Crystal Relay developer service while Crystal Relay is open and your Twitch channel is live.
+
+This helps the developer find live Crystal Relay users, watch real usage, interact with streamers, gather feedback, and help troubleshoot issues.
+
+The heartbeat may include:
+
+- Twitch display name
+- Twitch channel page URL
+- Whether the channel is currently live
+- Crystal Relay version
+- Build channel
+- Last heartbeat time
+
+The heartbeat does **not** include:
+
+- Twitch access tokens
+- Twitch refresh tokens
+- VRChat credentials
+- OSC data
+- OSCQuery data
+- chat messages
+- private VRChat information
+- local files
+- hardware IDs
+- machine username
+
+Crystal Relay sends the heartbeat when your Twitch channel first goes live while Crystal Relay is open.
+
+To reduce Cloudflare usage, Crystal Relay only refreshes the live heartbeat about once per hour while you remain live.
+
+When Crystal Relay closes cleanly, your stream ends, Twitch disconnects, or you disable the feature, Crystal Relay will try to send an offline ping.
+
+If Crystal Relay crashes, loses internet, or cannot send the offline ping, your stream may remain visible on the developer live feedback list until the temporary Cloudflare entry expires, usually around 75 minutes after the last heartbeat.
+
+You can disable this anytime in Crystal Relay settings by turning off **Live Feedback Heartbeat**.
+
 ## Network and Privacy Basics
 
 Crystal Relay uses standard network connections only for the services needed to run.
@@ -241,7 +279,7 @@ Crystal Relay uses standard network connections only for the services needed to 
 | **Twitch** | Outbound HTTPS for login, Helix API calls, reward management, emote data, and optional bot chat sends. Live Twitch events are received through EventSub over WebSocket. |
 | **VRChat** | Outbound HTTPS for login, 2FA, logout, and avatar list refreshes. Runtime avatar control uses local OSC and OSCQuery traffic between Crystal Relay and VRChat. |
 | **GitHub** | Outbound HTTPS to the public Crystal Relay releases API for update checks. |
-| **Cloudflare** | Outbound HTTPS to Crystal Relay Cloudflare Workers for About-page beta live-status cards and optional in-app bug reports. Bug reports are user-submitted, logs are opt-in and sanitized before sending, and Twitch tokens, VRChat auth cookies, passwords, and private app data must never be sent. |
+| **Cloudflare** | Outbound HTTPS to Crystal Relay Cloudflare Workers for About-page beta live-status cards, optional in-app bug reports, and the Live Feedback Heartbeat. Bug reports are user-submitted, logs are opt-in and sanitized before sending. The Live Feedback Heartbeat only sends temporary live-state fields described above. Twitch tokens, VRChat auth cookies, passwords, chat messages, OSC data, and private app data must never be sent. |
 | **Ko-fi relay** | Optional outbound WebSocket from Crystal Relay to the hosted Ko-fi relay, plus Ko-fi HTTPS webhook delivery to the relay. The relay forwards only minimal tip trigger fields to the connected app and does not save webhook payloads, payment history, emails, messages, tokens, or secrets. |
 | **Local machine** | OSC and OSCQuery use local UDP/TCP ports for discovery, avatar parameters, movement inputs, avatar changes, and chatbox messages. Crystal Relay advertises loopback OSCQuery endpoints and uses local dynamic UDP/TCP ports for app-to-VRChat communication. This is not a public remote-control server. |
 
