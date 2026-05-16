@@ -100,6 +100,82 @@
                           ShadowDepth="0"
                           Opacity="0.45"
                           Color="#B388FF" />
+        <SolidColorBrush x:Key="KaiBloodwolfTextBrush" Color="#FFF7F7" />
+        <SolidColorBrush x:Key="KaiBloodwolfMutedBrush" Color="#F3CED1" />
+        <SolidColorBrush x:Key="KaiBloodwolfInsetBrush" Color="#7810080A" />
+        <SolidColorBrush x:Key="KaiBloodwolfInsetBorderBrush" Color="#8FFF6F73" />
+        <LinearGradientBrush x:Key="KaiBloodwolfCardBrush"
+                             StartPoint="0,0"
+                             EndPoint="1,1">
+            <GradientStop Color="#F0060608" Offset="0" />
+            <GradientStop Color="#EC1A070A" Offset="0.46" />
+            <GradientStop Color="#E9070709" Offset="0.74" />
+            <GradientStop Color="#ED2A0A10" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="KaiBloodwolfBorderBrush"
+                             StartPoint="0,0"
+                             EndPoint="1,1">
+            <GradientStop Color="#EFFFFFFF" Offset="0" />
+            <GradientStop Color="#EFFF6F73" Offset="0.45" />
+            <GradientStop Color="#D9A80D18" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="KaiBloodwolfRailBrush"
+                             StartPoint="0,0"
+                             EndPoint="0,1">
+            <GradientStop Color="#FFFFFF" Offset="0" />
+            <GradientStop Color="#FF4D55" Offset="0.5" />
+            <GradientStop Color="#8C0810" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="KaiBloodwolfBadgeBrush"
+                             StartPoint="0,0"
+                             EndPoint="1,1">
+            <GradientStop Color="#FFFFFF" Offset="0" />
+            <GradientStop Color="#FFE9EA" Offset="0.45" />
+            <GradientStop Color="#FF7076" Offset="1" />
+        </LinearGradientBrush>
+        <DropShadowEffect x:Key="KaiBloodwolfGlowEffect"
+                          BlurRadius="14"
+                          ShadowDepth="0"
+                          Opacity="0.34"
+                          Color="#E52D36" />
+        <SolidColorBrush x:Key="HypercraftiingTextBrush" Color="#FFF4FF" />
+        <SolidColorBrush x:Key="HypercraftiingMutedBrush" Color="#E9CAFF" />
+        <SolidColorBrush x:Key="HypercraftiingInsetBrush" Color="#7A12081C" />
+        <SolidColorBrush x:Key="HypercraftiingInsetBorderBrush" Color="#95C184FF" />
+        <LinearGradientBrush x:Key="HypercraftiingCardBrush"
+                             StartPoint="0,0"
+                             EndPoint="1,1">
+            <GradientStop Color="#F0080610" Offset="0" />
+            <GradientStop Color="#EC201039" Offset="0.42" />
+            <GradientStop Color="#E9090710" Offset="0.68" />
+            <GradientStop Color="#EC3B1028" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="HypercraftiingBorderBrush"
+                             StartPoint="0,0"
+                             EndPoint="1,1">
+            <GradientStop Color="#E6D4A2FF" Offset="0" />
+            <GradientStop Color="#ECFF667A" Offset="0.52" />
+            <GradientStop Color="#D8844DFF" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="HypercraftiingRailBrush"
+                             StartPoint="0,0"
+                             EndPoint="0,1">
+            <GradientStop Color="#D9A5FF" Offset="0" />
+            <GradientStop Color="#FF4D68" Offset="0.52" />
+            <GradientStop Color="#6B23B8" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="HypercraftiingBadgeBrush"
+                             StartPoint="0,0"
+                             EndPoint="1,1">
+            <GradientStop Color="#FAF0FF" Offset="0" />
+            <GradientStop Color="#F9A0B0" Offset="0.5" />
+            <GradientStop Color="#C79AFF" Offset="1" />
+        </LinearGradientBrush>
+        <DropShadowEffect x:Key="HypercraftiingGlowEffect"
+                          BlurRadius="15"
+                          ShadowDepth="0"
+                          Opacity="0.36"
+                          Color="#A15CFF" />
         <SolidColorBrush x:Key="ChatboxRoleCardTextBrush" Color="#FFFDF7" />
         <SolidColorBrush x:Key="ChatboxRoleCardMutedBrush" Color="#F0E8FF" />
         <SolidColorBrush x:Key="ChatboxRoleBadgeTextBrush" Color="#150B18" />
@@ -765,6 +841,18 @@
                     <Setter Property="Background" Value="{StaticResource TwitchSubscriberCardBrush}" />
                     <Setter Property="BorderBrush" Value="{StaticResource TwitchSubscriberBorderBrush}" />
                 </DataTrigger>
+                <DataTrigger Binding="{Binding IsKaiBloodwolfRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource KaiBloodwolfCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource KaiBloodwolfBorderBrush}" />
+                    <Setter Property="BorderThickness" Value="1.5" />
+                    <Setter Property="Effect" Value="{StaticResource KaiBloodwolfGlowEffect}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsHypercraftiingRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource HypercraftiingCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource HypercraftiingBorderBrush}" />
+                    <Setter Property="BorderThickness" Value="1.5" />
+                    <Setter Property="Effect" Value="{StaticResource HypercraftiingGlowEffect}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Background" Value="{StaticResource CrystalRelayDevCardBrush}" />
                     <Setter Property="BorderBrush" Value="{StaticResource CrystalRelayDevBorderBrush}" />
@@ -822,6 +910,18 @@
                     <Setter Property="Background" Value="{StaticResource TwitchSubscriberCardBrush}" />
                     <Setter Property="BorderBrush" Value="{StaticResource TwitchSubscriberBorderBrush}" />
                 </DataTrigger>
+                <DataTrigger Binding="{Binding IsKaiBloodwolfRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource KaiBloodwolfCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource KaiBloodwolfBorderBrush}" />
+                    <Setter Property="BorderThickness" Value="1.5" />
+                    <Setter Property="Effect" Value="{StaticResource KaiBloodwolfGlowEffect}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsHypercraftiingRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource HypercraftiingCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource HypercraftiingBorderBrush}" />
+                    <Setter Property="BorderThickness" Value="1.5" />
+                    <Setter Property="Effect" Value="{StaticResource HypercraftiingGlowEffect}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Background" Value="{StaticResource CrystalRelayDevCardBrush}" />
                     <Setter Property="BorderBrush" Value="{StaticResource CrystalRelayDevBorderBrush}" />
@@ -878,6 +978,18 @@
                     <Setter Property="Background" Value="{StaticResource TwitchSubscriberCardBrush}" />
                     <Setter Property="BorderBrush" Value="{StaticResource TwitchSubscriberBorderBrush}" />
                 </DataTrigger>
+                <DataTrigger Binding="{Binding IsKaiBloodwolfRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource KaiBloodwolfCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource KaiBloodwolfBorderBrush}" />
+                    <Setter Property="BorderThickness" Value="1.5" />
+                    <Setter Property="Effect" Value="{StaticResource KaiBloodwolfGlowEffect}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsHypercraftiingRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource HypercraftiingCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource HypercraftiingBorderBrush}" />
+                    <Setter Property="BorderThickness" Value="1.5" />
+                    <Setter Property="Effect" Value="{StaticResource HypercraftiingGlowEffect}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Background" Value="{StaticResource CrystalRelayDevCardBrush}" />
                     <Setter Property="BorderBrush" Value="{StaticResource CrystalRelayDevBorderBrush}" />
@@ -906,6 +1018,12 @@
                 <DataTrigger Binding="{Binding HasBadgeRoleCard}" Value="True">
                     <Setter Property="Foreground" Value="{StaticResource ChatboxRoleCardMutedBrush}" />
                 </DataTrigger>
+                <DataTrigger Binding="{Binding IsKaiBloodwolfRoleCard}" Value="True">
+                    <Setter Property="Foreground" Value="{StaticResource KaiBloodwolfMutedBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsHypercraftiingRoleCard}" Value="True">
+                    <Setter Property="Foreground" Value="{StaticResource HypercraftiingMutedBrush}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Foreground" Value="{StaticResource CrystalRelayDevMutedBrush}" />
                 </DataTrigger>
@@ -917,6 +1035,12 @@
             <Style.Triggers>
                 <DataTrigger Binding="{Binding HasBadgeRoleCard}" Value="True">
                     <Setter Property="Foreground" Value="{StaticResource ChatboxRoleCardTextBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsKaiBloodwolfRoleCard}" Value="True">
+                    <Setter Property="Foreground" Value="{StaticResource KaiBloodwolfTextBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsHypercraftiingRoleCard}" Value="True">
+                    <Setter Property="Foreground" Value="{StaticResource HypercraftiingTextBrush}" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Foreground" Value="{StaticResource CrystalRelayDevTextBrush}" />
@@ -930,6 +1054,12 @@
                 <DataTrigger Binding="{Binding HasBadgeRoleCard}" Value="True">
                     <Setter Property="Foreground" Value="{StaticResource ChatboxRoleCardTextBrush}" />
                 </DataTrigger>
+                <DataTrigger Binding="{Binding IsKaiBloodwolfRoleCard}" Value="True">
+                    <Setter Property="Foreground" Value="{StaticResource KaiBloodwolfTextBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsHypercraftiingRoleCard}" Value="True">
+                    <Setter Property="Foreground" Value="{StaticResource HypercraftiingTextBrush}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Foreground" Value="{StaticResource CrystalRelayDevTextBrush}" />
                 </DataTrigger>
@@ -941,6 +1071,12 @@
             <Style.Triggers>
                 <DataTrigger Binding="{Binding HasBadgeRoleCard}" Value="True">
                     <Setter Property="Foreground" Value="{StaticResource ChatboxRoleCardMutedBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsKaiBloodwolfRoleCard}" Value="True">
+                    <Setter Property="Foreground" Value="{StaticResource KaiBloodwolfMutedBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsHypercraftiingRoleCard}" Value="True">
+                    <Setter Property="Foreground" Value="{StaticResource HypercraftiingMutedBrush}" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Foreground" Value="{StaticResource CrystalRelayDevMutedBrush}" />
@@ -956,6 +1092,14 @@
                     <Setter Property="Background" Value="#55130B24" />
                     <Setter Property="BorderBrush" Value="{StaticResource ChatboxRoleCardMutedBrush}" />
                 </DataTrigger>
+                <DataTrigger Binding="{Binding IsKaiBloodwolfRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource KaiBloodwolfInsetBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource KaiBloodwolfInsetBorderBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsHypercraftiingRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource HypercraftiingInsetBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource HypercraftiingInsetBorderBrush}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Background" Value="{StaticResource CrystalRelayDevInsetBrush}" />
                     <Setter Property="BorderBrush" Value="{StaticResource CrystalRelayDevInsetBorderBrush}" />
@@ -970,6 +1114,14 @@
                 <DataTrigger Binding="{Binding HasBadgeRoleCard}" Value="True">
                     <Setter Property="Background" Value="#55130B24" />
                     <Setter Property="BorderBrush" Value="{StaticResource ChatboxRoleCardMutedBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsKaiBloodwolfRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource KaiBloodwolfInsetBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource KaiBloodwolfInsetBorderBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsHypercraftiingRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource HypercraftiingInsetBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource HypercraftiingInsetBorderBrush}" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Background" Value="{StaticResource CrystalRelayDevInsetBrush}" />
@@ -1007,6 +1159,12 @@
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsSubscriberRoleCard}" Value="True">
                     <Setter Property="Background" Value="{StaticResource TwitchSubscriberRailBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsKaiBloodwolfRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource KaiBloodwolfRailBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsHypercraftiingRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource HypercraftiingRailBrush}" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Background" Value="{StaticResource CrystalRelayDevRailBrush}" />
@@ -1053,6 +1211,14 @@
                 <DataTrigger Binding="{Binding IsSubscriberRoleCard}" Value="True">
                     <Setter Property="Visibility" Value="Visible" />
                     <Setter Property="Background" Value="{StaticResource TwitchSubscriberRailBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsKaiBloodwolfRoleCard}" Value="True">
+                    <Setter Property="Visibility" Value="Visible" />
+                    <Setter Property="Background" Value="{StaticResource KaiBloodwolfRailBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsHypercraftiingRoleCard}" Value="True">
+                    <Setter Property="Visibility" Value="Visible" />
+                    <Setter Property="Background" Value="{StaticResource HypercraftiingRailBrush}" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Visibility" Value="Visible" />
@@ -1101,6 +1267,14 @@
                 <DataTrigger Binding="{Binding IsTierOneRoleCard}" Value="True">
                     <Setter Property="Background" Value="{StaticResource TwitchTierOneBadgeBrush}" />
                     <Setter Property="BorderBrush" Value="{StaticResource TwitchTierOneBorderBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsKaiBloodwolfRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource KaiBloodwolfBadgeBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource KaiBloodwolfBorderBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsHypercraftiingRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource HypercraftiingBadgeBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource HypercraftiingBorderBrush}" />
                 </DataTrigger>
             </Style.Triggers>
         </Style>
@@ -1170,8 +1344,11 @@
                                 <Border Style="{StaticResource ChatboxRoleBadgeBorderStyle}"
                                         Visibility="{Binding HasBadgeRoleCard, Converter={StaticResource BooleanToVisibilityConverter}}">
                                     <TextBlock Text="{Binding RoleCardLabel}"
+                                               MaxWidth="165"
                                                FontSize="9"
                                                FontWeight="Bold"
+                                               TextAlignment="Center"
+                                               TextWrapping="Wrap"
                                                Foreground="{StaticResource ChatboxRoleBadgeTextBrush}" />
                                 </Border>
                             </StackPanel>
@@ -1237,8 +1414,11 @@
                                     <Border Style="{StaticResource ChatboxRoleBadgeBorderStyle}"
                                             Visibility="{Binding HasBadgeRoleCard, Converter={StaticResource BooleanToVisibilityConverter}}">
                                         <TextBlock Text="{Binding RoleCardLabel}"
+                                                   MaxWidth="165"
                                                    FontSize="9"
                                                    FontWeight="Bold"
+                                                   TextAlignment="Center"
+                                                   TextWrapping="Wrap"
                                                    Foreground="{StaticResource ChatboxRoleBadgeTextBrush}" />
                                     </Border>
                                 </StackPanel>
@@ -1333,8 +1513,11 @@
                                     <Border Style="{StaticResource ChatboxRoleBadgeBorderStyle}"
                                             Visibility="{Binding HasBadgeRoleCard, Converter={StaticResource BooleanToVisibilityConverter}}">
                                         <TextBlock Text="{Binding RoleCardLabel}"
+                                                   MaxWidth="165"
                                                    FontSize="9"
                                                    FontWeight="Bold"
+                                                   TextAlignment="Center"
+                                                   TextWrapping="Wrap"
                                                    Foreground="{StaticResource ChatboxRoleBadgeTextBrush}" />
                                     </Border>
                                 </StackPanel>
