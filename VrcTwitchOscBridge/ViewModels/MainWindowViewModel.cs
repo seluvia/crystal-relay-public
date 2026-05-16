@@ -143,6 +143,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private static readonly string BetaBuildLabel = DetectBetaBuildLabel();
     private static readonly string AppUpdateVersion = GetAppUpdateVersion();
     private static readonly bool IsTestBuild = DetectTestBuild();
+    private static readonly string BuildChannel = GetBuildChannel();
     private static readonly HashSet<string> KnownViewerNotificationBotLogins = new(StringComparer.OrdinalIgnoreCase)
     {
         "nightbot",
@@ -359,6 +360,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private readonly TwitchApiClient twitchApiClient = new();
     private readonly ApplicationUpdateService applicationUpdateService = new();
     private readonly BugReportService bugReportService = new();
+    private readonly LiveFeedbackHeartbeatService liveFeedbackHeartbeatService = new();
     private readonly VrChatApiClient vrChatApiClient = new();
     private readonly VrChatLocalClientStateService vrChatLocalClientStateService = new();
     private readonly VrChatLocalOscCacheService vrChatLocalOscCacheService = new();
@@ -415,7 +417,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private string vrChatOscParameterStatus = "Pick an avatar set to load its saved OSC parameters.";
     private string chatboxListenerStatus = "Connect broadcaster to start Twitch Chatbox.";
     private SectionView activeSection;
-    private SettingsSectionView activeSettingsSection = SettingsSectionView.Accounts;
+    private SettingsSectionView activeSettingsSection = SettingsSectionView.Twitch;
     private RuleListView activeRuleListView = RuleListView.AvatarTriggers;
     private TwitchChatboxWindow? twitchChatboxWindow;
     private TestModeWindow? testModeWindow;
@@ -801,8 +803,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         OpenTestModeWindowCommand = new RelayCommand(OpenTestModeWindow);
         OpenTwitchChatboxCommand = new RelayCommand(OpenTwitchChatbox);
         OpenBuiltInCommandsCommand = new RelayCommand(OpenBuiltInCommands);
-        ShowSettingsAccountsSectionCommand = new RelayCommand(() => SetActiveSettingsSection(SettingsSectionView.Accounts));
+        ShowSettingsTwitchSectionCommand = new RelayCommand(() => SetActiveSettingsSection(SettingsSectionView.Twitch));
+        ShowSettingsVrChatSectionCommand = new RelayCommand(() => SetActiveSettingsSection(SettingsSectionView.VrChat));
+        ShowSettingsAppSectionCommand = new RelayCommand(() => SetActiveSettingsSection(SettingsSectionView.App));
         ShowSettingsVisualsSectionCommand = new RelayCommand(() => SetActiveSettingsSection(SettingsSectionView.Visuals));
+        ShowSettingsSafetySectionCommand = new RelayCommand(() => SetActiveSettingsSection(SettingsSectionView.Safety));
         ShowAvatarTriggerRulesCommand = new RelayCommand(ShowAvatarTriggerRules);
         ShowMasterAvatarTabCommand = new RelayCommand(ShowMasterAvatarTab);
         ShowMovementRedeemsCommand = new RelayCommand(ShowMovementRedeems);
@@ -913,6 +918,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         bridgeCoordinator.AvatarScaleStatusChanged += () => RunOnUi(HandleAvatarScaleStatusChanged);
         bridgeCoordinator.RewardFireSaleContributionReceived += contribution => RunOnUi(() => HandleRewardFireSaleContribution(contribution));
         bridgeCoordinator.DevFireSaleRequested += request => RunOnUi(() => HandleDevFireSaleRequest(request));
+        liveFeedbackHeartbeatService.DiagnosticLogged += message => RunOnUi(() => AppendLog(message));
 
     }
 
@@ -921,6 +927,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         get => settings;
         private set => SetProperty(ref settings, value);
     }
+
+    internal bool IsApplicationSelfUpdateSupported => !IsTestBuild;
 
     public ObservableCollection<string> LogEntries { get; }
 
@@ -2538,9 +2546,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public bool HasLiveAboutProfiles => EnumerateAboutProfiles().Any(profile => profile.IsLive);
 
-    public bool IsSettingsAccountsSectionSelected => activeSettingsSection == SettingsSectionView.Accounts;
+    public bool IsSettingsTwitchSectionSelected => activeSettingsSection == SettingsSectionView.Twitch;
+
+    public bool IsSettingsVrChatSectionSelected => activeSettingsSection == SettingsSectionView.VrChat;
+
+    public bool IsSettingsAppSectionSelected => activeSettingsSection == SettingsSectionView.App;
 
     public bool IsSettingsVisualsSectionSelected => activeSettingsSection == SettingsSectionView.Visuals;
+
+    public bool IsSettingsSafetySectionSelected => activeSettingsSection == SettingsSectionView.Safety;
 
     public bool IsVoidCrystalThemeSelected => SelectedTheme == AppTheme.VoidCrystal;
 
@@ -2747,9 +2761,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public RelayCommand OpenBuiltInCommandsCommand { get; }
 
-    public RelayCommand ShowSettingsAccountsSectionCommand { get; }
+    public RelayCommand ShowSettingsTwitchSectionCommand { get; }
+
+    public RelayCommand ShowSettingsVrChatSectionCommand { get; }
+
+    public RelayCommand ShowSettingsAppSectionCommand { get; }
 
     public RelayCommand ShowSettingsVisualsSectionCommand { get; }
+
+    public RelayCommand ShowSettingsSafetySectionCommand { get; }
 
     public RelayCommand ShowAvatarTriggerRulesCommand { get; }
 
@@ -2960,6 +2980,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         QueueManagedRewardSync(reason: ManagedRewardSyncReason.Startup);
         await aboutProfilesRefreshTask;
         QueueBridgeRefresh();
+        QueueLiveFeedbackHeartbeatEvaluation();
     }
 
     public async ValueTask DisposeAsync()
@@ -2979,6 +3000,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             testModeWindow.Closed -= OnTestModeWindowClosed;
             testModeWindow.Close();
             testModeWindow = null;
+        }
+
+        try
+        {
+            await StopLiveFeedbackHeartbeatAsync();
+        }
+        catch
+        {
+            // Shutdown should not wait on or fail because of live-feedback cleanup.
         }
 
         saveDebounceCancellation?.Cancel();
@@ -3033,6 +3063,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         twitchApiClient.Dispose();
         applicationUpdateService.Dispose();
         bugReportService.Dispose();
+        liveFeedbackHeartbeatService.Dispose();
         vrChatApiClient.Dispose();
         sessionStatusTimer.Stop();
         vrChatLocalStateTimer.Stop();
@@ -3051,13 +3082,16 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private void ResetStartupSectionState()
     {
         activeSection = SectionView.Home;
-        activeSettingsSection = SettingsSectionView.Accounts;
+        activeSettingsSection = SettingsSectionView.Twitch;
         RaisePropertyChanged(nameof(IsHomeSectionSelected));
         RaisePropertyChanged(nameof(IsSettingsSectionSelected));
         RaisePropertyChanged(nameof(IsActivitySectionSelected));
         RaisePropertyChanged(nameof(IsAboutSectionSelected));
-        RaisePropertyChanged(nameof(IsSettingsAccountsSectionSelected));
+        RaisePropertyChanged(nameof(IsSettingsTwitchSectionSelected));
+        RaisePropertyChanged(nameof(IsSettingsVrChatSectionSelected));
+        RaisePropertyChanged(nameof(IsSettingsAppSectionSelected));
         RaisePropertyChanged(nameof(IsSettingsVisualsSectionSelected));
+        RaisePropertyChanged(nameof(IsSettingsSafetySectionSelected));
     }
 
     // Section switching is mostly visual, but About needs a refresh hook because
@@ -3095,13 +3129,16 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     private void SetActiveSettingsSection(SettingsSectionView section)
     {
-        if (!SetProperty(ref activeSettingsSection, section, nameof(IsSettingsAccountsSectionSelected)))
+        if (!SetProperty(ref activeSettingsSection, section, nameof(IsSettingsTwitchSectionSelected)))
         {
             return;
         }
 
-        RaisePropertyChanged(nameof(IsSettingsAccountsSectionSelected));
+        RaisePropertyChanged(nameof(IsSettingsTwitchSectionSelected));
+        RaisePropertyChanged(nameof(IsSettingsVrChatSectionSelected));
+        RaisePropertyChanged(nameof(IsSettingsAppSectionSelected));
         RaisePropertyChanged(nameof(IsSettingsVisualsSectionSelected));
+        RaisePropertyChanged(nameof(IsSettingsSafetySectionSelected));
     }
 
     private void OpenTwitchChatbox()
@@ -3288,6 +3325,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     // so a later reconnect gets a fresh reward-management check.
     private async Task DisconnectBroadcasterAsync()
     {
+        await StopLiveFeedbackHeartbeatAsync();
         ClearBroadcasterManagedRewardsUnavailableForSession();
         broadcasterReconnectRequired = false;
         Settings.Broadcaster.Clear();
@@ -7620,6 +7658,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             ClearBroadcasterManagedRewardsUnavailableForSession();
         }
 
+        if (ReferenceEquals(sender, Settings.Broadcaster))
+        {
+            QueueLiveFeedbackHeartbeatEvaluation();
+        }
+
         if (sender is AppSettings
             && e.PropertyName is nameof(AppSettings.Theme) or nameof(AppSettings.CustomTheme))
         {
@@ -7675,6 +7718,19 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
 
         if (sender is AppSettings
+            && e.PropertyName == nameof(AppSettings.LiveFeedbackHeartbeatEnabled))
+        {
+            saveDelayMilliseconds = 0;
+            QueueLiveFeedbackHeartbeatEvaluation();
+        }
+
+        if (sender is AppSettings
+            && e.PropertyName == nameof(AppSettings.BetaApplicationUpdatesEnabled))
+        {
+            saveDelayMilliseconds = 0;
+        }
+
+        if (sender is AppSettings
             && e.PropertyName == nameof(AppSettings.Language))
         {
             RaisePropertyChanged(nameof(SelectedLanguageOption));
@@ -7704,6 +7760,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 or nameof(AppSettings.ChatboxSettingsPanelOpen)
                 or nameof(AppSettings.ChatboxOverlayMode)
                 or nameof(AppSettings.ChatboxViewerSoundEnabled)
+                or nameof(AppSettings.LiveFeedbackHeartbeatEnabled)
+                or nameof(AppSettings.BetaApplicationUpdatesEnabled)
                 or nameof(AppSettings.EasterEggsEnabled)
                 or nameof(AppSettings.Language)
                 or nameof(AppSettings.Theme)
@@ -7774,6 +7832,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 AppUpdateVersion,
                 Settings.IgnoredUpdateVersion,
                 Settings.IgnoredBetaUpdateBaseVersion,
+                Settings.BetaApplicationUpdatesEnabled || !string.IsNullOrWhiteSpace(BetaBuildLabel),
                 cancellationToken);
         }
         catch (OperationCanceledException)
@@ -7970,6 +8029,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             if (ex.AccountRole == BridgeAccountRole.Broadcaster)
             {
                 broadcasterReconnectRequired = true;
+                QueueLiveFeedbackHeartbeatEvaluation();
             }
             else
             {
@@ -8420,6 +8480,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         {
             broadcasterReconnectRequired = true;
             UpdateAccountStatuses();
+            QueueLiveFeedbackHeartbeatEvaluation();
             RecordSavedLoginRecoverySignal();
             SetUniversalManagedRewardSyncStatus(status);
             RunOnUi(() => AppendThrottledLog(
@@ -8648,6 +8709,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
         broadcasterReconnectRequired = false;
         UpdateAccountStatuses();
+        QueueLiveFeedbackHeartbeatEvaluation();
         QueueSave(0);
         if (bridgeSensitiveChange)
         {
@@ -8703,6 +8765,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
         Settings.Broadcaster.Apply(refreshedAccount);
         broadcasterReconnectRequired = false;
+        QueueLiveFeedbackHeartbeatEvaluation();
         if (BroadcasterCanManageRewards)
         {
             ClearBroadcasterManagedRewardsUnavailableForSession();
@@ -12953,6 +13016,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         runtimeConfigLoaded = true;
         RunOnUi(RefreshRuntimeSummary);
         RunOnUi(RefreshCommandStates);
+        RunOnUi(QueueLiveFeedbackHeartbeatEvaluation);
     }
 
     private void UpdateAccountStatuses()
@@ -13973,6 +14037,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             {
                 ClearBroadcasterManagedRewardsUnavailableForSession();
             }
+
+            QueueLiveFeedbackHeartbeatEvaluation();
         }
         else
         {
@@ -14264,6 +14330,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         hasResolvedBroadcasterLiveState = true;
         IsBroadcasterLive = isLive;
         RefreshStreamingStatusCard();
+        QueueLiveFeedbackHeartbeatEvaluation();
 
         if (isLive && Settings.ChannelPointRewardTestModeEnabled)
         {
@@ -14279,6 +14346,31 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 QueueManagedRewardSync(0, ManagedRewardSyncReason.StreamStateChanged);
             }
         }
+    }
+
+    private void QueueLiveFeedbackHeartbeatEvaluation()
+    {
+        if (!isInitialized || isShuttingDown)
+        {
+            return;
+        }
+
+        liveFeedbackHeartbeatService.UpdateState(
+            Settings.LiveFeedbackHeartbeatEnabled,
+            HasRecoverableBroadcasterSession && !broadcasterReconnectRequired,
+            IsBroadcasterLive,
+            string.IsNullOrWhiteSpace(Settings.Broadcaster.DisplayName)
+                ? Settings.Broadcaster.Login
+                : Settings.Broadcaster.DisplayName,
+            Settings.Broadcaster.Login,
+            runtimeConfig.LiveFeedbackHeartbeatEndpoint,
+            AppVersion,
+            BuildChannel);
+    }
+
+    private Task StopLiveFeedbackHeartbeatAsync()
+    {
+        return liveFeedbackHeartbeatService.StopAsync();
     }
 
     private void RunOnUi(Action action)
@@ -14427,7 +14519,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         if (choice == ThemedDialogChoice.Secondary)
         {
             SetActiveSection(SectionView.Settings);
-            SetActiveSettingsSection(SettingsSectionView.Accounts);
+            SetActiveSettingsSection(SettingsSectionView.Safety);
         }
     }
 
@@ -17058,6 +17150,16 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         return builder.ToString();
     }
 
+    private static string GetBuildChannel()
+    {
+        if (IsTestBuild)
+        {
+            return "test";
+        }
+
+        return string.IsNullOrWhiteSpace(BetaBuildLabel) ? "stable" : "beta";
+    }
+
     private enum SectionView
     {
         Home,
@@ -17068,8 +17170,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     private enum SettingsSectionView
     {
-        Accounts,
-        Visuals
+        Twitch,
+        VrChat,
+        App,
+        Visuals,
+        Safety
     }
 
     private enum RuleListView

@@ -795,6 +795,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                     await ExecuteDevRelativeAvatarScaleAsync(
                         command.RelativeHeightMeters,
                         command.DurationSeconds,
+                        command.TransitionSeconds,
                         bridgeEvent.UserDisplayName,
                         cancellationToken);
                     break;
@@ -830,6 +831,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private async Task ExecuteDevRelativeAvatarScaleAsync(
         double relativeHeightMeters,
         int durationSeconds,
+        double transitionSeconds,
         string userDisplayName,
         CancellationToken cancellationToken)
     {
@@ -844,15 +846,19 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         {
             Name = relativeHeightMeters >= 0 ? "Dev Grow" : "Dev Shrink",
             ScaleMode = AvatarScaleMode.RelativeHeight,
+            AdvancedRangeEnabled = true,
+            BypassVrChatScaleLimits = true,
             RelativeHeightMeters = relativeHeightMeters,
+            RelativeMinimumHeightMeters = AvatarScaleRule.AdvancedMinimumHeightMeters,
+            RelativeMaximumHeightMeters = AvatarScaleRule.AdvancedMaximumHeightMeters,
             ActiveTimeSeconds = Math.Max(1, durationSeconds),
             RestoreHeightMeters = previousHeight,
-            SmoothTransitionSeconds = 0
+            SmoothTransitionSeconds = transitionSeconds
         };
         var snapshot = BridgeRuntimeConfiguration.CreateManualTestSnapshot(rule);
 
         WriteLog(
-            $"{userDisplayName} ran dev avatar scale {relativeHeightMeters:+0.###;-0.###;0}m for {DescribeDuration(durationSeconds)}.");
+            $"{userDisplayName} ran dev avatar scale {relativeHeightMeters:+0.###;-0.###;0}m for {DescribeDuration(durationSeconds)} with {DescribeDuration(snapshot.SmoothTransitionSeconds)} transition.");
         await SendTestAvatarScaleRuleAsync(snapshot, cancellationToken);
     }
 
@@ -1172,6 +1178,13 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             catch (Exception ex)
             {
                 WriteLog($"Twitch validation failed: {ex.Message}");
+                if (isBroadcasterLive)
+                {
+                    isBroadcasterLive = false;
+                    nextTriggerInfoAnnouncementAt = DateTimeOffset.MinValue;
+                    StreamStateChanged?.Invoke(false, false);
+                }
+
                 StatusChanged?.Invoke("OAuth session expired. Please reconnect Twitch.");
                 runtimeCancellation?.Cancel();
                 return;

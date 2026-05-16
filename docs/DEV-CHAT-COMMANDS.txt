@@ -1,0 +1,81 @@
+Crystal Relay Dev Chat Commands
+================================
+
+Only the Twitch chatter login/display name Screminpal_ can run these.
+Command names and direction words ignore letter case.
+
+Fill in the number parts:
+- <meters> is a positive decimal height change, like 0.25
+- <seconds> is a positive whole number of seconds
+- <transitionSeconds> is an optional non-negative transition time from 0 to 30 seconds
+- <percent> is a whole number from 1 to 100
+
+
+Avatar Scale
+------------
+
+!devgrow <meters> <seconds>
+!devshrink <meters> <seconds>
+!devgrow <meters> <seconds> <transitionSeconds>
+!devshrink <meters> <seconds> <transitionSeconds>
+
+
+Fire Sale
+---------
+
+!devfiresale <percent> <seconds>
+
+
+Movement
+--------
+
+Forward:
+!devmove forward <seconds>
+!devmove forwards <seconds>
+!devmove front <seconds>
+!devmove f <seconds>
+
+Backward:
+!devmove back <seconds>
+!devmove backward <seconds>
+!devmove backwards <seconds>
+!devmove b <seconds>
+
+Left:
+!devmove left <seconds>
+!devmove l <seconds>
+
+Right:
+!devmove right <seconds>
+!devmove r <seconds>
+
+Jump:
+!devmove jump <seconds>
+!devmove j <seconds>
+
+Spin/Turn/Look Left:
+!devmove spinleft <seconds>
+!devmove turnleft <seconds>
+!devmove lookleft <seconds>
+!devmove tl <seconds>
+
+Spin/Turn/Look Right:
+!devmove spinright <seconds>
+!devmove turnright <seconds>
+!devmove lookright <seconds>
+!devmove tr <seconds>
+
+
+Direction Punctuation
+---------------------
+
+Punctuation inside a single direction word is ignored, so these also work:
+
+!devmove spin-left <seconds>
+!devmove turn-left <seconds>
+!devmove look-left <seconds>
+!devmove spin-right <seconds>
+!devmove turn-right <seconds>
+!devmove look-right <seconds>
+
+Do not put spaces inside the direction word. Use turnleft or turn-left, not turn left.

@@ -18,6 +18,10 @@ internal sealed record ApplicationUpdateInfo(
     string LatestVersion,
     string LatestBaseVersion,
     string ReleasePageUrl,
+    string AssetName,
+    string AssetDownloadUrl,
+    long AssetSizeBytes,
+    string Sha256Digest,
     bool IsBeta = false);
 
 internal sealed record ApplicationUpdateCheckResult(
@@ -32,6 +36,7 @@ internal sealed class ApplicationUpdateService : IDisposable
 {
     private static readonly Uri ReleasesEndpoint = new("https://api.github.com/repos/seluvia/crystal-relay-public/releases?per_page=30");
     private static readonly TimeSpan DefaultRequestTimeout = TimeSpan.FromSeconds(6);
+    private const string RuntimeName = "win-x64";
 
     private readonly HttpClient httpClient = new()
     {
@@ -48,6 +53,7 @@ internal sealed class ApplicationUpdateService : IDisposable
         string currentVersionText,
         string ignoredVersionText,
         string ignoredBetaBaseVersionText,
+        bool includeBetaUpdates,
         CancellationToken cancellationToken = default)
     {
         if (!TryParseReleaseVersion(currentVersionText, out var currentVersion))
@@ -91,20 +97,25 @@ internal sealed class ApplicationUpdateService : IDisposable
             return new ApplicationUpdateCheckResult(ApplicationUpdateCheckStatus.ReleaseVersionUnreadable);
         }
 
+        var betaUpdatesAllowed = includeBetaUpdates || currentVersion.IsPrerelease;
         var bestStable = candidates
             .Where(candidate => !candidate.IsBeta)
             .Where(candidate => candidate.Version.CompareTo(currentVersion) > 0)
             .Where(candidate => !IsIgnoredUpdate(ignoredVersionText, candidate.Version, betaCandidate: false))
             .OrderByDescending(candidate => candidate.Version)
+            .ThenByDescending(candidate => candidate.PublishedAt)
             .FirstOrDefault();
 
-        var bestBeta = candidates
-            .Where(candidate => candidate.IsBeta)
-            .Where(candidate => IsNewerBetaCandidate(candidate.Version, currentVersion))
-            .Where(candidate => !IsIgnoredUpdate(ignoredVersionText, candidate.Version, betaCandidate: true))
-            .Where(candidate => !IsIgnoredBetaBaseVersion(ignoredBetaBaseVersionText, candidate.Version))
-            .OrderByDescending(candidate => candidate.Version)
-            .FirstOrDefault();
+        var bestBeta = betaUpdatesAllowed
+            ? candidates
+                .Where(candidate => candidate.IsBeta)
+                .Where(candidate => IsNewerBetaCandidate(candidate.Version, currentVersion))
+                .Where(candidate => !IsIgnoredUpdate(ignoredVersionText, candidate.Version, betaCandidate: true))
+                .Where(candidate => !IsIgnoredBetaBaseVersion(ignoredBetaBaseVersionText, candidate.Version))
+                .OrderByDescending(candidate => candidate.Version)
+                .ThenByDescending(candidate => candidate.PublishedAt)
+                .FirstOrDefault()
+            : null;
 
         var update = ChooseBestCandidate(bestStable, bestBeta);
         if (update is null)
@@ -119,6 +130,10 @@ internal sealed class ApplicationUpdateService : IDisposable
                 update.Version.ToDisplayString(),
                 update.Version.ToBaseDisplayString(),
                 update.ReleasePageUrl,
+                update.AssetName,
+                update.AssetDownloadUrl,
+                update.AssetSizeBytes,
+                update.Sha256Digest,
                 update.IsBeta));
     }
 
@@ -138,13 +153,44 @@ internal sealed class ApplicationUpdateService : IDisposable
             return false;
         }
 
+        if (!TryFindReleaseAsset(release, version, out var asset))
+        {
+            return false;
+        }
+
         candidate = new ReleaseCandidate(
             version,
             release.HtmlUrl ?? string.Empty,
+            asset.Name ?? string.Empty,
+            asset.BrowserDownloadUrl ?? string.Empty,
+            Math.Max(0, asset.Size),
+            asset.Digest ?? string.Empty,
             isBeta,
             release.PublishedAt ?? DateTimeOffset.MinValue);
         return true;
     }
+
+    private static bool TryFindReleaseAsset(
+        GitHubReleaseResponse release,
+        AppReleaseVersion version,
+        out GitHubReleaseAssetResponse asset)
+    {
+        asset = default!;
+        var expectedAssetName = GetExpectedAssetName(version);
+        var match = (release.Assets ?? [])
+            .Where(candidate => !string.IsNullOrWhiteSpace(candidate.Name))
+            .FirstOrDefault(candidate => string.Equals(candidate.Name, expectedAssetName, StringComparison.OrdinalIgnoreCase));
+        if (match is null || string.IsNullOrWhiteSpace(match.BrowserDownloadUrl))
+        {
+            return false;
+        }
+
+        asset = match;
+        return true;
+    }
+
+    private static string GetExpectedAssetName(AppReleaseVersion version) =>
+        $"CrystalRelayTwitchOsc-v{version.ToDisplayString()}-{RuntimeName}.zip";
 
     private static ReleaseCandidate? ChooseBestCandidate(ReleaseCandidate? stableCandidate, ReleaseCandidate? betaCandidate)
     {
@@ -192,7 +238,7 @@ internal sealed class ApplicationUpdateService : IDisposable
             return betaVersion.CompareTo(currentVersion) > 0;
         }
 
-        return !betaVersion.HasSameIdentity(currentVersion);
+        return false;
     }
 
     private static bool IsIgnoredUpdate(string ignoredVersionText, AppReleaseVersion candidateVersion, bool betaCandidate)
@@ -286,6 +332,10 @@ internal sealed class ApplicationUpdateService : IDisposable
     private sealed record ReleaseCandidate(
         AppReleaseVersion Version,
         string ReleasePageUrl,
+        string AssetName,
+        string AssetDownloadUrl,
+        long AssetSizeBytes,
+        string Sha256Digest,
         bool IsBeta,
         DateTimeOffset PublishedAt);
 
@@ -427,5 +477,23 @@ internal sealed class ApplicationUpdateService : IDisposable
 
         [JsonPropertyName("published_at")]
         public DateTimeOffset? PublishedAt { get; set; }
+
+        [JsonPropertyName("assets")]
+        public List<GitHubReleaseAssetResponse>? Assets { get; set; }
+    }
+
+    private sealed class GitHubReleaseAssetResponse
+    {
+        [JsonPropertyName("name")]
+        public string? Name { get; set; }
+
+        [JsonPropertyName("browser_download_url")]
+        public string? BrowserDownloadUrl { get; set; }
+
+        [JsonPropertyName("size")]
+        public long Size { get; set; }
+
+        [JsonPropertyName("digest")]
+        public string? Digest { get; set; }
     }
 }

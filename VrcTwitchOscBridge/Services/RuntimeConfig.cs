@@ -15,11 +15,15 @@ public sealed class RuntimeConfig
 
     public string SupplementalAboutProfilesHeaderValue { get; set; } = string.Empty;
 
+    [JsonPropertyName("liveFeedbackHeartbeatEndpoint")]
+    public string LiveFeedbackHeartbeatEndpoint { get; set; } = string.Empty;
+
     public RuntimeConfig Normalize()
     {
         SupplementalAboutProfilesEndpoint = SupplementalAboutProfilesEndpoint.Trim();
         SupplementalAboutProfilesHeaderName = SupplementalAboutProfilesHeaderName.Trim();
         SupplementalAboutProfilesHeaderValue = SupplementalAboutProfilesHeaderValue.Trim();
+        LiveFeedbackHeartbeatEndpoint = LiveFeedbackHeartbeatEndpoint.Trim();
         return this;
     }
 

@@ -4,6 +4,7 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using VrcTwitchOscBridge.Models;
 
 namespace VrcTwitchOscBridge.Services;
@@ -402,6 +403,8 @@ public sealed class SettingsStore
             settings.AvatarChangeCooldownOnlyModeEnabled = profile.AvatarChangeCooldownOnlyModeEnabled ?? settings.AvatarChangeCooldownOnlyModeEnabled;
             settings.EmergencyRedeemStopEnabled = profile.EmergencyRedeemStopEnabled ?? settings.EmergencyRedeemStopEnabled;
             settings.DesktopModeInputLockEnabled = profile.DesktopModeInputLockEnabled ?? settings.DesktopModeInputLockEnabled;
+            settings.LiveFeedbackHeartbeatEnabled = profile.LiveFeedbackHeartbeatEnabled ?? settings.LiveFeedbackHeartbeatEnabled;
+            settings.BetaApplicationUpdatesEnabled = profile.BetaApplicationUpdatesEnabled ?? settings.BetaApplicationUpdatesEnabled;
             settings.EasterEggsEnabled = profile.EasterEggsEnabled ?? settings.EasterEggsEnabled;
             settings.MainWindowTrayTipShown = profile.MainWindowTrayTipShown ?? settings.MainWindowTrayTipShown;
             settings.IgnoredUpdateVersion = profile.IgnoredUpdateVersion ?? settings.IgnoredUpdateVersion;
@@ -546,6 +549,8 @@ public sealed class SettingsStore
             AvatarChangeCooldownOnlyModeEnabled = settings.AvatarChangeCooldownOnlyModeEnabled,
             EmergencyRedeemStopEnabled = settings.EmergencyRedeemStopEnabled,
             DesktopModeInputLockEnabled = settings.DesktopModeInputLockEnabled,
+            LiveFeedbackHeartbeatEnabled = settings.LiveFeedbackHeartbeatEnabled,
+            BetaApplicationUpdatesEnabled = settings.BetaApplicationUpdatesEnabled,
             EasterEggsEnabled = settings.EasterEggsEnabled,
             MainWindowTrayTipShown = settings.MainWindowTrayTipShown,
             IgnoredUpdateVersion = settings.IgnoredUpdateVersion,
@@ -2213,6 +2218,11 @@ public sealed class SettingsStore
         public bool? EmergencyRedeemStopEnabled { get; set; }
 
         public bool? DesktopModeInputLockEnabled { get; set; }
+
+        [JsonPropertyName("liveFeedbackHeartbeatEnabled")]
+        public bool? LiveFeedbackHeartbeatEnabled { get; set; }
+
+        public bool? BetaApplicationUpdatesEnabled { get; set; }
 
         public bool? EasterEggsEnabled { get; set; }
 

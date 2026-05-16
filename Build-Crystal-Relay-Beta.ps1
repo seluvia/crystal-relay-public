@@ -158,6 +158,18 @@ if (Test-Path $docsPath) {
     Copy-Item -Path $docsPath -Destination (Join-Path $publishDir 'docs') -Recurse -Force
 }
 
+$entryExecutableName = Split-Path -Path $versionedExe -Leaf
+$updateManifest = [ordered]@{
+    productName = 'Crystal Relay'
+    version = "$targetVersion-$betaName"
+    channel = 'beta'
+    runtime = $runtime
+    entryExecutableName = $entryExecutableName
+}
+$updateManifest |
+    ConvertTo-Json |
+    Set-Content -Path (Join-Path $publishDir 'crystal-relay-update.json') -Encoding UTF8
+
 if (Test-Path $zipPath) {
     Remove-Item -Path $zipPath -Force
 }

@@ -21,6 +21,7 @@ internal sealed record DevChatCommand(
     PlayerMovementDirection MovementDirection,
     int DiscountPercent,
     int DurationSeconds,
+    double TransitionSeconds,
     string CommandText);
 
 internal static class DevChatCommandParser
@@ -81,9 +82,9 @@ internal static class DevChatCommandParser
         command = default!;
         diagnostic = string.Empty;
 
-        if (tokens.Count != 3)
+        if (tokens.Count is not 3 and not 4)
         {
-            diagnostic = $"{commandName} expects <meters> <seconds>.";
+            diagnostic = $"{commandName} expects <meters> <seconds> [transitionSeconds].";
             return false;
         }
 
@@ -99,6 +100,14 @@ internal static class DevChatCommandParser
             return false;
         }
 
+        var transitionSeconds = 0d;
+        if (tokens.Count == 4
+            && !TryParseNonNegativeDouble(tokens[3], out transitionSeconds))
+        {
+            diagnostic = $"{commandName} needs a non-negative transition duration in seconds.";
+            return false;
+        }
+
         var direction = string.Equals(commandName, "!devshrink", StringComparison.OrdinalIgnoreCase) ? -1d : 1d;
         command = new DevChatCommand(
             DevChatCommandKind.RelativeAvatarScale,
@@ -106,6 +115,7 @@ internal static class DevChatCommandParser
             PlayerMovementDirection.Forward,
             0,
             durationSeconds,
+            Math.Clamp(transitionSeconds, 0, 30),
             commandName);
         return true;
     }
@@ -143,6 +153,7 @@ internal static class DevChatCommandParser
             direction,
             0,
             durationSeconds,
+            0,
             commandName);
         return true;
     }
@@ -181,6 +192,7 @@ internal static class DevChatCommandParser
             PlayerMovementDirection.Forward,
             percent,
             durationSeconds,
+            0,
             commandName);
         return true;
     }
@@ -251,6 +263,14 @@ internal static class DevChatCommandParser
     {
         return int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out result)
             && result > 0;
+    }
+
+    private static bool TryParseNonNegativeDouble(string value, out double result)
+    {
+        return double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out result)
+            && result >= 0
+            && !double.IsNaN(result)
+            && !double.IsInfinity(result);
     }
 
     private static bool IsAuthorizedName(string? value)

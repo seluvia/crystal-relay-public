@@ -34,6 +34,20 @@ public partial class App : Application
 
     protected override async void OnStartup(StartupEventArgs e)
     {
+        if (ApplicationSelfUpdateService.TryGetApplyManifestPath(e.Args, out var updateManifestPath))
+        {
+            ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            base.OnStartup(e);
+            await ApplicationSelfUpdateService.ApplyUpdateAsync(updateManifestPath);
+            Shutdown();
+            return;
+        }
+
+        if (ApplicationSelfUpdateService.TryGetCleanupRequest(e.Args, out var updateCleanupRequest))
+        {
+            await ApplicationSelfUpdateService.CleanupCompletedUpdateAsync(updateCleanupRequest);
+        }
+
         if (SavedLoginStateRecoveryService.TryCreateHelperRequest(e.Args, out var recoveryHelperRequest))
         {
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
