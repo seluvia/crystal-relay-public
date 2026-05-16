@@ -61,6 +61,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private const int AvatarScaleSmoothMaxSteps = 600;
     private const int AvatarScaleCarryoverApplyAttemptCount = 4;
     private const string BitsOutfitSetTriggerLaneKey = "set-trigger-bits-outfit";
+    private const string AvatarSwitchLaneKey = "avatar-switch";
     private static readonly TimeSpan AvatarScaleQueuePollDelay = TimeSpan.FromMilliseconds(250);
     private static readonly TimeSpan SetTriggerDiffObservationDelay = TimeSpan.FromSeconds(70);
     private static readonly TimeSpan SetTriggerPacketSpacing = TimeSpan.FromMilliseconds(80);
@@ -136,6 +137,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private readonly Dictionary<Guid, CancellationTokenSource> avatarSwitchLockoutStateNotifications = [];
     private readonly Queue<QueuedChatboxRelayLine> queuedChatboxRelayMessages = [];
     private readonly List<QueuedSupporterOverrideState> queuedSupporterOverrides = [];
+    private readonly Queue<QueuedAvatarSwitchState> queuedAvatarSwitches = [];
     private readonly HashSet<Guid> supporterOverrideBlockedRuleIds = [];
     private readonly Dictionary<Guid, DateTimeOffset> universalTriggerGlobalDelays = [];
     private readonly Dictionary<string, DateTimeOffset> universalTriggerUserDelays = new(StringComparer.Ordinal);
@@ -178,6 +180,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private DateTimeOffset nextThirdPartyChatEmoteRefreshAt = DateTimeOffset.MinValue;
     private DateTimeOffset nextChatEmoteDiagnosticLogAt = DateTimeOffset.MinValue;
     private ActiveSupporterOverrideState? activeSupporterOverride;
+    private bool drainingQueuedAvatarSwitches;
     private DateTimeOffset nextWorldCommandAllowedAt = DateTimeOffset.MinValue;
     private DateTimeOffset cachedWorldCommandResultExpiresAt = DateTimeOffset.MinValue;
     private string cachedWorldCommandUserId = string.Empty;
@@ -188,6 +191,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private CancellationTokenSource? avatarScaleMasterCooldownNotification;
     private int suppressedChatEmoteDiagnosticLogs;
     private long nextSupporterOverrideQueueOrder;
+    private long nextQueuedAvatarSwitchOrder;
     private long nextAvatarScaleOperationId;
     private long nextAvatarScaleRestoreSequenceId;
     private long nextAvatarScaleAvatarChangeSequenceId;
@@ -950,6 +954,15 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
         if (matchingRules.Length == 0)
         {
+            if (TryQueueAvatarSwitchTriggerDuringSupporterOverride(
+                ruleIndex,
+                bridgeEvent,
+                currentAvatarId,
+                configuration.AvatarChangeCooldownOnlyModeEnabled))
+            {
+                return;
+            }
+
             if (!avatarScaleHandled && !fireSaleContributionHandled)
             {
                 WriteLog($"No configured rule matched the simulated {bridgeEvent.TriggerLabel} event.");
@@ -1692,6 +1705,18 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         if (matchingRules.Length == 0
             && !bridgeEvent.IsChatCommandTrigger
             && bridgeEvent.TriggerType == TwitchTriggerType.ChannelPoints
+            && TryQueueAvatarSwitchTriggerDuringSupporterOverride(
+                ruleIndex,
+                bridgeEvent,
+                currentAvatarId,
+                configuration.AvatarChangeCooldownOnlyModeEnabled))
+        {
+            return;
+        }
+
+        if (matchingRules.Length == 0
+            && !bridgeEvent.IsChatCommandTrigger
+            && bridgeEvent.TriggerType == TwitchTriggerType.ChannelPoints
             && TryBuildSharedRewardChoiceHelp(
                 ruleIndex,
                 bridgeEvent,
@@ -1901,6 +1926,20 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         IsSupporterOverrideRule(rule)
         && rule.ActionType != OscActionType.SetTrigger
         && (rule.AmountScaledDurationEnabled || rule.DurationSeconds > 0);
+
+    private static bool IsTimedAvatarSwitchRule(TriggerRuleSnapshot rule) =>
+        rule.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet
+        && rule.DurationSeconds > 0;
+
+    private static bool IsQueuedAvatarSwitchRule(TriggerRuleSnapshot rule) =>
+        rule.TriggerType == TwitchTriggerType.ChannelPoints
+        && !rule.IsGlobalOverride
+        && IsTimedAvatarSwitchRule(rule);
+
+    private static bool IsPauseableAvatarSwitchReset(PendingResetState reset) =>
+        IsQueuedAvatarSwitchRule(reset.Rule)
+        && reset.Action.HasResetPackets
+        && !string.IsNullOrWhiteSpace(reset.Action.AvatarTargetId);
 
     private static bool IsBitsOutfitSetTriggerRule(TriggerRuleSnapshot rule) =>
         rule.IsGlobalOverride
@@ -4362,6 +4401,99 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         return suppressionUntil > now;
     }
 
+    private bool TryQueueAvatarSwitchTriggerDuringSupporterOverride(
+        RuntimeRuleIndex ruleIndex,
+        BridgeIncomingEvent bridgeEvent,
+        string currentAvatarId,
+        bool avatarChangeCooldownOnlyModeEnabled)
+    {
+        if (bridgeEvent.IsChatCommandTrigger || bridgeEvent.TriggerType != TwitchTriggerType.ChannelPoints)
+        {
+            return false;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        HashSet<Guid> supporterBlockedRuleIds;
+        lock (stateGate)
+        {
+            supporterBlockedRuleIds = GetSupporterOverrideBlockedRuleIdsLocked(now);
+        }
+
+        if (supporterBlockedRuleIds.Count == 0)
+        {
+            return false;
+        }
+
+        var queuedRule = SelectPaidSuppressedAvatarSwitchMatch(
+            ruleIndex,
+            bridgeEvent,
+            currentAvatarId,
+            supporterBlockedRuleIds,
+            avatarChangeCooldownOnlyModeEnabled);
+        if (queuedRule is null)
+        {
+            return false;
+        }
+
+        var queuedCount = QueueAvatarSwitchTrigger(queuedRule, bridgeEvent);
+        WriteLog($"{bridgeEvent.UserDisplayName} queued avatar switch '{queuedRule.Name}' until the paid override finishes. {queuedCount} avatar switch{(queuedCount == 1 ? string.Empty : "es")} waiting.");
+        EnsureQueuedAvatarSwitchDrain();
+        return true;
+    }
+
+    private TriggerRuleSnapshot? SelectPaidSuppressedAvatarSwitchMatch(
+        RuntimeRuleIndex ruleIndex,
+        BridgeIncomingEvent bridgeEvent,
+        string currentAvatarId,
+        IReadOnlySet<Guid> supporterBlockedRuleIds,
+        bool avatarChangeCooldownOnlyModeEnabled)
+    {
+        var normalizedRewardId = bridgeEvent.RewardId?.Trim() ?? string.Empty;
+        var normalizedRewardTitle = NormalizeRewardTitle(bridgeEvent.RewardTitle);
+        if (string.IsNullOrWhiteSpace(normalizedRewardId) && string.IsNullOrWhiteSpace(normalizedRewardTitle))
+        {
+            return null;
+        }
+
+        var sharedReturnAvatar = GetSharedReturnAvatarSnapshot();
+        var activationAvatarId = !string.IsNullOrWhiteSpace(sharedReturnAvatar.AvatarId)
+            ? sharedReturnAvatar.AvatarId
+            : currentAvatarId?.Trim() ?? string.Empty;
+        var candidates = ruleIndex.GetChannelPointCandidates(normalizedRewardId, normalizedRewardTitle)
+            .Where(rule => rule.IsEnabled
+                && supporterBlockedRuleIds.Contains(rule.Id)
+                && IsQueuedAvatarSwitchRule(rule)
+                && AvatarRuleActivationPolicy.IsRuleActiveForCurrentAvatar(
+                    rule.IsGlobalOverride,
+                    rule.BelongsToMasterAvatarProfile,
+                    rule.ActionType,
+                    rule.AvatarChangeTargetId,
+                    rule.RequiredAvatarId,
+                    activationAvatarId,
+                    avatarChangeTransitionActive: false,
+                    avatarChangeCooldownOnlyModeEnabled))
+            .ToArray();
+        if (candidates.Length == 0)
+        {
+            return null;
+        }
+
+        var sharedChoiceCandidates = candidates
+            .Where(IsSharedRewardChoiceRule)
+            .ToArray();
+        if (sharedChoiceCandidates.Length > 0)
+        {
+            if (!TryParseSharedRewardChoiceNumber(bridgeEvent.RewardUserInput, out var choiceNumber))
+            {
+                return null;
+            }
+
+            return sharedChoiceCandidates.FirstOrDefault(rule => rule.SharedRewardChoiceNumber == choiceNumber);
+        }
+
+        return candidates[0];
+    }
+
     private int GetQueuedSupporterOverrideIndexLocked(Guid ruleId)
     {
         for (var index = 0; index < queuedSupporterOverrides.Count; index++)
@@ -5558,6 +5690,28 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         WriteLog($"Queued paid override '{rule.Name}'. {queuedCount} paid override{(queuedCount == 1 ? string.Empty : "s")} waiting.");
     }
 
+    private int QueueAvatarSwitchTrigger(TriggerRuleSnapshot rule, BridgeIncomingEvent bridgeEvent)
+    {
+        lock (stateGate)
+        {
+            queuedAvatarSwitches.Enqueue(QueuedAvatarSwitchState.ForTrigger(
+                rule,
+                bridgeEvent,
+                ++nextQueuedAvatarSwitchOrder));
+            return queuedAvatarSwitches.Count;
+        }
+    }
+
+    private int QueuePausedAvatarSwitchLocked(PendingResetState pendingReset, TimeSpan remainingDuration)
+    {
+        queuedAvatarSwitches.Enqueue(QueuedAvatarSwitchState.ForPausedSwitch(
+            pendingReset.Rule,
+            pendingReset.Action,
+            remainingDuration,
+            ++nextQueuedAvatarSwitchOrder));
+        return queuedAvatarSwitches.Count;
+    }
+
     private async Task PreemptActiveSupporterOverrideAsync(
         ActiveSupporterOverrideState activeState,
         TriggerRuleSnapshot newRule,
@@ -5686,6 +5840,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
         ApplyRuleLockoutUntil(rule, activeUntil);
         ScheduleTimedSupporterOverrideCompletion(activeState, completionCancellation);
+        EnsureQueuedAvatarSwitchDrain();
 
         if (sequenceWasInactive)
         {
@@ -5852,27 +6007,73 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         if (!sequenceStillActive)
         {
             ManagedRewardAvailabilityChanged?.Invoke();
+            EnsureQueuedLaneDrain(AvatarSwitchLaneKey);
+            EnsureQueuedAvatarSwitchDrain();
         }
     }
 
     private async Task CancelBlockedChannelPointEffectsForSupporterOverrideAsync(CancellationToken cancellationToken)
     {
         List<PendingResetState> blockedResets;
+        List<PendingResetState> pausedAvatarSwitches;
+        List<(PendingResetState Reset, TimeSpan RemainingDuration, int QueueCount)> queuedPausedAvatarSwitches;
         lock (stateGate)
         {
             blockedResets = [];
+            pausedAvatarSwitches = [];
+            queuedPausedAvatarSwitches = [];
+            var now = DateTimeOffset.UtcNow;
             foreach (var reset in pendingResets.Values)
             {
                 if (ShouldBlockRuleDuringSupporterOverride(reset.Rule))
                 {
-                    blockedResets.Add(reset);
+                    if (IsPauseableAvatarSwitchReset(reset))
+                    {
+                        var remainingDuration = reset.DueAt - now;
+                        if (remainingDuration > TimeSpan.Zero)
+                        {
+                            pausedAvatarSwitches.Add(reset);
+                            var queueCount = QueuePausedAvatarSwitchLocked(reset, remainingDuration);
+                            queuedPausedAvatarSwitches.Add((reset, remainingDuration, queueCount));
+                        }
+                        else
+                        {
+                            blockedResets.Add(reset);
+                        }
+                    }
+                    else
+                    {
+                        blockedResets.Add(reset);
+                    }
                 }
             }
 
-            foreach (var blockedReset in blockedResets)
+            foreach (var blockedReset in blockedResets.Concat(pausedAvatarSwitches))
             {
                 pendingResets.Remove(blockedReset.RuleId);
             }
+        }
+
+        foreach (var pausedAvatarSwitch in pausedAvatarSwitches)
+        {
+            pausedAvatarSwitch.Cancellation.Cancel();
+            ReleaseActiveRuleLockoutState(pausedAvatarSwitch.RuleId, logRelease: false);
+            ReleaseActiveAvatarSwitchLockoutState(pausedAvatarSwitch.RuleId, logRelease: false);
+            var releasedLaneKeys = ReleaseMovementLanes(pausedAvatarSwitch.MovementLaneLeaseId, pausedAvatarSwitch.MovementLaneKeys);
+            foreach (var releasedLaneKey in releasedLaneKeys)
+            {
+                if (!string.Equals(releasedLaneKey, AvatarSwitchLaneKey, StringComparison.Ordinal))
+                {
+                    EnsureQueuedLaneDrain(releasedLaneKey);
+                }
+            }
+
+            pausedAvatarSwitch.Cancellation.Dispose();
+        }
+
+        foreach (var (reset, remainingDuration, queueCount) in queuedPausedAvatarSwitches)
+        {
+            WriteLog($"Paused avatar switch '{reset.RuleName}' because a paid override took priority. It will resume with {DescribeDuration(remainingDuration.TotalSeconds)} left. {queueCount} avatar switch{(queueCount == 1 ? string.Empty : "es")} waiting.");
         }
 
         foreach (var blockedReset in blockedResets)
@@ -6195,6 +6396,11 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         TriggerRuleSnapshot rule,
         ResolvedRuleAction? resolvedAction = null)
     {
+        if (IsQueuedAvatarSwitchRule(rule))
+        {
+            return [AvatarSwitchLaneKey];
+        }
+
         if (rule.ActionType == OscActionType.PlayerMovement && !IsSoftLockMovement(rule.MovementDirection))
         {
             var movementLaneKey = GetMovementLaneKey(rule.MovementDirection);
@@ -7204,12 +7410,15 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
         var cancellation = CancellationTokenSource.CreateLinkedTokenSource(runtimeCancellation.Token);
         var sourceAvatarId = GetAvatarScopedResetSourceAvatarId(rule);
+        var dueAt = DateTimeOffset.UtcNow.AddSeconds(Math.Max(1, delaySeconds));
         var pendingReset = new PendingResetState(
             rule.Id,
             rule.Name,
             rule,
+            action,
             action.ResetPackets,
             cancellation,
+            dueAt,
             action.AvatarResetId,
             action.AvatarResetName,
             sourceAvatarId,
@@ -7721,14 +7930,18 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             lockoutsWereActive = activeRuleLockouts.Count > 0
                 || activeAvatarSwitchRuleLockouts.Count > 0
                 || activeSupporterOverride is not null
-                || queuedSupporterOverrides.Count > 0;
+                || queuedSupporterOverrides.Count > 0
+                || queuedAvatarSwitches.Count > 0;
             activeRuleLockouts.Clear();
             activeAvatarSwitchRuleLockouts.Clear();
             lastAvatarRouletResultIds.Clear();
+            queuedAvatarSwitches.Clear();
+            drainingQueuedAvatarSwitches = false;
             activeSupporterState = activeSupporterOverride;
             activeSupporterOverride = null;
             queuedSupporterOverrides.Clear();
             nextSupporterOverrideQueueOrder = 0;
+            nextQueuedAvatarSwitchOrder = 0;
             lockoutNotifications = [.. lockoutStateNotifications.Values];
             lockoutStateNotifications.Clear();
             avatarSwitchLockoutNotifications = [.. avatarSwitchLockoutStateNotifications.Values];
@@ -12782,18 +12995,21 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     {
         var droppedQueuedTriggers = 0;
         var droppedQueuedLaneActions = 0;
+        var droppedQueuedAvatarSwitches = 0;
         var droppedQueuedScaleRedeems = 0;
 
         lock (stateGate)
         {
             droppedQueuedTriggers = queuedTriggers.Sum(entry => entry.Value.Count);
             droppedQueuedLaneActions = queuedLaneActions.Sum(entry => entry.Value.Count);
+            droppedQueuedAvatarSwitches = queuedAvatarSwitches.Count;
             (droppedQueuedScaleRedeems, _) = ClearQueuedAvatarScaleOperationsLocked(includeTests: false);
             queuedTriggers.Clear();
             queuedLaneActions.Clear();
+            queuedAvatarSwitches.Clear();
         }
 
-        var totalDropped = droppedQueuedTriggers + droppedQueuedLaneActions + droppedQueuedScaleRedeems;
+        var totalDropped = droppedQueuedTriggers + droppedQueuedLaneActions + droppedQueuedAvatarSwitches + droppedQueuedScaleRedeems;
         if (totalDropped > 0)
         {
             WriteLog($"Emergency redeem pause cleared {totalDropped} queued redeem action{(totalDropped == 1 ? string.Empty : "s")}.");
@@ -13288,7 +13504,10 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             masterCooldownNotification = avatarScaleMasterCooldownNotification;
             avatarScaleMasterCooldownNotification = null;
             queuedSupporterOverrides.Clear();
+            queuedAvatarSwitches.Clear();
+            drainingQueuedAvatarSwitches = false;
             nextSupporterOverrideQueueOrder = 0;
+            nextQueuedAvatarSwitchOrder = 0;
             universalTriggerGlobalDelays.Clear();
             universalTriggerUserDelays.Clear();
             triggerInfoCommandCooldowns.Clear();
@@ -13632,10 +13851,40 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                         }
                         else if (queuedLaneActions.TryGetValue(laneKey, out var queue) && queue.Count > 0)
                         {
-                            queuedAction = queue.Dequeue();
-                            if (queue.Count == 0)
+                            var candidateAction = queue.Peek();
+                            if (!candidateAction.IsTest)
                             {
-                                queuedLaneActions.Remove(laneKey);
+                                var now = DateTimeOffset.UtcNow;
+                                var currentRule = activeConfiguration?.Rules.FirstOrDefault(rule => rule.Id == candidateAction.Rule.Id);
+                                if (currentRule is null || !currentRule.IsEnabled)
+                                {
+                                    queuedAction = queue.Dequeue();
+                                    if (queue.Count == 0)
+                                    {
+                                        queuedLaneActions.Remove(laneKey);
+                                    }
+                                }
+                                else if (TryGetTemporarilyDisabledUntilLocked(currentRule.Id, now, out var temporarilyDisabledUntil)
+                                    && temporarilyDisabledUntil > now)
+                                {
+                                    delay = temporarilyDisabledUntil - now;
+                                }
+                                else
+                                {
+                                    queuedAction = queue.Dequeue();
+                                    if (queue.Count == 0)
+                                    {
+                                        queuedLaneActions.Remove(laneKey);
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                queuedAction = queue.Dequeue();
+                                if (queue.Count == 0)
+                                {
+                                    queuedLaneActions.Remove(laneKey);
+                                }
                             }
                         }
                         else
@@ -13716,6 +13965,246 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 }
             }
         }, CancellationToken.None);
+    }
+
+    private void EnsureQueuedAvatarSwitchDrain()
+    {
+        var cancellationToken = runtimeCancellation?.Token ?? CancellationToken.None;
+        var shouldStart = false;
+
+        lock (stateGate)
+        {
+            if (!drainingQueuedAvatarSwitches && queuedAvatarSwitches.Count > 0)
+            {
+                drainingQueuedAvatarSwitches = true;
+                shouldStart = true;
+            }
+        }
+
+        if (!shouldStart)
+        {
+            return;
+        }
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                while (!cancellationToken.IsCancellationRequested)
+                {
+                    QueuedAvatarSwitchState? queuedSwitch = null;
+                    TimeSpan delay = TimeSpan.Zero;
+                    string? logMessage = null;
+                    var dropQueuedItems = false;
+                    var dropCount = 0;
+
+                    lock (stateGate)
+                    {
+                        if (queuedAvatarSwitches.Count == 0)
+                        {
+                            break;
+                        }
+
+                        var now = DateTimeOffset.UtcNow;
+                        var nextSwitch = queuedAvatarSwitches.Peek();
+                        if (activeConfiguration?.EmergencyRedeemStopEnabled == true)
+                        {
+                            dropQueuedItems = true;
+                            dropCount = queuedAvatarSwitches.Count;
+                            queuedAvatarSwitches.Clear();
+                        }
+                        else if (IsSupporterOverrideSequenceActiveLocked(now))
+                        {
+                            delay = GetSupporterOverrideSequenceEndsAtLocked(now) - now;
+                            if (!nextSwitch.SupporterWaitLogged)
+                            {
+                                nextSwitch.SupporterWaitLogged = true;
+                                logMessage = $"Queued avatar switch '{nextSwitch.Rule.Name}' is waiting for the paid override queue to finish.";
+                            }
+                        }
+                        else if (actionLanes.TryGetValue(AvatarSwitchLaneKey, out var activeLane)
+                            && activeLane.BusyUntil > now)
+                        {
+                            delay = activeLane.BusyUntil - now;
+                            if (!nextSwitch.AvatarLaneWaitLogged)
+                            {
+                                nextSwitch.AvatarLaneWaitLogged = true;
+                                logMessage = $"Queued avatar switch '{nextSwitch.Rule.Name}' is waiting for the current avatar switch to finish.";
+                            }
+                        }
+                        else if (nextSwitch.Kind == QueuedAvatarSwitchKind.PendingTrigger)
+                        {
+                            var currentRule = activeConfiguration?.Rules.FirstOrDefault(rule => rule.Id == nextSwitch.Rule.Id);
+                            if (currentRule is null || !currentRule.IsEnabled || !IsQueuedAvatarSwitchRule(currentRule))
+                            {
+                                queuedAvatarSwitches.Dequeue();
+                                logMessage = $"Dropped queued avatar switch '{nextSwitch.Rule.Name}' because that rule is no longer enabled.";
+                            }
+                            else if (TryGetTemporarilyDisabledUntilLocked(currentRule.Id, now, out var temporarilyDisabledUntil)
+                                && temporarilyDisabledUntil > now)
+                            {
+                                delay = temporarilyDisabledUntil - now;
+                                if (!nextSwitch.TemporaryDisableWaitLogged)
+                                {
+                                    nextSwitch.TemporaryDisableWaitLogged = true;
+                                    logMessage = $"Queued avatar switch '{currentRule.Name}' is waiting for disable pairing to clear for {DescribeDuration(delay.TotalSeconds)}.";
+                                }
+                            }
+                            else if (cooldowns.TryGetValue(currentRule.Id, out var cooldownUntil) && cooldownUntil > now)
+                            {
+                                delay = cooldownUntil - now;
+                                if (!nextSwitch.CooldownWaitLogged)
+                                {
+                                    nextSwitch.CooldownWaitLogged = true;
+                                    logMessage = $"Queued avatar switch '{currentRule.Name}' is waiting for cooldown to clear for {DescribeDuration(delay.TotalSeconds)}.";
+                                }
+                            }
+                            else
+                            {
+                                queuedSwitch = queuedAvatarSwitches.Dequeue();
+                                queuedSwitch.Rule = currentRule;
+                            }
+                        }
+                        else
+                        {
+                            var currentRule = activeConfiguration?.Rules.FirstOrDefault(rule => rule.Id == nextSwitch.Rule.Id);
+                            if (currentRule is null || !currentRule.IsEnabled || !IsQueuedAvatarSwitchRule(currentRule))
+                            {
+                                queuedAvatarSwitches.Dequeue();
+                                logMessage = $"Dropped paused avatar switch '{nextSwitch.Rule.Name}' because that rule is no longer enabled.";
+                            }
+                            else
+                            {
+                                queuedSwitch = queuedAvatarSwitches.Dequeue();
+                            }
+                        }
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(logMessage))
+                    {
+                        WriteLog(logMessage);
+                    }
+
+                    if (dropQueuedItems)
+                    {
+                        WriteLog($"Dropped {dropCount} queued avatar switch{(dropCount == 1 ? string.Empty : "es")} because redeems are paused.");
+                        break;
+                    }
+
+                    if (delay > TimeSpan.Zero)
+                    {
+                        await Task.Delay(delay, cancellationToken);
+                        continue;
+                    }
+
+                    if (queuedSwitch is null)
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        await ExecuteQueuedAvatarSwitchAsync(queuedSwitch, cancellationToken);
+                    }
+                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        WriteLog($"Queued avatar switch '{queuedSwitch.Rule.Name}' failed: {ex.Message}");
+                    }
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+            }
+            finally
+            {
+                var restart = false;
+                lock (stateGate)
+                {
+                    drainingQueuedAvatarSwitches = false;
+                    restart = queuedAvatarSwitches.Count > 0;
+                }
+
+                if (restart)
+                {
+                    EnsureQueuedAvatarSwitchDrain();
+                }
+            }
+        }, CancellationToken.None);
+    }
+
+    private async Task ExecuteQueuedAvatarSwitchAsync(QueuedAvatarSwitchState queuedSwitch, CancellationToken cancellationToken)
+    {
+        if (queuedSwitch.Kind == QueuedAvatarSwitchKind.PausedActiveSwitch)
+        {
+            await ResumePausedAvatarSwitchAsync(queuedSwitch, cancellationToken);
+            return;
+        }
+
+        await ExecuteQueuedAvatarSwitchTriggerAsync(queuedSwitch, cancellationToken);
+    }
+
+    private async Task ResumePausedAvatarSwitchAsync(QueuedAvatarSwitchState queuedSwitch, CancellationToken cancellationToken)
+    {
+        if (queuedSwitch.Action is null)
+        {
+            return;
+        }
+
+        var rule = queuedSwitch.Rule;
+        var action = queuedSwitch.Action;
+        var remainingSeconds = Math.Max(1d, queuedSwitch.RemainingDuration.TotalSeconds);
+        var laneKeys = GetActionLaneKeys(rule, action);
+        var laneLeaseId = laneKeys.Count == 0 ? Guid.Empty : Guid.NewGuid();
+        await SendPacketsToVrChatAsync(action.Packets, cancellationToken);
+        RememberAvatarParameterValues(rule, action.ObservedValues.Count > 0 ? action.ObservedValues : null, action.DisplayValue);
+
+        lock (stateGate)
+        {
+            foreach (var laneKey in laneKeys)
+            {
+                actionLanes[laneKey] = new ActiveMovementLaneState(
+                    laneLeaseId,
+                    DateTimeOffset.UtcNow.AddSeconds(remainingSeconds),
+                    rule.Id,
+                    false);
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(action.AvatarTargetId))
+        {
+            SetCurrentVrChatAvatar(
+                action.AvatarTargetId,
+                notify: true,
+                GetAvatarScaleAvatarChangeCarryoverMode(rule));
+        }
+
+        ScheduleReset(rule, action, remainingSeconds, laneKeys, laneLeaseId, notifyManagedRewardState: false);
+        WriteLog($"Resumed paused avatar switch '{rule.Name}' for {DescribeDuration(remainingSeconds)}.");
+        ManagedRewardAvailabilityChanged?.Invoke();
+        await Task.Delay(TimeSpan.FromSeconds(remainingSeconds), cancellationToken);
+    }
+
+    private async Task ExecuteQueuedAvatarSwitchTriggerAsync(QueuedAvatarSwitchState queuedSwitch, CancellationToken cancellationToken)
+    {
+        var rule = queuedSwitch.Rule;
+        if (ShouldBlockAvatarChangeDuringActiveScaling(rule, isTest: false))
+        {
+            WriteLog($"Dropped queued avatar switch '{rule.Name}' because Avatar Scaling is active.");
+            return;
+        }
+
+        await ExecuteRuleActionAsync(
+            rule,
+            queuedSwitch.Event,
+            cancellationToken,
+            isTest: false,
+            queuedReplay: true,
+            allowLaneQueue: false);
+        await Task.Delay(TimeSpan.FromSeconds(Math.Max(1, rule.DurationSeconds)), cancellationToken);
     }
 
     private static string DescribeDuration(double seconds)
@@ -13838,8 +14327,10 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         Guid RuleId,
         string RuleName,
         TriggerRuleSnapshot Rule,
+        ResolvedRuleAction Action,
         IReadOnlyList<byte[]> Packets,
         CancellationTokenSource Cancellation,
+        DateTimeOffset DueAt,
         string AvatarChangeResetId,
         string AvatarChangeResetName,
         string SourceAvatarId,
@@ -14398,6 +14889,76 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     }
 
     private sealed record QueuedRuleTrigger(BridgeIncomingEvent Event);
+
+    private enum QueuedAvatarSwitchKind
+    {
+        PausedActiveSwitch,
+        PendingTrigger
+    }
+
+    private sealed class QueuedAvatarSwitchState
+    {
+        private QueuedAvatarSwitchState(
+            QueuedAvatarSwitchKind kind,
+            TriggerRuleSnapshot rule,
+            BridgeIncomingEvent? @event,
+            ResolvedRuleAction? action,
+            TimeSpan remainingDuration,
+            long queueOrder)
+        {
+            Kind = kind;
+            Rule = rule;
+            Event = @event;
+            Action = action;
+            RemainingDuration = remainingDuration;
+            QueueOrder = queueOrder;
+        }
+
+        public static QueuedAvatarSwitchState ForPausedSwitch(
+            TriggerRuleSnapshot rule,
+            ResolvedRuleAction action,
+            TimeSpan remainingDuration,
+            long queueOrder) =>
+            new(
+                QueuedAvatarSwitchKind.PausedActiveSwitch,
+                rule,
+                null,
+                action,
+                remainingDuration,
+                queueOrder);
+
+        public static QueuedAvatarSwitchState ForTrigger(
+            TriggerRuleSnapshot rule,
+            BridgeIncomingEvent @event,
+            long queueOrder) =>
+            new(
+                QueuedAvatarSwitchKind.PendingTrigger,
+                rule,
+                @event,
+                null,
+                TimeSpan.Zero,
+                queueOrder);
+
+        public QueuedAvatarSwitchKind Kind { get; }
+
+        public TriggerRuleSnapshot Rule { get; set; }
+
+        public BridgeIncomingEvent? Event { get; }
+
+        public ResolvedRuleAction? Action { get; }
+
+        public TimeSpan RemainingDuration { get; }
+
+        public long QueueOrder { get; }
+
+        public bool SupporterWaitLogged { get; set; }
+
+        public bool AvatarLaneWaitLogged { get; set; }
+
+        public bool CooldownWaitLogged { get; set; }
+
+        public bool TemporaryDisableWaitLogged { get; set; }
+    }
 
     private sealed class QueuedAvatarScaleOperation
     {

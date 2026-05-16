@@ -17409,6 +17409,8 @@ public enum TwitchChatMessageEntryKind
 public enum TwitchChatRoleCardKind
 {
     None,
+    KaiBloodwolf,
+    Hypercraftiing,
     Staff,
     LeadModerator,
     Moderator,
@@ -17423,9 +17425,13 @@ public enum TwitchChatRoleCardKind
 public sealed class TwitchChatMessageEntry : ObservableObject
 {
     private const string CrystalRelayDeveloperLogin = "Screminpal_";
+    private const string KaiBloodwolfLogin = "kai_bloodwolf";
+    private const string HypercraftiingLogin = "hypercraftiing";
     private static readonly SolidColorBrush DefaultNameBrush = CreateFrozenBrush("#F5EEFF");
     private static readonly SolidColorBrush BubblegumNameBrush = CreateFrozenBrush("#5A426B");
     private static readonly LinearGradientBrush CrystalRelayDeveloperNameBrush = CreateFrozenDeveloperNameBrush();
+    private static readonly LinearGradientBrush KaiBloodwolfNameBrush = CreateFrozenKaiBloodwolfNameBrush();
+    private static readonly LinearGradientBrush HypercraftiingNameBrush = CreateFrozenHypercraftiingNameBrush();
     private static readonly Color DarkCardReferenceColor = Color.FromRgb(40, 23, 60);
     private ChatTimestampFormat timestampFormat;
 
@@ -17456,11 +17462,17 @@ public sealed class TwitchChatMessageEntry : ObservableObject
         UserDisplayName = string.IsNullOrWhiteSpace(userDisplayName) ? "Viewer" : userDisplayName.Trim();
         UserLogin = userLogin?.Trim() ?? string.Empty;
         IsCrystalRelayDeveloper = IsCrystalRelayDeveloperAccount(UserDisplayName, UserLogin);
+        IsKaiBloodwolf = IsKaiBloodwolfAccount(UserDisplayName, UserLogin);
+        IsHypercraftiing = IsHypercraftiingAccount(UserDisplayName, UserLogin);
         MessageText = messageText;
         BadgeImageUrls = badgeImageUrls;
         BadgeSetIds = badgeSetIds;
         RoleCardKind = IsCrystalRelayDeveloper
             ? TwitchChatRoleCardKind.None
+            : IsKaiBloodwolf
+            ? TwitchChatRoleCardKind.KaiBloodwolf
+            : IsHypercraftiing
+            ? TwitchChatRoleCardKind.Hypercraftiing
             : ResolveRoleCardKind(Kind, normalizedSupportTier, BadgeSetIds);
         InlineFragments = inlineFragments.Count == 0
             ? [new TwitchChatInlineFragment(TwitchChatInlineFragmentKind.Text, messageText, string.Empty)]
@@ -17468,7 +17480,13 @@ public sealed class TwitchChatMessageEntry : ObservableObject
         ShouldPlayViewerSound = shouldPlayViewerSound;
         ReceivedAt = receivedAt;
         RawUserColor = userColor;
-        NameBrush = IsCrystalRelayDeveloper ? CrystalRelayDeveloperNameBrush : ParseNameBrush(userColor, theme);
+        NameBrush = IsCrystalRelayDeveloper
+            ? CrystalRelayDeveloperNameBrush
+            : IsKaiBloodwolf
+            ? KaiBloodwolfNameBrush
+            : IsHypercraftiing
+            ? HypercraftiingNameBrush
+            : ParseNameBrush(userColor, theme);
         RewardTitle = string.IsNullOrWhiteSpace(rewardTitle) ? MessageText.Trim() : rewardTitle.Trim();
         RewardCost = Math.Max(0, rewardCost);
         RewardUserInput = rewardUserInput?.Trim() ?? string.Empty;
@@ -17497,6 +17515,10 @@ public sealed class TwitchChatMessageEntry : ObservableObject
 
     public bool IsCrystalRelayDeveloper { get; }
 
+    public bool IsKaiBloodwolf { get; }
+
+    public bool IsHypercraftiing { get; }
+
     public string MessageText { get; }
 
     public IReadOnlyList<string> BadgeImageUrls { get; }
@@ -17506,6 +17528,10 @@ public sealed class TwitchChatMessageEntry : ObservableObject
     public TwitchChatRoleCardKind RoleCardKind { get; }
 
     public bool HasBadgeRoleCard => RoleCardKind != TwitchChatRoleCardKind.None;
+
+    public bool IsKaiBloodwolfRoleCard => RoleCardKind == TwitchChatRoleCardKind.KaiBloodwolf;
+
+    public bool IsHypercraftiingRoleCard => RoleCardKind == TwitchChatRoleCardKind.Hypercraftiing;
 
     public bool IsTwitchStaffRoleCard => RoleCardKind == TwitchChatRoleCardKind.Staff;
 
@@ -17527,6 +17553,8 @@ public sealed class TwitchChatMessageEntry : ObservableObject
 
     public string RoleCardLabel => RoleCardKind switch
     {
+        TwitchChatRoleCardKind.KaiBloodwolf => "KFC/popeyes chugger",
+        TwitchChatRoleCardKind.Hypercraftiing => "The Great Cuddly Synth",
         TwitchChatRoleCardKind.Staff => "TWITCH STAFF",
         TwitchChatRoleCardKind.LeadModerator => "LEAD MOD",
         TwitchChatRoleCardKind.Moderator => "MOD",
@@ -17791,6 +17819,34 @@ public sealed class TwitchChatMessageEntry : ObservableObject
         return brush;
     }
 
+    private static LinearGradientBrush CreateFrozenKaiBloodwolfNameBrush()
+    {
+        var brush = new LinearGradientBrush
+        {
+            StartPoint = new Point(0, 0.5),
+            EndPoint = new Point(1, 0.5)
+        };
+        brush.GradientStops.Add(new GradientStop(Color.FromRgb(255, 255, 255), 0d));
+        brush.GradientStops.Add(new GradientStop(Color.FromRgb(255, 94, 94), 0.52d));
+        brush.GradientStops.Add(new GradientStop(Color.FromRgb(245, 245, 245), 1d));
+        brush.Freeze();
+        return brush;
+    }
+
+    private static LinearGradientBrush CreateFrozenHypercraftiingNameBrush()
+    {
+        var brush = new LinearGradientBrush
+        {
+            StartPoint = new Point(0, 0.5),
+            EndPoint = new Point(1, 0.5)
+        };
+        brush.GradientStops.Add(new GradientStop(Color.FromRgb(244, 214, 255), 0d));
+        brush.GradientStops.Add(new GradientStop(Color.FromRgb(255, 94, 120), 0.48d));
+        brush.GradientStops.Add(new GradientStop(Color.FromRgb(180, 112, 255), 1d));
+        brush.Freeze();
+        return brush;
+    }
+
     private static bool IsCrystalRelayDeveloperAccount(string displayName, string login) =>
         IsCrystalRelayDeveloperName(displayName) || IsCrystalRelayDeveloperName(login);
 
@@ -17798,6 +17854,24 @@ public sealed class TwitchChatMessageEntry : ObservableObject
     {
         var normalized = NormalizeTwitchName(value);
         return string.Equals(normalized, CrystalRelayDeveloperLogin, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsKaiBloodwolfAccount(string displayName, string login) =>
+        IsKaiBloodwolfName(displayName) || IsKaiBloodwolfName(login);
+
+    private static bool IsKaiBloodwolfName(string value)
+    {
+        var normalized = NormalizeTwitchName(value);
+        return string.Equals(normalized, KaiBloodwolfLogin, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsHypercraftiingAccount(string displayName, string login) =>
+        IsHypercraftiingName(displayName) || IsHypercraftiingName(login);
+
+    private static bool IsHypercraftiingName(string value)
+    {
+        var normalized = NormalizeTwitchName(value);
+        return string.Equals(normalized, HypercraftiingLogin, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string NormalizeTwitchName(string value) =>
