@@ -1077,7 +1077,8 @@ public sealed record BridgeRuntimeConfiguration(
         or PlayerMovementDirection.Right
         or PlayerMovementDirection.Jump
         or PlayerMovementDirection.SpinLeft
-        or PlayerMovementDirection.SpinRight;
+        or PlayerMovementDirection.SpinRight
+        or PlayerMovementDirection.RandomMovement;
 
     private static bool HasAvatarParameterPath(string parameterName)
     {

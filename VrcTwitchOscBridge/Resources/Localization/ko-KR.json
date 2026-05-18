@@ -120,6 +120,7 @@
   "Move Forward": "앞으로 나아가다",
   "Move Left": "왼쪽으로 이동",
   "Move Right": "오른쪽으로 이동",
+  "Random Movement": "Random Movement",
   "Moved '{0}' into Movement Redeems because player movement is global.": "플레이어 이동이 전역적이므로 '{0}'을(를) 이동 회수로 이동했습니다.",
   "Moved {0} movement redeem(s) into Movement Redeems so avatar and override rules stay cleaner.": "아바타 및 재정의 규칙이 더 깔끔하게 유지되도록 {0} 운동 교환을 운동 교환으로 이동했습니다.",
   "Movement Redeems": "운동 보상",

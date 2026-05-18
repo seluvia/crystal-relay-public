@@ -120,6 +120,7 @@
   "Move Forward": "Avanzar",
   "Move Left": "Mover a la izquierda",
   "Move Right": "Mover a la derecha",
+  "Random Movement": "Random Movement",
   "Moved '{0}' into Movement Redeems because player movement is global.": "Se movió '{0}' a Canjes de movimiento porque el movimiento del jugador es global.",
   "Moved {0} movement redeem(s) into Movement Redeems so avatar and override rules stay cleaner.": "Se movieron los canjes de movimiento {0} a Canjes de movimiento para que las reglas de avatar y anulación se mantengan más limpias.",
   "Movement Redeems": "Movimiento Canjea",

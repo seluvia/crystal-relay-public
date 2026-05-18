@@ -123,6 +123,7 @@
   "Move Forward": "Move Forward",
   "Move Left": "Move Left",
   "Move Right": "Move Right",
+  "Random Movement": "Random Movement",
   "Moved '{0}' into Movement Redeems because player movement is global.": "Moved '{0}' into Movement Redeems because player movement is global.",
   "Moved {0} movement redeem(s) into Movement Redeems so avatar and override rules stay cleaner.": "Moved {0} movement redeem(s) into Movement Redeems so avatar and override rules stay cleaner.",
   "Movement Redeems": "Movement Redeems",

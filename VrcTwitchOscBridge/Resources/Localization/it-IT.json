@@ -120,6 +120,7 @@
   "Move Forward": "Andare avanti",
   "Move Left": "Sposta a sinistra",
   "Move Right": "Spostati a destra",
+  "Random Movement": "Random Movement",
   "Moved '{0}' into Movement Redeems because player movement is global.": "Spostato '{0}' in Riscatti movimento perché il movimento del giocatore è globale.",
   "Moved {0} movement redeem(s) into Movement Redeems so avatar and override rules stay cleaner.": "Spostati {0} riscatti di movimento in Riscatti di movimento in modo che avatar e regole di sostituzione rimangano più puliti.",
   "Movement Redeems": "Il movimento riscatta",

@@ -120,6 +120,7 @@
   "Move Forward": "前進",
   "Move Left": "左へ移動",
   "Move Right": "右へ移動",
+  "Random Movement": "Random Movement",
   "Moved '{0}' into Movement Redeems because player movement is global.": "プレイヤーの移動はグローバルであるため、「{0}」を移動引き換えに移動しました。",
   "Moved {0} movement redeem(s) into Movement Redeems so avatar and override rules stay cleaner.": "{0} 個の移動引き換えを移動引き換えに移動しました。これにより、アバターとオーバーライド ルールがよりクリーンになります。",
   "Movement Redeems": "移動による引き換え",

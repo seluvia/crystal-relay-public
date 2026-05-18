@@ -120,6 +120,7 @@
   "Move Forward": "Gå framåt",
   "Move Left": "Flytta vänster",
   "Move Right": "Flytta höger",
+  "Random Movement": "Random Movement",
   "Moved '{0}' into Movement Redeems because player movement is global.": "Flyttade \"{0}\" till Movement Redeems eftersom spelarrörelsen är global.",
   "Moved {0} movement redeem(s) into Movement Redeems so avatar and override rules stay cleaner.": "Flyttade {0} rörelseinlösen(er) till Movement Redeems så att avatar- och åsidosättningsregler förblir renare.",
   "Movement Redeems": "Rörelse löser in",

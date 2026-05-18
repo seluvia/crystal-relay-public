@@ -120,6 +120,7 @@
   "Move Forward": "前進",
   "Move Left": "向左移動",
   "Move Right": "向右移動",
+  "Random Movement": "Random Movement",
   "Moved '{0}' into Movement Redeems because player movement is global.": "將「{0}」移至行動兌換中，因為玩家移動是全球性的。",
   "Moved {0} movement redeem(s) into Movement Redeems so avatar and override rules stay cleaner.": "將 {0} 個運動兌換移至運動兌換中，以便頭像和覆蓋規則保持簡潔。",
   "Movement Redeems": "運動兌換",

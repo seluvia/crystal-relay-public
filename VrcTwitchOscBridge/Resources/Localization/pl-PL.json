@@ -120,6 +120,7 @@
   "Move Forward": "Wystąpić",
   "Move Left": "Przesuń w lewo",
   "Move Right": "Przejdź w prawo",
+  "Random Movement": "Random Movement",
   "Moved '{0}' into Movement Redeems because player movement is global.": "Przeniesiono „{0}” do wykorzystania ruchu, ponieważ ruch gracza ma charakter globalny.",
   "Moved {0} movement redeem(s) into Movement Redeems so avatar and override rules stay cleaner.": "Przeniesiono {0} realizacji na ruch do realizacji na ruch, aby zasady dotyczące awatarów i zastępowania pozostały bardziej przejrzyste.",
   "Movement Redeems": "Ruch Odkupuje",
