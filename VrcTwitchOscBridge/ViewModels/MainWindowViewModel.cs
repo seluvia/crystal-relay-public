@@ -490,13 +490,13 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private Guid lastSelectedCashPaymentRuleId = Guid.Empty;
     private AppLanguage activeLanguageAtStartup = AppLanguage.SystemDefault;
     private ICollectionView? universalTriggersGroupedView;
-    private bool isUniversalChatCommandsExpanded = true;
-    private bool isUniversalChannelPointRewardsExpanded = true;
-    private bool isUniversalBitsExpanded = true;
-    private bool isUniversalSubscriptionsExpanded = true;
-    private bool isUniversalGiftSubscriptionsExpanded = true;
-    private bool isUniversalFollowsExpanded = true;
-    private bool isUniversalUnconfiguredExpanded = true;
+    private bool isUniversalChatCommandsExpanded;
+    private bool isUniversalChannelPointRewardsExpanded;
+    private bool isUniversalBitsExpanded;
+    private bool isUniversalSubscriptionsExpanded;
+    private bool isUniversalGiftSubscriptionsExpanded;
+    private bool isUniversalFollowsExpanded;
+    private bool isUniversalUnconfiguredExpanded;
     private bool isAvatarBoolRedeemsExpanded;
     private bool isAvatarIntRedeemsExpanded;
     private bool isAvatarFloatRedeemsExpanded;
@@ -713,7 +713,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             new PlayerMovementOption(PlayerMovementDirection.Right, T("Move Right")),
             new PlayerMovementOption(PlayerMovementDirection.Jump, T("Jump")),
             new PlayerMovementOption(PlayerMovementDirection.SpinLeft, T("Spin Left")),
-            new PlayerMovementOption(PlayerMovementDirection.SpinRight, T("Spin Right"))
+            new PlayerMovementOption(PlayerMovementDirection.SpinRight, T("Spin Right")),
+            new PlayerMovementOption(PlayerMovementDirection.RandomMovement, T("Random Movement"))
         ];
         ChatCommandPermissionOptions =
         [
@@ -15480,7 +15481,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         or PlayerMovementDirection.Right
         or PlayerMovementDirection.Jump
         or PlayerMovementDirection.SpinLeft
-        or PlayerMovementDirection.SpinRight;
+        or PlayerMovementDirection.SpinRight
+        or PlayerMovementDirection.RandomMovement;
 
     private static bool IsSupportedMovementRule(TriggerRule rule) =>
         rule.ActionType != OscActionType.PlayerMovement || IsSupportedMovementDirection(rule.MovementDirection);
@@ -17411,6 +17413,7 @@ public enum TwitchChatRoleCardKind
     None,
     KaiBloodwolf,
     Hypercraftiing,
+    KyouZakira,
     Staff,
     LeadModerator,
     Moderator,
@@ -17427,11 +17430,13 @@ public sealed class TwitchChatMessageEntry : ObservableObject
     private const string CrystalRelayDeveloperLogin = "Screminpal_";
     private const string KaiBloodwolfLogin = "kai_bloodwolf";
     private const string HypercraftiingLogin = "hypercraftiing";
+    private const string KyouZakiraLogin = "kyou_zakira";
     private static readonly SolidColorBrush DefaultNameBrush = CreateFrozenBrush("#F5EEFF");
     private static readonly SolidColorBrush BubblegumNameBrush = CreateFrozenBrush("#5A426B");
     private static readonly LinearGradientBrush CrystalRelayDeveloperNameBrush = CreateFrozenDeveloperNameBrush();
     private static readonly LinearGradientBrush KaiBloodwolfNameBrush = CreateFrozenKaiBloodwolfNameBrush();
     private static readonly LinearGradientBrush HypercraftiingNameBrush = CreateFrozenHypercraftiingNameBrush();
+    private static readonly LinearGradientBrush KyouZakiraNameBrush = CreateFrozenKyouZakiraNameBrush();
     private static readonly Color DarkCardReferenceColor = Color.FromRgb(40, 23, 60);
     private ChatTimestampFormat timestampFormat;
 
@@ -17464,6 +17469,7 @@ public sealed class TwitchChatMessageEntry : ObservableObject
         IsCrystalRelayDeveloper = IsCrystalRelayDeveloperAccount(UserDisplayName, UserLogin);
         IsKaiBloodwolf = IsKaiBloodwolfAccount(UserDisplayName, UserLogin);
         IsHypercraftiing = IsHypercraftiingAccount(UserDisplayName, UserLogin);
+        IsKyouZakira = IsKyouZakiraAccount(UserDisplayName, UserLogin);
         MessageText = messageText;
         BadgeImageUrls = badgeImageUrls;
         BadgeSetIds = badgeSetIds;
@@ -17473,6 +17479,8 @@ public sealed class TwitchChatMessageEntry : ObservableObject
             ? TwitchChatRoleCardKind.KaiBloodwolf
             : IsHypercraftiing
             ? TwitchChatRoleCardKind.Hypercraftiing
+            : IsKyouZakira
+            ? TwitchChatRoleCardKind.KyouZakira
             : ResolveRoleCardKind(Kind, normalizedSupportTier, BadgeSetIds);
         InlineFragments = inlineFragments.Count == 0
             ? [new TwitchChatInlineFragment(TwitchChatInlineFragmentKind.Text, messageText, string.Empty)]
@@ -17486,6 +17494,8 @@ public sealed class TwitchChatMessageEntry : ObservableObject
             ? KaiBloodwolfNameBrush
             : IsHypercraftiing
             ? HypercraftiingNameBrush
+            : IsKyouZakira
+            ? KyouZakiraNameBrush
             : ParseNameBrush(userColor, theme);
         RewardTitle = string.IsNullOrWhiteSpace(rewardTitle) ? MessageText.Trim() : rewardTitle.Trim();
         RewardCost = Math.Max(0, rewardCost);
@@ -17519,6 +17529,8 @@ public sealed class TwitchChatMessageEntry : ObservableObject
 
     public bool IsHypercraftiing { get; }
 
+    public bool IsKyouZakira { get; }
+
     public string MessageText { get; }
 
     public IReadOnlyList<string> BadgeImageUrls { get; }
@@ -17532,6 +17544,8 @@ public sealed class TwitchChatMessageEntry : ObservableObject
     public bool IsKaiBloodwolfRoleCard => RoleCardKind == TwitchChatRoleCardKind.KaiBloodwolf;
 
     public bool IsHypercraftiingRoleCard => RoleCardKind == TwitchChatRoleCardKind.Hypercraftiing;
+
+    public bool IsKyouZakiraRoleCard => RoleCardKind == TwitchChatRoleCardKind.KyouZakira;
 
     public bool IsTwitchStaffRoleCard => RoleCardKind == TwitchChatRoleCardKind.Staff;
 
@@ -17555,6 +17569,7 @@ public sealed class TwitchChatMessageEntry : ObservableObject
     {
         TwitchChatRoleCardKind.KaiBloodwolf => "KFC/popeyes chugger",
         TwitchChatRoleCardKind.Hypercraftiing => "The Great Cuddly Synth",
+        TwitchChatRoleCardKind.KyouZakira => "Chatoic Umbreon",
         TwitchChatRoleCardKind.Staff => "TWITCH STAFF",
         TwitchChatRoleCardKind.LeadModerator => "LEAD MOD",
         TwitchChatRoleCardKind.Moderator => "MOD",
@@ -17847,6 +17862,21 @@ public sealed class TwitchChatMessageEntry : ObservableObject
         return brush;
     }
 
+    private static LinearGradientBrush CreateFrozenKyouZakiraNameBrush()
+    {
+        var brush = new LinearGradientBrush
+        {
+            StartPoint = new Point(0, 0.5),
+            EndPoint = new Point(1, 0.5)
+        };
+        brush.GradientStops.Add(new GradientStop(Color.FromRgb(246, 224, 255), 0d));
+        brush.GradientStops.Add(new GradientStop(Color.FromRgb(192, 96, 255), 0.35d));
+        brush.GradientStops.Add(new GradientStop(Color.FromRgb(255, 82, 110), 0.7d));
+        brush.GradientStops.Add(new GradientStop(Color.FromRgb(255, 238, 246), 1d));
+        brush.Freeze();
+        return brush;
+    }
+
     private static bool IsCrystalRelayDeveloperAccount(string displayName, string login) =>
         IsCrystalRelayDeveloperName(displayName) || IsCrystalRelayDeveloperName(login);
 
@@ -17872,6 +17902,15 @@ public sealed class TwitchChatMessageEntry : ObservableObject
     {
         var normalized = NormalizeTwitchName(value);
         return string.Equals(normalized, HypercraftiingLogin, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsKyouZakiraAccount(string displayName, string login) =>
+        IsKyouZakiraName(displayName) || IsKyouZakiraName(login);
+
+    private static bool IsKyouZakiraName(string value)
+    {
+        var normalized = NormalizeTwitchName(value);
+        return string.Equals(normalized, KyouZakiraLogin, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string NormalizeTwitchName(string value) =>

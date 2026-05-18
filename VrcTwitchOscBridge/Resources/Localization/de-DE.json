@@ -120,6 +120,7 @@
   "Move Forward": "Nach vorne verschieben",
   "Move Left": "Nach links verschieben",
   "Move Right": "Nach rechts verschieben",
+  "Random Movement": "Random Movement",
   "Moved '{0}' into Movement Redeems because player movement is global.": "„{0}“ wurde in „Bewegungseinlösungen“ verschoben, da die Spielerbewegung global ist.",
   "Moved {0} movement redeem(s) into Movement Redeems so avatar and override rules stay cleaner.": "{0} Bewegungseinlösung(en) in Bewegungseinlösung verschoben, damit Avatar- und Überschreibungsregeln sauberer bleiben.",
   "Movement Redeems": "Bewegung löst",

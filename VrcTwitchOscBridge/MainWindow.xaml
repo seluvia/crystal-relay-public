@@ -7630,7 +7630,7 @@
                                                                         <UniformGrid Columns="2"
                                                                                      Margin="0,10,0,0">
                                                                             <StackPanel Margin="0,0,14,0">
-                                                                                <TextBlock Text="{loc:Translate 'OSC Address'}"
+                                                                                <TextBlock Text="{loc:Translate 'Avatar Parameter'}"
                                                                                            Foreground="{DynamicResource TextBrush}"
                                                                                            FontWeight="SemiBold" />
                                                                                 <TextBox Text="{Binding OscAddress, UpdateSourceTrigger=PropertyChanged}" />

@@ -3,14 +3,18 @@ Crystal Relay Changelog
 
 Newest updates appear first. This changelog focuses on the changes users will notice most.
 
-v3.1.5 beta 2
-- Added in-app update installing from GitHub release ZIPs, with stable/beta channel handling and safe fallback to the release page.
-- Reorganized Settings into Twitch, VRChat, App, Visuals, and Safety sections so account, update, visual, and repair controls are easier to find.
-- Added Live Feedback Heartbeat and About-page live-status support for beta testing visibility.
-
-v3.1.5 beta 1
+v3.1.5
 - Added Saved Login Repair for login/sign-out loops, backing up redeem setup and custom theme assets before clearing saved sessions and restoring redeems.
 - Added a guided repair prompt after repeated recoverable auth/session failures, plus a manual Repair and Restart action in Settings > Accounts.
+- Added in-app update installing from GitHub release ZIPs, with stable/beta channel handling and safe fallback to the release page.
+- Reorganized Settings into Twitch, VRChat, App, Visuals, and Safety sections so account, update, visual, and repair controls are easier to find.
+- Added About-page live-status support so community status cards can stay current while Crystal Relay is open.
+- Paid Bits/Subs avatar overrides now pause timed Avatar Change and Avatar Roulette redemptions, then resume them afterward with their remaining time.
+- Linked Avatar Change and Avatar Roulette redemptions received during paid avatar override time now queue for later instead of being dropped.
+- Added Random Movement for Movement Redeems, rolling one movement action from forward, back, left, right, jump, spin left, or spin right each time it runs.
+- Avatar Roulette now uses each avatar in the selected pool once before repeats begin again.
+- Universal Trigger organizer groups now start collapsed, and the action editor uses Avatar Parameter wording to match the rest of Crystal Relay.
+- Added special Twitch Chatbox role-card styling for community members.
 
 v3.1.4
 - Hotfix: Bits + Subs paid avatar-change overrides now keep Active Time editable when amount scaling is enabled.

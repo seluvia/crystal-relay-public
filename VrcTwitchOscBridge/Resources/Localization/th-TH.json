@@ -120,6 +120,7 @@
   "Move Forward": "ก้าวไปข้างหน้า",
   "Move Left": "เลื่อนไปทางซ้าย",
   "Move Right": "เลื่อนไปทางขวา",
+  "Random Movement": "Random Movement",
   "Moved '{0}' into Movement Redeems because player movement is global.": "ย้าย '{0}' ไปที่การแลกการเคลื่อนไหวเนื่องจากการเคลื่อนไหวของผู้เล่นเป็นแบบทั่วโลก",
   "Moved {0} movement redeem(s) into Movement Redeems so avatar and override rules stay cleaner.": "ย้ายการแลกการเคลื่อนไหว {0} ครั้งไปยังการแลกการเคลื่อนไหว เพื่อให้อวตารและกฎการแทนที่ยังคงสะอาดตา",
   "Movement Redeems": "การเคลื่อนไหวแลก",

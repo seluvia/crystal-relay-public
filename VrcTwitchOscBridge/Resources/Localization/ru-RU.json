@@ -120,6 +120,7 @@
   "Move Forward": "Двигаться вперед",
   "Move Left": "Двигаться влево",
   "Move Right": "Двигаться вправо",
+  "Random Movement": "Random Movement",
   "Moved '{0}' into Movement Redeems because player movement is global.": "'{0}' перенесен в раздел \"Погашение движения\", поскольку движение игрока является глобальным.",
   "Moved {0} movement redeem(s) into Movement Redeems so avatar and override rules stay cleaner.": "Выкупы за движение ({0}) перенесены в раздел «Погашение за движение», поэтому правила аватара и переопределения остаются более понятными.",
   "Movement Redeems": "Движение искупает",

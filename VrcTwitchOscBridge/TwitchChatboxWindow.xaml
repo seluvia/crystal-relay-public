@@ -176,6 +176,44 @@
                           ShadowDepth="0"
                           Opacity="0.36"
                           Color="#A15CFF" />
+        <SolidColorBrush x:Key="KyouZakiraTextBrush" Color="#FFF3FF" />
+        <SolidColorBrush x:Key="KyouZakiraMutedBrush" Color="#E6C3FF" />
+        <SolidColorBrush x:Key="KyouZakiraInsetBrush" Color="#78100818" />
+        <SolidColorBrush x:Key="KyouZakiraInsetBorderBrush" Color="#9AD56CFF" />
+        <LinearGradientBrush x:Key="KyouZakiraCardBrush"
+                             StartPoint="0,0"
+                             EndPoint="1,1">
+            <GradientStop Color="#F0060510" Offset="0" />
+            <GradientStop Color="#EC170827" Offset="0.34" />
+            <GradientStop Color="#EA2D0818" Offset="0.68" />
+            <GradientStop Color="#EE100716" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="KyouZakiraBorderBrush"
+                             StartPoint="0,0"
+                             EndPoint="1,1">
+            <GradientStop Color="#E8C06BFF" Offset="0" />
+            <GradientStop Color="#F0FF5E7A" Offset="0.52" />
+            <GradientStop Color="#D88B3BFF" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="KyouZakiraRailBrush"
+                             StartPoint="0,0"
+                             EndPoint="0,1">
+            <GradientStop Color="#C56BFF" Offset="0" />
+            <GradientStop Color="#FF466A" Offset="0.54" />
+            <GradientStop Color="#260617" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="KyouZakiraBadgeBrush"
+                             StartPoint="0,0"
+                             EndPoint="1,1">
+            <GradientStop Color="#F8E8FF" Offset="0" />
+            <GradientStop Color="#E16CFF" Offset="0.45" />
+            <GradientStop Color="#FF6177" Offset="1" />
+        </LinearGradientBrush>
+        <DropShadowEffect x:Key="KyouZakiraGlowEffect"
+                          BlurRadius="15"
+                          ShadowDepth="0"
+                          Opacity="0.37"
+                          Color="#B64CFF" />
         <SolidColorBrush x:Key="ChatboxRoleCardTextBrush" Color="#FFFDF7" />
         <SolidColorBrush x:Key="ChatboxRoleCardMutedBrush" Color="#F0E8FF" />
         <SolidColorBrush x:Key="ChatboxRoleBadgeTextBrush" Color="#150B18" />
@@ -853,6 +891,12 @@
                     <Setter Property="BorderThickness" Value="1.5" />
                     <Setter Property="Effect" Value="{StaticResource HypercraftiingGlowEffect}" />
                 </DataTrigger>
+                <DataTrigger Binding="{Binding IsKyouZakiraRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource KyouZakiraCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource KyouZakiraBorderBrush}" />
+                    <Setter Property="BorderThickness" Value="1.5" />
+                    <Setter Property="Effect" Value="{StaticResource KyouZakiraGlowEffect}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Background" Value="{StaticResource CrystalRelayDevCardBrush}" />
                     <Setter Property="BorderBrush" Value="{StaticResource CrystalRelayDevBorderBrush}" />
@@ -922,6 +966,12 @@
                     <Setter Property="BorderThickness" Value="1.5" />
                     <Setter Property="Effect" Value="{StaticResource HypercraftiingGlowEffect}" />
                 </DataTrigger>
+                <DataTrigger Binding="{Binding IsKyouZakiraRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource KyouZakiraCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource KyouZakiraBorderBrush}" />
+                    <Setter Property="BorderThickness" Value="1.5" />
+                    <Setter Property="Effect" Value="{StaticResource KyouZakiraGlowEffect}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Background" Value="{StaticResource CrystalRelayDevCardBrush}" />
                     <Setter Property="BorderBrush" Value="{StaticResource CrystalRelayDevBorderBrush}" />
@@ -990,6 +1040,12 @@
                     <Setter Property="BorderThickness" Value="1.5" />
                     <Setter Property="Effect" Value="{StaticResource HypercraftiingGlowEffect}" />
                 </DataTrigger>
+                <DataTrigger Binding="{Binding IsKyouZakiraRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource KyouZakiraCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource KyouZakiraBorderBrush}" />
+                    <Setter Property="BorderThickness" Value="1.5" />
+                    <Setter Property="Effect" Value="{StaticResource KyouZakiraGlowEffect}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Background" Value="{StaticResource CrystalRelayDevCardBrush}" />
                     <Setter Property="BorderBrush" Value="{StaticResource CrystalRelayDevBorderBrush}" />
@@ -1024,6 +1080,9 @@
                 <DataTrigger Binding="{Binding IsHypercraftiingRoleCard}" Value="True">
                     <Setter Property="Foreground" Value="{StaticResource HypercraftiingMutedBrush}" />
                 </DataTrigger>
+                <DataTrigger Binding="{Binding IsKyouZakiraRoleCard}" Value="True">
+                    <Setter Property="Foreground" Value="{StaticResource KyouZakiraMutedBrush}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Foreground" Value="{StaticResource CrystalRelayDevMutedBrush}" />
                 </DataTrigger>
@@ -1041,6 +1100,9 @@
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsHypercraftiingRoleCard}" Value="True">
                     <Setter Property="Foreground" Value="{StaticResource HypercraftiingTextBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsKyouZakiraRoleCard}" Value="True">
+                    <Setter Property="Foreground" Value="{StaticResource KyouZakiraTextBrush}" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Foreground" Value="{StaticResource CrystalRelayDevTextBrush}" />
@@ -1060,6 +1122,9 @@
                 <DataTrigger Binding="{Binding IsHypercraftiingRoleCard}" Value="True">
                     <Setter Property="Foreground" Value="{StaticResource HypercraftiingTextBrush}" />
                 </DataTrigger>
+                <DataTrigger Binding="{Binding IsKyouZakiraRoleCard}" Value="True">
+                    <Setter Property="Foreground" Value="{StaticResource KyouZakiraTextBrush}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Foreground" Value="{StaticResource CrystalRelayDevTextBrush}" />
                 </DataTrigger>
@@ -1077,6 +1142,9 @@
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsHypercraftiingRoleCard}" Value="True">
                     <Setter Property="Foreground" Value="{StaticResource HypercraftiingMutedBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsKyouZakiraRoleCard}" Value="True">
+                    <Setter Property="Foreground" Value="{StaticResource KyouZakiraMutedBrush}" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Foreground" Value="{StaticResource CrystalRelayDevMutedBrush}" />
@@ -1100,6 +1168,10 @@
                     <Setter Property="Background" Value="{StaticResource HypercraftiingInsetBrush}" />
                     <Setter Property="BorderBrush" Value="{StaticResource HypercraftiingInsetBorderBrush}" />
                 </DataTrigger>
+                <DataTrigger Binding="{Binding IsKyouZakiraRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource KyouZakiraInsetBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource KyouZakiraInsetBorderBrush}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Background" Value="{StaticResource CrystalRelayDevInsetBrush}" />
                     <Setter Property="BorderBrush" Value="{StaticResource CrystalRelayDevInsetBorderBrush}" />
@@ -1122,6 +1194,10 @@
                 <DataTrigger Binding="{Binding IsHypercraftiingRoleCard}" Value="True">
                     <Setter Property="Background" Value="{StaticResource HypercraftiingInsetBrush}" />
                     <Setter Property="BorderBrush" Value="{StaticResource HypercraftiingInsetBorderBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsKyouZakiraRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource KyouZakiraInsetBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource KyouZakiraInsetBorderBrush}" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Background" Value="{StaticResource CrystalRelayDevInsetBrush}" />
@@ -1165,6 +1241,9 @@
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsHypercraftiingRoleCard}" Value="True">
                     <Setter Property="Background" Value="{StaticResource HypercraftiingRailBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsKyouZakiraRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource KyouZakiraRailBrush}" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Background" Value="{StaticResource CrystalRelayDevRailBrush}" />
@@ -1219,6 +1298,10 @@
                 <DataTrigger Binding="{Binding IsHypercraftiingRoleCard}" Value="True">
                     <Setter Property="Visibility" Value="Visible" />
                     <Setter Property="Background" Value="{StaticResource HypercraftiingRailBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsKyouZakiraRoleCard}" Value="True">
+                    <Setter Property="Visibility" Value="Visible" />
+                    <Setter Property="Background" Value="{StaticResource KyouZakiraRailBrush}" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Visibility" Value="Visible" />
@@ -1275,6 +1358,10 @@
                 <DataTrigger Binding="{Binding IsHypercraftiingRoleCard}" Value="True">
                     <Setter Property="Background" Value="{StaticResource HypercraftiingBadgeBrush}" />
                     <Setter Property="BorderBrush" Value="{StaticResource HypercraftiingBorderBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsKyouZakiraRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource KyouZakiraBadgeBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource KyouZakiraBorderBrush}" />
                 </DataTrigger>
             </Style.Triggers>
         </Style>

@@ -11,5 +11,6 @@ public enum PlayerMovementDirection
     SpinRight,
     StopMovement,
     StopTurning,
-    StopAll
+    StopAll,
+    RandomMovement
 }

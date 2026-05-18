@@ -418,6 +418,7 @@ static bool IsAllowedEnglishLiteral(string value) => value switch
     or "Payment Match"
     or "Provider Connections"
     or "Random Maximum"
+    or "Random Movement"
     or "Random Minimum"
     or "Regenerate Ko-fi Relay Link"
     or "Relative Height"

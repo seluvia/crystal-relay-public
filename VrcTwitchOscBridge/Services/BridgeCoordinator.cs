@@ -67,6 +67,16 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private static readonly TimeSpan SetTriggerPacketSpacing = TimeSpan.FromMilliseconds(80);
     private static readonly TimeSpan TriggerInfoAnnouncementPollInterval = TimeSpan.FromSeconds(15);
     private static readonly HttpClient ThirdPartyChatEmoteHttpClient = CreateThirdPartyChatEmoteHttpClient();
+    private static readonly PlayerMovementDirection[] RandomMovementDirections =
+    [
+        PlayerMovementDirection.Forward,
+        PlayerMovementDirection.Backward,
+        PlayerMovementDirection.Left,
+        PlayerMovementDirection.Right,
+        PlayerMovementDirection.Jump,
+        PlayerMovementDirection.SpinLeft,
+        PlayerMovementDirection.SpinRight
+    ];
     private static readonly string[] ManagedSubscriptionTypes =
     [
         "channel.channel_points_custom_reward_redemption.add",
@@ -131,7 +141,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         new Dictionary<char, IReadOnlyList<ThirdPartyChatEmoteEntry>>();
     private readonly Dictionary<Guid, ActiveRuleLockoutState> activeRuleLockouts = [];
     private readonly Dictionary<Guid, ActiveRuleLockoutState> activeAvatarSwitchRuleLockouts = [];
-    private readonly Dictionary<Guid, string> lastAvatarRouletResultIds = [];
+    private readonly Dictionary<Guid, HashSet<string>> remainingAvatarRouletCandidateIdsByRuleId = [];
     private readonly Dictionary<Guid, CancellationTokenSource> cooldownStateNotifications = [];
     private readonly Dictionary<Guid, CancellationTokenSource> lockoutStateNotifications = [];
     private readonly Dictionary<Guid, CancellationTokenSource> avatarSwitchLockoutStateNotifications = [];
@@ -4721,30 +4731,31 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             rule = rule with { DurationSeconds = 0 };
         }
 
+        var executionRule = ResolveRandomMovementRule(rule);
         var queuedLaneCount = 0;
-        if (allowLaneQueue && TryEnqueueLaneAction(rule, bridgeEvent, isTest, out queuedLaneCount))
+        if (allowLaneQueue && TryEnqueueLaneAction(executionRule, bridgeEvent, isTest, out queuedLaneCount))
         {
-            if (!isTest && IsBitsOutfitSetTriggerRule(rule))
+            if (!isTest && IsBitsOutfitSetTriggerRule(executionRule))
             {
                 var viewerName = bridgeEvent?.UserDisplayName ?? "Viewer";
-                WriteLog($"Queued Bits outfit Set Trigger '{rule.Name}' for {viewerName} until the current outfit restore finishes. Position {queuedLaneCount}.");
+                WriteLog($"Queued Bits outfit Set Trigger '{executionRule.Name}' for {viewerName} until the current outfit restore finishes. Position {queuedLaneCount}.");
             }
             else
             {
                 WriteLog(isTest
-                    ? $"Queued test trigger for '{rule.Name}' until the current action finishes. {queuedLaneCount} waiting."
-                    : $"Queued '{rule.Name}' until the current action finishes. {queuedLaneCount} waiting.");
+                    ? $"Queued test trigger for '{executionRule.Name}' until the current action finishes. {queuedLaneCount} waiting."
+                    : $"Queued '{executionRule.Name}' until the current action finishes. {queuedLaneCount} waiting.");
             }
             return;
         }
 
-        var isMovementStopAction = rule.ActionType == OscActionType.PlayerMovement && IsSoftLockMovement(rule.MovementDirection);
-        var cooldownSeconds = GetCooldownSeconds(rule);
-        var capturedReturnAvatar = (rule.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet) && rule.DurationSeconds > 0
+        var isMovementStopAction = executionRule.ActionType == OscActionType.PlayerMovement && IsSoftLockMovement(executionRule.MovementDirection);
+        var cooldownSeconds = GetCooldownSeconds(executionRule);
+        var capturedReturnAvatar = (executionRule.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet) && executionRule.DurationSeconds > 0
             ? GetSharedReturnAvatarSnapshot()
             : SharedReturnAvatarSnapshot.Empty;
-        if (rule.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet
-            && rule.DurationSeconds > 0
+        if (executionRule.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet
+            && executionRule.DurationSeconds > 0
             && string.IsNullOrWhiteSpace(capturedReturnAvatar.AvatarId))
         {
             throw new InvalidOperationException("Pick the return avatar first before timed avatar-switch redeems can switch back.");
@@ -4752,22 +4763,22 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
         if (isMovementStopAction)
         {
-            var movementDisplayValue = DescribeMovementAction(rule.MovementDirection);
+            var movementDisplayValue = DescribeMovementAction(executionRule.MovementDirection);
             if (activeConfiguration?.DesktopModeInputLockEnabled == true)
             {
                 try
                 {
-                    await ExecuteDesktopInputLockAsync(rule, cancellationToken);
+                    await ExecuteDesktopInputLockAsync(executionRule, cancellationToken);
                 }
                 catch (Exception ex)
                 {
-                    WriteLog($"Crystal Relay could not start the desktop input lock for '{rule.Name}', so it fell back to a VRChat soft lock. {ex.Message}");
-                    await ExecuteMovementSoftLockAsync(rule, cancellationToken);
+                    WriteLog($"Crystal Relay could not start the desktop input lock for '{executionRule.Name}', so it fell back to a VRChat soft lock. {ex.Message}");
+                    await ExecuteMovementSoftLockAsync(executionRule, cancellationToken);
                 }
             }
             else
             {
-                await ExecuteMovementSoftLockAsync(rule, cancellationToken);
+                await ExecuteMovementSoftLockAsync(executionRule, cancellationToken);
             }
 
             lock (stateGate)
@@ -4781,34 +4792,34 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             if (!isTest)
             {
                 CancelCooldownStateNotification(rule.Id);
-                UpdateActiveRuleLockoutState(rule);
+                UpdateActiveRuleLockoutState(executionRule);
             }
 
             if (isTest)
             {
                 WriteLog(queuedReplay
-                    ? $"Sent queued test trigger for '{rule.Name}'."
-                    : $"Sent a test trigger for '{rule.Name}'.");
+                    ? $"Sent queued test trigger for '{executionRule.Name}'."
+                    : $"Sent a test trigger for '{executionRule.Name}'.");
             }
             else if (bridgeEvent is not null)
             {
                 WriteLog(queuedReplay
-                    ? $"{bridgeEvent.UserDisplayName} triggered '{rule.Name}' from the queue."
-                    : $"{bridgeEvent.UserDisplayName} triggered '{rule.Name}'.");
+                    ? $"{bridgeEvent.UserDisplayName} triggered '{executionRule.Name}' from the queue."
+                    : $"{bridgeEvent.UserDisplayName} triggered '{executionRule.Name}'.");
             }
 
             if (!isTest && bridgeEvent is not null)
             {
-                await TrySendBotMessageAsync(rule, bridgeEvent, movementDisplayValue, cancellationToken);
+                await TrySendBotMessageAsync(executionRule, bridgeEvent, movementDisplayValue, cancellationToken);
             }
 
             return;
         }
 
-        if (IsTimedFloatAvatarParameterRule(rule))
+        if (IsTimedFloatAvatarParameterRule(executionRule))
         {
             await ExecuteTimedFloatAvatarParameterRuleActionAsync(
-                rule,
+                executionRule,
                 bridgeEvent,
                 cancellationToken,
                 isTest,
@@ -4820,14 +4831,14 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         }
 
         var action = await ResolveActionAsync(
-            rule,
+            executionRule,
             cancellationToken,
-            preferLocalInstantToggleState: rule.ParameterType == OscParameterType.Bool && rule.DurationSeconds <= 0,
+            preferLocalInstantToggleState: executionRule.ParameterType == OscParameterType.Bool && executionRule.DurationSeconds <= 0,
             capturedReturnAvatar);
-        var laneKeys = GetActionLaneKeys(rule, action);
+        var laneKeys = GetActionLaneKeys(executionRule, action);
         var laneLeaseId = laneKeys.Count == 0 ? Guid.Empty : Guid.NewGuid();
-        var effectiveTimedActionSeconds = Math.Max(1d, rule.DurationSeconds);
-        if (rule.ActionType == OscActionType.SetTrigger && action.SetTriggerRestorePlan is not null)
+        var effectiveTimedActionSeconds = Math.Max(1d, executionRule.DurationSeconds);
+        if (executionRule.ActionType == OscActionType.SetTrigger && action.SetTriggerRestorePlan is not null)
         {
             var minimumSeconds = SetTriggerDiffObservationDelay.TotalSeconds;
             if (effectiveTimedActionSeconds < minimumSeconds)
@@ -4840,16 +4851,16 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         await SendPacketsToVrChatAsync(
             action.Packets,
             cancellationToken,
-            rule.ActionType == OscActionType.SetTrigger ? SetTriggerPacketSpacing : null);
-        if (rule.ActionType == OscActionType.SetTrigger)
+            executionRule.ActionType == OscActionType.SetTrigger ? SetTriggerPacketSpacing : null);
+        if (executionRule.ActionType == OscActionType.SetTrigger)
         {
             WriteLog($"Sent Set Trigger '{rule.Name}' outfit values ({action.Packets.Count} param{(action.Packets.Count == 1 ? string.Empty : "s")}).");
         }
 
-        RememberAvatarParameterValues(rule, action.ObservedValues.Count > 0 ? action.ObservedValues : null, action.DisplayValue);
+        RememberAvatarParameterValues(executionRule, action.ObservedValues.Count > 0 ? action.ObservedValues : null, action.DisplayValue);
         if (!isTest)
         {
-            UpdateActiveRuleLockoutState(rule);
+            UpdateActiveRuleLockoutState(executionRule);
         }
 
         lock (stateGate)
@@ -4888,7 +4899,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             }
         }
 
-        if (rule.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet
+        if (executionRule.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet
             && !string.IsNullOrWhiteSpace(action.AvatarTargetId))
         {
             LogPaidAvatarChangeAllowedDuringActiveScaling(rule);
@@ -4896,8 +4907,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 action.AvatarTargetId,
                 notify: true,
             GetAvatarScaleAvatarChangeCarryoverMode(rule));
-            if (rule.ActionType == OscActionType.AvatarChange
-                && rule.DurationSeconds <= 0
+            if (executionRule.ActionType == OscActionType.AvatarChange
+                && executionRule.DurationSeconds <= 0
                 && !suppressSharedReturnAvatarUpdate)
             {
                 SetSharedReturnAvatar(action.AvatarTargetId, action.AvatarTargetName, notify: true);
@@ -4917,10 +4928,10 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 : $"{bridgeEvent.UserDisplayName} triggered '{rule.Name}'.");
         }
 
-        var lockoutDurationSeconds = isTest ? 0 : GetLockoutDurationSeconds(rule);
+        var lockoutDurationSeconds = isTest ? 0 : GetLockoutDurationSeconds(executionRule);
         if (!isTest)
         {
-            UpdateActiveAvatarSwitchLockoutState(rule);
+            UpdateActiveAvatarSwitchLockoutState(executionRule);
         }
 
         var shouldNotifyManagedRewardState = !isTest && cooldownSeconds > 0;
@@ -4930,14 +4941,14 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             var resetDelaySeconds = action.HasResetPackets
                 ? effectiveTimedActionSeconds
                 : lockoutDurationSeconds;
-            if (rule.ActionType == OscActionType.PlayerMovement
-                && rule.MovementDirection == PlayerMovementDirection.Jump)
+            if (executionRule.ActionType == OscActionType.PlayerMovement
+                && executionRule.MovementDirection == PlayerMovementDirection.Jump)
             {
-                ScheduleJumpPulseReset(rule, action, resetDelaySeconds, laneKeys.FirstOrDefault(), laneLeaseId, notifyManagedRewardState: false);
+                ScheduleJumpPulseReset(executionRule, action, resetDelaySeconds, laneKeys.FirstOrDefault(), laneLeaseId, notifyManagedRewardState: false);
             }
             else
             {
-                ScheduleReset(rule, action, resetDelaySeconds, laneKeys, laneLeaseId, notifyManagedRewardState: false);
+                ScheduleReset(executionRule, action, resetDelaySeconds, laneKeys, laneLeaseId, notifyManagedRewardState: false);
             }
         }
 
@@ -4948,7 +4959,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
         if (!isTest && bridgeEvent is not null)
         {
-            await TrySendBotMessageAsync(rule, bridgeEvent, action.DisplayValue, cancellationToken);
+            await TrySendBotMessageAsync(executionRule, bridgeEvent, action.DisplayValue, cancellationToken);
         }
     }
 
@@ -5428,6 +5439,22 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             capturedReturnAvatar.AvatarName);
     }
 
+    private TriggerRuleSnapshot ResolveRandomMovementRule(TriggerRuleSnapshot rule)
+    {
+        if (rule.ActionType != OscActionType.PlayerMovement
+            || rule.MovementDirection != PlayerMovementDirection.RandomMovement)
+        {
+            return rule;
+        }
+
+        var selectedMovementDirection = PickRandomMovementDirection();
+        WriteLog($"Random Movement '{rule.Name}' rolled {DescribeMovementAction(selectedMovementDirection)}.");
+        return rule with { MovementDirection = selectedMovementDirection };
+    }
+
+    private static PlayerMovementDirection PickRandomMovementDirection() =>
+        RandomMovementDirections[Random.Shared.Next(RandomMovementDirections.Length)];
+
     private ResolvedRuleAction ResolvePlayerMovementAction(TriggerRuleSnapshot rule)
     {
         var inputAddress = rule.MovementDirection switch
@@ -5439,6 +5466,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             PlayerMovementDirection.Jump => "/input/Jump",
             PlayerMovementDirection.SpinLeft => "/input/LookLeft",
             PlayerMovementDirection.SpinRight => "/input/LookRight",
+            PlayerMovementDirection.RandomMovement => throw new InvalidOperationException("Random Movement must be resolved before sending movement input."),
             _ => throw new InvalidOperationException($"Unsupported movement direction: {rule.MovementDirection}")
         };
 
@@ -5471,36 +5499,42 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             throw new InvalidOperationException("Pick at least one avatar in the Avatar Roulette pool first.");
         }
 
+        var configuredAvatarIds = configuredAvatars
+            .Select(selection => selection.AvatarId)
+            .ToHashSet(StringComparer.Ordinal);
         var currentAvatarId = GetCurrentVrChatAvatarId();
-        string previousAvatarId;
+        AvatarRouletSelection selectedAvatar;
         lock (stateGate)
         {
-            previousAvatarId = lastAvatarRouletResultIds.TryGetValue(rule.Id, out var previousResult)
-                ? previousResult
-                : string.Empty;
-        }
+            if (!remainingAvatarRouletCandidateIdsByRuleId.TryGetValue(rule.Id, out var remainingAvatarIds))
+            {
+                remainingAvatarIds = new HashSet<string>(configuredAvatarIds, StringComparer.Ordinal);
+                remainingAvatarRouletCandidateIdsByRuleId[rule.Id] = remainingAvatarIds;
+            }
+            else
+            {
+                remainingAvatarIds.IntersectWith(configuredAvatarIds);
+                if (remainingAvatarIds.Count == 0)
+                {
+                    remainingAvatarIds.UnionWith(configuredAvatarIds);
+                }
+            }
 
-        var candidates = configuredAvatars
-            .Where(selection =>
-                !string.Equals(selection.AvatarId, currentAvatarId, StringComparison.Ordinal)
-                && !string.Equals(selection.AvatarId, previousAvatarId, StringComparison.Ordinal))
-            .ToArray();
-        if (candidates.Length == 0)
-        {
-            candidates = configuredAvatars
+            var remainingCandidates = configuredAvatars
+                .Where(selection => remainingAvatarIds.Contains(selection.AvatarId))
+                .ToArray();
+            var candidates = remainingCandidates
                 .Where(selection => !string.Equals(selection.AvatarId, currentAvatarId, StringComparison.Ordinal))
                 .ToArray();
-        }
+            if (candidates.Length == 0)
+            {
+                candidates = remainingCandidates.Length == 0
+                    ? configuredAvatars
+                    : remainingCandidates;
+            }
 
-        if (candidates.Length == 0)
-        {
-            candidates = configuredAvatars;
-        }
-
-        var selectedAvatar = candidates[Random.Shared.Next(candidates.Length)];
-        lock (stateGate)
-        {
-            lastAvatarRouletResultIds[rule.Id] = selectedAvatar.AvatarId;
+            selectedAvatar = candidates[Random.Shared.Next(candidates.Length)];
+            remainingAvatarIds.Remove(selectedAvatar.AvatarId);
         }
 
         return string.IsNullOrWhiteSpace(selectedAvatar.AvatarName)
@@ -7934,7 +7968,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 || queuedAvatarSwitches.Count > 0;
             activeRuleLockouts.Clear();
             activeAvatarSwitchRuleLockouts.Clear();
-            lastAvatarRouletResultIds.Clear();
+            remainingAvatarRouletCandidateIdsByRuleId.Clear();
             queuedAvatarSwitches.Clear();
             drainingQueuedAvatarSwitches = false;
             activeSupporterState = activeSupporterOverride;
@@ -14255,6 +14289,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             PlayerMovementDirection.StopMovement => "/input movement lock",
             PlayerMovementDirection.StopTurning => "/input turning lock",
             PlayerMovementDirection.StopAll => "/input full lock",
+            PlayerMovementDirection.RandomMovement => "/input/random movement",
             _ => "/input"
         },
         OscActionType.SetTrigger => "Set Trigger",
@@ -14278,6 +14313,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         PlayerMovementDirection.StopMovement => "Stop Movement",
         PlayerMovementDirection.StopTurning => "Stop Turning",
         PlayerMovementDirection.StopAll => "Stop All",
+        PlayerMovementDirection.RandomMovement => "Random Movement",
         _ => "Movement"
     };
 
