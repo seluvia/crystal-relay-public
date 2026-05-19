@@ -17,6 +17,7 @@ function Get-VersionText {
 
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectPath = Join-Path $root 'VrcTwitchOscBridge\VrcTwitchOscBridge.csproj'
+$updaterProjectPath = Join-Path $root 'CrystalRelayUpdater\CrystalRelayUpdater.csproj'
 $localizationAuditProject = Join-Path $root 'LocalizationAudit\LocalizationAudit.csproj'
 $localizationRoot = Join-Path $root 'VrcTwitchOscBridge\Resources\Localization'
 $readmePath = Join-Path $root 'README.md'
@@ -74,6 +75,27 @@ try {
 finally {
     Pop-Location
 }
+
+$updaterPublishDir = Join-Path ([System.IO.Path]::GetTempPath()) ("CrystalRelayUpdater-" + [guid]::NewGuid().ToString("N"))
+Push-Location (Join-Path $root 'CrystalRelayUpdater')
+try {
+    dotnet publish '.\CrystalRelayUpdater.csproj' `
+        -c Release `
+        -r $runtime `
+        --self-contained true `
+        -p:PublishSingleFile=true `
+        -p:DebugType=None `
+        -p:DebugSymbols=false `
+        -p:PublishTrimmed=true `
+        -o $updaterPublishDir `
+        --configfile (Join-Path $root 'NuGet.Config')
+}
+finally {
+    Pop-Location
+}
+
+Copy-Item -Path (Join-Path $updaterPublishDir 'CrystalRelayUpdater.exe') -Destination (Join-Path $appDir 'CrystalRelayUpdater.exe') -Force
+Remove-Item -Path $updaterPublishDir -Recurse -Force
 
 Copy-Item -Path $readmePath -Destination (Join-Path $packageDir 'README.md') -Force
 Copy-Item -Path $changelogPath -Destination (Join-Path $packageDir 'CHANGELOG.txt') -Force
