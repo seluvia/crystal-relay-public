@@ -17,11 +17,6 @@ internal sealed class LiveFeedbackHeartbeatService : IDisposable
     private static readonly TimeSpan FailureLogThrottle = TimeSpan.FromMinutes(15);
     private static readonly Regex TwitchLoginPattern = new("^[A-Za-z0-9_]{3,30}$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
-    private static readonly string[] TrustedProfileImageHostSuffixes =
-    [
-        ".jtvnw.net",
-        ".twitchcdn.net"
-    ];
 
     private readonly object stateGate = new();
     private readonly SemaphoreSlim evaluationGate = new(1, 1);
@@ -53,7 +48,6 @@ internal sealed class LiveFeedbackHeartbeatService : IDisposable
         bool isLive,
         string displayName,
         string twitchLogin,
-        string profileImageUrl,
         string endpoint,
         string relayVersion,
         string buildChannel)
@@ -66,7 +60,6 @@ internal sealed class LiveFeedbackHeartbeatService : IDisposable
                 isLive,
                 displayName?.Trim() ?? string.Empty,
                 twitchLogin?.Trim() ?? string.Empty,
-                NormalizeTrustedProfileImageUrl(profileImageUrl),
                 endpoint?.Trim() ?? string.Empty,
                 relayVersion?.Trim() ?? string.Empty,
                 buildChannel?.Trim() ?? string.Empty);
@@ -185,7 +178,6 @@ internal sealed class LiveFeedbackHeartbeatService : IDisposable
         var payload = new LiveFeedbackHeartbeatPayload(
             TrimForPayload(string.IsNullOrWhiteSpace(state.DisplayName) ? state.TwitchLogin : state.DisplayName, 80),
             twitchUrl,
-            TrimForPayload(state.ProfileImageUrl, 700),
             isLive,
             TrimForPayload(state.RelayVersion, 40),
             TrimForPayload(state.BuildChannel, 40));
@@ -299,35 +291,17 @@ internal sealed class LiveFeedbackHeartbeatService : IDisposable
         return normalized.Length <= maxLength ? normalized : normalized[..maxLength];
     }
 
-    private static string NormalizeTrustedProfileImageUrl(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value)
-            || !Uri.TryCreate(value.Trim(), UriKind.Absolute, out var uri)
-            || !string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
-            || !string.IsNullOrWhiteSpace(uri.UserInfo))
-        {
-            return string.Empty;
-        }
-
-        var host = uri.Host.Trim();
-        return TrustedProfileImageHostSuffixes.Any(suffix =>
-            host.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
-            ? uri.AbsoluteUri
-            : string.Empty;
-    }
-
     private readonly record struct HeartbeatState(
         bool Enabled,
         bool HasBroadcaster,
         bool IsLive,
         string DisplayName,
         string TwitchLogin,
-        string ProfileImageUrl,
         string Endpoint,
         string RelayVersion,
         string BuildChannel)
     {
-        public static HeartbeatState Empty { get; } = new(false, false, false, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty);
+        public static HeartbeatState Empty { get; } = new(false, false, false, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty);
 
         public bool HasTwitchIdentity => !string.IsNullOrWhiteSpace(TwitchLogin);
     }
@@ -335,7 +309,6 @@ internal sealed class LiveFeedbackHeartbeatService : IDisposable
     private sealed record LiveFeedbackHeartbeatPayload(
         string DisplayName,
         string TwitchUrl,
-        string ProfileImageUrl,
         bool IsLive,
         string RelayVersion,
         string BuildChannel);
