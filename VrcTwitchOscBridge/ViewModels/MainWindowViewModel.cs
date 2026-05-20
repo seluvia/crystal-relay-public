@@ -14364,6 +14364,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 ? Settings.Broadcaster.Login
                 : Settings.Broadcaster.DisplayName,
             Settings.Broadcaster.Login,
+            Settings.Broadcaster.ProfileImageUrl,
             runtimeConfig.LiveFeedbackHeartbeatEndpoint,
             AppVersion,
             BuildChannel);

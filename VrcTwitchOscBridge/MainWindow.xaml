@@ -2337,7 +2337,7 @@
                                                        Foreground="{DynamicResource TextBrush}"
                                                        TextWrapping="Wrap" />
                                             <TextBlock Margin="0,8,0,0"
-                                                       Text="{loc:Translate 'Crystal Relay includes a Live Feedback Heartbeat. This helps the developer find live Crystal Relay streams for feedback, support, and community interaction. You can turn this off anytime in Settings.'}"
+                                                       Text="{loc:Translate 'Crystal Relay includes a Live Feedback Heartbeat. This helps show live Crystal Relay streams on void-crystal.com and helps the developer find streams for feedback, support, and community interaction. You can turn this off anytime in Settings.'}"
                                                        Foreground="{DynamicResource MutedBrush}"
                                                        TextWrapping="Wrap" />
                                             <Grid Margin="0,12,0,0">
@@ -2353,7 +2353,7 @@
                                                                Foreground="{DynamicResource TextBrush}"
                                                                TextWrapping="Wrap" />
                                                     <TextBlock Margin="0,6,0,0"
-                                                               Text="{loc:Translate 'When enabled, Crystal Relay lets the developer know when your Twitch channel is live so they can visit your stream, observe real usage, and offer feedback or support. This does not send Twitch tokens, VRChat credentials, OSC data, chat messages, or private VRChat information.'}"
+                                                               Text="{loc:Translate 'When enabled, Crystal Relay sends a live/offline heartbeat for your Twitch channel. The public website may show only your Twitch name, Twitch channel link, and Twitch profile image while you are live. This does not send Twitch tokens, VRChat credentials, OSC data, chat messages, stream title, viewer count, or private VRChat information.'}"
                                                                Foreground="{DynamicResource MutedBrush}"
                                                                TextWrapping="Wrap" />
                                                 </StackPanel>
