@@ -5824,7 +5824,9 @@
                                                                        Foreground="{DynamicResource TextBrush}"
                                                                        FontWeight="SemiBold" />
                                                             <ComboBox ItemsSource="{Binding DataContext.AvatarScaleModes, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                      SelectedItem="{Binding ScaleMode, UpdateSourceTrigger=PropertyChanged}" />
+                                                                      DisplayMemberPath="Label"
+                                                                      SelectedValuePath="Value"
+                                                                      SelectedValue="{Binding ScaleMode, UpdateSourceTrigger=PropertyChanged}" />
                                                         </StackPanel>
                                                         <StackPanel Margin="14,0,0,0">
                                                             <TextBlock Text="{loc:Translate 'Smooth Transition Seconds'}"
@@ -5877,7 +5879,7 @@
                                                             <Style TargetType="UniformGrid">
                                                                 <Setter Property="Visibility" Value="Collapsed" />
                                                                 <Style.Triggers>
-                                                                    <DataTrigger Binding="{Binding UsesRandomHeight}" Value="True">
+                                                                    <DataTrigger Binding="{Binding UsesRandomHeightRange}" Value="True">
                                                                         <Setter Property="Visibility" Value="Visible" />
                                                                     </DataTrigger>
                                                                 </Style.Triggers>
@@ -5896,6 +5898,12 @@
                                                             <TextBox Text="{Binding MaximumHeightMeters, UpdateSourceTrigger=LostFocus}" />
                                                         </StackPanel>
                                                     </UniformGrid>
+
+                                                    <TextBlock Margin="0,8,0,0"
+                                                               Text="{loc:Translate 'Glitchy Random Height keeps changing height between Random Min Height and Random Max Height until Active Time ends.'}"
+                                                               Foreground="{DynamicResource MutedBrush}"
+                                                               TextWrapping="Wrap"
+                                                               Visibility="{Binding UsesGlitchyRandomHeight, Converter={StaticResource BoolToVisibilityConverter}}" />
 
                                                     <StackPanel Margin="0,12,0,0">
                                                         <StackPanel.Style>
@@ -6681,7 +6689,9 @@
                                                                    Foreground="{DynamicResource TextBrush}"
                                                                    FontWeight="SemiBold" />
                                                         <ComboBox ItemsSource="{Binding DataContext.AvatarScaleModes, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                  SelectedItem="{Binding ScaleMode, UpdateSourceTrigger=PropertyChanged}" />
+                                                                  DisplayMemberPath="Label"
+                                                                  SelectedValuePath="Value"
+                                                                  SelectedValue="{Binding ScaleMode, UpdateSourceTrigger=PropertyChanged}" />
                                                         <UniformGrid Columns="2"
                                                                      Margin="0,12,0,0">
                                                             <StackPanel Margin="0,0,14,0">
@@ -8556,7 +8566,7 @@
                                                                                 MinHeight="24"
                                                                                 Click="OnHelpButtonClicked"
                                                                                 CommandParameter="Movement Action"
-                                                                        Tag="Choose which VRChat movement input Crystal Relay should send for this rule. Directional options hold that input for the full Active Time, so they behave like a viewer-controlled push on that movement lane. Movement rules are global, which means they are not tied to one avatar set." />
+                                                                        Tag="{loc:Translate 'Choose which VRChat movement input Crystal Relay should send for this rule. Random Movement rolls one direction per use. Glitchy Movement keeps rolling random directions until Active Time ends.'}" />
                                                             </DockPanel>
                                                             <ComboBox ItemsSource="{Binding DataContext.MovementDirections, RelativeSource={RelativeSource AncestorType=Window}}"
                                                                       DisplayMemberPath="Label"

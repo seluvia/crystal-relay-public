@@ -3,7 +3,11 @@
 ## Project Identity
 - Product name: `Crystal Relay`
 - Legacy source/project name may still appear as `VrcTwitchOscBridge`
-- Current source version: `v3.1.5`
+- Last stable release: `v3.1.6`
+- Current source version: `v3.1.6`
+- Next post-release development version: `v3.1.7`
+- Active development build: `v3.1.7`
+- Active build lane: `none`
 - Platform: Windows desktop app
 - Primary purpose: Twitch-to-OSC / OSCQuery control for VRChat
 - Public GitHub repo: `seluvia/crystal-relay-public`
@@ -22,6 +26,7 @@
 - Optional Twitch bot login
 - Twitch EventSub integration for channel points, chat commands, bits, subs, gift subs, follows, stream state, and chatbox messages
 - GitHub latest-release update notifications for `seluvia/crystal-relay-public`
+- Dedicated self-updater helper and update package manifest validation
 - VRChat login with 2FA
 - VRChat avatar cache and OSC parameter cache
 - LocalLow VRChat OSC avatar JSON scanning through `VrChatLocalOscCacheService`
@@ -35,9 +40,13 @@
 - Fooma Twitch Interaction JSON import and command/reward fusion
 - Avatar Scaling Scale Sets using VRChat OSC Avatar Scaling `/avatar/eyeheight`
 - Avatar Scaling Master Reward, Supporter Growth, relative min/max limits, cooldowns, disable pairing, and optional avatar-change blocker
+- Cash Payments for StreamElements tips, Streamlabs donations, and Ko-fi hosted/local webhook payments
+- Reward Fire Sale funding and temporary/permanent managed-reward discounts
+- Desktop-mode stop-input soft lock and optional hard lock with emergency unlock
 - Twitch Chatbox window with themed settings and emote rendering support
 - App-wide built-in/custom theme system with optional main-window custom background image
 - About page live-status cards
+- Cloudflare-backed live feedback heartbeat, bug report intake, and hosted Ko-fi relay
 - Hidden easter eggs and media playback
 - Crash logging and recovery cleanup
 
@@ -52,10 +61,14 @@ Use these locations only unless a change is explicitly required.
   `E:\!!!Program to work on\Proper Crystal Relay\oscquery-lib`
 - Localization audit:
   `E:\!!!Program to work on\Proper Crystal Relay\LocalizationAudit`
+- Dedicated updater:
+  `E:\!!!Program to work on\Proper Crystal Relay\CrystalRelayUpdater`
 - Solution:
   `E:\!!!Program to work on\Proper Crystal Relay\VrcTwitchOscBridge.slnx`
 - Release script:
   `E:\!!!Program to work on\Proper Crystal Relay\Build-Crystal-Relay-Release.ps1`
+- Beta release script:
+  `E:\!!!Program to work on\Proper Crystal Relay\Build-Crystal-Relay-Beta.ps1`
 - Test build script:
   `E:\!!!Program to work on\Proper Crystal Relay\Build-Crystal-Relay-Test.ps1`
 - Raw source backup script:
@@ -66,6 +79,14 @@ Use these locations only unless a change is explicitly required.
   `E:\!!!Program to work on\Proper Crystal Relay\Sync-Crystal-Relay-GitHub-Repos.ps1`
 - GitHub upload prep script:
   `E:\!!!Program to work on\Proper Crystal Relay\tools\github\Export-Crystal-Relay-Public.ps1`
+- Public safety preflight:
+  `E:\!!!Program to work on\Proper Crystal Relay\tools\github\Test-Crystal-Relay-PublicSafety.ps1`
+- Cloudflare workers:
+  `E:\!!!Program to work on\Proper Crystal Relay\cloudflare`
+- Dev tooling root:
+  `E:\!!!Program to work on\Proper Crystal Relay\tools`
+- Private local tooling:
+  `E:\!!!Program to work on\Proper Crystal Relay\tools\private`
 - Source launcher:
   `E:\!!!Program to work on\Proper Crystal Relay\Run-Crystal-Relay-Source.ps1`
 - Root docs:
@@ -111,16 +132,24 @@ Do not store runtime data in the repo.
   `C:\Users\screm\AppData\Local\CrystalRelay\Secure`
 - Crash logs:
   `C:\Users\screm\AppData\Local\CrystalRelay\CrashLogs`
+- Update staging:
+  `C:\Users\screm\AppData\Local\CrystalRelay\Updates`
+- Update backups:
+  `C:\Users\screm\AppData\Local\CrystalRelay\UpdateBackups`
 - Runtime config:
   `C:\Users\screm\AppData\Local\CrystalRelay\bridge.runtime.json`
+- Saved-login recovery backups:
+  `C:\Users\screm\AppData\Local\CrystalRelay-RecoveryBackups`
 - Legacy app data may still be migrated from:
   `C:\Users\screm\AppData\Local\VrcTwitchOscBridge`
 
 ## Security Rules
 - Twitch OAuth tokens and VRChat auth cookies are stored in Windows Credential Manager through `WindowsCredentialStore`.
+- StreamElements, Streamlabs, and Ko-fi payment secrets are stored in Windows Credential Manager through `SettingsStore` / secure credential helpers, not in portable profile files.
 - Secure metadata, avatar cache, and OSC parameter cache live under `AppData\Local\CrystalRelay\Secure`.
 - Never write Twitch OAuth tokens, VRChat auth data, cookies, or secrets into repo files.
 - Never expose secrets in `README.md`, `CHANGELOG.txt`, release notes, examples, test data, or public repo files.
+- Cloudflare worker secrets, GitHub issue tokens, Ko-fi relay client secrets, and hosted relay credentials must stay in Cloudflare secrets or local credentials and must never be committed.
 - Do not copy user-local files such as downloaded configs, LocalLow avatar JSON files, screenshots, or videos into the repo unless the user explicitly asks and confirms they are public-safe.
 - VRChat LocalLow OSC JSON files are read-only input. Do not delete, move, or modify them from Crystal Relay code.
 
@@ -141,6 +170,14 @@ Do not store runtime data in the repo.
   - highest semantic version folder under `TestBuilds`
 - Sort version folders by semantic version, not by folder modified time. A freshly rebuilt older test package can have a newer timestamp.
 - If the current stable release version is the same as the latest test-build version, treat active development as the next patch version above stable unless the user explicitly asks to rebuild that exact existing test package.
+- After a stable release is done, any new code change should move active development to the next patch version before making a test or beta build. Example: after stable `3.1.5`, the next changed build is `3.1.6`.
+- Do not keep producing new changed test/beta packages under the last stable version unless the user explicitly asks to rebuild that exact stable package.
+- Use the new post-release version for either test or beta builds depending on what the user asks: test builds stay in `TestBuilds\v<version>`, beta builds use the beta script and `-beta<N>` suffix.
+- Before running any test or beta build, update this file so `Active development build` and `Active build lane` describe exactly what is about to be built. Keep those fields current until the user asks for a full release, new release build, or equivalent release-promotion wording.
+- If the user asks for more edits while an active test/beta build is in progress, keep using that active development version unless the user explicitly asks to start a newer version.
+- After the user confirms a test or beta build is good and asks to release it, promote that active version to the new stable release, then update `Last stable release`, `Current source version`, and `Next post-release development version` in this file.
+- After a full release is published, reset `Active build lane` to `none` and set `Active development build` to the next patch version that future test/beta work should use.
+- When reporting a completed test, beta, or release build, include a short reminder of the last stable release and the active/new build version. Example: `Last stable: 3.1.5; active test/beta: 3.1.6`.
 - If `AGENTS.md` disagrees with the project file or latest semantic test-build folder, trust the project file and version folders, then update `AGENTS.md` as part of the housekeeping.
 - Update version in `VrcTwitchOscBridge\VrcTwitchOscBridge.csproj` before release packaging.
 - Update `CHANGELOG.txt` for official releases.
@@ -158,14 +195,50 @@ Do not store runtime data in the repo.
   - `Backups\Test\v2.9.2`
 - Use `Build-Crystal-Relay-Test.ps1` for organized test packages.
 - Use `Build-Crystal-Relay-Release.ps1` for official release packages.
-- Both build scripts run the localization audit before publishing.
+- Use `Build-Crystal-Relay-Beta.ps1` for beta packages; beta packages use a `-beta<N>` version suffix, prerelease channel manifest, and `beta-build.flag`.
+- Release, beta, and test build scripts run the localization audit before publishing.
+- Release and beta packages should include `CrystalRelayUpdater.exe` and a valid `crystal-relay-update.json` manifest.
+- Test packages should include `CrystalRelayUpdater.exe` and `test-build.flag`; do not treat test packages as public self-update assets unless the user explicitly asks.
 - Current test package layout should stay:
   - root shortcut: `Crystal Relay Test.lnk`
   - top-level docs: `README.md`, `CHANGELOG.txt`, optional `docs`
   - runtime files inside `App`
 - Release packages should stay flat at the top level so the real versioned `.exe` is visible without a launcher script.
+- Stable release ZIP assets must keep the self-update naming pattern:
+  `CrystalRelayTwitchOsc-v<version>-win-x64.zip`
+- Beta release ZIP assets must keep the beta naming pattern:
+  `CrystalRelayTwitchOsc-v<version>-beta<N>-win-x64.zip`
+- Do not change update asset names, manifest fields, or ZIP layout without updating `ApplicationUpdateService`, `ApplicationSelfUpdateService`, and `CrystalRelayUpdater` together.
 - Release zips should be kept; loose old release folders may be cleaned up only if the user requests it.
 - Do not leave temporary developer-only controls in release builds.
+
+## Project File Rules
+- `VrcTwitchOscBridge\VrcTwitchOscBridge.csproj` has default item inclusion disabled:
+  - `EnableDefaultItems=false`
+  - `EnableDefaultCompileItems=false`
+  - `EnableDefaultPageItems=false`
+- New `.cs`, `.xaml`, resources, windows, and related project files must be explicitly included in the app project file or they will not build/package.
+- `VrcTwitchOscBridge.slnx` is not a reliable validation target right now; build the app project directly unless the solution file is intentionally fixed.
+- The app references the vendored OSCQuery library from `oscquery-lib` with a `net6.0` target selection. Preserve that compatibility unless the whole app/library relationship is being updated.
+- If `oscquery-lib` is changed, run its tests in addition to the app build.
+
+## Self-Update Rules
+- The updater is a separate executable: `CrystalRelayUpdater.exe`.
+- Update packages must include exactly one visible versioned Crystal Relay executable matching `CrystalRelayTwitchOsc-v*.exe`.
+- Update packages must include `crystal-relay-update.json` with the expected product, runtime, channel, version, and entry executable.
+- Stable self-update expects GitHub release assets named `CrystalRelayTwitchOsc-v<LatestVersion>-win-x64.zip`.
+- The app validates update downloads through HTTPS GitHub asset URLs, SHA-256 digests, safe ZIP extraction, package manifest checks, and dedicated-updater presence.
+- Keep updater path-safety checks strict. The updater must not apply packages into filesystem roots, AppData runtime folders, or targets outside the expected package parent.
+- `AppDataPaths.UpdatesFolder` and `AppDataPaths.UpdateBackupsFolder` are updater-owned; portable saves, secure metadata, crash logs, and runtime config are not updater cleanup targets.
+
+## Public Export Rules
+- Public sync/export runs through:
+  `E:\!!!Program to work on\Proper Crystal Relay\tools\github\Export-Crystal-Relay-Public.ps1`
+- Public safety preflight runs through:
+  `E:\!!!Program to work on\Proper Crystal Relay\tools\github\Test-Crystal-Relay-PublicSafety.ps1`
+- Public export intentionally excludes private/local folders such as `cloudflare`, `tools/private`, `Releases`, `TestBuilds`, `Backups`, `Code Review`, `.appdata`, `.codex`, local runtime state, and `AGENTS.md`.
+- Do not weaken blocked-path or blocked-content checks without explicit user approval.
+- Public export must stay free of local paths, private repo names, Codex/OpenAI/internal workflow wording, tokens, secrets, credentials, and runtime state.
 
 ## Backup Rules
 - Run `Backup-Crystal-Relay-Project.ps1` before broad runtime changes, save-format changes, risky refactors, or release prep when the user asks for a raw backup.
@@ -205,6 +278,13 @@ Do not store runtime data in the repo.
 - Cooldown and temporary in-use states should not churn reward deletion.
 - Bits + Subs override avatar changes have paid priority and must not be blocked by Avatar Scaling's optional avatar-change blocker.
 
+## Reward Fire Sale Rules
+- Reward Fire Sale discounts only mutate Crystal Relay-owned `CreateOrManage` Twitch rewards.
+- Linked existing Twitch rewards remain listen-only during fire sales; do not discount, rename, hide, delete, or otherwise mutate them.
+- Fire Sale funding rewards are managed rewards and should follow the same Twitch API gating, coalescing, and opt-in delete rules as other Crystal Relay-owned rewards.
+- Starting, stopping, expiring, or stream-end resetting a fire sale should queue managed reward sync only when Twitch-visible prices actually need to change.
+- Always restore normal reward prices when a fire sale ends, expires, or is reset by stream-end handling.
+
 ## Twitch API Safety Rules
 - Treat Twitch API rate limits and ownership restrictions as hard product constraints when editing Crystal Relay.
 - Prefer EventSub/redemption events over polling. Do not add reward polling loops or repeated catalog refreshes for normal runtime actions.
@@ -228,6 +308,25 @@ Do not store runtime data in the repo.
 - Avoid full reward-catalog refreshes as a side effect of tests, local timers, active-time resets, OSC sends, or UI selection changes.
 - Manual refresh, broadcaster reconnect, startup recovery, emergency stop, test mode changes, current-avatar changes, and user-edited reward settings may still trigger reward sync when needed.
 - Add throttled diagnostics for reward API decisions when debugging, but never log OAuth tokens, authorization headers, cookies, or private account secrets.
+
+## Cash Payment Rules
+- Cash Payment rules support StreamElements tips, Streamlabs donations, and Ko-fi payments.
+- Cash payment secrets, access tokens, verification tokens, and client secrets must stay in Windows Credential Manager or Cloudflare/local secret storage, never in portable saves or repo files.
+- Ko-fi can use the hosted relay or a local webhook listener. Keep both paths explicit and do not assume one replaces the other.
+- The hosted Ko-fi relay default is:
+  `https://crystal-relay-kofi-relay.screminpal-animation.workers.dev`
+- Cash Payment rules can trigger direct OSC actions, avatar changes, avatar set behavior, and avatar scaling behavior, but they do not create Twitch channel-point rewards.
+- Do not add currency conversion behavior unless it is implemented deliberately and documented in the UI.
+- Sanitize and throttle diagnostics for payment listeners; never log raw secrets, auth headers, client secrets, tokens, or private payment payloads.
+
+## Movement Redeem Rules
+- Movement Redeems are global behavior and not tied to one VRChat avatar unless the existing model explicitly does so.
+- Movement Sets are organization-only folders; runtime movement behavior should flatten or resolve the contained rules consistently.
+- Stop Movement, Stop Turning, and Stop All behavior must preserve soft-lock behavior and optional desktop hard-lock behavior.
+- Desktop hard lock uses low-level Windows input hooks only while the hard lock is active.
+- Preserve the emergency unlock path and user-facing display:
+  `Ctrl+Alt+Shift+F12`
+- Stop-input cleanup should preserve the key-up release burst so movement and turning do not remain stuck.
 
 ## Universal Trigger Rules
 - Universal Triggers are separate from Avatar Sets, Avatar Change, Movement Redeems, and Bits + Subs overrides.
@@ -278,6 +377,8 @@ Do not store runtime data in the repo.
 - Failed emote image loads should fall back to readable text.
 - VRChat relay text must not be changed just to support visual chatbox rendering.
 - Chatbox message cap is `250`; activity log cap is `200`.
+- Custom role-card behavior is split between identity/classification/name-brush logic in `MainWindowViewModel.cs` and visual resources/triggers in `TwitchChatboxWindow.xaml`.
+- When adding or editing a Twitch role card, update all matching surfaces together: main card, rail, badge, muted text, name text, and inset panels.
 
 ## UI Rules
 - Preserve custom themed window chrome.
@@ -290,16 +391,42 @@ Do not store runtime data in the repo.
 - Use user-facing wording in docs, tooltips, changelog, and activity logs.
 - Add localization entries for new UI text and run the localization audit.
 
+## Localization Rules
+- User-facing UI text should use the existing localization flow instead of hardcoded XAML or code strings where practical.
+- Localization files can use base `.json` files plus matching `.extra.json` files; the audit merges both.
+- Add new `en-US` source keys for new UI text and keep placeholder names consistent across languages.
+- Avoid empty localized values and accidental English copies in translated files unless the existing pattern clearly allows it.
+- Run the localization audit after adding or changing UI text, XAML labels, tooltips, or user-facing activity messages.
+
+## Cloudflare And Private Tooling Rules
+- Cloudflare worker folders are private infrastructure and are excluded from public export by default.
+- The live feedback worker should only handle temporary live heartbeat/status entries and should not store Twitch OAuth data, VRChat credentials, OSC payloads, chat messages, or permanent live state.
+- The bug report worker creates GitHub issues for `seluvia/crystal-relay-public`; its GitHub token must stay in Cloudflare secrets.
+- The Ko-fi relay worker should relay hosted Ko-fi events without storing payment history, emails, messages, tokens, client secrets, or raw payloads.
+- `tools/private` is local/private tooling. Do not sync it to the public repo or depend on it for public builds.
+- When the user says `dev tool`, treat the work as scoped to `E:\!!!Program to work on\Proper Crystal Relay\tools` by default. Do not modify the main program, updater, release scripts, or public docs unless that change is required to make the dev tool work.
+- If a dev-tool request truly needs a main-program change, explain why, keep the edit minimal, and verify the main app still builds without changing user-facing runtime behavior beyond what the user requested.
+
+## Saved Login Recovery Rules
+- Saved-login recovery may quarantine app data and clear Credential Manager secrets to recover from broken login/session state.
+- Recovery should preserve portable redeem saves, save backups, and theme assets when possible.
+- Recovery must not restore Twitch OAuth tokens, VRChat auth cookies, secure metadata, avatar cache, OSC parameter cache, or other credential-derived state.
+- Keep recovery result files and diagnostics sanitized before showing or syncing anything publicly.
+
 ## Current Stability Priorities
 - Keep Twitch reward activation, visibility, cooldown color, delete-when-inactive behavior, and cleanup predictable.
 - Keep Avatar Sets and Avatar Change correctly tied to the current VRChat avatar.
 - Keep Bits + Subs override priority independent from normal reward blockers.
 - Keep Avatar Scaling transitions, cooldowns, disable pairing, master reward gating, and height carryover stable.
 - Keep Universal Triggers import, command fusion, reward sync, and direct OSC execution stable.
+- Keep Cash Payment listener behavior, secret storage, hosted Ko-fi relay, and payment-trigger execution stable.
+- Keep Reward Fire Sale discounts limited to managed rewards and restore prices reliably.
+- Keep desktop stop-input locks and emergency unlock behavior reliable.
 - Keep OSC / OSCQuery connection reliable.
 - Keep VRChat avatar and parameter caches stable.
 - Keep Twitch Chatbox emote rendering reliable.
 - Keep About-page live indicators accurate while the app stays open.
+- Keep self-update package discovery, updater launch, manifest validation, and update cleanup reliable.
 - Keep crash logs reliably written to disk.
 
 ## Agent Workflow Rules
@@ -310,12 +437,14 @@ Do not store runtime data in the repo.
 - Do not revert unrelated user changes.
 - Build after code changes that affect runtime behavior or XAML:
   `dotnet build "E:\!!!Program to work on\Proper Crystal Relay\VrcTwitchOscBridge\VrcTwitchOscBridge.csproj" --no-restore`
-- Refresh a test package after test-build changes, using the active test version discovered from the Versioning Rules:
-  `powershell -ExecutionPolicy Bypass -File "E:\!!!Program to work on\Proper Crystal Relay\Build-Crystal-Relay-Test.ps1" -Version 3.1.5`
+- Refresh a test package after test-build changes, using the active development build discovered from the Versioning Rules:
+  `powershell -ExecutionPolicy Bypass -File "E:\!!!Program to work on\Proper Crystal Relay\Build-Crystal-Relay-Test.ps1" -Version <active-version>`
+- Before running a test or beta build script, update `AGENTS.md` first so the active build version and lane are recorded.
 - Update release packages only after the change is confirmed good.
 - If a temporary test tool is added, remove it before release unless explicitly requested.
 - Keep changelog wording user-facing and generic for hidden easter eggs.
 - When preparing public repo updates, run the sync script and inspect the public sync output for private information before pushing.
+- For public export or release publication, run the public safety preflight and inspect blocked-content output before pushing or uploading.
 
 ## Do Not
 - Do not create stray runtime files in the repo root.
@@ -325,3 +454,4 @@ Do not store runtime data in the repo.
 - Do not delete backups or release zips unless explicitly requested.
 - Do not commit large videos directly into source history; use GitHub Release assets when needed.
 - Do not modify VRChat LocalLow OSC JSON files.
+- Do not move update staging, update backups, secure metadata, or saved-login recovery data into the repo.

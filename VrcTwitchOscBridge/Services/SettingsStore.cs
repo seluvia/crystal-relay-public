@@ -1636,6 +1636,11 @@ public sealed class SettingsStore
             scaleRule.MaximumHeightMeters = scaleRule.MinimumHeightMeters;
         }
 
+        if (scaleRule.ScaleMode == AvatarScaleMode.GlitchyRandomHeight && scaleRule.ActiveTimeSeconds <= 0)
+        {
+            scaleRule.ActiveTimeSeconds = 10;
+        }
+
         return scaleRule;
     }
 

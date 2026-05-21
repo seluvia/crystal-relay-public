@@ -74,6 +74,13 @@
   "Copied avatar parameter path: {0}": "Skopiowano sciezke parametru awatara: {0}",
   "Pasted avatar parameter path: {0}": "Wklejono sciezke parametru awatara: {0}",
   "Delete Action": "Delete Action",
+  "Delete All": "Delete All",
+  "Are you sure you want to delete every avatar set and the redeems inside them? This cannot be undone.": "Are you sure you want to delete every avatar set and the redeems inside them? This cannot be undone.",
+  "Are you sure you want to delete every Bits + Subs override? This cannot be undone.": "Are you sure you want to delete every Bits + Subs override? This cannot be undone.",
+  "Are you sure you want to delete every movement set and movement redeem? This cannot be undone.": "Are you sure you want to delete every movement set and movement redeem? This cannot be undone.",
+  "Are you sure you want to delete every universal trigger? This cannot be undone.": "Are you sure you want to delete every universal trigger? This cannot be undone.",
+  "Are you sure you want to delete every avatar scale set and scale redeem? This cannot be undone.": "Are you sure you want to delete every avatar scale set and scale redeem? This cannot be undone.",
+  "Are you sure you want to delete every cash payment rule? This cannot be undone. Provider connection settings and saved credentials are kept.": "Are you sure you want to delete every cash payment rule? This cannot be undone. Provider connection settings and saved credentials are kept.",
   "Delete All Universal": "Delete All Universal",
   "Delete All Universal Triggers": "Delete All Universal Triggers",
   "Delete Universal": "Delete Universal",
@@ -670,5 +677,11 @@
   "Twitch Settings": "Ustawienia Twitch",
   "VRChat Settings": "Ustawienia VRChat",
   "App Settings": "Ustawienia aplikacji",
-  "Safety Settings": "Ustawienia bezpieczenstwa"
+  "Safety Settings": "Ustawienia bezpieczenstwa",
+  "Set Height": "Set Height",
+  "Random Height": "Random Height",
+  "Glitchy Random Height": "Glitchy Random Height",
+  "Glitchy Movement": "Glitchy Movement",
+  "Glitchy Random Height keeps changing height between Random Min Height and Random Max Height until Active Time ends.": "Glitchy Random Height keeps changing height between Random Min Height and Random Max Height until Active Time ends.",
+  "Choose which VRChat movement input Crystal Relay should send for this rule. Random Movement rolls one direction per use. Glitchy Movement keeps rolling random directions until Active Time ends.": "Choose which VRChat movement input Crystal Relay should send for this rule. Random Movement rolls one direction per use. Glitchy Movement keeps rolling random directions until Active Time ends."
 }

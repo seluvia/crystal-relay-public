@@ -24,7 +24,8 @@ public enum AvatarScaleMode
     RandomHeight,
     RelativeHeight,
     Multiplier,
-    Preset
+    Preset,
+    GlitchyRandomHeight
 }
 
 public enum AvatarScalePreset
@@ -535,6 +536,11 @@ public sealed class AvatarScaleRule : ObservableObject
             var normalizedValue = Enum.IsDefined(value) ? value : AvatarScaleMode.SetHeight;
             if (SetProperty(ref scaleMode, normalizedValue))
             {
+                if (normalizedValue == AvatarScaleMode.GlitchyRandomHeight && ActiveTimeSeconds <= 0)
+                {
+                    ActiveTimeSeconds = 10;
+                }
+
                 RaiseScaleProperties();
             }
         }
@@ -821,6 +827,10 @@ public sealed class AvatarScaleRule : ObservableObject
 
     public bool UsesRandomHeight => ScaleMode == AvatarScaleMode.RandomHeight;
 
+    public bool UsesGlitchyRandomHeight => ScaleMode == AvatarScaleMode.GlitchyRandomHeight;
+
+    public bool UsesRandomHeightRange => UsesRandomHeight || UsesGlitchyRandomHeight;
+
     public bool UsesRelativeHeight => ScaleMode == AvatarScaleMode.RelativeHeight;
 
     public bool UsesRelativeMinimumHeight => UsesRelativeHeight && RelativeHeightMeters < 0;
@@ -877,6 +887,7 @@ public sealed class AvatarScaleRule : ObservableObject
     {
         AvatarScaleMode.SetHeight => $"Set {TargetHeightMeters:0.##}m",
         AvatarScaleMode.RandomHeight => $"Random {Math.Min(MinimumHeightMeters, MaximumHeightMeters):0.##}-{Math.Max(MinimumHeightMeters, MaximumHeightMeters):0.##}m",
+        AvatarScaleMode.GlitchyRandomHeight => $"Glitchy {Math.Min(MinimumHeightMeters, MaximumHeightMeters):0.##}-{Math.Max(MinimumHeightMeters, MaximumHeightMeters):0.##}m",
         AvatarScaleMode.RelativeHeight => $"{RelativeHeightMeters:+0.##;-0.##;0}m relative",
         AvatarScaleMode.Multiplier => $"x{HeightMultiplier:0.##}",
         AvatarScaleMode.Preset => Preset.ToString(),
@@ -1030,6 +1041,8 @@ public sealed class AvatarScaleRule : ObservableObject
     {
         RaisePropertyChanged(nameof(UsesTargetHeight));
         RaisePropertyChanged(nameof(UsesRandomHeight));
+        RaisePropertyChanged(nameof(UsesGlitchyRandomHeight));
+        RaisePropertyChanged(nameof(UsesRandomHeightRange));
         RaisePropertyChanged(nameof(UsesRelativeHeight));
         RaisePropertyChanged(nameof(UsesRelativeMinimumHeight));
         RaisePropertyChanged(nameof(UsesRelativeMaximumHeight));
