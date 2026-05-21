@@ -3,6 +3,12 @@ Crystal Relay Changelog
 
 Newest updates appear first. This changelog focuses on the changes users will notice most.
 
+v3.1.6
+- Added Glitchy Random Height to Avatar Scaling, letting a scale redeem rapidly vary height between configured minimum and maximum values for its active time before returning to the configured height.
+- Added Glitchy Movement for Movement Redeems and Bits + Subs Force Movement overrides, repeatedly rolling random VRChat movement directions until Active Time ends.
+- Strengthened Redeem Library Delete All confirmations so bulk-delete actions use clear themed warnings before removing avatar sets, cash rules, movement sets, Bits + Subs overrides, Universal Triggers, or Avatar Scaling.
+- Updated release and test packaging so Crystal Relay ships with the dedicated updater helper and organized test packages include the expected updater and test-build marker.
+
 v3.1.5
 - Added Saved Login Repair for login/sign-out loops, backing up redeem setup and custom theme assets before clearing saved sessions and restoring redeems.
 - Added a guided repair prompt after repeated recoverable auth/session failures, plus a manual Repair and Restart action in Settings > Accounts.

@@ -933,6 +933,8 @@ public sealed record BridgeRuntimeConfiguration(
         return rule.ScaleMode switch
         {
             AvatarScaleMode.RandomHeight => Math.Max(rule.MinimumHeightMeters, rule.MaximumHeightMeters) >= Math.Min(rule.MinimumHeightMeters, rule.MaximumHeightMeters),
+            AvatarScaleMode.GlitchyRandomHeight => rule.ActiveTimeSeconds > 0
+                && Math.Max(rule.MinimumHeightMeters, rule.MaximumHeightMeters) > Math.Min(rule.MinimumHeightMeters, rule.MaximumHeightMeters),
             AvatarScaleMode.Multiplier => rule.HeightMultiplier > 0,
             _ => true
         };
@@ -1078,7 +1080,8 @@ public sealed record BridgeRuntimeConfiguration(
         or PlayerMovementDirection.Jump
         or PlayerMovementDirection.SpinLeft
         or PlayerMovementDirection.SpinRight
-        or PlayerMovementDirection.RandomMovement;
+        or PlayerMovementDirection.RandomMovement
+        or PlayerMovementDirection.GlitchyMovement;
 
     private static bool HasAvatarParameterPath(string parameterName)
     {

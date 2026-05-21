@@ -15,6 +15,56 @@ function Get-VersionText {
     return $versionNode.Trim()
 }
 
+function Set-VersionText {
+    param(
+        [xml]$ProjectXml,
+        [string]$VersionText
+    )
+
+    $propertyGroup = $ProjectXml.Project.PropertyGroup | Select-Object -First 1
+    if ($null -eq $propertyGroup) {
+        throw "Could not find a PropertyGroup in the project file."
+    }
+
+    $assemblyVersion = "$VersionText.0"
+
+    $propertyGroup.Version = $VersionText
+    $propertyGroup.AssemblyVersion = $assemblyVersion
+    $propertyGroup.FileVersion = $assemblyVersion
+    $propertyGroup.InformationalVersion = $VersionText
+}
+
+function Test-SemanticVersion {
+    param([string]$VersionText)
+
+    return $VersionText -match '^\d+\.\d+\.\d+$'
+}
+
+function Normalize-VersionText {
+    param([string]$VersionText)
+
+    if (-not (Test-SemanticVersion -VersionText $VersionText)) {
+        throw "Version must use major.minor.patch format, like 1.2.3."
+    }
+
+    $parts = $VersionText.Split('.')
+    $major = [int]$parts[0]
+    $minor = [int]$parts[1]
+    $patch = [int]$parts[2]
+
+    while ($patch -ge 10) {
+        $patch -= 10
+        $minor += 1
+    }
+
+    while ($minor -ge 10) {
+        $minor -= 10
+        $major += 1
+    }
+
+    return "{0}.{1}.{2}" -f $major, $minor, $patch
+}
+
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectPath = Join-Path $root 'VrcTwitchOscBridge\VrcTwitchOscBridge.csproj'
 $updaterProjectPath = Join-Path $root 'CrystalRelayUpdater\CrystalRelayUpdater.csproj'
@@ -27,8 +77,25 @@ $testRoot = Join-Path $root 'TestBuilds'
 $runtime = 'win-x64'
 
 [xml]$projectXml = Get-Content -Path $projectPath
+[xml]$updaterProjectXml = Get-Content -Path $updaterProjectPath
 $currentVersion = Get-VersionText -ProjectXml $projectXml
-$targetVersion = if ([string]::IsNullOrWhiteSpace($Version)) { $currentVersion } else { $Version.Trim() }
+$targetVersion = if ([string]::IsNullOrWhiteSpace($Version)) {
+    Normalize-VersionText -VersionText $currentVersion
+}
+else {
+    Normalize-VersionText -VersionText $Version.Trim()
+}
+
+if ($targetVersion -ne $currentVersion) {
+    Set-VersionText -ProjectXml $projectXml -VersionText $targetVersion
+    $projectXml.Save($projectPath)
+}
+
+$updaterCurrentVersion = Get-VersionText -ProjectXml $updaterProjectXml
+if ($targetVersion -ne $updaterCurrentVersion) {
+    Set-VersionText -ProjectXml $updaterProjectXml -VersionText $targetVersion
+    $updaterProjectXml.Save($updaterProjectPath)
+}
 
 $versionRoot = Join-Path $testRoot "v$targetVersion"
 $packageDir = Join-Path $versionRoot "CrystalRelayTwitchOsc-v$targetVersion-test"
@@ -102,6 +169,18 @@ Copy-Item -Path $changelogPath -Destination (Join-Path $packageDir 'CHANGELOG.tx
 if (Test-Path $docsPath) {
     Copy-Item -Path $docsPath -Destination (Join-Path $packageDir 'docs') -Recurse -Force
 }
+
+$updateManifest = [ordered]@{
+    productName = 'Crystal Relay'
+    version = $targetVersion
+    channel = 'test'
+    runtime = $runtime
+    entryExecutableName = 'CrystalRelayTwitchOsc.exe'
+}
+$updateManifest |
+    ConvertTo-Json |
+    Set-Content -Path (Join-Path $appDir 'crystal-relay-update.json') -Encoding UTF8
+
 Set-Content -Path $testMarkerPath -Value 'test-build' -Encoding ASCII
 
 $wshShell = New-Object -ComObject WScript.Shell

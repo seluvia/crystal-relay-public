@@ -46,6 +46,11 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private static readonly TimeSpan MovementSoftLockPulseInterval = TimeSpan.FromMilliseconds(200);
     private static readonly TimeSpan JumpPulsePressDuration = TimeSpan.FromMilliseconds(120);
     private static readonly TimeSpan JumpPulseInterval = TimeSpan.FromMilliseconds(650);
+    private static readonly TimeSpan DevRandomAvatarScaleMinimumStepDuration = TimeSpan.FromMilliseconds(90);
+    private static readonly TimeSpan DevRandomAvatarScaleMaximumStepDuration = TimeSpan.FromMilliseconds(850);
+    private static readonly TimeSpan DevRandomAvatarScaleRestoreTransition = TimeSpan.FromMilliseconds(350);
+    private static readonly TimeSpan DevRandomMovementMinimumSliceDuration = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan DevRandomMovementMaximumSliceDuration = TimeSpan.FromSeconds(3);
     private static readonly TimeSpan RecentMessageRetention = TimeSpan.FromMinutes(30);
     private static readonly TimeSpan RecentMessagePruneInterval = TimeSpan.FromMinutes(1);
     private static readonly TimeSpan ThirdPartyChatEmoteRefreshInterval = TimeSpan.FromHours(6);
@@ -814,9 +819,25 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                         cancellationToken);
                     break;
 
+                case DevChatCommandKind.RandomAvatarScale:
+                    await ExecuteDevRandomAvatarScaleAsync(
+                        command.MinimumHeightMeters,
+                        command.MaximumHeightMeters,
+                        command.DurationSeconds,
+                        bridgeEvent.UserDisplayName,
+                        cancellationToken);
+                    break;
+
                 case DevChatCommandKind.Movement:
                     await ExecuteDevMovementAsync(
                         command.MovementDirection,
+                        command.DurationSeconds,
+                        bridgeEvent.UserDisplayName,
+                        cancellationToken);
+                    break;
+
+                case DevChatCommandKind.RandomMovementSequence:
+                    await ExecuteDevRandomMovementSequenceAsync(
                         command.DurationSeconds,
                         bridgeEvent.UserDisplayName,
                         cancellationToken);
@@ -855,30 +876,351 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             return;
         }
 
-        var previousHeight = await TryGetCurrentAvatarHeightAsync(cancellationToken) ?? 1.6;
-        var rule = new AvatarScaleRule
+        var scalingAllowed = await TryGetAvatarScalingAllowedAsync(cancellationToken);
+        if (scalingAllowed == false)
         {
-            Name = relativeHeightMeters >= 0 ? "Dev Grow" : "Dev Shrink",
-            ScaleMode = AvatarScaleMode.RelativeHeight,
-            AdvancedRangeEnabled = true,
-            BypassVrChatScaleLimits = true,
-            RelativeHeightMeters = relativeHeightMeters,
-            RelativeMinimumHeightMeters = AvatarScaleRule.AdvancedMinimumHeightMeters,
-            RelativeMaximumHeightMeters = AvatarScaleRule.AdvancedMaximumHeightMeters,
-            ActiveTimeSeconds = Math.Max(1, durationSeconds),
-            RestoreHeightMeters = previousHeight,
-            SmoothTransitionSeconds = transitionSeconds
-        };
-        var snapshot = BridgeRuntimeConfiguration.CreateManualTestSnapshot(rule);
+            WriteLog("Dev avatar scale command skipped because VRChat reports /avatar/eyeheightscalingallowed is false.");
+            return;
+        }
 
-        WriteLog(
-            $"{userDisplayName} ran dev avatar scale {relativeHeightMeters:+0.###;-0.###;0}m for {DescribeDuration(durationSeconds)} with {DescribeDuration(snapshot.SmoothTransitionSeconds)} transition.");
-        await SendTestAvatarScaleRuleAsync(snapshot, cancellationToken);
+        var devDuration = TimeSpan.FromSeconds(Math.Max(1, durationSeconds));
+        var devRuleName = relativeHeightMeters >= 0 ? "Dev Grow" : "Dev Shrink";
+        var previousHeight = await TryGetCurrentAvatarHeightAsync(cancellationToken) ?? 1.6;
+        var targetHeight = Math.Clamp(
+            previousHeight + relativeHeightMeters,
+            AvatarScaleRule.AdvancedMinimumHeightMeters,
+            AvatarScaleRule.AdvancedMaximumHeightMeters);
+        var pausedTimer = PauseActiveAvatarScaleTimerForDev(devRuleName, devDuration);
+        if (pausedTimer is not null)
+        {
+            WriteLog($"Dev avatar scale '{devRuleName}' paused {pausedTimer.SourceDescription} with {DescribeDuration(pausedTimer.Remaining.TotalSeconds)} remaining.");
+        }
+
+        try
+        {
+            var operation = await WaitForAvatarScaleOperationSlotAsync(
+                Guid.Empty,
+                devRuleName,
+                AvatarScaleOperationPriority.LiveRedeem,
+                isTest: true,
+                cancellationToken);
+            if (operation is null)
+            {
+                return;
+            }
+
+            try
+            {
+                if (!await SendAvatarHeightForOperationAsync(
+                        operation,
+                        targetHeight,
+                        transitionSeconds,
+                        cancellationToken))
+                {
+                    return;
+                }
+
+                WriteLog(
+                    $"{userDisplayName} ran dev avatar scale {relativeHeightMeters:+0.###;-0.###;0}m for {DescribeDuration(durationSeconds)} with {DescribeDuration(transitionSeconds)} transition.");
+                await Task.Delay(devDuration, cancellationToken);
+            }
+            finally
+            {
+                EndAvatarScaleOperation(operation);
+            }
+        }
+        finally
+        {
+            if (!cancellationToken.IsCancellationRequested)
+            {
+                if (pausedTimer is not null)
+                {
+                    await ResumePausedAvatarScaleTimerAfterDevAsync(pausedTimer, cancellationToken);
+                }
+                else
+                {
+                    await RestoreDevAvatarScaleHeightAsync(devRuleName, previousHeight, transitionSeconds, cancellationToken);
+                }
+            }
+        }
+    }
+
+    private async Task ExecuteDevRandomAvatarScaleAsync(
+        double minimumHeightMeters,
+        double maximumHeightMeters,
+        int durationSeconds,
+        string userDisplayName,
+        CancellationToken cancellationToken)
+    {
+        if (!IsOscActive)
+        {
+            WriteLog("Dev random avatar scale command skipped because OSC is not running yet.");
+            return;
+        }
+
+        var scalingAllowed = await TryGetAvatarScalingAllowedAsync(cancellationToken);
+        if (scalingAllowed == false)
+        {
+            WriteLog("Dev random avatar scale command skipped because VRChat reports /avatar/eyeheightscalingallowed is false.");
+            return;
+        }
+
+        var clampedMinimumHeight = Math.Clamp(
+            minimumHeightMeters,
+            AvatarScaleRule.AdvancedMinimumHeightMeters,
+            AvatarScaleRule.AdvancedMaximumHeightMeters);
+        var clampedMaximumHeight = Math.Clamp(
+            maximumHeightMeters,
+            AvatarScaleRule.AdvancedMinimumHeightMeters,
+            AvatarScaleRule.AdvancedMaximumHeightMeters);
+        if (clampedMaximumHeight <= clampedMinimumHeight)
+        {
+            WriteLog("Dev random avatar scale command skipped because the requested height range collapsed after clamping.");
+            return;
+        }
+
+        var devDuration = TimeSpan.FromSeconds(Math.Max(1, durationSeconds));
+        const string devRuleName = "Dev Random Scale";
+        var previousHeight = await TryGetCurrentAvatarHeightAsync(cancellationToken) ?? 1.6;
+        var pausedTimer = PauseActiveAvatarScaleTimerForDev(devRuleName, devDuration);
+        if (pausedTimer is not null)
+        {
+            WriteLog($"Dev random avatar scale paused {pausedTimer.SourceDescription} with {DescribeDuration(pausedTimer.Remaining.TotalSeconds)} remaining.");
+        }
+
+        try
+        {
+            var operation = await WaitForAvatarScaleOperationSlotAsync(
+                Guid.Empty,
+                devRuleName,
+                AvatarScaleOperationPriority.LiveRedeem,
+                isTest: true,
+                cancellationToken);
+            if (operation is null)
+            {
+                return;
+            }
+
+            try
+            {
+                WriteLog(
+                    $"{userDisplayName} ran dev random avatar scale from {clampedMinimumHeight:0.###}m to {clampedMaximumHeight:0.###}m for {DescribeDuration(durationSeconds)}.");
+                await RunDevRandomAvatarScaleSequenceAsync(
+                    operation,
+                    clampedMinimumHeight,
+                    clampedMaximumHeight,
+                    devDuration,
+                    cancellationToken);
+            }
+            finally
+            {
+                EndAvatarScaleOperation(operation);
+            }
+        }
+        finally
+        {
+            if (!cancellationToken.IsCancellationRequested)
+            {
+                if (pausedTimer is not null)
+                {
+                    await ResumePausedAvatarScaleTimerAfterDevAsync(pausedTimer, cancellationToken);
+                }
+                else
+                {
+                    await RestoreDevAvatarScaleHeightAsync(
+                        devRuleName,
+                        previousHeight,
+                        DevRandomAvatarScaleRestoreTransition.TotalSeconds,
+                        cancellationToken);
+                }
+            }
+        }
+    }
+
+    private async Task RunDevRandomAvatarScaleSequenceAsync(
+        ActiveAvatarScaleOperationTicket operation,
+        double minimumHeightMeters,
+        double maximumHeightMeters,
+        TimeSpan duration,
+        CancellationToken cancellationToken)
+    {
+        await RunRandomAvatarScaleSequenceAsync(
+            operation,
+            minimumHeightMeters,
+            maximumHeightMeters,
+            duration,
+            maximumSmoothTransitionSeconds: 0.75,
+            afterFirstSuccessfulSend: null,
+            cancellationToken);
+    }
+
+    private async Task RunRandomAvatarScaleSequenceAsync(
+        ActiveAvatarScaleOperationTicket operation,
+        double minimumHeightMeters,
+        double maximumHeightMeters,
+        TimeSpan duration,
+        double maximumSmoothTransitionSeconds,
+        Action? afterFirstSuccessfulSend,
+        CancellationToken cancellationToken)
+    {
+        var endAt = DateTimeOffset.UtcNow.Add(duration);
+        Action? firstSendCallback = afterFirstSuccessfulSend;
+        void RunAfterFirstSuccessfulSend()
+        {
+            firstSendCallback?.Invoke();
+            firstSendCallback = null;
+        }
+
+        while (DateTimeOffset.UtcNow < endAt)
+        {
+            var remaining = endAt - DateTimeOffset.UtcNow;
+            if (remaining <= TimeSpan.Zero)
+            {
+                break;
+            }
+
+            var shouldStutter = remaining >= TimeSpan.FromMilliseconds(250)
+                && Random.Shared.NextDouble() < 0.22;
+            if (shouldStutter)
+            {
+                if (!await RunRandomAvatarScaleStutterAsync(
+                        operation,
+                        minimumHeightMeters,
+                        maximumHeightMeters,
+                        endAt,
+                        RunAfterFirstSuccessfulSend,
+                        cancellationToken))
+                {
+                    return;
+                }
+
+                continue;
+            }
+
+            var targetHeight = PickDevRandomAvatarScaleHeight(minimumHeightMeters, maximumHeightMeters);
+            var minimumTransitionSeconds = Math.Min(0.12, maximumSmoothTransitionSeconds);
+            var transitionSeconds = maximumSmoothTransitionSeconds > 0
+                && remaining >= TimeSpan.FromMilliseconds(350)
+                && Random.Shared.NextDouble() < 0.38
+                ? Math.Min(
+                    NextDevRandomDouble(minimumTransitionSeconds, maximumSmoothTransitionSeconds),
+                    Math.Max(0.05, remaining.TotalSeconds * 0.65))
+                : 0;
+            if (!await SendAvatarHeightForOperationAsync(
+                    operation,
+                    targetHeight,
+                    transitionSeconds,
+                    cancellationToken,
+                    RunAfterFirstSuccessfulSend))
+            {
+                return;
+            }
+
+            var holdDuration = NextDevRandomDuration(
+                DevRandomAvatarScaleMinimumStepDuration,
+                DevRandomAvatarScaleMaximumStepDuration);
+            await DelayUntilDevRandomAvatarScaleStepAsync(holdDuration, endAt, cancellationToken);
+        }
+    }
+
+    private async Task<bool> RunRandomAvatarScaleStutterAsync(
+        ActiveAvatarScaleOperationTicket operation,
+        double minimumHeightMeters,
+        double maximumHeightMeters,
+        DateTimeOffset endAt,
+        Action afterFirstSuccessfulSend,
+        CancellationToken cancellationToken)
+    {
+        var range = maximumHeightMeters - minimumHeightMeters;
+        var baseHeight = PickDevRandomAvatarScaleHeight(minimumHeightMeters, maximumHeightMeters);
+        var pulseCount = Random.Shared.Next(2, 5);
+        for (var index = 0; index < pulseCount; index++)
+        {
+            if (DateTimeOffset.UtcNow >= endAt)
+            {
+                break;
+            }
+
+            var offset = NextDevRandomDouble(-range * 0.2, range * 0.2);
+            var targetHeight = index % 2 == 0
+                ? baseHeight
+                : Math.Clamp(baseHeight + offset, minimumHeightMeters, maximumHeightMeters);
+            if (!await SendAvatarHeightForOperationAsync(
+                    operation,
+                    targetHeight,
+                    0,
+                    cancellationToken,
+                    afterFirstSuccessfulSend))
+            {
+                return false;
+            }
+
+            var holdDuration = NextDevRandomDuration(
+                TimeSpan.FromMilliseconds(45),
+                TimeSpan.FromMilliseconds(140));
+            await DelayUntilDevRandomAvatarScaleStepAsync(holdDuration, endAt, cancellationToken);
+        }
+
+        return true;
+    }
+
+    private static double PickDevRandomAvatarScaleHeight(double minimumHeightMeters, double maximumHeightMeters) =>
+        NextDevRandomDouble(minimumHeightMeters, maximumHeightMeters);
+
+    private static double NextDevRandomDouble(double minimum, double maximum)
+    {
+        if (maximum <= minimum)
+        {
+            return minimum;
+        }
+
+        return minimum + (Random.Shared.NextDouble() * (maximum - minimum));
+    }
+
+    private static TimeSpan NextDevRandomDuration(TimeSpan minimum, TimeSpan maximum)
+    {
+        if (maximum <= minimum)
+        {
+            return minimum;
+        }
+
+        return TimeSpan.FromMilliseconds(NextDevRandomDouble(minimum.TotalMilliseconds, maximum.TotalMilliseconds));
+    }
+
+    private static async Task DelayUntilDevRandomAvatarScaleStepAsync(
+        TimeSpan delay,
+        DateTimeOffset endAt,
+        CancellationToken cancellationToken)
+    {
+        var remaining = endAt - DateTimeOffset.UtcNow;
+        if (remaining <= TimeSpan.Zero)
+        {
+            return;
+        }
+
+        var cappedDelay = delay < remaining ? delay : remaining;
+        if (cappedDelay > TimeSpan.Zero)
+        {
+            await Task.Delay(cappedDelay, cancellationToken);
+        }
     }
 
     private async Task ExecuteDevMovementAsync(
         PlayerMovementDirection movementDirection,
         int durationSeconds,
+        string userDisplayName,
+        CancellationToken cancellationToken)
+    {
+        await ExecuteDevMovementAsync(
+            movementDirection,
+            TimeSpan.FromSeconds(Math.Max(1, durationSeconds)),
+            userDisplayName,
+            cancellationToken);
+    }
+
+    private async Task ExecuteDevMovementAsync(
+        PlayerMovementDirection movementDirection,
+        TimeSpan devDuration,
         string userDisplayName,
         CancellationToken cancellationToken)
     {
@@ -894,15 +1236,799 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             TriggerType = TwitchTriggerType.ChannelPoints,
             ActionType = OscActionType.PlayerMovement,
             MovementDirection = movementDirection,
-            DurationSeconds = Math.Max(1, durationSeconds)
+            DurationSeconds = Math.Max(1, (int)Math.Ceiling(devDuration.TotalSeconds))
         };
         var snapshot = BridgeRuntimeConfiguration.CreateManualTestSnapshot(
             rule,
             isGlobalOverride: true,
             profile: null);
 
-        WriteLog($"{userDisplayName} ran dev movement '{DescribeMovementAction(movementDirection)}' for {DescribeDuration(durationSeconds)}.");
-        await SendTestRuleAsync(snapshot, cancellationToken);
+        var movementLabel = DescribeMovementAction(movementDirection);
+        var movementLaneKey = GetMovementLaneKey(movementDirection);
+        if (!string.IsNullOrWhiteSpace(movementLaneKey))
+        {
+            var pausedTimer = PauseActiveMovementTimerForDev(
+                movementLaneKey,
+                devDuration,
+                out var waitReason);
+            if (!string.IsNullOrWhiteSpace(waitReason))
+            {
+                WriteLog($"Dev movement '{movementLabel}' is waiting because {waitReason}");
+                await SendTestRuleAsync(snapshot, cancellationToken);
+                return;
+            }
+
+            if (pausedTimer is not null)
+            {
+                WriteLog($"Dev movement '{movementLabel}' paused {pausedTimer.SourceDescription} with {DescribeDuration(pausedTimer.Remaining.TotalSeconds)} remaining.");
+                await SendPacketsToVrChatAsync(pausedTimer.Action.ResetPackets, cancellationToken);
+                try
+                {
+                    await RunDevMovementOverlayAsync(
+                        snapshot,
+                        devDuration,
+                        userDisplayName,
+                        drainQueuedLanesOnRelease: false,
+                        cancellationToken);
+                }
+                finally
+                {
+                    if (!cancellationToken.IsCancellationRequested)
+                    {
+                        await ResumePausedMovementTimerAfterDevAsync(pausedTimer, cancellationToken);
+                    }
+                }
+
+                return;
+            }
+        }
+
+        await RunDevMovementOverlayAsync(
+            snapshot,
+            devDuration,
+            userDisplayName,
+            drainQueuedLanesOnRelease: true,
+            cancellationToken);
+    }
+
+    private async Task ExecuteDevRandomMovementSequenceAsync(
+        int durationSeconds,
+        string userDisplayName,
+        CancellationToken cancellationToken)
+    {
+        if (!IsOscActive)
+        {
+            WriteLog("Dev random movement command skipped because OSC is not running yet.");
+            return;
+        }
+
+        var remainingSeconds = Math.Max(1, durationSeconds);
+        PlayerMovementDirection? previousDirection = null;
+        WriteLog($"{userDisplayName} ran dev random movement for {DescribeDuration(remainingSeconds)}.");
+        while (remainingSeconds > 0)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var movementDirection = PickRandomMovementDirection(previousDirection);
+            previousDirection = movementDirection;
+            var sliceSeconds = Math.Min(
+                Random.Shared.Next(
+                    (int)DevRandomMovementMinimumSliceDuration.TotalSeconds,
+                    (int)DevRandomMovementMaximumSliceDuration.TotalSeconds + 1),
+                remainingSeconds);
+            await ExecuteDevMovementAsync(
+                movementDirection,
+                TimeSpan.FromSeconds(sliceSeconds),
+                userDisplayName,
+                cancellationToken);
+            remainingSeconds -= sliceSeconds;
+        }
+    }
+
+    private PausedAvatarScaleTimerSnapshot? PauseActiveAvatarScaleTimerForDev(
+        string devRuleName,
+        TimeSpan devDuration)
+    {
+        CancellationTokenSource? pausedCancellation = null;
+        PausedAvatarScaleTimerSnapshot? snapshot = null;
+        TimeSpan effectNotificationDelay = TimeSpan.Zero;
+        var shouldNotifyManagedRewards = false;
+
+        lock (stateGate)
+        {
+            var now = DateTimeOffset.UtcNow;
+            if (activeAvatarScaleRestoreSequence is not { } sequence || sequence.ActiveUntil <= now)
+            {
+                return null;
+            }
+
+            var carryover = activeAvatarScaleCarryover is { } activeCarryover
+                && activeCarryover.RestoreSequenceId == sequence.SequenceId
+                && activeCarryover.ActiveUntil > now
+                    ? activeCarryover
+                    : null;
+            var ruleId = carryover?.SourceRuleId ?? Guid.Empty;
+            var sessionId = carryover?.SourceSessionId ?? Guid.Empty;
+            var remaining = sequence.ActiveUntil - now;
+            var effectWasActive = false;
+            if (ruleId != Guid.Empty
+                && activeAvatarScaleEffects.TryGetValue(ruleId, out var activeEffectUntil)
+                && activeEffectUntil > now)
+            {
+                effectWasActive = true;
+                var extendedUntil = now.Add(devDuration).Add(remaining);
+                activeAvatarScaleEffects[ruleId] = extendedUntil;
+                effectNotificationDelay = extendedUntil - now;
+                shouldNotifyManagedRewards = true;
+            }
+
+            snapshot = new PausedAvatarScaleTimerSnapshot(
+                ruleId,
+                sessionId,
+                sequence.SequenceId,
+                sequence.AvatarId,
+                sequence.CarriedHeightMeters,
+                sequence.RestoreHeightMeters,
+                sequence.SourceRuleName,
+                sequence.RestoreSmoothTransitionSeconds,
+                sequence.RestoreToPaidGrowthIfActive,
+                sequence.IsTest,
+                remaining,
+                CountQueuedLiveAvatarScaleOperationsLocked(),
+                DescribeAvatarScaleTimerSource(ruleId, sequence.SourceRuleName),
+                FindAvatarScaleRuleSnapshot(ruleId),
+                effectWasActive);
+
+            pausedCancellation = avatarScaleRestoreSequenceCancellation;
+            avatarScaleRestoreSequenceCancellation = null;
+            activeAvatarScaleRestoreSequence = null;
+
+            if (carryover is not null
+                && activeAvatarScaleCarryover?.CarryoverId == carryover.CarryoverId)
+            {
+                activeAvatarScaleCarryover = null;
+            }
+
+            if (ruleId != Guid.Empty
+                && activeAvatarScaleHeightSessions.TryGetValue(ruleId, out var activeSession)
+                && (sessionId == Guid.Empty || activeSession.SessionId == sessionId))
+            {
+                activeAvatarScaleHeightSessions.Remove(ruleId);
+            }
+        }
+
+        pausedCancellation?.Cancel();
+        if (snapshot.Rule is not null)
+        {
+            ApplyAvatarScaleRuleLockoutUntil(
+                snapshot.Rule,
+                DateTimeOffset.UtcNow.Add(devDuration).Add(snapshot.Remaining));
+        }
+
+        if (snapshot.EffectWasActive)
+        {
+            ScheduleAvatarScaleEffectStateNotification(snapshot.RuleId, effectNotificationDelay);
+        }
+
+        if (shouldNotifyManagedRewards)
+        {
+            ManagedRewardAvailabilityChanged?.Invoke();
+        }
+
+        return snapshot;
+    }
+
+    private async Task ResumePausedAvatarScaleTimerAfterDevAsync(
+        PausedAvatarScaleTimerSnapshot snapshot,
+        CancellationToken cancellationToken)
+    {
+        if (snapshot.Remaining <= TimeSpan.Zero)
+        {
+            return;
+        }
+
+        if (HasNewerLiveAvatarScaleWork(snapshot.QueuedLiveScaleCountAtPause))
+        {
+            WriteLog($"Dev avatar scale did not resume {snapshot.SourceDescription} because a newer scale reward or payment is waiting.");
+            EnsureQueuedAvatarScaleOperationDrain();
+            return;
+        }
+
+        var operation = await WaitForAvatarScaleOperationSlotAsync(
+            Guid.Empty,
+            $"Resume {snapshot.SourceRuleName}",
+            AvatarScaleOperationPriority.LiveRedeem,
+            snapshot.IsTest,
+            cancellationToken);
+        if (operation is null)
+        {
+            return;
+        }
+
+        try
+        {
+            if (HasNewerLiveAvatarScaleWork(snapshot.QueuedLiveScaleCountAtPause))
+            {
+                WriteLog($"Dev avatar scale did not resume {snapshot.SourceDescription} because a newer scale reward or payment is waiting.");
+                EnsureQueuedAvatarScaleOperationDrain();
+                return;
+            }
+
+            if (!await SendAvatarHeightForOperationAsync(
+                    operation,
+                    snapshot.CarriedHeightMeters,
+                    0,
+                    cancellationToken))
+            {
+                return;
+            }
+
+            if (HasNewerLiveAvatarScaleWork(snapshot.QueuedLiveScaleCountAtPause))
+            {
+                WriteLog($"Dev avatar scale restored {snapshot.SourceDescription}'s height, then let a newer scale reward or payment take over.");
+                EnsureQueuedAvatarScaleOperationDrain();
+                return;
+            }
+
+            if (!TryStartPausedAvatarScaleRestoreSequence(snapshot, out var activeUntil))
+            {
+                WriteLog($"Dev avatar scale could not resume {snapshot.SourceDescription} because a newer scale reward or payment is active.");
+                EnsureQueuedAvatarScaleOperationDrain();
+                return;
+            }
+
+            WriteLog($"Resumed {snapshot.SourceDescription} with {DescribeDuration((activeUntil - DateTimeOffset.UtcNow).TotalSeconds)} remaining.");
+        }
+        finally
+        {
+            EndAvatarScaleOperation(operation);
+        }
+    }
+
+    private async Task RestoreDevAvatarScaleHeightAsync(
+        string devRuleName,
+        double previousHeight,
+        double transitionSeconds,
+        CancellationToken cancellationToken)
+    {
+        if (HasNewerLiveAvatarScaleWork(queuedLiveScaleCountAtPause: 0))
+        {
+            WriteLog($"Dev avatar scale '{devRuleName}' left the current scale alone because a newer scale reward or payment is active.");
+            EnsureQueuedAvatarScaleOperationDrain();
+            return;
+        }
+
+        var operation = await WaitForAvatarScaleOperationSlotAsync(
+            Guid.Empty,
+            $"Restore {devRuleName}",
+            AvatarScaleOperationPriority.TestSimulation,
+            isTest: true,
+            cancellationToken);
+        if (operation is null)
+        {
+            return;
+        }
+
+        try
+        {
+            if (HasNewerLiveAvatarScaleWork(queuedLiveScaleCountAtPause: 0))
+            {
+                WriteLog($"Dev avatar scale '{devRuleName}' skipped its restore because a newer scale reward or payment is waiting.");
+                EnsureQueuedAvatarScaleOperationDrain();
+                return;
+            }
+
+            if (await SendAvatarHeightForOperationAsync(
+                    operation,
+                    previousHeight,
+                    transitionSeconds,
+                    cancellationToken))
+            {
+                WriteLog($"Dev avatar scale '{devRuleName}' restored the previous height of {previousHeight:0.###}m.");
+            }
+        }
+        finally
+        {
+            EndAvatarScaleOperation(operation);
+        }
+    }
+
+    private bool TryStartPausedAvatarScaleRestoreSequence(
+        PausedAvatarScaleTimerSnapshot snapshot,
+        out DateTimeOffset activeUntil)
+    {
+        activeUntil = DateTimeOffset.MinValue;
+        var remaining = snapshot.Remaining <= TimeSpan.Zero
+            ? TimeSpan.FromMilliseconds(500)
+            : snapshot.Remaining;
+        var newCancellation = runtimeCancellation is null
+            ? new CancellationTokenSource()
+            : CancellationTokenSource.CreateLinkedTokenSource(runtimeCancellation.Token);
+        ActiveAvatarScaleRestoreSequenceState? sequence = null;
+        var sessionId = snapshot.SessionId == Guid.Empty ? Guid.NewGuid() : snapshot.SessionId;
+
+        lock (stateGate)
+        {
+            var now = DateTimeOffset.UtcNow;
+            if (HasNewerLiveAvatarScaleWorkLocked(snapshot.QueuedLiveScaleCountAtPause, now))
+            {
+                newCancellation.Dispose();
+                return false;
+            }
+
+            activeUntil = now.Add(remaining);
+            sequence = new ActiveAvatarScaleRestoreSequenceState(
+                ++nextAvatarScaleRestoreSequenceId,
+                snapshot.AvatarId,
+                snapshot.CarriedHeightMeters,
+                snapshot.RestoreHeightMeters,
+                activeUntil,
+                snapshot.SourceRuleName,
+                snapshot.RestoreSmoothTransitionSeconds,
+                snapshot.RestoreToPaidGrowthIfActive,
+                snapshot.IsTest);
+            avatarScaleRestoreSequenceCancellation = newCancellation;
+            activeAvatarScaleRestoreSequence = sequence;
+
+            if (snapshot.RuleId != Guid.Empty)
+            {
+                activeAvatarScaleHeightSessions[snapshot.RuleId] = new ActiveAvatarScaleHeightSessionState(
+                    snapshot.RuleId,
+                    sessionId,
+                    snapshot.SourceRuleName,
+                    snapshot.AvatarId,
+                    snapshot.RestoreHeightMeters,
+                    snapshot.CarriedHeightMeters,
+                    activeUntil);
+                SetActiveAvatarScaleCarryoverLocked(
+                    snapshot.RuleId,
+                    sessionId,
+                    sequence.SequenceId,
+                    snapshot.SourceRuleName,
+                    snapshot.AvatarId,
+                    snapshot.CarriedHeightMeters,
+                    snapshot.RestoreHeightMeters,
+                    activeUntil,
+                    snapshot.RestoreToPaidGrowthIfActive);
+                if (snapshot.EffectWasActive)
+                {
+                    activeAvatarScaleEffects[snapshot.RuleId] = activeUntil;
+                }
+            }
+        }
+
+        _ = Task.Run(() => RunAvatarScaleRestoreSequenceAsync(sequence, newCancellation), CancellationToken.None);
+        if (snapshot.RuleId != Guid.Empty)
+        {
+            ScheduleAvatarScaleHeightSessionEnd(snapshot.RuleId, sessionId, remaining, CancellationToken.None);
+            if (snapshot.EffectWasActive)
+            {
+                ScheduleAvatarScaleEffectStateNotification(snapshot.RuleId, remaining);
+            }
+        }
+
+        if (snapshot.Rule is not null)
+        {
+            ApplyAvatarScaleRuleLockoutUntil(snapshot.Rule, activeUntil);
+        }
+
+        ManagedRewardAvailabilityChanged?.Invoke();
+        return true;
+    }
+
+    private PausedMovementTimerSnapshot? PauseActiveMovementTimerForDev(
+        string movementLaneKey,
+        TimeSpan devDuration,
+        out string? waitReason)
+    {
+        waitReason = null;
+        PendingResetState? pendingReset = null;
+        PausedMovementTimerSnapshot? snapshot = null;
+
+        lock (stateGate)
+        {
+            var now = DateTimeOffset.UtcNow;
+            if (!actionLanes.TryGetValue(movementLaneKey, out var activeLane)
+                || activeLane.BusyUntil <= now)
+            {
+                actionLanes.Remove(movementLaneKey);
+                return null;
+            }
+
+            if (activeLane.IsSoftLock
+                && activeMovementLocks.TryGetValue(activeLane.OwnerId, out var activeSoftLock))
+            {
+                waitReason = $"active stop-input lock '{activeSoftLock.RuleName}' is still holding that movement lane.";
+                return null;
+            }
+
+            if (activeDesktopInputLocks.TryGetValue(activeLane.OwnerId, out var activeDesktopLock))
+            {
+                waitReason = $"active desktop stop-input lock '{activeDesktopLock.RuleName}' is still holding that movement lane.";
+                return null;
+            }
+
+            var remaining = activeLane.BusyUntil - now;
+            TriggerRuleSnapshot? sourceRule = null;
+            ResolvedRuleAction? sourceAction = null;
+            if (pendingResets.TryGetValue(activeLane.RuleId, out var candidateReset)
+                && candidateReset.MovementLaneLeaseId == activeLane.OwnerId
+                && candidateReset.MovementLaneKeys.Contains(movementLaneKey, StringComparer.Ordinal))
+            {
+                pendingReset = candidateReset;
+                pendingResets.Remove(candidateReset.RuleId);
+                sourceRule = candidateReset.Rule;
+                sourceAction = candidateReset.Action;
+            }
+            else
+            {
+                sourceRule = FindTriggerRuleSnapshotForRuntimeRuleId(activeLane.RuleId);
+                if (sourceRule is null
+                    || sourceRule.ActionType != OscActionType.PlayerMovement
+                    || sourceRule.MovementDirection is PlayerMovementDirection.RandomMovement or PlayerMovementDirection.GlitchyMovement)
+                {
+                    waitReason = "Crystal Relay could not safely snapshot the active movement timer, so the dev movement will run from the queue.";
+                    return null;
+                }
+
+                sourceAction = ResolvePlayerMovementAction(sourceRule);
+            }
+
+            snapshot = new PausedMovementTimerSnapshot(
+                sourceRule,
+                sourceAction,
+                movementLaneKey,
+                remaining,
+                CountQueuedLiveLaneActionsLocked(movementLaneKey),
+                DescribeMovementTimerSource(sourceRule.Id, sourceRule.Name));
+            actionLanes.Remove(movementLaneKey);
+        }
+
+        pendingReset?.Cancellation.Cancel();
+        if (snapshot is not null)
+        {
+            ApplyRuleLockoutUntil(
+                snapshot.Rule,
+                DateTimeOffset.UtcNow.Add(devDuration).Add(snapshot.Remaining));
+        }
+
+        return snapshot;
+    }
+
+    private async Task RunDevMovementOverlayAsync(
+        TriggerRuleSnapshot rule,
+        TimeSpan duration,
+        string userDisplayName,
+        bool drainQueuedLanesOnRelease,
+        CancellationToken cancellationToken)
+    {
+        var executionRule = ResolveRandomMovementRule(rule);
+        var action = ResolvePlayerMovementAction(executionRule);
+        var laneKeys = GetActionLaneKeys(executionRule, action);
+        var laneLeaseId = laneKeys.Count == 0 ? Guid.Empty : Guid.NewGuid();
+        var activeUntil = DateTimeOffset.UtcNow.Add(duration);
+
+        await SendPacketsToVrChatAsync(action.Packets, cancellationToken);
+        lock (stateGate)
+        {
+            foreach (var laneKey in laneKeys)
+            {
+                actionLanes[laneKey] = new ActiveMovementLaneState(
+                    laneLeaseId,
+                    activeUntil,
+                    executionRule.Id,
+                    false);
+            }
+        }
+
+        WriteLog($"{userDisplayName} ran dev movement '{DescribeMovementAction(executionRule.MovementDirection)}' for {DescribeDuration(duration.TotalSeconds)}.");
+
+        try
+        {
+            if (executionRule.MovementDirection == PlayerMovementDirection.Jump)
+            {
+                await RunDevJumpMovementOverlayAsync(action, duration, laneKeys.FirstOrDefault(), laneLeaseId, cancellationToken);
+            }
+            else
+            {
+                await Task.Delay(duration, cancellationToken);
+            }
+        }
+        finally
+        {
+            try
+            {
+                if (laneKeys.Count == 0 || laneKeys.Any(laneKey => IsMovementLaneLeaseActive(laneKey, laneLeaseId)))
+                {
+                    await SendPacketsToVrChatAsync(action.ResetPackets, CancellationToken.None);
+                }
+            }
+            catch (Exception ex)
+            {
+                WriteLog($"Failed to release dev movement '{executionRule.Name}': {ex.Message}");
+            }
+
+            var releasedLaneKeys = ReleaseMovementLanes(laneLeaseId, laneKeys);
+            if (drainQueuedLanesOnRelease)
+            {
+                foreach (var releasedLaneKey in releasedLaneKeys)
+                {
+                    EnsureQueuedLaneDrain(releasedLaneKey);
+                }
+            }
+        }
+    }
+
+    private async Task RunDevJumpMovementOverlayAsync(
+        ResolvedRuleAction action,
+        TimeSpan duration,
+        string? laneKey,
+        Guid laneLeaseId,
+        CancellationToken cancellationToken)
+    {
+        var endAt = DateTimeOffset.UtcNow.Add(duration);
+        await Task.Delay(JumpPulsePressDuration, cancellationToken);
+        if (IsMovementLaneLeaseActive(laneKey, laneLeaseId))
+        {
+            await SendPacketsToVrChatAsync(action.ResetPackets, cancellationToken);
+        }
+
+        while (IsMovementLaneLeaseActive(laneKey, laneLeaseId))
+        {
+            var remaining = endAt - DateTimeOffset.UtcNow;
+            if (remaining <= JumpPulsePressDuration)
+            {
+                break;
+            }
+
+            var delay = remaining > JumpPulseInterval + JumpPulsePressDuration
+                ? JumpPulseInterval
+                : remaining - JumpPulsePressDuration;
+            if (delay <= TimeSpan.Zero)
+            {
+                break;
+            }
+
+            await Task.Delay(delay, cancellationToken);
+            if (!IsMovementLaneLeaseActive(laneKey, laneLeaseId))
+            {
+                break;
+            }
+
+            await SendPacketsToVrChatAsync(action.Packets, cancellationToken);
+            await Task.Delay(JumpPulsePressDuration, cancellationToken);
+            if (IsMovementLaneLeaseActive(laneKey, laneLeaseId))
+            {
+                await SendPacketsToVrChatAsync(action.ResetPackets, cancellationToken);
+            }
+        }
+
+        var finalDelay = endAt - DateTimeOffset.UtcNow;
+        if (finalDelay > TimeSpan.Zero)
+        {
+            await Task.Delay(finalDelay, cancellationToken);
+        }
+    }
+
+    private async Task ResumePausedMovementTimerAfterDevAsync(
+        PausedMovementTimerSnapshot snapshot,
+        CancellationToken cancellationToken)
+    {
+        if (snapshot.Remaining <= TimeSpan.Zero)
+        {
+            return;
+        }
+
+        if (HasNewerLiveMovementWork(snapshot.MovementLaneKey, snapshot.QueuedLiveLaneCountAtPause))
+        {
+            WriteLog($"Dev movement did not resume {snapshot.SourceDescription} because a newer movement reward or payment is waiting.");
+            EnsureQueuedLaneDrain(snapshot.MovementLaneKey);
+            return;
+        }
+
+        var laneKeys = GetActionLaneKeys(snapshot.Rule, snapshot.Action);
+        var laneLeaseId = laneKeys.Count == 0 ? Guid.Empty : Guid.NewGuid();
+        var activeUntil = DateTimeOffset.UtcNow.Add(snapshot.Remaining);
+
+        await SendPacketsToVrChatAsync(snapshot.Action.Packets, cancellationToken);
+        var shouldDropForNewerMovement = false;
+        lock (stateGate)
+        {
+            if (HasNewerLiveMovementWorkLocked(snapshot.MovementLaneKey, snapshot.QueuedLiveLaneCountAtPause, DateTimeOffset.UtcNow))
+            {
+                shouldDropForNewerMovement = true;
+            }
+            else
+            {
+                foreach (var laneKey in laneKeys)
+                {
+                    actionLanes[laneKey] = new ActiveMovementLaneState(
+                        laneLeaseId,
+                        activeUntil,
+                        snapshot.Rule.Id,
+                        false);
+                }
+            }
+        }
+
+        if (shouldDropForNewerMovement)
+        {
+            try
+            {
+                await SendPacketsToVrChatAsync(snapshot.Action.ResetPackets, CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                WriteLog($"Failed to release resumed movement for '{snapshot.Rule.Name}': {ex.Message}");
+            }
+
+            WriteLog($"Dev movement restored {snapshot.SourceDescription}'s input, then let a newer movement reward or payment take over.");
+            EnsureQueuedLaneDrain(snapshot.MovementLaneKey);
+            return;
+        }
+
+        if (snapshot.Rule.MovementDirection == PlayerMovementDirection.Jump)
+        {
+            ScheduleJumpPulseReset(
+                snapshot.Rule,
+                snapshot.Action,
+                snapshot.Remaining.TotalSeconds,
+                laneKeys.FirstOrDefault(),
+                laneLeaseId,
+                notifyManagedRewardState: false);
+        }
+        else
+        {
+            ScheduleReset(
+                snapshot.Rule,
+                snapshot.Action,
+                snapshot.Remaining.TotalSeconds,
+                laneKeys,
+                laneLeaseId,
+                notifyManagedRewardState: false);
+        }
+
+        ApplyRuleLockoutUntil(snapshot.Rule, activeUntil);
+        WriteLog($"Resumed {snapshot.SourceDescription} with {DescribeDuration(snapshot.Remaining.TotalSeconds)} remaining.");
+    }
+
+    private bool HasNewerLiveAvatarScaleWork(int queuedLiveScaleCountAtPause)
+    {
+        lock (stateGate)
+        {
+            return HasNewerLiveAvatarScaleWorkLocked(queuedLiveScaleCountAtPause, DateTimeOffset.UtcNow);
+        }
+    }
+
+    private bool HasNewerLiveAvatarScaleWorkLocked(
+        int queuedLiveScaleCountAtPause,
+        DateTimeOffset now)
+    {
+        return activeAvatarScaleRestoreSequence is not null
+            && activeAvatarScaleRestoreSequence.ActiveUntil > now
+            || CountQueuedLiveAvatarScaleOperationsLocked() > queuedLiveScaleCountAtPause;
+    }
+
+    private int CountQueuedLiveAvatarScaleOperationsLocked()
+    {
+        return queuedAvatarScaleOperations.Count(operation => !operation.IsTest);
+    }
+
+    private bool HasNewerLiveMovementWork(
+        string movementLaneKey,
+        int queuedLiveLaneCountAtPause)
+    {
+        lock (stateGate)
+        {
+            return HasNewerLiveMovementWorkLocked(
+                movementLaneKey,
+                queuedLiveLaneCountAtPause,
+                DateTimeOffset.UtcNow);
+        }
+    }
+
+    private bool HasNewerLiveMovementWorkLocked(
+        string movementLaneKey,
+        int queuedLiveLaneCountAtPause,
+        DateTimeOffset now)
+    {
+        return actionLanes.TryGetValue(movementLaneKey, out var activeLane)
+            && activeLane.BusyUntil > now
+            || CountQueuedLiveLaneActionsLocked(movementLaneKey) > queuedLiveLaneCountAtPause;
+    }
+
+    private int CountQueuedLiveLaneActionsLocked(string movementLaneKey)
+    {
+        return queuedLaneActions.TryGetValue(movementLaneKey, out var queue)
+            ? queue.Count(action => !action.IsTest)
+            : 0;
+    }
+
+    private AvatarScaleRuleSnapshot? FindAvatarScaleRuleSnapshot(Guid ruleId)
+    {
+        if (ruleId == Guid.Empty || activeConfiguration is null)
+        {
+            return null;
+        }
+
+        var configuredScaleRule = activeConfiguration.AvatarScaleRules.FirstOrDefault(rule => rule.Id == ruleId);
+        if (configuredScaleRule is not null)
+        {
+            return configuredScaleRule;
+        }
+
+        return activeConfiguration.CashPaymentRules
+            .Select(rule => rule.ScaleAction)
+            .FirstOrDefault(rule => rule?.Id == ruleId);
+    }
+
+    private TriggerRuleSnapshot? FindTriggerRuleSnapshotForRuntimeRuleId(Guid ruleId)
+    {
+        if (ruleId == Guid.Empty || activeConfiguration is null)
+        {
+            return null;
+        }
+
+        var configuredRule = activeConfiguration.Rules.FirstOrDefault(rule => rule.Id == ruleId);
+        if (configuredRule is not null)
+        {
+            return configuredRule;
+        }
+
+        return activeConfiguration.CashPaymentRules
+            .Select(rule => rule.TriggerAction)
+            .FirstOrDefault(rule => rule?.Id == ruleId);
+    }
+
+    private string DescribeAvatarScaleTimerSource(Guid ruleId, string fallbackRuleName)
+    {
+        var paymentRule = activeConfiguration?.CashPaymentRules.FirstOrDefault(rule => rule.ScaleAction?.Id == ruleId);
+        return paymentRule is null
+            ? $"reward timer '{NormalizeTimerSourceName(fallbackRuleName, "Avatar Scale")}'"
+            : $"payment timer '{NormalizeTimerSourceName(paymentRule.Name, "Cash Payment")}'";
+    }
+
+    private string DescribeMovementTimerSource(Guid ruleId, string fallbackRuleName)
+    {
+        var paymentRule = activeConfiguration?.CashPaymentRules.FirstOrDefault(rule => rule.TriggerAction?.Id == ruleId);
+        return paymentRule is null
+            ? $"reward timer '{NormalizeTimerSourceName(fallbackRuleName, "Movement")}'"
+            : $"payment timer '{NormalizeTimerSourceName(paymentRule.Name, "Cash Payment")}'";
+    }
+
+    private static string NormalizeTimerSourceName(string? sourceName, string fallback)
+    {
+        return string.IsNullOrWhiteSpace(sourceName) ? fallback : sourceName.Trim();
+    }
+
+    private void ApplyAvatarScaleRuleLockoutUntil(
+        AvatarScaleRuleSnapshot rule,
+        DateTimeOffset expiresAt)
+    {
+        var normalizedRuleIds = rule.TemporarilyDisabledRuleIds
+            .Where(ruleId => ruleId != rule.Id)
+            .Distinct()
+            .ToArray();
+        var now = DateTimeOffset.UtcNow;
+        if (normalizedRuleIds.Length == 0 || expiresAt <= now)
+        {
+            ReleaseActiveRuleLockoutState(rule.Id, logRelease: false);
+            return;
+        }
+
+        var changed = false;
+        lock (stateGate)
+        {
+            var before = GetTemporarilyDisabledRuleIdsLocked(now);
+            activeRuleLockouts[rule.Id] = new ActiveRuleLockoutState(rule.Name, expiresAt, normalizedRuleIds);
+            var after = GetTemporarilyDisabledRuleIdsLocked(now);
+            changed = !before.SetEquals(after);
+        }
+
+        ScheduleLockoutStateNotification(rule.Id, expiresAt - now);
+        if (changed)
+        {
+            ManagedRewardAvailabilityChanged?.Invoke();
+        }
     }
 
     private void RequestDevFireSale(
@@ -2688,6 +3814,17 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             }
 
             var previousHeight = await TryGetCurrentAvatarHeightAsync(cancellationToken);
+            if (rule.ScaleMode == AvatarScaleMode.GlitchyRandomHeight)
+            {
+                return await ExecuteGlitchyAvatarScaleRuleAsync(
+                    operation,
+                    rule,
+                    incomingEvent,
+                    isTest,
+                    cooldownSeconds,
+                    cancellationToken);
+            }
+
             if (IsRelativeScaleAtLimit(rule, previousHeight, out var limitMessage))
             {
                 WriteLog($"Avatar scale '{rule.Name}' skipped because {limitMessage}");
@@ -2805,6 +3942,149 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             }
 
             EndAvatarScaleOperation(operation);
+        }
+    }
+
+    private async Task<bool> ExecuteGlitchyAvatarScaleRuleAsync(
+        ActiveAvatarScaleOperationTicket operation,
+        AvatarScaleRuleSnapshot rule,
+        UniversalIncomingEvent incomingEvent,
+        bool isTest,
+        int cooldownSeconds,
+        CancellationToken cancellationToken)
+    {
+        if (rule.ActiveTimeSeconds <= 0)
+        {
+            WriteLog($"Avatar scale '{rule.Name}' skipped because Glitchy Random Height needs Active Time above 0 seconds.");
+            return true;
+        }
+
+        var minimumHeight = ApplyAvatarScaleHeightLimits(
+            rule,
+            Math.Min(rule.MinimumHeightMeters, rule.MaximumHeightMeters),
+            "glitchy minimum height");
+        var maximumHeight = ApplyAvatarScaleHeightLimits(
+            rule,
+            Math.Max(rule.MinimumHeightMeters, rule.MaximumHeightMeters),
+            "glitchy maximum height");
+        if (maximumHeight <= minimumHeight)
+        {
+            WriteLog($"Avatar scale '{rule.Name}' skipped because the Glitchy Random Height range collapsed after height limits were applied.");
+            return true;
+        }
+
+        var duration = TimeSpan.FromSeconds(Math.Max(1, rule.ActiveTimeSeconds));
+        var heightSessionId = Guid.Empty;
+        var heightSessionEndScheduled = false;
+        var rewardStateStarted = false;
+        var restoreScheduled = false;
+        var firstScaleSendStarted = false;
+
+        void StartRewardStateAfterFirstScaleSend()
+        {
+            firstScaleSendStarted = true;
+            if (!restoreScheduled)
+            {
+                restoreScheduled = true;
+                ScheduleAvatarScaleRestoreSequence(rule, isTest, PickDevRandomAvatarScaleHeight(minimumHeight, maximumHeight));
+            }
+
+            if (rewardStateStarted)
+            {
+                return;
+            }
+
+            rewardStateStarted = true;
+            if (isTest)
+            {
+                return;
+            }
+
+            UpdateActiveAvatarScaleRuleLockoutState(rule);
+
+            var effectDurationSeconds = GetAvatarScaleEffectDurationSeconds(rule);
+            var carriedHeight = PickDevRandomAvatarScaleHeight(minimumHeight, maximumHeight);
+            heightSessionId = StartAvatarScaleHeightSession(
+                rule.Id,
+                rule.Name,
+                rule.RestoreHeightMeters,
+                carriedHeight,
+                effectDurationSeconds);
+            if (heightSessionId != Guid.Empty)
+            {
+                heightSessionEndScheduled = true;
+                ScheduleAvatarScaleHeightSessionEnd(
+                    rule.Id,
+                    heightSessionId,
+                    TimeSpan.FromSeconds(Math.Max(0.5, effectDurationSeconds)),
+                    cancellationToken);
+            }
+
+            lock (stateGate)
+            {
+                if (effectDurationSeconds > 0)
+                {
+                    activeAvatarScaleEffects[rule.Id] = DateTimeOffset.UtcNow.AddSeconds(effectDurationSeconds);
+                }
+                else
+                {
+                    activeAvatarScaleEffects.Remove(rule.Id);
+                }
+
+                if (cooldownSeconds > 0)
+                {
+                    cooldowns[rule.Id] = DateTimeOffset.UtcNow.AddSeconds(cooldownSeconds);
+                }
+                else
+                {
+                    cooldowns.Remove(rule.Id);
+                }
+            }
+
+            if (cooldownSeconds > 0)
+            {
+                ScheduleCooldownStateNotification(rule.Id, TimeSpan.FromSeconds(cooldownSeconds));
+                ManagedRewardAvailabilityChanged?.Invoke();
+            }
+            else
+            {
+                CancelCooldownStateNotification(rule.Id);
+            }
+
+            if (effectDurationSeconds > 0)
+            {
+                ScheduleAvatarScaleEffectStateNotification(rule.Id, TimeSpan.FromSeconds(effectDurationSeconds));
+                ManagedRewardAvailabilityChanged?.Invoke();
+            }
+        }
+
+        try
+        {
+            await RunRandomAvatarScaleSequenceAsync(
+                operation,
+                minimumHeight,
+                maximumHeight,
+                duration,
+                Math.Clamp(rule.SmoothTransitionSeconds, 0, 30),
+                StartRewardStateAfterFirstScaleSend,
+                cancellationToken);
+
+            if (!firstScaleSendStarted)
+            {
+                return false;
+            }
+
+            WriteLog(isTest
+                ? $"Sent glitchy avatar scale test/simulated effect for '{rule.Name}' between {minimumHeight:0.###}m and {maximumHeight:0.###}m for {DescribeDuration(duration.TotalSeconds)}."
+                : $"{incomingEvent.UserDisplayName} triggered glitchy avatar scale '{rule.Name}' between {minimumHeight:0.###}m and {maximumHeight:0.###}m for {DescribeDuration(duration.TotalSeconds)}.");
+            return true;
+        }
+        finally
+        {
+            if (!heightSessionEndScheduled)
+            {
+                EndAvatarScaleHeightSession(rule.Id, heightSessionId);
+            }
         }
     }
 
@@ -3900,6 +5180,9 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             AvatarScaleMode.RandomHeight => Random.Shared.NextDouble()
                 * (Math.Max(rule.MinimumHeightMeters, rule.MaximumHeightMeters) - Math.Min(rule.MinimumHeightMeters, rule.MaximumHeightMeters))
                 + Math.Min(rule.MinimumHeightMeters, rule.MaximumHeightMeters),
+            AvatarScaleMode.GlitchyRandomHeight => Random.Shared.NextDouble()
+                * (Math.Max(rule.MinimumHeightMeters, rule.MaximumHeightMeters) - Math.Min(rule.MinimumHeightMeters, rule.MaximumHeightMeters))
+                + Math.Min(rule.MinimumHeightMeters, rule.MaximumHeightMeters),
             AvatarScaleMode.RelativeHeight => ClampRelativeScaleTarget(rule, currentHeight, current + rule.RelativeHeightMeters),
             AvatarScaleMode.Multiplier => current * Math.Max(0.01, rule.HeightMultiplier),
             AvatarScaleMode.Preset => AvatarScaleRule.GetPresetHeight(rule.Preset),
@@ -4816,6 +6099,19 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             return;
         }
 
+        if (executionRule.ActionType == OscActionType.PlayerMovement
+            && executionRule.MovementDirection == PlayerMovementDirection.GlitchyMovement)
+        {
+            await ExecuteGlitchyMovementRuleActionAsync(
+                executionRule,
+                bridgeEvent,
+                cancellationToken,
+                isTest,
+                queuedReplay,
+                cooldownSeconds);
+            return;
+        }
+
         if (IsTimedFloatAvatarParameterRule(executionRule))
         {
             await ExecuteTimedFloatAvatarParameterRuleActionAsync(
@@ -4960,6 +6256,178 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         if (!isTest && bridgeEvent is not null)
         {
             await TrySendBotMessageAsync(executionRule, bridgeEvent, action.DisplayValue, cancellationToken);
+        }
+    }
+
+    private async Task ExecuteGlitchyMovementRuleActionAsync(
+        TriggerRuleSnapshot rule,
+        BridgeIncomingEvent? bridgeEvent,
+        CancellationToken cancellationToken,
+        bool isTest,
+        bool queuedReplay,
+        int cooldownSeconds)
+    {
+        var laneKeys = GetGlitchyMovementLaneKeys();
+        var laneLeaseId = laneKeys.Count == 0 ? Guid.Empty : Guid.NewGuid();
+        var activeSeconds = Math.Max(1, rule.DurationSeconds);
+        var activeUntil = DateTimeOffset.UtcNow.AddSeconds(activeSeconds);
+        var sequenceCancellation = runtimeCancellation is null
+            ? new CancellationTokenSource()
+            : CancellationTokenSource.CreateLinkedTokenSource(runtimeCancellation.Token);
+
+        lock (stateGate)
+        {
+            foreach (var laneKey in laneKeys)
+            {
+                actionLanes[laneKey] = new ActiveMovementLaneState(
+                    laneLeaseId,
+                    activeUntil,
+                    rule.Id,
+                    false);
+            }
+
+            if (!isTest)
+            {
+                if (cooldownSeconds > 0)
+                {
+                    cooldowns[rule.Id] = DateTimeOffset.UtcNow.AddSeconds(cooldownSeconds);
+                }
+                else
+                {
+                    cooldowns.Remove(rule.Id);
+                }
+            }
+        }
+
+        if (!isTest)
+        {
+            UpdateActiveRuleLockoutState(rule);
+            if (cooldownSeconds > 0)
+            {
+                ScheduleCooldownStateNotification(rule.Id, TimeSpan.FromSeconds(cooldownSeconds));
+                ManagedRewardAvailabilityChanged?.Invoke();
+            }
+            else
+            {
+                CancelCooldownStateNotification(rule.Id);
+            }
+        }
+
+        _ = Task.Run(
+            () => RunGlitchyMovementSequenceAsync(
+                rule,
+                TimeSpan.FromSeconds(activeSeconds),
+                laneKeys,
+                laneLeaseId,
+                sequenceCancellation),
+            CancellationToken.None);
+
+        if (isTest)
+        {
+            WriteLog(queuedReplay
+                ? $"Sent queued glitchy movement test for '{rule.Name}' for {DescribeDuration(activeSeconds)}."
+                : $"Sent a glitchy movement test for '{rule.Name}' for {DescribeDuration(activeSeconds)}.");
+        }
+        else if (bridgeEvent is not null)
+        {
+            WriteLog(queuedReplay
+                ? $"{bridgeEvent.UserDisplayName} triggered glitchy movement '{rule.Name}' from the queue for {DescribeDuration(activeSeconds)}."
+                : $"{bridgeEvent.UserDisplayName} triggered glitchy movement '{rule.Name}' for {DescribeDuration(activeSeconds)}.");
+        }
+
+        if (!isTest && bridgeEvent is not null)
+        {
+            await TrySendBotMessageAsync(rule, bridgeEvent, DescribeMovementAction(rule.MovementDirection), cancellationToken);
+        }
+    }
+
+    private async Task RunGlitchyMovementSequenceAsync(
+        TriggerRuleSnapshot rule,
+        TimeSpan duration,
+        IReadOnlyList<string> laneKeys,
+        Guid laneLeaseId,
+        CancellationTokenSource sequenceCancellation)
+    {
+        var cancellationToken = sequenceCancellation.Token;
+        var endAt = DateTimeOffset.UtcNow.Add(duration);
+        PlayerMovementDirection? previousDirection = null;
+
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                var remaining = endAt - DateTimeOffset.UtcNow;
+                if (remaining <= TimeSpan.Zero)
+                {
+                    break;
+                }
+
+                var movementDirection = PickRandomMovementDirection(previousDirection);
+                previousDirection = movementDirection;
+                var movementRule = rule with { MovementDirection = movementDirection };
+                var action = ResolvePlayerMovementAction(movementRule);
+                var movementLaneKey = GetMovementLaneKey(movementDirection);
+                var sliceSeconds = Math.Min(
+                    Random.Shared.Next(
+                        (int)DevRandomMovementMinimumSliceDuration.TotalSeconds,
+                        (int)DevRandomMovementMaximumSliceDuration.TotalSeconds + 1),
+                    remaining.TotalSeconds);
+                if (sliceSeconds <= 0)
+                {
+                    break;
+                }
+
+                var sliceDuration = TimeSpan.FromSeconds(sliceSeconds);
+
+                try
+                {
+                    await SendPacketsToVrChatAsync(action.Packets, cancellationToken);
+                    if (movementDirection == PlayerMovementDirection.Jump)
+                    {
+                        await RunDevJumpMovementOverlayAsync(
+                            action,
+                            sliceDuration,
+                            movementLaneKey,
+                            laneLeaseId,
+                            cancellationToken);
+                    }
+                    else
+                    {
+                        await Task.Delay(sliceDuration, cancellationToken);
+                    }
+                }
+                finally
+                {
+                    try
+                    {
+                        if (laneKeys.Count == 0 || laneKeys.Any(laneKey => IsMovementLaneLeaseActive(laneKey, laneLeaseId)))
+                        {
+                            await SendPacketsToVrChatAsync(action.ResetPackets, CancellationToken.None);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        WriteLog($"Failed to release glitchy movement slice for '{rule.Name}': {ex.Message}");
+                    }
+                }
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            WriteLog($"Glitchy movement '{rule.Name}' failed: {ex.Message}");
+        }
+        finally
+        {
+            var releasedLaneKeys = ReleaseMovementLanes(laneLeaseId, laneKeys);
+            foreach (var releasedLaneKey in releasedLaneKeys)
+            {
+                EnsureQueuedLaneDrain(releasedLaneKey);
+            }
+
+            sequenceCancellation.Dispose();
         }
     }
 
@@ -5452,8 +6920,23 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         return rule with { MovementDirection = selectedMovementDirection };
     }
 
-    private static PlayerMovementDirection PickRandomMovementDirection() =>
-        RandomMovementDirections[Random.Shared.Next(RandomMovementDirections.Length)];
+    private static PlayerMovementDirection PickRandomMovementDirection(
+        PlayerMovementDirection? previousDirection = null)
+    {
+        if (previousDirection is null || RandomMovementDirections.Length <= 1)
+        {
+            return RandomMovementDirections[Random.Shared.Next(RandomMovementDirections.Length)];
+        }
+
+        PlayerMovementDirection selectedDirection;
+        do
+        {
+            selectedDirection = RandomMovementDirections[Random.Shared.Next(RandomMovementDirections.Length)];
+        }
+        while (selectedDirection == previousDirection.Value);
+
+        return selectedDirection;
+    }
 
     private ResolvedRuleAction ResolvePlayerMovementAction(TriggerRuleSnapshot rule)
     {
@@ -5467,6 +6950,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             PlayerMovementDirection.SpinLeft => "/input/LookLeft",
             PlayerMovementDirection.SpinRight => "/input/LookRight",
             PlayerMovementDirection.RandomMovement => throw new InvalidOperationException("Random Movement must be resolved before sending movement input."),
+            PlayerMovementDirection.GlitchyMovement => throw new InvalidOperationException("Glitchy Movement must be resolved before sending movement input."),
             _ => throw new InvalidOperationException($"Unsupported movement direction: {rule.MovementDirection}")
         };
 
@@ -6426,6 +7910,13 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         _ => null
     };
 
+    private IReadOnlyList<string> GetGlitchyMovementLaneKeys() =>
+        [.. RandomMovementDirections
+            .Select(GetMovementLaneKey)
+            .Where(laneKey => !string.IsNullOrWhiteSpace(laneKey))
+            .Select(laneKey => laneKey!)
+            .Distinct(StringComparer.Ordinal)];
+
     private IReadOnlyList<string> GetActionLaneKeys(
         TriggerRuleSnapshot rule,
         ResolvedRuleAction? resolvedAction = null)
@@ -6437,6 +7928,11 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
         if (rule.ActionType == OscActionType.PlayerMovement && !IsSoftLockMovement(rule.MovementDirection))
         {
+            if (rule.MovementDirection == PlayerMovementDirection.GlitchyMovement)
+            {
+                return GetGlitchyMovementLaneKeys();
+            }
+
             var movementLaneKey = GetMovementLaneKey(rule.MovementDirection);
             return string.IsNullOrWhiteSpace(movementLaneKey) ? [] : [movementLaneKey];
         }
@@ -8681,10 +10177,12 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
     private static int GetAvatarScaleEffectDurationSeconds(AvatarScaleRuleSnapshot rule)
     {
-        var transitionSeconds = Math.Max(0, rule.SmoothTransitionSeconds);
+        var transitionSeconds = rule.ScaleMode == AvatarScaleMode.GlitchyRandomHeight
+            ? 0
+            : Math.Max(0, rule.SmoothTransitionSeconds);
         var activeSeconds = Math.Max(0, rule.ActiveTimeSeconds);
         var restoreTransitionSeconds = activeSeconds > 0 && rule.RestoreMode != AvatarScaleRestoreMode.None
-            ? transitionSeconds
+            ? Math.Max(0, rule.SmoothTransitionSeconds)
             : 0;
         return (int)Math.Ceiling(transitionSeconds + activeSeconds + restoreTransitionSeconds);
     }
@@ -14290,6 +15788,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             PlayerMovementDirection.StopTurning => "/input turning lock",
             PlayerMovementDirection.StopAll => "/input full lock",
             PlayerMovementDirection.RandomMovement => "/input/random movement",
+            PlayerMovementDirection.GlitchyMovement => "/input/glitchy movement",
             _ => "/input"
         },
         OscActionType.SetTrigger => "Set Trigger",
@@ -14314,6 +15813,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         PlayerMovementDirection.StopTurning => "Stop Turning",
         PlayerMovementDirection.StopAll => "Stop All",
         PlayerMovementDirection.RandomMovement => "Random Movement",
+        PlayerMovementDirection.GlitchyMovement => "Glitchy Movement",
         _ => "Movement"
     };
 
@@ -14379,6 +15879,31 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
         public bool HasPackets => Packets.Count > 0;
     }
+
+    private sealed record PausedAvatarScaleTimerSnapshot(
+        Guid RuleId,
+        Guid SessionId,
+        long RestoreSequenceId,
+        string AvatarId,
+        double CarriedHeightMeters,
+        double RestoreHeightMeters,
+        string SourceRuleName,
+        double RestoreSmoothTransitionSeconds,
+        bool RestoreToPaidGrowthIfActive,
+        bool IsTest,
+        TimeSpan Remaining,
+        int QueuedLiveScaleCountAtPause,
+        string SourceDescription,
+        AvatarScaleRuleSnapshot? Rule,
+        bool EffectWasActive);
+
+    private sealed record PausedMovementTimerSnapshot(
+        TriggerRuleSnapshot Rule,
+        ResolvedRuleAction Action,
+        string MovementLaneKey,
+        TimeSpan Remaining,
+        int QueuedLiveLaneCountAtPause,
+        string SourceDescription);
 
     private sealed class ActiveFloatRedeemSessionState
     {

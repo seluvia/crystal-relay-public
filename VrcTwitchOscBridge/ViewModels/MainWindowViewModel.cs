@@ -621,7 +621,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ];
         UniversalTriggerTypes = Enum.GetValues<UniversalTriggerType>();
         AvatarScaleTriggerTypes = Enum.GetValues<AvatarScaleTriggerType>();
-        AvatarScaleModes = Enum.GetValues<AvatarScaleMode>();
+        AvatarScaleModes =
+        [
+            new AvatarScaleModeOption(AvatarScaleMode.SetHeight, T("Set Height")),
+            new AvatarScaleModeOption(AvatarScaleMode.RandomHeight, T("Random Height")),
+            new AvatarScaleModeOption(AvatarScaleMode.GlitchyRandomHeight, T("Glitchy Random Height")),
+            new AvatarScaleModeOption(AvatarScaleMode.RelativeHeight, T("Relative Height")),
+            new AvatarScaleModeOption(AvatarScaleMode.Multiplier, T("Height Multiplier")),
+            new AvatarScaleModeOption(AvatarScaleMode.Preset, T("Preset"))
+        ];
         AvatarScalePresets = Enum.GetValues<AvatarScalePreset>();
         AvatarScaleRestoreModes = Enum.GetValues<AvatarScaleRestoreMode>();
         CashPaymentProviderOptions =
@@ -714,7 +722,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             new PlayerMovementOption(PlayerMovementDirection.Jump, T("Jump")),
             new PlayerMovementOption(PlayerMovementDirection.SpinLeft, T("Spin Left")),
             new PlayerMovementOption(PlayerMovementDirection.SpinRight, T("Spin Right")),
-            new PlayerMovementOption(PlayerMovementDirection.RandomMovement, T("Random Movement"))
+            new PlayerMovementOption(PlayerMovementDirection.RandomMovement, T("Random Movement")),
+            new PlayerMovementOption(PlayerMovementDirection.GlitchyMovement, T("Glitchy Movement"))
         ];
         ChatCommandPermissionOptions =
         [
@@ -1086,7 +1095,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
     }
 
-    public IReadOnlyList<AvatarScaleMode> AvatarScaleModes { get; }
+    public IReadOnlyList<AvatarScaleModeOption> AvatarScaleModes { get; }
 
     public IReadOnlyList<AvatarScalePreset> AvatarScalePresets { get; }
 
@@ -4909,14 +4918,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             return;
         }
 
-        var (destinationName, warningMessage) = GetDeleteAllWarningContent();
-        var warningResult = ThemedDialogWindow.ShowYesNo(
-            Application.Current?.MainWindow,
-            SelectedTheme,
+        if (!ConfirmDeleteAll(
             "Delete All Avatar Sets",
-            warningMessage);
-
-        if (!warningResult)
+            "Are you sure you want to delete every avatar set and the redeems inside them? This cannot be undone."))
         {
             return;
         }
@@ -4941,7 +4945,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         SwitchRuleView(RuleListView.AvatarTriggers, profile: null, rule: null);
         QueueSave();
         QueueBridgeRefresh();
-        AppendLog($"Yeeted {profilesToRemove.Length} avatar set{(profilesToRemove.Length == 1 ? string.Empty : "s")} to the {destinationName}.");
+        AppendLog($"Deleted {profilesToRemove.Length} avatar set{(profilesToRemove.Length == 1 ? string.Empty : "s")}.");
     }
 
     private void SetSelectedAvatarProfileAsMaster()
@@ -5319,14 +5323,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     private void DeleteAllRules()
     {
-        var (destinationName, warningMessage) = GetDeleteAllWarningContent();
-        var warningResult = ThemedDialogWindow.ShowYesNo(
-            Application.Current?.MainWindow,
-            SelectedTheme,
-            "Delete All Rules",
-            warningMessage);
-
-        if (!warningResult)
+        if (!ConfirmDeleteAll(
+            "Delete All Overrides",
+            "Are you sure you want to delete every Bits + Subs override? This cannot be undone."))
         {
             return;
         }
@@ -5347,7 +5346,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RefreshSpecialRuleLockoutOptions();
         QueueSave();
         QueueBridgeRefresh();
-        AppendLog($"Yeeted {removedCount} rules to the {destinationName}.");
+        AppendLog($"Deleted {removedCount} override rule{(removedCount == 1 ? string.Empty : "s")}.");
     }
 
     private void AddUniversalTrigger()
@@ -5403,14 +5402,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             return;
         }
 
-        var (destinationName, warningMessage) = GetDeleteAllWarningContent();
-        var warningResult = ThemedDialogWindow.ShowYesNo(
-            Application.Current?.MainWindow,
-            SelectedTheme,
+        if (!ConfirmDeleteAll(
             "Delete All Movement Sets",
-            warningMessage);
-
-        if (!warningResult)
+            "Are you sure you want to delete every movement set and movement redeem? This cannot be undone."))
         {
             return;
         }
@@ -5427,7 +5421,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         SelectedRule = null;
         QueueSave();
         QueueBridgeRefresh();
-        AppendLog($"Yeeted {setsToRemove.Length} movement set{(setsToRemove.Length == 1 ? string.Empty : "s")} to the {destinationName}.");
+        AppendLog($"Deleted {setsToRemove.Length} movement set{(setsToRemove.Length == 1 ? string.Empty : "s")}.");
     }
 
     private void RemoveSelectedUniversalTrigger()
@@ -5471,13 +5465,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     private void DeleteAllUniversalTriggers()
     {
-        var warningResult = ThemedDialogWindow.ShowYesNo(
-            Application.Current?.MainWindow,
-            SelectedTheme,
-            T("Delete Universal Triggers"),
-            T("Delete every universal trigger? This does not delete Avatar Sets, Movement Redeems, Avatar Change, or Bits + Subs overrides."));
-
-        if (!warningResult)
+        if (!ConfirmDeleteAll(
+            "Delete Universal Triggers",
+            "Are you sure you want to delete every universal trigger? This cannot be undone."))
         {
             return;
         }
@@ -5607,13 +5597,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     private void DeleteAllAvatarScaleSets()
     {
-        var warningResult = ThemedDialogWindow.ShowYesNo(
-            Application.Current?.MainWindow,
-            SelectedTheme,
-            T("Delete Avatar Scale Sets"),
-            T("Delete every avatar scale set and scale redeem? This only clears the Avatar Scaling section."));
-
-        if (!warningResult)
+        if (!ConfirmDeleteAll(
+            "Delete Avatar Scale Sets",
+            "Are you sure you want to delete every avatar scale set and scale redeem? This cannot be undone."))
         {
             return;
         }
@@ -5700,13 +5686,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     private void DeleteAllCashPaymentRules()
     {
-        var warningResult = ThemedDialogWindow.ShowYesNo(
-            Application.Current?.MainWindow,
-            SelectedTheme,
-            T("Delete Cash Payment Rules"),
-            T("Delete every cash payment rule? Provider connection settings and saved credentials are kept."));
-
-        if (!warningResult)
+        if (!ConfirmDeleteAll(
+            "Delete Cash Payment Rules",
+            "Are you sure you want to delete every cash payment rule? This cannot be undone. Provider connection settings and saved credentials are kept."))
         {
             return;
         }
@@ -5899,13 +5881,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         };
     }
 
-    private (string DestinationName, string WarningMessage) GetDeleteAllWarningContent()
+    private bool ConfirmDeleteAll(string title, string warningMessage)
     {
-        var destinationName = SelectedTheme == AppTheme.DreamScape
-            ? "nightmare realm"
-            : "void";
-        var warningMessage = $"are you really sure you want to yeet all of these rule to the {destinationName}?";
-        return (destinationName, warningMessage);
+        return ThemedDialogWindow.ShowYesNo(
+            Application.Current?.MainWindow,
+            SelectedTheme,
+            T(title),
+            T(warningMessage),
+            T("Delete All"),
+            T("Cancel"));
     }
 
     private void RetireManagedRewards(IEnumerable<TriggerRule> rules)
@@ -10474,10 +10458,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     private static int GetAvatarScaleEffectDurationSeconds(AvatarScaleRule rule)
     {
-        var transitionSeconds = Math.Max(0, rule.SmoothTransitionSeconds);
+        var transitionSeconds = rule.ScaleMode == AvatarScaleMode.GlitchyRandomHeight
+            ? 0
+            : Math.Max(0, rule.SmoothTransitionSeconds);
         var activeSeconds = Math.Max(0, rule.ActiveTimeSeconds);
         var restoreTransitionSeconds = activeSeconds > 0 && rule.RestoreMode != AvatarScaleRestoreMode.None
-            ? transitionSeconds
+            ? Math.Max(0, rule.SmoothTransitionSeconds)
             : 0;
         return (int)Math.Ceiling(transitionSeconds + activeSeconds + restoreTransitionSeconds);
     }
@@ -11718,7 +11704,13 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         trigger.Actions.Any(IsRuntimeReadyUniversalTriggerAction);
 
     private static bool IsRuntimeReadyAvatarScaleRule(AvatarScaleRule rule) =>
-        rule.ScaleMode != AvatarScaleMode.Multiplier || rule.HeightMultiplier > 0;
+        rule.ScaleMode switch
+        {
+            AvatarScaleMode.GlitchyRandomHeight => rule.ActiveTimeSeconds > 0
+                && Math.Max(rule.MinimumHeightMeters, rule.MaximumHeightMeters) > Math.Min(rule.MinimumHeightMeters, rule.MaximumHeightMeters),
+            AvatarScaleMode.Multiplier => rule.HeightMultiplier > 0,
+            _ => true
+        };
 
     private static bool IsRuntimeReadyUniversalTriggerAction(UniversalTriggerAction action) =>
         !string.IsNullOrWhiteSpace(action.OscAddress)
@@ -15482,7 +15474,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         or PlayerMovementDirection.Jump
         or PlayerMovementDirection.SpinLeft
         or PlayerMovementDirection.SpinRight
-        or PlayerMovementDirection.RandomMovement;
+        or PlayerMovementDirection.RandomMovement
+        or PlayerMovementDirection.GlitchyMovement;
 
     private static bool IsSupportedMovementRule(TriggerRule rule) =>
         rule.ActionType != OscActionType.PlayerMovement || IsSupportedMovementDirection(rule.MovementDirection);
@@ -18062,6 +18055,8 @@ public sealed record ChatCommandPermissionOption(ChatCommandPermission Value, st
 {
     public override string ToString() => Label;
 }
+
+public sealed record AvatarScaleModeOption(AvatarScaleMode Value, string Label);
 
 public sealed record PlayerMovementOption(PlayerMovementDirection Value, string Label);
 

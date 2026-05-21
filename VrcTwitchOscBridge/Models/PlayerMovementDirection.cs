@@ -12,5 +12,6 @@ public enum PlayerMovementDirection
     StopMovement,
     StopTurning,
     StopAll,
-    RandomMovement
+    RandomMovement,
+    GlitchyMovement
 }

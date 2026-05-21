@@ -1428,6 +1428,7 @@ public sealed class TriggerRule : ObservableObject
         PlayerMovementDirection.StopTurning => T("Stop Turning"),
         PlayerMovementDirection.StopAll => T("Stop All"),
         PlayerMovementDirection.RandomMovement => T("Random Movement"),
+        PlayerMovementDirection.GlitchyMovement => T("Glitchy Movement"),
         _ => T("Move")
     };
 

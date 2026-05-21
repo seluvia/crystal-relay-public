@@ -11,7 +11,9 @@ public sealed record DevFireSaleRequest(
 internal enum DevChatCommandKind
 {
     RelativeAvatarScale,
+    RandomAvatarScale,
     Movement,
+    RandomMovementSequence,
     FireSale
 }
 
@@ -22,7 +24,9 @@ internal sealed record DevChatCommand(
     int DiscountPercent,
     int DurationSeconds,
     double TransitionSeconds,
-    string CommandText);
+    string CommandText,
+    double MinimumHeightMeters = 0,
+    double MaximumHeightMeters = 0);
 
 internal static class DevChatCommandParser
 {
@@ -61,8 +65,14 @@ internal static class DevChatCommandParser
             case "!devshrink":
                 return TryParseRelativeAvatarScale(tokens, commandName, out command, out diagnostic);
 
+            case "!devscalerandom":
+                return TryParseRandomAvatarScale(tokens, commandName, out command, out diagnostic);
+
             case "!devmove":
                 return TryParseMovement(tokens, commandName, out command, out diagnostic);
+
+            case "!devmoverandom":
+                return TryParseRandomMovementSequence(tokens, commandName, out command, out diagnostic);
 
             case "!devfiresale":
                 return TryParseFireSale(tokens, commandName, out command, out diagnostic);
@@ -120,6 +130,58 @@ internal static class DevChatCommandParser
         return true;
     }
 
+    private static bool TryParseRandomAvatarScale(
+        IReadOnlyList<string> tokens,
+        string commandName,
+        out DevChatCommand command,
+        out string diagnostic)
+    {
+        command = default!;
+        diagnostic = string.Empty;
+
+        string rangeText;
+        string durationText;
+        if (tokens.Count == 3)
+        {
+            rangeText = tokens[1];
+            durationText = tokens[2];
+        }
+        else if (tokens.Count == 5 && tokens[2] == "-")
+        {
+            rangeText = $"{tokens[1]}-{tokens[3]}";
+            durationText = tokens[4];
+        }
+        else
+        {
+            diagnostic = $"{commandName} expects <minHeight-maxHeight> <seconds>.";
+            return false;
+        }
+
+        if (!TryParsePositiveHeightRange(rangeText, out var minimumHeightMeters, out var maximumHeightMeters))
+        {
+            diagnostic = $"{commandName} needs two different positive heights in meters, like 0.5-2.0.";
+            return false;
+        }
+
+        if (!TryParsePositiveInt(durationText, out var durationSeconds))
+        {
+            diagnostic = $"{commandName} needs a positive duration in seconds.";
+            return false;
+        }
+
+        command = new DevChatCommand(
+            DevChatCommandKind.RandomAvatarScale,
+            0,
+            PlayerMovementDirection.Forward,
+            0,
+            durationSeconds,
+            0,
+            commandName,
+            minimumHeightMeters,
+            maximumHeightMeters);
+        return true;
+    }
+
     private static bool TryParseMovement(
         IReadOnlyList<string> tokens,
         string commandName,
@@ -151,6 +213,38 @@ internal static class DevChatCommandParser
             DevChatCommandKind.Movement,
             0,
             direction,
+            0,
+            durationSeconds,
+            0,
+            commandName);
+        return true;
+    }
+
+    private static bool TryParseRandomMovementSequence(
+        IReadOnlyList<string> tokens,
+        string commandName,
+        out DevChatCommand command,
+        out string diagnostic)
+    {
+        command = default!;
+        diagnostic = string.Empty;
+
+        if (tokens.Count != 2)
+        {
+            diagnostic = $"{commandName} expects <seconds>.";
+            return false;
+        }
+
+        if (!TryParsePositiveInt(tokens[1], out var durationSeconds))
+        {
+            diagnostic = $"{commandName} needs a positive duration in seconds.";
+            return false;
+        }
+
+        command = new DevChatCommand(
+            DevChatCommandKind.RandomMovementSequence,
+            0,
+            PlayerMovementDirection.Forward,
             0,
             durationSeconds,
             0,
@@ -249,6 +343,28 @@ internal static class DevChatCommandParser
             default:
                 return false;
         }
+    }
+
+    private static bool TryParsePositiveHeightRange(
+        string value,
+        out double minimumHeightMeters,
+        out double maximumHeightMeters)
+    {
+        minimumHeightMeters = 0;
+        maximumHeightMeters = 0;
+
+        var parts = value.Split('-', StringSplitOptions.TrimEntries);
+        if (parts.Length != 2
+            || !TryParsePositiveDouble(parts[0], out var firstHeight)
+            || !TryParsePositiveDouble(parts[1], out var secondHeight)
+            || Math.Abs(firstHeight - secondHeight) < double.Epsilon)
+        {
+            return false;
+        }
+
+        minimumHeightMeters = Math.Min(firstHeight, secondHeight);
+        maximumHeightMeters = Math.Max(firstHeight, secondHeight);
+        return true;
     }
 
     private static bool TryParsePositiveDouble(string value, out double result)
