@@ -1117,11 +1117,20 @@ internal static class AvatarRuleActivationPolicy
         var normalizedCurrentAvatarId = currentAvatarId?.Trim() ?? string.Empty;
         if (avatarChangeCooldownOnlyModeEnabled
             && belongsToMasterAvatarProfile
-            && actionType == OscActionType.AvatarChange)
+            && actionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet)
         {
+            if (avatarChangeTransitionActive || string.IsNullOrWhiteSpace(normalizedCurrentAvatarId))
+            {
+                return false;
+            }
+
+            if (actionType == OscActionType.AvatarRoulet)
+            {
+                return true;
+            }
+
             var normalizedAvatarChangeTargetId = avatarChangeTargetId?.Trim() ?? string.Empty;
-            return !string.IsNullOrWhiteSpace(normalizedCurrentAvatarId)
-                && !string.IsNullOrWhiteSpace(normalizedAvatarChangeTargetId)
+            return !string.IsNullOrWhiteSpace(normalizedAvatarChangeTargetId)
                 && !string.Equals(normalizedAvatarChangeTargetId, normalizedCurrentAvatarId, StringComparison.Ordinal);
         }
 

@@ -4,12 +4,8 @@ namespace VrcTwitchOscBridge.Services;
 
 internal static class SensitiveTextSanitizer
 {
-    private const char WindowsSystemDrive = 'C';
-    private const char WindowsSeparator = '\\';
-    private static readonly string WindowsUsersPrefix = string.Concat(WindowsSystemDrive, ":", WindowsSeparator, "Users", WindowsSeparator);
-
     private static readonly Regex SecretAssignmentRegex = new(
-        @"(?i)\b(access[_-]?token|refresh[_-]?token|client[_-]?secret|device[_-]?code|user[_-]?code|set-cookie|authcookie|twofactorauth|vrchat[-_ ]?auth|cookie)\b(?<sep>\s*[:=]\s*)([^\r\n;]+)",
+        @"(?i)\b(access[_-]?token|refresh[_-]?token|client[_-]?secret|device[_-]?code|user[_-]?code|verification[_-]?token|relay[_-]?client[_-]?secret|jwt|password|secret|token|set-cookie|authcookie|twofactorauth|vrchat[-_ ]?auth|cookie|streamlabs|streamelements|ko[-_ ]?fi)\b(?<sep>\s*[:=]\s*)([^\r\n;]+)",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     private static readonly Regex AuthorizationHeaderRegex = new(
@@ -25,11 +21,15 @@ internal static class SensitiveTextSanitizer
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     private static readonly Regex WindowsUserPathRegex = new(
-        string.Concat("(?i)", Regex.Escape(WindowsUsersPrefix), @"[^\\\r\n]+"),
+        @"(?i)\b[A-Z]:\\Users\\[^\\\r\n]+",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     private static readonly Regex TwitchLoginCodeRegex = new(
         @"(?i)(asks for a code,\s*use\s+)[A-Z0-9-]{4,}",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    private static readonly Regex QuerySecretRegex = new(
+        @"(?i)([?&](?:access_token|refresh_token|token|code|client_secret|secret|jwt|signature)=)([^&#\s]+)",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     public static string Sanitize(string? value)
@@ -43,7 +43,8 @@ internal static class SensitiveTextSanitizer
         sanitized = AuthorizationHeaderRegex.Replace(sanitized, match => $"Authorization{match.Groups["sep"].Value}[redacted]");
         sanitized = BearerTokenRegex.Replace(sanitized, "Bearer [redacted]");
         sanitized = OAuthTokenRegex.Replace(sanitized, "OAuth [redacted]");
-        sanitized = WindowsUserPathRegex.Replace(sanitized, $"{WindowsUsersPrefix}<user>");
+        sanitized = QuerySecretRegex.Replace(sanitized, "$1[redacted]");
+        sanitized = WindowsUserPathRegex.Replace(sanitized, match => $"{match.Value[..3]}Users\\<user>");
         sanitized = TwitchLoginCodeRegex.Replace(sanitized, "$1[redacted]");
         return sanitized;
     }

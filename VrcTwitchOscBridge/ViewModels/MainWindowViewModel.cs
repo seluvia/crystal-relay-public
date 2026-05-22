@@ -416,6 +416,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private string vrChatAvatarStatus = "Connect VRChat to load avatar choices.";
     private string vrChatOscParameterStatus = "Pick an avatar set to load its saved OSC parameters.";
     private string chatboxListenerStatus = "Connect broadcaster to start Twitch Chatbox.";
+    private string activityAttentionMessage = string.Empty;
     private SectionView activeSection;
     private SettingsSectionView activeSettingsSection = SettingsSectionView.Twitch;
     private RuleListView activeRuleListView = RuleListView.AvatarTriggers;
@@ -438,6 +439,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private bool botReconnectRequired;
     private bool savedLoginRecoveryPromptShownThisRun;
     private bool isStartingSavedLoginRecovery;
+    private bool hasActivityAttention;
     private string universalManagedRewardSyncStatusText = "Universal Twitch reward sync has not run yet.";
     private int savedLoginRecoveryFailureCount;
     private CancellationTokenSource? saveDebounceCancellation;
@@ -808,7 +810,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ShowSettingsTestCommand = new RelayCommand(ShowSettingsTestPopup);
         ShowHomeSectionCommand = new RelayCommand(() => SetActiveSection(SectionView.Home));
         ShowSettingsSectionCommand = new RelayCommand(() => SetActiveSection(SectionView.Settings));
-        ShowActivitySectionCommand = new RelayCommand(() => SetActiveSection(SectionView.Activity));
+        ShowActivitySectionCommand = new RelayCommand(ShowActivitySection);
         ShowAboutSectionCommand = new RelayCommand(() => SetActiveSection(SectionView.About));
         OpenTestModeWindowCommand = new RelayCommand(OpenTestModeWindow);
         OpenTwitchChatboxCommand = new RelayCommand(OpenTwitchChatbox);
@@ -904,6 +906,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         bridgeCoordinator.StatusChanged += status => RunOnUi(() =>
         {
             BridgeStatus = status;
+            DebugLogService.Write($"Bridge status: {status}");
         });
         bridgeCoordinator.AccountUpdated += (role, snapshot) => RunOnUi(() =>
         {
@@ -2554,6 +2557,26 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public bool IsAboutSectionSelected => activeSection == SectionView.About;
 
+    public bool HasActivityAttention
+    {
+        get => hasActivityAttention;
+        private set => SetProperty(ref hasActivityAttention, value);
+    }
+
+    public string ActivityAttentionMessage
+    {
+        get => activityAttentionMessage;
+        private set
+        {
+            if (SetProperty(ref activityAttentionMessage, value))
+            {
+                RaisePropertyChanged(nameof(HasActivityWarning));
+            }
+        }
+    }
+
+    public bool HasActivityWarning => !string.IsNullOrWhiteSpace(ActivityAttentionMessage);
+
     public bool HasLiveAboutProfiles => EnumerateAboutProfiles().Any(profile => profile.IsLive);
 
     public bool IsSettingsTwitchSectionSelected => activeSettingsSection == SettingsSectionView.Twitch;
@@ -3093,6 +3116,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     {
         activeSection = SectionView.Home;
         activeSettingsSection = SettingsSectionView.Twitch;
+        HasActivityAttention = false;
         RaisePropertyChanged(nameof(IsHomeSectionSelected));
         RaisePropertyChanged(nameof(IsSettingsSectionSelected));
         RaisePropertyChanged(nameof(IsActivitySectionSelected));
@@ -3102,6 +3126,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RaisePropertyChanged(nameof(IsSettingsAppSectionSelected));
         RaisePropertyChanged(nameof(IsSettingsVisualsSectionSelected));
         RaisePropertyChanged(nameof(IsSettingsSafetySectionSelected));
+    }
+
+    private void ShowActivitySection()
+    {
+        SetActiveSection(SectionView.Activity);
+        ClearActivityAttentionPulse();
     }
 
     // Section switching is mostly visual, but About needs a refresh hook because
@@ -3118,12 +3148,31 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RaisePropertyChanged(nameof(IsActivitySectionSelected));
         RaisePropertyChanged(nameof(IsAboutSectionSelected));
 
+        if (section == SectionView.Activity)
+        {
+            ClearActivityAttentionPulse();
+        }
+
         if (section == SectionView.About
             && (DateTimeOffset.UtcNow - aboutProfilesLastRefreshedAt >= AboutProfileRefreshInterval
                 || EnumerateAboutProfiles().Any(profile => !profile.HasProfileImage)))
         {
             _ = RefreshAboutProfilesAsync();
         }
+    }
+
+    private void MarkActivityAttention(string message)
+    {
+        ActivityAttentionMessage = message;
+        if (activeSection != SectionView.Activity)
+        {
+            HasActivityAttention = true;
+        }
+    }
+
+    private void ClearActivityAttentionPulse()
+    {
+        HasActivityAttention = false;
     }
 
     // Whenever an About profile changes live state, the About button indicator may need
@@ -3478,7 +3527,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
             UpdateAccountStatuses();
             QueueSave();
-            QueueBridgeRefresh();
+            await RefreshBridgeImmediatelyAfterTwitchLoginAsync(accountRole);
             await QueueRewardRefreshAsync();
             QueueManagedRewardSync(0);
             await RefreshAboutProfilesAsync();
@@ -3493,6 +3542,37 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         finally
         {
             RefreshCommandStates();
+        }
+    }
+
+    private async Task RefreshBridgeImmediatelyAfterTwitchLoginAsync(BridgeAccountRole accountRole)
+    {
+        if (!isInitialized)
+        {
+            return;
+        }
+
+        bridgeRefreshCancellation?.Cancel();
+        bridgeRefreshCancellation?.Dispose();
+        bridgeRefreshCancellation = null;
+
+        try
+        {
+            await bridgeRefreshGate.WaitAsync(CancellationToken.None);
+            try
+            {
+                AppendLog($"Refreshing background bridge immediately after {accountRole.ToString().ToLowerInvariant()} Twitch login.");
+                await EnsureBridgeStateAsync(CancellationToken.None, forceDiscoveryRefresh: true);
+            }
+            finally
+            {
+                bridgeRefreshGate.Release();
+            }
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"Twitch login succeeded, but Crystal Relay could not refresh the background bridge immediately: {ex.Message}");
+            QueueBridgeRefresh();
         }
     }
 
@@ -7667,6 +7747,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
 
         if (sender is AppSettings
+            && e.PropertyName == nameof(AppSettings.UseManagedRewardTitlePrefix))
+        {
+            QueueManagedRewardSync(0, ManagedRewardSyncReason.SettingsEdit);
+        }
+
+        if (sender is AppSettings
             && e.PropertyName == nameof(AppSettings.AvatarChangeCooldownOnlyModeEnabled))
         {
             RaiseRuleSelectionStateProperties();
@@ -9902,14 +9988,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         var normalizedAvatarChangeTargetId = rule.AvatarChangeTargetId?.Trim() ?? string.Empty;
         var isCooldownOnlyDirectAvatarChange = Settings.AvatarChangeCooldownOnlyModeEnabled
             && profile?.IsMasterProfile == true
-            && rule.ActionType == OscActionType.AvatarChange;
+            && rule.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet;
         var isCurrentAvatarChangeTarget = isCooldownOnlyDirectAvatarChange
+            && rule.ActionType == OscActionType.AvatarChange
             && !string.IsNullOrWhiteSpace(normalizedCurrentAvatarId)
             && !string.IsNullOrWhiteSpace(normalizedAvatarChangeTargetId)
             && string.Equals(normalizedAvatarChangeTargetId, normalizedCurrentAvatarId, StringComparison.Ordinal);
         var anyCooldownOnlyAvatarChangeOnCooldown = isCooldownOnlyDirectAvatarChange
             && profile!.ChannelPointRules.Any(candidate =>
-                candidate.ActionType == OscActionType.AvatarChange
+                candidate.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet
                 && cooldownRuleIds.Contains(candidate.Id));
         var cooldownOnlyAvatarChangeVisible = isCooldownOnlyDirectAvatarChange
             && !string.IsNullOrWhiteSpace(normalizedCurrentAvatarId)
@@ -10826,7 +10913,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 retiredManagedRewardIds,
                 currentAvatarId,
                 allowManagedRewardActivation,
-                forcedManagedRewardActivation);
+                forcedManagedRewardActivation,
+                Settings.UseManagedRewardTitlePrefix);
             if (ShouldSkipUninitializedPassiveManagedRewardSync(
                     reason,
                     allowManagedRewardActivation,
@@ -10952,7 +11040,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 retiredManagedRewardIds,
                 currentAvatarId,
                 allowManagedRewardActivation,
-                forcedManagedRewardActivation);
+                forcedManagedRewardActivation,
+                Settings.UseManagedRewardTitlePrefix);
             RunOnUi(() => AppendThrottledLog(
                 $"managed-rewards-api-count:{reason}",
                 $"Twitch reward sync for {DescribeManagedRewardSyncReason(reason)} used {apiCalls.Describe()} API call(s).",
@@ -11130,7 +11219,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         CancellationToken cancellationToken)
     {
         var rewardTitle = ManagedRewardPresentation.StripPrefix(target.RewardTitle);
-        var managedRewardTitle = ManagedRewardPresentation.BuildTitle(rewardTitle);
+        var managedRewardTitle = ManagedRewardPresentation.BuildTitle(rewardTitle, Settings.UseManagedRewardTitlePrefix);
         var rewardCost = Math.Max(1, target.RewardCost);
         var rewardCooldownSeconds = Math.Max(0, target.CooldownSeconds);
         var rewardBackgroundColor = target.BackgroundColor;
@@ -11416,7 +11505,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
             claimedRewardIds.Add(existingReward.Id);
             ClearManagedRewardCreateBackoff(managedRewardTitle);
-            if (!ManagedRewardPresentation.HasSameTitleIdentity(existingReward.Title, managedRewardTitle)
+            if (!ManagedRewardPresentation.HasSameTitlePresentation(existingReward.Title, managedRewardTitle)
                 || existingReward.Cost != rewardCost
                 || existingReward.IsEnabled != desiredEnabled
                 || existingReward.IsGlobalCooldownEnabled != (rewardCooldownSeconds > 0)
@@ -11972,10 +12061,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         if (!desiredEnabled)
         {
             MarkManagedRewardCreateBackoff(managedRewardTitle);
-            RunOnUi(() => AppendThrottledLog(
-                $"managed-reward-capacity-inactive:{managedRewardTitle}",
-                $"Twitch is full on custom rewards, so Crystal Relay skipped creating inactive off-avatar reward '{ManagedRewardPresentation.StripPrefix(managedRewardTitle)}'. It will make room only for rewards needed by the current avatar.",
-                ThrottledRewardSyncLogWindow));
+            RunOnUi(() =>
+            {
+                var message = $"Twitch is full on custom rewards, so Crystal Relay skipped creating inactive off-avatar reward '{ManagedRewardPresentation.StripPrefix(managedRewardTitle)}'. It will make room only for rewards needed by the current avatar.";
+                AppendThrottledLog(
+                    $"managed-reward-capacity-inactive:{managedRewardTitle}",
+                    message,
+                    ThrottledRewardSyncLogWindow);
+                MarkActivityAttention(message);
+            });
             return (true, false);
         }
 
@@ -11993,10 +12087,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         if (reclaimCandidate is null)
         {
             MarkManagedRewardCreateBackoff(managedRewardTitle);
-            RunOnUi(() => AppendThrottledLog(
-                $"managed-reward-capacity-no-reclaim:{managedRewardTitle}",
-                $"Twitch is full on custom rewards, and Crystal Relay found no disabled app-owned off-avatar VRC reward it can safely recycle for '{target.DisplayTitle}'. Linked and user-created rewards were left untouched.",
-                ThrottledRewardSyncLogWindow));
+            RunOnUi(() =>
+            {
+                var message = $"Twitch is full on custom rewards, and Crystal Relay found no disabled app-owned off-avatar VRC reward it can safely recycle for '{target.DisplayTitle}'. Linked and user-created rewards were left untouched.";
+                AppendThrottledLog(
+                    $"managed-reward-capacity-no-reclaim:{managedRewardTitle}",
+                    message,
+                    ThrottledRewardSyncLogWindow);
+                MarkActivityAttention(message);
+            });
             return (true, false);
         }
 
@@ -12255,10 +12354,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
 
         MarkManagedRewardCreateBackoff(managedRewardTitle);
-        RunOnUi(() => AppendThrottledLog(
-            $"managed-reward-capacity:{managedRewardTitle}",
-            $"Twitch is full on custom rewards, so Crystal Relay could not add '{rewardTitle}' yet. Remove old rewards or wait for cleanup, then it will try again.",
-            ThrottledRewardSyncLogWindow));
+        RunOnUi(() =>
+        {
+            var message = $"Twitch is full on custom rewards, so Crystal Relay could not add '{rewardTitle}' yet. Remove old rewards or wait for cleanup, then it will try again.";
+            AppendThrottledLog(
+                $"managed-reward-capacity:{managedRewardTitle}",
+                message,
+                ThrottledRewardSyncLogWindow);
+            MarkActivityAttention(message);
+        });
         return true;
     }
 
@@ -12408,13 +12512,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         IEnumerable<string> retiredRewardIds,
         string currentAvatarId,
         bool allowManagedRewardActivation,
-        bool? forcedManagedRewardActivation)
+        bool? forcedManagedRewardActivation,
+        bool useManagedRewardTitlePrefix)
     {
         var builder = new StringBuilder();
         builder.Append("avatar=");
         AppendFingerprintValue(builder, currentAvatarId);
         builder.Append("|activation=").Append(allowManagedRewardActivation ? "1" : "0");
         builder.Append("|forced=").Append(forcedManagedRewardActivation?.ToString() ?? "auto");
+        builder.Append("|prefix=").Append(useManagedRewardTitlePrefix ? "1" : "0");
 
         foreach (var target in targets
                      .Where(target => !target.UsesLinkedExistingReward)
@@ -14042,6 +14148,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     private void AppendLog(string message)
     {
+        DebugLogService.Write(message);
         var timestampedMessage = $"[{DateTime.Now:HH:mm:ss}] {message}";
         if (LogEntries.Count >= MaxLogEntryCount)
         {

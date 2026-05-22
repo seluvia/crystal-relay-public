@@ -19,6 +19,7 @@ internal sealed class BugReportService : IDisposable
     private const int MaxDiagnosticLogLength = 11 * 1024;
     private const int MaxPayloadLength = 20 * 1024;
     private const int MaxActivityLogLines = 80;
+    private const int MaxDebugLogLines = 160;
     private const string TrimmedMarker = "[trimmed]";
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(15);
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -153,6 +154,18 @@ internal sealed class BugReportService : IDisposable
             builder.AppendLine("Latest Crash Log");
             builder.AppendLine(new string('-', 40));
             builder.AppendLine(latestCrashLog);
+        }
+
+        var recentDebugLogLines = DebugLogService.ReadRecentLines(MaxDebugLogLines);
+        if (recentDebugLogLines.Count > 0)
+        {
+            builder.AppendLine();
+            builder.AppendLine("Recent Debug Logs");
+            builder.AppendLine(new string('-', 40));
+            foreach (var line in recentDebugLogLines)
+            {
+                builder.AppendLine(line);
+            }
         }
 
         return TrimToUtf8Length(SensitiveTextSanitizer.Sanitize(builder.ToString()), MaxDiagnosticLogLength);
