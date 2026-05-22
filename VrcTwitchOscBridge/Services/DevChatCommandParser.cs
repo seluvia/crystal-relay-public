@@ -31,11 +31,13 @@ internal sealed record DevChatCommand(
 internal static class DevChatCommandParser
 {
     private const string AuthorizedChatterName = "Screminpal_";
+    private const string CommandPrefix = "!screm";
 
     public static bool IsDevCommandMessage(string? messageText)
     {
-        var commandName = GetCommandName(messageText);
-        return commandName.StartsWith("!dev", StringComparison.OrdinalIgnoreCase);
+        var tokens = SplitTokens(messageText);
+        return tokens.Length > 0
+            && string.Equals(tokens[0], CommandPrefix, StringComparison.OrdinalIgnoreCase);
     }
 
     public static bool IsAuthorizedUser(string? userLogin, string? userDisplayName)
@@ -54,31 +56,45 @@ internal static class DevChatCommandParser
         var tokens = SplitTokens(messageText);
         if (tokens.Length == 0)
         {
-            diagnostic = "The dev command was empty.";
+            diagnostic = "The !screm command was empty.";
             return false;
         }
 
-        var commandName = tokens[0].Trim();
+        if (!string.Equals(tokens[0], CommandPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            diagnostic = $"Dev commands now use {CommandPrefix} <command>.";
+            return false;
+        }
+
+        if (tokens.Length < 2)
+        {
+            diagnostic = $"{CommandPrefix} expects a command name.";
+            return false;
+        }
+
+        var commandName = tokens[1].Trim();
+        var commandText = $"{CommandPrefix} {commandName}";
+        var commandTokens = tokens.Skip(1).ToArray();
         switch (commandName.ToLowerInvariant())
         {
-            case "!devgrow":
-            case "!devshrink":
-                return TryParseRelativeAvatarScale(tokens, commandName, out command, out diagnostic);
+            case "grow":
+            case "shrink":
+                return TryParseRelativeAvatarScale(commandTokens, commandText, out command, out diagnostic);
 
-            case "!devscalerandom":
-                return TryParseRandomAvatarScale(tokens, commandName, out command, out diagnostic);
+            case "scalerandom":
+                return TryParseRandomAvatarScale(commandTokens, commandText, out command, out diagnostic);
 
-            case "!devmove":
-                return TryParseMovement(tokens, commandName, out command, out diagnostic);
+            case "move":
+                return TryParseMovement(commandTokens, commandText, out command, out diagnostic);
 
-            case "!devmoverandom":
-                return TryParseRandomMovementSequence(tokens, commandName, out command, out diagnostic);
+            case "moverandom":
+                return TryParseRandomMovementSequence(commandTokens, commandText, out command, out diagnostic);
 
-            case "!devfiresale":
-                return TryParseFireSale(tokens, commandName, out command, out diagnostic);
+            case "firesale":
+                return TryParseFireSale(commandTokens, commandText, out command, out diagnostic);
 
             default:
-                diagnostic = $"Unknown dev command '{commandName}'.";
+                diagnostic = $"Unknown !screm command '{commandName}'.";
                 return false;
         }
     }
@@ -118,7 +134,7 @@ internal static class DevChatCommandParser
             return false;
         }
 
-        var direction = string.Equals(commandName, "!devshrink", StringComparison.OrdinalIgnoreCase) ? -1d : 1d;
+        var direction = commandName.EndsWith(" shrink", StringComparison.OrdinalIgnoreCase) ? -1d : 1d;
         command = new DevChatCommand(
             DevChatCommandKind.RelativeAvatarScale,
             meters * direction,
@@ -392,11 +408,6 @@ internal static class DevChatCommandParser
     private static bool IsAuthorizedName(string? value)
     {
         return string.Equals(value?.Trim(), AuthorizedChatterName, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string GetCommandName(string? messageText)
-    {
-        return SplitTokens(messageText).FirstOrDefault() ?? string.Empty;
     }
 
     private static string[] SplitTokens(string? messageText)

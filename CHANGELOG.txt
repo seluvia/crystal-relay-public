@@ -3,6 +3,14 @@ Crystal Relay Changelog
 
 Newest updates appear first. This changelog focuses on the changes users will notice most.
 
+v3.1.7
+- Added an optional setting to remove the `VRC:` prefix from Crystal Relay-created Twitch rewards while preserving saved reward IDs and linked-reward safety.
+- Bug reports now include recent sanitized diagnostics, with stronger redaction for tokens, auth headers, cookies, local Windows user paths, and payment secret fields.
+- Fixed fresh Twitch broadcaster login so Test Mode, EventSub, and managed reward sync can use the new session immediately without restarting Crystal Relay.
+- Fixed Avatar Roulette in cooldown-only Avatar Change mode so roulette rewards can trigger without a return-avatar preset when no timed return is needed.
+- Added a clearer Activity warning when Twitch's custom reward list is full, while keeping linked existing rewards listen-only.
+- Improved managed reward sync so saved app-managed rewards can rename between prefixed and unprefixed titles without adopting unrelated broadcaster-created rewards.
+
 v3.1.6
 - Added Glitchy Random Height to Avatar Scaling, letting a scale redeem rapidly vary height between configured minimum and maximum values for its active time before returning to the configured height.
 - Added Glitchy Movement for Movement Redeems and Bits + Subs Force Movement overrides, repeatedly rolling random VRChat movement directions until Active Time ends.

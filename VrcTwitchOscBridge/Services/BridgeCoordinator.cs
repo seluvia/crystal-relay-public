@@ -890,10 +890,12 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             previousHeight + relativeHeightMeters,
             AvatarScaleRule.AdvancedMinimumHeightMeters,
             AvatarScaleRule.AdvancedMaximumHeightMeters);
+        WriteLog(
+            $"Dev avatar scale '{devRuleName}' captured current height {previousHeight:0.###}m, target {targetHeight:0.###}m, duration {DescribeDuration(durationSeconds)}, and transition {DescribeDuration(transitionSeconds)}.");
         var pausedTimer = PauseActiveAvatarScaleTimerForDev(devRuleName, devDuration);
         if (pausedTimer is not null)
         {
-            WriteLog($"Dev avatar scale '{devRuleName}' paused {pausedTimer.SourceDescription} with {DescribeDuration(pausedTimer.Remaining.TotalSeconds)} remaining.");
+            WriteLog($"Dev avatar scale '{devRuleName}' paused {pausedTimer.SourceDescription} at held height {pausedTimer.CarriedHeightMeters:0.###}m with {DescribeDuration(pausedTimer.Remaining.TotalSeconds)} remaining.");
         }
 
         try
@@ -982,10 +984,12 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         var devDuration = TimeSpan.FromSeconds(Math.Max(1, durationSeconds));
         const string devRuleName = "Dev Random Scale";
         var previousHeight = await TryGetCurrentAvatarHeightAsync(cancellationToken) ?? 1.6;
+        WriteLog(
+            $"Dev random avatar scale captured current height {previousHeight:0.###}m, target range {clampedMinimumHeight:0.###}m-{clampedMaximumHeight:0.###}m, and duration {DescribeDuration(durationSeconds)}.");
         var pausedTimer = PauseActiveAvatarScaleTimerForDev(devRuleName, devDuration);
         if (pausedTimer is not null)
         {
-            WriteLog($"Dev random avatar scale paused {pausedTimer.SourceDescription} with {DescribeDuration(pausedTimer.Remaining.TotalSeconds)} remaining.");
+            WriteLog($"Dev random avatar scale paused {pausedTimer.SourceDescription} at held height {pausedTimer.CarriedHeightMeters:0.###}m with {DescribeDuration(pausedTimer.Remaining.TotalSeconds)} remaining.");
         }
 
         try
@@ -1304,6 +1308,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
         var remainingSeconds = Math.Max(1, durationSeconds);
         PlayerMovementDirection? previousDirection = null;
+        var sliceIndex = 1;
         WriteLog($"{userDisplayName} ran dev random movement for {DescribeDuration(remainingSeconds)}.");
         while (remainingSeconds > 0)
         {
@@ -1315,13 +1320,18 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                     (int)DevRandomMovementMinimumSliceDuration.TotalSeconds,
                     (int)DevRandomMovementMaximumSliceDuration.TotalSeconds + 1),
                 remainingSeconds);
+            WriteLog(
+                $"Dev random movement slice {sliceIndex}: {DescribeMovementAction(movementDirection)} for {DescribeDuration(sliceSeconds)}.");
             await ExecuteDevMovementAsync(
                 movementDirection,
                 TimeSpan.FromSeconds(sliceSeconds),
                 userDisplayName,
                 cancellationToken);
             remainingSeconds -= sliceSeconds;
+            sliceIndex++;
         }
+
+        WriteLog("Dev random movement finished; movement/look inputs were released and paused Crystal Relay movement timers were resumed when needed.");
     }
 
     private PausedAvatarScaleTimerSnapshot? PauseActiveAvatarScaleTimerForDev(
@@ -1476,7 +1486,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 return;
             }
 
-            WriteLog($"Resumed {snapshot.SourceDescription} with {DescribeDuration((activeUntil - DateTimeOffset.UtcNow).TotalSeconds)} remaining.");
+            WriteLog($"Resumed {snapshot.SourceDescription} at held height {snapshot.CarriedHeightMeters:0.###}m with {DescribeDuration((activeUntil - DateTimeOffset.UtcNow).TotalSeconds)} remaining.");
         }
         finally
         {
@@ -3104,7 +3114,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         activeConfiguration?.AvatarChangeCooldownOnlyModeEnabled == true
         && !rule.IsGlobalOverride
         && rule.BelongsToMasterAvatarProfile
-        && rule.ActionType == OscActionType.AvatarChange;
+        && rule.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet;
 
     private bool IsAvatarScalingActiveForAvatarChangeBlock()
     {

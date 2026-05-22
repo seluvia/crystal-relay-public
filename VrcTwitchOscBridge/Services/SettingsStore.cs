@@ -388,6 +388,7 @@ public sealed class SettingsStore
                 && Enum.IsDefined(profile.TriggerInfoCommandPermission.Value)
                     ? profile.TriggerInfoCommandPermission.Value
                     : settings.TriggerInfoCommandPermission;
+            settings.UseManagedRewardTitlePrefix = profile.UseManagedRewardTitlePrefix ?? settings.UseManagedRewardTitlePrefix;
             settings.WorldCommandEnabled = profile.WorldCommandEnabled ?? settings.WorldCommandEnabled;
             settings.WorldCommandText = string.IsNullOrWhiteSpace(profile.WorldCommandText)
                 ? settings.WorldCommandText
@@ -541,6 +542,7 @@ public sealed class SettingsStore
             TriggerInfoCommandText = settings.TriggerInfoCommandText,
             TriggerInfoCommandCooldownSeconds = settings.TriggerInfoCommandCooldownSeconds,
             TriggerInfoCommandPermission = settings.TriggerInfoCommandPermission,
+            UseManagedRewardTitlePrefix = settings.UseManagedRewardTitlePrefix,
             WorldCommandEnabled = settings.WorldCommandEnabled,
             WorldCommandText = settings.WorldCommandText,
             WorldCommandCooldownSeconds = settings.WorldCommandCooldownSeconds,
@@ -2207,6 +2209,8 @@ public sealed class SettingsStore
         public int? TriggerInfoCommandCooldownSeconds { get; set; }
 
         public ChatCommandPermission? TriggerInfoCommandPermission { get; set; }
+
+        public bool? UseManagedRewardTitlePrefix { get; set; }
 
         public bool? WorldCommandEnabled { get; set; }
 

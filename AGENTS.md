@@ -3,10 +3,10 @@
 ## Project Identity
 - Product name: `Crystal Relay`
 - Legacy source/project name may still appear as `VrcTwitchOscBridge`
-- Last stable release: `v3.1.6`
-- Current source version: `v3.1.6`
-- Next post-release development version: `v3.1.7`
-- Active development build: `v3.1.7`
+- Last stable release: `v3.1.7`
+- Current source version: `v3.1.7`
+- Next post-release development version: `v3.1.8`
+- Active development build: `v3.1.8`
 - Active build lane: `none`
 - Platform: Windows desktop app
 - Primary purpose: Twitch-to-OSC / OSCQuery control for VRChat

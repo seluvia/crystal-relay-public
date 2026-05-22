@@ -21,6 +21,8 @@ internal static class AppDataPaths
 
     public static string CrashLogFolder => Path.Combine(RootFolder, "CrashLogs");
 
+    public static string DebugLogFolder => Path.Combine(RootFolder, "DebugLogs");
+
     public static string UpdatesFolder => Path.Combine(RootFolder, "Updates");
 
     public static string UpdateBackupsFolder => Path.Combine(RootFolder, "UpdateBackups");
@@ -34,6 +36,7 @@ internal static class AppDataPaths
         Directory.CreateDirectory(ThemeAssetsFolder);
         Directory.CreateDirectory(SecureFolder);
         Directory.CreateDirectory(CrashLogFolder);
+        Directory.CreateDirectory(DebugLogFolder);
         Directory.CreateDirectory(UpdatesFolder);
         Directory.CreateDirectory(UpdateBackupsFolder);
     }

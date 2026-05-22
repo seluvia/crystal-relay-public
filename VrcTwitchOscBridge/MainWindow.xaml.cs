@@ -81,6 +81,7 @@ public partial class MainWindow : Window
     private string? peekabooEasterEggAudioTempPath;
     private MediaPlayer? teapotEasterEggPlayer;
     private string? teapotEasterEggAudioTempPath;
+    private DebugLogWindow? debugLogWindow;
     private string? advertisementVideoTempPath;
     private AppTheme? loadedThemeBackground;
     private WinForms.NotifyIcon? trayNotifyIcon;
@@ -1501,6 +1502,11 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (TryOpenDebugLogWindowFromChord(e))
+        {
+            return;
+        }
+
         if (!AreEasterEggsEnabled)
         {
             konamiSequenceIndex = 0;
@@ -1532,6 +1538,36 @@ public partial class MainWindow : Window
         }
 
         konamiSequenceIndex = pressedKey == KonamiSequence[0] ? 1 : 0;
+    }
+
+    private bool TryOpenDebugLogWindowFromChord(KeyEventArgs e)
+    {
+        if ((Keyboard.Modifiers & ModifierKeys.Control) != 0
+            || IsTextInputFocused(e.OriginalSource as DependencyObject)
+            || !Keyboard.IsKeyDown(Key.C)
+            || !Keyboard.IsKeyDown(Key.T)
+            || !Keyboard.IsKeyDown(Key.R)
+            || !Keyboard.IsKeyDown(Key.L)
+            || !Keyboard.IsKeyDown(Key.D))
+        {
+            return false;
+        }
+
+        e.Handled = true;
+        if (debugLogWindow is { IsVisible: true } existingWindow)
+        {
+            existingWindow.Activate();
+            return true;
+        }
+
+        debugLogWindow = new DebugLogWindow(viewModel.SelectedTheme)
+        {
+            Owner = this
+        };
+        debugLogWindow.Closed += (_, _) => debugLogWindow = null;
+        debugLogWindow.Show();
+        debugLogWindow.Activate();
+        return true;
     }
 
     private void PlayHomeIconEasterEggAudio()

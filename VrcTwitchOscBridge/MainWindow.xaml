@@ -284,6 +284,8 @@
         <SolidColorBrush x:Key="NestedPanelBrush" po:Freeze="False" Color="#B8241739" />
         <SolidColorBrush x:Key="DangerBrush" po:Freeze="False" Color="#4A1729" />
         <SolidColorBrush x:Key="DangerBorderBrush" po:Freeze="False" Color="#A94A71" />
+        <SolidColorBrush x:Key="AttentionBrush" po:Freeze="False" Color="#46390F" />
+        <SolidColorBrush x:Key="AttentionBorderBrush" po:Freeze="False" Color="#D9B84F" />
         <SolidColorBrush x:Key="HighlightBorderBrush" po:Freeze="False" Color="#774AC7" />
         <SolidColorBrush x:Key="PopupBorderBrush" po:Freeze="False" Color="#6942A7" />
         <SolidColorBrush x:Key="ComboDropButtonBrush" po:Freeze="False" Color="#E9DBFF" />
@@ -1064,6 +1066,30 @@
 
         <Style x:Key="ActivitySectionButtonStyle" TargetType="Button" BasedOn="{StaticResource SectionButtonStyle}">
             <Style.Triggers>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding HasActivityAttention}" Value="True" />
+                        <Condition Binding="{Binding IsActivitySectionSelected}" Value="False" />
+                    </MultiDataTrigger.Conditions>
+                    <MultiDataTrigger.EnterActions>
+                        <BeginStoryboard x:Name="ActivityAttentionPulseStoryboard">
+                            <Storyboard>
+                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                 From="0.82"
+                                                 To="1"
+                                                 Duration="0:0:1.2"
+                                                 AutoReverse="True"
+                                                 RepeatBehavior="Forever" />
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </MultiDataTrigger.EnterActions>
+                    <MultiDataTrigger.ExitActions>
+                        <StopStoryboard BeginStoryboardName="ActivityAttentionPulseStoryboard" />
+                    </MultiDataTrigger.ExitActions>
+                    <Setter Property="Background" Value="{DynamicResource AttentionBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource AttentionBorderBrush}" />
+                    <Setter Property="Foreground" Value="White" />
+                </MultiDataTrigger>
                 <DataTrigger Binding="{Binding IsActivitySectionSelected}" Value="True">
                     <Setter Property="Background" Value="{DynamicResource SectionActiveBrush}" />
                     <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
@@ -2399,6 +2425,44 @@
                                                               VerticalAlignment="Center"
                                                               Style="{StaticResource RuleToggleStyle}"
                                                               IsChecked="{Binding Settings.BetaApplicationUpdatesEnabled, UpdateSourceTrigger=PropertyChanged}" />
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Margin="0,14,0,0" Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1" CornerRadius="18" Padding="16"
+                                            Visibility="{Binding IsSettingsTwitchSectionSelected, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <StackPanel>
+                                            <TextBlock Text="{loc:Translate 'Managed Reward Names'}"
+                                                       Style="{StaticResource HeadingTextStyle}"
+                                                       FontSize="17"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource TextBrush}"
+                                                       TextWrapping="Wrap" />
+                                            <TextBlock Margin="0,8,0,0"
+                                                       Text="{loc:Translate 'Crystal Relay can add VRC: to Twitch rewards it creates so app-managed rewards are easy to recognize. Turn this off if you want cleaner public reward names.'}"
+                                                       Foreground="{DynamicResource MutedBrush}"
+                                                       TextWrapping="Wrap" />
+                                            <Grid Margin="0,12,0,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0"
+                                                            Margin="0,0,14,0">
+                                                    <TextBlock Text="{loc:Translate 'Use VRC: prefix on created Twitch rewards'}"
+                                                               FontSize="16"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource TextBrush}"
+                                                               TextWrapping="Wrap" />
+                                                    <TextBlock Margin="0,6,0,0"
+                                                               Text="{loc:Translate 'Existing Crystal Relay-managed rewards are renamed on the next Twitch reward sync. Linked existing rewards stay listen-only.'}"
+                                                               Foreground="{DynamicResource MutedBrush}"
+                                                               TextWrapping="Wrap" />
+                                                </StackPanel>
+                                                <ToggleButton Grid.Column="1"
+                                                              VerticalAlignment="Center"
+                                                              Style="{StaticResource RuleToggleStyle}"
+                                                              IsChecked="{Binding Settings.UseManagedRewardTitlePrefix, UpdateSourceTrigger=PropertyChanged}" />
                                             </Grid>
                                         </StackPanel>
                                     </Border>
@@ -9160,6 +9224,26 @@
                                 CommandParameter="Activity"
                                 Tag="Activity is Crystal Relay's running event log. It shows Twitch connection changes, reward sync results, VRChat avatar detection, OSC events, chat-command triggers, and errors so you can see what the app is doing without guessing. If something behaves strangely, this is usually the first place to check." />
                     </DockPanel>
+                    <Border DockPanel.Dock="Top"
+                            Margin="0,14,0,0"
+                            Padding="14,10"
+                            Background="{DynamicResource AttentionBrush}"
+                            BorderBrush="{DynamicResource AttentionBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Visibility="{Binding HasActivityWarning, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <StackPanel>
+                            <TextBlock Text="{loc:Translate 'Activity warning'}"
+                                       FontFamily="{DynamicResource HeadingFontFamily}"
+                                       FontSize="15"
+                                       FontWeight="Bold"
+                                       Foreground="{DynamicResource TextBrush}" />
+                            <TextBlock Margin="0,4,0,0"
+                                       Text="{Binding ActivityAttentionMessage}"
+                                       Foreground="{DynamicResource TextBrush}"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
                     <ListBox Margin="0,18,0,0"
                              ItemsSource="{Binding LogEntries}"
                              ScrollViewer.CanContentScroll="True"

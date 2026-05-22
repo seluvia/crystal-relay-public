@@ -34,6 +34,14 @@ public static class ManagedRewardPresentation
     public static string NormalizeTitleIdentityKey(string? title)
     {
         var strippedTitle = StripPrefix(title);
+        return NormalizeCollapsedTitle(strippedTitle);
+    }
+
+    public static string NormalizeTitlePresentationKey(string? title) => NormalizeCollapsedTitle(title);
+
+    private static string NormalizeCollapsedTitle(string? title)
+    {
+        var strippedTitle = title?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(strippedTitle))
         {
             return string.Empty;
@@ -70,13 +78,27 @@ public static class ManagedRewardPresentation
             && string.Equals(firstKey, secondKey, StringComparison.OrdinalIgnoreCase);
     }
 
+    public static bool HasSameTitlePresentation(string? firstTitle, string? secondTitle)
+    {
+        var firstKey = NormalizeTitlePresentationKey(firstTitle);
+        var secondKey = NormalizeTitlePresentationKey(secondTitle);
+        return !string.IsNullOrWhiteSpace(firstKey)
+            && !string.IsNullOrWhiteSpace(secondKey)
+            && string.Equals(firstKey, secondKey, StringComparison.Ordinal);
+    }
+
     // BuildTitle always normalizes the configured title into the managed reward format.
-    public static string BuildTitle(string? title)
+    public static string BuildTitle(string? title) => BuildTitle(title, includePrefix: true);
+
+    public static string BuildTitle(string? title, bool includePrefix)
     {
         var baseTitle = StripPrefix(title);
-        return string.IsNullOrWhiteSpace(baseTitle)
-            ? string.Empty
-            : $"{Prefix}{baseTitle}";
+        if (string.IsNullOrWhiteSpace(baseTitle))
+        {
+            return string.Empty;
+        }
+
+        return includePrefix ? $"{Prefix}{baseTitle}" : baseTitle;
     }
 
     public static string NormalizeReadyBackgroundColor(string? colorText) =>

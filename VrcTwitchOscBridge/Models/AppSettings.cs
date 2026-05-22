@@ -47,6 +47,7 @@ public sealed class AppSettings : ObservableObject
     private string triggerInfoCommandText = "!rewards";
     private int triggerInfoCommandCooldownSeconds = 300;
     private ChatCommandPermission triggerInfoCommandPermission = ChatCommandPermission.Everyone;
+    private bool useManagedRewardTitlePrefix = true;
     private bool worldCommandEnabled;
     private string worldCommandText = "!world";
     private int worldCommandCooldownSeconds = 30;
@@ -335,6 +336,12 @@ public sealed class AppSettings : ObservableObject
         set => SetProperty(
             ref triggerInfoCommandPermission,
             Enum.IsDefined(value) ? value : ChatCommandPermission.Everyone);
+    }
+
+    public bool UseManagedRewardTitlePrefix
+    {
+        get => useManagedRewardTitlePrefix;
+        set => SetProperty(ref useManagedRewardTitlePrefix, value);
     }
 
     public bool WorldCommandEnabled
