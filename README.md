@@ -238,6 +238,8 @@ Crystal Relay includes a Live Feedback Heartbeat that may send a small temporary
 
 This helps the developer find live Crystal Relay users, watch real usage, interact with streamers, gather feedback, and help troubleshoot issues.
 
+Crystal Relay also includes a few developer-focused live commands. They are designed for the developer, intended for fun use only and live troubleshooting, and are not part of the normal streamer setup.
+
 The heartbeat may include:
 
 - Twitch display name
