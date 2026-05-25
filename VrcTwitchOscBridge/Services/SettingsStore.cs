@@ -973,11 +973,23 @@ public sealed class SettingsStore
             ActiveFloatBoostAddValue = rule.ActiveFloatBoostAddValue,
             ActiveFloatBoostMinimumValue = rule.ActiveFloatBoostMinimumValue,
             ActiveFloatBoostMaximumValue = rule.ActiveFloatBoostMaximumValue,
+            SupporterFloatAddEnabled = rule.SupporterFloatAddEnabled,
+            SupporterFloatAddMinimumValue = rule.SupporterFloatAddMinimumValue,
+            SupporterFloatAddMaximumValue = rule.SupporterFloatAddMaximumValue,
+            SupporterFloatAddRanges = [.. rule.SupporterFloatAddRanges.Select(ToPersistedSupporterFloatAddRange)],
             SetTriggerActions = [.. rule.SetTriggerActions.Select(ToPersistedSetTriggerAction)],
             BotMessageTemplate = rule.BotMessageTemplate,
             TemporarilyDisabledRuleIds = [.. rule.TemporarilyDisabledRuleIds]
         };
     }
+
+    private static PersistedSupporterFloatAddRange ToPersistedSupporterFloatAddRange(SupporterFloatAddRange range) =>
+        new()
+        {
+            MinimumAmount = range.MinimumAmount,
+            MaximumAmount = range.MaximumAmount,
+            AddValue = range.AddValue
+        };
 
     private static PersistedSetTriggerAction ToPersistedSetTriggerAction(SetTriggerAction action) =>
         new()
@@ -1102,6 +1114,13 @@ public sealed class SettingsStore
             ActiveFloatBoostAddValue = string.IsNullOrWhiteSpace(rule.ActiveFloatBoostAddValue) ? "0.05" : rule.ActiveFloatBoostAddValue,
             ActiveFloatBoostMinimumValue = string.IsNullOrWhiteSpace(rule.ActiveFloatBoostMinimumValue) ? "0" : rule.ActiveFloatBoostMinimumValue,
             ActiveFloatBoostMaximumValue = string.IsNullOrWhiteSpace(rule.ActiveFloatBoostMaximumValue) ? "1" : rule.ActiveFloatBoostMaximumValue,
+            SupporterFloatAddEnabled = rule.SupporterFloatAddEnabled,
+            SupporterFloatAddMinimumValue = string.IsNullOrWhiteSpace(rule.SupporterFloatAddMinimumValue) ? "0" : rule.SupporterFloatAddMinimumValue,
+            SupporterFloatAddMaximumValue = string.IsNullOrWhiteSpace(rule.SupporterFloatAddMaximumValue) ? "1" : rule.SupporterFloatAddMaximumValue,
+            SupporterFloatAddRanges = new ObservableCollection<SupporterFloatAddRange>(
+                (rule.SupporterFloatAddRanges is { Count: > 0 }
+                    ? rule.SupporterFloatAddRanges.Select(ToSupporterFloatAddRange)
+                    : [new SupporterFloatAddRange()])),
             SetTriggerActions = new ObservableCollection<SetTriggerAction>((rule.SetTriggerActions ?? [])
                 .Select(ToSetTriggerAction)
                 .Where(action => !string.IsNullOrWhiteSpace(action.ParameterName))),
@@ -1111,6 +1130,16 @@ public sealed class SettingsStore
             BotMessageTemplate = string.IsNullOrWhiteSpace(rule.BotMessageTemplate)
                 ? "{user} triggered {rule}. Active for {duration}. Cooldown {cooldown}."
                 : rule.BotMessageTemplate
+        };
+    }
+
+    private static SupporterFloatAddRange ToSupporterFloatAddRange(PersistedSupporterFloatAddRange range)
+    {
+        return new SupporterFloatAddRange
+        {
+            MinimumAmount = range.MinimumAmount <= 0 ? 1 : range.MinimumAmount,
+            MaximumAmount = Math.Max(0, range.MaximumAmount),
+            AddValue = string.IsNullOrWhiteSpace(range.AddValue) ? "0.05" : range.AddValue
         };
     }
 
@@ -2652,11 +2681,28 @@ public sealed class SettingsStore
 
         public string? ActiveFloatBoostMaximumValue { get; set; }
 
+        public bool SupporterFloatAddEnabled { get; set; }
+
+        public string? SupporterFloatAddMinimumValue { get; set; }
+
+        public string? SupporterFloatAddMaximumValue { get; set; }
+
+        public List<PersistedSupporterFloatAddRange>? SupporterFloatAddRanges { get; set; }
+
         public List<PersistedSetTriggerAction>? SetTriggerActions { get; set; }
 
         public List<Guid>? TemporarilyDisabledRuleIds { get; set; }
 
         public string? BotMessageTemplate { get; set; }
+    }
+
+    private sealed class PersistedSupporterFloatAddRange
+    {
+        public int MinimumAmount { get; set; }
+
+        public int MaximumAmount { get; set; }
+
+        public string? AddValue { get; set; }
     }
 
     private sealed class PersistedSetTriggerAction

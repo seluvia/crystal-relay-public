@@ -8708,6 +8708,99 @@
                                                                                Foreground="{DynamicResource MutedBrush}"
                                                                                TextWrapping="Wrap" />
                                                                 </StackPanel>
+                                                                <StackPanel Margin="0,14,0,0"
+                                                                            Visibility="{Binding UsesSupporterFloatAdd, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                                    <DockPanel LastChildFill="False">
+                                                                        <TextBlock Text="{loc:Translate 'Bits/Subs Add'}"
+                                                                                   Foreground="{DynamicResource TextBrush}"
+                                                                                   FontWeight="SemiBold" />
+                                                                        <Button Style="{StaticResource HelpIconButtonStyle}"
+                                                                                Width="24"
+                                                                                Height="24"
+                                                                                MinWidth="24"
+                                                                                MinHeight="24"
+                                                                                Click="OnHelpButtonClicked"
+                                                                                CommandParameter="Bits/Subs Add"
+                                                                                Tag="{loc:Translate 'Each matching Bits/Subs event adds to the current value, restarts the timer, and stops at your max value.'}" />
+                                                                    </DockPanel>
+                                                                    <CheckBox Margin="0,8,0,0"
+                                                                              Content="{loc:Translate 'Add on top of the current value'}"
+                                                                              IsChecked="{Binding SupporterFloatAddEnabled, UpdateSourceTrigger=PropertyChanged}" />
+                                                                    <TextBlock Margin="0,6,0,0"
+                                                                               Text="{Binding SupporterFloatAddSummary}"
+                                                                               Foreground="{DynamicResource MutedBrush}"
+                                                                               TextWrapping="Wrap" />
+                                                                    <StackPanel Margin="0,10,0,0"
+                                                                                Visibility="{Binding UsesActiveSupporterFloatAdd, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                                        <UniformGrid Columns="2">
+                                                                            <StackPanel Margin="0,0,8,0">
+                                                                                <TextBlock Text="{loc:Translate 'Start Value'}"
+                                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                                           FontWeight="SemiBold" />
+                                                                                <TextBox Text="{Binding SupporterFloatAddMinimumValue, UpdateSourceTrigger=PropertyChanged}" />
+                                                                            </StackPanel>
+                                                                            <StackPanel Margin="8,0,0,0">
+                                                                                <TextBlock Text="{loc:Translate 'Max Value'}"
+                                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                                           FontWeight="SemiBold" />
+                                                                                <TextBox Text="{Binding SupporterFloatAddMaximumValue, UpdateSourceTrigger=PropertyChanged}" />
+                                                                            </StackPanel>
+                                                                        </UniformGrid>
+                                                                        <DockPanel Margin="0,12,0,0"
+                                                                                   LastChildFill="False">
+                                                                            <TextBlock Text="{loc:Translate 'Rules'}"
+                                                                                       Foreground="{DynamicResource TextBrush}"
+                                                                                       FontWeight="SemiBold"
+                                                                                       VerticalAlignment="Center" />
+                                                                            <Button Margin="8,0,0,0"
+                                                                                    Style="{StaticResource SecondaryButtonStyle}"
+                                                                                    Content="{loc:Translate 'Add Rule'}"
+                                                                                    Click="OnAddSupporterFloatAddRangeClicked" />
+                                                                        </DockPanel>
+                                                                        <ItemsControl Margin="0,8,0,0"
+                                                                                      ItemsSource="{Binding SupporterFloatAddRanges}">
+                                                                            <ItemsControl.ItemTemplate>
+                                                                                <DataTemplate DataType="{x:Type models:SupporterFloatAddRange}">
+                                                                                    <Grid Margin="0,0,0,8">
+                                                                                        <Grid.ColumnDefinitions>
+                                                                                            <ColumnDefinition Width="*" />
+                                                                                            <ColumnDefinition Width="*" />
+                                                                                            <ColumnDefinition Width="*" />
+                                                                                            <ColumnDefinition Width="Auto" />
+                                                                                        </Grid.ColumnDefinitions>
+                                                                                        <StackPanel Grid.Column="0"
+                                                                                                    Margin="0,0,6,0">
+                                                                                            <TextBlock Text="{loc:Translate 'From'}"
+                                                                                                       Foreground="{DynamicResource MutedBrush}" />
+                                                                                            <TextBox Text="{Binding MinimumAmount, UpdateSourceTrigger=PropertyChanged}" />
+                                                                                        </StackPanel>
+                                                                                        <StackPanel Grid.Column="1"
+                                                                                                    Margin="6,0,6,0">
+                                                                                            <TextBlock Text="{loc:Translate 'To'}"
+                                                                                                       Foreground="{DynamicResource MutedBrush}" />
+                                                                                            <TextBox Text="{Binding MaximumAmount, UpdateSourceTrigger=PropertyChanged}" />
+                                                                                        </StackPanel>
+                                                                                        <StackPanel Grid.Column="2"
+                                                                                                    Margin="6,0,6,0">
+                                                                                            <TextBlock Text="{loc:Translate 'Add'}"
+                                                                                                       Foreground="{DynamicResource MutedBrush}" />
+                                                                                            <TextBox Text="{Binding AddValue, UpdateSourceTrigger=PropertyChanged}" />
+                                                                                        </StackPanel>
+                                                                                        <Button Grid.Column="3"
+                                                                                                Margin="6,18,0,0"
+                                                                                                Style="{StaticResource SecondaryButtonStyle}"
+                                                                                                Content="{loc:Translate 'Remove'}"
+                                                                                                Click="OnRemoveSupporterFloatAddRangeClicked" />
+                                                                                    </Grid>
+                                                                                </DataTemplate>
+                                                                            </ItemsControl.ItemTemplate>
+                                                                        </ItemsControl>
+                                                                        <TextBlock Margin="0,2,0,0"
+                                                                                   Text="{loc:Translate 'Use 0 in To for no limit.'}"
+                                                                                   Foreground="{DynamicResource MutedBrush}"
+                                                                                   TextWrapping="Wrap" />
+                                                                    </StackPanel>
+                                                                </StackPanel>
                                                             </StackPanel>
 
                                                             <StackPanel Margin="0,14,0,0"

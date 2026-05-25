@@ -595,6 +595,107 @@ public sealed class TwitchApiClient : IDisposable
         await EnsureSuccessAsync(response, cancellationToken);
     }
 
+    public async Task BanOrTimeoutUserAsync(
+        string accessToken,
+        string clientId,
+        string broadcasterId,
+        string moderatorId,
+        string userId,
+        int? durationSeconds,
+        string reason,
+        CancellationToken cancellationToken = default)
+    {
+        var query = $"broadcaster_id={Uri.EscapeDataString(broadcasterId)}&moderator_id={Uri.EscapeDataString(moderatorId)}";
+        using var request = CreateHelixRequest(
+            HttpMethod.Post,
+            $"https://api.twitch.tv/helix/moderation/bans?{query}",
+            accessToken,
+            clientId);
+
+        var data = new Dictionary<string, object>
+        {
+            ["user_id"] = userId,
+            ["reason"] = reason?.Trim() ?? string.Empty
+        };
+        if (durationSeconds is { } duration)
+        {
+            data["duration"] = Math.Clamp(duration, 1, 1_209_600);
+        }
+
+        request.Content = JsonContent.Create(new { data });
+        using var response = await SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public async Task DeleteChatMessageAsync(
+        string accessToken,
+        string clientId,
+        string broadcasterId,
+        string moderatorId,
+        string messageId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(messageId))
+        {
+            throw new ArgumentException("A Twitch message ID is required to delete a single chat message.", nameof(messageId));
+        }
+
+        var query = new StringBuilder($"broadcaster_id={Uri.EscapeDataString(broadcasterId)}&moderator_id={Uri.EscapeDataString(moderatorId)}");
+        query.Append("&message_id=");
+        query.Append(Uri.EscapeDataString(messageId.Trim()));
+
+        using var request = CreateHelixRequest(
+            HttpMethod.Delete,
+            $"https://api.twitch.tv/helix/moderation/chat?{query}",
+            accessToken,
+            clientId);
+        using var response = await SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public async Task SetSuspiciousUserStatusAsync(
+        string accessToken,
+        string clientId,
+        string broadcasterId,
+        string moderatorId,
+        string userId,
+        string status,
+        CancellationToken cancellationToken = default)
+    {
+        var query = $"broadcaster_id={Uri.EscapeDataString(broadcasterId)}&moderator_id={Uri.EscapeDataString(moderatorId)}";
+        using var request = CreateHelixRequest(
+            HttpMethod.Post,
+            $"https://api.twitch.tv/helix/moderation/suspicious_users?{query}",
+            accessToken,
+            clientId);
+        request.Content = JsonContent.Create(new
+        {
+            user_id = userId,
+            status
+        });
+
+        using var response = await SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public async Task ClearSuspiciousUserStatusAsync(
+        string accessToken,
+        string clientId,
+        string broadcasterId,
+        string moderatorId,
+        string userId,
+        CancellationToken cancellationToken = default)
+    {
+        var query = $"broadcaster_id={Uri.EscapeDataString(broadcasterId)}&moderator_id={Uri.EscapeDataString(moderatorId)}&user_id={Uri.EscapeDataString(userId)}";
+        using var request = CreateHelixRequest(
+            HttpMethod.Delete,
+            $"https://api.twitch.tv/helix/moderation/suspicious_users?{query}",
+            accessToken,
+            clientId);
+        using var response = await SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
     public async Task<string> GetPublicChannelProfileImageUrlAsync(
         string twitchLogin,
         CancellationToken cancellationToken = default)

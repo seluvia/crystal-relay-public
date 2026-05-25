@@ -83,11 +83,13 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private const string BetaBuildMarkerFileName = "beta-build.flag";
     private const int MaxLogEntryCount = 200;
     private const int MaxChatMessageCount = 250;
+    private const int MaxChatActivityEntryCount = 200;
     private const int TwitchCustomRewardPromptMaxLength = 200;
     private const int TwitchCustomRewardLimit = 50;
     private const int SavedLoginRecoveryPromptFailureThreshold = 2;
     private static readonly TimeSpan ManagedRewardCreateBackoffWindow = TimeSpan.FromSeconds(45);
     private static readonly TimeSpan ThrottledRewardSyncLogWindow = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan ChatActivityDedupeWindow = TimeSpan.FromSeconds(12);
     private static readonly TimeSpan AvatarScaleLimitRewardSyncDebounce = TimeSpan.FromMilliseconds(750);
     private const double AvatarScaleLimitHeightToleranceMeters = 0.001;
     private const double AvatarScaleLimitHeightReleaseToleranceMeters = 0.003;
@@ -375,6 +377,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private readonly DispatcherTimer vrChatLocalStateTimer;
     private readonly DispatcherTimer vrChatCurrentAvatarTimer;
     private readonly Dictionary<Guid, Guid> lastSelectedRuleIdsByAvatarProfileId = new();
+    private readonly Dictionary<string, DateTimeOffset> recentChatActivityKeys = new(StringComparer.Ordinal);
     private readonly ObservableCollection<TriggerRule> emptyMasterAvatarRules = [];
 
     private AppSettings settings = new();
@@ -416,6 +419,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private string vrChatAvatarStatus = "Connect VRChat to load avatar choices.";
     private string vrChatOscParameterStatus = "Pick an avatar set to load its saved OSC parameters.";
     private string chatboxListenerStatus = "Connect broadcaster to start Twitch Chatbox.";
+    private string chatboxModerationStatusText = "Select a chat card to moderate.";
+    private bool isChatboxModerationDrawerOpen;
+    private TwitchChatMessageEntry? selectedChatMessage;
     private string activityAttentionMessage = string.Empty;
     private SectionView activeSection;
     private SettingsSectionView activeSettingsSection = SettingsSectionView.Twitch;
@@ -467,6 +473,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private readonly Dictionary<string, string> availableVrChatAvatarNamesById = new(StringComparer.Ordinal);
     private readonly Dictionary<string, List<VrChatOscParameterSummary>> cachedVrChatParametersByAvatarId = new(StringComparer.Ordinal);
     private readonly Dictionary<string, DateTime> vrChatLocalOscAvatarWriteTimes = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> chatSuspiciousStatusesByUserId = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> chatSuspiciousStatusesByLogin = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> retiredManagedRewardIds = new(StringComparer.Ordinal);
     private readonly Dictionary<string, DateTimeOffset> managedRewardCreateBackoffByTitle = new(StringComparer.OrdinalIgnoreCase);
     private readonly object avatarScaleLimitStateGate = new();
@@ -560,6 +568,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         bridgeCoordinator = new BridgeCoordinator(desktopInputLockService);
         LogEntries = [];
         ChatMessages = [];
+        ChatActivityEntries = [];
         RewardOptions = [];
         RewardSyncModeOptions =
         [
@@ -814,6 +823,19 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ShowAboutSectionCommand = new RelayCommand(() => SetActiveSection(SectionView.About));
         OpenTestModeWindowCommand = new RelayCommand(OpenTestModeWindow);
         OpenTwitchChatboxCommand = new RelayCommand(OpenTwitchChatbox);
+        ToggleChatboxModerationDrawerCommand = new RelayCommand(ToggleChatboxModerationDrawer);
+        TimeoutSelectedChatUser10SecondsCommand = new AsyncRelayCommand(() => TimeoutSelectedChatUserAsync(10), CanTimeoutSelectedChatUser);
+        TimeoutSelectedChatUser1MinuteCommand = new AsyncRelayCommand(() => TimeoutSelectedChatUserAsync(60), CanTimeoutSelectedChatUser);
+        TimeoutSelectedChatUser5MinutesCommand = new AsyncRelayCommand(() => TimeoutSelectedChatUserAsync(300), CanTimeoutSelectedChatUser);
+        TimeoutSelectedChatUser10MinutesCommand = new AsyncRelayCommand(() => TimeoutSelectedChatUserAsync(600), CanTimeoutSelectedChatUser);
+        TimeoutSelectedChatUser30MinutesCommand = new AsyncRelayCommand(() => TimeoutSelectedChatUserAsync(1800), CanTimeoutSelectedChatUser);
+        TimeoutSelectedChatUser1HourCommand = new AsyncRelayCommand(() => TimeoutSelectedChatUserAsync(3600), CanTimeoutSelectedChatUser);
+        BanSelectedChatUserCommand = new AsyncRelayCommand(BanSelectedChatUserAsync, CanTimeoutSelectedChatUser);
+        PurgeSelectedChatUserCommand = new AsyncRelayCommand(PurgeSelectedChatUserAsync, CanTimeoutSelectedChatUser);
+        DeleteSelectedChatMessageCommand = new AsyncRelayCommand(DeleteSelectedChatMessageAsync, CanDeleteSelectedChatMessage);
+        MarkSelectedChatUserSuspiciousCommand = new AsyncRelayCommand(MarkSelectedChatUserSuspiciousAsync, CanManageSelectedChatUserSuspiciousStatus);
+        RestrictSelectedChatUserCommand = new AsyncRelayCommand(RestrictSelectedChatUserAsync, CanManageSelectedChatUserSuspiciousStatus);
+        ClearSelectedChatUserSuspiciousStatusCommand = new AsyncRelayCommand(ClearSelectedChatUserSuspiciousStatusAsync, CanManageSelectedChatUserSuspiciousStatus);
         OpenBuiltInCommandsCommand = new RelayCommand(OpenBuiltInCommands);
         ShowSettingsTwitchSectionCommand = new RelayCommand(() => SetActiveSettingsSection(SettingsSectionView.Twitch));
         ShowSettingsVrChatSectionCommand = new RelayCommand(() => SetActiveSettingsSection(SettingsSectionView.VrChat));
@@ -918,6 +940,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             _ = RefreshAboutProfilesAsync();
         });
         bridgeCoordinator.ChatMessageReceived += message => RunOnUi(() => AppendChatMessage(message));
+        bridgeCoordinator.ChatActivityReceived += activity => RunOnUi(() => AppendChatActivity(activity));
         bridgeCoordinator.VrChatAvatarChanged += avatarId => RunOnUi(() => HandleVrChatAvatarChangedByBridge(avatarId));
         bridgeCoordinator.SharedReturnAvatarChanged += (avatarId, avatarName) => RunOnUi(() => HandleSharedReturnAvatarChangedByBridge(avatarId, avatarName));
         bridgeCoordinator.StreamStateChanged += (isLive, streamEnded) => RunOnUi(() => HandleBroadcasterLiveStateChanged(isLive, streamEnded));
@@ -946,6 +969,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     public ObservableCollection<string> LogEntries { get; }
 
     public ObservableCollection<TwitchChatMessageEntry> ChatMessages { get; }
+
+    public ObservableCollection<TwitchChatActivityEntry> ChatActivityEntries { get; }
 
     public ObservableCollection<TwitchRewardOption> RewardOptions { get; }
 
@@ -2642,6 +2667,102 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             ? T("Connected and listening. Waiting for new chat messages...")
             : ChatboxListenerStatus;
 
+    public bool IsChatboxModerationDrawerOpen
+    {
+        get => isChatboxModerationDrawerOpen;
+        private set
+        {
+            if (SetProperty(ref isChatboxModerationDrawerOpen, value))
+            {
+                RaisePropertyChanged(nameof(ChatboxModerationDrawerToggleText));
+            }
+        }
+    }
+
+    public string ChatboxModerationDrawerToggleText => IsChatboxModerationDrawerOpen
+        ? T("Hide Activity + Mod")
+        : T("Activity + Mod");
+
+    public TwitchChatMessageEntry? SelectedChatMessage
+    {
+        get => selectedChatMessage;
+        set
+        {
+            if (SetProperty(ref selectedChatMessage, value))
+            {
+                RaiseSelectedChatModerationProperties();
+                RefreshChatModerationCommandStates();
+            }
+        }
+    }
+
+    public bool HasSelectedChatMessage => SelectedChatMessage is not null;
+
+    public bool HasSelectedChatModerationTarget => GetSelectedChatModerationTarget() is not null;
+
+    public string SelectedChatModerationTitle => SelectedChatMessage is { } entry
+        ? TF("Moderate {0}", entry.UserDisplayName)
+        : string.Empty;
+
+    public string SelectedChatModerationDetailText
+    {
+        get
+        {
+            if (SelectedChatMessage is not { } entry)
+            {
+                return string.Empty;
+            }
+
+            var login = string.IsNullOrWhiteSpace(entry.UserLogin)
+                ? T("unknown login")
+                : $"@{entry.UserLogin}";
+            var status = string.IsNullOrWhiteSpace(entry.SuspiciousStatusLabel)
+                ? T("No suspicious-user status")
+                : entry.SuspiciousStatusLabel;
+            return string.IsNullOrWhiteSpace(entry.UserId)
+                ? TF("{0} · {1}", login, status)
+                : TF("{0} · Twitch ID {1} · {2}", login, entry.UserId, status);
+        }
+    }
+
+    public string ChatboxModerationStatusText
+    {
+        get => chatboxModerationStatusText;
+        private set => SetProperty(ref chatboxModerationStatusText, value);
+    }
+
+    public string ChatboxModerationScopeStatusText
+    {
+        get
+        {
+            if (!Settings.Broadcaster.IsConnected)
+            {
+                return T("Connect the broadcaster account to use Twitch moderation.");
+            }
+
+            var missingScopes = new List<string>();
+            if (!HasScope(Settings.Broadcaster, TwitchScopes.ModerationBannedUsers))
+            {
+                missingScopes.Add(T("timeouts/bans"));
+            }
+
+            if (!HasScope(Settings.Broadcaster, TwitchScopes.ModerationChatMessages))
+            {
+                missingScopes.Add(T("message delete"));
+            }
+
+            if (!HasScope(Settings.Broadcaster, TwitchScopes.ModerationSuspiciousUsers)
+                || !HasScope(Settings.Broadcaster, TwitchScopes.SuspiciousUsersRead))
+            {
+                missingScopes.Add(T("suspicious users"));
+            }
+
+            return missingScopes.Count == 0
+                ? T("Twitch moderation access is ready.")
+                : TF("Reconnect broadcaster to enable: {0}.", string.Join(", ", missingScopes));
+        }
+    }
+
     public string ChatboxOscRelayStatusText
     {
         get
@@ -2791,6 +2912,32 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     public RelayCommand OpenTestModeWindowCommand { get; }
 
     public RelayCommand OpenTwitchChatboxCommand { get; }
+
+    public RelayCommand ToggleChatboxModerationDrawerCommand { get; }
+
+    public AsyncRelayCommand TimeoutSelectedChatUser10SecondsCommand { get; }
+
+    public AsyncRelayCommand TimeoutSelectedChatUser1MinuteCommand { get; }
+
+    public AsyncRelayCommand TimeoutSelectedChatUser5MinutesCommand { get; }
+
+    public AsyncRelayCommand TimeoutSelectedChatUser10MinutesCommand { get; }
+
+    public AsyncRelayCommand TimeoutSelectedChatUser30MinutesCommand { get; }
+
+    public AsyncRelayCommand TimeoutSelectedChatUser1HourCommand { get; }
+
+    public AsyncRelayCommand BanSelectedChatUserCommand { get; }
+
+    public AsyncRelayCommand PurgeSelectedChatUserCommand { get; }
+
+    public AsyncRelayCommand DeleteSelectedChatMessageCommand { get; }
+
+    public AsyncRelayCommand MarkSelectedChatUserSuspiciousCommand { get; }
+
+    public AsyncRelayCommand RestrictSelectedChatUserCommand { get; }
+
+    public AsyncRelayCommand ClearSelectedChatUserSuspiciousStatusCommand { get; }
 
     public RelayCommand OpenBuiltInCommandsCommand { get; }
 
@@ -3218,6 +3365,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         twitchChatboxWindow.Closed += OnTwitchChatboxClosed;
         twitchChatboxWindow.Show();
         UpdateChatboxListenerStatus();
+    }
+
+    private void ToggleChatboxModerationDrawer()
+    {
+        IsChatboxModerationDrawerOpen = !IsChatboxModerationDrawerOpen;
     }
 
     private void OpenTestModeWindow()
@@ -5295,11 +5447,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     private void AddAvatarSupporterTrigger()
     {
-        if (!TryResolveDefaultSupporterAvatar(out var avatarId, out var avatarName))
-        {
-            AppendLog("Connect VRChat or refresh your avatar list before adding an Avatar Supporter Trigger.");
-            return;
-        }
+        TryResolveDefaultSupporterAvatar(out var avatarId, out var avatarName);
 
         var rule = CreateDefaultAvatarSupporterRule(avatarId, avatarName);
         Settings.GlobalOverrideRules.Add(rule);
@@ -14222,9 +14370,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             ChatMessages.RemoveAt(0);
         }
 
-        ChatMessages.Add(new TwitchChatMessageEntry(
+        var entry = new TwitchChatMessageEntry(
             message.UserDisplayName,
             message.UserLogin,
+            message.UserId,
             message.MessageText,
             message.UserColor,
             [.. message.BadgeImageUrls],
@@ -14241,7 +14390,58 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             message.SupportAmount,
             message.SupportTier,
             message.SupportMonths,
-            message.SupportMessage));
+            message.SupportMessage,
+            message.MessageId,
+            message.MessageType,
+            message.SourceBroadcasterUserId,
+            message.SourceBroadcasterUserLogin,
+            message.SourceBroadcasterUserName,
+            message.SourceMessageId,
+            message.IsSourceOnly);
+        ApplyKnownSuspiciousStatus(entry);
+        ChatMessages.Add(entry);
+        var activity = BuildChatMessageActivity(message);
+        if (activity is not null)
+        {
+            AppendChatActivity(activity);
+        }
+    }
+
+    private BridgeChatActivity? BuildChatMessageActivity(BridgeChatMessage message)
+    {
+        var kind = message.Kind switch
+        {
+            BridgeChatMessageKind.ChannelPointRedemption => BridgeChatActivityKind.ChannelPointRedemption,
+            BridgeChatMessageKind.BitsCheer
+                or BridgeChatMessageKind.Subscription
+                or BridgeChatMessageKind.Resubscription
+                or BridgeChatMessageKind.GiftSubscription
+                or BridgeChatMessageKind.Raid => BridgeChatActivityKind.SupportEvent,
+            _ => (BridgeChatActivityKind?)null
+        };
+        if (kind is null)
+        {
+            return null;
+        }
+
+        var text = message.Kind switch
+        {
+            BridgeChatMessageKind.ChannelPointRedemption => TF("{0} redeemed {1}.", message.UserDisplayName, message.RewardTitle),
+            BridgeChatMessageKind.BitsCheer => TF("{0} cheered {1:N0} Bits.", message.UserDisplayName, message.SupportAmount),
+            BridgeChatMessageKind.Subscription => TF("{0} subscribed.", message.UserDisplayName),
+            BridgeChatMessageKind.Resubscription => TF("{0} resubbed.", message.UserDisplayName),
+            BridgeChatMessageKind.GiftSubscription => TF("{0} gifted {1:N0} subs.", message.UserDisplayName, message.SupportAmount),
+            BridgeChatMessageKind.Raid => TF("{0} raided with {1:N0} viewers.", message.UserDisplayName, message.SupportAmount),
+            _ => string.Empty
+        };
+
+        return new BridgeChatActivity(kind.Value, text, message.ReceivedAt)
+        {
+            TargetUserDisplayName = message.UserDisplayName,
+            TargetUserLogin = message.UserLogin,
+            TargetUserId = message.UserId,
+            MessageId = message.MessageId
+        };
     }
 
     private static TwitchChatMessageEntryKind MapChatMessageEntryKind(BridgeChatMessageKind kind) => kind switch
@@ -14301,7 +14501,516 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     public void ClearChatMessages()
     {
         ChatMessages.Clear();
+        SelectedChatMessage = null;
     }
+
+    private void AppendChatActivity(BridgeChatActivity activity)
+    {
+        ApplyChatActivitySideEffects(activity);
+        if (!ShouldDisplayChatActivity(activity)
+            || ShouldSuppressDuplicateChatActivity(activity))
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(activity.MessageText))
+        {
+            return;
+        }
+
+        if (ChatActivityEntries.Count >= MaxChatActivityEntryCount)
+        {
+            ChatActivityEntries.RemoveAt(ChatActivityEntries.Count - 1);
+        }
+
+        ChatActivityEntries.Insert(0, new TwitchChatActivityEntry(activity));
+    }
+
+    private static bool ShouldDisplayChatActivity(BridgeChatActivity activity) =>
+        activity.Kind != BridgeChatActivityKind.SuspiciousUserMessage;
+
+    private bool ShouldSuppressDuplicateChatActivity(BridgeChatActivity activity)
+    {
+        var key = BuildChatActivityDedupeKey(activity);
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            return false;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        PruneRecentChatActivityKeys(now);
+        if (recentChatActivityKeys.TryGetValue(key, out var seenAt)
+            && now - seenAt <= ChatActivityDedupeWindow)
+        {
+            recentChatActivityKeys[key] = now;
+            return true;
+        }
+
+        recentChatActivityKeys[key] = now;
+        return false;
+    }
+
+    private void PruneRecentChatActivityKeys(DateTimeOffset now)
+    {
+        foreach (var expiredKey in recentChatActivityKeys
+                     .Where(pair => now - pair.Value > ChatActivityDedupeWindow)
+                     .Select(pair => pair.Key)
+                     .ToArray())
+        {
+            recentChatActivityKeys.Remove(expiredKey);
+        }
+    }
+
+    private static string BuildChatActivityDedupeKey(BridgeChatActivity activity)
+    {
+        var targetKey = !string.IsNullOrWhiteSpace(activity.TargetUserId)
+            ? activity.TargetUserId.Trim()
+            : activity.TargetUserLogin.Trim().ToUpperInvariant();
+        return activity.Kind switch
+        {
+            BridgeChatActivityKind.MessageDeleted when !string.IsNullOrWhiteSpace(activity.MessageId) =>
+                $"delete:{activity.MessageId.Trim()}",
+            BridgeChatActivityKind.UserMessagesCleared or BridgeChatActivityKind.MessagePurged when !string.IsNullOrWhiteSpace(targetKey) =>
+                $"purge:{targetKey}",
+            BridgeChatActivityKind.SuspiciousUserUpdated when !string.IsNullOrWhiteSpace(targetKey) =>
+                $"suspicious:{targetKey}:{activity.SuspiciousStatus.Trim().ToUpperInvariant()}",
+            BridgeChatActivityKind.ChatCleared => "chat-cleared",
+            _ => string.Empty
+        };
+    }
+
+    private void ApplyChatActivitySideEffects(BridgeChatActivity activity)
+    {
+        switch (activity.Kind)
+        {
+            case BridgeChatActivityKind.MessageDeleted:
+                RemoveChatMessages(message => !string.IsNullOrWhiteSpace(activity.MessageId)
+                    && string.Equals(message.MessageId, activity.MessageId, StringComparison.Ordinal));
+                break;
+            case BridgeChatActivityKind.UserMessagesCleared:
+                RemoveChatMessages(message => ChatMessageMatchesUser(message, activity.TargetUserId, activity.TargetUserLogin));
+                break;
+            case BridgeChatActivityKind.ChatCleared:
+                ChatMessages.Clear();
+                SelectedChatMessage = null;
+                break;
+            case BridgeChatActivityKind.SuspiciousUserUpdated:
+            case BridgeChatActivityKind.SuspiciousUserMessage:
+                UpdateSuspiciousStatusForUser(activity.TargetUserId, activity.TargetUserLogin, activity.SuspiciousStatus);
+                break;
+        }
+    }
+
+    private void RemoveChatMessages(Predicate<TwitchChatMessageEntry> shouldRemove)
+    {
+        for (var index = ChatMessages.Count - 1; index >= 0; index--)
+        {
+            var message = ChatMessages[index];
+            if (!shouldRemove(message))
+            {
+                continue;
+            }
+
+            if (ReferenceEquals(SelectedChatMessage, message))
+            {
+                SelectedChatMessage = null;
+            }
+
+            ChatMessages.RemoveAt(index);
+        }
+    }
+
+    private static bool ChatMessageMatchesUser(TwitchChatMessageEntry message, string userId, string userLogin)
+    {
+        return (!string.IsNullOrWhiteSpace(userId)
+                && string.Equals(message.UserId, userId, StringComparison.Ordinal))
+            || (!string.IsNullOrWhiteSpace(userLogin)
+                && string.Equals(message.UserLogin, userLogin, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private void ApplyKnownSuspiciousStatus(TwitchChatMessageEntry entry)
+    {
+        if (!string.IsNullOrWhiteSpace(entry.UserId)
+            && chatSuspiciousStatusesByUserId.TryGetValue(entry.UserId, out var statusById))
+        {
+            entry.SuspiciousStatus = statusById;
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(entry.UserLogin)
+            && chatSuspiciousStatusesByLogin.TryGetValue(entry.UserLogin, out var statusByLogin))
+        {
+            entry.SuspiciousStatus = statusByLogin;
+        }
+    }
+
+    private void UpdateSuspiciousStatusForUser(string userId, string userLogin, string suspiciousStatus)
+    {
+        var status = NormalizeChatSuspiciousStatus(suspiciousStatus);
+        var shouldClear = string.IsNullOrWhiteSpace(status)
+            || string.Equals(status, "NO_TREATMENT", StringComparison.OrdinalIgnoreCase);
+
+        if (!string.IsNullOrWhiteSpace(userId))
+        {
+            if (shouldClear)
+            {
+                chatSuspiciousStatusesByUserId.Remove(userId);
+            }
+            else
+            {
+                chatSuspiciousStatusesByUserId[userId] = status;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(userLogin))
+        {
+            if (shouldClear)
+            {
+                chatSuspiciousStatusesByLogin.Remove(userLogin);
+            }
+            else
+            {
+                chatSuspiciousStatusesByLogin[userLogin] = status;
+            }
+        }
+
+        foreach (var message in ChatMessages)
+        {
+            if (ChatMessageMatchesUser(message, userId, userLogin))
+            {
+                message.SuspiciousStatus = shouldClear ? string.Empty : status;
+            }
+        }
+
+        if (SelectedChatMessage is not null && ChatMessageMatchesUser(SelectedChatMessage, userId, userLogin))
+        {
+            RaiseSelectedChatModerationProperties();
+        }
+    }
+
+    private static string NormalizeChatSuspiciousStatus(string? suspiciousStatus)
+    {
+        var normalized = suspiciousStatus?.Trim() ?? string.Empty;
+        return normalized switch
+        {
+            _ when normalized.Equals("ACTIVE_MONITORING", StringComparison.OrdinalIgnoreCase)
+                || normalized.Equals("active_monitoring", StringComparison.OrdinalIgnoreCase) => "ACTIVE_MONITORING",
+            _ when normalized.Equals("RESTRICTED", StringComparison.OrdinalIgnoreCase)
+                || normalized.Equals("restricted", StringComparison.OrdinalIgnoreCase) => "RESTRICTED",
+            _ when normalized.Equals("NO_TREATMENT", StringComparison.OrdinalIgnoreCase)
+                || normalized.Equals("no_treatment", StringComparison.OrdinalIgnoreCase) => "NO_TREATMENT",
+            _ => normalized.ToUpperInvariant()
+        };
+    }
+
+    private async Task TimeoutSelectedChatUserAsync(int durationSeconds)
+    {
+        var target = GetSelectedChatModerationTarget();
+        if (target is null)
+        {
+            return;
+        }
+
+        try
+        {
+            ChatboxModerationStatusText = TF("Timing out {0}...", target.DisplayName);
+            var account = await GetBroadcasterModerationAccountAsync([TwitchScopes.ModerationBannedUsers], CancellationToken.None);
+            await twitchApiClient.BanOrTimeoutUserAsync(
+                account.AccessToken,
+                runtimeConfig.TwitchClientId,
+                account.UserId,
+                account.UserId,
+                target.UserId,
+                durationSeconds,
+                "Crystal Relay quick timeout",
+                CancellationToken.None);
+            var message = TF("Timed out {0} for {1}.", target.DisplayName, FormatModerationDuration(durationSeconds));
+            ChatboxModerationStatusText = message;
+            AppendLocalChatActivity(BridgeChatActivityKind.Timeout, message, target);
+        }
+        catch (Exception ex)
+        {
+            ReportChatModerationFailure(target, ex);
+        }
+    }
+
+    private async Task BanSelectedChatUserAsync()
+    {
+        var target = GetSelectedChatModerationTarget();
+        if (target is null)
+        {
+            return;
+        }
+
+        try
+        {
+            ChatboxModerationStatusText = TF("Banning {0}...", target.DisplayName);
+            var account = await GetBroadcasterModerationAccountAsync([TwitchScopes.ModerationBannedUsers], CancellationToken.None);
+            await twitchApiClient.BanOrTimeoutUserAsync(
+                account.AccessToken,
+                runtimeConfig.TwitchClientId,
+                account.UserId,
+                account.UserId,
+                target.UserId,
+                null,
+                "Crystal Relay quick ban",
+                CancellationToken.None);
+            var message = TF("Banned {0}.", target.DisplayName);
+            ChatboxModerationStatusText = message;
+            AppendLocalChatActivity(BridgeChatActivityKind.Ban, message, target);
+        }
+        catch (Exception ex)
+        {
+            ReportChatModerationFailure(target, ex);
+        }
+    }
+
+    private async Task PurgeSelectedChatUserAsync()
+    {
+        var target = GetSelectedChatModerationTarget();
+        if (target is null)
+        {
+            return;
+        }
+
+        try
+        {
+            ChatboxModerationStatusText = TF("Purging recent chat from {0}...", target.DisplayName);
+            var account = await GetBroadcasterModerationAccountAsync([TwitchScopes.ModerationBannedUsers], CancellationToken.None);
+            await twitchApiClient.BanOrTimeoutUserAsync(
+                account.AccessToken,
+                runtimeConfig.TwitchClientId,
+                account.UserId,
+                account.UserId,
+                target.UserId,
+                1,
+                "Crystal Relay purge",
+                CancellationToken.None);
+            var message = TF("Purged recent chat from {0}.", target.DisplayName);
+            ChatboxModerationStatusText = message;
+            AppendLocalChatActivity(BridgeChatActivityKind.MessagePurged, message, target);
+            RemoveChatMessages(messageEntry => ChatMessageMatchesUser(messageEntry, target.UserId, target.Login));
+        }
+        catch (Exception ex)
+        {
+            ReportChatModerationFailure(target, ex);
+        }
+    }
+
+    private async Task DeleteSelectedChatMessageAsync()
+    {
+        var target = GetSelectedChatModerationTarget();
+        if (target is null || SelectedChatMessage is not { } selectedMessage || string.IsNullOrWhiteSpace(selectedMessage.MessageId))
+        {
+            return;
+        }
+
+        try
+        {
+            ChatboxModerationStatusText = TF("Deleting a message from {0}...", target.DisplayName);
+            var account = await GetBroadcasterModerationAccountAsync([TwitchScopes.ModerationChatMessages], CancellationToken.None);
+            await twitchApiClient.DeleteChatMessageAsync(
+                account.AccessToken,
+                runtimeConfig.TwitchClientId,
+                account.UserId,
+                account.UserId,
+                selectedMessage.MessageId,
+                CancellationToken.None);
+            var message = TF("Deleted a message from {0}.", target.DisplayName);
+            ChatboxModerationStatusText = message;
+            AppendLocalChatActivity(BridgeChatActivityKind.MessageDeleted, message, target, selectedMessage.MessageId);
+        }
+        catch (Exception ex)
+        {
+            ReportChatModerationFailure(target, ex);
+        }
+    }
+
+    private Task MarkSelectedChatUserSuspiciousAsync() =>
+        SetSelectedChatUserSuspiciousStatusAsync("ACTIVE_MONITORING");
+
+    private Task RestrictSelectedChatUserAsync() =>
+        SetSelectedChatUserSuspiciousStatusAsync("RESTRICTED");
+
+    private async Task ClearSelectedChatUserSuspiciousStatusAsync()
+    {
+        var target = GetSelectedChatModerationTarget();
+        if (target is null)
+        {
+            return;
+        }
+
+        try
+        {
+            ChatboxModerationStatusText = TF("Clearing suspicious-user status for {0}...", target.DisplayName);
+            var account = await GetBroadcasterModerationAccountAsync([TwitchScopes.ModerationSuspiciousUsers], CancellationToken.None);
+            await twitchApiClient.ClearSuspiciousUserStatusAsync(
+                account.AccessToken,
+                runtimeConfig.TwitchClientId,
+                account.UserId,
+                account.UserId,
+                target.UserId,
+                CancellationToken.None);
+            UpdateSuspiciousStatusForUser(target.UserId, target.Login, "NO_TREATMENT");
+            var message = TF("Cleared suspicious-user status for {0}.", target.DisplayName);
+            ChatboxModerationStatusText = message;
+            AppendLocalChatActivity(BridgeChatActivityKind.SuspiciousUserUpdated, message, target, suspiciousStatus: "NO_TREATMENT");
+        }
+        catch (Exception ex)
+        {
+            ReportChatModerationFailure(target, ex);
+        }
+    }
+
+    private async Task SetSelectedChatUserSuspiciousStatusAsync(string suspiciousStatus)
+    {
+        var target = GetSelectedChatModerationTarget();
+        if (target is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var statusLabel = FormatSuspiciousStatusLabel(suspiciousStatus);
+            ChatboxModerationStatusText = TF("Updating {0} to {1}...", target.DisplayName, statusLabel);
+            var account = await GetBroadcasterModerationAccountAsync([TwitchScopes.ModerationSuspiciousUsers], CancellationToken.None);
+            await twitchApiClient.SetSuspiciousUserStatusAsync(
+                account.AccessToken,
+                runtimeConfig.TwitchClientId,
+                account.UserId,
+                account.UserId,
+                target.UserId,
+                suspiciousStatus,
+                CancellationToken.None);
+            UpdateSuspiciousStatusForUser(target.UserId, target.Login, suspiciousStatus);
+            var message = string.Equals(suspiciousStatus, "RESTRICTED", StringComparison.Ordinal)
+                ? TF("Restricted {0} through Twitch suspicious-user tools.", target.DisplayName)
+                : TF("Marked {0} for suspicious-user monitoring.", target.DisplayName);
+            ChatboxModerationStatusText = message;
+            AppendLocalChatActivity(BridgeChatActivityKind.SuspiciousUserUpdated, message, target, suspiciousStatus: suspiciousStatus);
+        }
+        catch (Exception ex)
+        {
+            ReportChatModerationFailure(target, ex);
+        }
+    }
+
+    private async Task<TwitchAccountSettings> GetBroadcasterModerationAccountAsync(
+        IReadOnlyCollection<string> requiredScopes,
+        CancellationToken cancellationToken)
+    {
+        await ReloadRuntimeConfigAsync();
+        var snapshot = CreateBroadcasterRewardAccountSnapshot();
+        if (!snapshot.IsConnected)
+        {
+            throw new InvalidOperationException(T("Connect the broadcaster account to use Twitch moderation."));
+        }
+
+        var account = await ValidateOrRefreshBroadcasterAccountAsync(snapshot, cancellationToken);
+        var missingScopes = requiredScopes
+            .Where(scope => !HasScope(account, scope))
+            .ToArray();
+        if (missingScopes.Length > 0)
+        {
+            throw new InvalidOperationException(TF("Reconnect broadcaster to enable: {0}.", string.Join(", ", missingScopes)));
+        }
+
+        return account;
+    }
+
+    private void AppendLocalChatActivity(
+        BridgeChatActivityKind kind,
+        string message,
+        ChatModerationTarget target,
+        string messageId = "",
+        string suspiciousStatus = "")
+    {
+        AppendChatActivity(new BridgeChatActivity(kind, message, DateTimeOffset.Now)
+        {
+            TargetUserDisplayName = target.DisplayName,
+            TargetUserLogin = target.Login,
+            TargetUserId = target.UserId,
+            MessageId = messageId,
+            SuspiciousStatus = suspiciousStatus
+        });
+    }
+
+    private void ReportChatModerationFailure(ChatModerationTarget target, Exception ex)
+    {
+        var message = TF("Moderation action for {0} failed: {1}", target.DisplayName, SensitiveTextSanitizer.Sanitize(ex.Message));
+        ChatboxModerationStatusText = message;
+        AppendLocalChatActivity(BridgeChatActivityKind.ModerationFailure, message, target);
+    }
+
+    private ChatModerationTarget? GetSelectedChatModerationTarget()
+    {
+        if (SelectedChatMessage is not { } entry
+            || string.IsNullOrWhiteSpace(entry.UserId)
+            || string.Equals(entry.UserId, Settings.Broadcaster.UserId, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        return new ChatModerationTarget(entry.UserDisplayName, entry.UserLogin, entry.UserId);
+    }
+
+    private bool CanTimeoutSelectedChatUser() =>
+        GetSelectedChatModerationTarget() is not null
+        && HasScope(Settings.Broadcaster, TwitchScopes.ModerationBannedUsers);
+
+    private bool CanDeleteSelectedChatMessage() =>
+        GetSelectedChatModerationTarget() is not null
+        && SelectedChatMessage is { } entry
+        && !string.IsNullOrWhiteSpace(entry.MessageId)
+        && HasScope(Settings.Broadcaster, TwitchScopes.ModerationChatMessages);
+
+    private bool CanManageSelectedChatUserSuspiciousStatus() =>
+        GetSelectedChatModerationTarget() is not null
+        && HasScope(Settings.Broadcaster, TwitchScopes.ModerationSuspiciousUsers);
+
+    private void RaiseSelectedChatModerationProperties()
+    {
+        RaisePropertyChanged(nameof(HasSelectedChatMessage));
+        RaisePropertyChanged(nameof(HasSelectedChatModerationTarget));
+        RaisePropertyChanged(nameof(SelectedChatModerationTitle));
+        RaisePropertyChanged(nameof(SelectedChatModerationDetailText));
+    }
+
+    private void RefreshChatModerationCommandStates()
+    {
+        TimeoutSelectedChatUser10SecondsCommand.NotifyCanExecuteChanged();
+        TimeoutSelectedChatUser1MinuteCommand.NotifyCanExecuteChanged();
+        TimeoutSelectedChatUser5MinutesCommand.NotifyCanExecuteChanged();
+        TimeoutSelectedChatUser10MinutesCommand.NotifyCanExecuteChanged();
+        TimeoutSelectedChatUser30MinutesCommand.NotifyCanExecuteChanged();
+        TimeoutSelectedChatUser1HourCommand.NotifyCanExecuteChanged();
+        BanSelectedChatUserCommand.NotifyCanExecuteChanged();
+        PurgeSelectedChatUserCommand.NotifyCanExecuteChanged();
+        DeleteSelectedChatMessageCommand.NotifyCanExecuteChanged();
+        MarkSelectedChatUserSuspiciousCommand.NotifyCanExecuteChanged();
+        RestrictSelectedChatUserCommand.NotifyCanExecuteChanged();
+        ClearSelectedChatUserSuspiciousStatusCommand.NotifyCanExecuteChanged();
+        RaisePropertyChanged(nameof(ChatboxModerationScopeStatusText));
+    }
+
+    private static string FormatModerationDuration(int seconds)
+    {
+        return seconds switch
+        {
+            < 60 => string.Format(CultureInfo.CurrentCulture, LocalizationService.Translate("{0:N0}s"), seconds),
+            < 3600 => string.Format(CultureInfo.CurrentCulture, LocalizationService.Translate("{0:N0}m"), seconds / 60),
+            _ => string.Format(CultureInfo.CurrentCulture, LocalizationService.Translate("{0:N0}h"), seconds / 3600)
+        };
+    }
+
+    private static string FormatSuspiciousStatusLabel(string suspiciousStatus) => suspiciousStatus switch
+    {
+        "ACTIVE_MONITORING" => LocalizationService.Translate("Suspicious"),
+        "RESTRICTED" => LocalizationService.Translate("Restricted"),
+        "NO_TREATMENT" => LocalizationService.Translate("Cleared"),
+        _ => suspiciousStatus
+    };
 
     private void RefreshCommandStates()
     {
@@ -14339,6 +15048,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ToggleSelectedAvatarRewardTestOverrideCommand.NotifyCanExecuteChanged();
         UseCurrentVrChatAvatarForProfileCommand.NotifyCanExecuteChanged();
         RefreshVrChatOscParametersCommand.NotifyCanExecuteChanged();
+        RefreshChatModerationCommandStates();
         RefreshRuleCommandStates();
     }
 
@@ -17291,6 +18001,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RewardFireSale
     }
 
+    private sealed record ChatModerationTarget(string DisplayName, string Login, string UserId);
+
     private sealed record LinkedTwitchRewardReference(string RewardId, string DisplayTitle);
 }
 
@@ -17376,6 +18088,63 @@ public sealed record TwitchRewardOption(
 public sealed record TwitchRewardSyncModeOption(TwitchRewardSyncMode Value, string Label)
 {
     public override string ToString() => Label;
+}
+
+public sealed class TwitchChatActivityEntry
+{
+    public TwitchChatActivityEntry(BridgeChatActivity activity)
+    {
+        Kind = activity.Kind;
+        MessageText = activity.MessageText?.Trim() ?? string.Empty;
+        TargetUserDisplayName = activity.TargetUserDisplayName?.Trim() ?? string.Empty;
+        TargetUserLogin = activity.TargetUserLogin?.Trim() ?? string.Empty;
+        TargetUserId = activity.TargetUserId?.Trim() ?? string.Empty;
+        MessageId = activity.MessageId?.Trim() ?? string.Empty;
+        SuspiciousStatus = activity.SuspiciousStatus?.Trim() ?? string.Empty;
+        ReceivedAt = activity.ReceivedAt;
+    }
+
+    public BridgeChatActivityKind Kind { get; }
+
+    public string MessageText { get; }
+
+    public string TargetUserDisplayName { get; }
+
+    public string TargetUserLogin { get; }
+
+    public string TargetUserId { get; }
+
+    public string MessageId { get; }
+
+    public string SuspiciousStatus { get; }
+
+    public DateTimeOffset ReceivedAt { get; }
+
+    public string TimestampText => ReceivedAt.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture);
+
+    public string KindLabel => Kind switch
+    {
+        BridgeChatActivityKind.ChannelPointRedemption => LocalizationService.Translate("Reward"),
+        BridgeChatActivityKind.SupportEvent => LocalizationService.Translate("Support"),
+        BridgeChatActivityKind.Follow => LocalizationService.Translate("Follow"),
+        BridgeChatActivityKind.MessageDeleted => LocalizationService.Translate("Deleted"),
+        BridgeChatActivityKind.UserMessagesCleared => LocalizationService.Translate("Purged"),
+        BridgeChatActivityKind.ChatCleared => LocalizationService.Translate("Cleared"),
+        BridgeChatActivityKind.Timeout => LocalizationService.Translate("Timeout"),
+        BridgeChatActivityKind.Ban => LocalizationService.Translate("Ban"),
+        BridgeChatActivityKind.MessagePurged => LocalizationService.Translate("Purge"),
+        BridgeChatActivityKind.SuspiciousUserUpdated => LocalizationService.Translate("Suspicious"),
+        BridgeChatActivityKind.SuspiciousUserMessage => LocalizationService.Translate("Suspicious"),
+        BridgeChatActivityKind.ModerationFailure => LocalizationService.Translate("Failed"),
+        _ => LocalizationService.Translate("Activity")
+    };
+
+    public bool HasTargetUser => !string.IsNullOrWhiteSpace(TargetUserDisplayName)
+        || !string.IsNullOrWhiteSpace(TargetUserLogin);
+
+    public string TargetUserText => string.IsNullOrWhiteSpace(TargetUserLogin)
+        ? TargetUserDisplayName
+        : string.Format(CultureInfo.CurrentCulture, LocalizationService.Translate("@{0}"), TargetUserLogin);
 }
 
 public sealed record RewardFireSaleModeOption(RewardFireSaleMode Value, string Label)
@@ -17539,10 +18308,12 @@ public sealed class TwitchChatMessageEntry : ObservableObject
     private static readonly LinearGradientBrush KyouZakiraNameBrush = CreateFrozenKyouZakiraNameBrush();
     private static readonly Color DarkCardReferenceColor = Color.FromRgb(40, 23, 60);
     private ChatTimestampFormat timestampFormat;
+    private string suspiciousStatus = string.Empty;
 
     public TwitchChatMessageEntry(
         string userDisplayName,
         string userLogin,
+        string userId,
         string messageText,
         string userColor,
         IReadOnlyList<string> badgeImageUrls,
@@ -17559,13 +18330,21 @@ public sealed class TwitchChatMessageEntry : ObservableObject
         int supportAmount = 0,
         string supportTier = "",
         int supportMonths = 0,
-        string supportMessage = "")
+        string supportMessage = "",
+        string messageId = "",
+        string messageType = "",
+        string sourceBroadcasterUserId = "",
+        string sourceBroadcasterUserLogin = "",
+        string sourceBroadcasterUserName = "",
+        string sourceMessageId = "",
+        bool isSourceOnly = false)
     {
         var normalizedSupportTier = supportTier?.Trim() ?? string.Empty;
 
         Kind = Enum.IsDefined(kind) ? kind : TwitchChatMessageEntryKind.Chat;
         UserDisplayName = string.IsNullOrWhiteSpace(userDisplayName) ? "Viewer" : userDisplayName.Trim();
         UserLogin = userLogin?.Trim() ?? string.Empty;
+        UserId = userId?.Trim() ?? string.Empty;
         IsCrystalRelayDeveloper = IsCrystalRelayDeveloperAccount(UserDisplayName, UserLogin);
         IsKaiBloodwolf = IsKaiBloodwolfAccount(UserDisplayName, UserLogin);
         IsHypercraftiing = IsHypercraftiingAccount(UserDisplayName, UserLogin);
@@ -17604,6 +18383,13 @@ public sealed class TwitchChatMessageEntry : ObservableObject
         SupportTier = normalizedSupportTier;
         SupportMonths = Math.Max(0, supportMonths);
         SupportMessage = supportMessage?.Trim() ?? string.Empty;
+        MessageId = messageId?.Trim() ?? string.Empty;
+        MessageType = messageType?.Trim() ?? string.Empty;
+        SourceBroadcasterUserId = sourceBroadcasterUserId?.Trim() ?? string.Empty;
+        SourceBroadcasterUserLogin = sourceBroadcasterUserLogin?.Trim() ?? string.Empty;
+        SourceBroadcasterUserName = sourceBroadcasterUserName?.Trim() ?? string.Empty;
+        SourceMessageId = sourceMessageId?.Trim() ?? string.Empty;
+        IsSourceOnly = isSourceOnly;
         this.timestampFormat = NormalizeTimestampFormat(timestampFormat);
     }
 
@@ -17622,6 +18408,8 @@ public sealed class TwitchChatMessageEntry : ObservableObject
     public string UserDisplayName { get; }
 
     public string UserLogin { get; }
+
+    public string UserId { get; }
 
     public bool IsCrystalRelayDeveloper { get; }
 
@@ -17712,6 +18500,50 @@ public sealed class TwitchChatMessageEntry : ObservableObject
 
     public string SupportMessage { get; }
 
+    public string MessageId { get; }
+
+    public string MessageType { get; }
+
+    public string SourceBroadcasterUserId { get; }
+
+    public string SourceBroadcasterUserLogin { get; }
+
+    public string SourceBroadcasterUserName { get; }
+
+    public string SourceMessageId { get; }
+
+    public bool IsSourceOnly { get; }
+
+    public string SuspiciousStatus
+    {
+        get => suspiciousStatus;
+        set
+        {
+            var normalized = NormalizeSuspiciousStatus(value);
+            if (SetProperty(ref suspiciousStatus, normalized))
+            {
+                RaisePropertyChanged(nameof(HasSuspiciousStatus));
+                RaisePropertyChanged(nameof(IsSuspiciousMonitored));
+                RaisePropertyChanged(nameof(IsRestrictedChatter));
+                RaisePropertyChanged(nameof(SuspiciousStatusLabel));
+            }
+        }
+    }
+
+    public bool HasSuspiciousStatus => !string.IsNullOrWhiteSpace(SuspiciousStatus)
+        && !string.Equals(SuspiciousStatus, "NO_TREATMENT", StringComparison.OrdinalIgnoreCase);
+
+    public bool IsSuspiciousMonitored => string.Equals(SuspiciousStatus, "ACTIVE_MONITORING", StringComparison.OrdinalIgnoreCase);
+
+    public bool IsRestrictedChatter => string.Equals(SuspiciousStatus, "RESTRICTED", StringComparison.OrdinalIgnoreCase);
+
+    public string SuspiciousStatusLabel => SuspiciousStatus switch
+    {
+        "ACTIVE_MONITORING" => LocalizationService.Translate("SUSPICIOUS"),
+        "RESTRICTED" => LocalizationService.Translate("RESTRICTED"),
+        _ => string.Empty
+    };
+
     public bool HasSupportDetailText => !string.IsNullOrWhiteSpace(SupportDetailText);
 
     public bool HasSupportMessage => !string.IsNullOrWhiteSpace(SupportMessage);
@@ -17773,6 +18605,21 @@ public sealed class TwitchChatMessageEntry : ObservableObject
             LocalizationService.Translate("{0:N0} points"),
             RewardCost)
         : string.Empty;
+
+    private static string NormalizeSuspiciousStatus(string? value)
+    {
+        var normalized = value?.Trim() ?? string.Empty;
+        return normalized switch
+        {
+            _ when normalized.Equals("ACTIVE_MONITORING", StringComparison.OrdinalIgnoreCase)
+                || normalized.Equals("active_monitoring", StringComparison.OrdinalIgnoreCase) => "ACTIVE_MONITORING",
+            _ when normalized.Equals("RESTRICTED", StringComparison.OrdinalIgnoreCase)
+                || normalized.Equals("restricted", StringComparison.OrdinalIgnoreCase) => "RESTRICTED",
+            _ when normalized.Equals("NO_TREATMENT", StringComparison.OrdinalIgnoreCase)
+                || normalized.Equals("no_treatment", StringComparison.OrdinalIgnoreCase) => "NO_TREATMENT",
+            _ => normalized.ToUpperInvariant()
+        };
+    }
 
     private static string FormatSupportTierAndMonths(string tier, int months)
     {

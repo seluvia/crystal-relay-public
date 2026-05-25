@@ -9,6 +9,31 @@ using Brush = System.Windows.Media.Brush;
 
 namespace VrcTwitchOscBridge.Models;
 
+public sealed class SupporterFloatAddRange : ObservableObject
+{
+    private int minimumAmount = 1;
+    private int maximumAmount;
+    private string addValue = "0.05";
+
+    public int MinimumAmount
+    {
+        get => minimumAmount;
+        set => SetProperty(ref minimumAmount, Math.Max(1, value));
+    }
+
+    public int MaximumAmount
+    {
+        get => maximumAmount;
+        set => SetProperty(ref maximumAmount, Math.Max(0, value));
+    }
+
+    public string AddValue
+    {
+        get => addValue;
+        set => SetProperty(ref addValue, value?.Trim() ?? string.Empty);
+    }
+}
+
 public sealed class TriggerRule : ObservableObject
 {
     private static string T(string sourceText) => LocalizationService.Translate(sourceText);
@@ -82,6 +107,10 @@ public sealed class TriggerRule : ObservableObject
     private string activeFloatBoostAddValue = "0.05";
     private string activeFloatBoostMinimumValue = "0";
     private string activeFloatBoostMaximumValue = "1";
+    private bool supporterFloatAddEnabled;
+    private string supporterFloatAddMinimumValue = "0";
+    private string supporterFloatAddMaximumValue = "1";
+    private ObservableCollection<SupporterFloatAddRange> supporterFloatAddRanges = [new()];
     private ObservableCollection<SetTriggerAction> setTriggerActions = [];
     private ObservableCollection<Guid> temporarilyDisabledRuleIds = [];
     private string supporterAvatarScopeLabel = string.Empty;
@@ -91,6 +120,8 @@ public sealed class TriggerRule : ObservableObject
         temporarilyDisabledRuleIds.CollectionChanged += OnTemporarilyDisabledRuleIdsChanged;
         avatarRouletAvatarIds.CollectionChanged += OnAvatarRouletAvatarIdsChanged;
         avatarRouletAvatarNames.CollectionChanged += OnAvatarRouletAvatarNamesChanged;
+        supporterFloatAddRanges.CollectionChanged += OnSupporterFloatAddRangesChanged;
+        WireSupporterFloatAddRanges(supporterFloatAddRanges);
         setTriggerActions.CollectionChanged += OnSetTriggerActionsChanged;
     }
 
@@ -133,6 +164,9 @@ public sealed class TriggerRule : ObservableObject
                 RaisePropertyChanged(nameof(UsesBitsOutfitSetTrigger));
                 RaisePropertyChanged(nameof(UsesForceMovementBitsTrigger));
                 RaisePropertyChanged(nameof(UsesSupporterAmountTimerSettings));
+                RaisePropertyChanged(nameof(UsesSupporterFloatAdd));
+                RaisePropertyChanged(nameof(UsesActiveSupporterFloatAdd));
+                RaisePropertyChanged(nameof(SupporterFloatAddSummary));
                 RaisePropertyChanged(nameof(DurationHelpText));
                 RaisePropertyChanged(nameof(SupporterTimeSettingsSummary));
                 RaisePropertyChanged(nameof(TriggerSummary));
@@ -496,6 +530,9 @@ public sealed class TriggerRule : ObservableObject
                 RaisePropertyChanged(nameof(UsesBitsOutfitSetTrigger));
                 RaisePropertyChanged(nameof(UsesForceMovementBitsTrigger));
                 RaisePropertyChanged(nameof(UsesSupporterAmountTimerSettings));
+                RaisePropertyChanged(nameof(UsesSupporterFloatAdd));
+                RaisePropertyChanged(nameof(UsesActiveSupporterFloatAdd));
+                RaisePropertyChanged(nameof(SupporterFloatAddSummary));
                 RaisePropertyChanged(nameof(AvatarRedeemListSummary));
                 RaiseActionVisibilityProperties();
                 RaisePropertyChanged(nameof(TriggerSummary));
@@ -606,7 +643,15 @@ public sealed class TriggerRule : ObservableObject
                 ActiveFloatBoostAddValue = FloatValueModeConverter.ConvertDisplayText(ActiveFloatBoostAddValue, previousValue, normalizedValue);
                 ActiveFloatBoostMinimumValue = FloatValueModeConverter.ConvertDisplayText(ActiveFloatBoostMinimumValue, previousValue, normalizedValue);
                 ActiveFloatBoostMaximumValue = FloatValueModeConverter.ConvertDisplayText(ActiveFloatBoostMaximumValue, previousValue, normalizedValue);
+                SupporterFloatAddMinimumValue = FloatValueModeConverter.ConvertDisplayText(SupporterFloatAddMinimumValue, previousValue, normalizedValue);
+                SupporterFloatAddMaximumValue = FloatValueModeConverter.ConvertDisplayText(SupporterFloatAddMaximumValue, previousValue, normalizedValue);
+                foreach (var range in SupporterFloatAddRanges)
+                {
+                    range.AddValue = FloatValueModeConverter.ConvertDisplayText(range.AddValue, previousValue, normalizedValue);
+                }
+
                 RaisePropertyChanged(nameof(FloatValueModeHelpText));
+                RaisePropertyChanged(nameof(SupporterFloatAddSummary));
                 RaisePropertyChanged(nameof(TriggerSummary));
             }
         }
@@ -771,6 +816,9 @@ public sealed class TriggerRule : ObservableObject
                 RaisePropertyChanged(nameof(UsesFloatTransition));
                 RaisePropertyChanged(nameof(UsesActiveFloatBoostReward));
                 RaisePropertyChanged(nameof(ActiveFloatBoostRewardStatusText));
+                RaisePropertyChanged(nameof(UsesSupporterFloatAdd));
+                RaisePropertyChanged(nameof(UsesActiveSupporterFloatAdd));
+                RaisePropertyChanged(nameof(SupporterFloatAddSummary));
                 RaisePropertyChanged(nameof(SupporterTimeSettingsSummary));
                 RaisePropertyChanged(nameof(TriggerSummary));
             }
@@ -1001,6 +1049,66 @@ public sealed class TriggerRule : ObservableObject
         set => SetProperty(ref activeFloatBoostMaximumValue, value ?? string.Empty);
     }
 
+    public bool SupporterFloatAddEnabled
+    {
+        get => supporterFloatAddEnabled;
+        set
+        {
+            if (SetProperty(ref supporterFloatAddEnabled, value))
+            {
+                RaisePropertyChanged(nameof(UsesActiveSupporterFloatAdd));
+                RaisePropertyChanged(nameof(SupporterFloatAddSummary));
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public string SupporterFloatAddMinimumValue
+    {
+        get => supporterFloatAddMinimumValue;
+        set
+        {
+            if (SetProperty(ref supporterFloatAddMinimumValue, value ?? string.Empty))
+            {
+                RaisePropertyChanged(nameof(SupporterFloatAddSummary));
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public string SupporterFloatAddMaximumValue
+    {
+        get => supporterFloatAddMaximumValue;
+        set
+        {
+            if (SetProperty(ref supporterFloatAddMaximumValue, value ?? string.Empty))
+            {
+                RaisePropertyChanged(nameof(SupporterFloatAddSummary));
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public ObservableCollection<SupporterFloatAddRange> SupporterFloatAddRanges
+    {
+        get => supporterFloatAddRanges;
+        set
+        {
+            var normalizedValue = value ?? [];
+            if (ReferenceEquals(supporterFloatAddRanges, normalizedValue))
+            {
+                return;
+            }
+
+            supporterFloatAddRanges.CollectionChanged -= OnSupporterFloatAddRangesChanged;
+            UnwireSupporterFloatAddRanges(supporterFloatAddRanges);
+            supporterFloatAddRanges = normalizedValue;
+            supporterFloatAddRanges.CollectionChanged += OnSupporterFloatAddRangesChanged;
+            WireSupporterFloatAddRanges(supporterFloatAddRanges);
+            RaiseSupporterFloatAddProperties();
+        }
+    }
+
     public ObservableCollection<SetTriggerAction> SetTriggerActions
     {
         get => setTriggerActions;
@@ -1196,6 +1304,15 @@ public sealed class TriggerRule : ObservableObject
 
     public bool UsesActiveFloatBoostReward => UsesFloatTimedValues && ActiveFloatBoostRewardEnabled;
 
+    public bool UsesSupporterFloatAdd => UsesAmountThreshold
+        && UsesFloatTimedValues
+        && !UsesSetTrigger
+        && !UsesForceMovementBitsTrigger;
+
+    public bool UsesActiveSupporterFloatAdd => UsesSupporterFloatAdd && SupporterFloatAddEnabled;
+
+    public bool HasSupporterFloatAddRanges => SupporterFloatAddRanges.Count > 0;
+
     public bool UsesBoolTimedValues => UsesBoolParameter && UsesTimedAction;
 
     public bool UsesBoolToggleHint => UsesBoolParameter && UsesInstantAction;
@@ -1238,6 +1355,25 @@ public sealed class TriggerRule : ObservableObject
                 ? T("Active Boost Reward")
                 : ActiveFloatBoostRewardTitle.Trim();
             return TF("{0} adds {1} while this redeem is active.", title, ActiveFloatBoostAddValue);
+        }
+    }
+
+    public string SupporterFloatAddSummary
+    {
+        get
+        {
+            if (!UsesActiveSupporterFloatAdd)
+            {
+                return T("Bits/Subs add is off.");
+            }
+
+            var range = SupporterFloatAddRanges.FirstOrDefault(IsSupporterFloatAddRangeConfigured);
+            if (range is null)
+            {
+                return T("Add one Bits/Subs rule.");
+            }
+
+            return FormatSupporterFloatAddRangeSummary(range);
         }
     }
 
@@ -1317,9 +1453,11 @@ public sealed class TriggerRule : ObservableObject
                 TwitchTriggerType.Bits when UsesForceMovementBitsTrigger => string.IsNullOrWhiteSpace(SupporterKeywordText)
                     ? TF("Bits >= {0} + movement word needed", Math.Max(1, MinimumAmount))
                     : TF("Bits >= {0} + Word: {1}", Math.Max(1, MinimumAmount), SupporterKeywordText.Trim()),
+                TwitchTriggerType.Bits when UsesActiveSupporterFloatAdd => SupporterFloatAddSummary,
                 TwitchTriggerType.Bits => AmountScaledDurationEnabled
                     ? TF("Bits >= {0} ({1}s per {2} bits)", Math.Max(1, MinimumAmount), Math.Max(1, BitsSecondsPerAmountUnit), Math.Max(1, BitsAmountUnitsPerDuration))
                     : TF("Bits >= {0}", Math.Max(1, MinimumAmount)),
+                TwitchTriggerType.Subscriptions when UsesActiveSupporterFloatAdd => SupporterFloatAddSummary,
                 TwitchTriggerType.Subscriptions => AmountScaledDurationEnabled
                     ? TF("Subs >= {0} (T1 {1}s, T2 {2}s, T3 {3}s)", Math.Max(1, MinimumAmount), Math.Max(1, SubscriptionTier1SecondsPerSub), Math.Max(1, SubscriptionTier2SecondsPerSub), Math.Max(1, SubscriptionTier3SecondsPerSub))
                     : TF("Subs >= {0}", Math.Max(1, MinimumAmount)),
@@ -1348,6 +1486,7 @@ public sealed class TriggerRule : ObservableObject
                     ? TF("Roll from {0}", AvatarRouletPoolSummary)
                     : T("Pick avatar pool"),
                 OscActionType.PlayerMovement => TF("{0} for {1}", DescribeMovementDirection(MovementDirection), DescribeDuration(Math.Max(1, DurationSeconds))),
+                OscActionType.AvatarParameter when UsesActiveSupporterFloatAdd => TF("Add to {0}", ParameterName),
                 OscActionType.AvatarParameter when UsesBoolToggleHint => TF("Toggle {0}", ParameterName),
                 OscActionType.AvatarParameter when UsesIntParameter && UsesInstantAction && IntZeroDurationMode == global::VrcTwitchOscBridge.Models.IntZeroDurationMode.Random =>
                     TF("Random {0} ({1}-{2})", ParameterName, Math.Min(RangeMinimum, RangeMaximum), Math.Max(RangeMinimum, RangeMaximum)),
@@ -1394,6 +1533,8 @@ public sealed class TriggerRule : ObservableObject
         RaisePropertyChanged(nameof(UsesFloatTimedValues));
         RaisePropertyChanged(nameof(UsesFloatTransition));
         RaisePropertyChanged(nameof(UsesActiveFloatBoostReward));
+        RaisePropertyChanged(nameof(UsesSupporterFloatAdd));
+        RaisePropertyChanged(nameof(UsesActiveSupporterFloatAdd));
         RaisePropertyChanged(nameof(UsesBoolTimedValues));
         RaisePropertyChanged(nameof(UsesBoolToggleHint));
         RaisePropertyChanged(nameof(UsesIntInstantModeOptions));
@@ -1408,6 +1549,7 @@ public sealed class TriggerRule : ObservableObject
         RaisePropertyChanged(nameof(AvatarRouletPoolSummary));
         RaisePropertyChanged(nameof(FloatValueModeHelpText));
         RaisePropertyChanged(nameof(ActiveFloatBoostRewardStatusText));
+        RaisePropertyChanged(nameof(SupporterFloatAddSummary));
         RaisePropertyChanged(nameof(HasSetTriggerActions));
         RaisePropertyChanged(nameof(SetTriggerActionCount));
         RaisePropertyChanged(nameof(SetTriggerSummary));
@@ -1434,6 +1576,31 @@ public sealed class TriggerRule : ObservableObject
 
     private static string DescribeDuration(int seconds) => $"{Math.Max(1, seconds)}s";
 
+    private static bool IsSupporterFloatAddRangeConfigured(SupporterFloatAddRange range) =>
+        !string.IsNullOrWhiteSpace(range.AddValue);
+
+    private string FormatSupporterFloatAddRangeSummary(SupporterFloatAddRange range)
+    {
+        var triggerLabel = TriggerType == TwitchTriggerType.Bits ? "Bits" : "Subs";
+        var minimumAmount = Math.Max(1, range.MinimumAmount);
+        var maximumAmount = Math.Max(0, range.MaximumAmount);
+        var addValue = FormatFloatDisplayValue(range.AddValue);
+        var maximumValue = FormatFloatDisplayValue(SupporterFloatAddMaximumValue);
+        return maximumAmount == 0
+            ? TF("{0} {1}+: +{2} (max {3})", triggerLabel, minimumAmount, addValue, maximumValue)
+            : TF("{0} {1}-{2}: +{3} (max {4})", triggerLabel, minimumAmount, maximumAmount, addValue, maximumValue);
+    }
+
+    private string FormatFloatDisplayValue(string value)
+    {
+        var normalizedValue = value?.Trim() ?? string.Empty;
+        return FloatValueMode == global::VrcTwitchOscBridge.Models.FloatValueMode.Percent
+            && !string.IsNullOrWhiteSpace(normalizedValue)
+            && !normalizedValue.EndsWith('%')
+                ? $"{normalizedValue}%"
+                : normalizedValue;
+    }
+
     private void OnTemporarilyDisabledRuleIdsChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         RaisePropertyChanged(nameof(TemporarilyDisabledRuleIds));
@@ -1452,6 +1619,56 @@ public sealed class TriggerRule : ObservableObject
     {
         RaisePropertyChanged(nameof(AvatarRouletAvatarNames));
         RaisePropertyChanged(nameof(AvatarRouletPoolSummary));
+        RaisePropertyChanged(nameof(TriggerSummary));
+    }
+
+    private void OnSupporterFloatAddRangesChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.OldItems is not null)
+        {
+            foreach (SupporterFloatAddRange range in e.OldItems)
+            {
+                range.PropertyChanged -= OnSupporterFloatAddRangePropertyChanged;
+            }
+        }
+
+        if (e.NewItems is not null)
+        {
+            foreach (SupporterFloatAddRange range in e.NewItems)
+            {
+                range.PropertyChanged += OnSupporterFloatAddRangePropertyChanged;
+            }
+        }
+
+        RaiseSupporterFloatAddProperties();
+    }
+
+    private void OnSupporterFloatAddRangePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        RaiseSupporterFloatAddProperties();
+    }
+
+    private void WireSupporterFloatAddRanges(IEnumerable<SupporterFloatAddRange> ranges)
+    {
+        foreach (var range in ranges)
+        {
+            range.PropertyChanged += OnSupporterFloatAddRangePropertyChanged;
+        }
+    }
+
+    private void UnwireSupporterFloatAddRanges(IEnumerable<SupporterFloatAddRange> ranges)
+    {
+        foreach (var range in ranges)
+        {
+            range.PropertyChanged -= OnSupporterFloatAddRangePropertyChanged;
+        }
+    }
+
+    private void RaiseSupporterFloatAddProperties()
+    {
+        RaisePropertyChanged(nameof(SupporterFloatAddRanges));
+        RaisePropertyChanged(nameof(HasSupporterFloatAddRanges));
+        RaisePropertyChanged(nameof(SupporterFloatAddSummary));
         RaisePropertyChanged(nameof(TriggerSummary));
     }
 

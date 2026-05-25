@@ -451,6 +451,28 @@ public partial class MainWindow : Window
         rule.SupporterGrowthBitRanges.Remove(range);
     }
 
+    private void OnAddSupporterFloatAddRangeClicked(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel { SelectedRule: { } rule })
+        {
+            return;
+        }
+
+        rule.SupporterFloatAddRanges.Add(new SupporterFloatAddRange());
+    }
+
+    private void OnRemoveSupporterFloatAddRangeClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: SupporterFloatAddRange range }
+            || DataContext is not MainWindowViewModel { SelectedRule: { } rule }
+            || rule.SupporterFloatAddRanges.Count <= 1)
+        {
+            return;
+        }
+
+        rule.SupporterFloatAddRanges.Remove(range);
+    }
+
     private void ApplyTheme(AppTheme theme)
     {
         ApplyThemeBackground(theme);

@@ -29,6 +29,11 @@ public sealed record SetTriggerActionSnapshot(
     OscParameterType ParameterType,
     string ParameterValue);
 
+public sealed record SupporterFloatAddRangeSnapshot(
+    int MinimumAmount,
+    int MaximumAmount,
+    string AddValue);
+
 public sealed record TriggerRuleSnapshot(
     Guid Id,
     bool IsEnabled,
@@ -83,6 +88,10 @@ public sealed record TriggerRuleSnapshot(
     string ActiveFloatBoostAddValue,
     string ActiveFloatBoostMinimumValue,
     string ActiveFloatBoostMaximumValue,
+    bool SupporterFloatAddEnabled,
+    string SupporterFloatAddMinimumValue,
+    string SupporterFloatAddMaximumValue,
+    IReadOnlyList<SupporterFloatAddRangeSnapshot> SupporterFloatAddRanges,
     string AvatarChangeTargetId,
     string AvatarChangeResetId,
     string AvatarTargetName,
@@ -644,6 +653,10 @@ public sealed record BridgeRuntimeConfiguration(
             rule.ActiveFloatBoostAddValue.Trim(),
             rule.ActiveFloatBoostMinimumValue.Trim(),
             rule.ActiveFloatBoostMaximumValue.Trim(),
+            rule.SupporterFloatAddEnabled,
+            rule.SupporterFloatAddMinimumValue.Trim(),
+            rule.SupporterFloatAddMaximumValue.Trim(),
+            [.. rule.SupporterFloatAddRanges.Select(ToSupporterFloatAddRangeSnapshot)],
             rule.AvatarChangeTargetId.Trim(),
             rule.AvatarChangeResetId.Trim(),
             rule.AvatarTargetName.Trim(),
@@ -675,6 +688,14 @@ public sealed record BridgeRuntimeConfiguration(
             action.ParameterName.Trim(),
             normalizedType,
             action.ParameterValue.Trim());
+    }
+
+    private static SupporterFloatAddRangeSnapshot ToSupporterFloatAddRangeSnapshot(SupporterFloatAddRange range)
+    {
+        return new SupporterFloatAddRangeSnapshot(
+            Math.Max(1, range.MinimumAmount),
+            Math.Max(0, range.MaximumAmount),
+            range.AddValue.Trim());
     }
 
     private static int? GetLinkedRewardBotCooldownSeconds(
