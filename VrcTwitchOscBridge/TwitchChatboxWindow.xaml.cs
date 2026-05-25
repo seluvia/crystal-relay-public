@@ -314,6 +314,7 @@ public partial class TwitchChatboxWindow : Window
             viewModel.ChatMessages[i] = new TwitchChatMessageEntry(
                 current.UserDisplayName,
                 current.UserLogin,
+                current.UserId,
                 current.MessageText,
                 current.RawUserColor,
                 current.BadgeImageUrls,
@@ -330,7 +331,17 @@ public partial class TwitchChatboxWindow : Window
                 current.SupportAmount,
                 current.SupportTier,
                 current.SupportMonths,
-                current.SupportMessage);
+                current.SupportMessage,
+                current.MessageId,
+                current.MessageType,
+                current.SourceBroadcasterUserId,
+                current.SourceBroadcasterUserLogin,
+                current.SourceBroadcasterUserName,
+                current.SourceMessageId,
+                current.IsSourceOnly)
+            {
+                SuspiciousStatus = current.SuspiciousStatus
+            };
         }
     }
 

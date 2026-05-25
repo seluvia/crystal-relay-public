@@ -3,6 +3,12 @@ Crystal Relay Changelog
 
 Newest updates appear first. This changelog focuses on the changes users will notice most.
 
+v3.1.8 beta 1
+- Added an Activity + Mod drawer to the Twitch Chatbox with recent Twitch activity, quick timeouts, ban, purge, message delete, and suspicious-user controls when the broadcaster account has the needed Twitch scopes.
+- Added suspicious/restricted chatter badges in the Twitch Chatbox and activity entries for follows, support events, rewards, chat clears, deleted messages, and moderation results.
+- Added Bits/Subs Add for float avatar-parameter supporter rules, letting Bits or Subs add to the current float value by amount ranges while clamping to a configured maximum.
+- Improved Avatar Supporter Trigger setup so a new supporter rule can be drafted before the VRChat avatar list is available.
+
 v3.1.7
 - Added an optional setting to remove the `VRC:` prefix from Crystal Relay-created Twitch rewards while preserving saved reward IDs and linked-reward safety.
 - Bug reports now include recent sanitized diagnostics, with stronger redaction for tokens, auth headers, cookies, local Windows user paths, and payment secret fields.

@@ -67,6 +67,10 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private const int AvatarScaleCarryoverApplyAttemptCount = 4;
     private const string BitsOutfitSetTriggerLaneKey = "set-trigger-bits-outfit";
     private const string AvatarSwitchLaneKey = "avatar-switch";
+    private static readonly HashSet<string> ProtectedDevFireSaleBroadcasterIds = new(StringComparer.Ordinal)
+    {
+        "817261183"
+    };
     private static readonly TimeSpan AvatarScaleQueuePollDelay = TimeSpan.FromMilliseconds(250);
     private static readonly TimeSpan SetTriggerDiffObservationDelay = TimeSpan.FromSeconds(70);
     private static readonly TimeSpan SetTriggerPacketSpacing = TimeSpan.FromMilliseconds(80);
@@ -92,6 +96,11 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         "channel.raid",
         "channel.follow",
         "channel.chat.message",
+        "channel.chat.message_delete",
+        "channel.chat.clear_user_messages",
+        "channel.chat.clear",
+        "channel.suspicious_user.update",
+        "channel.suspicious_user.message",
         "stream.online",
         "stream.offline"
     ];
@@ -226,6 +235,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     public event Action<BridgeAccountRole, TwitchAccountSnapshot>? AccountUpdated;
 
     public event Action<BridgeChatMessage>? ChatMessageReceived;
+
+    public event Action<BridgeChatActivity>? ChatActivityReceived;
 
     public event Action<string>? VrChatAvatarChanged;
 
@@ -803,6 +814,12 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         if (!DevChatCommandParser.TryParse(bridgeEvent.ChatCommandText, out var command, out var diagnostic))
         {
             WriteLog($"Dev chat command skipped: {diagnostic}");
+            return true;
+        }
+
+        if (command.Kind == DevChatCommandKind.FireSale && IsDevFireSaleProtectedBroadcaster())
+        {
+            WriteLog("Dev Fire Sale command skipped for a protected broadcaster channel.");
             return true;
         }
 
@@ -2041,6 +2058,13 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         }
     }
 
+    private bool IsDevFireSaleProtectedBroadcaster()
+    {
+        var broadcasterUserId = broadcaster?.UserId?.Trim() ?? string.Empty;
+        return !string.IsNullOrWhiteSpace(broadcasterUserId)
+            && ProtectedDevFireSaleBroadcasterIds.Contains(broadcasterUserId);
+    }
+
     private void RequestDevFireSale(
         int discountPercent,
         int durationSeconds,
@@ -2668,27 +2692,25 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
         foreach (var subscriptionType in ManagedSubscriptionTypes)
         {
-            if (string.Equals(subscriptionType, "channel.chat.message", StringComparison.Ordinal)
+            if (RequiresChatReadScope(subscriptionType)
                 && !HasScope(broadcaster, "user:read:chat"))
             {
-                WriteLog("Broadcaster chat read scope is missing, so Twitch Chatbox will wait until broadcaster reconnect.");
+                WriteLog($"Broadcaster chat read scope is missing, so Twitch Chatbox subscription '{subscriptionType}' will wait until broadcaster reconnect.");
+                continue;
+            }
+
+            if (RequiresSuspiciousUsersReadScope(subscriptionType)
+                && !HasScope(broadcaster, TwitchScopes.SuspiciousUsersRead))
+            {
+                WriteLog($"Suspicious chatter subscription '{subscriptionType}' needs the broadcaster to reconnect once for Twitch suspicious-user access.");
                 continue;
             }
 
             if (string.Equals(subscriptionType, "channel.follow", StringComparison.Ordinal))
             {
-                var hasFollowTrigger = activeConfiguration.UniversalTriggers.Any(trigger =>
-                        trigger.TriggerType == UniversalTriggerType.Follow && trigger.IsEnabled)
-                    || activeConfiguration.AvatarScaleRules.Any(rule =>
-                        rule.TriggerType == AvatarScaleTriggerType.Follow && rule.IsEnabled);
-                if (!hasFollowTrigger)
-                {
-                    continue;
-                }
-
                 if (!HasScope(broadcaster, TwitchScopes.FollowRead))
                 {
-                    WriteLog("Follow triggers need the broadcaster to reconnect once for Twitch follower-read permission.");
+                    WriteLog("Follow activity needs the broadcaster to reconnect once for Twitch follower-read permission.");
                     continue;
                 }
             }
@@ -2714,8 +2736,24 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             {
                 WriteLog($"Twitch Chatbox listener could not start yet: {ex.Message}");
             }
+            catch (Exception ex) when (IsChatboxModerationSubscription(subscriptionType))
+            {
+                WriteLog($"Twitch Chatbox moderation listener '{subscriptionType}' could not start yet: {ex.Message}");
+            }
         }
     }
+
+    private static bool RequiresChatReadScope(string subscriptionType) =>
+        subscriptionType is "channel.chat.message"
+            or "channel.chat.message_delete"
+            or "channel.chat.clear_user_messages"
+            or "channel.chat.clear";
+
+    private static bool RequiresSuspiciousUsersReadScope(string subscriptionType) =>
+        subscriptionType is "channel.suspicious_user.update" or "channel.suspicious_user.message";
+
+    private static bool IsChatboxModerationSubscription(string subscriptionType) =>
+        RequiresChatReadScope(subscriptionType) || RequiresSuspiciousUsersReadScope(subscriptionType);
 
     private static bool SubscriptionConditionMatchesBroadcaster(
         TwitchApiClient.EventSubConditionInfo condition,
@@ -2751,6 +2789,12 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         if (supportChatboxMessage is not null)
         {
             ChatMessageReceived?.Invoke(supportChatboxMessage);
+        }
+
+        var chatActivity = ParseChatActivityNotification(notification);
+        if (chatActivity is not null)
+        {
+            ChatActivityReceived?.Invoke(chatActivity);
         }
 
         if (TryHandleStreamStateNotification(notification))
@@ -3033,12 +3077,24 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             throw new InvalidOperationException("The broadcaster session is missing.");
         }
 
-        if (string.Equals(subscriptionType, "channel.chat.message", StringComparison.Ordinal))
+        if (subscriptionType is "channel.chat.message"
+            or "channel.chat.message_delete"
+            or "channel.chat.clear_user_messages"
+            or "channel.chat.clear")
         {
             return new
             {
                 broadcaster_user_id = broadcaster.UserId,
                 user_id = broadcaster.UserId
+            };
+        }
+
+        if (subscriptionType is "channel.suspicious_user.update" or "channel.suspicious_user.message")
+        {
+            return new
+            {
+                broadcaster_user_id = broadcaster.UserId,
+                moderator_user_id = broadcaster.UserId
             };
         }
 
@@ -3072,6 +3128,13 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         IsSupporterOverrideRule(rule)
         && rule.ActionType != OscActionType.SetTrigger
         && (rule.AmountScaledDurationEnabled || rule.DurationSeconds > 0);
+
+    private static bool IsSupporterFloatAddRule(TriggerRuleSnapshot rule) =>
+        IsSupporterOverrideRule(rule)
+        && rule.ActionType == OscActionType.AvatarParameter
+        && rule.ParameterType == OscParameterType.Float
+        && rule.DurationSeconds > 0
+        && rule.SupporterFloatAddEnabled;
 
     private static bool IsTimedAvatarSwitchRule(TriggerRuleSnapshot rule) =>
         rule.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet
@@ -5581,6 +5644,62 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         return TimeSpan.FromSeconds(Math.Min(Math.Max(1, seconds), TimeSpan.MaxValue.TotalSeconds));
     }
 
+    private static bool TryResolveSupporterFloatAddAmount(
+        TriggerRuleSnapshot rule,
+        BridgeIncomingEvent bridgeEvent,
+        out double addValue,
+        out string diagnostic)
+    {
+        addValue = 0;
+        diagnostic = string.Empty;
+        var amount = Math.Max(1, bridgeEvent.Amount);
+        foreach (var range in rule.SupporterFloatAddRanges)
+        {
+            var minimumAmount = Math.Max(1, range.MinimumAmount);
+            var maximumAmount = Math.Max(0, range.MaximumAmount);
+            if (amount < minimumAmount || (maximumAmount > 0 && amount > maximumAmount))
+            {
+                continue;
+            }
+
+            if (!FloatValueModeConverter.TryParseNormalized(rule.FloatValueMode, range.AddValue, out var parsedAddValue))
+            {
+                diagnostic = $"Ignored '{rule.Name}' because its supporter float add value is invalid.";
+                return false;
+            }
+
+            addValue = Math.Max(0, parsedAddValue);
+            return true;
+        }
+
+        diagnostic = $"Ignored '{rule.Name}' because {amount:N0} did not match any supporter float add range.";
+        return false;
+    }
+
+    private static bool TryResolveSupporterFloatAddBounds(
+        TriggerRuleSnapshot rule,
+        out double lowerBound,
+        out double upperBound)
+    {
+        lowerBound = 0;
+        upperBound = 1;
+        if (!FloatValueModeConverter.TryParseNormalized(rule.FloatValueMode, rule.SupporterFloatAddMinimumValue, out var minimumValue)
+            || !FloatValueModeConverter.TryParseNormalized(rule.FloatValueMode, rule.SupporterFloatAddMaximumValue, out var maximumValue))
+        {
+            return false;
+        }
+
+        lowerBound = Math.Min(minimumValue, maximumValue);
+        upperBound = Math.Max(minimumValue, maximumValue);
+        return true;
+    }
+
+    private static string FormatSupporterFloatValue(TriggerRuleSnapshot rule, double normalizedValue)
+    {
+        var displayText = FloatValueModeConverter.ToDisplayText(rule.FloatValueMode, normalizedValue);
+        return rule.FloatValueMode == FloatValueMode.Percent ? $"{displayText}%" : displayText;
+    }
+
     private static double GetSupporterOverrideAmountScaledDurationSeconds(
         TriggerRuleSnapshot rule,
         BridgeIncomingEvent bridgeEvent)
@@ -6817,6 +6936,15 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         return fallbackValue;
     }
 
+    private async Task SendSupporterFloatAddValueAsync(
+        TriggerRuleSnapshot rule,
+        double targetValue,
+        CancellationToken cancellationToken)
+    {
+        var address = VrChatOscClient.NormalizeAvatarParameterAddress(rule.ParameterName);
+        await SendSingleFloatAvatarParameterValueAsync(address, targetValue, cancellationToken);
+    }
+
     private async Task SendFloatAvatarParameterValueAsync(
         string address,
         double startValue,
@@ -7047,6 +7175,14 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         // can extend the active override, preempt it, merge into a queued entry, or start
         // a brand-new suppression sequence when nothing else is running.
         var now = DateTimeOffset.UtcNow;
+        var supporterFloatAddAmount = 0d;
+        if (IsSupporterFloatAddRule(rule)
+            && !TryResolveSupporterFloatAddAmount(rule, bridgeEvent, out supporterFloatAddAmount, out var supporterFloatAddDiagnostic))
+        {
+            WriteLog(supporterFloatAddDiagnostic);
+            return;
+        }
+
         if (!queuedReplay)
         {
             var cooldownSeconds = GetCooldownSeconds(rule);
@@ -7107,20 +7243,20 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         {
             if (activeState.Rule.Id == rule.Id)
             {
-                await ExtendActiveSupporterOverrideAsync(activeState, rule, bridgeEvent, triggerDuration, cancellationToken);
+                await ExtendActiveSupporterOverrideAsync(activeState, rule, bridgeEvent, triggerDuration, supporterFloatAddAmount, cancellationToken);
                 return;
             }
 
             if (CompareSupporterOverridePriority(rule, activeState.Rule) > 0)
             {
-                await PreemptActiveSupporterOverrideAsync(activeState, rule, bridgeEvent, triggerDuration, cancellationToken, queuedReplay);
+                await PreemptActiveSupporterOverrideAsync(activeState, rule, bridgeEvent, triggerDuration, supporterFloatAddAmount, cancellationToken, queuedReplay);
                 return;
             }
         }
 
         if (queuedIndex >= 0)
         {
-            ExtendQueuedSupporterOverride(queuedIndex, rule, bridgeEvent, triggerDuration);
+            ExtendQueuedSupporterOverride(queuedIndex, rule, bridgeEvent, triggerDuration, supporterFloatAddAmount);
             return;
         }
 
@@ -7134,11 +7270,13 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 cancellationToken,
                 queuedReplay,
                 resumedFromQueue: false,
-                sequenceWasInactive: true);
+                sequenceWasInactive: true,
+                supporterFloatAddAmount,
+                supporterFloatAddResumeValue: null);
             return;
         }
 
-        QueueSupporterOverride(rule, bridgeEvent, triggerDuration);
+        QueueSupporterOverride(rule, bridgeEvent, triggerDuration, supporterFloatAddAmount, supporterFloatAddResumeValue: null);
     }
 
     private async Task ExtendActiveSupporterOverrideAsync(
@@ -7146,17 +7284,37 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         TriggerRuleSnapshot rule,
         BridgeIncomingEvent bridgeEvent,
         TimeSpan extension,
+        double supporterFloatAddAmount,
         CancellationToken cancellationToken)
     {
         CancellationTokenSource? previousCancellation = null;
         DateTimeOffset activeUntil;
         string displayValue;
+        double? boostedValue = null;
 
         lock (stateGate)
         {
             if (!ReferenceEquals(activeSupporterOverride, activeState))
             {
                 return;
+            }
+
+            if (IsSupporterFloatAddRule(rule))
+            {
+                if (!TryResolveSupporterFloatAddBounds(rule, out var lowerBound, out var upperBound))
+                {
+                    WriteLog($"Ignored '{rule.Name}' because its supporter float add min/max value is invalid.");
+                    return;
+                }
+
+                var currentValue = activeState.SupporterFloatAddCurrentValue ?? lowerBound;
+                boostedValue = Math.Clamp(currentValue + supporterFloatAddAmount, lowerBound, upperBound);
+                activeState.SupporterFloatAddCurrentValue = boostedValue;
+                displayValue = FloatValueModeConverter.ToOscText(boostedValue.Value);
+            }
+            else
+            {
+                displayValue = activeState.Action.DisplayValue;
             }
 
             previousCancellation = activeState.CompletionCancellation;
@@ -7166,11 +7324,17 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 ? new CancellationTokenSource()
                 : CancellationTokenSource.CreateLinkedTokenSource(runtimeCancellation.Token);
             activeUntil = activeState.ActiveUntil;
-            displayValue = activeState.Action.DisplayValue;
         }
 
         previousCancellation?.Cancel();
         previousCancellation?.Dispose();
+
+        if (boostedValue is { } nextValue)
+        {
+            await SendSupporterFloatAddValueAsync(rule, nextValue, cancellationToken);
+            RememberAvatarParameterValue(rule, FloatValueModeConverter.ToOscText(nextValue));
+            WriteLog($"{bridgeEvent.UserDisplayName} added {FormatSupporterFloatValue(rule, supporterFloatAddAmount)} to '{rule.Name}' ({FormatSupporterFloatValue(rule, nextValue)}).");
+        }
 
         ApplyRuleLockoutUntil(activeState.Rule, activeUntil);
         ScheduleTimedSupporterOverrideCompletion(activeState, activeState.CompletionCancellation);
@@ -7182,7 +7346,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         int queuedIndex,
         TriggerRuleSnapshot rule,
         BridgeIncomingEvent bridgeEvent,
-        TimeSpan extension)
+        TimeSpan extension,
+        double supporterFloatAddAmount)
     {
         TimeSpan newRemainingDuration;
         lock (stateGate)
@@ -7196,13 +7361,23 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             queuedOverride.Rule = rule;
             queuedOverride.RemainingDuration += extension;
             queuedOverride.Event = bridgeEvent;
+            if (IsSupporterFloatAddRule(rule))
+            {
+                queuedOverride.SupporterFloatAddAmount += supporterFloatAddAmount;
+            }
+
             newRemainingDuration = queuedOverride.RemainingDuration;
         }
 
         WriteLog($"Added more time to queued paid override '{rule.Name}'. It now has {DescribeDuration(newRemainingDuration.TotalSeconds)} waiting.");
     }
 
-    private void QueueSupporterOverride(TriggerRuleSnapshot rule, BridgeIncomingEvent bridgeEvent, TimeSpan duration)
+    private void QueueSupporterOverride(
+        TriggerRuleSnapshot rule,
+        BridgeIncomingEvent bridgeEvent,
+        TimeSpan duration,
+        double supporterFloatAddAmount,
+        double? supporterFloatAddResumeValue)
     {
         var queuedCount = 0;
         lock (stateGate)
@@ -7211,7 +7386,9 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 rule,
                 bridgeEvent,
                 duration,
-                GetNextSupporterOverrideQueueOrder()));
+                GetNextSupporterOverrideQueueOrder(),
+                supporterFloatAddAmount,
+                supporterFloatAddResumeValue));
             queuedCount = queuedSupporterOverrides.Count;
         }
 
@@ -7245,6 +7422,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         TriggerRuleSnapshot newRule,
         BridgeIncomingEvent bridgeEvent,
         TimeSpan newDuration,
+        double supporterFloatAddAmount,
         CancellationToken cancellationToken,
         bool queuedReplay)
     {
@@ -7272,7 +7450,9 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                     activeState.Rule,
                     activeState.Event,
                     remainingDuration,
-                    activeState.QueueOrder));
+                    activeState.QueueOrder,
+                    supporterFloatAddAmount: 0,
+                    supporterFloatAddResumeValue: activeState.SupporterFloatAddCurrentValue));
             }
         }
 
@@ -7303,7 +7483,9 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             cancellationToken,
             queuedReplay,
             resumedFromQueue: false,
-            sequenceWasInactive: false);
+            sequenceWasInactive: false,
+            supporterFloatAddAmount,
+            supporterFloatAddResumeValue: null);
     }
 
     private async Task StartTimedSupporterOverrideAsync(
@@ -7314,9 +7496,31 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         CancellationToken cancellationToken,
         bool queuedReplay,
         bool resumedFromQueue,
-        bool sequenceWasInactive)
+        bool sequenceWasInactive,
+        double supporterFloatAddAmount,
+        double? supporterFloatAddResumeValue)
     {
-        var effectiveRule = CreateTimedSupporterOverrideExecutionRule(rule, duration, cooldownSeconds: 0);
+        var effectiveRule = rule;
+        double? supporterFloatAddCurrentValue = null;
+        if (IsSupporterFloatAddRule(rule))
+        {
+            if (!TryResolveSupporterFloatAddBounds(rule, out var lowerBound, out var upperBound))
+            {
+                WriteLog($"Ignored '{rule.Name}' because its supporter float add min/max value is invalid.");
+                return;
+            }
+
+            var address = VrChatOscClient.NormalizeAvatarParameterAddress(rule.ParameterName);
+            var startValue = supporterFloatAddResumeValue
+                ?? await TryGetCurrentAvatarFloatValueAsync(address, lowerBound, cancellationToken);
+            supporterFloatAddCurrentValue = Math.Clamp(startValue + supporterFloatAddAmount, lowerBound, upperBound);
+            effectiveRule = rule with
+            {
+                ParameterValue = FloatValueModeConverter.ToDisplayText(rule.FloatValueMode, supporterFloatAddCurrentValue.Value)
+            };
+        }
+
+        effectiveRule = CreateTimedSupporterOverrideExecutionRule(effectiveRule, duration, cooldownSeconds: 0);
         var capturedReturnAvatar = rule.ActionType == OscActionType.AvatarChange
             ? GetSharedReturnAvatarSnapshot()
             : SharedReturnAvatarSnapshot.Empty;
@@ -7359,7 +7563,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             action,
             activeUntil,
             queueOrder,
-            completionCancellation);
+            completionCancellation,
+            supporterFloatAddCurrentValue);
 
         lock (stateGate)
         {
@@ -7386,6 +7591,11 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         else
         {
             WriteLog($"{bridgeEvent.UserDisplayName} triggered paid override '{rule.Name}'.");
+        }
+
+        if (supporterFloatAddCurrentValue is { } targetValue && supporterFloatAddAmount > 0)
+        {
+            WriteLog($"{bridgeEvent.UserDisplayName} added {FormatSupporterFloatValue(rule, supporterFloatAddAmount)} to '{rule.Name}' ({FormatSupporterFloatValue(rule, targetValue)}).");
         }
 
         await TrySendBotMessageAsync(rule, bridgeEvent, action.DisplayValue, cancellationToken, duration.TotalSeconds);
@@ -7450,6 +7660,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         BridgeIncomingEvent? nextEvent = null;
         TimeSpan nextDuration = TimeSpan.Zero;
         long nextQueueOrder = 0;
+        double nextSupporterFloatAddAmount = 0;
+        double? nextSupporterFloatAddResumeValue = null;
         var sequenceStillActive = false;
         var now = DateTimeOffset.UtcNow;
         var cooldownSeconds = GetCooldownSeconds(activeState.Rule);
@@ -7493,6 +7705,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 nextEvent = queuedOverride.Event;
                 nextDuration = queuedOverride.RemainingDuration;
                 nextQueueOrder = queuedOverride.QueueOrder;
+                nextSupporterFloatAddAmount = queuedOverride.SupporterFloatAddAmount;
+                nextSupporterFloatAddResumeValue = queuedOverride.SupporterFloatAddResumeValue;
                 break;
             }
 
@@ -7528,7 +7742,9 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 cancellationToken,
                 queuedReplay: true,
                 resumedFromQueue: true,
-                sequenceWasInactive: false);
+                sequenceWasInactive: false,
+                nextSupporterFloatAddAmount,
+                nextSupporterFloatAddResumeValue);
             return;
         }
 
@@ -12609,7 +12825,16 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             badgeImageUrls,
             badgeSetIds,
             fragments,
-            DateTimeOffset.Now);
+            DateTimeOffset.Now)
+        {
+            MessageId = GetString(eventData, "message_id") ?? string.Empty,
+            MessageType = GetString(eventData, "message_type") ?? string.Empty,
+            SourceBroadcasterUserId = GetString(eventData, "source_broadcaster_user_id") ?? string.Empty,
+            SourceBroadcasterUserLogin = GetString(eventData, "source_broadcaster_user_login") ?? string.Empty,
+            SourceBroadcasterUserName = GetString(eventData, "source_broadcaster_user_name") ?? string.Empty,
+            SourceMessageId = GetString(eventData, "source_message_id") ?? string.Empty,
+            IsSourceOnly = GetBoolean(eventData, "is_source_only")
+        };
     }
 
     private async Task<IReadOnlyList<BridgeChatFragment>> ResolveChatFragmentsAsync(
@@ -12815,6 +13040,120 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             _ => null
         };
     }
+
+    private static BridgeChatActivity? ParseChatActivityNotification(EventSubNotification notification)
+    {
+        var eventData = notification.EventData;
+        var now = DateTimeOffset.Now;
+
+        if (string.Equals(notification.SubscriptionType, "channel.chat.message_delete", StringComparison.Ordinal))
+        {
+            var displayName = GetString(eventData, "target_user_name") ?? "Viewer";
+            return new BridgeChatActivity(
+                BridgeChatActivityKind.MessageDeleted,
+                TF("Deleted a message from {0}.", displayName),
+                now)
+            {
+                TargetUserDisplayName = displayName,
+                TargetUserLogin = GetString(eventData, "target_user_login") ?? string.Empty,
+                TargetUserId = GetString(eventData, "target_user_id") ?? string.Empty,
+                MessageId = GetString(eventData, "message_id") ?? string.Empty
+            };
+        }
+
+        if (string.Equals(notification.SubscriptionType, "channel.chat.clear_user_messages", StringComparison.Ordinal))
+        {
+            var displayName = GetString(eventData, "target_user_name") ?? "Viewer";
+            return new BridgeChatActivity(
+                BridgeChatActivityKind.UserMessagesCleared,
+                TF("Cleared recent chat from {0}.", displayName),
+                now)
+            {
+                TargetUserDisplayName = displayName,
+                TargetUserLogin = GetString(eventData, "target_user_login") ?? string.Empty,
+                TargetUserId = GetString(eventData, "target_user_id") ?? string.Empty
+            };
+        }
+
+        if (string.Equals(notification.SubscriptionType, "channel.chat.clear", StringComparison.Ordinal))
+        {
+            return new BridgeChatActivity(
+                BridgeChatActivityKind.ChatCleared,
+                T("Chat was cleared by a moderator."),
+                now);
+        }
+
+        if (string.Equals(notification.SubscriptionType, "channel.follow", StringComparison.Ordinal))
+        {
+            var displayName = GetString(eventData, "user_name") ?? "Follower";
+            return new BridgeChatActivity(
+                BridgeChatActivityKind.Follow,
+                TF("{0} followed.", displayName),
+                now)
+            {
+                TargetUserDisplayName = displayName,
+                TargetUserLogin = GetString(eventData, "user_login") ?? string.Empty,
+                TargetUserId = GetString(eventData, "user_id") ?? string.Empty
+            };
+        }
+
+        if (string.Equals(notification.SubscriptionType, "channel.suspicious_user.update", StringComparison.Ordinal))
+        {
+            var displayName = GetString(eventData, "user_name") ?? "Viewer";
+            var status = NormalizeSuspiciousStatus(GetString(eventData, "low_trust_status"));
+            return new BridgeChatActivity(
+                BridgeChatActivityKind.SuspiciousUserUpdated,
+                FormatSuspiciousStatusActivity(displayName, status),
+                now)
+            {
+                TargetUserDisplayName = displayName,
+                TargetUserLogin = GetString(eventData, "user_login") ?? string.Empty,
+                TargetUserId = GetString(eventData, "user_id") ?? string.Empty,
+                SuspiciousStatus = status
+            };
+        }
+
+        if (string.Equals(notification.SubscriptionType, "channel.suspicious_user.message", StringComparison.Ordinal))
+        {
+            var displayName = GetString(eventData, "user_name") ?? "Viewer";
+            var status = NormalizeSuspiciousStatus(GetString(eventData, "low_trust_status"));
+            return new BridgeChatActivity(
+                BridgeChatActivityKind.SuspiciousUserMessage,
+                TF("Suspicious chatter message from {0}.", displayName),
+                now)
+            {
+                TargetUserDisplayName = displayName,
+                TargetUserLogin = GetString(eventData, "user_login") ?? string.Empty,
+                TargetUserId = GetString(eventData, "user_id") ?? string.Empty,
+                SuspiciousStatus = status
+            };
+        }
+
+        return null;
+    }
+
+    private static string NormalizeSuspiciousStatus(string? status)
+    {
+        var normalized = status?.Trim() ?? string.Empty;
+        return normalized switch
+        {
+            _ when normalized.Equals("ACTIVE_MONITORING", StringComparison.OrdinalIgnoreCase)
+                || normalized.Equals("active_monitoring", StringComparison.OrdinalIgnoreCase) => "ACTIVE_MONITORING",
+            _ when normalized.Equals("RESTRICTED", StringComparison.OrdinalIgnoreCase)
+                || normalized.Equals("restricted", StringComparison.OrdinalIgnoreCase) => "RESTRICTED",
+            _ when normalized.Equals("NO_TREATMENT", StringComparison.OrdinalIgnoreCase)
+                || normalized.Equals("no_treatment", StringComparison.OrdinalIgnoreCase) => "NO_TREATMENT",
+            _ => normalized.ToUpperInvariant()
+        };
+    }
+
+    private static string FormatSuspiciousStatusActivity(string displayName, string status) => status switch
+    {
+        "ACTIVE_MONITORING" => TF("Marked {0} for suspicious-user monitoring.", displayName),
+        "RESTRICTED" => TF("Restricted {0} through Twitch suspicious-user tools.", displayName),
+        "NO_TREATMENT" => TF("Cleared suspicious-user status for {0}.", displayName),
+        _ => TF("Updated suspicious-user status for {0}.", displayName)
+    };
 
     private static BridgeChatMessage BuildSupportChatboxMessage(
         BridgeChatMessageKind kind,
@@ -15866,7 +16205,12 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             }
         }
 
-        return current.ValueKind == JsonValueKind.True || (current.ValueKind == JsonValueKind.False ? false : current.GetBoolean());
+        return current.ValueKind switch
+        {
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            _ => false
+        };
     }
 
     private sealed record PendingResetState(
@@ -16149,7 +16493,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             ResolvedRuleAction action,
             DateTimeOffset activeUntil,
             long queueOrder,
-            CancellationTokenSource completionCancellation)
+            CancellationTokenSource completionCancellation,
+            double? supporterFloatAddCurrentValue)
         {
             Rule = rule;
             Event = @event;
@@ -16157,6 +16502,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             ActiveUntil = activeUntil;
             QueueOrder = queueOrder;
             CompletionCancellation = completionCancellation;
+            SupporterFloatAddCurrentValue = supporterFloatAddCurrentValue;
         }
 
         public TriggerRuleSnapshot Rule { get; }
@@ -16170,6 +16516,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         public long QueueOrder { get; }
 
         public CancellationTokenSource CompletionCancellation { get; set; }
+
+        public double? SupporterFloatAddCurrentValue { get; set; }
     }
 
     private sealed class RuntimeRuleIndex
@@ -16347,12 +16695,16 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             TriggerRuleSnapshot rule,
             BridgeIncomingEvent @event,
             TimeSpan remainingDuration,
-            long queueOrder)
+            long queueOrder,
+            double supporterFloatAddAmount,
+            double? supporterFloatAddResumeValue)
         {
             Rule = rule;
             Event = @event;
             RemainingDuration = remainingDuration;
             QueueOrder = queueOrder;
+            SupporterFloatAddAmount = supporterFloatAddAmount;
+            SupporterFloatAddResumeValue = supporterFloatAddResumeValue;
         }
 
         public TriggerRuleSnapshot Rule { get; set; }
@@ -16362,6 +16714,10 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         public TimeSpan RemainingDuration { get; set; }
 
         public long QueueOrder { get; }
+
+        public double SupporterFloatAddAmount { get; set; }
+
+        public double? SupporterFloatAddResumeValue { get; set; }
     }
 
     private sealed record ActiveRuleLockoutState(string SourceRuleName, DateTimeOffset ExpiresAt, IReadOnlyList<Guid> DisabledRuleIds);
@@ -16665,6 +17021,20 @@ public sealed record BridgeChatMessage(
     public int SupportMonths { get; init; }
 
     public string SupportMessage { get; init; } = string.Empty;
+
+    public string MessageId { get; init; } = string.Empty;
+
+    public string MessageType { get; init; } = string.Empty;
+
+    public string SourceBroadcasterUserId { get; init; } = string.Empty;
+
+    public string SourceBroadcasterUserLogin { get; init; } = string.Empty;
+
+    public string SourceBroadcasterUserName { get; init; } = string.Empty;
+
+    public string SourceMessageId { get; init; } = string.Empty;
+
+    public bool IsSourceOnly { get; init; }
 }
 
 public enum BridgeChatMessageKind
@@ -16676,6 +17046,38 @@ public enum BridgeChatMessageKind
     Resubscription,
     GiftSubscription,
     Raid
+}
+
+public sealed record BridgeChatActivity(
+    BridgeChatActivityKind Kind,
+    string MessageText,
+    DateTimeOffset ReceivedAt)
+{
+    public string TargetUserDisplayName { get; init; } = string.Empty;
+
+    public string TargetUserLogin { get; init; } = string.Empty;
+
+    public string TargetUserId { get; init; } = string.Empty;
+
+    public string MessageId { get; init; } = string.Empty;
+
+    public string SuspiciousStatus { get; init; } = string.Empty;
+}
+
+public enum BridgeChatActivityKind
+{
+    ChannelPointRedemption,
+    SupportEvent,
+    Follow,
+    MessageDeleted,
+    UserMessagesCleared,
+    ChatCleared,
+    Timeout,
+    Ban,
+    MessagePurged,
+    SuspiciousUserUpdated,
+    SuspiciousUserMessage,
+    ModerationFailure
 }
 
 public sealed record AvatarScaleRuntimeStatus(

@@ -444,6 +444,34 @@
             </Setter>
         </Style>
 
+        <Style x:Key="ChatboxDrawerButtonStyle" TargetType="Button" BasedOn="{StaticResource ChatboxSecondaryButtonStyle}">
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="Padding" Value="10,5" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="12"
+                                Padding="{TemplateBinding Padding}">
+                            <TextBlock Text="{TemplateBinding Content}"
+                                       FontFamily="{TemplateBinding FontFamily}"
+                                       FontSize="{TemplateBinding FontSize}"
+                                       FontWeight="{TemplateBinding FontWeight}"
+                                       Foreground="{TemplateBinding Foreground}"
+                                       TextAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="TitleBarButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="{DynamicResource TitleBarButtonBrush}" />
             <Setter Property="Foreground" Value="{DynamicResource TitleBarTextBrush}" />
@@ -1366,6 +1394,44 @@
             </Style.Triggers>
         </Style>
 
+        <Style x:Key="ChatboxSuspiciousBadgeBorderStyle" TargetType="Border">
+            <Setter Property="Margin" Value="8,0,0,0" />
+            <Setter Property="Padding" Value="7,2" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Background" Value="#88451A03" />
+            <Setter Property="BorderBrush" Value="#F59E0B" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Visibility" Value="{Binding HasSuspiciousStatus, Converter={StaticResource BooleanToVisibilityConverter}}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsRestrictedChatter}" Value="True">
+                    <Setter Property="Background" Value="#887F1D1D" />
+                    <Setter Property="BorderBrush" Value="#F87171" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="ChatboxChatItemContainerStyle" TargetType="ListBoxItem">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border Background="{TemplateBinding Background}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <DataTemplate DataType="{x:Type vm:TwitchChatMessageEntry}">
             <Grid Margin="0,0,0,10"
                   Opacity="{Binding DataContext.Settings.ChatOpacity, RelativeSource={RelativeSource AncestorType=Window}}">
@@ -1438,6 +1504,16 @@
                                                TextWrapping="Wrap"
                                                Foreground="{StaticResource ChatboxRoleBadgeTextBrush}" />
                                 </Border>
+
+                                <Border Style="{StaticResource ChatboxSuspiciousBadgeBorderStyle}">
+                                    <TextBlock Text="{Binding SuspiciousStatusLabel}"
+                                               MaxWidth="135"
+                                               FontSize="9"
+                                               FontWeight="Bold"
+                                               TextAlignment="Center"
+                                               TextWrapping="Wrap"
+                                               Foreground="#FFF7ED" />
+                                </Border>
                             </StackPanel>
                         </DockPanel>
 
@@ -1507,6 +1583,16 @@
                                                    TextAlignment="Center"
                                                    TextWrapping="Wrap"
                                                    Foreground="{StaticResource ChatboxRoleBadgeTextBrush}" />
+                                    </Border>
+
+                                    <Border Style="{StaticResource ChatboxSuspiciousBadgeBorderStyle}">
+                                        <TextBlock Text="{Binding SuspiciousStatusLabel}"
+                                                   MaxWidth="135"
+                                                   FontSize="9"
+                                                   FontWeight="Bold"
+                                                   TextAlignment="Center"
+                                                   TextWrapping="Wrap"
+                                                   Foreground="#FFF7ED" />
                                     </Border>
                                 </StackPanel>
                             </DockPanel>
@@ -1606,6 +1692,16 @@
                                                    TextAlignment="Center"
                                                    TextWrapping="Wrap"
                                                    Foreground="{StaticResource ChatboxRoleBadgeTextBrush}" />
+                                    </Border>
+
+                                    <Border Style="{StaticResource ChatboxSuspiciousBadgeBorderStyle}">
+                                        <TextBlock Text="{Binding SuspiciousStatusLabel}"
+                                                   MaxWidth="135"
+                                                   FontSize="9"
+                                                   FontWeight="Bold"
+                                                   TextAlignment="Center"
+                                                   TextWrapping="Wrap"
+                                                   Foreground="#FFF7ED" />
                                     </Border>
                                 </StackPanel>
                             </DockPanel>
@@ -1943,6 +2039,10 @@
 
                     <Grid Grid.Row="1"
                           Margin="0,14,0,0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
                         <Grid.Style>
                             <Style TargetType="Grid">
                                 <Setter Property="Visibility" Value="Visible" />
@@ -1953,7 +2053,8 @@
                                 </Style.Triggers>
                             </Style>
                         </Grid.Style>
-                        <TextBlock HorizontalAlignment="Center"
+                        <TextBlock Grid.Row="0"
+                                   HorizontalAlignment="Center"
                                    VerticalAlignment="Center"
                                    FontSize="15"
                                    Foreground="{DynamicResource MutedBrush}"
@@ -1972,7 +2073,9 @@
                         </TextBlock>
 
                         <ListBox x:Name="ChatList"
+                                 Grid.Row="0"
                                  ItemsSource="{Binding ChatMessages}"
+                                 SelectedItem="{Binding SelectedChatMessage, Mode=TwoWay}"
                                  Background="Transparent"
                                  BorderThickness="0"
                                  HorizontalContentAlignment="Stretch"
@@ -1991,19 +2094,268 @@
                                         <DataTrigger Binding="{Binding ChatMessages.Count}" Value="0">
                                             <Setter Property="Visibility" Value="Collapsed" />
                                         </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </ListBox.Style>
+                                     </Style.Triggers>
+                                 </Style>
+                             </ListBox.Style>
                             <ListBox.ItemContainerStyle>
-                                <Style TargetType="ListBoxItem">
-                                    <Setter Property="Focusable" Value="False" />
-                                    <Setter Property="IsHitTestVisible" Value="False" />
-                                    <Setter Property="Padding" Value="0" />
-                                    <Setter Property="BorderThickness" Value="0" />
-                                    <Setter Property="Background" Value="Transparent" />
-                                </Style>
+                                <StaticResource ResourceKey="ChatboxChatItemContainerStyle" />
                             </ListBox.ItemContainerStyle>
                         </ListBox>
+
+                        <Grid Grid.Row="1"
+                              Margin="0,10,0,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <DockPanel Grid.Row="0"
+                                       LastChildFill="True">
+                                <Button DockPanel.Dock="Left"
+                                        MinWidth="132"
+                                        Height="34"
+                                        Style="{StaticResource ChatboxDrawerButtonStyle}"
+                                        Content="{Binding ChatboxModerationDrawerToggleText}"
+                                        Command="{Binding ToggleChatboxModerationDrawerCommand}" />
+                                <TextBlock Margin="12,0,0,0"
+                                           VerticalAlignment="Center"
+                                           MaxHeight="32"
+                                           FontSize="11"
+                                           LineHeight="15"
+                                           Foreground="{DynamicResource MutedBrush}"
+                                           Text="{Binding ChatboxModerationScopeStatusText}"
+                                           TextTrimming="CharacterEllipsis"
+                                           TextWrapping="Wrap" />
+                            </DockPanel>
+
+                            <Border Grid.Row="1"
+                                    Margin="0,8,0,0"
+                                    Padding="10"
+                                    MaxHeight="240"
+                                    Background="{DynamicResource InputBrush}"
+                                    BorderBrush="{DynamicResource InputBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    Visibility="{Binding IsChatboxModerationDrawerOpen, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <ScrollViewer Grid.Column="0"
+                                                  HorizontalScrollBarVisibility="Disabled"
+                                                  VerticalScrollBarVisibility="Auto">
+                                        <ScrollViewer.Resources>
+                                            <Style TargetType="ScrollBar" BasedOn="{StaticResource ChatboxScrollBarStyle}" />
+                                        </ScrollViewer.Resources>
+                                        <StackPanel>
+                                            <TextBlock Text="{loc:Translate 'Moderation'}"
+                                                       FontSize="12"
+                                                       FontWeight="Bold"
+                                                       Foreground="{DynamicResource TextBrush}" />
+                                            <TextBlock Margin="0,3,0,0"
+                                                       Text="{Binding SelectedChatModerationTitle}"
+                                                       FontSize="12"
+                                                       FontWeight="Bold"
+                                                       Foreground="{DynamicResource TextBrush}"
+                                                       MaxHeight="32"
+                                                       LineHeight="15"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Visibility="{Binding HasSelectedChatMessage, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                       TextWrapping="Wrap" />
+                                            <TextBlock Margin="0,2,0,0"
+                                                       Text="{Binding SelectedChatModerationDetailText}"
+                                                       FontSize="11"
+                                                       MaxHeight="32"
+                                                       LineHeight="15"
+                                                       Foreground="{DynamicResource MutedBrush}"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Visibility="{Binding HasSelectedChatMessage, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                       TextWrapping="Wrap" />
+                                            <TextBlock Margin="0,4,0,0"
+                                                       Text="{Binding ChatboxModerationStatusText}"
+                                                       FontSize="11"
+                                                       MaxHeight="32"
+                                                       LineHeight="15"
+                                                       Foreground="{DynamicResource MutedBrush}"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       TextWrapping="Wrap" />
+
+                                            <TextBlock Margin="0,8,0,4"
+                                                       Text="{loc:Translate 'Quick Timeouts'}"
+                                                       FontSize="11"
+                                                       FontWeight="Bold"
+                                                       Foreground="{DynamicResource MutedBrush}" />
+                                            <WrapPanel>
+                                                <Button Width="56"
+                                                        Margin="0,0,5,5"
+                                                        Style="{StaticResource ChatboxDrawerButtonStyle}"
+                                                        Content="{loc:Translate '10s'}"
+                                                        Command="{Binding TimeoutSelectedChatUser10SecondsCommand}" />
+                                                <Button Width="56"
+                                                        Margin="0,0,5,5"
+                                                        Style="{StaticResource ChatboxDrawerButtonStyle}"
+                                                        Content="{loc:Translate '1m'}"
+                                                        Command="{Binding TimeoutSelectedChatUser1MinuteCommand}" />
+                                                <Button Width="56"
+                                                        Margin="0,0,5,5"
+                                                        Style="{StaticResource ChatboxDrawerButtonStyle}"
+                                                        Content="{loc:Translate '5m'}"
+                                                        Command="{Binding TimeoutSelectedChatUser5MinutesCommand}" />
+                                                <Button Width="56"
+                                                        Margin="0,0,5,5"
+                                                        Style="{StaticResource ChatboxDrawerButtonStyle}"
+                                                        Content="{loc:Translate '10m'}"
+                                                        Command="{Binding TimeoutSelectedChatUser10MinutesCommand}" />
+                                                <Button Width="56"
+                                                        Margin="0,0,5,5"
+                                                        Style="{StaticResource ChatboxDrawerButtonStyle}"
+                                                        Content="{loc:Translate '30m'}"
+                                                        Command="{Binding TimeoutSelectedChatUser30MinutesCommand}" />
+                                                <Button Width="56"
+                                                        Margin="0,0,5,5"
+                                                        Style="{StaticResource ChatboxDrawerButtonStyle}"
+                                                        Content="{loc:Translate '1h'}"
+                                                        Command="{Binding TimeoutSelectedChatUser1HourCommand}" />
+                                            </WrapPanel>
+
+                                            <WrapPanel Margin="0,3,0,0">
+                                                <Button Width="112"
+                                                        Margin="0,0,5,5"
+                                                        Style="{StaticResource ChatboxDrawerButtonStyle}"
+                                                        Content="{loc:Translate 'Ban'}"
+                                                        Command="{Binding BanSelectedChatUserCommand}" />
+                                                <Button Width="112"
+                                                        Margin="0,0,5,5"
+                                                        Style="{StaticResource ChatboxDrawerButtonStyle}"
+                                                        Content="{loc:Translate 'Purge User'}"
+                                                        Command="{Binding PurgeSelectedChatUserCommand}" />
+                                                <Button Width="112"
+                                                        Margin="0,0,5,5"
+                                                        Style="{StaticResource ChatboxDrawerButtonStyle}"
+                                                        Content="{loc:Translate 'Delete Message'}"
+                                                        Command="{Binding DeleteSelectedChatMessageCommand}" />
+                                                <Button Width="112"
+                                                        Margin="0,0,5,5"
+                                                        Style="{StaticResource ChatboxDrawerButtonStyle}"
+                                                        Content="{loc:Translate 'Mark Suspicious'}"
+                                                        Command="{Binding MarkSelectedChatUserSuspiciousCommand}" />
+                                                <Button Width="112"
+                                                        Margin="0,0,5,5"
+                                                        Style="{StaticResource ChatboxDrawerButtonStyle}"
+                                                        Content="{loc:Translate 'Restrict'}"
+                                                        Command="{Binding RestrictSelectedChatUserCommand}" />
+                                                <Button Width="112"
+                                                        Margin="0,0,5,5"
+                                                        Style="{StaticResource ChatboxDrawerButtonStyle}"
+                                                        Content="{loc:Translate 'Clear Mark'}"
+                                                        Command="{Binding ClearSelectedChatUserSuspiciousStatusCommand}" />
+                                            </WrapPanel>
+                                        </StackPanel>
+                                    </ScrollViewer>
+
+                                    <Border Grid.Column="1"
+                                            Width="1"
+                                            Margin="4,0"
+                                            Background="{DynamicResource MessageBorderBrush}" />
+
+                                    <Grid Grid.Column="2">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="*" />
+                                        </Grid.RowDefinitions>
+
+                                        <DockPanel Grid.Row="0"
+                                                   LastChildFill="True">
+                                            <TextBlock VerticalAlignment="Center"
+                                                       Text="{loc:Translate 'Activity Feed'}"
+                                                       FontSize="12"
+                                                       FontWeight="Bold"
+                                                       Foreground="{DynamicResource TextBrush}" />
+                                        </DockPanel>
+
+                                        <Grid Grid.Row="1"
+                                              Margin="0,6,0,0">
+                                            <TextBlock HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"
+                                                       Text="{loc:Translate 'No activity yet.'}"
+                                                       Foreground="{DynamicResource MutedBrush}"
+                                                       TextAlignment="Center">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding ChatActivityEntries.Count}" Value="0">
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+
+                                            <ListBox ItemsSource="{Binding ChatActivityEntries}"
+                                                     Background="Transparent"
+                                                     BorderThickness="0"
+                                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                                     ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                                <ListBox.Resources>
+                                                    <Style TargetType="ScrollBar" BasedOn="{StaticResource ChatboxScrollBarStyle}" />
+                                                </ListBox.Resources>
+                                                <ListBox.Style>
+                                                    <Style TargetType="ListBox">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding ChatActivityEntries.Count}" Value="0">
+                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </ListBox.Style>
+                                                <ListBox.ItemContainerStyle>
+                                                    <Style TargetType="ListBoxItem" BasedOn="{StaticResource ChatboxChatItemContainerStyle}">
+                                                        <Setter Property="Cursor" Value="Arrow" />
+                                                    </Style>
+                                                </ListBox.ItemContainerStyle>
+                                                <ListBox.ItemTemplate>
+                                                    <DataTemplate DataType="{x:Type vm:TwitchChatActivityEntry}">
+                                                        <Grid Margin="0,0,0,5">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                                <ColumnDefinition Width="*" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Grid.Column="0"
+                                                                       Width="44"
+                                                                       Text="{Binding TimestampText}"
+                                                                       FontSize="10"
+                                                                       Foreground="{DynamicResource TimestampBrush}" />
+                                                            <TextBlock Grid.Column="1"
+                                                                       Width="58"
+                                                                       Margin="4,0,4,0"
+                                                                       Text="{Binding KindLabel}"
+                                                                       FontSize="10"
+                                                                       FontWeight="Bold"
+                                                                       Foreground="{DynamicResource MutedBrush}"
+                                                                       TextTrimming="CharacterEllipsis" />
+                                                            <TextBlock Grid.Column="2"
+                                                                       Text="{Binding MessageText}"
+                                                                       FontSize="11"
+                                                                       MaxHeight="34"
+                                                                       LineHeight="15"
+                                                                       Foreground="{DynamicResource MutedBrush}"
+                                                                       TextTrimming="CharacterEllipsis"
+                                                                       TextWrapping="Wrap" />
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ListBox.ItemTemplate>
+                                            </ListBox>
+                                        </Grid>
+                                    </Grid>
+                                </Grid>
+                            </Border>
+                        </Grid>
                     </Grid>
                 </Grid>
             </Border>
