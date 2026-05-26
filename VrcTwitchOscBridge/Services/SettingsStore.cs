@@ -424,6 +424,8 @@ public sealed class SettingsStore
             settings.AvatarScaleMasterReward = profile.AvatarScaleMasterReward is null
                 ? settings.AvatarScaleMasterReward
                 : ToAvatarScaleMasterReward(profile.AvatarScaleMasterReward);
+            settings.PowerUpRules = new ObservableCollection<PowerUpRule>(
+                (profile.PowerUpRules ?? []).Select(ToPowerUpRule));
             settings.RewardFireSale = profile.RewardFireSale is null
                 ? settings.RewardFireSale
                 : ToRewardFireSaleSettings(profile.RewardFireSale);
@@ -565,6 +567,7 @@ public sealed class SettingsStore
             UniversalTriggers = [.. settings.UniversalTriggers.Select(ToPersistedUniversalTriggerRule)],
             AvatarScaleSets = [.. settings.AvatarScaleSets.Select(ToPersistedAvatarScaleSet)],
             AvatarScaleMasterReward = ToPersistedAvatarScaleMasterReward(settings.AvatarScaleMasterReward),
+            PowerUpRules = [.. settings.PowerUpRules.Select(ToPersistedPowerUpRule)],
             RewardFireSale = ToPersistedRewardFireSaleSettings(settings.RewardFireSale),
             CashPayments = ToPersistedCashPaymentConnectionSettings(settings.CashPayments),
             CashPaymentRules = [.. settings.CashPaymentRules.Select(ToPersistedCashPaymentRule)]
@@ -1028,7 +1031,7 @@ public sealed class SettingsStore
             Id = rule.Id == Guid.Empty ? Guid.NewGuid() : rule.Id,
             IsEnabled = rule.IsEnabled,
             Name = string.IsNullOrWhiteSpace(rule.Name) ? "New Twitch trigger" : rule.Name,
-            TriggerType = (int)rule.TriggerType >= 2 ? TwitchTriggerType.Subscriptions : rule.TriggerType,
+            TriggerType = Enum.IsDefined(rule.TriggerType) ? rule.TriggerType : TwitchTriggerType.ChannelPoints,
             ChannelPointRewardId = rule.ChannelPointRewardId ?? string.Empty,
             ChannelPointRewardTitle = !string.IsNullOrWhiteSpace(rule.ChannelPointRewardTitle)
                 ? rule.ChannelPointRewardTitle
@@ -1394,6 +1397,72 @@ public sealed class SettingsStore
         };
     }
 
+    private static PersistedPowerUpRule ToPersistedPowerUpRule(PowerUpRule rule)
+    {
+        return new PersistedPowerUpRule
+        {
+            Id = rule.Id,
+            IsEnabled = rule.IsEnabled,
+            Name = rule.Name,
+            SourceMode = rule.SourceMode,
+            PowerUpId = rule.PowerUpId,
+            PowerUpTitle = rule.PowerUpTitle,
+            BitsCost = rule.BitsCost,
+            Prompt = rule.Prompt,
+            AvatarScoped = rule.AvatarScoped,
+            AvatarId = rule.AvatarId,
+            AvatarName = rule.AvatarName,
+            CooldownSeconds = rule.CooldownSeconds,
+            FixedFloatAddEnabled = rule.FixedFloatAddEnabled,
+            FixedFloatAddValue = rule.FixedFloatAddValue,
+            FixedFloatAddMinimumValue = rule.FixedFloatAddMinimumValue,
+            FixedFloatAddMaximumValue = rule.FixedFloatAddMaximumValue,
+            PermanentAvatarChange = rule.PermanentAvatarChange,
+            ActionKind = rule.ActionKind,
+            ActionRule = ToPersistedRule(rule.ActionRule),
+            ScaleAction = ToPersistedAvatarScaleRule(rule.ScaleAction)
+        };
+    }
+
+    private static PowerUpRule ToPowerUpRule(PersistedPowerUpRule rule)
+    {
+        var powerUp = new PowerUpRule
+        {
+            Id = rule.Id == Guid.Empty ? Guid.NewGuid() : rule.Id,
+            IsEnabled = rule.IsEnabled ?? true,
+            Name = string.IsNullOrWhiteSpace(rule.Name) ? "New Power Up" : rule.Name.Trim(),
+            SourceMode = Enum.IsDefined(rule.SourceMode) ? rule.SourceMode : TwitchRewardSyncMode.LinkExisting,
+            PowerUpId = rule.PowerUpId ?? string.Empty,
+            PowerUpTitle = rule.PowerUpTitle ?? string.Empty,
+            BitsCost = rule.BitsCost <= 0 ? 100 : rule.BitsCost,
+            Prompt = rule.Prompt ?? string.Empty,
+            AvatarScoped = rule.AvatarScoped,
+            AvatarId = rule.AvatarId ?? string.Empty,
+            AvatarName = rule.AvatarName ?? string.Empty,
+            CooldownSeconds = Math.Max(0, rule.CooldownSeconds ?? 30),
+            FixedFloatAddEnabled = rule.FixedFloatAddEnabled,
+            FixedFloatAddValue = string.IsNullOrWhiteSpace(rule.FixedFloatAddValue) ? "0.05" : rule.FixedFloatAddValue.Trim(),
+            FixedFloatAddMinimumValue = string.IsNullOrWhiteSpace(rule.FixedFloatAddMinimumValue) ? "0" : rule.FixedFloatAddMinimumValue.Trim(),
+            FixedFloatAddMaximumValue = string.IsNullOrWhiteSpace(rule.FixedFloatAddMaximumValue) ? "1" : rule.FixedFloatAddMaximumValue.Trim(),
+            PermanentAvatarChange = rule.PermanentAvatarChange,
+            ActionKind = Enum.IsDefined(rule.ActionKind) ? rule.ActionKind : PowerUpActionKind.TriggerAction,
+            ActionRule = rule.ActionRule is null ? PowerUpRule.CreateDefaultTriggerAction() : ToRule(rule.ActionRule),
+            ScaleAction = rule.ScaleAction is null ? PowerUpRule.CreateDefaultScaleAction() : ToAvatarScaleRule(rule.ScaleAction)
+        };
+
+        powerUp.ActionRule.TriggerType = TwitchTriggerType.PowerUp;
+        powerUp.ActionRule.RewardSyncMode = TwitchRewardSyncMode.LinkExisting;
+        powerUp.ActionRule.ChannelPointRewardId = string.Empty;
+        powerUp.ActionRule.ChannelPointRewardTitle = string.Empty;
+        powerUp.ActionRule.ChatCommandEnabled = false;
+        powerUp.ScaleAction.TriggerType = AvatarScaleTriggerType.Bits;
+        powerUp.ScaleAction.RewardId = string.Empty;
+        powerUp.ScaleAction.RewardTitle = string.Empty;
+        powerUp.ScaleAction.MinimumBits = 1;
+        powerUp.ScaleAction.MaximumBits = int.MaxValue;
+        return powerUp;
+    }
+
     private static PersistedRewardFireSaleSettings ToPersistedRewardFireSaleSettings(
         RewardFireSaleSettings settings)
     {
@@ -1402,6 +1471,7 @@ public sealed class SettingsStore
             IsEnabled = settings.IsEnabled,
             CountBits = settings.CountBits,
             CountManagedRewards = settings.CountManagedRewards,
+            DiscountManagedPowerUpsEnabled = settings.DiscountManagedPowerUpsEnabled,
             FundingRewardEnabled = settings.FundingRewardEnabled,
             FundingRewardId = settings.FundingRewardId,
             FundingRewardTitle = settings.FundingRewardTitle,
@@ -1446,6 +1516,7 @@ public sealed class SettingsStore
             IsEnabled = settings.IsEnabled,
             CountBits = settings.CountBits ?? true,
             CountManagedRewards = settings.CountManagedRewards ?? true,
+            DiscountManagedPowerUpsEnabled = settings.DiscountManagedPowerUpsEnabled ?? false,
             FundingRewardEnabled = settings.FundingRewardEnabled,
             FundingRewardId = settings.FundingRewardId?.Trim() ?? string.Empty,
             FundingRewardTitle = string.IsNullOrWhiteSpace(settings.FundingRewardTitle)
@@ -2286,6 +2357,8 @@ public sealed class SettingsStore
 
         public PersistedAvatarScaleMasterRewardSettings? AvatarScaleMasterReward { get; set; }
 
+        public List<PersistedPowerUpRule>? PowerUpRules { get; set; }
+
         public PersistedRewardFireSaleSettings? RewardFireSale { get; set; }
 
         public PersistedCashPaymentConnectionSettings? CashPayments { get; set; }
@@ -2378,6 +2451,49 @@ public sealed class SettingsStore
         public CashPaymentActionKind ActionKind { get; set; }
 
         public PersistedTriggerRule? TriggerAction { get; set; }
+
+        public PersistedAvatarScaleRule? ScaleAction { get; set; }
+    }
+
+    private sealed class PersistedPowerUpRule
+    {
+        public Guid Id { get; set; }
+
+        public bool? IsEnabled { get; set; }
+
+        public string? Name { get; set; }
+
+        public TwitchRewardSyncMode SourceMode { get; set; }
+
+        public string? PowerUpId { get; set; }
+
+        public string? PowerUpTitle { get; set; }
+
+        public int BitsCost { get; set; }
+
+        public string? Prompt { get; set; }
+
+        public bool AvatarScoped { get; set; }
+
+        public string? AvatarId { get; set; }
+
+        public string? AvatarName { get; set; }
+
+        public int? CooldownSeconds { get; set; }
+
+        public bool FixedFloatAddEnabled { get; set; }
+
+        public string? FixedFloatAddValue { get; set; }
+
+        public string? FixedFloatAddMinimumValue { get; set; }
+
+        public string? FixedFloatAddMaximumValue { get; set; }
+
+        public bool PermanentAvatarChange { get; set; }
+
+        public PowerUpActionKind ActionKind { get; set; }
+
+        public PersistedTriggerRule? ActionRule { get; set; }
 
         public PersistedAvatarScaleRule? ScaleAction { get; set; }
     }
@@ -2827,6 +2943,8 @@ public sealed class SettingsStore
         public bool? CountBits { get; set; }
 
         public bool? CountManagedRewards { get; set; }
+
+        public bool? DiscountManagedPowerUpsEnabled { get; set; }
 
         public bool FundingRewardEnabled { get; set; }
 

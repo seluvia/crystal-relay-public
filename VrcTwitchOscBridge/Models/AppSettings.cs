@@ -23,6 +23,7 @@ public sealed class AppSettings : ObservableObject
     private ObservableCollection<AvatarScaleSet> avatarScaleSets = [];
     private ObservableCollection<AvatarScaleRule> avatarScaleRules = [];
     private AvatarScaleMasterRewardSettings avatarScaleMasterReward = new();
+    private ObservableCollection<PowerUpRule> powerUpRules = [];
     private RewardFireSaleSettings rewardFireSale = new();
     private CashPaymentConnectionSettings cashPayments = new();
     private ObservableCollection<CashPaymentRule> cashPaymentRules = [];
@@ -152,6 +153,12 @@ public sealed class AppSettings : ObservableObject
     {
         get => avatarScaleMasterReward;
         set => SetProperty(ref avatarScaleMasterReward, value ?? new AvatarScaleMasterRewardSettings());
+    }
+
+    public ObservableCollection<PowerUpRule> PowerUpRules
+    {
+        get => powerUpRules;
+        set => SetProperty(ref powerUpRules, value ?? []);
     }
 
     public RewardFireSaleSettings RewardFireSale

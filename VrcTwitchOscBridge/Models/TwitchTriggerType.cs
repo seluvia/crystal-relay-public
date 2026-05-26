@@ -4,5 +4,6 @@ public enum TwitchTriggerType
 {
     ChannelPoints,
     Bits,
-    Subscriptions
+    Subscriptions,
+    PowerUp
 }

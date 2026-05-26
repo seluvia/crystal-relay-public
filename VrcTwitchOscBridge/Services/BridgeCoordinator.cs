@@ -40,6 +40,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private static readonly TimeSpan ChatboxRelayUnavailableLogThrottle = TimeSpan.FromSeconds(20);
     private static readonly TimeSpan ChatboxRelayBlockedLogThrottle = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan RedeemPauseLogThrottle = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan PowerUpInactiveAvatarLogThrottle = TimeSpan.FromSeconds(20);
     private static readonly TimeSpan AvatarScalePassiveCarryoverLogThrottle = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan AvatarScaleCarryoverInitialSendDelay = TimeSpan.FromMilliseconds(2500);
     private static readonly TimeSpan AvatarScaleCarryoverApplyInterval = TimeSpan.FromMilliseconds(1000);
@@ -89,6 +90,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private static readonly string[] ManagedSubscriptionTypes =
     [
         "channel.channel_points_custom_reward_redemption.add",
+        "channel.custom_power_up_redemption.add",
         "channel.cheer",
         "channel.subscribe",
         "channel.subscription.gift",
@@ -167,6 +169,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private readonly Dictionary<string, DateTimeOffset> universalTriggerUserDelays = new(StringComparer.Ordinal);
     private readonly Dictionary<Guid, SemaphoreSlim> universalTriggerQueueGates = [];
     private readonly Dictionary<string, DateTimeOffset> triggerInfoCommandCooldowns = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<Guid, DateTimeOffset> powerUpInactiveAvatarLogTimes = [];
     private readonly SemaphoreSlim worldCommandLookupGate = new(1, 1);
     private readonly Dictionary<Guid, ActiveAvatarScaleSupporterGrowthState> avatarScaleSupporterGrowthStates = [];
     private readonly Dictionary<Guid, DateTimeOffset> activeAvatarScaleEffects = [];
@@ -670,6 +673,27 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         if (rule.TriggerAction is null)
         {
             throw new InvalidOperationException("Finish the cash payment action setup before testing it.");
+        }
+
+        await SendTestRuleAsync(rule.TriggerAction, cancellationToken);
+    }
+
+    public async Task SendTestPowerUpRuleAsync(PowerUpRuleSnapshot rule, CancellationToken cancellationToken = default)
+    {
+        if (!IsOscActive)
+        {
+            throw new InvalidOperationException("OSC is not running yet, so Crystal Relay cannot send a Power Up test to VRChat.");
+        }
+
+        if (rule.ActionKind == PowerUpActionKind.AvatarScaling && rule.ScaleAction is not null)
+        {
+            await SendTestAvatarScaleRuleAsync(rule.ScaleAction, cancellationToken);
+            return;
+        }
+
+        if (rule.TriggerAction is null)
+        {
+            throw new InvalidOperationException("Finish the Power Up action setup before testing it.");
         }
 
         await SendTestRuleAsync(rule.TriggerAction, cancellationToken);
@@ -2105,6 +2129,19 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         var currentAvatarId = GetCurrentVrChatAvatarId();
         var temporarilyDisabledRuleIds = GetTemporarilyDisabledRuleIds();
         var avatarChangeTransitionActive = IsAvatarChangeTransitionActive();
+        if (bridgeEvent.TriggerType == TwitchTriggerType.PowerUp)
+        {
+            await HandlePowerUpEventAsync(
+                configuration,
+                bridgeEvent,
+                currentAvatarId,
+                avatarChangeTransitionActive,
+                temporarilyDisabledRuleIds,
+                avatarScaleHandled,
+                cancellationToken);
+            return;
+        }
+
         var matchingRules = SelectMatchingRules(
             configuration,
             ruleIndex,
@@ -2723,7 +2760,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                     activeConfiguration.TwitchClientId,
                     sessionId,
                     subscriptionType,
-                    string.Equals(subscriptionType, "channel.follow", StringComparison.Ordinal) ? "2" : "1",
+                    GetEventSubSubscriptionVersion(subscriptionType),
                     condition,
                     cancellationToken);
 
@@ -2742,6 +2779,13 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             }
         }
     }
+
+    private static string GetEventSubSubscriptionVersion(string subscriptionType) => subscriptionType switch
+    {
+        "channel.follow" => "2",
+        "channel.custom_power_up_redemption.add" => "beta",
+        _ => "1"
+    };
 
     private static bool RequiresChatReadScope(string subscriptionType) =>
         subscriptionType is "channel.chat.message"
@@ -2854,6 +2898,20 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 temporarilyDisabledRuleIds,
                 cancellationToken))
         {
+            return;
+        }
+
+        if (!bridgeEvent.IsChatCommandTrigger
+            && bridgeEvent.TriggerType == TwitchTriggerType.PowerUp)
+        {
+            await HandlePowerUpEventAsync(
+                configuration,
+                bridgeEvent,
+                currentAvatarId,
+                avatarChangeTransitionActive,
+                temporarilyDisabledRuleIds,
+                avatarScaleHandled,
+                cancellationToken);
             return;
         }
 
@@ -3035,6 +3093,190 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         }
     }
 
+    private async Task HandlePowerUpEventAsync(
+        BridgeRuntimeConfiguration configuration,
+        BridgeIncomingEvent bridgeEvent,
+        string currentAvatarId,
+        bool avatarChangeTransitionActive,
+        IReadOnlyCollection<Guid> temporarilyDisabledRuleIds,
+        bool avatarScaleHandled,
+        CancellationToken cancellationToken)
+    {
+        var matchingRules = SelectMatchingPowerUpRules(
+            configuration.PowerUpRules,
+            bridgeEvent,
+            currentAvatarId,
+            avatarChangeTransitionActive,
+            temporarilyDisabledRuleIds,
+            out var inactiveAvatarMatches);
+
+        if (AreRedeemsPaused())
+        {
+            LogRedeemsPaused();
+            return;
+        }
+
+        var fireSaleContributionHandled = TryBuildRewardFireSaleContribution(bridgeEvent, out var fireSaleContribution)
+            && RewardFireSaleContributionReceived?.Invoke(fireSaleContribution) == true;
+
+        if (matchingRules.Length == 0)
+        {
+            foreach (var inactiveMatch in inactiveAvatarMatches)
+            {
+                LogInactivePowerUpAvatarScope(inactiveMatch, currentAvatarId);
+            }
+
+            if (!avatarScaleHandled && !fireSaleContributionHandled)
+            {
+                var label = !string.IsNullOrWhiteSpace(bridgeEvent.RewardTitle)
+                    ? bridgeEvent.RewardTitle
+                    : bridgeEvent.RewardId ?? "unknown Power Up";
+                WriteLog($"No active Power Up rule matched '{label}'.");
+            }
+
+            return;
+        }
+
+        foreach (var rule in matchingRules)
+        {
+            if (rule.ActionKind == PowerUpActionKind.AvatarScaling && rule.ScaleAction is not null)
+            {
+                StartAvatarScaleRuleExecution(rule.ScaleAction, ToUniversalPowerUpEvent(bridgeEvent));
+                continue;
+            }
+
+            if (rule.TriggerAction is not null)
+            {
+                await ExecuteRuleAsync(rule.TriggerAction, bridgeEvent, cancellationToken);
+            }
+        }
+    }
+
+    private PowerUpRuleSnapshot[] SelectMatchingPowerUpRules(
+        IReadOnlyList<PowerUpRuleSnapshot> rules,
+        BridgeIncomingEvent bridgeEvent,
+        string currentAvatarId,
+        bool avatarChangeTransitionActive,
+        IReadOnlyCollection<Guid> temporarilyDisabledRuleIds,
+        out IReadOnlyList<PowerUpRuleSnapshot> inactiveAvatarMatches)
+    {
+        var inactiveMatches = new List<PowerUpRuleSnapshot>();
+        var matches = new List<PowerUpRuleSnapshot>();
+        foreach (var rule in rules)
+        {
+            if (!PowerUpIdentityMatches(rule, bridgeEvent))
+            {
+                continue;
+            }
+
+            if (!rule.IsEnabled || temporarilyDisabledRuleIds.Contains(rule.Id))
+            {
+                continue;
+            }
+
+            if (!PowerUpRuleIsActiveForCurrentAvatar(rule, currentAvatarId, avatarChangeTransitionActive))
+            {
+                inactiveMatches.Add(rule);
+                continue;
+            }
+
+            matches.Add(rule);
+        }
+
+        inactiveAvatarMatches = inactiveMatches;
+        return [.. matches];
+    }
+
+    private static bool PowerUpIdentityMatches(PowerUpRuleSnapshot rule, BridgeIncomingEvent bridgeEvent)
+    {
+        var configuredId = rule.PowerUpId.Trim();
+        var incomingId = bridgeEvent.RewardId?.Trim() ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(configuredId))
+        {
+            return string.Equals(configuredId, incomingId, StringComparison.Ordinal);
+        }
+
+        var configuredTitle = NormalizePowerUpTitle(rule.PowerUpTitle);
+        var incomingTitle = NormalizePowerUpTitle(bridgeEvent.RewardTitle);
+        return !string.IsNullOrWhiteSpace(configuredTitle)
+            && string.Equals(configuredTitle, incomingTitle, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool PowerUpRuleIsActiveForCurrentAvatar(
+        PowerUpRuleSnapshot rule,
+        string currentAvatarId,
+        bool avatarChangeTransitionActive)
+    {
+        if (rule.TriggerAction is not null)
+        {
+            return AvatarRuleActivationPolicy.IsRuleActiveForCurrentAvatar(
+                rule.TriggerAction.IsGlobalOverride,
+                rule.TriggerAction.BelongsToMasterAvatarProfile,
+                rule.TriggerAction.ActionType,
+                rule.TriggerAction.AvatarChangeTargetId,
+                rule.TriggerAction.RequiredAvatarId,
+                currentAvatarId,
+                avatarChangeTransitionActive);
+        }
+
+        if (!rule.AvatarScoped)
+        {
+            return true;
+        }
+
+        var normalizedRequiredAvatarId = rule.AvatarId.Trim();
+        var normalizedCurrentAvatarId = currentAvatarId?.Trim() ?? string.Empty;
+        return !string.IsNullOrWhiteSpace(normalizedRequiredAvatarId)
+            && string.Equals(normalizedRequiredAvatarId, normalizedCurrentAvatarId, StringComparison.Ordinal);
+    }
+
+    private void LogInactivePowerUpAvatarScope(PowerUpRuleSnapshot rule, string currentAvatarId)
+    {
+        var now = DateTimeOffset.UtcNow;
+        lock (stateGate)
+        {
+            if (powerUpInactiveAvatarLogTimes.TryGetValue(rule.Id, out var nextLogAt)
+                && nextLogAt > now)
+            {
+                return;
+            }
+
+            powerUpInactiveAvatarLogTimes[rule.Id] = now.Add(PowerUpInactiveAvatarLogThrottle);
+        }
+
+        var currentText = string.IsNullOrWhiteSpace(currentAvatarId) ? "no detected avatar" : currentAvatarId;
+        var requiredText = rule.TriggerAction?.RequiredAvatarName
+            ?? rule.AvatarName
+            ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(requiredText))
+        {
+            requiredText = rule.TriggerAction?.RequiredAvatarId ?? rule.AvatarId;
+        }
+
+        WriteLog($"Ignored Power Up '{rule.Name}' because it is not active for the current avatar ({currentText}). Required: {requiredText}.");
+    }
+
+    private static string NormalizePowerUpTitle(string? title) =>
+        ManagedRewardPresentation.NormalizeTitleIdentityKey(title ?? string.Empty);
+
+    private static UniversalIncomingEvent ToUniversalPowerUpEvent(BridgeIncomingEvent bridgeEvent)
+    {
+        return new UniversalIncomingEvent(
+            UniversalTriggerType.Bits,
+            bridgeEvent.UserDisplayName,
+            bridgeEvent.UserId,
+            bridgeEvent.UserLogin,
+            Math.Max(1, bridgeEvent.Amount),
+            bridgeEvent.RewardId,
+            bridgeEvent.RewardTitle,
+            string.IsNullOrWhiteSpace(bridgeEvent.MessageText) ? bridgeEvent.RewardUserInput : bridgeEvent.MessageText,
+            string.Empty,
+            0,
+            bridgeEvent.BadgeSetIds,
+            bridgeEvent.UserIsModerator,
+            bridgeEvent.UserIsBroadcaster);
+    }
+
     private static bool CashPaymentRuleMatches(CashPaymentRuleSnapshot rule, CashPaymentEvent paymentEvent)
     {
         if (!rule.IsEnabled || rule.Provider != paymentEvent.Provider)
@@ -3124,13 +3366,23 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private static bool IsSupporterOverrideRule(TriggerRuleSnapshot rule) =>
         rule.IsGlobalOverride && rule.TriggerType is TwitchTriggerType.Bits or TwitchTriggerType.Subscriptions;
 
+    private static bool IsPaidAvatarChangeBypassRule(TriggerRuleSnapshot rule) =>
+        IsSupporterOverrideRule(rule) || rule.TriggerType == TwitchTriggerType.PowerUp;
+
     private static bool IsTimedSupporterOverrideRule(TriggerRuleSnapshot rule) =>
-        IsSupporterOverrideRule(rule)
+        (IsSupporterOverrideRule(rule) || IsPowerUpFixedFloatAddRule(rule))
         && rule.ActionType != OscActionType.SetTrigger
         && (rule.AmountScaledDurationEnabled || rule.DurationSeconds > 0);
 
     private static bool IsSupporterFloatAddRule(TriggerRuleSnapshot rule) =>
-        IsSupporterOverrideRule(rule)
+        (IsSupporterOverrideRule(rule) || rule.TriggerType == TwitchTriggerType.PowerUp)
+        && rule.ActionType == OscActionType.AvatarParameter
+        && rule.ParameterType == OscParameterType.Float
+        && rule.DurationSeconds > 0
+        && rule.SupporterFloatAddEnabled;
+
+    private static bool IsPowerUpFixedFloatAddRule(TriggerRuleSnapshot rule) =>
+        rule.TriggerType == TwitchTriggerType.PowerUp
         && rule.ActionType == OscActionType.AvatarParameter
         && rule.ParameterType == OscParameterType.Float
         && rule.DurationSeconds > 0
@@ -3165,7 +3417,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         if (isTest
             || activeConfiguration?.AvatarScaleMasterReward.PreventAvatarChangesDuringActiveScaling != true
             || rule.ActionType is not (OscActionType.AvatarChange or OscActionType.AvatarRoulet)
-            || IsSupporterOverrideRule(rule))
+            || IsPaidAvatarChangeBypassRule(rule))
         {
             return false;
         }
@@ -3200,20 +3452,20 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     }
 
     private static AvatarScaleAvatarChangeCarryoverMode GetAvatarScaleAvatarChangeCarryoverMode(TriggerRuleSnapshot rule) =>
-        IsSupporterOverrideRule(rule)
+        IsPaidAvatarChangeBypassRule(rule)
             ? AvatarScaleAvatarChangeCarryoverMode.ForcePaidOverride
             : AvatarScaleAvatarChangeCarryoverMode.Auto;
 
     private void LogPaidAvatarChangeAllowedDuringActiveScaling(TriggerRuleSnapshot rule)
     {
-        if (!IsSupporterOverrideRule(rule)
+        if (!IsPaidAvatarChangeBypassRule(rule)
             || rule.ActionType is not (OscActionType.AvatarChange or OscActionType.AvatarRoulet)
             || !IsAvatarScalingActiveForAvatarChangeBlock())
         {
             return;
         }
 
-        WriteLog($"Paid avatar-change override '{rule.Name}' is allowed while Avatar Scaling is active, so Crystal Relay will carry the active scale height.");
+        WriteLog($"Paid avatar-change '{rule.Name}' is allowed while Avatar Scaling is active, so Crystal Relay will carry the active scale height.");
     }
 
     private async Task ExecuteMatchingUniversalTriggersAsync(
@@ -6133,7 +6385,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
         if (ShouldBlockAvatarChangeDuringActiveScaling(rule, isTest))
         {
-            WriteLog($"Blocked avatar-change reward '{rule.Name}' because Avatar Scaling is active. Bits + Subs overrides can still change avatars.");
+            WriteLog($"Blocked avatar-change reward '{rule.Name}' because Avatar Scaling is active. Paid Bits, Subs, and Power Up avatar changes can still change avatars.");
             return;
         }
 
@@ -12553,6 +12805,29 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 RewardUserInput = GetString(eventData, "user_input") ?? string.Empty
             },
 
+            "channel.custom_power_up_redemption.add" => new BridgeIncomingEvent(
+                TwitchTriggerType.PowerUp,
+                GetString(eventData, "user_name") ?? "Viewer",
+                GetPowerUpBitsCost(eventData),
+                GetString(eventData, "custom_power_up", "id")
+                    ?? GetString(eventData, "power_up", "id")
+                    ?? GetString(eventData, "id"),
+                GetString(eventData, "custom_power_up", "title")
+                    ?? GetString(eventData, "power_up", "title")
+                    ?? GetString(eventData, "title"),
+                "Power Up",
+                false,
+                string.Empty,
+                GetString(eventData, "user_id") ?? string.Empty,
+                GetString(eventData, "user_login") ?? string.Empty,
+                [],
+                false,
+                false)
+            {
+                RewardUserInput = GetString(eventData, "user_input") ?? string.Empty,
+                MessageText = GetString(eventData, "user_input") ?? string.Empty
+            },
+
             "channel.cheer" => new BridgeIncomingEvent(
                 TwitchTriggerType.Bits,
                 GetBoolean(eventData, "is_anonymous") ? "Anonymous" : GetString(eventData, "user_name") ?? "Viewer",
@@ -12639,13 +12914,13 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             return false;
         }
 
-        if (incomingEvent.TriggerType == TwitchTriggerType.Bits && incomingEvent.Amount > 0)
+        if (incomingEvent.TriggerType is TwitchTriggerType.Bits or TwitchTriggerType.PowerUp && incomingEvent.Amount > 0)
         {
             contribution = new RewardFireSaleContribution(
                 RewardFireSaleContributionType.Bits,
                 incomingEvent.Amount,
-                null,
-                null,
+                incomingEvent.TriggerType == TwitchTriggerType.PowerUp ? incomingEvent.RewardId : null,
+                incomingEvent.TriggerType == TwitchTriggerType.PowerUp ? incomingEvent.RewardTitle : null,
                 incomingEvent.UserDisplayName);
             return true;
         }
@@ -12669,6 +12944,30 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         }
 
         return false;
+    }
+
+    private static int GetPowerUpBitsCost(JsonElement eventData)
+    {
+        var bits = GetInt(eventData, "custom_power_up", "bits");
+        if (bits > 0)
+        {
+            return bits;
+        }
+
+        bits = GetInt(eventData, "custom_power_up", "cost");
+        if (bits > 0)
+        {
+            return bits;
+        }
+
+        bits = GetInt(eventData, "power_up", "bits");
+        if (bits > 0)
+        {
+            return bits;
+        }
+
+        bits = GetInt(eventData, "bits");
+        return bits > 0 ? bits : Math.Max(0, GetInt(eventData, "cost"));
     }
 
     private UniversalIncomingEvent? ParseUniversalEvent(
@@ -15392,6 +15691,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             universalTriggerGlobalDelays.Clear();
             universalTriggerUserDelays.Clear();
             triggerInfoCommandCooldowns.Clear();
+            powerUpInactiveAvatarLogTimes.Clear();
             nextWorldCommandAllowedAt = DateTimeOffset.MinValue;
             cachedWorldCommandResultExpiresAt = DateTimeOffset.MinValue;
             cachedWorldCommandUserId = string.Empty;

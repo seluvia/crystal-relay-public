@@ -1159,7 +1159,7 @@ public sealed class TriggerRule : ObservableObject
 
     public bool UsesChannelPointReward => TriggerType == TwitchTriggerType.ChannelPoints;
 
-    public bool UsesAmountThreshold => TriggerType != TwitchTriggerType.ChannelPoints;
+    public bool UsesAmountThreshold => TriggerType is TwitchTriggerType.Bits or TwitchTriggerType.Subscriptions;
 
     public bool UsesAmountScaledDuration => UsesAmountThreshold && AmountScaledDurationEnabled;
 
@@ -1250,6 +1250,13 @@ public sealed class TriggerRule : ObservableObject
                         ? ChatCommandText.Trim()
                         : (string.IsNullOrWhiteSpace(Name) ? "New Redeem" : Name.Trim())
                     : ChannelPointRewardTitle.Trim();
+            }
+
+            if (TriggerType == TwitchTriggerType.PowerUp)
+            {
+                return string.IsNullOrWhiteSpace(Name)
+                    ? "New Power Up Action"
+                    : Name.Trim();
             }
 
             return string.IsNullOrWhiteSpace(Name)
@@ -1461,6 +1468,7 @@ public sealed class TriggerRule : ObservableObject
                 TwitchTriggerType.Subscriptions => AmountScaledDurationEnabled
                     ? TF("Subs >= {0} (T1 {1}s, T2 {2}s, T3 {3}s)", Math.Max(1, MinimumAmount), Math.Max(1, SubscriptionTier1SecondsPerSub), Math.Max(1, SubscriptionTier2SecondsPerSub), Math.Max(1, SubscriptionTier3SecondsPerSub))
                     : TF("Subs >= {0}", Math.Max(1, MinimumAmount)),
+                TwitchTriggerType.PowerUp => T("Power Up"),
                 _ => Name
             };
 

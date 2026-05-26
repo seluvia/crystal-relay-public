@@ -280,6 +280,23 @@ public sealed class TwitchApiClient : IDisposable
         return payload.Data;
     }
 
+    public async Task<IReadOnlyList<CustomPowerUpResponse>> GetCustomPowerUpsAsync(
+        string accessToken,
+        string clientId,
+        string broadcasterId,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateHelixRequest(
+            HttpMethod.Get,
+            $"https://api.twitch.tv/helix/bits/custom_power_ups?broadcaster_id={Uri.EscapeDataString(broadcasterId)}",
+            accessToken,
+            clientId);
+
+        using var response = await SendAsync(request, cancellationToken);
+        var payload = await ReadAsJsonAsync<CustomPowerUpListResponse>(response, cancellationToken);
+        return payload.Data;
+    }
+
     public async Task<CustomRewardResponse> CreateCustomRewardAsync(
         string accessToken,
         string clientId,
@@ -1108,6 +1125,35 @@ public sealed class TwitchApiClient : IDisposable
 
         [JsonPropertyName("is_user_input_required")]
         public bool IsUserInputRequired { get; set; }
+    }
+
+    public sealed class CustomPowerUpListResponse
+    {
+        [JsonPropertyName("data")]
+        public List<CustomPowerUpResponse> Data { get; set; } = [];
+    }
+
+    public sealed class CustomPowerUpResponse
+    {
+        [JsonPropertyName("id")]
+        public string Id { get; set; } = string.Empty;
+
+        [JsonPropertyName("title")]
+        public string Title { get; set; } = string.Empty;
+
+        [JsonPropertyName("cost")]
+        public int Cost { get; set; }
+
+        [JsonPropertyName("bits")]
+        public int Bits { get; set; }
+
+        [JsonPropertyName("is_enabled")]
+        public bool IsEnabled { get; set; } = true;
+
+        [JsonPropertyName("prompt")]
+        public string Prompt { get; set; } = string.Empty;
+
+        public int EffectiveBitsCost => Cost > 0 ? Cost : Bits;
     }
 
     private sealed class CustomRewardMutationPayload

@@ -3,7 +3,11 @@ Crystal Relay Changelog
 
 Newest updates appear first. This changelog focuses on the changes users will notice most.
 
-v3.1.8 beta 1
+v3.1.8 beta 2
+- Added a Power Up Redeem Library for Twitch Custom Power-ups paid with Bits. Power Ups can link existing Twitch Custom Power-ups, stay separate from normal cheers, and run OSC actions, Set Trigger, Avatar Change, Avatar Roulette, movement, or Avatar Scaling actions.
+- Added Power Up settings for avatar scope, timed or permanent avatar changes, local cooldowns, fixed float-add behavior, and listen-only linked Power-up details.
+- Power Up redemptions now add their Bits amount to Reward Fire Sale progress when Bits counting is enabled, while linked Power Ups remain listen-only and are never edited or repriced.
+- Improved Power Up avatar and parameter pickers so Avatar Change targets and Avatar Parameter options can use saved VRChat avatars, the current avatar, saved avatar profiles, Power Up targets, and local OSC avatar data.
 - Added an Activity + Mod drawer to the Twitch Chatbox with recent Twitch activity, quick timeouts, ban, purge, message delete, and suspicious-user controls when the broadcaster account has the needed Twitch scopes.
 - Added suspicious/restricted chatter badges in the Twitch Chatbox and activity entries for follows, support events, rewards, chat clears, deleted messages, and moderation results.
 - Added Bits/Subs Add for float avatar-parameter supporter rules, letting Bits or Subs add to the current float value by amount ranges while clamping to a configured maximum.
