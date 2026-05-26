@@ -236,6 +236,27 @@ public sealed record CashPaymentRuleSnapshot(
     TriggerRuleSnapshot? TriggerAction,
     AvatarScaleRuleSnapshot? ScaleAction);
 
+public sealed record PowerUpRuleSnapshot(
+    Guid Id,
+    bool IsEnabled,
+    string Name,
+    TwitchRewardSyncMode SourceMode,
+    string PowerUpId,
+    string PowerUpTitle,
+    int BitsCost,
+    string Prompt,
+    bool AvatarScoped,
+    string AvatarId,
+    string AvatarName,
+    int CooldownSeconds,
+    bool FixedFloatAddEnabled,
+    string FixedFloatAddValue,
+    string FixedFloatAddMinimumValue,
+    string FixedFloatAddMaximumValue,
+    PowerUpActionKind ActionKind,
+    TriggerRuleSnapshot? TriggerAction,
+    AvatarScaleRuleSnapshot? ScaleAction);
+
 public sealed record BridgeRuntimeConfiguration(
     string TwitchClientId,
     TwitchAccountSnapshot Broadcaster,
@@ -265,6 +286,7 @@ public sealed record BridgeRuntimeConfiguration(
     AvatarScaleMasterRewardSnapshot AvatarScaleMasterReward,
     CashPaymentConnectionSnapshot CashPayments,
     IReadOnlyList<TriggerRuleSnapshot> Rules,
+    IReadOnlyList<PowerUpRuleSnapshot> PowerUpRules,
     IReadOnlyList<UniversalTriggerRuleSnapshot> UniversalTriggers,
     IReadOnlyList<AvatarScaleRuleSnapshot> AvatarScaleRules,
     IReadOnlyList<CashPaymentRuleSnapshot> CashPaymentRules)
@@ -275,6 +297,7 @@ public sealed record BridgeRuntimeConfiguration(
         IReadOnlyDictionary<string, int>? linkedRewardCooldownSecondsById = null)
     {
         var rules = new List<TriggerRuleSnapshot>();
+        var powerUpRules = new List<PowerUpRuleSnapshot>();
         var universalTriggers = new List<UniversalTriggerRuleSnapshot>();
         var avatarScaleRules = new List<AvatarScaleRuleSnapshot>();
         var cashPaymentRules = new List<CashPaymentRuleSnapshot>();
@@ -318,6 +341,14 @@ public sealed record BridgeRuntimeConfiguration(
             if (TryToUniversalSnapshot(trigger, requireTriggerFilter: true, out var snapshot))
             {
                 universalTriggers.Add(snapshot);
+            }
+        }
+
+        foreach (var powerUpRule in settings.PowerUpRules)
+        {
+            if (TryToPowerUpSnapshot(powerUpRule, masterProfile, out var snapshot))
+            {
+                powerUpRules.Add(snapshot);
             }
         }
 
@@ -378,6 +409,7 @@ public sealed record BridgeRuntimeConfiguration(
             ToAvatarScaleMasterRewardSnapshot(settings.AvatarScaleMasterReward),
             ToCashPaymentConnectionSnapshot(settings.CashPayments),
             rules.ToArray(),
+            powerUpRules.ToArray(),
             universalTriggers.ToArray(),
             avatarScaleRules.ToArray(),
             cashPaymentRules.ToArray());
@@ -451,6 +483,16 @@ public sealed record BridgeRuntimeConfiguration(
         if (!TryToCashPaymentSnapshot(rule, out var snapshot))
         {
             throw new InvalidOperationException("Finish the cash payment rule before testing it.");
+        }
+
+        return snapshot;
+    }
+
+    public static PowerUpRuleSnapshot CreateManualTestSnapshot(PowerUpRule rule, AvatarTriggerProfile? masterProfile)
+    {
+        if (!TryToPowerUpSnapshot(rule, masterProfile, out var snapshot))
+        {
+            throw new InvalidOperationException("Finish the Power Up rule setup before testing it.");
         }
 
         return snapshot;
@@ -708,6 +750,129 @@ public sealed record BridgeRuntimeConfiguration(
             && linkedRewardCooldownSecondsById.TryGetValue(normalizedRewardId, out var cooldownSeconds)
                 ? Math.Max(0, cooldownSeconds)
                 : null;
+    }
+
+    private static bool TryToPowerUpSnapshot(
+        PowerUpRule rule,
+        AvatarTriggerProfile? masterProfile,
+        out PowerUpRuleSnapshot snapshot)
+    {
+        snapshot = default!;
+        if (!rule.IsEnabled)
+        {
+            return false;
+        }
+
+        TriggerRuleSnapshot? triggerAction = null;
+        AvatarScaleRuleSnapshot? scaleAction = null;
+        if (rule.ActionKind == PowerUpActionKind.AvatarScaling)
+        {
+            if (!TryToAvatarScaleSnapshot(rule.ScaleAction, requireTriggerFilter: false, out var scaleSnapshot))
+            {
+                return false;
+            }
+
+            scaleAction = scaleSnapshot with
+            {
+                Id = rule.Id,
+                IsEnabled = rule.IsEnabled && scaleSnapshot.IsEnabled,
+                Name = rule.DisplayTitle,
+                TriggerType = AvatarScaleTriggerType.Bits,
+                RewardId = string.Empty,
+                RewardTitle = string.Empty,
+                MinimumBits = 1,
+                MaximumBits = int.MaxValue,
+                CooldownSeconds = Math.Max(0, rule.CooldownSeconds)
+            };
+        }
+        else
+        {
+            if (!IsManualTestReady(rule.ActionRule))
+            {
+                return false;
+            }
+
+            var actionSnapshot = CreateSnapshot(
+                rule.ActionRule,
+                isGlobalOverride: true,
+                profile: null,
+                linkedRewardCooldownSecondsById: null);
+
+            var isAvatarSwitch = rule.ActionRule.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet;
+            var requiredAvatarId = string.Empty;
+            var requiredAvatarName = string.Empty;
+            var belongsToMasterAvatarProfile = false;
+            if (isAvatarSwitch)
+            {
+                requiredAvatarId = masterProfile?.AvatarId.Trim() ?? string.Empty;
+                requiredAvatarName = masterProfile?.AvatarName.Trim() ?? string.Empty;
+                belongsToMasterAvatarProfile = true;
+            }
+            else if (rule.AvatarScoped)
+            {
+                requiredAvatarId = rule.AvatarId.Trim();
+                requiredAvatarName = rule.AvatarName.Trim();
+            }
+
+            var hasRequiredAvatar = !string.IsNullOrWhiteSpace(requiredAvatarId);
+            triggerAction = actionSnapshot with
+            {
+                Id = rule.Id,
+                IsEnabled = rule.IsEnabled && actionSnapshot.IsEnabled,
+                Name = rule.DisplayTitle,
+                IsGlobalOverride = !hasRequiredAvatar,
+                AvatarProfileId = Guid.Empty,
+                AvatarProfileName = string.Empty,
+                RequiredAvatarId = requiredAvatarId,
+                RequiredAvatarName = requiredAvatarName,
+                SupporterAvatarProfileId = Guid.Empty,
+                SupporterAvatarId = rule.AvatarScoped ? rule.AvatarId.Trim() : string.Empty,
+                SupporterAvatarName = rule.AvatarScoped ? rule.AvatarName.Trim() : string.Empty,
+                BelongsToMasterAvatarProfile = belongsToMasterAvatarProfile,
+                TriggerType = TwitchTriggerType.PowerUp,
+                ChannelPointRewardId = string.Empty,
+                ChannelPointRewardTitle = rule.PowerUpTitle.Trim(),
+                ChatCommandEnabled = false,
+                ChatCommandText = string.Empty,
+                MinimumAmount = 1,
+                AmountScaledDurationEnabled = false,
+                CooldownSeconds = Math.Max(0, rule.CooldownSeconds),
+                UsesLinkedChannelPointReward = false,
+                BotMessageCooldownSeconds = Math.Max(0, rule.CooldownSeconds),
+                SupporterFloatAddEnabled = rule.FixedFloatAddEnabled,
+                SupporterFloatAddMinimumValue = rule.FixedFloatAddMinimumValue.Trim(),
+                SupporterFloatAddMaximumValue = rule.FixedFloatAddMaximumValue.Trim(),
+                SupporterFloatAddRanges =
+                [
+                    new SupporterFloatAddRangeSnapshot(
+                        1,
+                        0,
+                        string.IsNullOrWhiteSpace(rule.FixedFloatAddValue) ? "0.05" : rule.FixedFloatAddValue.Trim())
+                ]
+            };
+        }
+
+        snapshot = new PowerUpRuleSnapshot(
+            rule.Id,
+            rule.IsEnabled,
+            rule.DisplayTitle,
+            Enum.IsDefined(rule.SourceMode) ? rule.SourceMode : TwitchRewardSyncMode.LinkExisting,
+            rule.PowerUpId.Trim(),
+            rule.PowerUpTitle.Trim(),
+            Math.Max(1, rule.BitsCost),
+            rule.Prompt.Trim(),
+            rule.AvatarScoped,
+            rule.AvatarId.Trim(),
+            rule.AvatarName.Trim(),
+            Math.Max(0, rule.CooldownSeconds),
+            rule.FixedFloatAddEnabled,
+            string.IsNullOrWhiteSpace(rule.FixedFloatAddValue) ? "0.05" : rule.FixedFloatAddValue.Trim(),
+            string.IsNullOrWhiteSpace(rule.FixedFloatAddMinimumValue) ? "0" : rule.FixedFloatAddMinimumValue.Trim(),
+            string.IsNullOrWhiteSpace(rule.FixedFloatAddMaximumValue) ? "1" : rule.FixedFloatAddMaximumValue.Trim(),
+            Enum.IsDefined(rule.ActionKind) ? rule.ActionKind : PowerUpActionKind.TriggerAction,
+            triggerAction,
+            scaleAction);
+        return true;
     }
 
     private static bool TryToUniversalSnapshot(
@@ -1069,6 +1234,7 @@ public sealed record BridgeRuntimeConfiguration(
         {
             TwitchTriggerType.ChannelPoints => rule.SharedRewardChoiceEnabled && rule.SharedRewardChoiceNumber > 0,
             TwitchTriggerType.Bits => !string.IsNullOrWhiteSpace(rule.SharedRewardHelpText),
+            TwitchTriggerType.PowerUp => true,
             _ => false
         };
     }

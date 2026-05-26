@@ -56,6 +56,7 @@ public sealed class RewardFireSaleSettings : ObservableObject
     private bool isEnabled;
     private bool countBits = true;
     private bool countManagedRewards = true;
+    private bool discountManagedPowerUpsEnabled;
     private bool fundingRewardEnabled;
     private string fundingRewardId = string.Empty;
     private string fundingRewardTitle = "Fire Sale Fund";
@@ -94,6 +95,12 @@ public sealed class RewardFireSaleSettings : ObservableObject
     {
         get => countManagedRewards;
         set => SetProperty(ref countManagedRewards, value);
+    }
+
+    public bool DiscountManagedPowerUpsEnabled
+    {
+        get => discountManagedPowerUpsEnabled;
+        set => SetProperty(ref discountManagedPowerUpsEnabled, value);
     }
 
     public bool FundingRewardEnabled

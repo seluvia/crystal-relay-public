@@ -389,6 +389,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private AvatarScaleSet? selectedAvatarScaleSet;
     private AvatarScaleRule? selectedAvatarScaleRule;
     private CashPaymentRule? selectedCashPaymentRule;
+    private PowerUpRule? selectedPowerUpRule;
     private AvatarTriggerProfile? selectedAvatarProfile;
     private VrChatOscParameterSummary? selectedAvatarParameterOption;
     private VrChatOscParameterSummary? selectedSetTriggerParameterOption;
@@ -498,6 +499,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private Guid lastSelectedAvatarScaleSetId = Guid.Empty;
     private Guid lastSelectedAvatarScaleRuleId = Guid.Empty;
     private Guid lastSelectedCashPaymentRuleId = Guid.Empty;
+    private Guid lastSelectedPowerUpRuleId = Guid.Empty;
     private AppLanguage activeLanguageAtStartup = AppLanguage.SystemDefault;
     private ICollectionView? universalTriggersGroupedView;
     private bool isUniversalChatCommandsExpanded;
@@ -570,6 +572,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ChatMessages = [];
         ChatActivityEntries = [];
         RewardOptions = [];
+        PowerUpOptions = [];
         RewardSyncModeOptions =
         [
             new TwitchRewardSyncModeOption(TwitchRewardSyncMode.CreateOrManage, T("Create/manage reward")),
@@ -846,6 +849,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ShowMasterAvatarTabCommand = new RelayCommand(ShowMasterAvatarTab);
         ShowMovementRedeemsCommand = new RelayCommand(ShowMovementRedeems);
         ShowSupporterOverridesCommand = new RelayCommand(ShowSupporterOverrides);
+        ShowPowerUpsCommand = new RelayCommand(ShowPowerUps);
         ShowUniversalTriggersCommand = new RelayCommand(ShowUniversalTriggers);
         ShowAvatarScalingCommand = new RelayCommand(ShowAvatarScaling);
         ShowCashPaymentsCommand = new RelayCommand(ShowCashPayments);
@@ -904,6 +908,16 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         DisableAllCashPaymentRulesCommand = new RelayCommand(DisableAllCashPaymentRules, () => Settings.CashPaymentRules.Count > 0);
         DeleteAllCashPaymentRulesCommand = new RelayCommand(DeleteAllCashPaymentRules, () => Settings.CashPaymentRules.Count > 0);
         TestSelectedCashPaymentRuleCommand = new AsyncRelayCommand(TestSelectedCashPaymentRuleAsync, () => SelectedCashPaymentRule is not null);
+        AddPowerUpRuleCommand = new RelayCommand(AddPowerUpRule);
+        RemoveSelectedPowerUpRuleCommand = new RelayCommand(RemoveSelectedPowerUpRule, () => SelectedPowerUpRule is not null);
+        EnableAllPowerUpRulesCommand = new RelayCommand(EnableAllPowerUpRules, () => Settings.PowerUpRules.Count > 0);
+        DisableAllPowerUpRulesCommand = new RelayCommand(DisableAllPowerUpRules, () => Settings.PowerUpRules.Count > 0);
+        DeleteAllPowerUpRulesCommand = new RelayCommand(DeleteAllPowerUpRules, () => Settings.PowerUpRules.Count > 0);
+        TestSelectedPowerUpRuleCommand = new AsyncRelayCommand(TestSelectedPowerUpRuleAsync, () => SelectedPowerUpRule is not null);
+        UnlinkPowerUpCommand = new RelayCommand(UnlinkPowerUp, target => target is PowerUpRule);
+        UseCurrentAvatarForPowerUpRuleCommand = new RelayCommand(
+            UseCurrentAvatarForPowerUpRule,
+            () => SelectedPowerUpRule is not null && !string.IsNullOrWhiteSpace(GetResolvedCurrentVrChatAvatarId()));
         RegenerateKoFiRelayIdentityCommand = new RelayCommand(RegenerateKoFiRelayIdentity);
         OpenSpecialRuleLockoutPickerCommand = new RelayCommand(OpenSpecialRuleLockoutPicker, CanOpenSpecialRuleLockoutPicker);
         OpenAvatarRouletPoolPickerCommand = new RelayCommand(OpenAvatarRouletPoolPicker, CanOpenAvatarRouletPoolPicker);
@@ -973,6 +987,20 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     public ObservableCollection<TwitchChatActivityEntry> ChatActivityEntries { get; }
 
     public ObservableCollection<TwitchRewardOption> RewardOptions { get; }
+
+    public ObservableCollection<TwitchPowerUpOption> PowerUpOptions { get; }
+
+    public IReadOnlyList<TwitchRewardSyncModeOption> PowerUpSourceModeOptions { get; } =
+    [
+        new TwitchRewardSyncModeOption(TwitchRewardSyncMode.LinkExisting, T("Link existing Power Up")),
+        new TwitchRewardSyncModeOption(TwitchRewardSyncMode.CreateOrManage, T("Create/manage when Twitch supports it"))
+    ];
+
+    public IReadOnlyList<PowerUpActionKindOption> PowerUpActionKindOptions { get; } =
+    [
+        new PowerUpActionKindOption(PowerUpActionKind.TriggerAction, T("Trigger Action")),
+        new PowerUpActionKindOption(PowerUpActionKind.AvatarScaling, T("Avatar Scaling"))
+    ];
 
     public IReadOnlyList<TwitchRewardSyncModeOption> RewardSyncModeOptions { get; }
 
@@ -1324,6 +1352,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public bool IsViewingSupporterOverrides => activeRuleListView == RuleListView.SupporterOverrides;
 
+    public bool IsViewingPowerUps => activeRuleListView == RuleListView.PowerUps;
+
     public bool IsViewingUniversalTriggers => activeRuleListView == RuleListView.UniversalTriggers;
 
     public bool IsViewingAvatarScaling => activeRuleListView == RuleListView.AvatarScaling;
@@ -1592,6 +1622,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ? T("Reward Fire Sale")
         : IsViewingCashPayments
         ? T("Cash Payments")
+        : IsViewingPowerUps
+        ? T("Power Up")
         : IsViewingAvatarScaling
         ? T("Avatar Scaling")
         : IsViewingUniversalTriggers
@@ -1608,6 +1640,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ? T("Build a shared Bits and funding reward goal that discounts Crystal Relay-owned channel point redeems. Linked Twitch rewards stay listen-only and are never repriced.")
         : IsViewingCashPayments
         ? T("Use Cash Payments for tip and donation triggers from StreamElements, Streamlabs, and Ko-fi. These rules do not create Twitch rewards.")
+        : IsViewingPowerUps
+        ? T("Link Twitch Custom Power-ups paid with Bits, then choose the Crystal Relay action each Power Up should run. Linked Power Ups are listen-only in this beta build.")
         : IsViewingAvatarScaling
         ? T("Use Scale Sets to organize VRChat OSC avatar height scaling. Scale redeems send /avatar/eyeheight and stay separate from avatar sets, movement, universal triggers, and paid overrides.")
         : IsViewingUniversalTriggers
@@ -1626,6 +1660,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ? T("Reward Fire Sale tracks Bits and the optional Fire Sale funding reward toward a discount goal. The sale changes only Crystal Relay-created reward prices when the goal starts or ends.")
         : IsViewingCashPayments
             ? T("This tab is for cash payment triggers. Connect StreamElements, Streamlabs, or Ko-fi, then add rules that fire OSC, avatar-change, roulette, Set Trigger, or avatar-scaling actions.")
+        : IsViewingPowerUps
+            ? T("This tab is for Twitch Custom Power-ups. Power Ups use Bits, stay separate from normal cheers, and can run OSC, avatar, movement, Set Trigger, or Avatar Scaling actions.")
         : IsViewingAvatarScaling
         ? T("This tab is for avatar height scale redeems using VRChat OSC Avatar Scaling. Use Scale Sets to keep different height reward ideas organized without changing how the triggers run.")
         : IsViewingUniversalTriggers
@@ -1642,6 +1678,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ? T("Add Fire Sale Tier")
         : IsViewingCashPayments
         ? T("Add Cash Rule")
+        : IsViewingPowerUps
+        ? T("Add Power Up")
         : IsViewingAvatarScaling
         ? T("Add Scale Redeem")
         : IsViewingUniversalTriggers
@@ -1658,6 +1696,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ? T("Delete Fire Sale Tier")
         : IsViewingCashPayments
         ? T("Delete Cash Rule")
+        : IsViewingPowerUps
+        ? T("Delete Power Up")
         : IsViewingAvatarScaling
         ? T("Delete Scale Redeem")
         : IsViewingUniversalTriggers
@@ -1674,6 +1714,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ? T("Reset Fire Sale Progress")
         : IsViewingCashPayments
         ? T("Delete All Cash Rules")
+        : IsViewingPowerUps
+        ? T("Delete All Power Ups")
         : IsViewingAvatarScaling
         ? T("Delete All Scale Sets")
         : IsViewingUniversalTriggers
@@ -1690,6 +1732,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ? T("Use the Reward Fire Sale setup to edit sale sources, tiers, and duration.")
         : IsViewingCashPayments
         ? T("Add or select a cash payment rule to edit it.")
+        : IsViewingPowerUps
+        ? T("Add or select a Power Up rule to edit it.")
         : IsViewingAvatarScaling
         ? T("Select or add a scale set, then add a scale redeem to edit it.")
         : IsViewingUniversalTriggers
@@ -1923,6 +1967,34 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ? T("This cash rule runs an Avatar Scaling action and does not create a Twitch reward.")
         : T("This cash rule runs the same OSC, Set Trigger, Avatar Change, or Avatar Roulette actions as other redeems, but it is triggered by a cash payment instead of Twitch.");
 
+    public string PowerUpRuleStatusText
+    {
+        get
+        {
+            var rule = SelectedPowerUpRule;
+            if (rule is null)
+            {
+                return T("Add or select a Power Up rule to link a Twitch Custom Power-up and choose its action.");
+            }
+
+            if (rule.UsesManagedPowerUpPlaceholder)
+            {
+                return T("Twitch has not documented Custom Power-up create/edit price APIs yet. This beta build keeps managed Power Up controls unavailable.");
+            }
+
+            if (string.IsNullOrWhiteSpace(rule.PowerUpId) && string.IsNullOrWhiteSpace(rule.PowerUpTitle))
+            {
+                return T("Link an existing Twitch Custom Power-up before this rule can match redemptions.");
+            }
+
+            return TF("{0} listens for {1:N0}-Bit Power Up redemptions. Linked Power Ups are never edited by Crystal Relay.", rule.DisplayTitle, Math.Max(1, rule.BitsCost));
+        }
+    }
+
+    public string PowerUpActionEditorHelpText => SelectedPowerUpRule?.UsesAvatarScaling == true
+        ? T("This Power Up runs an Avatar Scaling action from a Bits-paid Custom Power-up redemption.")
+        : T("This Power Up runs the same OSC, Set Trigger, Avatar Change, Avatar Roulette, or movement actions as normal redeems, but it stays separate from Bits cheers.");
+
     private string WithUniversalManagedRewardSyncStatus(string status)
     {
         var syncStatus = universalManagedRewardSyncStatusText.Trim();
@@ -2006,6 +2078,16 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             if (IsViewingSupporterOverrides)
             {
                 return GetSupporterActionTypeOptionsForSelectedRule();
+            }
+
+            if (IsViewingPowerUps)
+            {
+                return GetActionTypeOptionsForSelectedContext(option =>
+                    option.Value is OscActionType.AvatarParameter
+                        or OscActionType.SetTrigger
+                        or OscActionType.AvatarChange
+                        or OscActionType.AvatarRoulet
+                        or OscActionType.PlayerMovement);
             }
 
             if (IsViewingCashPayments)
@@ -2424,6 +2506,37 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
     }
 
+    public PowerUpRule? SelectedPowerUpRule
+    {
+        get => selectedPowerUpRule;
+        set
+        {
+            if (SetProperty(ref selectedPowerUpRule, value))
+            {
+                lastSelectedPowerUpRuleId = value?.Id ?? Guid.Empty;
+                if (IsViewingPowerUps)
+                {
+                    SelectedRule = value?.UsesTriggerAction == true ? value.ActionRule : null;
+                    SelectedAvatarScaleRule = value?.UsesAvatarScaling == true ? value.ScaleAction : null;
+                }
+
+                RemoveSelectedPowerUpRuleCommand.NotifyCanExecuteChanged();
+                TestSelectedPowerUpRuleCommand.NotifyCanExecuteChanged();
+                UnlinkPowerUpCommand.NotifyCanExecuteChanged();
+                UseCurrentAvatarForPowerUpRuleCommand.NotifyCanExecuteChanged();
+                UseCurrentAvatarForAvatarChangeRuleCommand.NotifyCanExecuteChanged();
+                RaisePropertyChanged(nameof(SelectedPowerUpRule));
+                RaisePropertyChanged(nameof(PowerUpRuleStatusText));
+                RaisePropertyChanged(nameof(PowerUpActionEditorHelpText));
+                RefreshAvailableActionTypes();
+                RefreshAvatarParameterOptions();
+                _ = EnsureSelectedAvatarParameterCacheLoadedAsync();
+            }
+        }
+    }
+
+    public ObservableCollection<PowerUpRule> PowerUpRules => Settings.PowerUpRules;
+
     public string BridgeStatus
     {
         get => bridgeStatus;
@@ -2572,7 +2685,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public bool IsVrChatDisconnected => !IsVrChatConnected;
 
-    public bool HasVrChatAvatarOptions => ProfileAvatarOptions.Count > 0;
+    public bool HasVrChatAvatarOptions =>
+        ProfileAvatarOptions.Count > 0
+        || VrChatAvatarOptions.Count > 0
+        || VrChatResetAvatarOptions.Count > 0;
 
     public bool IsHomeSectionSelected => activeSection == SectionView.Home;
 
@@ -2959,6 +3075,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public RelayCommand ShowSupporterOverridesCommand { get; }
 
+    public RelayCommand ShowPowerUpsCommand { get; }
+
     public RelayCommand ShowUniversalTriggersCommand { get; }
 
     public RelayCommand ShowAvatarScalingCommand { get; }
@@ -3060,6 +3178,22 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     public RelayCommand DeleteAllCashPaymentRulesCommand { get; }
 
     public AsyncRelayCommand TestSelectedCashPaymentRuleCommand { get; }
+
+    public RelayCommand AddPowerUpRuleCommand { get; }
+
+    public RelayCommand RemoveSelectedPowerUpRuleCommand { get; }
+
+    public RelayCommand EnableAllPowerUpRulesCommand { get; }
+
+    public RelayCommand DisableAllPowerUpRulesCommand { get; }
+
+    public RelayCommand DeleteAllPowerUpRulesCommand { get; }
+
+    public AsyncRelayCommand TestSelectedPowerUpRuleCommand { get; }
+
+    public RelayCommand UnlinkPowerUpCommand { get; }
+
+    public RelayCommand UseCurrentAvatarForPowerUpRuleCommand { get; }
 
     public RelayCommand RegenerateKoFiRelayIdentityCommand { get; }
 
@@ -3936,12 +4070,14 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     {
         RunOnUi(() =>
         {
-            var needsProfileAvatarOptions = !IsViewingSupporterOverrides;
+            var isEditingPowerUp = IsViewingPowerUps && SelectedPowerUpRule is not null;
+            var needsProfileAvatarOptions = !IsViewingSupporterOverrides && !IsViewingPowerUps;
             var needsSupporterAvatarOptions = IsViewingSupporterOverrides
                 && SelectedRule is not null
                 && !IsSupporterAvatarChangeOverride(SelectedRule);
             var needsAvatarChangeOptions = SelectedRule?.ActionType == OscActionType.AvatarChange;
-            if (!needsProfileAvatarOptions && !needsSupporterAvatarOptions && !needsAvatarChangeOptions)
+            var needsPowerUpAvatarOptions = isEditingPowerUp;
+            if (!needsProfileAvatarOptions && !needsSupporterAvatarOptions && !needsAvatarChangeOptions && !needsPowerUpAvatarOptions)
             {
                 RaisePropertyChanged(nameof(HasVrChatAvatarOptions));
                 return;
@@ -3949,11 +4085,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
             var selectedProfileAvatarId = SelectedAvatarProfile?.AvatarId;
             var selectedProfileAvatarName = SelectedAvatarProfile?.AvatarName;
+            var selectedPowerUpAvatarId = SelectedPowerUpRule?.AvatarId ?? string.Empty;
+            var selectedPowerUpAvatarName = SelectedPowerUpRule?.AvatarName ?? string.Empty;
             var selectedAvatarId = SelectedRule?.ActionType == OscActionType.AvatarChange
                 ? SelectedRule.AvatarChangeTargetId
                 : needsSupporterAvatarOptions
                     ? SelectedRule?.SupporterAvatarId ?? string.Empty
-                    : string.Empty;
+                    : needsPowerUpAvatarOptions
+                        ? selectedPowerUpAvatarId
+                        : string.Empty;
             var selectedResetAvatarId = SelectedRule?.ActionType == OscActionType.AvatarChange
                 ? SelectedRule.AvatarChangeResetId
                 : string.Empty;
@@ -3961,7 +4101,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 ? SelectedRule.AvatarTargetName
                 : needsSupporterAvatarOptions
                     ? SelectedRule?.SupporterAvatarName ?? string.Empty
-                    : string.Empty;
+                    : needsPowerUpAvatarOptions
+                        ? selectedPowerUpAvatarName
+                        : string.Empty;
             var selectedResetAvatarName = SelectedRule?.ActionType == OscActionType.AvatarChange
                 ? SelectedRule.ResetAvatarName
                 : string.Empty;
@@ -3972,21 +4114,34 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 {
                     ReplaceCollectionIfChanged(
                         ProfileAvatarOptions,
-                        Settings.VrChat.IsConnected
-                            ? BuildVrChatAvatarOptionSet(selectedProfileAvatarId, selectedProfileAvatarName, "Selected avatar")
-                            : []);
+                        BuildVrChatAvatarOptionSet(selectedProfileAvatarId, selectedProfileAvatarName, "Selected avatar"));
                 }
 
-                if (needsAvatarChangeOptions || needsSupporterAvatarOptions)
+                if (needsAvatarChangeOptions || needsSupporterAvatarOptions || needsPowerUpAvatarOptions)
                 {
+                    List<VrChatAvatarOption> avatarOptions = BuildVrChatAvatarOptionSet(
+                        selectedAvatarId,
+                        selectedAvatarName,
+                        needsSupporterAvatarOptions
+                            ? "Selected supporter avatar"
+                            : needsPowerUpAvatarOptions && !needsAvatarChangeOptions
+                                ? "Selected Power Up avatar"
+                                : "Selected target avatar");
+
+                    if (needsPowerUpAvatarOptions)
+                    {
+                        var existingIds = new HashSet<string>(avatarOptions.Select(option => option.Id), StringComparer.Ordinal);
+                        EnsureCustomAvatarOption(
+                            avatarOptions,
+                            existingIds,
+                            selectedPowerUpAvatarId,
+                            selectedPowerUpAvatarName,
+                            "Selected Power Up avatar");
+                    }
+
                     ReplaceCollectionIfChanged(
                         VrChatAvatarOptions,
-                        Settings.VrChat.IsConnected
-                            ? BuildVrChatAvatarOptionSet(
-                                selectedAvatarId,
-                                selectedAvatarName,
-                                needsSupporterAvatarOptions ? "Selected supporter avatar" : "Selected target avatar")
-                            : []);
+                        avatarOptions);
                 }
 
                 if (needsAvatarChangeOptions)
@@ -3996,10 +4151,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                         new(string.Empty, string.Empty, "Do not switch back", "Do not switch back", string.Empty, false)
                     };
 
-                    if (Settings.VrChat.IsConnected)
-                    {
-                        resetOptions.AddRange(BuildVrChatAvatarOptionSet(selectedResetAvatarId, selectedResetAvatarName, "Selected return avatar"));
-                    }
+                    resetOptions.AddRange(BuildVrChatAvatarOptionSet(selectedResetAvatarId, selectedResetAvatarName, "Selected return avatar"));
 
                     ReplaceCollectionIfChanged(VrChatResetAvatarOptions, resetOptions);
                 }
@@ -4050,6 +4202,19 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                     if (!string.Equals(SelectedRule.SupporterAvatarId, selectedAvatarId, StringComparison.Ordinal))
                     {
                         SelectedRule.SupporterAvatarId = selectedAvatarId;
+                    }
+                }
+
+                if (needsPowerUpAvatarOptions && SelectedPowerUpRule is not null)
+                {
+                    if (!string.Equals(SelectedPowerUpRule.AvatarName, selectedPowerUpAvatarName, StringComparison.Ordinal))
+                    {
+                        SelectedPowerUpRule.AvatarName = selectedPowerUpAvatarName;
+                    }
+
+                    if (!string.Equals(SelectedPowerUpRule.AvatarId, selectedPowerUpAvatarId, StringComparison.Ordinal))
+                    {
+                        SelectedPowerUpRule.AvatarId = selectedPowerUpAvatarId;
                     }
                 }
             }
@@ -4192,14 +4357,105 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
         if (!availableVrChatAvatarNamesById.TryGetValue(normalizedId, out var avatarName))
         {
-            return string.Empty;
+            return ResolveSavedVrChatAvatarName(normalizedId);
         }
 
         var normalizedName = avatarName?.Trim() ?? string.Empty;
-        return string.IsNullOrWhiteSpace(normalizedName)
+        var resolvedName = string.IsNullOrWhiteSpace(normalizedName)
             || string.Equals(normalizedName, normalizedId, StringComparison.Ordinal)
             ? string.Empty
             : normalizedName;
+        return string.IsNullOrWhiteSpace(resolvedName)
+            ? ResolveSavedVrChatAvatarName(normalizedId)
+            : resolvedName;
+    }
+
+    private string ResolveSavedVrChatAvatarName(string normalizedAvatarId)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedAvatarId))
+        {
+            return string.Empty;
+        }
+
+        foreach (var profile in Settings.AvatarProfiles)
+        {
+            if (string.Equals(profile.AvatarId?.Trim() ?? string.Empty, normalizedAvatarId, StringComparison.Ordinal)
+                && !string.IsNullOrWhiteSpace(profile.AvatarName))
+            {
+                return profile.AvatarName.Trim();
+            }
+
+            var matchingRuleName = ResolveSavedVrChatAvatarNameFromRules(profile.ChannelPointRules, normalizedAvatarId);
+            if (!string.IsNullOrWhiteSpace(matchingRuleName))
+            {
+                return matchingRuleName;
+            }
+        }
+
+        var supporterRuleName = ResolveSavedVrChatAvatarNameFromRules(Settings.GlobalOverrideRules, normalizedAvatarId);
+        if (!string.IsNullOrWhiteSpace(supporterRuleName))
+        {
+            return supporterRuleName;
+        }
+
+        foreach (var rule in Settings.PowerUpRules)
+        {
+            if (string.Equals(rule.AvatarId?.Trim() ?? string.Empty, normalizedAvatarId, StringComparison.Ordinal)
+                && !string.IsNullOrWhiteSpace(rule.AvatarName))
+            {
+                return rule.AvatarName.Trim();
+            }
+
+            var powerUpActionName = ResolveSavedVrChatAvatarNameFromRule(rule.ActionRule, normalizedAvatarId);
+            if (!string.IsNullOrWhiteSpace(powerUpActionName))
+            {
+                return powerUpActionName;
+            }
+        }
+
+        return string.Empty;
+    }
+
+    private static string ResolveSavedVrChatAvatarNameFromRules(IEnumerable<TriggerRule> rules, string normalizedAvatarId)
+    {
+        foreach (var rule in rules)
+        {
+            var matchingName = ResolveSavedVrChatAvatarNameFromRule(rule, normalizedAvatarId);
+            if (!string.IsNullOrWhiteSpace(matchingName))
+            {
+                return matchingName;
+            }
+        }
+
+        return string.Empty;
+    }
+
+    private static string ResolveSavedVrChatAvatarNameFromRule(TriggerRule rule, string normalizedAvatarId)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedAvatarId))
+        {
+            return string.Empty;
+        }
+
+        if (string.Equals(rule.AvatarChangeTargetId?.Trim() ?? string.Empty, normalizedAvatarId, StringComparison.Ordinal)
+            && !string.IsNullOrWhiteSpace(rule.AvatarTargetName))
+        {
+            return rule.AvatarTargetName.Trim();
+        }
+
+        if (string.Equals(rule.AvatarChangeResetId?.Trim() ?? string.Empty, normalizedAvatarId, StringComparison.Ordinal)
+            && !string.IsNullOrWhiteSpace(rule.ResetAvatarName))
+        {
+            return rule.ResetAvatarName.Trim();
+        }
+
+        if (string.Equals(rule.SupporterAvatarId?.Trim() ?? string.Empty, normalizedAvatarId, StringComparison.Ordinal)
+            && !string.IsNullOrWhiteSpace(rule.SupporterAvatarName))
+        {
+            return rule.SupporterAvatarName.Trim();
+        }
+
+        return string.Empty;
     }
 
     private string ResolveVrChatAvatarIdByName(string? avatarName)
@@ -4233,9 +4489,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             return string.Empty;
         }
 
-        return string.IsNullOrWhiteSpace(ResolveVrChatAvatarName(currentAvatarId))
-            ? string.Empty
-            : currentAvatarId;
+        return currentAvatarId;
     }
 
     private static string GetSafeVrChatAvatarDisplayName(string? avatarName, string fallbackLabel = "Unknown avatar")
@@ -4283,7 +4537,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     private IReadOnlyList<VrChatAvatarOption> BuildAllSelectableVrChatAvatarOptions()
     {
-        var duplicateNameKeys = availableVrChatAvatars
+        var selectableAvatars = BuildKnownSelectableVrChatAvatars();
+        var duplicateNameKeys = selectableAvatars
             .GroupBy(
                 avatar => avatar.Name?.Trim() ?? string.Empty,
                 StringComparer.OrdinalIgnoreCase)
@@ -4291,10 +4546,137 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             .Select(group => group.Key)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        return availableVrChatAvatars
+        return selectableAvatars
             .Select(avatar => CreateVrChatAvatarOption(avatar, duplicateNameKeys))
             .OrderBy(option => option.DisplayLabel, StringComparer.OrdinalIgnoreCase)
             .ToArray();
+    }
+
+    private IReadOnlyList<VrChatAvatarSummary> BuildKnownSelectableVrChatAvatars()
+    {
+        var avatarsById = new Dictionary<string, VrChatAvatarSummary>(StringComparer.Ordinal);
+        var currentAvatarId = Settings.VrChat.CurrentAvatarId?.Trim() ?? string.Empty;
+
+        foreach (var avatar in availableVrChatAvatars)
+        {
+            AddKnownSelectableVrChatAvatar(
+                avatarsById,
+                avatar.Id,
+                avatar.Name,
+                avatar.SourceLabel,
+                avatar.IsCurrentAvatar || string.Equals(avatar.Id, currentAvatarId, StringComparison.Ordinal));
+        }
+
+        AddKnownSelectableVrChatAvatar(
+            avatarsById,
+            currentAvatarId,
+            ResolveVrChatAvatarName(currentAvatarId),
+            "Current avatar",
+            isCurrentAvatar: true);
+
+        foreach (var profile in Settings.AvatarProfiles)
+        {
+            AddKnownSelectableVrChatAvatar(
+                avatarsById,
+                profile.AvatarId,
+                profile.AvatarName,
+                profile.IsMasterProfile ? "Return avatar" : "Avatar profile",
+                string.Equals(profile.AvatarId?.Trim() ?? string.Empty, currentAvatarId, StringComparison.Ordinal));
+
+            foreach (var rule in profile.ChannelPointRules)
+            {
+                AddKnownSelectableAvatarTargets(avatarsById, rule, currentAvatarId, "Avatar reward");
+            }
+        }
+
+        foreach (var rule in Settings.GlobalOverrideRules)
+        {
+            AddKnownSelectableVrChatAvatar(
+                avatarsById,
+                rule.SupporterAvatarId,
+                rule.SupporterAvatarName,
+                "Supporter avatar",
+                string.Equals(rule.SupporterAvatarId?.Trim() ?? string.Empty, currentAvatarId, StringComparison.Ordinal));
+            AddKnownSelectableAvatarTargets(avatarsById, rule, currentAvatarId, "Supporter target");
+        }
+
+        foreach (var rule in Settings.PowerUpRules)
+        {
+            AddKnownSelectableVrChatAvatar(
+                avatarsById,
+                rule.AvatarId,
+                rule.AvatarName,
+                "Power Up avatar",
+                string.Equals(rule.AvatarId?.Trim() ?? string.Empty, currentAvatarId, StringComparison.Ordinal));
+            AddKnownSelectableAvatarTargets(avatarsById, rule.ActionRule, currentAvatarId, "Power Up target");
+        }
+
+        return avatarsById.Values.ToArray();
+    }
+
+    private static void AddKnownSelectableAvatarTargets(
+        IDictionary<string, VrChatAvatarSummary> avatarsById,
+        TriggerRule rule,
+        string currentAvatarId,
+        string sourceLabel)
+    {
+        if (rule.ActionType != OscActionType.AvatarChange)
+        {
+            return;
+        }
+
+        AddKnownSelectableVrChatAvatar(
+            avatarsById,
+            rule.AvatarChangeTargetId,
+            rule.AvatarTargetName,
+            sourceLabel,
+            string.Equals(rule.AvatarChangeTargetId?.Trim() ?? string.Empty, currentAvatarId, StringComparison.Ordinal));
+        AddKnownSelectableVrChatAvatar(
+            avatarsById,
+            rule.AvatarChangeResetId,
+            rule.ResetAvatarName,
+            sourceLabel,
+            string.Equals(rule.AvatarChangeResetId?.Trim() ?? string.Empty, currentAvatarId, StringComparison.Ordinal));
+    }
+
+    private static void AddKnownSelectableVrChatAvatar(
+        IDictionary<string, VrChatAvatarSummary> avatarsById,
+        string? avatarId,
+        string? avatarName,
+        string sourceLabel,
+        bool isCurrentAvatar)
+    {
+        var normalizedId = avatarId?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(normalizedId))
+        {
+            return;
+        }
+
+        var normalizedName = avatarName?.Trim() ?? string.Empty;
+        var displayName = string.IsNullOrWhiteSpace(normalizedName)
+            || string.Equals(normalizedName, normalizedId, StringComparison.Ordinal)
+            ? GetAvatarDuplicateHint(normalizedId)
+            : normalizedName;
+
+        if (avatarsById.TryGetValue(normalizedId, out var existingAvatar))
+        {
+            var existingName = existingAvatar.Name?.Trim() ?? string.Empty;
+            var shouldKeepExistingName = !string.IsNullOrWhiteSpace(existingName)
+                && !string.Equals(existingName, normalizedId, StringComparison.Ordinal)
+                && !string.Equals(existingName, GetAvatarDuplicateHint(normalizedId), StringComparison.Ordinal);
+            avatarsById[normalizedId] = existingAvatar with
+            {
+                Name = shouldKeepExistingName ? existingName : displayName,
+                IsCurrentAvatar = existingAvatar.IsCurrentAvatar || isCurrentAvatar
+            };
+            return;
+        }
+
+        avatarsById[normalizedId] = new VrChatAvatarSummary(
+            normalizedId,
+            displayName,
+            sourceLabel,
+            isCurrentAvatar);
     }
 
     private static void ReplaceCollectionIfChanged<T>(
@@ -4499,6 +4881,13 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private void ShowSupporterOverrides()
     {
         SwitchRuleView(RuleListView.SupporterOverrides, profile: null, GetRememberedSupporterRule());
+    }
+
+    private void ShowPowerUps()
+    {
+        SwitchRuleView(RuleListView.PowerUps, profile: null, rule: null);
+        SelectedPowerUpRule = GetRememberedPowerUpRule();
+        _ = QueuePowerUpRefreshAsync();
     }
 
     private void ShowUniversalTriggers()
@@ -5310,7 +5699,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     private bool CanUseCurrentAvatarForAvatarChangeRule()
     {
-        return IsViewingSupporterOverrides
+        return (IsViewingSupporterOverrides || IsViewingPowerUps)
             && SelectedRule?.ActionType == OscActionType.AvatarChange
             && !string.IsNullOrWhiteSpace(Settings.VrChat.CurrentAvatarId);
     }
@@ -5335,7 +5724,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RefreshVrChatAvatarSelectionOptions();
         QueueSave();
         QueueBridgeRefresh();
-        AppendLog($"Set avatar change override '{SelectedRule.DisplayTitle}' target to current avatar '{GetSafeVrChatAvatarDisplayName(resolvedName, currentAvatarId)}'.");
+        var currentAvatarName = GetSafeVrChatAvatarDisplayName(resolvedName, currentAvatarId);
+        AppendLog(IsViewingPowerUps
+            ? $"Set Power Up avatar change '{SelectedRule.DisplayTitle}' target to current avatar '{currentAvatarName}'."
+            : $"Set avatar change override '{SelectedRule.DisplayTitle}' target to current avatar '{currentAvatarName}'.");
     }
 
     private void ApplySharedReturnAvatarSelection(string avatarId, string? avatarName, bool saveImmediately)
@@ -5929,6 +6321,125 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         AppendLog($"Deleted {removedCount} cash payment rule{(removedCount == 1 ? string.Empty : "s")}.");
     }
 
+    private static PowerUpRule CreateDefaultPowerUpRule()
+    {
+        var rule = new PowerUpRule
+        {
+            Name = "New Power Up",
+            SourceMode = TwitchRewardSyncMode.LinkExisting,
+            BitsCost = 100,
+            CooldownSeconds = 30,
+            ActionKind = PowerUpActionKind.TriggerAction
+        };
+        rule.ActionRule = PowerUpRule.CreateDefaultTriggerAction();
+        rule.ActionRule.Name = rule.Name;
+        rule.ScaleAction = PowerUpRule.CreateDefaultScaleAction();
+        rule.ScaleAction.Name = rule.Name;
+        return rule;
+    }
+
+    private void AddPowerUpRule()
+    {
+        var rule = CreateDefaultPowerUpRule();
+        Settings.PowerUpRules.Add(rule);
+        SelectedPowerUpRule = rule;
+        QueueSave();
+        QueueBridgeRefresh();
+        AppendLog($"Added Power Up rule '{rule.DisplayTitle}'.");
+    }
+
+    private void RemoveSelectedPowerUpRule()
+    {
+        if (SelectedPowerUpRule is null)
+        {
+            return;
+        }
+
+        var removedName = SelectedPowerUpRule.DisplayTitle;
+        Settings.PowerUpRules.Remove(SelectedPowerUpRule);
+        SelectedPowerUpRule = GetRememberedPowerUpRule();
+        QueueSave();
+        QueueBridgeRefresh();
+        AppendLog($"Removed Power Up rule '{removedName}'.");
+    }
+
+    private void EnableAllPowerUpRules()
+    {
+        foreach (var rule in Settings.PowerUpRules.Where(rule => !rule.IsEnabled))
+        {
+            rule.IsEnabled = true;
+        }
+
+        QueueSave();
+        QueueBridgeRefresh();
+        AppendLog("Enabled all Power Up rules.");
+    }
+
+    private void DisableAllPowerUpRules()
+    {
+        foreach (var rule in Settings.PowerUpRules.Where(rule => rule.IsEnabled))
+        {
+            rule.IsEnabled = false;
+        }
+
+        QueueSave();
+        QueueBridgeRefresh();
+        AppendLog("Disabled all Power Up rules.");
+    }
+
+    private void DeleteAllPowerUpRules()
+    {
+        if (!ConfirmDeleteAll(
+            "Delete Power Up Rules",
+            "Are you sure you want to delete every Power Up rule? This cannot be undone. Linked Twitch Custom Power-ups are kept unchanged."))
+        {
+            return;
+        }
+
+        var removedCount = Settings.PowerUpRules.Count;
+        Settings.PowerUpRules.Clear();
+        SelectedPowerUpRule = null;
+        QueueSave();
+        QueueBridgeRefresh();
+        AppendLog($"Deleted {removedCount} Power Up rule{(removedCount == 1 ? string.Empty : "s")}.");
+    }
+
+    private void UnlinkPowerUp(object? target)
+    {
+        if (target is not PowerUpRule rule)
+        {
+            return;
+        }
+
+        rule.PowerUpId = string.Empty;
+        rule.PowerUpTitle = string.Empty;
+        rule.Prompt = string.Empty;
+        QueueSave();
+        QueueBridgeRefresh();
+        AppendLog($"Unlinked Power Up rule '{rule.DisplayTitle}'.");
+    }
+
+    private void UseCurrentAvatarForPowerUpRule()
+    {
+        if (SelectedPowerUpRule is null)
+        {
+            return;
+        }
+
+        var avatarId = GetResolvedCurrentVrChatAvatarId();
+        if (string.IsNullOrWhiteSpace(avatarId))
+        {
+            return;
+        }
+
+        SelectedPowerUpRule.AvatarScoped = true;
+        SelectedPowerUpRule.AvatarId = avatarId;
+        SelectedPowerUpRule.AvatarName = GetSafeVrChatAvatarDisplayName(ResolveVrChatAvatarName(avatarId), avatarId);
+        QueueSave();
+        QueueBridgeRefresh();
+        AppendLog($"Power Up rule '{SelectedPowerUpRule.DisplayTitle}' now belongs to '{SelectedPowerUpRule.AvatarScopeLabel}'.");
+    }
+
     private void RegenerateKoFiRelayIdentity()
     {
         Settings.CashPayments.RegenerateKoFiRelayIdentity();
@@ -6330,6 +6841,20 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         return Settings.CashPaymentRules.FirstOrDefault();
     }
 
+    private PowerUpRule? GetRememberedPowerUpRule()
+    {
+        if (lastSelectedPowerUpRuleId != Guid.Empty)
+        {
+            var rememberedRule = Settings.PowerUpRules.FirstOrDefault(rule => rule.Id == lastSelectedPowerUpRuleId);
+            if (rememberedRule is not null)
+            {
+                return rememberedRule;
+            }
+        }
+
+        return Settings.PowerUpRules.FirstOrDefault();
+    }
+
     private MovementRedeemSet? GetRememberedMovementRedeemSet()
     {
         if (lastSelectedMovementSetId != Guid.Empty)
@@ -6438,6 +6963,17 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             return;
         }
 
+        if (IsViewingPowerUps)
+        {
+            var owner = Settings.PowerUpRules.FirstOrDefault(powerUp => ReferenceEquals(powerUp.ActionRule, rule));
+            if (owner is not null)
+            {
+                lastSelectedPowerUpRuleId = owner.Id;
+            }
+
+            return;
+        }
+
         var ownerProfile = GetOwningAvatarProfile(rule);
         if (ownerProfile is null)
         {
@@ -6518,6 +7054,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             {
                 SelectedCashPaymentRule = null;
             }
+
+            if (targetView != RuleListView.PowerUps)
+            {
+                SelectedPowerUpRule = null;
+            }
         }
         finally
         {
@@ -6555,6 +7096,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         appSettings.AvatarScaleMasterReward.PropertyChanged += AvatarScaleMasterRewardChanged;
         appSettings.CashPayments.PropertyChanged += CashPaymentConnectionsChanged;
         appSettings.CashPaymentRules.CollectionChanged += CashPaymentRulesCollectionChanged;
+        appSettings.PowerUpRules.CollectionChanged += PowerUpRulesCollectionChanged;
         WireRewardFireSale(appSettings.RewardFireSale);
 
         foreach (var profile in appSettings.AvatarProfiles)
@@ -6586,6 +7128,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         {
             WireCashPaymentRule(cashRule);
         }
+
+        foreach (var powerUpRule in appSettings.PowerUpRules)
+        {
+            WirePowerUpRule(powerUpRule);
+        }
     }
 
     private void UnwireSettings(AppSettings appSettings)
@@ -6602,6 +7149,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         appSettings.AvatarScaleMasterReward.PropertyChanged -= AvatarScaleMasterRewardChanged;
         appSettings.CashPayments.PropertyChanged -= CashPaymentConnectionsChanged;
         appSettings.CashPaymentRules.CollectionChanged -= CashPaymentRulesCollectionChanged;
+        appSettings.PowerUpRules.CollectionChanged -= PowerUpRulesCollectionChanged;
         UnwireRewardFireSale(appSettings.RewardFireSale);
 
         foreach (var profile in appSettings.AvatarProfiles)
@@ -6632,6 +7180,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         foreach (var cashRule in appSettings.CashPaymentRules)
         {
             UnwireCashPaymentRule(cashRule);
+        }
+
+        foreach (var powerUpRule in appSettings.PowerUpRules)
+        {
+            UnwirePowerUpRule(powerUpRule);
         }
     }
 
@@ -7245,6 +7798,218 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         QueueSave();
         QueueBridgeRefresh();
         RefreshRuleCommandStates();
+    }
+
+    private void PowerUpRulesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.NewItems is not null)
+        {
+            foreach (PowerUpRule rule in e.NewItems)
+            {
+                WirePowerUpRule(rule);
+            }
+        }
+
+        if (e.OldItems is not null)
+        {
+            foreach (PowerUpRule rule in e.OldItems)
+            {
+                UnwirePowerUpRule(rule);
+                if (lastSelectedPowerUpRuleId == rule.Id)
+                {
+                    lastSelectedPowerUpRuleId = Guid.Empty;
+                }
+            }
+        }
+
+        if (IsViewingPowerUps && SelectedPowerUpRule is not null && !Settings.PowerUpRules.Contains(SelectedPowerUpRule))
+        {
+            SelectedPowerUpRule = GetRememberedPowerUpRule();
+        }
+
+        RaisePropertyChanged(nameof(PowerUpRules));
+        QueueSave();
+        QueueBridgeRefresh();
+        RefreshRuleCommandStates();
+    }
+
+    private void WirePowerUpRule(PowerUpRule rule)
+    {
+        rule.PropertyChanged += PowerUpRuleChanged;
+        rule.ActionRule.PropertyChanged += PowerUpNestedTriggerActionChanged;
+        rule.ScaleAction.PropertyChanged += PowerUpNestedScaleActionChanged;
+    }
+
+    private void UnwirePowerUpRule(PowerUpRule rule)
+    {
+        rule.PropertyChanged -= PowerUpRuleChanged;
+        rule.ActionRule.PropertyChanged -= PowerUpNestedTriggerActionChanged;
+        rule.ScaleAction.PropertyChanged -= PowerUpNestedScaleActionChanged;
+    }
+
+    private void PowerUpRuleChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (sender is PowerUpRule rule && ReferenceEquals(rule, SelectedPowerUpRule))
+        {
+            if (e.PropertyName == nameof(PowerUpRule.PowerUpId))
+            {
+                ApplySelectedPowerUpOption(rule);
+            }
+
+            if (e.PropertyName is nameof(PowerUpRule.AvatarScoped)
+                or nameof(PowerUpRule.AvatarId)
+                or nameof(PowerUpRule.AvatarName))
+            {
+                if (e.PropertyName == nameof(PowerUpRule.AvatarId))
+                {
+                    SyncPowerUpAvatarScopeLabel(rule);
+                }
+
+                RefreshVrChatAvatarSelectionOptions();
+                RefreshAvatarParameterOptions();
+                _ = EnsureSelectedAvatarParameterCacheLoadedAsync();
+            }
+
+            if (e.PropertyName == nameof(PowerUpRule.ActionKind)
+                || e.PropertyName == nameof(PowerUpRule.ActionRule)
+                || e.PropertyName == nameof(PowerUpRule.ScaleAction))
+            {
+                SelectedRule = rule.UsesTriggerAction ? rule.ActionRule : null;
+                SelectedAvatarScaleRule = rule.UsesAvatarScaling ? rule.ScaleAction : null;
+            }
+
+            RaisePropertyChanged(nameof(PowerUpRuleStatusText));
+            RaisePropertyChanged(nameof(PowerUpActionEditorHelpText));
+        }
+
+        RaisePropertyChanged(nameof(PowerUpRules));
+        QueueSave();
+        QueueBridgeRefresh();
+        RefreshRuleCommandStates();
+    }
+
+    private void ApplySelectedPowerUpOption(PowerUpRule rule)
+    {
+        var powerUpId = rule.PowerUpId.Trim();
+        if (string.IsNullOrWhiteSpace(powerUpId))
+        {
+            return;
+        }
+
+        var option = PowerUpOptions.FirstOrDefault(item =>
+            string.Equals(item.Id, powerUpId, StringComparison.Ordinal));
+        if (option is null || option.IsCatalogMissing || string.IsNullOrWhiteSpace(option.Id))
+        {
+            return;
+        }
+
+        rule.ApplyLinkedPowerUp(option.Id, option.Title, option.BitsCost, option.Prompt);
+    }
+
+    private void SyncPowerUpAvatarScopeLabel(PowerUpRule rule)
+    {
+        var avatarId = rule.AvatarId.Trim();
+        if (string.IsNullOrWhiteSpace(avatarId))
+        {
+            if (!string.IsNullOrWhiteSpace(rule.AvatarName))
+            {
+                rule.AvatarName = string.Empty;
+            }
+
+            return;
+        }
+
+        var avatarName = ResolveVrChatAvatarName(avatarId);
+        if (!string.IsNullOrWhiteSpace(avatarName)
+            && !string.Equals(rule.AvatarName, avatarName, StringComparison.Ordinal))
+        {
+            rule.AvatarName = avatarName;
+        }
+    }
+
+    private void PowerUpNestedTriggerActionChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (sender is TriggerRule actionRule)
+        {
+            var owner = Settings.PowerUpRules.FirstOrDefault(rule => ReferenceEquals(rule.ActionRule, actionRule));
+            if (owner is not null)
+            {
+                owner.ActionRule.TriggerType = TwitchTriggerType.PowerUp;
+                owner.ActionRule.RewardSyncMode = TwitchRewardSyncMode.LinkExisting;
+                owner.ActionRule.ChannelPointRewardId = string.Empty;
+                owner.ActionRule.ChannelPointRewardTitle = string.Empty;
+                owner.ActionRule.ChatCommandEnabled = false;
+                RaisePropertyChanged(nameof(PowerUpRules));
+                RaisePropertyChanged(nameof(PowerUpRuleStatusText));
+
+                if (ReferenceEquals(owner, SelectedPowerUpRule))
+                {
+                    RefreshSelectedPowerUpActionEditorState(actionRule, e.PropertyName);
+                }
+            }
+        }
+
+        QueueSave();
+        QueueBridgeRefresh();
+    }
+
+    private void RefreshSelectedPowerUpActionEditorState(TriggerRule actionRule, string? propertyName)
+    {
+        if (!IsViewingPowerUps || !ReferenceEquals(actionRule, SelectedRule))
+        {
+            return;
+        }
+
+        if (actionRule.ActionType == OscActionType.AvatarChange)
+        {
+            if (propertyName == nameof(TriggerRule.AvatarChangeTargetId))
+            {
+                SyncVrChatAvatarRuleLabel(actionRule, false);
+            }
+            else if (propertyName == nameof(TriggerRule.AvatarChangeResetId))
+            {
+                SyncVrChatAvatarRuleLabel(actionRule, true);
+            }
+        }
+        else if (actionRule.ActionType == OscActionType.AvatarRoulet
+                 && propertyName == nameof(TriggerRule.AvatarRouletAvatarIds))
+        {
+            SyncVrChatAvatarRouletPoolLabels(actionRule);
+        }
+
+        if (actionRule.ActionType == OscActionType.SetTrigger
+            && (SelectedSetTriggerAction is null || !actionRule.SetTriggerActions.Contains(SelectedSetTriggerAction)))
+        {
+            SelectedSetTriggerAction = actionRule.SetTriggerActions.FirstOrDefault();
+        }
+
+        RefreshVrChatAvatarSelectionOptions();
+        RefreshAvailableActionTypes();
+        RefreshAvatarParameterOptions();
+        _ = EnsureSelectedAvatarParameterCacheLoadedAsync();
+        OpenAvatarRouletPoolPickerCommand.NotifyCanExecuteChanged();
+        OpenActiveFloatBoostRewardCommand.NotifyCanExecuteChanged();
+        OpenSupporterOverrideTimeSettingsCommand.NotifyCanExecuteChanged();
+        AddSetTriggerActionCommand.NotifyCanExecuteChanged();
+        RemoveSelectedSetTriggerActionCommand.NotifyCanExecuteChanged();
+        UseCurrentAvatarForAvatarChangeRuleCommand.NotifyCanExecuteChanged();
+        RefreshAvatarParameterPathCommandStates();
+    }
+
+    private void PowerUpNestedScaleActionChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (sender is AvatarScaleRule scaleRule)
+        {
+            scaleRule.TriggerType = AvatarScaleTriggerType.Bits;
+            scaleRule.RewardId = string.Empty;
+            scaleRule.RewardTitle = string.Empty;
+            scaleRule.MinimumBits = 1;
+            scaleRule.MaximumBits = int.MaxValue;
+        }
+
+        RaisePropertyChanged(nameof(PowerUpRules));
+        QueueSave();
+        QueueBridgeRefresh();
     }
 
     private void AvatarScaleMasterRewardChanged(object? sender, PropertyChangedEventArgs e)
@@ -8628,6 +9393,37 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
     }
 
+    private async Task TestSelectedPowerUpRuleAsync()
+    {
+        if (SelectedPowerUpRule is null)
+        {
+            return;
+        }
+
+        await ReloadRuntimeConfigAsync();
+
+        await bridgeRefreshGate.WaitAsync();
+        try
+        {
+            await EnsureBridgeStateAsync(CancellationToken.None, allowOscOnly: true);
+
+            var ruleSnapshot = BridgeRuntimeConfiguration.CreateManualTestSnapshot(SelectedPowerUpRule, MasterAvatarProfile);
+            await bridgeCoordinator.SendTestPowerUpRuleAsync(ruleSnapshot, CancellationToken.None);
+
+            BridgeStatus = $"Sent Power Up test for '{ruleSnapshot.Name}'.";
+            RaisePropertyChanged(nameof(AvatarScaleRuntimeStatusText));
+        }
+        catch (Exception ex)
+        {
+            BridgeStatus = "Power Up test did not run.";
+            AppendLog($"Could not test the selected Power Up rule: {ex.Message}");
+        }
+        finally
+        {
+            bridgeRefreshGate.Release();
+        }
+    }
+
     private (bool IsGlobalOverride, AvatarTriggerProfile? Profile) ResolveRuleRuntimeContext(TriggerRule rule)
     {
         if (Settings.GlobalOverrideRules.Contains(rule))
@@ -8650,6 +9446,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private async Task RefreshTwitchRewardsAsync()
     {
         await QueueRewardRefreshAsync();
+        await QueuePowerUpRefreshAsync();
     }
 
     private async Task<ManagedRewardSyncOutcome> EnsureBroadcasterRewardManagementReadyAsync(
@@ -9112,6 +9909,57 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             }
 
             RunOnUi(() => AppendLog($"Could not refresh channel point rewards: {ex.Message}"));
+        }
+    }
+
+    private async Task QueuePowerUpRefreshAsync()
+    {
+        await ReloadRuntimeConfigAsync();
+
+        if (!HasRecoverableBroadcasterSession)
+        {
+            RunOnUi(() => AppendThrottledLog(
+                "power-ups-refresh-no-broadcaster",
+                "Power Up refresh skipped because the broadcaster account is not connected.",
+                ThrottledRewardSyncLogWindow));
+            return;
+        }
+
+        var accountSnapshot = await GetBroadcasterRewardAccountSnapshotAsync(CancellationToken.None);
+        if ((string.IsNullOrWhiteSpace(accountSnapshot.AccessToken)
+                && string.IsNullOrWhiteSpace(accountSnapshot.RefreshToken))
+            || string.IsNullOrWhiteSpace(accountSnapshot.TwitchClientId))
+        {
+            RunOnUi(() => AppendThrottledLog(
+                "power-ups-refresh-incomplete",
+                "Power Up refresh skipped because the broadcaster login is incomplete. Reconnect the broadcaster account once.",
+                ThrottledRewardSyncLogWindow));
+            return;
+        }
+
+        try
+        {
+            var account = await ValidateOrRefreshBroadcasterAccountAsync(accountSnapshot, CancellationToken.None);
+            var powerUps = await twitchApiClient.GetCustomPowerUpsAsync(
+                account.AccessToken,
+                accountSnapshot.TwitchClientId,
+                account.UserId,
+                CancellationToken.None);
+
+            RunOnUi(() => ApplyPowerUpCatalog(powerUps));
+        }
+        catch (Exception ex)
+        {
+            if (IsInvalidBroadcasterTokenFailure(ex))
+            {
+                RunOnUi(() => AppendThrottledLog(
+                    "power-ups-token-refresh",
+                    "Crystal Relay could not refresh Power Ups yet because the broadcaster login needs to refresh.",
+                    ThrottledRewardSyncLogWindow));
+                return;
+            }
+
+            RunOnUi(() => AppendLog($"Could not refresh Twitch Power Ups: {ex.Message}"));
         }
     }
 
@@ -9967,13 +10815,28 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         foreach (var localAvatar in localAvatars)
         {
             var normalizedLocalAvatarId = localAvatar.AvatarId?.Trim() ?? string.Empty;
-            if (string.IsNullOrWhiteSpace(normalizedLocalAvatarId)
-                || !mergedAvatars.TryGetValue(normalizedLocalAvatarId, out var existingAvatar))
+            if (string.IsNullOrWhiteSpace(normalizedLocalAvatarId))
             {
                 continue;
             }
 
             var normalizedLocalAvatarName = localAvatar.AvatarName?.Trim() ?? string.Empty;
+            if (!mergedAvatars.TryGetValue(normalizedLocalAvatarId, out var existingAvatar))
+            {
+                var fallbackName = string.IsNullOrWhiteSpace(normalizedLocalAvatarName)
+                    || string.Equals(normalizedLocalAvatarName, normalizedLocalAvatarId, StringComparison.Ordinal)
+                    ? GetAvatarDuplicateHint(normalizedLocalAvatarId)
+                    : normalizedLocalAvatarName;
+                mergedAvatars[normalizedLocalAvatarId] = new VrChatAvatarSummary(
+                    normalizedLocalAvatarId,
+                    fallbackName,
+                    "Local OSC",
+                    string.Equals(normalizedLocalAvatarId, currentAvatarId, StringComparison.Ordinal));
+                availableVrChatAvatarNamesById[normalizedLocalAvatarId] = fallbackName;
+                changed = true;
+                continue;
+            }
+
             var existingAvatarName = existingAvatar.Name?.Trim() ?? string.Empty;
             var shouldUseLocalName = !string.IsNullOrWhiteSpace(normalizedLocalAvatarName)
                 && !string.Equals(normalizedLocalAvatarName, normalizedLocalAvatarId, StringComparison.Ordinal)
@@ -10000,6 +10863,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 ? mergedAvatar with { IsCurrentAvatar = string.Equals(mergedAvatar.Id, currentAvatarId, StringComparison.Ordinal) }
                 : avatar)
             .ToList();
+        var existingIds = updatedAvatars
+            .Select(avatar => avatar.Id)
+            .ToHashSet(StringComparer.Ordinal);
+        updatedAvatars.AddRange(mergedAvatars
+            .Where(pair => existingIds.Add(pair.Key))
+            .Select(pair => pair.Value with
+            {
+                IsCurrentAvatar = string.Equals(pair.Key, currentAvatarId, StringComparison.Ordinal)
+            }));
 
         availableVrChatAvatars.Clear();
         availableVrChatAvatars.AddRange(updatedAvatars);
@@ -12884,6 +13756,113 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         return lookup;
     }
 
+    private void ApplyPowerUpCatalog(IEnumerable<TwitchApiClient.CustomPowerUpResponse> powerUps)
+    {
+        var orderedPowerUps = powerUps
+            .OrderBy(powerUp => powerUp.Title, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        ApplyPowerUpOptions(orderedPowerUps);
+        foreach (var rule in Settings.PowerUpRules.Where(rule =>
+                     rule.SourceMode == TwitchRewardSyncMode.LinkExisting
+                     && !string.IsNullOrWhiteSpace(rule.PowerUpId)))
+        {
+            var powerUp = orderedPowerUps.FirstOrDefault(option =>
+                string.Equals(option.Id, rule.PowerUpId, StringComparison.Ordinal));
+            if (powerUp is null)
+            {
+                continue;
+            }
+
+            rule.PowerUpTitle = powerUp.Title;
+            rule.BitsCost = powerUp.EffectiveBitsCost <= 0 ? rule.BitsCost : powerUp.EffectiveBitsCost;
+            rule.Prompt = powerUp.Prompt;
+        }
+
+        QueueSave();
+        QueueBridgeRefresh();
+    }
+
+    private void ApplyPowerUpOptions(IReadOnlyList<TwitchApiClient.CustomPowerUpResponse> orderedPowerUps)
+    {
+        var nextOptions = BuildPowerUpOptions(orderedPowerUps);
+        foreach (var option in nextOptions)
+        {
+            if (FindPowerUpOptionIndexById(PowerUpOptions, option.Id) < 0)
+            {
+                PowerUpOptions.Add(option);
+            }
+        }
+
+        for (var desiredIndex = 0; desiredIndex < nextOptions.Count; desiredIndex++)
+        {
+            var desiredOption = nextOptions[desiredIndex];
+            var currentIndex = FindPowerUpOptionIndexById(PowerUpOptions, desiredOption.Id);
+            if (currentIndex < 0)
+            {
+                PowerUpOptions.Insert(desiredIndex, desiredOption);
+                continue;
+            }
+
+            if (currentIndex != desiredIndex)
+            {
+                PowerUpOptions.Move(currentIndex, desiredIndex);
+            }
+
+            if (!EqualityComparer<TwitchPowerUpOption>.Default.Equals(PowerUpOptions[desiredIndex], desiredOption))
+            {
+                PowerUpOptions[desiredIndex] = desiredOption;
+            }
+        }
+
+        for (var index = PowerUpOptions.Count - 1; index >= nextOptions.Count; index--)
+        {
+            PowerUpOptions.RemoveAt(index);
+        }
+    }
+
+    private IReadOnlyList<TwitchPowerUpOption> BuildPowerUpOptions(IReadOnlyList<TwitchApiClient.CustomPowerUpResponse> orderedPowerUps)
+    {
+        var options = new List<TwitchPowerUpOption>
+        {
+            TwitchPowerUpOption.Placeholder(T("Select Twitch Power Up"))
+        };
+
+        var loadedPowerUpIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var powerUp in orderedPowerUps)
+        {
+            if (!string.IsNullOrWhiteSpace(powerUp.Id))
+            {
+                loadedPowerUpIds.Add(powerUp.Id);
+            }
+
+            options.Add(TwitchPowerUpOption.FromPowerUp(powerUp));
+        }
+
+        var missingPowerUpIds = new HashSet<string>(loadedPowerUpIds, StringComparer.Ordinal);
+        foreach (var reference in EnumerateLinkedPowerUpReferences())
+        {
+            if (missingPowerUpIds.Add(reference.PowerUpId))
+            {
+                options.Add(TwitchPowerUpOption.MissingLinked(reference.PowerUpId, reference.DisplayTitle));
+            }
+        }
+
+        return options;
+    }
+
+    private IEnumerable<LinkedPowerUpReference> EnumerateLinkedPowerUpReferences()
+    {
+        foreach (var rule in Settings.PowerUpRules.Where(rule =>
+                     rule.SourceMode == TwitchRewardSyncMode.LinkExisting
+                     && !string.IsNullOrWhiteSpace(rule.PowerUpId)))
+        {
+            yield return new LinkedPowerUpReference(
+                rule.PowerUpId.Trim(),
+                string.IsNullOrWhiteSpace(rule.PowerUpTitle) ? rule.DisplayTitle : rule.PowerUpTitle.Trim());
+        }
+    }
+
     private IReadOnlyList<TwitchRewardOption> BuildRewardOptions(IReadOnlyList<TwitchApiClient.CustomRewardResponse> orderedRewards)
     {
         var options = new List<TwitchRewardOption>
@@ -12981,6 +13960,20 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         for (var index = 0; index < options.Count; index++)
         {
             if (string.Equals(options[index].Id, normalizedRewardId, StringComparison.Ordinal))
+            {
+                return index;
+            }
+        }
+
+        return -1;
+    }
+
+    private static int FindPowerUpOptionIndexById(IReadOnlyList<TwitchPowerUpOption> options, string powerUpId)
+    {
+        var normalizedPowerUpId = powerUpId?.Trim() ?? string.Empty;
+        for (var index = 0; index < options.Count; index++)
+        {
+            if (string.Equals(options[index].Id, normalizedPowerUpId, StringComparison.Ordinal))
             {
                 return index;
             }
@@ -15097,6 +16090,14 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         DisableAllCashPaymentRulesCommand.NotifyCanExecuteChanged();
         DeleteAllCashPaymentRulesCommand.NotifyCanExecuteChanged();
         TestSelectedCashPaymentRuleCommand.NotifyCanExecuteChanged();
+        AddPowerUpRuleCommand.NotifyCanExecuteChanged();
+        RemoveSelectedPowerUpRuleCommand.NotifyCanExecuteChanged();
+        EnableAllPowerUpRulesCommand.NotifyCanExecuteChanged();
+        DisableAllPowerUpRulesCommand.NotifyCanExecuteChanged();
+        DeleteAllPowerUpRulesCommand.NotifyCanExecuteChanged();
+        TestSelectedPowerUpRuleCommand.NotifyCanExecuteChanged();
+        UnlinkPowerUpCommand.NotifyCanExecuteChanged();
+        UseCurrentAvatarForPowerUpRuleCommand.NotifyCanExecuteChanged();
         DeleteSelectedAvatarProfileCommand.NotifyCanExecuteChanged();
         DeleteAllAvatarProfilesCommand.NotifyCanExecuteChanged();
         SetSelectedAvatarProfileAsMasterCommand.NotifyCanExecuteChanged();
@@ -16310,6 +17311,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RaisePropertyChanged(nameof(IsViewingMasterAvatar));
         RaisePropertyChanged(nameof(IsViewingMovementRedeems));
         RaisePropertyChanged(nameof(IsViewingSupporterOverrides));
+        RaisePropertyChanged(nameof(IsViewingPowerUps));
         RaisePropertyChanged(nameof(IsViewingUniversalTriggers));
         RaisePropertyChanged(nameof(IsViewingAvatarScaling));
         RaisePropertyChanged(nameof(IsViewingCashPayments));
@@ -16319,6 +17321,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RaisePropertyChanged(nameof(AvatarScaleSets));
         RaisePropertyChanged(nameof(AvatarScaleRules));
         RaisePropertyChanged(nameof(CashPaymentRules));
+        RaisePropertyChanged(nameof(PowerUpRules));
         RaisePropertyChanged(nameof(MasterAvatarDisplayName));
         RaisePropertyChanged(nameof(MasterAvatarRules));
         RaisePropertyChanged(nameof(SelectedRuleCollectionTitle));
@@ -16340,6 +17343,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RaisePropertyChanged(nameof(AvatarScaleRuntimeStatusText));
         RaisePropertyChanged(nameof(CashPaymentRuleStatusText));
         RaisePropertyChanged(nameof(CashPaymentActionEditorHelpText));
+        RaisePropertyChanged(nameof(PowerUpRuleStatusText));
+        RaisePropertyChanged(nameof(PowerUpActionEditorHelpText));
         RefreshRewardFireSaleStateProperties();
         RaisePropertyChanged(nameof(IsSetTriggerMasterRewardEditorVisible));
         RaisePropertyChanged(nameof(SelectedActionTypeOption));
@@ -17050,6 +18055,16 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         if (IsViewingCashPayments)
         {
             return Settings.VrChat.CurrentAvatarId?.Trim() ?? string.Empty;
+        }
+
+        if (IsViewingPowerUps)
+        {
+            var powerUpAvatarId = SelectedPowerUpRule?.AvatarScoped == true
+                ? SelectedPowerUpRule.AvatarId?.Trim() ?? string.Empty
+                : string.Empty;
+            return !string.IsNullOrWhiteSpace(powerUpAvatarId)
+                ? powerUpAvatarId
+                : Settings.VrChat.CurrentAvatarId?.Trim() ?? string.Empty;
         }
 
         return SelectedAvatarProfile?.AvatarId?.Trim() ?? string.Empty;
@@ -17995,6 +19010,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         MasterAvatar,
         MovementRedeems,
         SupporterOverrides,
+        PowerUps,
         UniversalTriggers,
         AvatarScaling,
         CashPayments,
@@ -18004,6 +19020,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private sealed record ChatModerationTarget(string DisplayName, string Login, string UserId);
 
     private sealed record LinkedTwitchRewardReference(string RewardId, string DisplayTitle);
+
+    private sealed record LinkedPowerUpReference(string PowerUpId, string DisplayTitle);
 }
 
 public sealed record TwitchRewardOption(
@@ -18085,7 +19103,79 @@ public sealed record TwitchRewardOption(
     public override string ToString() => DisplayLabel;
 }
 
+public sealed record TwitchPowerUpOption(
+    string Id,
+    string Title,
+    int BitsCost,
+    bool IsEnabled,
+    string Prompt,
+    bool IsCatalogMissing = false)
+{
+    public static TwitchPowerUpOption Placeholder(string title) =>
+        new(string.Empty, title, 0, false, string.Empty);
+
+    public static TwitchPowerUpOption MissingLinked(string id, string title)
+    {
+        var displayTitle = string.IsNullOrWhiteSpace(title)
+            ? LocalizationService.Translate("Linked Power Up not loaded")
+            : LocalizationService.Format("{0} (not loaded)", title.Trim());
+        return new TwitchPowerUpOption(id, displayTitle, 0, false, string.Empty, true);
+    }
+
+    public static TwitchPowerUpOption FromPowerUp(TwitchApiClient.CustomPowerUpResponse powerUp)
+    {
+        return new TwitchPowerUpOption(
+            powerUp.Id,
+            powerUp.Title,
+            powerUp.EffectiveBitsCost,
+            powerUp.IsEnabled,
+            powerUp.Prompt);
+    }
+
+    public string DisplayLabel => string.IsNullOrWhiteSpace(Id)
+        ? Title
+        : IsCatalogMissing
+            ? Title
+            : $"{Title} ({BitsCost} Bits, {StatusText})";
+
+    public string DetailText
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(Id))
+            {
+                return string.Empty;
+            }
+
+            if (IsCatalogMissing)
+            {
+                return LocalizationService.Format(
+                    "Saved Twitch Custom Power-up ID: {0}. Refresh Power Ups or reconnect the broadcaster account.",
+                    Id);
+            }
+
+            var promptText = string.IsNullOrWhiteSpace(Prompt)
+                ? LocalizationService.Translate("No prompt")
+                : Prompt.Trim();
+            return $"{StatusText} | {BitsCost} Bits | {promptText}";
+        }
+    }
+
+    public string StatusText => IsEnabled
+        ? LocalizationService.Translate("Enabled")
+        : LocalizationService.Translate("Disabled");
+
+    public bool HasDetailText => !string.IsNullOrWhiteSpace(DetailText);
+
+    public override string ToString() => DisplayLabel;
+}
+
 public sealed record TwitchRewardSyncModeOption(TwitchRewardSyncMode Value, string Label)
+{
+    public override string ToString() => Label;
+}
+
+public sealed record PowerUpActionKindOption(PowerUpActionKind Value, string Label)
 {
     public override string ToString() => Label;
 }
