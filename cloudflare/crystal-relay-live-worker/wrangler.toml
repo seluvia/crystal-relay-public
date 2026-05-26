@@ -1,0 +1,7 @@
+name = "crystal-relay-live-worker"
+main = "src/index.js"
+compatibility_date = "2026-05-15"
+
+[[kv_namespaces]]
+binding = "LIVE_USERS"
+id = "0399a2a204644e27aa7bd87d99e90079"

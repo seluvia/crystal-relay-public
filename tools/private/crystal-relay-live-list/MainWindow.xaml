@@ -227,6 +227,41 @@
             <Setter Property="Effect" Value="{x:Null}" />
         </Style>
 
+        <Style x:Key="ViewModeRadioStyle" TargetType="RadioButton">
+            <Setter Property="MinWidth" Value="104" />
+            <Setter Property="Height" Value="34" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+            <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="ModeSurface"
+                                Background="#241A2441"
+                                BorderBrush="{StaticResource SubtleBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="999"
+                                Padding="12,7">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              TextElement.Foreground="{TemplateBinding Foreground}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="ModeSurface" Property="Background" Value="{StaticResource LivePillBrush}" />
+                                <Setter TargetName="ModeSurface" Property="BorderBrush" Value="{StaticResource CrystalBorderBrush}" />
+                                <Setter Property="Foreground" Value="{StaticResource ButtonTextBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ModeSurface" Property="BorderBrush" Value="{StaticResource CrystalBorderBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="CommandInputStyle" TargetType="TextBox">
             <Setter Property="MinWidth" Value="58" />
             <Setter Property="Height" Value="30" />
@@ -642,17 +677,29 @@
 
                         <StackPanel Grid.Row="1"
                                     Margin="0,12,0,0">
-                            <TextBlock Text="Live Crystal Relay Users"
+                            <TextBlock Text="{Binding ViewTitleText}"
                                        FontSize="30"
                                        FontWeight="Black"
                                        TextWrapping="Wrap" />
+                            <StackPanel Margin="0,8,0,0"
+                                        Orientation="Horizontal">
+                                <RadioButton GroupName="LiveListMode"
+                                             Style="{StaticResource ViewModeRadioStyle}"
+                                             Content="Live Now"
+                                             IsChecked="True"
+                                             Checked="OnShowLiveNowClicked" />
+                                <RadioButton GroupName="LiveListMode"
+                                             Style="{StaticResource ViewModeRadioStyle}"
+                                             Content="24h History"
+                                             Checked="OnShowHistoryClicked" />
+                            </StackPanel>
                             <WrapPanel Margin="0,6,0,0">
                                 <TextBlock Margin="0,0,16,0"
-                                           Text="{Binding StatusText}"
+                                           Text="{Binding ViewPrimaryStatusText}"
                                            Foreground="{StaticResource SoftTextBrush}"
                                            FontSize="14"
                                            TextWrapping="Wrap" />
-                                <TextBlock Text="{Binding LastUpdatedText}"
+                                <TextBlock Text="{Binding ViewSecondaryStatusText}"
                                            Foreground="{StaticResource MutedBrush}"
                                            FontSize="13"
                                            FontWeight="SemiBold"
@@ -670,7 +717,7 @@
                             BorderBrush="{StaticResource SubtleBorderBrush}"
                             BorderThickness="1"
                             CornerRadius="16"
-                            Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibilityConverter}}">
+                            Visibility="{Binding IsLiveEmptyVisible, Converter={StaticResource BoolToVisibilityConverter}}">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="*" />
@@ -711,7 +758,8 @@
                     </Border>
 
                     <ScrollViewer VerticalScrollBarVisibility="Auto"
-                                  HorizontalScrollBarVisibility="Disabled">
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  Visibility="{Binding IsLiveViewVisible, Converter={StaticResource BoolToVisibilityConverter}}">
                         <ItemsControl ItemsSource="{Binding Users}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
@@ -789,6 +837,148 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
+                    </ScrollViewer>
+
+                    <Border Padding="28"
+                            Background="{StaticResource PanelBrush}"
+                            BorderBrush="{StaticResource SubtleBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="16"
+                            Visibility="{Binding IsHistoryEmptyVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <Grid Grid.Row="1"
+                                  Width="96"
+                                  Height="96"
+                                  HorizontalAlignment="Center"
+                                  Effect="{StaticResource CyanGlowEffect}">
+                                <Polygon Points="48,4 84,32 72,84 24,84 12,32"
+                                         Fill="#33202A46"
+                                         Stroke="{StaticResource CrystalBorderBrush}"
+                                         StrokeThickness="1.4" />
+                                <Polygon Points="48,12 68,34 48,76 28,34"
+                                         Fill="#44436A93"
+                                         Stroke="#777DF9FF"
+                                         StrokeThickness="1" />
+                            </Grid>
+                            <StackPanel Grid.Row="2"
+                                        Margin="0,18,0,0"
+                                        HorizontalAlignment="Center">
+                                <TextBlock Text="No live history in the last 24 hours"
+                                           Foreground="{StaticResource TextBrush}"
+                                           FontSize="18"
+                                           FontWeight="Bold"
+                                           TextAlignment="Center"
+                                           TextWrapping="Wrap" />
+                                <TextBlock Margin="0,7,0,0"
+                                           Text="{Binding HistoryStatusText}"
+                                           Foreground="{StaticResource MutedBrush}"
+                                           TextAlignment="Center"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  Visibility="{Binding IsHistoryViewVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <StackPanel>
+                            <TextBlock Margin="0,0,0,12"
+                                       Text="{Binding HistoryStatusText}"
+                                       Foreground="{StaticResource MutedBrush}"
+                                       FontWeight="SemiBold"
+                                       TextWrapping="Wrap" />
+                            <ItemsControl ItemsSource="{Binding HistoryEntries}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Width="284"
+                                                MinHeight="214"
+                                                Margin="0,0,14,14"
+                                                Padding="16"
+                                                Background="{StaticResource PanelStrongBrush}"
+                                                BorderBrush="{StaticResource CrystalBorderBrush}"
+                                                BorderThickness="1"
+                                                CornerRadius="14">
+                                            <Grid>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="*" />
+                                                    <RowDefinition Height="Auto" />
+                                                </Grid.RowDefinitions>
+
+                                                <Grid Grid.Row="0">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0"
+                                                               Text="{Binding DisplayName}"
+                                                               Foreground="{StaticResource TextBrush}"
+                                                               FontSize="19"
+                                                               FontWeight="Black"
+                                                               TextWrapping="Wrap" />
+                                                    <Border Grid.Column="1"
+                                                            Margin="10,0,0,0"
+                                                            Padding="8,4"
+                                                            VerticalAlignment="Top"
+                                                            Background="#3515192E"
+                                                            BorderBrush="{StaticResource SubtleBorderBrush}"
+                                                            BorderThickness="1"
+                                                            CornerRadius="999">
+                                                        <TextBlock Text="24H"
+                                                                   Foreground="{StaticResource CyanBrush}"
+                                                                   FontSize="10"
+                                                                   FontWeight="Bold" />
+                                                    </Border>
+                                                </Grid>
+
+                                                <Border Grid.Row="1"
+                                                        Margin="0,12,0,0"
+                                                        Padding="10,7"
+                                                        Background="{StaticResource PanelInsetBrush}"
+                                                        BorderBrush="{StaticResource SubtleBorderBrush}"
+                                                        BorderThickness="1"
+                                                        CornerRadius="10">
+                                                    <TextBlock Text="{Binding TwitchUrl}"
+                                                               Foreground="{StaticResource CyanBrush}"
+                                                               FontWeight="SemiBold"
+                                                               TextWrapping="Wrap" />
+                                                </Border>
+
+                                                <TextBlock Grid.Row="2"
+                                                           Margin="0,12,0,14"
+                                                           Text="{Binding DetailText}"
+                                                           Foreground="{StaticResource MutedBrush}"
+                                                           TextWrapping="Wrap" />
+
+                                                <WrapPanel Grid.Row="3">
+                                                    <Button Margin="0,0,8,0"
+                                                            Style="{StaticResource GhostButtonStyle}"
+                                                            Content="Open Channel"
+                                                            Tag="{Binding TwitchUrl}"
+                                                            Click="OnOpenStreamClicked" />
+                                                    <Button Style="{StaticResource GhostButtonStyle}"
+                                                            Content="Open VODs"
+                                                            Tag="{Binding VodUrl}"
+                                                            Click="OnOpenVodsClicked" />
+                                                </WrapPanel>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
                     </ScrollViewer>
                 </Grid>
 
