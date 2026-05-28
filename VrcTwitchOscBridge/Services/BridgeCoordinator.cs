@@ -57,6 +57,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private static readonly TimeSpan ThirdPartyChatEmoteRefreshInterval = TimeSpan.FromHours(6);
     private static readonly TimeSpan ThirdPartyChatEmoteRetryInterval = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan ChatEmoteDiagnosticLogThrottle = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan StreamOfflineConfirmationDelay = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan BroadcasterLiveStateRetryDelay = TimeSpan.FromSeconds(2);
     private const int TwitchChatMessageMaxCharacters = 450;
     private const int VrChatChatboxMaxCharacters = 144;
     private const int VrChatChatboxMaxLines = 9;
@@ -66,6 +68,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private const int AvatarScaleSmoothUpdatesPerSecond = 60;
     private const int AvatarScaleSmoothMaxSteps = 600;
     private const int AvatarScaleCarryoverApplyAttemptCount = 4;
+    private const int BroadcasterLiveStateCheckAttempts = 3;
     private const string BitsOutfitSetTriggerLaneKey = "set-trigger-bits-outfit";
     private const string AvatarSwitchLaneKey = "avatar-switch";
     private static readonly HashSet<string> ProtectedDevFireSaleBroadcasterIds = new(StringComparer.Ordinal)
@@ -183,6 +186,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private ActiveAvatarScaleCarryoverState? activeAvatarScaleCarryover;
     private ActiveAvatarScaleRestoreSequenceState? activeAvatarScaleRestoreSequence;
     private CancellationTokenSource? avatarScaleRestoreSequenceCancellation;
+    private CancellationTokenSource? pendingStreamOfflineConfirmation;
     private bool drainingQueuedAvatarScaleOperations;
 
     private CancellationTokenSource? runtimeCancellation;
@@ -198,6 +202,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private string currentSharedReturnAvatarId = string.Empty;
     private string currentSharedReturnAvatarName = string.Empty;
     private bool isBroadcasterLive;
+    private bool hasResolvedBroadcasterLiveState;
     private DateTimeOffset nextTriggerInfoAnnouncementAt = DateTimeOffset.MinValue;
     private DateTimeOffset nextChatboxRelayUnavailableLogAt = DateTimeOffset.MinValue;
     private DateTimeOffset nextChatboxRelayBlockedLogAt = DateTimeOffset.MinValue;
@@ -2227,7 +2232,9 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             broadcaster = null;
             bot = null;
             currentVrChatAvatarId = string.Empty;
+            CancelPendingStreamOfflineConfirmation();
             isBroadcasterLive = false;
+            hasResolvedBroadcasterLiveState = false;
             nextTriggerInfoAnnouncementAt = DateTimeOffset.MinValue;
             oscSessionMode = OscSessionMode.Stopped;
             ClearRuntimeState();
@@ -2243,7 +2250,9 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             broadcaster = null;
             bot = null;
             currentVrChatAvatarId = string.Empty;
+            CancelPendingStreamOfflineConfirmation();
             isBroadcasterLive = false;
+            hasResolvedBroadcasterLiveState = false;
             nextTriggerInfoAnnouncementAt = DateTimeOffset.MinValue;
             oscSessionMode = OscSessionMode.Stopped;
             ClearRuntimeState();
@@ -2271,7 +2280,9 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             broadcaster = null;
             bot = null;
             currentVrChatAvatarId = string.Empty;
+            CancelPendingStreamOfflineConfirmation();
             isBroadcasterLive = false;
+            hasResolvedBroadcasterLiveState = false;
             nextTriggerInfoAnnouncementAt = DateTimeOffset.MinValue;
             oscSessionMode = OscSessionMode.Stopped;
             ClearRuntimeState();
@@ -2841,7 +2852,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             ChatActivityReceived?.Invoke(chatActivity);
         }
 
-        if (TryHandleStreamStateNotification(notification))
+        if (TryHandleStreamStateNotification(notification, cancellationToken))
         {
             return;
         }
@@ -6221,24 +6232,28 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             CooldownSeconds = cooldownSeconds
         };
 
-    private bool TryHandleStreamStateNotification(EventSubNotification notification)
+    private bool TryHandleStreamStateNotification(EventSubNotification notification, CancellationToken cancellationToken)
     {
         if (string.Equals(notification.SubscriptionType, "stream.online", StringComparison.Ordinal))
         {
-            isBroadcasterLive = true;
-            nextTriggerInfoAnnouncementAt = DateTimeOffset.MinValue;
-            StreamStateChanged?.Invoke(true, false);
-            WriteLog("Broadcaster is live on Twitch.");
+            if (!StreamNotificationMatchesBroadcaster(notification))
+            {
+                return true;
+            }
+
+            CancelPendingStreamOfflineConfirmation();
+            SetBroadcasterLiveState(true, "EventSub stream.online", resetTriggerAnnouncementSchedule: true);
             return true;
         }
 
         if (string.Equals(notification.SubscriptionType, "stream.offline", StringComparison.Ordinal))
         {
-            var streamEnded = isBroadcasterLive;
-            isBroadcasterLive = false;
-            nextTriggerInfoAnnouncementAt = DateTimeOffset.MinValue;
-            StreamStateChanged?.Invoke(false, streamEnded);
-            WriteLog("Broadcaster is offline on Twitch.");
+            if (!StreamNotificationMatchesBroadcaster(notification))
+            {
+                return true;
+            }
+
+            QueueStreamOfflineConfirmation(cancellationToken);
             return true;
         }
 
@@ -6249,32 +6264,182 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     {
         if (activeConfiguration is null || broadcaster is null)
         {
-            isBroadcasterLive = false;
-            nextTriggerInfoAnnouncementAt = DateTimeOffset.MinValue;
-            StreamStateChanged?.Invoke(false, false);
+            CancelPendingStreamOfflineConfirmation();
+            ResetBroadcasterLiveState();
             return;
         }
 
         try
         {
-            var isLive = await twitchApiClient.IsBroadcasterLiveAsync(
-                broadcaster.AccessToken,
-                activeConfiguration.TwitchClientId,
-                broadcaster.UserId,
-                cancellationToken);
-            var streamEnded = isBroadcasterLive && !isLive;
-            isBroadcasterLive = isLive;
-            if (!isLive)
+            var isLive = await QueryBroadcasterLiveStateWithRetryAsync(cancellationToken);
+            if (isLive)
             {
-                nextTriggerInfoAnnouncementAt = DateTimeOffset.MinValue;
+                CancelPendingStreamOfflineConfirmation();
             }
-            StreamStateChanged?.Invoke(isLive, streamEnded);
+
+            SetBroadcasterLiveState(isLive, "Helix stream status check");
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             throw;
         }
-        catch
+        catch (Exception ex)
+        {
+            WriteLog($"Twitch stream status check could not complete, so Crystal Relay kept the last known stream state. Source: Helix stream status check. {SensitiveTextSanitizer.Sanitize(ex.Message)}");
+        }
+    }
+
+    private bool StreamNotificationMatchesBroadcaster(EventSubNotification notification)
+    {
+        var expectedBroadcasterId = broadcaster?.UserId?.Trim() ?? string.Empty;
+        var notificationBroadcasterId = GetString(notification.EventData, "broadcaster_user_id")?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(expectedBroadcasterId)
+            || string.IsNullOrWhiteSpace(notificationBroadcasterId))
+        {
+            WriteLog("Ignored Twitch stream status notification because Crystal Relay could not verify the broadcaster ID.");
+            return false;
+        }
+
+        if (string.Equals(expectedBroadcasterId, notificationBroadcasterId, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        WriteLog("Ignored Twitch stream status notification because it did not match the connected broadcaster.");
+        return false;
+    }
+
+    private void QueueStreamOfflineConfirmation(CancellationToken cancellationToken)
+    {
+        CancelPendingStreamOfflineConfirmation();
+
+        var confirmationCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        pendingStreamOfflineConfirmation = confirmationCancellation;
+        WriteLog("Twitch reported the broadcaster offline; confirming before updating stream status. Source: EventSub stream.offline.");
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(StreamOfflineConfirmationDelay, confirmationCancellation.Token);
+                var isLive = await QueryBroadcasterLiveStateWithRetryAsync(confirmationCancellation.Token);
+                if (isLive)
+                {
+                    SetBroadcasterLiveState(true, "Helix confirmation after EventSub stream.offline");
+                    WriteLog("Twitch offline notification was not confirmed, so Crystal Relay kept the stream status live. Source: Helix confirmation after EventSub stream.offline.");
+                    return;
+                }
+
+                SetBroadcasterLiveState(false, "EventSub stream.offline confirmed by Helix");
+            }
+            catch (OperationCanceledException) when (confirmationCancellation.IsCancellationRequested)
+            {
+            }
+            catch (Exception ex)
+            {
+                WriteLog($"Twitch offline confirmation could not complete, so Crystal Relay kept the last known stream state. Source: EventSub stream.offline confirmation. {SensitiveTextSanitizer.Sanitize(ex.Message)}");
+            }
+            finally
+            {
+                if (ReferenceEquals(pendingStreamOfflineConfirmation, confirmationCancellation))
+                {
+                    pendingStreamOfflineConfirmation = null;
+                }
+
+                confirmationCancellation.Dispose();
+            }
+        }, CancellationToken.None);
+    }
+
+    private async Task<bool> QueryBroadcasterLiveStateWithRetryAsync(CancellationToken cancellationToken)
+    {
+        if (activeConfiguration is null || broadcaster is null)
+        {
+            return false;
+        }
+
+        Exception? lastException = null;
+        for (var attempt = 1; attempt <= BroadcasterLiveStateCheckAttempts; attempt++)
+        {
+            try
+            {
+                var isLive = await twitchApiClient.IsBroadcasterLiveAsync(
+                    broadcaster.AccessToken,
+                    activeConfiguration.TwitchClientId,
+                    broadcaster.UserId,
+                    cancellationToken);
+                if (isLive || attempt == BroadcasterLiveStateCheckAttempts)
+                {
+                    return isLive;
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                lastException = ex;
+                if (attempt == BroadcasterLiveStateCheckAttempts)
+                {
+                    throw;
+                }
+            }
+
+            await Task.Delay(BroadcasterLiveStateRetryDelay, cancellationToken);
+        }
+
+        if (lastException is not null)
+        {
+            throw lastException;
+        }
+
+        return false;
+    }
+
+    private void SetBroadcasterLiveState(
+        bool isLive,
+        string source,
+        bool resetTriggerAnnouncementSchedule = false)
+    {
+        var stateChanged = !hasResolvedBroadcasterLiveState || isBroadcasterLive != isLive;
+        var streamEnded = hasResolvedBroadcasterLiveState && isBroadcasterLive && !isLive;
+        isBroadcasterLive = isLive;
+        hasResolvedBroadcasterLiveState = true;
+        if (resetTriggerAnnouncementSchedule || !isLive)
+        {
+            nextTriggerInfoAnnouncementAt = DateTimeOffset.MinValue;
+        }
+
+        StreamStateChanged?.Invoke(isLive, streamEnded);
+        if (stateChanged)
+        {
+            WriteLog($"Broadcaster is {(isLive ? "live" : "offline")} on Twitch. Source: {source}.");
+        }
+    }
+
+    private void ResetBroadcasterLiveState()
+    {
+        isBroadcasterLive = false;
+        hasResolvedBroadcasterLiveState = false;
+        nextTriggerInfoAnnouncementAt = DateTimeOffset.MinValue;
+        StreamStateChanged?.Invoke(false, false);
+    }
+
+    private void CancelPendingStreamOfflineConfirmation()
+    {
+        var pending = pendingStreamOfflineConfirmation;
+        pendingStreamOfflineConfirmation = null;
+        if (pending is null)
+        {
+            return;
+        }
+
+        try
+        {
+            pending.Cancel();
+        }
+        catch (ObjectDisposedException)
         {
         }
     }

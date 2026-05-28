@@ -7,7 +7,7 @@
 - Current source version: `v3.1.8`
 - Next post-release development version: `v3.1.8`
 - Active development build: `v3.1.8`
-- Active build lane: `beta`
+- Active build lane: `test`
 - Platform: Windows desktop app
 - Primary purpose: Twitch-to-OSC / OSCQuery control for VRChat
 - Public GitHub repo: `seluvia/crystal-relay-public`
