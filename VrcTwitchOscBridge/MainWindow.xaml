@@ -20,6 +20,7 @@
         ResizeMode="CanResize"
         SnapsToDevicePixels="True"
         FontFamily="{DynamicResource BodyFontFamily}"
+        WindowStartupLocation="CenterScreen"
         Background="{DynamicResource WindowBackgroundBrush}">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="0"
@@ -5283,15 +5284,17 @@
                                                         <TextBlock Text="{Binding DataContext.SelectedAvatarPickerLabel, RelativeSource={RelativeSource AncestorType=Window}}"
                                                                    Foreground="{DynamicResource TextBrush}"
                                                                    FontWeight="SemiBold" />
-                                                        <ComboBox ItemsSource="{Binding DataContext.ProfileAvatarOptions, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                  Margin="0,8,0,0"
-                                                                  IsEditable="True"
-                                                                  IsTextSearchEnabled="True"
-                                                                  StaysOpenOnEdit="True"
-                                                                  TextSearch.TextPath="SearchText"
-                                                                  ItemTemplate="{StaticResource VrChatAvatarOptionTemplate}"
-                                                                  SelectedValuePath="Id"
-                                                                  SelectedValue="{Binding AvatarId, UpdateSourceTrigger=PropertyChanged}" />
+<DockPanel Margin="0,8,0,0">
+                                                            <Button DockPanel.Dock="Right"
+                                                                    Content="{loc:Translate 'Browse...'}"
+                                                                    Style="{StaticResource SecondaryButtonStyle}"
+                                                                    Command="{Binding DataContext.OpenAvatarPickerCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                                            <TextBlock Text="{Binding AvatarDisplayName}"
+                                                                       Foreground="{DynamicResource TextBrush}"
+                                                                       VerticalAlignment="Center"
+                                                                       Margin="0,0,8,0"
+                                                                       TextWrapping="Wrap" />
+                                                        </DockPanel>
                                                     </StackPanel>
                                                 </Grid>
                                                 <WrapPanel Margin="0,16,0,0">
@@ -10161,6 +10164,96 @@
                 </ScrollViewer>
             </Border>
         </Grid>
+            <Grid x:Name="LoadingOverlay"
+                  Grid.RowSpan="2"
+                  Panel.ZIndex="999"
+                  Background="{DynamicResource WindowBackgroundBrush}">
+                <Grid.Resources>
+                    <Storyboard x:Key="CrystalRotateStoryboard">
+                        <DoubleAnimation Storyboard.TargetName="CrystalRotateTransform"
+                                         Storyboard.TargetProperty="Angle"
+                                         From="0" To="360" Duration="0:0:4"
+                                         RepeatBehavior="Forever" />
+                    </Storyboard>
+                    <Storyboard x:Key="CrystalPulseStoryboard">
+                        <DoubleAnimationUsingKeyFrames Storyboard.TargetName="CrystalScaleTransform"
+                                                       Storyboard.TargetProperty="ScaleX"
+                                                       RepeatBehavior="Forever">
+                            <LinearDoubleKeyFrame KeyTime="0:0:0" Value="1" />
+                            <LinearDoubleKeyFrame KeyTime="0:0:1" Value="1.1" />
+                            <LinearDoubleKeyFrame KeyTime="0:0:2" Value="1" />
+                        </DoubleAnimationUsingKeyFrames>
+                        <DoubleAnimationUsingKeyFrames Storyboard.TargetName="CrystalScaleTransform"
+                                                       Storyboard.TargetProperty="ScaleY"
+                                                       RepeatBehavior="Forever">
+                            <LinearDoubleKeyFrame KeyTime="0:0:0" Value="1" />
+                            <LinearDoubleKeyFrame KeyTime="0:0:1" Value="1.1" />
+                            <LinearDoubleKeyFrame KeyTime="0:0:2" Value="1" />
+                        </DoubleAnimationUsingKeyFrames>
+                    </Storyboard>
+                    <Storyboard x:Key="GlowPulseStoryboard">
+                        <DoubleAnimationUsingKeyFrames Storyboard.TargetName="GlowEllipse"
+                                                       Storyboard.TargetProperty="Opacity"
+                                                       RepeatBehavior="Forever">
+                            <LinearDoubleKeyFrame KeyTime="0:0:0" Value="0.25" />
+                            <LinearDoubleKeyFrame KeyTime="0:0:1" Value="0.7" />
+                            <LinearDoubleKeyFrame KeyTime="0:0:2" Value="0.25" />
+                        </DoubleAnimationUsingKeyFrames>
+                    </Storyboard>
+                    <Storyboard x:Key="TextFadeStoryboard">
+                        <DoubleAnimationUsingKeyFrames Storyboard.TargetName="LoadingTextBlock"
+                                                       Storyboard.TargetProperty="Opacity"
+                                                       RepeatBehavior="Forever">
+                            <LinearDoubleKeyFrame KeyTime="0:0:0" Value="0.65" />
+                            <LinearDoubleKeyFrame KeyTime="0:0:0.75" Value="1" />
+                            <LinearDoubleKeyFrame KeyTime="0:0:1.5" Value="0.65" />
+                        </DoubleAnimationUsingKeyFrames>
+                    </Storyboard>
+                </Grid.Resources>
+
+                <!-- Glow behind crystal -->
+                <Ellipse x:Name="GlowEllipse"
+                         Width="180"
+                         Height="180"
+                         Fill="{DynamicResource AccentBrush}"
+                         Opacity="0.45"
+                         HorizontalAlignment="Center"
+                         VerticalAlignment="Center"
+                         Margin="0,0,0,40">
+                    <Ellipse.Effect>
+                        <BlurEffect Radius="45" />
+                    </Ellipse.Effect>
+                </Ellipse>
+
+                <!-- Crystal with animations -->
+                <StackPanel HorizontalAlignment="Center"
+                            VerticalAlignment="Center">
+                    <Image Source="Assets/crystal-relay-icon.png"
+                           Width="96"
+                           Height="96"
+                           Stretch="Uniform"
+                           Margin="0,0,0,24"
+                           RenderTransformOrigin="0.5,0.5">
+                        <Image.RenderTransform>
+                            <TransformGroup>
+                                <RotateTransform x:Name="CrystalRotateTransform" Angle="0" />
+                                <ScaleTransform x:Name="CrystalScaleTransform" ScaleX="1" ScaleY="1" />
+                            </TransformGroup>
+                        </Image.RenderTransform>
+                    </Image>
+                    <TextBlock x:Name="LoadingTextBlock"
+                               Text="{loc:Translate 'Loading Crystal Relay...'}"
+                               FontSize="20"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextBrush}"
+                               HorizontalAlignment="Center" />
+                    <TextBlock Text="{loc:Translate 'Preparing your workspace...'}"
+                               FontSize="13"
+                               Foreground="{DynamicResource MutedBrush}"
+                               HorizontalAlignment="Center"
+                               Margin="0,8,0,0" />
+                </StackPanel>
+            </Grid>
             <Grid x:Name="AdvertisementOverlay"
                   Grid.RowSpan="2"
                   Panel.ZIndex="1000"
