@@ -58,7 +58,7 @@ public sealed class UniversalTriggerRule : ObservableObject
         get => name;
         set
         {
-            if (SetProperty(ref name, string.IsNullOrWhiteSpace(value) ? "New Universal Trigger" : value.Trim()))
+            if (SetProperty(ref name, value ?? string.Empty))
             {
                 RaiseTitleProperties();
             }

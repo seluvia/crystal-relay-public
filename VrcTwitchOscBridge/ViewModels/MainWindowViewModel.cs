@@ -101,6 +101,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private static readonly TimeSpan ActiveAvatarScaleLocalRefreshInterval = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan VrChatOscParameterAutoRefreshInitialDelay = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan VrChatOscParameterAutoRefreshRetryDelay = TimeSpan.FromSeconds(3);
+    private static readonly TimeSpan WorldCommandBlacklistRefreshInterval = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan TwitchPublicSessionWindow = TimeSpan.FromDays(30);
     private static readonly TimeSpan AboutProfileRefreshInterval = TimeSpan.FromMinutes(5);
     private static readonly Guid AvatarScaleMasterRewardOwnerId = new("c69a2537-6c74-450f-9c5a-b6d9f04a7d95");
@@ -211,6 +212,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         nameof(TriggerRule.SharedRewardChoiceNumber),
         nameof(TriggerRule.SharedRewardHelpText),
         nameof(TriggerRule.SupporterKeywordText),
+        nameof(TriggerRule.SetTriggerRestoreMode),
         nameof(TriggerRule.ActiveFloatBoostRewardEnabled),
         nameof(TriggerRule.ActiveFloatBoostRewardId),
         nameof(TriggerRule.ActiveFloatBoostRewardTitle),
@@ -223,6 +225,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         nameof(TriggerRule.ActiveFloatBoostMinimumValue),
         nameof(TriggerRule.ActiveFloatBoostMaximumValue),
         nameof(TriggerRule.SetTriggerActions),
+        nameof(TriggerRule.SpecialRulePairingMode),
         nameof(TriggerRule.TemporarilyDisabledRuleIds),
         nameof(TriggerRule.BotMessageTemplate)
     };
@@ -254,6 +257,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         nameof(TriggerRule.AvatarRouletAvatarIds),
         nameof(TriggerRule.IsEnabled),
         nameof(TriggerRule.CooldownSeconds),
+        nameof(TriggerRule.SpecialRulePairingMode),
         nameof(TriggerRule.TemporarilyDisabledRuleIds)
     };
     private static readonly HashSet<string> AvatarProfilePropertiesRequiringBridgeRefresh = new(StringComparer.Ordinal)
@@ -264,7 +268,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         nameof(AvatarTriggerProfile.SetTriggerMasterRewardId),
         nameof(AvatarTriggerProfile.SetTriggerMasterRewardTitle),
         nameof(AvatarTriggerProfile.SetTriggerMasterRewardSyncMode),
-        nameof(AvatarTriggerProfile.SetTriggerMasterRewardCooldownSeconds)
+        nameof(AvatarTriggerProfile.SetTriggerMasterRewardCooldownSeconds),
+        nameof(AvatarTriggerProfile.UseSharedNumberedOutfitReward),
+        nameof(AvatarTriggerProfile.PostOutfitChoiceListToTwitchChat)
     };
     private static readonly HashSet<string> AvatarProfilePropertiesRequiringManagedRewardSync = new(StringComparer.Ordinal)
     {
@@ -280,7 +286,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         nameof(AvatarTriggerProfile.SetTriggerMasterRewardCooldownSeconds),
         nameof(AvatarTriggerProfile.SetTriggerMasterRewardReadyColor),
         nameof(AvatarTriggerProfile.SetTriggerMasterRewardCooldownColor),
-        nameof(AvatarTriggerProfile.DeleteSetTriggerMasterRewardWhenInactive)
+        nameof(AvatarTriggerProfile.DeleteSetTriggerMasterRewardWhenInactive),
+        nameof(AvatarTriggerProfile.UseSharedNumberedOutfitReward)
     };
     private static readonly HashSet<string> UniversalTriggerPropertiesRequiringManagedRewardSync = new(StringComparer.Ordinal)
     {
@@ -363,6 +370,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private readonly ApplicationUpdateService applicationUpdateService = new();
     private readonly BugReportService bugReportService = new();
     private readonly LiveFeedbackHeartbeatService liveFeedbackHeartbeatService = new();
+    private readonly WorldCommandBlacklistService worldCommandBlacklistService = new();
     private readonly VrChatApiClient vrChatApiClient = new();
     private readonly VrChatLocalClientStateService vrChatLocalClientStateService = new();
     private readonly VrChatLocalOscCacheService vrChatLocalOscCacheService = new();
@@ -376,6 +384,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private readonly DispatcherTimer sessionStatusTimer;
     private readonly DispatcherTimer vrChatLocalStateTimer;
     private readonly DispatcherTimer vrChatCurrentAvatarTimer;
+    private readonly DispatcherTimer worldCommandBlacklistRefreshTimer;
     private readonly Dictionary<Guid, Guid> lastSelectedRuleIdsByAvatarProfileId = new();
     private readonly Dictionary<string, DateTimeOffset> recentChatActivityKeys = new(StringComparer.Ordinal);
     private readonly ObservableCollection<TriggerRule> emptyMasterAvatarRules = [];
@@ -448,9 +457,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private bool isStartingSavedLoginRecovery;
     private bool hasActivityAttention;
     private string universalManagedRewardSyncStatusText = "Universal Twitch reward sync has not run yet.";
+    private string worldCommandBlacklistStatusText = T("Protected world guard has not been checked yet.");
     private int savedLoginRecoveryFailureCount;
     private CancellationTokenSource? saveDebounceCancellation;
     private CancellationTokenSource? bridgeRefreshCancellation;
+    private CancellationTokenSource? worldCommandBlacklistRefreshCancellation;
     private CancellationTokenSource? managedRewardSyncCancellation;
     private CancellationTokenSource? vrChatCurrentAvatarRefreshCancellation;
     private CancellationTokenSource? vrChatOscParameterRefreshCancellation;
@@ -567,7 +578,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     {
         dispatcher = Dispatcher.CurrentDispatcher;
         desktopInputLockService = new DesktopInputLockService(dispatcher);
-        bridgeCoordinator = new BridgeCoordinator(desktopInputLockService);
+        bridgeCoordinator = new BridgeCoordinator(desktopInputLockService, worldCommandBlacklistService);
         LogEntries = [];
         ChatMessages = [];
         ChatActivityEntries = [];
@@ -790,6 +801,18 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             }
         };
         vrChatCurrentAvatarTimer.Start();
+        worldCommandBlacklistRefreshTimer = new DispatcherTimer
+        {
+            Interval = WorldCommandBlacklistRefreshInterval
+        };
+        worldCommandBlacklistRefreshTimer.Tick += (_, _) =>
+        {
+            if (isInitialized)
+            {
+                QueueWorldCommandBlacklistRefresh();
+            }
+        };
+        worldCommandBlacklistRefreshTimer.Start();
 
         ConnectBroadcasterCommand = new AsyncRelayCommand(ConnectBroadcasterAsync);
         DisconnectBroadcasterCommand = new AsyncRelayCommand(DisconnectBroadcasterAsync, () => HasRecoverableBroadcasterSession);
@@ -840,6 +863,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RestrictSelectedChatUserCommand = new AsyncRelayCommand(RestrictSelectedChatUserAsync, CanManageSelectedChatUserSuspiciousStatus);
         ClearSelectedChatUserSuspiciousStatusCommand = new AsyncRelayCommand(ClearSelectedChatUserSuspiciousStatusAsync, CanManageSelectedChatUserSuspiciousStatus);
         OpenBuiltInCommandsCommand = new RelayCommand(OpenBuiltInCommands);
+        RefreshWorldCommandBlacklistCommand = new AsyncRelayCommand(RefreshWorldCommandBlacklistManuallyAsync);
         ShowSettingsTwitchSectionCommand = new RelayCommand(() => SetActiveSettingsSection(SettingsSectionView.Twitch));
         ShowSettingsVrChatSectionCommand = new RelayCommand(() => SetActiveSettingsSection(SettingsSectionView.VrChat));
         ShowSettingsAppSectionCommand = new RelayCommand(() => SetActiveSettingsSection(SettingsSectionView.App));
@@ -873,6 +897,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RefreshVrChatOscParametersCommand = new AsyncRelayCommand(RefreshVrChatOscParametersAsync);
 
         AddRuleCommand = new RelayCommand(AddRule);
+        AddOutfitChoiceCommand = new RelayCommand(AddOutfitChoice, () => IsViewingAvatarTriggers && SelectedAvatarProfile is not null);
+        RemoveSelectedOutfitChoiceCommand = new RelayCommand(
+            RemoveSelectedOutfitChoice,
+            () => IsViewingAvatarTriggers && SelectedAvatarProfile is not null && SelectedRule?.ActionType == OscActionType.SetTrigger);
         SelectRuleCommand = new RelayCommand(SelectRule, target => target is TriggerRule);
         AddAvatarSupporterTriggerCommand = new RelayCommand(AddAvatarSupporterTrigger);
         AddAvatarChangeOverrideCommand = new RelayCommand(AddAvatarChangeOverride);
@@ -968,6 +996,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         bridgeCoordinator.AvatarScaleStatusChanged += () => RunOnUi(HandleAvatarScaleStatusChanged);
         bridgeCoordinator.RewardFireSaleContributionReceived += contribution => RunOnUi(() => HandleRewardFireSaleContribution(contribution));
         bridgeCoordinator.DevFireSaleRequested += request => RunOnUi(() => HandleDevFireSaleRequest(request));
+        bridgeCoordinator.PauseCommandRequested += () => RunOnUi(() => ToggleEmergencyRedeemStop());
+        bridgeCoordinator.GroupToggleRequested += groupName => RunOnUi(() => ToggleRedeemGroupByName(groupName));
+        bridgeCoordinator.RedeemControlRequested += (redeemName, enable) => RunOnUi(() => ToggleRedeemByName(redeemName, enable));
         liveFeedbackHeartbeatService.DiagnosticLogged += message => RunOnUi(() => AppendLog(message));
 
     }
@@ -1058,6 +1089,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 }
 
                 RaiseRuleSelectionStateProperties();
+                AddOutfitChoiceCommand.NotifyCanExecuteChanged();
+                RemoveSelectedOutfitChoiceCommand.NotifyCanExecuteChanged();
                 RefreshSpecialRuleLockoutOptions();
                 RefreshVrChatAvatarSelectionOptions();
                 _ = EnsureSelectedAvatarParameterCacheLoadedAsync();
@@ -1508,6 +1541,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public IReadOnlyList<TriggerRule> SelectedAvatarMixRedeems => GetSelectedAvatarMixRedeems();
 
+    public IReadOnlyList<TriggerRule> SelectedAvatarOutfitChoices => GetSelectedAvatarMixRedeems();
+
     public IReadOnlyList<TriggerRule> SelectedAvatarOtherRedeems => GetSelectedAvatarOtherRedeems();
 
     public string AvatarBoolRedeemGroupTitle => "Bool Parameters";
@@ -1522,11 +1557,19 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public bool HasAvatarMixRedeems => SelectedAvatarMixRedeems.Count > 0;
 
+    public bool HasSelectedAvatarOutfitChoices => SelectedAvatarOutfitChoices.Count > 0;
+
     public bool HasAvatarOtherRedeems => SelectedAvatarOtherRedeems.Count > 0;
 
     public bool IsSetTriggerMasterRewardEditorVisible =>
         IsViewingAvatarTriggers
-        && SelectedAvatarProfile?.ChannelPointRules.Any(rule => rule.ActionType == OscActionType.SetTrigger) == true;
+        && SelectedAvatarProfile?.UseSharedNumberedOutfitReward == true
+        && SelectedAvatarProfile.ChannelPointRules.Any(rule => rule.ActionType == OscActionType.SetTrigger);
+
+    public bool SelectedSetTriggerUsesSharedNumberedReward =>
+        IsViewingAvatarTriggers
+        && SelectedRule?.ActionType == OscActionType.SetTrigger
+        && SelectedAvatarProfile?.UseSharedNumberedOutfitReward == true;
 
     public bool IsAvatarBoolRedeemsExpanded
     {
@@ -2025,7 +2068,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public bool IsSpecialRuleLockoutEditorVisible => IsViewingAvatarTriggers && SelectedRule is not null;
 
-    public string SpecialRuleLockoutHelpText => T("Disable Pairing lets this redeem temporarily turn off other redeems in the same avatar set while it is active. Use it when two redeems would fight each other, overlap visually, or should behave like separate modes instead of stacking together.");
+    public string SpecialRuleLockoutHelpText => T("Pairing can either hide sibling redeems while this redeem is active, or keep sibling redeems hidden until this redeem triggers.");
 
     public string SpecialRuleLockoutSummaryText
     {
@@ -2034,7 +2077,16 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             var configuredOptions = BuildConfiguredSpecialRuleLockoutOptions();
             if (configuredOptions.Count == 0)
             {
-                return T("No disable pairings set.");
+                return SelectedRule?.SpecialRulePairingMode == SpecialRulePairingMode.ShowPairedWhileActive
+                    ? T("No reveal pairings set.")
+                    : T("No disable pairings set.");
+            }
+
+            if (SelectedRule?.SpecialRulePairingMode == SpecialRulePairingMode.ShowPairedWhileActive)
+            {
+                return configuredOptions.Count == 1
+                    ? TF("Reveal pairing: {0}", configuredOptions[0].Label)
+                    : TF("Reveal pairings: {0}", configuredOptions.Count);
             }
 
             return configuredOptions.Count == 1
@@ -2345,8 +2397,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             if (SetProperty(ref selectedRule, value))
             {
                 RemoveSelectedRuleCommand.NotifyCanExecuteChanged();
+                RemoveSelectedOutfitChoiceCommand.NotifyCanExecuteChanged();
                 TestSelectedRuleCommand.NotifyCanExecuteChanged();
                 SelectedSetTriggerAction = value?.SetTriggerActions.FirstOrDefault();
+                RaisePropertyChanged(nameof(SelectedSetTriggerUsesSharedNumberedReward));
                 AddSetTriggerActionCommand.NotifyCanExecuteChanged();
                 RemoveSelectedSetTriggerActionCommand.NotifyCanExecuteChanged();
                 OpenActiveFloatBoostRewardCommand.NotifyCanExecuteChanged();
@@ -2680,6 +2734,20 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     public string BuiltInCommandsWarningText => BuildBuiltInCommandsWarningText();
 
     public bool HasBuiltInCommandsWarning => !string.IsNullOrWhiteSpace(BuiltInCommandsWarningText);
+
+    public string WorldCommandBlacklistStatusText
+    {
+        get => worldCommandBlacklistStatusText;
+        private set => SetProperty(ref worldCommandBlacklistStatusText, value);
+    }
+
+    public string WorldCommandBlacklistFormatReminderText =>
+        string.Join(
+            Environment.NewLine,
+            T("# [VRChat User ID] - [MM/DD/YYYY - MM/DD/YYYY] [Reason]"),
+            T("usr_00000000-0000-0000-0000-000000000000 - [06/01/2026 - 06/07/2026] Special event reason"),
+            T("# [World ID] - [Reason]"),
+            T("wrld_00000000-0000-0000-0000-000000000000 - Patreon/private event reason"));
 
     public bool IsVrChatConnected => Settings.VrChat.IsConnected;
 
@@ -3057,6 +3125,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public RelayCommand OpenBuiltInCommandsCommand { get; }
 
+    public AsyncRelayCommand RefreshWorldCommandBlacklistCommand { get; }
+
     public RelayCommand ShowSettingsTwitchSectionCommand { get; }
 
     public RelayCommand ShowSettingsVrChatSectionCommand { get; }
@@ -3108,6 +3178,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     public AsyncRelayCommand RefreshVrChatOscParametersCommand { get; }
 
     public RelayCommand AddRuleCommand { get; }
+
+    public RelayCommand AddOutfitChoiceCommand { get; }
+
+    public RelayCommand RemoveSelectedOutfitChoiceCommand { get; }
 
     public RelayCommand SelectRuleCommand { get; }
 
@@ -3289,6 +3363,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
         AppendLog("Loaded saved settings.");
         ReportSavedLoginRecoveryResult(savedLoginRecoveryResult);
+        await RefreshWorldCommandBlacklistOnStartupAsync();
         await InitializeVrChatAsync();
         await QueueRewardRefreshAsync();
         QueueManagedRewardSync(reason: ManagedRewardSyncReason.Startup);
@@ -3329,6 +3404,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         saveDebounceCancellation?.Dispose();
         bridgeRefreshCancellation?.Cancel();
         bridgeRefreshCancellation?.Dispose();
+        worldCommandBlacklistRefreshCancellation?.Cancel();
+        worldCommandBlacklistRefreshCancellation?.Dispose();
         CancelAndDisposeQueuedCancellationSource(ref managedRewardSyncCancellation);
         CancelAndDisposeQueuedCancellationSource(ref vrChatCurrentAvatarRefreshCancellation);
         CancelAndDisposeQueuedCancellationSource(ref vrChatOscParameterRefreshCancellation);
@@ -3337,6 +3414,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         CancelAndDisposeQueuedCancellationSource(ref rewardFireSaleExpirationCancellation);
         CancelAndDisposeQueuedCancellationSource(ref rewardFireSaleFundingCooldownCancellation);
         DisposeVrChatLocalOscWatcher();
+        worldCommandBlacklistRefreshTimer.Stop();
 
         if (isInitialized)
         {
@@ -3378,10 +3456,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         applicationUpdateService.Dispose();
         bugReportService.Dispose();
         liveFeedbackHeartbeatService.Dispose();
+        worldCommandBlacklistService.Dispose();
         vrChatApiClient.Dispose();
         sessionStatusTimer.Stop();
         vrChatLocalStateTimer.Stop();
         vrChatCurrentAvatarTimer.Stop();
+        worldCommandBlacklistRefreshTimer.Stop();
         bridgeRefreshGate.Dispose();
         managedRewardSyncGate.Dispose();
         vrChatLocalStateRefreshGate.Dispose();
@@ -5614,6 +5694,138 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             : "Emergency redeem pause is off. Crystal Relay will bring Twitch redeems back when they are allowed again.");
     }
 
+    private void ToggleRedeemGroupByName(string groupName)
+    {
+        var group = Settings.RedeemGroups.FirstOrDefault(g =>
+            string.Equals(g.Name, groupName, StringComparison.OrdinalIgnoreCase));
+
+        if (group is null)
+        {
+            AppendLog($"Redeem group '{groupName}' was not found.");
+            return;
+        }
+
+        var rules = GetAllManagedRules().ToList();
+        var assignedRules = rules.Where(r => group.AssignedRuleIds.Contains(r.Id)).ToList();
+
+        if (assignedRules.Count == 0)
+        {
+            AppendLog($"Redeem group '{groupName}' has no assigned rules.");
+            return;
+        }
+
+        var anyEnabled = assignedRules.Any(r => r.IsEnabled);
+        foreach (var rule in assignedRules)
+        {
+            rule.IsEnabled = !anyEnabled;
+        }
+
+        QueueSave(0);
+        QueueManagedRewardSync(0, ManagedRewardSyncReason.SettingsEdit);
+        QueueBridgeRefresh();
+        AppendLog(anyEnabled
+            ? $"Disabled redeem group '{groupName}' ({assignedRules.Count} rule{(assignedRules.Count == 1 ? string.Empty : "s")})."
+            : $"Enabled redeem group '{groupName}' ({assignedRules.Count} rule{(assignedRules.Count == 1 ? string.Empty : "s")}).");
+    }
+
+    private void ToggleRedeemByName(string redeemName, bool enable)
+    {
+        var rules = GetAllManagedRules().ToList();
+        var matchedRules = rules.Where(r =>
+            string.Equals(r.DisplayTitle, redeemName, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(r.Name, redeemName, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(r.ChannelPointRewardTitle, redeemName, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(r.RewardDisplayTitle, redeemName, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        if (matchedRules.Count == 0)
+        {
+            AppendLog($"No redeem matching '{redeemName}' was found.");
+            return;
+        }
+
+        foreach (var rule in matchedRules)
+        {
+            rule.IsEnabled = enable;
+        }
+
+        QueueSave(0);
+        QueueManagedRewardSync(0, ManagedRewardSyncReason.SettingsEdit);
+        QueueBridgeRefresh();
+        AppendLog(enable
+            ? $"Enabled redeem '{redeemName}' ({matchedRules.Count} match{(matchedRules.Count == 1 ? string.Empty : "es")})."
+            : $"Disabled redeem '{redeemName}' ({matchedRules.Count} match{(matchedRules.Count == 1 ? string.Empty : "es")}).");
+    }
+
+    private IEnumerable<TriggerRule> GetAllManagedRules()
+    {
+        foreach (var profile in Settings.AvatarProfiles)
+        {
+            foreach (var rule in profile.ChannelPointRules)
+            {
+                yield return rule;
+            }
+        }
+
+        foreach (var rule in Settings.GlobalOverrideRules)
+        {
+            yield return rule;
+        }
+
+        foreach (var set in Settings.MovementRedeemSets)
+        {
+            foreach (var rule in set.MovementRules)
+            {
+                yield return rule;
+            }
+        }
+    }
+
+    public void AddRedeemGroup(RedeemGroup group)
+    {
+        if (string.IsNullOrWhiteSpace(group.Name) || string.IsNullOrWhiteSpace(group.CommandText))
+        {
+            return;
+        }
+
+        Settings.RedeemGroups.Add(group);
+        QueueSave(0);
+        RaisePropertyChanged(nameof(BuiltInCommandsSummaryText));
+        AppendLog($"Added redeem group '{group.Name}' with command {group.CommandText}.");
+    }
+
+    public void UpdateRedeemGroup(RedeemGroup original, RedeemGroup updated)
+    {
+        if (original is null || updated is null)
+        {
+            return;
+        }
+
+        original.Name = updated.Name;
+        original.CommandText = updated.CommandText;
+        original.AssignedRuleIds = new ObservableCollection<Guid>(updated.AssignedRuleIds);
+        QueueSave(0);
+        RaisePropertyChanged(nameof(BuiltInCommandsSummaryText));
+        AppendLog($"Updated redeem group '{updated.Name}'.");
+    }
+
+    public void RemoveRedeemGroup(RedeemGroup group)
+    {
+        if (group is null)
+        {
+            return;
+        }
+
+        var removed = Settings.RedeemGroups.Remove(group);
+        if (removed)
+        {
+            QueueSave(0);
+            RaisePropertyChanged(nameof(BuiltInCommandsSummaryText));
+            AppendLog($"Removed redeem group '{group.Name}'.");
+        }
+    }
+
+    public IReadOnlyList<TriggerRule> GetAllManagedRulesList() => GetAllManagedRules().ToList();
+
     private void ToggleDesktopModeInputLock()
     {
         Settings.DesktopModeInputLockEnabled = !Settings.DesktopModeInputLockEnabled;
@@ -5827,6 +6039,64 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 : IsViewingMasterAvatar
                     ? $"Added master trigger '{rule.DisplayTitle}'."
             : $"Added trigger '{rule.DisplayTitle}' to '{SelectedAvatarProfile?.DisplayTitle}'.");
+    }
+
+    private void AddOutfitChoice()
+    {
+        if (!IsViewingAvatarTriggers)
+        {
+            return;
+        }
+
+        if (SelectedAvatarProfile is null)
+        {
+            AddAvatarProfile();
+        }
+
+        if (SelectedAvatarProfile is null)
+        {
+            return;
+        }
+
+        var choiceNumber = GetNextAvailableOutfitChoiceNumber(SelectedAvatarProfile);
+        var rule = CreateDefaultOutfitChoiceRule(
+            choiceNumber,
+            SelectedAvatarProfile.UseSharedNumberedOutfitReward);
+        SelectedAvatarProfile.ChannelPointRules.Add(rule);
+        SelectedRule = rule;
+        SelectedSetTriggerAction = rule.SetTriggerActions.FirstOrDefault();
+        IsAvatarMixRedeemsExpanded = true;
+        QueueSave();
+        QueueBridgeRefresh();
+        QueueManagedRewardSync(0);
+        AppendLog($"Added outfit choice '{rule.DisplayTitle}' to '{SelectedAvatarProfile.DisplayTitle}'.");
+    }
+
+    private void RemoveSelectedOutfitChoice()
+    {
+        if (!IsViewingAvatarTriggers || SelectedRule?.ActionType != OscActionType.SetTrigger)
+        {
+            return;
+        }
+
+        RemoveSelectedRule();
+    }
+
+    private static int GetNextAvailableOutfitChoiceNumber(AvatarTriggerProfile profile)
+    {
+        var usedNumbers = profile.ChannelPointRules
+            .Where(rule => rule.ActionType == OscActionType.SetTrigger)
+            .Select(rule => Math.Max(0, rule.SharedRewardChoiceNumber))
+            .Where(number => number > 0)
+            .ToHashSet();
+
+        var nextNumber = 1;
+        while (usedNumbers.Contains(nextNumber))
+        {
+            nextNumber++;
+        }
+
+        return nextNumber;
     }
 
     private void SelectRule(object? target)
@@ -7088,6 +7358,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         appSettings.Broadcaster.PropertyChanged += SettingsChanged;
         appSettings.Bot.PropertyChanged += SettingsChanged;
         appSettings.VrChat.PropertyChanged += SettingsChanged;
+        appSettings.WorldCommandBlacklist.PropertyChanged += SettingsChanged;
         appSettings.AvatarProfiles.CollectionChanged += AvatarProfilesCollectionChanged;
         appSettings.MovementRedeemSets.CollectionChanged += MovementRedeemSetsCollectionChanged;
         appSettings.GlobalOverrideRules.CollectionChanged += GlobalOverrideRulesCollectionChanged;
@@ -7141,6 +7412,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         appSettings.Broadcaster.PropertyChanged -= SettingsChanged;
         appSettings.Bot.PropertyChanged -= SettingsChanged;
         appSettings.VrChat.PropertyChanged -= SettingsChanged;
+        appSettings.WorldCommandBlacklist.PropertyChanged -= SettingsChanged;
         appSettings.AvatarProfiles.CollectionChanged -= AvatarProfilesCollectionChanged;
         appSettings.MovementRedeemSets.CollectionChanged -= MovementRedeemSetsCollectionChanged;
         appSettings.GlobalOverrideRules.CollectionChanged -= GlobalOverrideRulesCollectionChanged;
@@ -8377,6 +8649,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         {
             RefreshAvatarRuleProfilesList();
         }
+        else if (e.PropertyName == nameof(AvatarTriggerProfile.UseSharedNumberedOutfitReward))
+        {
+            if (!profile.UseSharedNumberedOutfitReward)
+            {
+                EnsureSeparateOutfitRewardTitles(profile);
+            }
+
+            RaiseAvatarRedeemGroupProperties();
+        }
 
         if (ShouldSaveAvatarProfileChange(e.PropertyName))
         {
@@ -8400,6 +8681,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RaisePropertyChanged(nameof(MasterAvatarReturnText));
         RaisePropertyChanged(nameof(SelectedAvatarProfileStatusText));
         RaisePropertyChanged(nameof(ManagedChannelPointRewardHelpText));
+        RaisePropertyChanged(nameof(IsSetTriggerMasterRewardEditorVisible));
+        RaisePropertyChanged(nameof(SelectedSetTriggerUsesSharedNumberedReward));
         RaisePropertyChanged(nameof(RewardTestOverrideButtonText));
         RaisePropertyChanged(nameof(RewardTestOverrideHelpText));
         RaisePropertyChanged(nameof(IsRewardTestOverrideAvailable));
@@ -8565,6 +8848,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 RefreshVrChatAvatarSelectionOptions();
                 RefreshAvailableActionTypes();
                 RefreshAvatarParameterOptions();
+                RaisePropertyChanged(nameof(SelectedSetTriggerUsesSharedNumberedReward));
                 OpenAvatarRouletPoolPickerCommand.NotifyCanExecuteChanged();
                 OpenActiveFloatBoostRewardCommand.NotifyCanExecuteChanged();
                 OpenSupporterOverrideTimeSettingsCommand.NotifyCanExecuteChanged();
@@ -8585,6 +8869,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             }
 
             if (ReferenceEquals(rule, SelectedRule)
+                || e.PropertyName == nameof(TriggerRule.SpecialRulePairingMode)
                 || e.PropertyName == nameof(TriggerRule.TemporarilyDisabledRuleIds)
                 || RuleBelongsToAvatarProfile(rule))
             {
@@ -8625,6 +8910,13 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         if (sender is AppSettings && IsBuiltInCommandSettingsProperty(e.PropertyName))
         {
             RaiseBuiltInCommandStateProperties();
+        }
+
+        if (sender is WorldCommandBlacklistSettings)
+        {
+            worldCommandBlacklistService.Configure(Settings.WorldCommandBlacklist);
+            WorldCommandBlacklistStatusText = T("Protected world guard settings changed. Checking the guard...");
+            QueueWorldCommandBlacklistRefresh(force: true);
         }
 
         var saveDelayMilliseconds = 500;
@@ -8805,6 +9097,92 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 RunOnUi(() => AppendLog($"Could not save settings: {ex.Message}"));
             }
         }, CancellationToken.None);
+    }
+
+    private async Task RefreshWorldCommandBlacklistOnStartupAsync()
+    {
+        worldCommandBlacklistService.Configure(Settings.WorldCommandBlacklist);
+
+        WorldCommandBlacklistStatusText = T("Checking protected world guard...");
+        await RefreshWorldCommandBlacklistAsync(force: false, logResult: true, CancellationToken.None);
+    }
+
+    private async Task RefreshWorldCommandBlacklistManuallyAsync()
+    {
+        WorldCommandBlacklistStatusText = T("Checking protected world guard...");
+        await RefreshWorldCommandBlacklistAsync(force: true, logResult: true, CancellationToken.None);
+    }
+
+    private void QueueWorldCommandBlacklistRefresh(int delayMilliseconds = 900, bool force = false)
+    {
+        if (!isInitialized || isShuttingDown)
+        {
+            return;
+        }
+
+        worldCommandBlacklistRefreshCancellation?.Cancel();
+        worldCommandBlacklistRefreshCancellation?.Dispose();
+        worldCommandBlacklistRefreshCancellation = new CancellationTokenSource();
+        var cancellationToken = worldCommandBlacklistRefreshCancellation.Token;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                if (delayMilliseconds > 0)
+                {
+                    await Task.Delay(delayMilliseconds, cancellationToken);
+                }
+
+                await RefreshWorldCommandBlacklistAsync(force, logResult: false, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }, CancellationToken.None);
+    }
+
+    private async Task RefreshWorldCommandBlacklistAsync(
+        bool force,
+        bool logResult,
+        CancellationToken cancellationToken)
+    {
+        WorldCommandBlacklistRefreshResult result;
+        try
+        {
+            result = await worldCommandBlacklistService.RefreshAsync(
+                Settings.WorldCommandBlacklist,
+                force,
+                cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+
+        RunOnUi(() => ApplyWorldCommandBlacklistRefreshResult(result, logResult));
+    }
+
+    private void ApplyWorldCommandBlacklistRefreshResult(
+        WorldCommandBlacklistRefreshResult result,
+        bool logResult)
+    {
+        WorldCommandBlacklistStatusText = BuildWorldCommandBlacklistStatusText(result);
+        if (logResult)
+        {
+            AppendLog(WorldCommandBlacklistStatusText);
+        }
+    }
+
+    private static string BuildWorldCommandBlacklistStatusText(WorldCommandBlacklistRefreshResult result)
+    {
+        return result.Status switch
+        {
+            WorldCommandBlacklistRefreshStatus.Ready => TF("Protected world guard is ready: {0} world ID(s), {1} creator ID rule(s).", result.WorldEntryCount, result.CreatorEntryCount),
+            WorldCommandBlacklistRefreshStatus.InvalidResponse => T("Protected world guard returned an invalid status. World sharing will stay protected."),
+            WorldCommandBlacklistRefreshStatus.RequestFailed => T("Protected world guard could not be reached. World sharing will stay protected."),
+            _ => T("Checking protected world guard...")
+        };
     }
 
     internal async Task<ApplicationUpdateInfo?> GetPendingApplicationUpdateAsync(CancellationToken cancellationToken = default)
@@ -11216,7 +11594,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private static IEnumerable<SharedAvatarSetRewardGroup> EnumerateSharedAvatarSetRewardGroups(AvatarTriggerProfile profile)
     {
         return profile.ChannelPointRules
-            .Where(IsSharedAvatarSetRewardChoiceRule)
+            .Where(rule => IsSharedAvatarSetRewardChoiceRule(profile, rule))
             .Select(rule => new
             {
                 Rule = rule,
@@ -11236,7 +11614,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                         && !string.IsNullOrWhiteSpace(rule.ChannelPointRewardId))
                     ?? rules.FirstOrDefault(rule => rule.RewardSyncMode == TwitchRewardSyncMode.LinkExisting)
                     ?? rules[0];
-                var usesSetTriggerMasterReward = rules.Any(rule => rule.ActionType == OscActionType.SetTrigger);
+                var usesSetTriggerMasterReward = profile.UseSharedNumberedOutfitReward
+                    && rules.Any(rule => rule.ActionType == OscActionType.SetTrigger);
                 var rewardTitle = rules
                     .Select(rule => rule.ChannelPointRewardTitle?.Trim() ?? string.Empty)
                     .FirstOrDefault(title => !string.IsNullOrWhiteSpace(title)) ?? string.Empty;
@@ -11255,6 +11634,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         rule.TriggerType == TwitchTriggerType.ChannelPoints
         && rule.SharedRewardChoiceEnabled
         && rule.SharedRewardChoiceNumber > 0;
+
+    private static bool IsSharedAvatarSetRewardChoiceRule(AvatarTriggerProfile profile, TriggerRule rule) =>
+        IsSharedAvatarSetRewardChoiceRule(rule)
+        && (rule.ActionType != OscActionType.SetTrigger || profile.UseSharedNumberedOutfitReward);
 
     private static string GetSharedAvatarSetRewardGroupKey(TriggerRule rule)
     {
@@ -15109,6 +15492,21 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             enabledCount++;
         }
 
+        if (Settings.PauseCommandEnabled && ChatCommandUtility.IsConfigured(Settings.PauseCommandText))
+        {
+            enabledCount++;
+        }
+
+        if (Settings.RedeemGroupCommandEnabled)
+        {
+            enabledCount += Settings.RedeemGroups.Count(g => ChatCommandUtility.IsConfigured(g.CommandText));
+        }
+
+        if (Settings.RedeemControlCommandEnabled)
+        {
+            enabledCount++;
+        }
+
         return enabledCount switch
         {
             0 => T("No built-in bot commands are enabled."),
@@ -16050,6 +16448,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RaiseRuleSelectionStateProperties();
         RefreshAvailableActionTypes();
         AddRuleCommand.NotifyCanExecuteChanged();
+        AddOutfitChoiceCommand.NotifyCanExecuteChanged();
+        RemoveSelectedOutfitChoiceCommand.NotifyCanExecuteChanged();
         AddAvatarSupporterTriggerCommand.NotifyCanExecuteChanged();
         AddAvatarChangeOverrideCommand.NotifyCanExecuteChanged();
         AddForceMovementOverrideCommand.NotifyCanExecuteChanged();
@@ -16836,7 +17236,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             SelectedAvatarProfile.DisplayTitle,
             SelectedRule.RewardDisplayTitle,
             BuildAvailableSpecialRuleLockoutOptions(),
-            BuildConfiguredSpecialRuleLockoutOptions())
+            BuildConfiguredSpecialRuleLockoutOptions(),
+            allowPairingModeSelection: true,
+            selectedPairingMode: SelectedRule.SpecialRulePairingMode)
         {
             Owner = Application.Current?.MainWindow
         };
@@ -16855,11 +17257,16 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             .Distinct()
             .ToArray();
 
-        if (updatedRuleIds.SequenceEqual(currentRuleIds))
+        var updatedPairingMode = dialog.SelectedPairingMode;
+        var currentPairingMode = SelectedRule.SpecialRulePairingMode;
+
+        if (updatedRuleIds.SequenceEqual(currentRuleIds)
+            && updatedPairingMode == currentPairingMode)
         {
             return;
         }
 
+        SelectedRule.SpecialRulePairingMode = updatedPairingMode;
         SelectedRule.TemporarilyDisabledRuleIds = new ObservableCollection<Guid>(updatedRuleIds);
         RefreshSpecialRuleLockoutOptions();
         QueueSave();
@@ -16867,7 +17274,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         QueueManagedRewardSync(0);
         AppendLog(updatedRuleIds.Length == 0
             ? $"Cleared disable pairings for '{SelectedRule.DisplayTitle}'."
-            : $"Updated disable pairings for '{SelectedRule.DisplayTitle}'.");
+            : updatedPairingMode == SpecialRulePairingMode.ShowPairedWhileActive
+                ? $"Updated reveal pairings for '{SelectedRule.DisplayTitle}'."
+                : $"Updated disable pairings for '{SelectedRule.DisplayTitle}'.");
     }
 
     private IReadOnlyList<TriggerRuleReferenceOption> BuildAvailableAvatarScaleRuleLockoutOptions()
@@ -17347,6 +17756,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RaisePropertyChanged(nameof(PowerUpActionEditorHelpText));
         RefreshRewardFireSaleStateProperties();
         RaisePropertyChanged(nameof(IsSetTriggerMasterRewardEditorVisible));
+        RaisePropertyChanged(nameof(SelectedSetTriggerUsesSharedNumberedReward));
         RaisePropertyChanged(nameof(SelectedActionTypeOption));
         RaiseAvatarRedeemGroupProperties();
         RaiseSupporterRuleGroupProperties();
@@ -17554,7 +17964,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RaisePropertyChanged(nameof(SelectedAvatarIntRedeems));
         RaisePropertyChanged(nameof(SelectedAvatarFloatRedeems));
         RaisePropertyChanged(nameof(SelectedAvatarMixRedeems));
+        RaisePropertyChanged(nameof(SelectedAvatarOutfitChoices));
         RaisePropertyChanged(nameof(HasAvatarMixRedeems));
+        RaisePropertyChanged(nameof(HasSelectedAvatarOutfitChoices));
         RaisePropertyChanged(nameof(SelectedAvatarOtherRedeems));
         RaisePropertyChanged(nameof(HasAvatarOtherRedeems));
         RaisePropertyChanged(nameof(IsSetTriggerMasterRewardEditorVisible));
@@ -17647,6 +18059,23 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private static TriggerRule CreateDefaultAvatarProfileRule()
     {
         return CreateBaseRule("New Channel Point Trigger", TwitchTriggerType.ChannelPoints);
+    }
+
+    private static TriggerRule CreateDefaultOutfitChoiceRule(int choiceNumber, bool useSharedNumberedReward)
+    {
+        var normalizedChoiceNumber = Math.Max(1, choiceNumber);
+        var label = $"Outfit {normalizedChoiceNumber}";
+        var rule = CreateBaseRule(label, TwitchTriggerType.ChannelPoints);
+        rule.ActionType = OscActionType.SetTrigger;
+        rule.SharedRewardChoiceEnabled = true;
+        rule.SharedRewardChoiceNumber = normalizedChoiceNumber;
+        rule.SharedRewardHelpText = label;
+        rule.ChannelPointRewardTitle = useSharedNumberedReward ? string.Empty : label;
+        rule.ChannelPointRewardDescription = string.Empty;
+        rule.DurationSeconds = 70;
+        rule.CooldownSeconds = 30;
+        rule.SetTriggerRestoreMode = SetTriggerRestoreMode.ConfiguredAndRelated;
+        return rule;
     }
 
     private static UniversalTriggerRule CreateDefaultUniversalTrigger()
@@ -18555,6 +18984,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
 
         ApplySetTriggerMasterRewardDefaults(profile);
+        if (!profile.UseSharedNumberedOutfitReward)
+        {
+            EnsureSeparateOutfitRewardTitles(profile);
+        }
     }
 
     private static void ApplyAvatarProfileDefaultsToRule(TriggerRule rule)
@@ -18614,6 +19047,24 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             profile.SetTriggerMasterRewardReadyColor = migratedRule.ManagedRewardReadyColor;
             profile.SetTriggerMasterRewardCooldownColor = migratedRule.ManagedRewardCooldownColor;
             profile.DeleteSetTriggerMasterRewardWhenInactive = migratedRule.DeleteManagedRewardWhenInactive;
+        }
+    }
+
+    private static void EnsureSeparateOutfitRewardTitles(AvatarTriggerProfile profile)
+    {
+        foreach (var rule in profile.ChannelPointRules.Where(rule => rule.ActionType == OscActionType.SetTrigger))
+        {
+            if (!string.IsNullOrWhiteSpace(rule.ChannelPointRewardTitle))
+            {
+                continue;
+            }
+
+            var label = !string.IsNullOrWhiteSpace(rule.SharedRewardHelpText)
+                ? rule.SharedRewardHelpText.Trim()
+                : !string.IsNullOrWhiteSpace(rule.Name)
+                    ? rule.Name.Trim()
+                    : $"Outfit {Math.Max(1, rule.SharedRewardChoiceNumber)}";
+            rule.ChannelPointRewardTitle = label;
         }
     }
 

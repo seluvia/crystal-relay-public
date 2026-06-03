@@ -1187,13 +1187,13 @@
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <EventSetter Event="PreviewMouseWheel" Handler="OnRuleTogglePreviewMouseWheel" />
         </Style>
 
         <Style TargetType="ListBoxItem">
             <Setter Property="Padding" Value="0" />
             <Setter Property="Margin" Value="0,0,0,12" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-            <EventSetter Event="PreviewMouseWheel" Handler="OnRuleTogglePreviewMouseWheel" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">
@@ -1281,6 +1281,98 @@
                                 <Setter Property="Opacity" Value="0.55" />
                             </Trigger>
                         </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="Slider">
+            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Height" Value="24" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Slider">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Track x:Name="PART_Track"
+                                   Grid.Row="1">
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Command="Slider.DecreaseLarge">
+                                        <RepeatButton.Template>
+                                            <ControlTemplate TargetType="RepeatButton">
+                                                <Border Height="6"
+                                                        CornerRadius="3"
+                                                        Background="{TemplateBinding Foreground}"
+                                                        VerticalAlignment="Center" />
+                                            </ControlTemplate>
+                                        </RepeatButton.Template>
+                                    </RepeatButton>
+                                </Track.DecreaseRepeatButton>
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Command="Slider.IncreaseLarge">
+                                        <RepeatButton.Template>
+                                            <ControlTemplate TargetType="RepeatButton">
+                                                <Border Height="6"
+                                                        CornerRadius="3"
+                                                        Background="{DynamicResource InputBrush}"
+                                                        VerticalAlignment="Center" />
+                                            </ControlTemplate>
+                                        </RepeatButton.Template>
+                                    </RepeatButton>
+                                </Track.IncreaseRepeatButton>
+                                <Track.Thumb>
+                                    <Thumb x:Name="SliderThumb"
+                                           Width="18"
+                                           Height="18"
+                                           Cursor="Hand">
+                                        <Thumb.Template>
+                                            <ControlTemplate TargetType="Thumb">
+                                                <Ellipse x:Name="ThumbCircle"
+                                                         Fill="{DynamicResource AccentBrush}"
+                                                         Stroke="{DynamicResource AccentBrush}"
+                                                         StrokeThickness="2"
+                                                         Width="18"
+                                                         Height="18" />
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="ThumbCircle" Property="StrokeThickness" Value="3" />
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Thumb.Template>
+                                    </Thumb>
+                                </Track.Thumb>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="ProgressBar">
+            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Height" Value="8" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ProgressBar">
+                        <Grid>
+                            <Border x:Name="PART_Track"
+                                    Background="{TemplateBinding Background}"
+                                    CornerRadius="4" />
+                            <Border x:Name="PART_Indicator"
+                                    Background="{TemplateBinding Foreground}"
+                                    CornerRadius="4"
+                                    HorizontalAlignment="Left" />
+                        </Grid>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
@@ -1569,7 +1661,7 @@
                             </Style.Triggers>
                         </Style>
                     </Border.Style>
-                    <TextBlock Text="{loc:Translate 'Disable pairing set'}"
+                    <TextBlock Text="{Binding SpecialRulePairingBadgeText}"
                                FontSize="12"
                                FontWeight="SemiBold"
                                Foreground="{DynamicResource TextBrush}" />
@@ -5801,28 +5893,6 @@
                                                                            Foreground="{DynamicResource MutedBrush}"
                                                                            TextWrapping="Wrap" />
                                                             </StackPanel>
-                                                            <StackPanel Margin="0,10,0,0">
-                                                                <StackPanel.Style>
-                                                                    <Style TargetType="StackPanel">
-                                                                        <Setter Property="Visibility" Value="Collapsed" />
-                                                                        <Style.Triggers>
-                                                                            <DataTrigger Binding="{Binding UsesCreateOrManageReward}" Value="True">
-                                                                                <Setter Property="Visibility" Value="Visible" />
-                                                                            </DataTrigger>
-                                                                        </Style.Triggers>
-                                                                    </Style>
-                                                                </StackPanel.Style>
-                                                                <TextBlock Text="{loc:Translate 'Reward Cooldown (seconds)'}"
-                                                                           Foreground="{DynamicResource TextBrush}"
-                                                                           FontWeight="SemiBold" />
-                                                                <TextBox Width="180"
-                                                                         HorizontalAlignment="Left"
-                                                                         Text="{Binding CooldownSeconds, UpdateSourceTrigger=PropertyChanged}" />
-                                                                <TextBlock Margin="0,6,0,0"
-                                                                           Text="{loc:Translate 'Only Crystal Relay-created channel-point scale rewards use this cooldown. Linked rewards keep the cooldown set on Twitch.'}"
-                                                                           Foreground="{DynamicResource MutedBrush}"
-                                                                           TextWrapping="Wrap" />
-                                                            </StackPanel>
                                                             <CheckBox Margin="0,10,0,0"
                                                                       Content="{loc:Translate 'Delete Twitch reward when inactive'}"
                                                                       IsChecked="{Binding DeleteManagedRewardWhenInactive, UpdateSourceTrigger=PropertyChanged}">
@@ -6544,9 +6614,31 @@
                                                                  Text="{Binding HeightMultiplier, UpdateSourceTrigger=LostFocus}" />
                                                     </StackPanel>
 
-                                                    <UniformGrid Columns="2"
-                                                                 Margin="0,12,0,0">
+                                                    <UniformGrid Columns="3"
+                                                                  Margin="0,12,0,0">
                                                         <StackPanel Margin="0,0,14,0">
+                                                            <StackPanel.Style>
+                                                                <Style TargetType="StackPanel">
+                                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding UsesCreateOrManageReward}" Value="True">
+                                                                            <Setter Property="Visibility" Value="Visible" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </StackPanel.Style>
+                                                            <TextBlock Text="{loc:Translate 'Reward Cooldown (seconds)'}"
+                                                                       Foreground="{DynamicResource TextBrush}"
+                                                                       FontWeight="SemiBold" />
+                                                            <TextBox Width="180"
+                                                                     HorizontalAlignment="Left"
+                                                                     Text="{Binding CooldownSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                                                            <TextBlock Margin="0,6,0,0"
+                                                                       Text="{loc:Translate 'Only Crystal Relay-created channel-point scale rewards use this cooldown. Linked rewards keep the cooldown set on Twitch.'}"
+                                                                       Foreground="{DynamicResource MutedBrush}"
+                                                                       TextWrapping="Wrap" />
+                                                        </StackPanel>
+                                                        <StackPanel Margin="7,0,7,0">
                                                             <TextBlock Text="{loc:Translate 'Active Time Seconds'}"
                                                                        Foreground="{DynamicResource TextBrush}"
                                                                        FontWeight="SemiBold" />
@@ -6627,10 +6719,10 @@
                                         <Button Style="{StaticResource HelpIconButtonStyle}"
                                                 Click="OnHelpButtonClicked"
                                                 CommandParameter="Redeems In This Avatar Set"
-                                                Tag="This list holds the redeems that belong to the avatar set you selected. These rules turn on when Crystal Relay detects that exact avatar, and they turn off again when you switch away. Add Redeem creates another rule for this avatar, Delete Redeem removes the selected one, Test Redeem lets you try it locally, and Disable Pairing lets you temporarily hide sibling redeems while one is active." />
+                                                Tag="This list holds the redeems that belong to the avatar set you selected. These rules turn on when Crystal Relay detects that exact avatar, and they turn off again when you switch away. Add Redeem creates another rule for this avatar, Delete Redeem removes the selected one, Test Redeem lets you try it locally, and Disable Pairing can hide sibling redeems while one is active or reveal special sibling redeems only after another one triggers." />
                                     </DockPanel>
                                     <TextBlock Margin="0,10,0,0"
-                                               Text="{loc:Translate 'This is the redeem list for this avatar set. Pick a redeem to edit it below, test it, or choose which sibling redeems should stay off while it is active.'}"
+                                               Text="{loc:Translate 'This is the redeem list for this avatar set. Pick a redeem to edit it below, test it, or choose how paired sibling redeems should hide or reveal.'}"
                                                Foreground="{DynamicResource MutedBrush}"
                                                TextWrapping="Wrap" />
                                     <WrapPanel Margin="0,14,0,0">
@@ -6662,6 +6754,91 @@
                                         </Style>
                                     </TextBlock.Style>
                                 </TextBlock>
+                                <Border Margin="0,14,0,0"
+                                        Background="{DynamicResource NestedPanelBrush}"
+                                        BorderBrush="{DynamicResource HighlightBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="16"
+                                        Padding="14">
+                                    <StackPanel>
+                                        <DockPanel LastChildFill="False">
+                                            <TextBlock Text="{loc:Translate 'Outfit Workspace'}"
+                                                       Foreground="{DynamicResource TextBrush}"
+                                                       FontWeight="SemiBold"
+                                                       FontSize="17" />
+                                            <Button Style="{StaticResource HelpIconButtonStyle}"
+                                                    Click="OnHelpButtonClicked"
+                                                    CommandParameter="Outfit Workspace"
+                                                    Tag="Outfits are Set Trigger choices for this Avatar Set. Use one shared numbered reward when viewers should type an outfit number, or turn it off so every outfit choice has its own Twitch reward." />
+                                        </DockPanel>
+                                        <TextBlock Margin="0,6,0,0"
+                                                   Text="{loc:Translate 'Create outfit choices here, then edit the selected outfit number, name, timer, reward settings, and ordered parameter list below.'}"
+                                                   Foreground="{DynamicResource MutedBrush}"
+                                                   TextWrapping="Wrap" />
+                                        <StackPanel Margin="0,12,0,0"
+                                                    DataContext="{Binding SelectedAvatarProfile}">
+                                            <CheckBox IsChecked="{Binding UseSharedNumberedOutfitReward, UpdateSourceTrigger=PropertyChanged}">
+                                                <TextBlock Text="{loc:Translate 'Use one shared numbered outfit reward'}"
+                                                           TextWrapping="Wrap" />
+                                            </CheckBox>
+                                            <TextBlock Margin="26,6,0,0"
+                                                       Foreground="{DynamicResource MutedBrush}"
+                                                       TextWrapping="Wrap"
+                                                       Text="{loc:Translate 'On: viewers type the outfit number in one master reward. Off: each outfit has its own reward and no viewer input is needed.'}" />
+                                            <StackPanel Margin="0,10,0,0">
+                                                <StackPanel.Style>
+                                                    <Style TargetType="StackPanel">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding UseSharedNumberedOutfitReward}" Value="True">
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </StackPanel.Style>
+                                                <CheckBox IsChecked="{Binding PostOutfitChoiceListToTwitchChat, UpdateSourceTrigger=PropertyChanged}">
+                                                    <TextBlock Text="{loc:Translate 'Post outfit choices to Twitch chat'}"
+                                                               TextWrapping="Wrap" />
+                                                </CheckBox>
+                                                <TextBlock Margin="26,6,0,0"
+                                                           Foreground="{DynamicResource MutedBrush}"
+                                                           TextWrapping="Wrap"
+                                                           Text="{loc:Translate 'When trigger info announcements run, Crystal Relay can post the current numbered outfit list through the configured chat sender.'}" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <WrapPanel Margin="0,12,0,0">
+                                            <Button Style="{StaticResource PrimaryButtonStyle}"
+                                                    Content="{loc:Translate 'Add Outfit'}"
+                                                    Command="{Binding AddOutfitChoiceCommand}" />
+                                            <Button Style="{StaticResource SecondaryButtonStyle}"
+                                                    Content="{loc:Translate 'Delete Outfit'}"
+                                                    Command="{Binding RemoveSelectedOutfitChoiceCommand}" />
+                                        </WrapPanel>
+                                        <ListBox Margin="0,12,0,0"
+                                                 MaxHeight="170"
+                                                 ItemsSource="{Binding SelectedAvatarOutfitChoices}"
+                                                 SelectedItem="{Binding SelectedRule, Mode=OneWay}"
+                                                 ScrollViewer.CanContentScroll="True"
+                                                 VirtualizingStackPanel.IsVirtualizing="True"
+                                                 VirtualizingStackPanel.VirtualizationMode="Recycling"
+                                                 ItemTemplate="{StaticResource AvatarRedeemListItemTemplate}" />
+                                        <TextBlock Margin="0,8,0,0"
+                                                   Text="{loc:Translate 'No outfits yet. Add Outfit creates the next available number without renumbering existing choices.'}"
+                                                   Foreground="{DynamicResource MutedBrush}"
+                                                   TextWrapping="Wrap">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding HasSelectedAvatarOutfitChoices}" Value="False">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </StackPanel>
+                                </Border>
                                 <Border Margin="0,14,0,0"
                                         Background="{DynamicResource NestedPanelBrush}"
                                         BorderBrush="{DynamicResource HighlightBorderBrush}"
@@ -8466,7 +8643,7 @@
                                                                     <Style TargetType="StackPanel">
                                                                         <Setter Property="Visibility" Value="Visible" />
                                                                         <Style.Triggers>
-                                                                            <DataTrigger Binding="{Binding UsesSetTrigger}" Value="True">
+                                                                            <DataTrigger Binding="{Binding DataContext.SelectedSetTriggerUsesSharedNumberedReward, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
                                                                                 <Setter Property="Visibility" Value="Collapsed" />
                                                                             </DataTrigger>
                                                                         </Style.Triggers>
@@ -8488,7 +8665,7 @@
                                                                             <DataTrigger Binding="{Binding UsesLinkedExistingReward}" Value="True">
                                                                                 <Setter Property="Visibility" Value="Visible" />
                                                                             </DataTrigger>
-                                                                            <DataTrigger Binding="{Binding UsesSetTrigger}" Value="True">
+                                                                            <DataTrigger Binding="{Binding DataContext.SelectedSetTriggerUsesSharedNumberedReward, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
                                                                                 <Setter Property="Visibility" Value="Collapsed" />
                                                                             </DataTrigger>
                                                                         </Style.Triggers>
@@ -8523,7 +8700,7 @@
                                                                     <Style TargetType="UniformGrid">
                                                                         <Setter Property="Visibility" Value="Visible" />
                                                                         <Style.Triggers>
-                                                                            <DataTrigger Binding="{Binding UsesSetTrigger}" Value="True">
+                                                                            <DataTrigger Binding="{Binding DataContext.SelectedSetTriggerUsesSharedNumberedReward, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
                                                                                 <Setter Property="Visibility" Value="Collapsed" />
                                                                             </DataTrigger>
                                                                             <DataTrigger Binding="{Binding UsesLinkedExistingReward}" Value="True">
@@ -8550,7 +8727,7 @@
                                                                     <Style TargetType="StackPanel">
                                                                         <Setter Property="Visibility" Value="Visible" />
                                                                         <Style.Triggers>
-                                                                            <DataTrigger Binding="{Binding UsesSetTrigger}" Value="True">
+                                                                            <DataTrigger Binding="{Binding DataContext.SelectedSetTriggerUsesSharedNumberedReward, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
                                                                                 <Setter Property="Visibility" Value="Collapsed" />
                                                                             </DataTrigger>
                                                                             <DataTrigger Binding="{Binding UsesLinkedExistingReward}" Value="True">
@@ -8665,7 +8842,7 @@
                                                                         <TextBlock Margin="0,6,0,0"
                                                                                    Foreground="{DynamicResource MutedBrush}"
                                                                                    TextWrapping="Wrap"
-                                                                                   Text="{loc:Translate 'Set Trigger choices share the master reward above. Viewers type this choice number in the redeem input. Crystal Relay snapshots safe outfit values before changing parameters and restores from that copied snapshot after Active Time.'}" />
+                                                                                   Text="{loc:Translate 'Shared mode uses this outfit number in the master reward input. Separate mode keeps the number for organization. Crystal Relay snapshots safe outfit values before changing parameters and restores them after Active Time.'}" />
                                                                         <UniformGrid Columns="2"
                                                                                      Margin="0,12,0,0">
                                                                             <StackPanel Margin="0,0,14,0">
@@ -8694,7 +8871,7 @@
                                                                     <Style TargetType="Border">
                                                                         <Setter Property="Visibility" Value="Visible" />
                                                                         <Style.Triggers>
-                                                                            <DataTrigger Binding="{Binding UsesSetTrigger}" Value="True">
+                                                                            <DataTrigger Binding="{Binding DataContext.SelectedSetTriggerUsesSharedNumberedReward, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
                                                                                 <Setter Property="Visibility" Value="Collapsed" />
                                                                             </DataTrigger>
                                                                             <DataTrigger Binding="{Binding UsesLinkedExistingReward}" Value="True">
@@ -8719,7 +8896,7 @@
                                                                     <Style TargetType="StackPanel">
                                                                         <Setter Property="Visibility" Value="Visible" />
                                                                         <Style.Triggers>
-                                                                            <DataTrigger Binding="{Binding UsesSetTrigger}" Value="True">
+                                                                            <DataTrigger Binding="{Binding DataContext.SelectedSetTriggerUsesSharedNumberedReward, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
                                                                                 <Setter Property="Visibility" Value="Collapsed" />
                                                                             </DataTrigger>
                                                                             <DataTrigger Binding="{Binding UsesLinkedExistingReward}" Value="True">
@@ -9415,6 +9592,31 @@
                                                                                 TextWrapping="Wrap" />
                                                                  </StackPanel>
                                                              </Border>
+                                                             <StackPanel Margin="0,10,0,0">
+                                                                 <CheckBox IsChecked="{Binding SetTriggerAutoRestoreRelatedOutfitParameters, UpdateSourceTrigger=PropertyChanged}">
+                                                                     <TextBlock Text="{loc:Translate 'Also restore related outfit toggles'}"
+                                                                                TextWrapping="Wrap" />
+                                                                 </CheckBox>
+                                                                 <TextBlock Margin="26,6,0,0"
+                                                                            Text="{Binding SetTriggerRestoreModeSummary}"
+                                                                            Foreground="{DynamicResource MutedBrush}"
+                                                                            TextWrapping="Wrap" />
+                                                                 <TextBlock Margin="26,6,0,0"
+                                                                            Text="{loc:Translate 'This outfit is using the legacy full safe diff restore from an older save. Change the checkbox above to move it to the new outfit restore mode.'}"
+                                                                            Foreground="{DynamicResource MutedBrush}"
+                                                                            TextWrapping="Wrap">
+                                                                     <TextBlock.Style>
+                                                                         <Style TargetType="TextBlock">
+                                                                             <Setter Property="Visibility" Value="Collapsed" />
+                                                                             <Style.Triggers>
+                                                                                 <DataTrigger Binding="{Binding UsesLegacySetTriggerFullDiffRestore}" Value="True">
+                                                                                     <Setter Property="Visibility" Value="Visible" />
+                                                                                 </DataTrigger>
+                                                                             </Style.Triggers>
+                                                                         </Style>
+                                                                     </TextBlock.Style>
+                                                                 </TextBlock>
+                                                             </StackPanel>
                                                              <WrapPanel Margin="0,10,0,0">
                                                                  <Button Style="{StaticResource SecondaryButtonStyle}"
                                                                          Content="{loc:Translate 'Add Set Parameter'}"

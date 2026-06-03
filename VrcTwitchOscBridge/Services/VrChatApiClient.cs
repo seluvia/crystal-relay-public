@@ -169,6 +169,7 @@ public sealed class VrChatApiClient : IDisposable
             : world.Name.Trim();
         return VrChatCurrentWorldLookupResult.Available(
             worldId,
+            world.AuthorId?.Trim() ?? string.Empty,
             worldName,
             $"https://vrchat.com/home/world/{worldId}");
     }
@@ -500,6 +501,9 @@ public sealed class VrChatApiClient : IDisposable
         [JsonPropertyName("name")]
         public string Name { get; set; } = string.Empty;
 
+        [JsonPropertyName("authorId")]
+        public string? AuthorId { get; set; }
+
         [JsonPropertyName("releaseStatus")]
         public string ReleaseStatus { get; set; } = string.Empty;
     }
@@ -528,11 +532,12 @@ public sealed class VrChatApiClient : IDisposable
 public sealed record VrChatCurrentWorldLookupResult(
     bool IsAvailable,
     string WorldId,
+    string WorldAuthorId,
     string WorldName,
     string WorldUrl)
 {
-    public static VrChatCurrentWorldLookupResult Unavailable { get; } = new(false, string.Empty, string.Empty, string.Empty);
+    public static VrChatCurrentWorldLookupResult Unavailable { get; } = new(false, string.Empty, string.Empty, string.Empty, string.Empty);
 
-    public static VrChatCurrentWorldLookupResult Available(string worldId, string worldName, string worldUrl) =>
-        new(true, worldId, worldName, worldUrl);
+    public static VrChatCurrentWorldLookupResult Available(string worldId, string worldAuthorId, string worldName, string worldUrl) =>
+        new(true, worldId, worldAuthorId, worldName, worldUrl);
 }

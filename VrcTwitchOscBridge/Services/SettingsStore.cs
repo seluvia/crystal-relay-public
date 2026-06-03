@@ -26,6 +26,7 @@ public sealed class SettingsStore
     private const string BotAccessTokenCredential = "CrystalRelay:Twitch:Bot:AccessToken";
     private const string BotRefreshTokenCredential = "CrystalRelay:Twitch:Bot:RefreshToken";
     private const string VrChatAuthCookieCredential = "CrystalRelay:VRChat:AuthCookie";
+    private const string WorldCommandBlacklistGitHubTokenCredential = "CrystalRelay:WorldCommandBlacklist:GitHubToken";
     private const string StreamElementsJwtCredential = "CrystalRelay:CashPayments:StreamElements:JwtToken";
     private const string StreamlabsAccessTokenCredential = "CrystalRelay:CashPayments:Streamlabs:AccessToken";
     private const string KoFiVerificationTokenCredential = "CrystalRelay:CashPayments:KoFi:VerificationToken";
@@ -410,6 +411,13 @@ public sealed class SettingsStore
             settings.MainWindowTrayTipShown = profile.MainWindowTrayTipShown ?? settings.MainWindowTrayTipShown;
             settings.IgnoredUpdateVersion = profile.IgnoredUpdateVersion ?? settings.IgnoredUpdateVersion;
             settings.IgnoredBetaUpdateBaseVersion = profile.IgnoredBetaUpdateBaseVersion ?? settings.IgnoredBetaUpdateBaseVersion;
+            settings.PauseCommandEnabled = profile.PauseCommandEnabled ?? settings.PauseCommandEnabled;
+            settings.PauseCommandText = string.IsNullOrWhiteSpace(profile.PauseCommandText)
+                ? settings.PauseCommandText
+                : profile.PauseCommandText;
+            settings.RedeemGroupCommandEnabled = profile.RedeemGroupCommandEnabled ?? settings.RedeemGroupCommandEnabled;
+            settings.RedeemControlCommandEnabled = profile.RedeemControlCommandEnabled ?? settings.RedeemControlCommandEnabled;
+            settings.RedeemGroups = new ObservableCollection<RedeemGroup>((profile.RedeemGroups ?? []).Select(ToRedeemGroup));
             settings.CustomTheme = profile.CustomTheme is null
                 ? settings.CustomTheme
                 : ToCustomThemeSettings(profile.CustomTheme);
@@ -476,6 +484,7 @@ public sealed class SettingsStore
             settings.Broadcaster = ToAccountSettings(secureMetadata.Broadcaster, BridgeAccountRole.Broadcaster);
             settings.Bot = ToAccountSettings(secureMetadata.Bot, BridgeAccountRole.Bot);
             settings.VrChat = ToVrChatAccountSettings(secureMetadata.VrChat);
+            settings.WorldCommandBlacklist = ToWorldCommandBlacklistSettings(secureMetadata.WorldCommandBlacklist);
         }
 
         LoadCashPaymentSecrets(settings.CashPayments);
@@ -559,6 +568,11 @@ public sealed class SettingsStore
             MainWindowTrayTipShown = settings.MainWindowTrayTipShown,
             IgnoredUpdateVersion = settings.IgnoredUpdateVersion,
             IgnoredBetaUpdateBaseVersion = settings.IgnoredBetaUpdateBaseVersion,
+            PauseCommandEnabled = settings.PauseCommandEnabled,
+            PauseCommandText = settings.PauseCommandText,
+            RedeemGroupCommandEnabled = settings.RedeemGroupCommandEnabled,
+            RedeemControlCommandEnabled = settings.RedeemControlCommandEnabled,
+            RedeemGroups = [.. settings.RedeemGroups.Select(ToPersistedRedeemGroup)],
             CustomTheme = ToPersistedCustomThemeSettings(settings.CustomTheme),
             AvatarProfiles = [.. settings.AvatarProfiles.Select(ToPersistedAvatarProfile)],
             MovementRedeemSets = [.. settings.MovementRedeemSets.Select(ToPersistedMovementRedeemSet)],
@@ -596,6 +610,7 @@ public sealed class SettingsStore
         SaveTwitchSecrets(settings.Broadcaster, BridgeAccountRole.Broadcaster);
         SaveTwitchSecrets(settings.Bot, BridgeAccountRole.Bot);
         SaveSecretIfChanged(VrChatAuthCookieCredential, settings.VrChat.AuthCookie);
+        DeleteLegacyWorldCommandBlacklistSecret();
         SaveCashPaymentSecrets(settings.CashPayments);
     }
 
@@ -646,6 +661,19 @@ public sealed class SettingsStore
         lastSavedSecretsByTarget[targetName] = normalizedValue;
     }
 
+    private void DeleteLegacyWorldCommandBlacklistSecret()
+    {
+        try
+        {
+            credentialStore.DeleteSecret(WorldCommandBlacklistGitHubTokenCredential);
+            lastSavedSecretsByTarget.Remove(WorldCommandBlacklistGitHubTokenCredential);
+        }
+        catch
+        {
+            // Cleanup should not block saving unrelated app settings.
+        }
+    }
+
     private bool MigrateSecretsFromLegacyPayload(PersistedSecureSettings secure)
     {
         var migrated = false;
@@ -690,7 +718,8 @@ public sealed class SettingsStore
         {
             Broadcaster = ToPersistedAccountMetadata(settings.Broadcaster),
             Bot = ToPersistedAccountMetadata(settings.Bot),
-            VrChat = ToPersistedVrChatMetadata(settings.VrChat)
+            VrChat = ToPersistedVrChatMetadata(settings.VrChat),
+            WorldCommandBlacklist = ToPersistedWorldCommandBlacklist(settings.WorldCommandBlacklist)
         };
 
         await SaveProtectedJsonAsync(secureSessionPath, secureSessionBackupPath, secureMetadata, cancellationToken);
@@ -873,6 +902,8 @@ public sealed class SettingsStore
             SetTriggerMasterRewardReadyColor = profile.SetTriggerMasterRewardReadyColor,
             SetTriggerMasterRewardCooldownColor = profile.SetTriggerMasterRewardCooldownColor,
             DeleteSetTriggerMasterRewardWhenInactive = profile.DeleteSetTriggerMasterRewardWhenInactive,
+            UseSharedNumberedOutfitReward = profile.UseSharedNumberedOutfitReward,
+            PostOutfitChoiceListToTwitchChat = profile.PostOutfitChoiceListToTwitchChat,
             ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)]
         };
     }
@@ -899,6 +930,8 @@ public sealed class SettingsStore
             SetTriggerMasterRewardReadyColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(profile.SetTriggerMasterRewardReadyColor),
             SetTriggerMasterRewardCooldownColor = ManagedRewardPresentation.NormalizeCooldownBackgroundColor(profile.SetTriggerMasterRewardCooldownColor),
             DeleteSetTriggerMasterRewardWhenInactive = profile.DeleteSetTriggerMasterRewardWhenInactive,
+            UseSharedNumberedOutfitReward = profile.UseSharedNumberedOutfitReward ?? true,
+            PostOutfitChoiceListToTwitchChat = profile.PostOutfitChoiceListToTwitchChat,
             ChannelPointRules = new ObservableCollection<TriggerRule>((profile.ChannelPointRules ?? [])
                 .Select(ToRule)
                 .Select(rule =>
@@ -981,6 +1014,8 @@ public sealed class SettingsStore
             SupporterFloatAddMaximumValue = rule.SupporterFloatAddMaximumValue,
             SupporterFloatAddRanges = [.. rule.SupporterFloatAddRanges.Select(ToPersistedSupporterFloatAddRange)],
             SetTriggerActions = [.. rule.SetTriggerActions.Select(ToPersistedSetTriggerAction)],
+            SetTriggerRestoreMode = rule.SetTriggerRestoreMode,
+            SpecialRulePairingMode = rule.SpecialRulePairingMode,
             BotMessageTemplate = rule.BotMessageTemplate,
             TemporarilyDisabledRuleIds = [.. rule.TemporarilyDisabledRuleIds]
         };
@@ -1127,6 +1162,12 @@ public sealed class SettingsStore
             SetTriggerActions = new ObservableCollection<SetTriggerAction>((rule.SetTriggerActions ?? [])
                 .Select(ToSetTriggerAction)
                 .Where(action => !string.IsNullOrWhiteSpace(action.ParameterName))),
+            SetTriggerRestoreMode = Enum.IsDefined(rule.SetTriggerRestoreMode)
+                ? rule.SetTriggerRestoreMode
+                : SetTriggerRestoreMode.FullSafeDiff,
+            SpecialRulePairingMode = Enum.IsDefined(rule.SpecialRulePairingMode)
+                ? rule.SpecialRulePairingMode
+                : SpecialRulePairingMode.HidePairedWhileActive,
             TemporarilyDisabledRuleIds = new ObservableCollection<Guid>((rule.TemporarilyDisabledRuleIds ?? [])
                 .Where(ruleId => ruleId != Guid.Empty)
                 .Distinct()),
@@ -1995,6 +2036,27 @@ public sealed class SettingsStore
         };
     }
 
+    private static PersistedWorldCommandBlacklistSettings ToPersistedWorldCommandBlacklist(WorldCommandBlacklistSettings settings)
+    {
+        return new PersistedWorldCommandBlacklistSettings
+        {
+            IsEnabled = settings.IsEnabled
+        };
+    }
+
+    private static WorldCommandBlacklistSettings ToWorldCommandBlacklistSettings(PersistedWorldCommandBlacklistSettings? settings)
+    {
+        if (settings is null)
+        {
+            return new WorldCommandBlacklistSettings();
+        }
+
+        return new WorldCommandBlacklistSettings
+        {
+            IsEnabled = settings.IsEnabled ?? false
+        };
+    }
+
     private static string Protect(string value)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -2163,6 +2225,22 @@ public sealed class SettingsStore
             BodyFontFamily = persisted.BodyFontFamily ?? "Verdana",
             HeadingFontFamily = persisted.HeadingFontFamily ?? "Constantia",
             BackgroundImageRelativePath = persisted.BackgroundImageRelativePath ?? string.Empty
+        };
+
+    private static PersistedRedeemGroup ToPersistedRedeemGroup(RedeemGroup group) =>
+        new()
+        {
+            Name = group.Name,
+            CommandText = group.CommandText,
+            AssignedRuleIds = [.. group.AssignedRuleIds]
+        };
+
+    private static RedeemGroup ToRedeemGroup(PersistedRedeemGroup group) =>
+        new()
+        {
+            Name = group.Name ?? string.Empty,
+            CommandText = group.CommandText ?? string.Empty,
+            AssignedRuleIds = new ObservableCollection<Guid>(group.AssignedRuleIds ?? [])
         };
 
     private static PersistedCustomThemeSettings ToPersistedCustomThemeSettings(CustomThemeSettings settings) =>
@@ -2341,6 +2419,16 @@ public sealed class SettingsStore
 
         public string? IgnoredBetaUpdateBaseVersion { get; set; }
 
+        public bool? PauseCommandEnabled { get; set; }
+
+        public string? PauseCommandText { get; set; }
+
+        public bool? RedeemGroupCommandEnabled { get; set; }
+
+        public bool? RedeemControlCommandEnabled { get; set; }
+
+        public List<PersistedRedeemGroup>? RedeemGroups { get; set; }
+
         public PersistedCustomThemeSettings? CustomTheme { get; set; }
 
         public List<PersistedAvatarTriggerProfile>? AvatarProfiles { get; set; }
@@ -2368,6 +2456,15 @@ public sealed class SettingsStore
         public List<PersistedAvatarScaleRule>? AvatarScaleRules { get; set; }
 
         public List<PersistedTriggerRule>? Rules { get; set; }
+    }
+
+    private sealed class PersistedRedeemGroup
+    {
+        public string? Name { get; set; }
+
+        public string? CommandText { get; set; }
+
+        public List<Guid>? AssignedRuleIds { get; set; }
     }
 
     private sealed class PersistedCustomThemeSettings
@@ -2514,6 +2611,13 @@ public sealed class SettingsStore
         public PersistedTwitchAccountMetadata? Bot { get; set; }
 
         public PersistedVrChatAccountMetadata? VrChat { get; set; }
+
+        public PersistedWorldCommandBlacklistSettings? WorldCommandBlacklist { get; set; }
+    }
+
+    private sealed class PersistedWorldCommandBlacklistSettings
+    {
+        public bool? IsEnabled { get; set; }
     }
 
     private sealed class PersistedLegacySettings
@@ -2664,6 +2768,10 @@ public sealed class SettingsStore
 
         public bool DeleteSetTriggerMasterRewardWhenInactive { get; set; }
 
+        public bool? UseSharedNumberedOutfitReward { get; set; }
+
+        public bool PostOutfitChoiceListToTwitchChat { get; set; }
+
         public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
     }
 
@@ -2806,6 +2914,10 @@ public sealed class SettingsStore
         public List<PersistedSupporterFloatAddRange>? SupporterFloatAddRanges { get; set; }
 
         public List<PersistedSetTriggerAction>? SetTriggerActions { get; set; }
+
+        public SetTriggerRestoreMode SetTriggerRestoreMode { get; set; }
+
+        public SpecialRulePairingMode SpecialRulePairingMode { get; set; }
 
         public List<Guid>? TemporarilyDisabledRuleIds { get; set; }
 

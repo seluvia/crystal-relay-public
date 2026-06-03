@@ -1778,12 +1778,13 @@ public partial class MainWindow : Window
 
     private void OnRuleTogglePreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
-        var scrollViewer = RuleWorkspaceScrollViewer is { ScrollableHeight: > 0 }
-            ? RuleWorkspaceScrollViewer
-            : FindScrollableScrollViewer(sender as DependencyObject)
-            ?? FindScrollableScrollViewer(e.OriginalSource as DependencyObject)
-            ?? FindAncestor<ScrollViewer>(sender as DependencyObject)
-            ?? FindAncestor<ScrollViewer>(e.OriginalSource as DependencyObject);
+        var senderDo = sender as DependencyObject;
+        var originalDo = e.OriginalSource as DependencyObject;
+
+        var scrollViewer = FindScrollableScrollViewer(senderDo)
+                           ?? FindScrollableScrollViewer(originalDo)
+                           ?? FindAncestor<ScrollViewer>(senderDo)
+                           ?? FindAncestor<ScrollViewer>(originalDo);
 
         if (scrollViewer is null)
         {

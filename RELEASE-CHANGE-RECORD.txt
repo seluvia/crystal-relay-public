@@ -7,41 +7,34 @@ Purpose:
 - This file is for internal release prep and record-keeping. It should stay out of the public repo unless you explicitly choose otherwise.
 
 Current Baseline:
-- Last published version: v3.0.0
-- Current working source version: v3.0.0
+- Last published version: v3.1.8
+- Current working source version: v3.1.8
 
 How To Use:
 1. Add new lines under Added, Changed, or Removed while work is happening.
 2. Before a release build, review this file and trim duplicates or dev-only wording.
 3. Move the final public-facing summary into CHANGELOG.txt and the GitHub release notes.
 4. After the release is published, update the baseline version and clear the pending draft section for the next release.
+5. Retired release drafts (versions that already shipped) are removed from the working area once their content is captured in CHANGELOG.txt. The release checklist is always kept.
 
 Pending Release Draft
-- Target version: v3.0.0
-- Release date: 2026-05-01
-- Build status: Published to GitHub
+- Target version: v3.1.9
+- Release lane: none
+- Source files reflect v3.1.9; csproj and updater project will be updated when new work begins.
 
 Added:
-- Added shared numbered Avatar Set rewards and Set Trigger outfit actions for multi-parameter outfit changes.
-- Added Master Outfit Set Rewards, Bits outfit triggers, fuzzy outfit-name matching, and queued paid outfit restore behavior.
-- Added broadcaster-as-bot chat sending, live-only outfit trigger announcements, the Stinky Online theme, and parameter path copy/paste.
 
 Changed:
-- Avatar Scaling now uses cooldown-free tests, transition-gated queues, explicit Return Height restores, per-rule VRChat min/max bypass, stronger master reward behavior, and better avatar-swap carryover.
-- Avatar Scaling relative shrink/grow rewards can hide Crystal Relay-managed Twitch rewards at effective min/max height and show them again when scaling can continue.
-- Bits + Subs now uses direct VRChat-avatar scoped supporter triggers with separate global avatar-change overrides.
-- Linked existing Twitch rewards are listen-only, while managed rewards use reduced API calls, rate-limit backoff, and cap-safe app-owned `VRC:` reward recycling.
-- Set Trigger restore now uses safe LocalAvatarData snapshots with a 70-second diff window.
-- Reward dropdowns, Test Mode reward population, broadcaster scope recovery, streaming status, Avatar Set bool restores, Int row selection, and Set Trigger dropdowns were stabilized.
 
 Removed:
-- Removed linked reward editing/cooldown control from Crystal Relay; linked Twitch rewards now keep their website-side setup.
+- (none)
 
 Release Checklist:
-- Update the app version in VrcTwitchOscBridge.csproj.
-- Update CHANGELOG.txt with the final user-facing notes.
+- Update the app version in VrcTwitchOscBridge.csproj (and CrystalRelayUpdater.csproj).
+- Update CHANGELOG.txt with the final user-facing notes; append a `v<version> beta <N>` section for each beta, and add a fresh `v<version>` rollup entry above the betas when the stable ships.
 - Run a test build first if the change is visual, risky, or user-requested.
 - Run the release build and verify the package output.
 - Sync and verify the private repo first if the release is meant to go to GitHub.
 - Sync and verify the public repo only after the private repo is confirmed good.
 - Publish or update the matching GitHub release asset with the public release package/file.
+- Update AGENTS.md "Project Identity" (Last stable release, Current source version, Next post-release development version, Active build lane, Active development build) at the same time as the release is published.

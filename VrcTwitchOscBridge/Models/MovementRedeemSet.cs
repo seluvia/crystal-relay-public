@@ -26,7 +26,7 @@ public sealed class MovementRedeemSet : ObservableObject
         get => name;
         set
         {
-            if (SetProperty(ref name, string.IsNullOrWhiteSpace(value) ? "Default Movement Set" : value.Trim()))
+            if (SetProperty(ref name, value ?? string.Empty))
             {
                 RaisePropertyChanged(nameof(DisplayTitle));
             }

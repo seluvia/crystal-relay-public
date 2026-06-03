@@ -126,6 +126,33 @@ public partial class AvatarRouletPickerWindow : Window
         ConfiguredEmptyTextBlock.Visibility = configuredOptions.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
+    private void OnListBoxItemPreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        var scrollViewer = FindAncestor<ScrollViewer>(sender as DependencyObject)
+                           ?? FindAncestor<ScrollViewer>(e.OriginalSource as DependencyObject);
+
+        if (scrollViewer is null)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        var notchCount = Math.Max(1, Math.Abs(e.Delta) / Mouse.MouseWheelDeltaForOneLine);
+        var wheelScrollLines = SystemParameters.WheelScrollLines;
+        var lineCount = Math.Max(1, wheelScrollLines) * notchCount;
+        for (var i = 0; i < lineCount; i++)
+        {
+            if (e.Delta < 0)
+            {
+                scrollViewer.LineDown();
+            }
+            else
+            {
+                scrollViewer.LineUp();
+            }
+        }
+    }
+
     private static void SortCollection(ObservableCollection<VrChatAvatarOption> collection)
     {
         var sortedItems = collection.OrderBy(option => option.DisplayLabel, StringComparer.OrdinalIgnoreCase).ToArray();

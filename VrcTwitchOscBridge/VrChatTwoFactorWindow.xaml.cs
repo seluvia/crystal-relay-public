@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using VrcTwitchOscBridge.Models;
 using VrcTwitchOscBridge.Services;
@@ -80,6 +81,10 @@ public partial class VrChatTwoFactorWindow : Window
     }
 
     private void OnCancelClicked(object sender, RoutedEventArgs e) => DialogResult = false;
+
+    private void OnTitleBarMouseLeftButtonDown(object sender, MouseButtonEventArgs e) => DragMove();
+
+    private void OnCloseClicked(object sender, RoutedEventArgs e) => DialogResult = false;
 
     private void OnMethodSelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateHint();
 

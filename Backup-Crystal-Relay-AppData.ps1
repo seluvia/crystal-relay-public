@@ -61,7 +61,10 @@ if (Test-Path $stagingPath) {
 }
 
 New-Item -ItemType Directory -Path $stagedLocalAppDataPath -Force | Out-Null
-Copy-Item -LiteralPath $appDataSource -Destination $stagedLocalAppDataPath -Recurse -Force
+# Exclude the Secure\ subtree: it contains secure metadata, avatar cache, and OSC parameter cache.
+# Per AGENTS.md, secure metadata must never leave the local machine, and avatar/OSC caches can be rebuilt
+# from VRChat. App-data backups must stay safe to share and must not be synced to the public repo.
+Copy-Item -LiteralPath $appDataSource -Destination $stagedLocalAppDataPath -Recurse -Force -Exclude 'Secure'
 
 $notes = @"
 Crystal Relay local app-data backup
@@ -77,11 +80,11 @@ Source folder:
 
 Included:
 - local settings and runtime config
-- avatar cache and OSC parameter cache
 - save-transfer files
 - crash logs and recovery files
 
 Not included:
+- Secure\ (avatar cache, OSC parameter cache, secure metadata)
 - Windows Credential Manager secrets
 - Twitch OAuth tokens stored outside the app-data folder
 - VRChat auth cookie stored outside the app-data folder

@@ -21,6 +21,7 @@ function Write-SharedGitIgnore {
 .vs/
 .vscode/
 .idea/
+.opencode/
 
 .appdata/
 .dotnet/
@@ -62,6 +63,7 @@ function Assert-PublicExportClean {
         '.dotnet',
         '.dotnet-home',
         '.nuget',
+        '.opencode',
         '.vs',
         '.wrangler',
         'Backups',
@@ -180,6 +182,7 @@ $excludedDirs = @(
     '.dotnet',
     '.dotnet-home',
     '.nuget',
+    '.opencode',
     '.vs',
     'Backups',
     'Releases',

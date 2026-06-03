@@ -13,19 +13,23 @@ public partial class RuleLockoutPickerWindow : Window
 {
     private readonly ObservableCollection<TriggerRuleReferenceOption> availableOptions;
     private readonly ObservableCollection<TriggerRuleReferenceOption> configuredOptions;
+    private readonly bool allowPairingModeSelection;
 
     public RuleLockoutPickerWindow(
         AppTheme theme,
         string avatarRuleName,
         string currentRedeemName,
         IReadOnlyList<TriggerRuleReferenceOption> availableOptions,
-        IReadOnlyList<TriggerRuleReferenceOption> configuredOptions)
+        IReadOnlyList<TriggerRuleReferenceOption> configuredOptions,
+        bool allowPairingModeSelection = false,
+        SpecialRulePairingMode selectedPairingMode = SpecialRulePairingMode.HidePairedWhileActive)
     {
         InitializeComponent();
         ThemeManager.ApplyToResources(Resources, theme);
         ThemeManager.ThemeChanged += OnThemeManagerThemeChanged;
         Closed += OnWindowClosed;
 
+        this.allowPairingModeSelection = allowPairingModeSelection;
         this.availableOptions = new ObservableCollection<TriggerRuleReferenceOption>(
             availableOptions.OrderBy(option => option.Label, StringComparer.OrdinalIgnoreCase));
         this.configuredOptions = new ObservableCollection<TriggerRuleReferenceOption>(
@@ -38,10 +42,18 @@ public partial class RuleLockoutPickerWindow : Window
             Environment.NewLine);
         AvailableListBox.ItemsSource = this.availableOptions;
         ConfiguredListBox.ItemsSource = this.configuredOptions;
+        ModeSelectorPanel.Visibility = allowPairingModeSelection ? Visibility.Visible : Visibility.Collapsed;
+        HidePairedRadioButton.IsChecked = selectedPairingMode != SpecialRulePairingMode.ShowPairedWhileActive;
+        ShowPairedRadioButton.IsChecked = selectedPairingMode == SpecialRulePairingMode.ShowPairedWhileActive;
+        UpdatePairingModeText();
         UpdateUiState();
     }
 
     public IReadOnlyList<Guid> SelectedRuleIds => configuredOptions.Select(option => option.RuleId).ToArray();
+
+    public SpecialRulePairingMode SelectedPairingMode => ShowPairedRadioButton.IsChecked == true
+        ? SpecialRulePairingMode.ShowPairedWhileActive
+        : SpecialRulePairingMode.HidePairedWhileActive;
 
     private void OnAddClicked(object sender, RoutedEventArgs e)
     {
@@ -74,6 +86,11 @@ public partial class RuleLockoutPickerWindow : Window
     private void OnSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         UpdateUiState();
+    }
+
+    private void OnPairingModeChanged(object sender, RoutedEventArgs e)
+    {
+        UpdatePairingModeText();
     }
 
     private void OnPrimaryClicked(object sender, RoutedEventArgs e)
@@ -124,6 +141,22 @@ public partial class RuleLockoutPickerWindow : Window
         RemoveButton.IsEnabled = ConfiguredListBox.SelectedItem is TriggerRuleReferenceOption;
         AvailableEmptyTextBlock.Visibility = availableOptions.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         ConfiguredEmptyTextBlock.Visibility = configuredOptions.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void UpdatePairingModeText()
+    {
+        if (!allowPairingModeSelection
+            || SelectedPairingMode == SpecialRulePairingMode.HidePairedWhileActive)
+        {
+            GuidanceTextBlock.Text = LocalizationService.Translate("Choose sibling redeems from this avatar set. While the current redeem is active, Crystal Relay will disable the paired redeems on Twitch and block them in the app until the timer ends.");
+            ConfiguredHeadingTextBlock.Text = LocalizationService.Translate("Currently Turned Off While Active");
+            ConfiguredEmptyTextBlock.Text = LocalizationService.Translate("No disable pairings set yet.");
+            return;
+        }
+
+        GuidanceTextBlock.Text = LocalizationService.Translate("Choose sibling redeems from this avatar set. Crystal Relay will keep the paired redeems hidden by default, then show and allow them after the current redeem triggers.");
+        ConfiguredHeadingTextBlock.Text = LocalizationService.Translate("Shown Only After This Redeem Triggers");
+        ConfiguredEmptyTextBlock.Text = LocalizationService.Translate("No reveal pairings set yet.");
     }
 
     private static void SortCollection(ObservableCollection<TriggerRuleReferenceOption> collection)
