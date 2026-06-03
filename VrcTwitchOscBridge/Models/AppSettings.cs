@@ -113,6 +113,14 @@ public sealed class AppSettings : ObservableObject
         }
     }
 
+    private AvatarLibrary avatarLibrary = new();
+
+    public AvatarLibrary AvatarLibrary
+    {
+        get => avatarLibrary;
+        set => SetProperty(ref avatarLibrary, value ?? new AvatarLibrary());
+    }
+
     public ObservableCollection<AvatarTriggerProfile> AvatarProfiles
     {
         get => avatarProfiles;
