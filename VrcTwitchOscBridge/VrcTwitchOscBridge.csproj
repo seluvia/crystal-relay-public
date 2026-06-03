@@ -119,6 +119,7 @@
     <Compile Include="Models\VrChatTwoFactorMethod.cs" />
     <Compile Include="Models\WorldCommandBlacklistSettings.cs" />
     <Compile Include="Services\AppDataPaths.cs" />
+    <Compile Include="Services\AvatarImageService.cs" />
     <Compile Include="Services\ApplicationSelfUpdateService.cs" />
     <Compile Include="Services\ApplicationUpdateService.cs" />
     <Compile Include="Services\BridgeAccountRole.cs" />
