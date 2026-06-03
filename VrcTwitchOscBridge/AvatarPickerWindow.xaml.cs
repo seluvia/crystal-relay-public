@@ -12,6 +12,7 @@ public partial class AvatarPickerWindow : Window
     private readonly AvatarPickerViewModel viewModel;
 
     public AvatarPickerWindow(
+        AppTheme theme,
         IReadOnlyList<VrChatAvatarSummary> avatars,
         AvatarImageService imageService,
         AvatarLibrary? avatarLibrary = null,
@@ -28,34 +29,30 @@ public partial class AvatarPickerWindow : Window
         DataContext = viewModel;
 
         InitializeComponent();
+        ThemeManager.ApplyToResources(Resources, theme);
+        ThemeManager.ThemeChanged += OnThemeManagerThemeChanged;
+        Closed += OnWindowClosed;
 
         UpdateSelectionDisplay();
         UpdateFilteredCountText();
-
-        viewModel.PropertyChanged += (sender, e) =>
-        {
-            if (e.PropertyName == nameof(AvatarPickerViewModel.SelectedAvatarDisplayName) ||
-                e.PropertyName == nameof(AvatarPickerViewModel.MultiSelectCountText) ||
-                e.PropertyName == nameof(AvatarPickerViewModel.IsMultiSelectMode) ||
-                e.PropertyName == nameof(AvatarPickerViewModel.FilteredCountText))
-            {
-                Dispatcher.BeginInvoke(() =>
-                {
-                    UpdateSelectionDisplay();
-                    UpdateFilteredCountText();
-                });
-            }
-        };
 
         Loaded += OnLoaded;
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
-        if (FindName("SearchTextBox") is System.Windows.Controls.TextBox searchBox)
-        {
-            searchBox.Focus();
-        }
+        SearchTextBox.Focus();
+    }
+
+    private void OnThemeManagerThemeChanged(object? sender, EventArgs e)
+    {
+        Dispatcher.BeginInvoke(() => ThemeManager.ApplyToResources(Resources));
+    }
+
+    private void OnWindowClosed(object? sender, EventArgs e)
+    {
+        ThemeManager.ThemeChanged -= OnThemeManagerThemeChanged;
+        Closed -= OnWindowClosed;
     }
 
     private void OnCloseButtonClicked(object sender, RoutedEventArgs e)
@@ -90,25 +87,17 @@ public partial class AvatarPickerWindow : Window
         }
     }
 
-    private void OnGridViewClicked(object sender, RoutedEventArgs e)
+    private void OnGridViewToggled(object sender, RoutedEventArgs e)
     {
         viewModel.ViewMode = AvatarPickerViewMode.Grid;
     }
 
-    private void OnListViewClicked(object sender, RoutedEventArgs e)
+    private void OnListViewToggled(object sender, RoutedEventArgs e)
     {
         viewModel.ViewMode = AvatarPickerViewMode.List;
     }
 
-    private void OnAvatarCardSelectClicked(object sender, RoutedEventArgs e)
-    {
-        if (sender is Button button && button.Tag is AvatarPickerItem item)
-        {
-            SelectAvatarItem(item);
-        }
-    }
-
-    private void OnAvatarListSelectClicked(object sender, RoutedEventArgs e)
+    private void OnAvatarSelectClicked(object sender, RoutedEventArgs e)
     {
         if (sender is Button button && button.Tag is AvatarPickerItem item)
         {
