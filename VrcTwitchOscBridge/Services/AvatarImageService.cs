@@ -1,9 +1,9 @@
+using System.Collections.Concurrent;
 using System.IO;
 using System.Net.Http;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using VrcTwitchOscBridge.Models;
 
 namespace VrcTwitchOscBridge.Services;
 
@@ -20,7 +20,7 @@ public sealed class AvatarImageService
 
     private readonly string iconFolder;
     private readonly string cacheFolder;
-    private readonly Dictionary<string, ImageSource> imageCache = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, ImageSource> imageCache = new(StringComparer.Ordinal);
 
     public AvatarImageService()
     {
