@@ -89,7 +89,7 @@ public sealed class AvatarPickerViewModel : ObservableObject
         {
             if (SetProperty(ref viewMode, value))
             {
-                avatarLibrary!.LastViewMode = value;
+                avatarLibrary?.LastViewMode = value;
             }
         }
     }
