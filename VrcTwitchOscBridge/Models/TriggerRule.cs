@@ -705,6 +705,11 @@ public sealed class TriggerRule : ObservableObject
         }
     }
 
+    [JsonIgnore]
+    public string AvatarChangeDisplayName => !string.IsNullOrWhiteSpace(AvatarTargetName)
+        ? AvatarTargetName
+        : !string.IsNullOrWhiteSpace(AvatarChangeTargetId) ? AvatarChangeTargetId : "(Not set)";
+
     public string AvatarChangeTargetId
     {
         get => avatarChangeTargetId;
@@ -1275,6 +1280,11 @@ public sealed class TriggerRule : ObservableObject
 
     [JsonIgnore]
     public bool HasSupporterAvatarScopeLabel => !string.IsNullOrWhiteSpace(SupporterAvatarScopeLabel);
+
+    [JsonIgnore]
+    public string SupporterAvatarDisplayName => !string.IsNullOrWhiteSpace(SupporterAvatarName)
+        ? SupporterAvatarName
+        : !string.IsNullOrWhiteSpace(SupporterAvatarId) ? SupporterAvatarId : "(Not set)";
 
     public bool UsesAvatarParameter => ActionType == OscActionType.AvatarParameter;
 
