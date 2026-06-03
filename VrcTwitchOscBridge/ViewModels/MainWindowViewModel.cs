@@ -663,7 +663,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             new CashPaymentProviderOption(CashPaymentProvider.Streamlabs, "Streamlabs"),
             new CashPaymentProviderOption(CashPaymentProvider.KoFi, "Ko-fi")
         ];
-        CashPaymentCurrencyCodeOptions = BuildCashPaymentCurrencyCodeOptions();
+        CashPaymentCurrencyCodeOptions = []; // Deferred to InitializeAsync for faster startup.
         CashPaymentActionKindOptions =
         [
             new CashPaymentActionKindOption(CashPaymentActionKind.TriggerAction, T("OSC / Avatar Action")),
@@ -727,10 +727,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             "Lucida Sans Unicode",
             "Arial"
         ];
-        CustomThemeFontOptions = [.. Fonts.SystemFontFamilies
-            .Select(fontFamily => fontFamily.Source)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)];
+        CustomThemeFontOptions = []; // Deferred to InitializeAsync for faster startup.
         ChatTimestampFormatOptions =
         [
             new ChatTimestampFormatOption(ChatTimestampFormat.TwelveHour, T("12-hour")),
@@ -894,6 +891,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         UseCurrentAvatarForAvatarChangeRuleCommand = new RelayCommand(
             UseCurrentAvatarForAvatarChangeRule,
             () => CanUseCurrentAvatarForAvatarChangeRule());
+        OpenAvatarPickerCommand = new RelayCommand(OpenAvatarPicker);
         RefreshVrChatOscParametersCommand = new AsyncRelayCommand(RefreshVrChatOscParametersAsync);
 
         AddRuleCommand = new RelayCommand(AddRule);
@@ -1192,7 +1190,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public IReadOnlyList<CashPaymentProviderOption> CashPaymentProviderOptions { get; }
 
-    public IReadOnlyList<string> CashPaymentCurrencyCodeOptions { get; }
+    public IReadOnlyList<string> CashPaymentCurrencyCodeOptions { get; private set; } = [];
 
     public IReadOnlyList<CashPaymentActionKindOption> CashPaymentActionKindOptions { get; }
 
@@ -1266,7 +1264,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public IReadOnlyList<string> ChatFontOptions { get; }
 
-    public IReadOnlyList<string> CustomThemeFontOptions { get; }
+    public IReadOnlyList<string> CustomThemeFontOptions { get; private set; } = [];
 
     public IReadOnlyList<ChatTimestampFormatOption> ChatTimestampFormatOptions { get; }
 
@@ -3175,6 +3173,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public RelayCommand UseCurrentAvatarForAvatarChangeRuleCommand { get; }
 
+    public RelayCommand OpenAvatarPickerCommand { get; }
+
     public AsyncRelayCommand RefreshVrChatOscParametersCommand { get; }
 
     public RelayCommand AddRuleCommand { get; }
@@ -3312,6 +3312,16 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         await ReloadRuntimeConfigAsync();
         UpgradeLegacyRewardTestOverrides();
         RaiseThemeStateChanged();
+
+        // Deferred heavy initialization: these were moved out of the constructor
+        // to reduce the time before the window first appears.
+        CashPaymentCurrencyCodeOptions = BuildCashPaymentCurrencyCodeOptions();
+        RaisePropertyChanged(nameof(CashPaymentCurrencyCodeOptions));
+        CustomThemeFontOptions = [.. Fonts.SystemFontFamilies
+            .Select(fontFamily => fontFamily.Source)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)];
+        RaisePropertyChanged(nameof(CustomThemeFontOptions));
 
         EnsureRuleCollectionsHaveStarterContent();
         NormalizeMasterAvatarProfiles();
@@ -5873,6 +5883,27 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         _ = EnsureSelectedAvatarParameterCacheLoadedAsync();
         QueueSave();
         AppendLog($"Assigned '{CurrentVrChatAvatarDisplayName}' to avatar set '{SelectedAvatarProfile.DisplayTitle}'.");
+    }
+
+    private void OpenAvatarPicker(object? parameter)
+    {
+        var avatars = availableVrChatAvatars
+            .Select(a => new VrChatAvatarSummary(a.Id, a.Name, a.SourceLabel, a.IsCurrentAvatar))
+            .ToList();
+
+        var result = AvatarPickerService.OpenSingle(
+            ThemeManager.CurrentTheme,
+            avatars,
+            Settings.AvatarLibrary,
+            SelectedAvatarProfile?.AvatarId,
+            Application.Current.MainWindow);
+
+        if (result is not null && SelectedAvatarProfile is not null)
+        {
+            SelectedAvatarProfile.AvatarId = result.AvatarId;
+            SelectedAvatarProfile.AvatarName = result.AvatarName;
+            RefreshVrChatAvatarSelectionOptions();
+        }
     }
 
     private bool CanUseCurrentAvatarForSupporterRule()
