@@ -45,6 +45,164 @@
         <SolidColorBrush x:Key="TitleBarButtonPressedBrush" Color="#543183" />
         <SolidColorBrush x:Key="TitleBarCloseHoverBrush" Color="#B43D62" />
         <SolidColorBrush x:Key="TitleBarClosePressedBrush" Color="#8C2648" />
+        <SolidColorBrush x:Key="ScrollTrackBrush" Color="#25183D" />
+        <SolidColorBrush x:Key="ScrollThumbBrush" Color="#7B57D0" />
+        <SolidColorBrush x:Key="RuleCardHoverBrush" Color="#8D56E8" />
+
+        <Style x:Key="ScrollBarThumbStyle" TargetType="Thumb">
+            <Setter Property="MinHeight" Value="32" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Border x:Name="ThumbChrome"
+                                Margin="2"
+                                Background="{DynamicResource ScrollThumbBrush}"
+                                CornerRadius="8" />
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ThumbChrome" Property="Background" Value="{DynamicResource RuleCardHoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsDragging" Value="True">
+                                <Setter TargetName="ThumbChrome" Property="Background" Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ScrollBarTrackButtonStyle" TargetType="RepeatButton">
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="IsTabStop" Value="False" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RepeatButton">
+                        <Border Background="Transparent" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <ControlTemplate x:Key="VerticalScrollBarTemplate" TargetType="ScrollBar">
+            <Grid Width="{TemplateBinding Width}"
+                  MinWidth="18"
+                  Background="Transparent">
+                <Border Background="{DynamicResource ScrollTrackBrush}"
+                        BorderBrush="{DynamicResource InputBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8" />
+                <Track x:Name="PART_Track"
+                       Margin="2"
+                       IsDirectionReversed="True">
+                    <Track.DecreaseRepeatButton>
+                        <RepeatButton Style="{StaticResource ScrollBarTrackButtonStyle}"
+                                      Command="{x:Static ScrollBar.PageUpCommand}" />
+                    </Track.DecreaseRepeatButton>
+                    <Track.Thumb>
+                        <Thumb Style="{StaticResource ScrollBarThumbStyle}" />
+                    </Track.Thumb>
+                    <Track.IncreaseRepeatButton>
+                        <RepeatButton Style="{StaticResource ScrollBarTrackButtonStyle}"
+                                      Command="{x:Static ScrollBar.PageDownCommand}" />
+                    </Track.IncreaseRepeatButton>
+                </Track>
+            </Grid>
+        </ControlTemplate>
+
+        <ControlTemplate x:Key="HorizontalScrollBarTemplate" TargetType="ScrollBar">
+            <Grid Height="{TemplateBinding Height}"
+                  MinHeight="18"
+                  Background="Transparent">
+                <Border Background="{DynamicResource ScrollTrackBrush}"
+                        BorderBrush="{DynamicResource InputBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8" />
+                <Track x:Name="PART_Track"
+                       Margin="2"
+                       IsDirectionReversed="True">
+                    <Track.DecreaseRepeatButton>
+                        <RepeatButton Style="{StaticResource ScrollBarTrackButtonStyle}"
+                                      Command="{x:Static ScrollBar.PageLeftCommand}" />
+                    </Track.DecreaseRepeatButton>
+                    <Track.Thumb>
+                        <Thumb Style="{StaticResource ScrollBarThumbStyle}"
+                               MinWidth="32" />
+                    </Track.Thumb>
+                    <Track.IncreaseRepeatButton>
+                        <RepeatButton Style="{StaticResource ScrollBarTrackButtonStyle}"
+                                      Command="{x:Static ScrollBar.PageRightCommand}" />
+                    </Track.IncreaseRepeatButton>
+                </Track>
+            </Grid>
+        </ControlTemplate>
+
+        <Style TargetType="ScrollBar">
+            <Setter Property="Background" Value="{DynamicResource ScrollTrackBrush}" />
+            <Setter Property="Width" Value="18" />
+            <Setter Property="Height" Value="Auto" />
+            <Setter Property="Template" Value="{StaticResource VerticalScrollBarTemplate}" />
+            <Style.Triggers>
+                <Trigger Property="Orientation" Value="Horizontal">
+                    <Setter Property="Width" Value="Auto" />
+                    <Setter Property="Height" Value="18" />
+                    <Setter Property="Template" Value="{StaticResource HorizontalScrollBarTemplate}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style TargetType="ScrollViewer">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollViewer">
+                        <Grid Background="{TemplateBinding Background}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <ScrollContentPresenter x:Name="PART_ScrollContentPresenter"
+                                                    Grid.Row="0"
+                                                    Grid.Column="0"
+                                                    Margin="{TemplateBinding Padding}"
+                                                    CanContentScroll="{TemplateBinding CanContentScroll}"
+                                                    Content="{TemplateBinding Content}" />
+
+                            <ScrollBar x:Name="PART_VerticalScrollBar"
+                                       Grid.Row="0"
+                                       Grid.Column="1"
+                                       Margin="10,0,0,0"
+                                       VerticalAlignment="Stretch"
+                                       Orientation="Vertical"
+                                       Minimum="0"
+                                       Maximum="{TemplateBinding ScrollableHeight}"
+                                       ViewportSize="{TemplateBinding ViewportHeight}"
+                                       Value="{Binding VerticalOffset, RelativeSource={RelativeSource TemplatedParent}, Mode=OneWay}"
+                                       Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}" />
+
+                            <ScrollBar x:Name="PART_HorizontalScrollBar"
+                                       Grid.Row="1"
+                                       Grid.Column="0"
+                                       Margin="0,10,0,0"
+                                       HorizontalAlignment="Stretch"
+                                       Orientation="Horizontal"
+                                       Minimum="0"
+                                       Maximum="{TemplateBinding ScrollableWidth}"
+                                       ViewportSize="{TemplateBinding ViewportWidth}"
+                                       Value="{Binding HorizontalOffset, RelativeSource={RelativeSource TemplatedParent}, Mode=OneWay}"
+                                       Visibility="{TemplateBinding ComputedHorizontalScrollBarVisibility}" />
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
 
         <Style TargetType="TextBlock">
             <Setter Property="FontFamily" Value="{DynamicResource BodyFontFamily}" />
@@ -120,6 +278,10 @@
             <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Padding" Value="8" />
+        </Style>
+
+        <Style TargetType="ListBoxItem">
+            <EventSetter Event="PreviewMouseWheel" Handler="OnListBoxItemPreviewMouseWheel" />
         </Style>
 
         <DataTemplate x:Key="AvatarOptionTemplate">
@@ -239,58 +401,62 @@
                                        TextWrapping="Wrap" />
                         </Border>
 
-                        <Grid Grid.Row="2"
-                              Margin="0,20,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="16" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
+                        <ScrollViewer Grid.Row="2"
+                                      Margin="0,20,0,0"
+                                      VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
 
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Text="{loc:Translate 'Available Avatars'}"
-                                           Foreground="{DynamicResource TextBrush}"
-                                           FontWeight="SemiBold" />
-                                <ListBox x:Name="AvailableListBox"
-                                         Margin="0,10,0,0"
-                                         Height="280"
-                                         ItemTemplate="{StaticResource AvatarOptionTemplate}"
-                                         SelectionChanged="OnSelectionChanged" />
-                                <TextBlock x:Name="AvailableEmptyTextBlock"
-                                           Margin="0,10,0,0"
-                                           Text="{loc:Translate 'No more avatars are available to add right now.'}"
-                                           Foreground="{DynamicResource MutedBrush}"
-                                           TextWrapping="Wrap"
-                                           Visibility="Collapsed" />
-                                <Button x:Name="AddButton"
-                                        Margin="0,12,0,0"
-                                        Content="{loc:Translate 'Add Selected Avatar'}"
-                                        Style="{StaticResource PrimaryButtonStyle}"
-                                        Click="OnAddClicked" />
-                            </StackPanel>
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="{loc:Translate 'Available Avatars'}"
+                                               Foreground="{DynamicResource TextBrush}"
+                                               FontWeight="SemiBold" />
+                                    <ListBox x:Name="AvailableListBox"
+                                             Margin="0,10,0,0"
+                                             Height="240"
+                                             ItemTemplate="{StaticResource AvatarOptionTemplate}"
+                                             SelectionChanged="OnSelectionChanged" />
+                                    <TextBlock x:Name="AvailableEmptyTextBlock"
+                                               Margin="0,10,0,0"
+                                               Text="{loc:Translate 'No more avatars are available to add right now.'}"
+                                               Foreground="{DynamicResource MutedBrush}"
+                                               TextWrapping="Wrap"
+                                               Visibility="Collapsed" />
+                                    <Button x:Name="AddButton"
+                                            Margin="0,12,0,0"
+                                            Content="{loc:Translate 'Add Selected Avatar'}"
+                                            Style="{StaticResource PrimaryButtonStyle}"
+                                            Click="OnAddClicked" />
+                                </StackPanel>
 
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="{loc:Translate 'Current Avatar Roulette Pool'}"
-                                           Foreground="{DynamicResource TextBrush}"
-                                           FontWeight="SemiBold" />
-                                <ListBox x:Name="ConfiguredListBox"
-                                         Margin="0,10,0,0"
-                                         Height="280"
-                                         ItemTemplate="{StaticResource AvatarOptionTemplate}"
-                                         SelectionChanged="OnSelectionChanged" />
-                                <TextBlock x:Name="ConfiguredEmptyTextBlock"
-                                           Margin="0,10,0,0"
-                                           Text="{loc:Translate 'No avatars in this pool yet.'}"
-                                           Foreground="{DynamicResource MutedBrush}"
-                                           TextWrapping="Wrap"
-                                           Visibility="Collapsed" />
-                                <Button x:Name="RemoveButton"
-                                        Margin="0,12,0,0"
-                                        Content="{loc:Translate 'Remove Selected Avatar'}"
-                                        Style="{StaticResource SecondaryButtonStyle}"
-                                        Click="OnRemoveClicked" />
-                            </StackPanel>
-                        </Grid>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="{loc:Translate 'Current Avatar Roulette Pool'}"
+                                               Foreground="{DynamicResource TextBrush}"
+                                               FontWeight="SemiBold" />
+                                    <ListBox x:Name="ConfiguredListBox"
+                                             Margin="0,10,0,0"
+                                             Height="240"
+                                             ItemTemplate="{StaticResource AvatarOptionTemplate}"
+                                             SelectionChanged="OnSelectionChanged" />
+                                    <TextBlock x:Name="ConfiguredEmptyTextBlock"
+                                               Margin="0,10,0,0"
+                                               Text="{loc:Translate 'No avatars in this pool yet.'}"
+                                               Foreground="{DynamicResource MutedBrush}"
+                                               TextWrapping="Wrap"
+                                               Visibility="Collapsed" />
+                                    <Button x:Name="RemoveButton"
+                                            Margin="0,12,0,0"
+                                            Content="{loc:Translate 'Remove Selected Avatar'}"
+                                            Style="{StaticResource SecondaryButtonStyle}"
+                                            Click="OnRemoveClicked" />
+                                </StackPanel>
+                            </Grid>
+                        </ScrollViewer>
 
                         <StackPanel Grid.Row="3"
                                     Margin="0,22,0,0"

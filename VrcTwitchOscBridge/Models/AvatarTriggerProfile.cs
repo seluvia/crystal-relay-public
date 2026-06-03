@@ -27,6 +27,8 @@ public sealed class AvatarTriggerProfile : ObservableObject
     private string setTriggerMasterRewardReadyColor = ManagedRewardPresentation.ReadyBackgroundColor;
     private string setTriggerMasterRewardCooldownColor = ManagedRewardPresentation.InUseBackgroundColor;
     private bool deleteSetTriggerMasterRewardWhenInactive;
+    private bool useSharedNumberedOutfitReward = true;
+    private bool postOutfitChoiceListToTwitchChat;
     private ObservableCollection<TriggerRule> channelPointRules = [];
 
     public AvatarTriggerProfile()
@@ -213,6 +215,24 @@ public sealed class AvatarTriggerProfile : ObservableObject
         set => SetProperty(ref deleteSetTriggerMasterRewardWhenInactive, value);
     }
 
+    public bool UseSharedNumberedOutfitReward
+    {
+        get => useSharedNumberedOutfitReward;
+        set
+        {
+            if (SetProperty(ref useSharedNumberedOutfitReward, value))
+            {
+                RaisePropertyChanged(nameof(OutfitRewardModeSummary));
+            }
+        }
+    }
+
+    public bool PostOutfitChoiceListToTwitchChat
+    {
+        get => postOutfitChoiceListToTwitchChat;
+        set => SetProperty(ref postOutfitChoiceListToTwitchChat, value);
+    }
+
     public ObservableCollection<TriggerRule> ChannelPointRules
     {
         get => channelPointRules;
@@ -275,6 +295,10 @@ public sealed class AvatarTriggerProfile : ObservableObject
     public Brush SetTriggerMasterRewardReadyColorBrush => CreateColorBrush(SetTriggerMasterRewardReadyColor);
 
     public Brush SetTriggerMasterRewardCooldownColorBrush => CreateColorBrush(SetTriggerMasterRewardCooldownColor);
+
+    public string OutfitRewardModeSummary => UseSharedNumberedOutfitReward
+        ? "One Twitch reward asks viewers to type an outfit number."
+        : "Each outfit gets its own Twitch reward and does not need viewer input.";
 
     private static Brush CreateColorBrush(string colorText)
     {

@@ -69,6 +69,70 @@ function Normalize-VersionText {
     return "{0}.{1}.{2}" -f $major, $minor, $patch
 }
 
+function Assert-SafeBuildPath {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path,
+
+        [Parameter(Mandatory = $true)]
+        [string]$RequiredParent,
+
+        [string]$Pattern
+    )
+
+    $full = [System.IO.Path]::GetFullPath($Path).TrimEnd('\', '/')
+    $fullParent = [System.IO.Path]::GetFullPath($RequiredParent).TrimEnd('\', '/')
+
+    if (-not $full.StartsWith($fullParent, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Refusing to remove '$Path': not under '$RequiredParent'."
+    }
+
+    if ($Pattern) {
+        $leaf = Split-Path -Leaf $full
+        if ($leaf -notlike $Pattern) {
+            throw "Refusing to remove '$Path': name '$leaf' does not match pattern '$Pattern'."
+        }
+    }
+
+    $localAppData = [Environment]::GetFolderPath('LocalApplicationData')
+    if ($full.StartsWith($localAppData, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Refusing to remove '$Path': under LocalAppData."
+    }
+}
+
+function Test-ChangelogHasSection {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Header
+    )
+
+    if (-not (Test-Path -LiteralPath $changelogPath)) { return $false }
+    $text = Get-Content -LiteralPath $changelogPath -Raw
+    $pattern = '^' + [regex]::Escape($Header) + '\s*$'
+    return [bool]([regex]::IsMatch($text, $pattern, [System.Text.RegularExpressions.RegexOptions]::Multiline))
+}
+
+function Test-RecordBaselineMatches {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$VersionText
+    )
+
+    $recordPath = Join-Path $root 'RELEASE-CHANGE-RECORD.txt'
+    if (-not (Test-Path -LiteralPath $recordPath)) { return $true }
+    $text = Get-Content -LiteralPath $recordPath -Raw
+    $pattern = 'Current working source version:\s*v?' + [regex]::Escape($VersionText) + '(?:\b|$)'
+    return [bool]([regex]::IsMatch($text, $pattern))
+}
+
+function Test-WorkingTreeClean {
+    $gitDir = Join-Path $root '.git'
+    if (-not (Test-Path -LiteralPath $gitDir)) { return $true }
+    $status = git -C $root status --porcelain 2>$null
+    if ($null -eq $status) { return $true }
+    return [string]::IsNullOrWhiteSpace(($status | Out-String))
+}
+
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectPath = Join-Path $root 'VrcTwitchOscBridge\VrcTwitchOscBridge.csproj'
 $updaterProjectPath = Join-Path $root 'CrystalRelayUpdater\CrystalRelayUpdater.csproj'
@@ -102,6 +166,23 @@ if ($targetVersion -ne $updaterCurrentVersion) {
     $updaterProjectXml.Save($updaterProjectPath)
 }
 
+# Pre-flight: catch repeated mistakes before publishing.
+# CHANGELOG gate: a beta build needs an exact 'v<version> beta <N>' section.
+$betaHeader = "v$targetVersion beta $Beta"
+if (-not (Test-ChangelogHasSection -Header $betaHeader)) {
+    throw "CHANGELOG.txt is missing section '$betaHeader'. Add it before packaging."
+}
+
+# RELEASE-CHANGE-RECORD baseline drift: warn so the next release pass catches it.
+if (-not (Test-RecordBaselineMatches -VersionText $targetVersion)) {
+    Write-Warning "RELEASE-CHANGE-RECORD.txt 'Current working source version' does not match $targetVersion. Update it before the next release build."
+}
+
+# Working tree cleanliness (opt-out with $env:CR_SKIP_GIT_CHECK = '1').
+if ($env:CR_SKIP_GIT_CHECK -ne '1' -and -not (Test-WorkingTreeClean)) {
+    throw "Refusing to build with a dirty working tree. Commit, stash, or set CR_SKIP_GIT_CHECK=1."
+}
+
 $betaName = "beta$Beta"
 $betaLabel = "Beta $Beta"
 $versionFolderName = "v$targetVersion"
@@ -114,6 +195,7 @@ $betaMarkerPath = Join-Path $publishDir 'beta-build.flag'
 New-Item -ItemType Directory -Path $releaseRoot -Force | Out-Null
 New-Item -ItemType Directory -Path $versionRoot -Force | Out-Null
 if (Test-Path $publishDir) {
+    Assert-SafeBuildPath -Path $publishDir -RequiredParent $versionRoot -Pattern "CrystalRelayTwitchOsc-v$targetVersion-beta$Beta-win-x64"
     Remove-Item -Path $publishDir -Recurse -Force
 }
 
@@ -178,6 +260,7 @@ finally {
 }
 
 Copy-Item -Path (Join-Path $updaterPublishDir 'CrystalRelayUpdater.exe') -Destination (Join-Path $publishDir 'CrystalRelayUpdater.exe') -Force
+Assert-SafeBuildPath -Path $updaterPublishDir -RequiredParent ([System.IO.Path]::GetTempPath()) -Pattern "CrystalRelayUpdater-*"
 Remove-Item -Path $updaterPublishDir -Recurse -Force
 
 Set-Content -Path $betaMarkerPath -Value $betaLabel -Encoding ASCII

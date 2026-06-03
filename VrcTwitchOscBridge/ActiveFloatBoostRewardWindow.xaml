@@ -45,6 +45,7 @@
         <SolidColorBrush x:Key="TitleBarButtonHoverBrush" Color="#3B235B" />
         <SolidColorBrush x:Key="TitleBarButtonPressedBrush" Color="#543183" />
         <SolidColorBrush x:Key="TitleBarCloseHoverBrush" Color="#B43D62" />
+        <SolidColorBrush x:Key="RuleCardHoverBrush" Color="#8D56E8" />
         <SolidColorBrush x:Key="TitleBarClosePressedBrush" Color="#8C2648" />
 
         <Style TargetType="TextBlock">
@@ -61,8 +62,70 @@
             <Setter Property="BorderThickness" Value="1" />
         </Style>
         <Style TargetType="CheckBox">
+            <Setter Property="FontFamily" Value="{DynamicResource BodyFontFamily}" />
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
             <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,6,0,0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Grid SnapsToDevicePixels="True">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Width="24"
+                                    Height="24"
+                                    VerticalAlignment="Center"
+                                    Background="Transparent">
+                                <Grid>
+                                    <Border x:Name="CheckChrome"
+                                            Background="{TemplateBinding Background}"
+                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="{TemplateBinding BorderThickness}"
+                                            CornerRadius="8" />
+                                    <Path x:Name="CheckMark"
+                                          Width="12"
+                                          Height="9"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          Data="M 1 5 L 4.5 8 L 11 1"
+                                          Stroke="White"
+                                          StrokeThickness="2.2"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"
+                                          StrokeLineJoin="Round"
+                                          Visibility="Collapsed" />
+                                </Grid>
+                            </Border>
+                            <ContentPresenter Grid.Column="1"
+                                              Margin="12,0,0,0"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True"
+                                              ContentSource="Content" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="CheckChrome" Property="BorderBrush" Value="{DynamicResource RuleCardHoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="CheckChrome" Property="Background" Value="{DynamicResource AccentBrush}" />
+                                <Setter TargetName="CheckChrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                <Setter TargetName="CheckMark" Property="Visibility" Value="Visible" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="CheckChrome" Property="Opacity" Value="0.45" />
+                                <Setter Property="Opacity" Value="0.55" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
         <Style x:Key="PrimaryButtonStyle" TargetType="Button">
             <Setter Property="FontFamily" Value="{DynamicResource HeadingFontFamily}" />

@@ -57,6 +57,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private static readonly TimeSpan ThirdPartyChatEmoteRefreshInterval = TimeSpan.FromHours(6);
     private static readonly TimeSpan ThirdPartyChatEmoteRetryInterval = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan ChatEmoteDiagnosticLogThrottle = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan StreamOfflineConfirmationDelay = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan BroadcasterLiveStateRetryDelay = TimeSpan.FromSeconds(2);
     private const int TwitchChatMessageMaxCharacters = 450;
     private const int VrChatChatboxMaxCharacters = 144;
     private const int VrChatChatboxMaxLines = 9;
@@ -66,6 +68,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private const int AvatarScaleSmoothUpdatesPerSecond = 60;
     private const int AvatarScaleSmoothMaxSteps = 600;
     private const int AvatarScaleCarryoverApplyAttemptCount = 4;
+    private const int BroadcasterLiveStateCheckAttempts = 3;
     private const string BitsOutfitSetTriggerLaneKey = "set-trigger-bits-outfit";
     private const string AvatarSwitchLaneKey = "avatar-switch";
     private static readonly HashSet<string> ProtectedDevFireSaleBroadcasterIds = new(StringComparer.Ordinal)
@@ -73,6 +76,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         "817261183"
     };
     private static readonly TimeSpan AvatarScaleQueuePollDelay = TimeSpan.FromMilliseconds(250);
+    private static readonly TimeSpan ReversePairingHiddenPollDelay = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan SetTriggerDiffObservationDelay = TimeSpan.FromSeconds(70);
     private static readonly TimeSpan SetTriggerPacketSpacing = TimeSpan.FromMilliseconds(80);
     private static readonly TimeSpan TriggerInfoAnnouncementPollInterval = TimeSpan.FromSeconds(15);
@@ -128,6 +132,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private readonly VrChatLocalAvatarDataService vrChatLocalAvatarDataService = new();
     private readonly CashPaymentProviderService cashPaymentProviderService = new();
     private readonly DesktopInputLockService desktopInputLockService;
+    private readonly WorldCommandBlacklistService worldCommandBlacklistService;
     private readonly object stateGate = new();
     // Runtime state for cooldowns, queued redeems, movement lanes, active timed resets,
     // and the temporary disable-pairing system used by avatar-set redeems.
@@ -156,6 +161,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private IReadOnlyDictionary<char, IReadOnlyList<ThirdPartyChatEmoteEntry>> thirdPartyChatEmoteIndex =
         new Dictionary<char, IReadOnlyList<ThirdPartyChatEmoteEntry>>();
     private readonly Dictionary<Guid, ActiveRuleLockoutState> activeRuleLockouts = [];
+    private readonly Dictionary<Guid, ActiveRuleLockoutState> activeRuleUnlocks = [];
     private readonly Dictionary<Guid, ActiveRuleLockoutState> activeAvatarSwitchRuleLockouts = [];
     private readonly Dictionary<Guid, HashSet<string>> remainingAvatarRouletCandidateIdsByRuleId = [];
     private readonly Dictionary<Guid, CancellationTokenSource> cooldownStateNotifications = [];
@@ -172,6 +178,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private readonly Dictionary<Guid, DateTimeOffset> powerUpInactiveAvatarLogTimes = [];
     private readonly SemaphoreSlim worldCommandLookupGate = new(1, 1);
     private readonly Dictionary<Guid, ActiveAvatarScaleSupporterGrowthState> avatarScaleSupporterGrowthStates = [];
+    private readonly Dictionary<Guid, HashSet<string>> avatarScaleFollowTriggeredUsers = [];
     private readonly Dictionary<Guid, DateTimeOffset> activeAvatarScaleEffects = [];
     private readonly Dictionary<Guid, CancellationTokenSource> avatarScaleEffectStateNotifications = [];
     private readonly Dictionary<Guid, ActiveAvatarScaleHeightSessionState> activeAvatarScaleHeightSessions = [];
@@ -183,6 +190,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private ActiveAvatarScaleCarryoverState? activeAvatarScaleCarryover;
     private ActiveAvatarScaleRestoreSequenceState? activeAvatarScaleRestoreSequence;
     private CancellationTokenSource? avatarScaleRestoreSequenceCancellation;
+    private CancellationTokenSource? pendingStreamOfflineConfirmation;
     private bool drainingQueuedAvatarScaleOperations;
 
     private CancellationTokenSource? runtimeCancellation;
@@ -198,6 +206,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private string currentSharedReturnAvatarId = string.Empty;
     private string currentSharedReturnAvatarName = string.Empty;
     private bool isBroadcasterLive;
+    private bool hasResolvedBroadcasterLiveState;
     private DateTimeOffset nextTriggerInfoAnnouncementAt = DateTimeOffset.MinValue;
     private DateTimeOffset nextChatboxRelayUnavailableLogAt = DateTimeOffset.MinValue;
     private DateTimeOffset nextChatboxRelayBlockedLogAt = DateTimeOffset.MinValue;
@@ -223,9 +232,12 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private long nextAvatarScaleRestoreSequenceId;
     private long nextAvatarScaleAvatarChangeSequenceId;
 
-    public BridgeCoordinator(DesktopInputLockService desktopInputLockService)
+    internal BridgeCoordinator(
+        DesktopInputLockService desktopInputLockService,
+        WorldCommandBlacklistService worldCommandBlacklistService)
     {
         this.desktopInputLockService = desktopInputLockService;
+        this.worldCommandBlacklistService = worldCommandBlacklistService;
         oscRouterService.LogWritten += WriteLog;
         oscRouterService.ObservedValueReceived += observedValue => ObserveOscValue(observedValue);
         desktopInputLockService.EmergencyUnlockTriggered += HandleEmergencyDesktopInputUnlock;
@@ -254,6 +266,12 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     public event Func<RewardFireSaleContribution, bool>? RewardFireSaleContributionReceived;
 
     public event Func<DevFireSaleRequest, bool>? DevFireSaleRequested;
+
+    public event Action? PauseCommandRequested;
+
+    public event Action<string>? GroupToggleRequested;
+
+    public event Action<string, bool>? RedeemControlRequested;
 
     public bool IsRunning => runtimeTask is { IsCompleted: false };
 
@@ -2227,7 +2245,9 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             broadcaster = null;
             bot = null;
             currentVrChatAvatarId = string.Empty;
+            CancelPendingStreamOfflineConfirmation();
             isBroadcasterLive = false;
+            hasResolvedBroadcasterLiveState = false;
             nextTriggerInfoAnnouncementAt = DateTimeOffset.MinValue;
             oscSessionMode = OscSessionMode.Stopped;
             ClearRuntimeState();
@@ -2243,7 +2263,9 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             broadcaster = null;
             bot = null;
             currentVrChatAvatarId = string.Empty;
+            CancelPendingStreamOfflineConfirmation();
             isBroadcasterLive = false;
+            hasResolvedBroadcasterLiveState = false;
             nextTriggerInfoAnnouncementAt = DateTimeOffset.MinValue;
             oscSessionMode = OscSessionMode.Stopped;
             ClearRuntimeState();
@@ -2271,7 +2293,9 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             broadcaster = null;
             bot = null;
             currentVrChatAvatarId = string.Empty;
+            CancelPendingStreamOfflineConfirmation();
             isBroadcasterLive = false;
+            hasResolvedBroadcasterLiveState = false;
             nextTriggerInfoAnnouncementAt = DateTimeOffset.MinValue;
             oscSessionMode = OscSessionMode.Stopped;
             ClearRuntimeState();
@@ -2570,15 +2594,132 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         return true;
     }
 
+    private bool TryHandlePauseCommand(
+        BridgeRuntimeConfiguration configuration,
+        BridgeIncomingEvent bridgeEvent)
+    {
+        if (!configuration.PauseCommandEnabled
+            || !bridgeEvent.IsChatCommandTrigger
+            || !ChatCommandUtility.MessageMatches(configuration.PauseCommandText, bridgeEvent.ChatCommandText))
+        {
+            return false;
+        }
+
+        if (!UserCanTriggerChatCommand(ChatCommandPermission.Moderators, bridgeEvent))
+        {
+            return true;
+        }
+
+        PauseCommandRequested?.Invoke();
+        WriteLog(TF("{0} used the pause command.", bridgeEvent.UserDisplayName));
+        return true;
+    }
+
+    private bool TryHandleGroupToggleCommand(
+        BridgeRuntimeConfiguration configuration,
+        BridgeIncomingEvent bridgeEvent)
+    {
+        if (!configuration.RedeemGroupCommandEnabled
+            || !bridgeEvent.IsChatCommandTrigger)
+        {
+            return false;
+        }
+
+        if (!UserCanTriggerChatCommand(ChatCommandPermission.Moderators, bridgeEvent))
+        {
+            return false;
+        }
+
+        var commandText = ChatCommandUtility.Normalize(bridgeEvent.ChatCommandText);
+        var group = configuration.RedeemGroups
+            .FirstOrDefault(g => ChatCommandUtility.MessageMatches(g.CommandText, commandText));
+
+        if (group is null)
+        {
+            return false;
+        }
+
+        GroupToggleRequested?.Invoke(group.Name);
+        WriteLog(TF("{0} toggled the '{1}' redeem group.", bridgeEvent.UserDisplayName, group.Name));
+        return true;
+    }
+
+    private bool TryHandleRedeemControlCommand(
+        BridgeRuntimeConfiguration configuration,
+        BridgeIncomingEvent bridgeEvent)
+    {
+        if (!configuration.RedeemControlCommandEnabled
+            || !bridgeEvent.IsChatCommandTrigger)
+        {
+            return false;
+        }
+
+        if (!UserCanTriggerChatCommand(ChatCommandPermission.Moderators, bridgeEvent))
+        {
+            return false;
+        }
+
+        var text = bridgeEvent.ChatCommandText?.Trim() ?? string.Empty;
+        if (string.IsNullOrEmpty(text))
+        {
+            return false;
+        }
+
+        var enableMatch = text.StartsWith("!enable ", StringComparison.OrdinalIgnoreCase);
+        var disableMatch = text.StartsWith("!disable ", StringComparison.OrdinalIgnoreCase);
+
+        if (!enableMatch && !disableMatch)
+        {
+            return false;
+        }
+
+        var redeemName = enableMatch
+            ? text.Substring("!enable ".Length).Trim()
+            : text.Substring("!disable ".Length).Trim();
+
+        if (string.IsNullOrEmpty(redeemName))
+        {
+            return false;
+        }
+
+        var enable = enableMatch;
+        RedeemControlRequested?.Invoke(redeemName, enable);
+        WriteLog(TF("{0} used redeem control: {1} '{2}'.", bridgeEvent.UserDisplayName, enable ? "enable" : "disable", redeemName));
+        return true;
+    }
+
     private async Task<string> BuildWorldCommandMessageAsync(
         BridgeRuntimeConfiguration configuration,
         int cooldownSeconds,
         CancellationToken cancellationToken)
     {
         var world = await GetCurrentWorldForCommandAsync(configuration, cooldownSeconds, cancellationToken);
-        return world.IsAvailable
-            ? SanitizeBotMessage(TF("Current VRChat world: {0} - {1}", world.WorldName, world.WorldUrl))
-            : T("Crystal Relay could not find a public VRChat world to share right now.");
+        if (!world.IsAvailable)
+        {
+            return T("Crystal Relay could not find a public VRChat world to share right now.");
+        }
+
+        var blacklistDecision = await worldCommandBlacklistService.EvaluateAsync(
+            world.WorldId,
+            world.WorldAuthorId,
+            cancellationToken);
+        if (blacklistDecision.IsBlocked)
+        {
+            WriteLog(blacklistDecision.IsFailClosed
+                ? T("VRChat world command did not share a world because the protected world list is not ready.")
+                : T("VRChat world command did not share a world because the protected world list matched it."));
+            if (!blacklistDecision.IsFailClosed
+                && !string.IsNullOrWhiteSpace(blacklistDecision.Reason))
+            {
+                return SanitizeBotMessage(TF(
+                    "This VRChat world is protected for this reason: {0}. Crystal Relay is not sharing the world link.",
+                    blacklistDecision.Reason));
+            }
+
+            return T("This VRChat world is protected right now, so Crystal Relay is not sharing the world link.");
+        }
+
+        return SanitizeBotMessage(TF("Current VRChat world: {0} - {1}", world.WorldName, world.WorldUrl));
     }
 
     private async Task<VrChatCurrentWorldLookupResult> GetCurrentWorldForCommandAsync(
@@ -2841,7 +2982,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             ChatActivityReceived?.Invoke(chatActivity);
         }
 
-        if (TryHandleStreamStateNotification(notification))
+        if (TryHandleStreamStateNotification(notification, cancellationToken))
         {
             return;
         }
@@ -2869,6 +3010,24 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
         if (bridgeEvent is { IsChatCommandTrigger: true }
             && await TryHandleTriggerInfoReminderCommandAsync(configuration, bridgeEvent, cancellationToken))
+        {
+            return;
+        }
+
+        if (bridgeEvent is { IsChatCommandTrigger: true }
+            && TryHandlePauseCommand(configuration, bridgeEvent))
+        {
+            return;
+        }
+
+        if (bridgeEvent is { IsChatCommandTrigger: true }
+            && TryHandleGroupToggleCommand(configuration, bridgeEvent))
+        {
+            return;
+        }
+
+        if (bridgeEvent is { IsChatCommandTrigger: true }
+            && TryHandleRedeemControlCommand(configuration, bridgeEvent))
         {
             return;
         }
@@ -4093,6 +4252,24 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             return true;
         }
 
+        if (rule.TriggerType == AvatarScaleTriggerType.Follow && !isTest)
+        {
+            lock (stateGate)
+            {
+                if (!avatarScaleFollowTriggeredUsers.TryGetValue(rule.Id, out var triggeredUsers))
+                {
+                    triggeredUsers = new HashSet<string>(StringComparer.Ordinal);
+                    avatarScaleFollowTriggeredUsers[rule.Id] = triggeredUsers;
+                }
+
+                if (!string.IsNullOrWhiteSpace(incomingEvent.UserId) && triggeredUsers.Contains(incomingEvent.UserId))
+                {
+                    WriteLog($"Avatar scale '{rule.Name}' skipped because {incomingEvent.UserDisplayName} has already triggered this follow rule.");
+                    return true;
+                }
+            }
+        }
+
         var cooldownSeconds = GetAvatarScaleEffectiveCooldownSeconds(rule);
         if (!isTest)
         {
@@ -4213,6 +4390,16 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                     else
                     {
                         cooldowns.Remove(rule.Id);
+                    }
+
+                    if (rule.TriggerType == AvatarScaleTriggerType.Follow && !string.IsNullOrWhiteSpace(incomingEvent.UserId))
+                    {
+                        if (!avatarScaleFollowTriggeredUsers.TryGetValue(rule.Id, out var triggeredUsers))
+                        {
+                            triggeredUsers = new HashSet<string>(StringComparer.Ordinal);
+                            avatarScaleFollowTriggeredUsers[rule.Id] = triggeredUsers;
+                        }
+                        triggeredUsers.Add(incomingEvent.UserId);
                     }
                 }
 
@@ -6221,24 +6408,28 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             CooldownSeconds = cooldownSeconds
         };
 
-    private bool TryHandleStreamStateNotification(EventSubNotification notification)
+    private bool TryHandleStreamStateNotification(EventSubNotification notification, CancellationToken cancellationToken)
     {
         if (string.Equals(notification.SubscriptionType, "stream.online", StringComparison.Ordinal))
         {
-            isBroadcasterLive = true;
-            nextTriggerInfoAnnouncementAt = DateTimeOffset.MinValue;
-            StreamStateChanged?.Invoke(true, false);
-            WriteLog("Broadcaster is live on Twitch.");
+            if (!StreamNotificationMatchesBroadcaster(notification))
+            {
+                return true;
+            }
+
+            CancelPendingStreamOfflineConfirmation();
+            SetBroadcasterLiveState(true, "EventSub stream.online", resetTriggerAnnouncementSchedule: true);
             return true;
         }
 
         if (string.Equals(notification.SubscriptionType, "stream.offline", StringComparison.Ordinal))
         {
-            var streamEnded = isBroadcasterLive;
-            isBroadcasterLive = false;
-            nextTriggerInfoAnnouncementAt = DateTimeOffset.MinValue;
-            StreamStateChanged?.Invoke(false, streamEnded);
-            WriteLog("Broadcaster is offline on Twitch.");
+            if (!StreamNotificationMatchesBroadcaster(notification))
+            {
+                return true;
+            }
+
+            QueueStreamOfflineConfirmation(cancellationToken);
             return true;
         }
 
@@ -6249,32 +6440,182 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     {
         if (activeConfiguration is null || broadcaster is null)
         {
-            isBroadcasterLive = false;
-            nextTriggerInfoAnnouncementAt = DateTimeOffset.MinValue;
-            StreamStateChanged?.Invoke(false, false);
+            CancelPendingStreamOfflineConfirmation();
+            ResetBroadcasterLiveState();
             return;
         }
 
         try
         {
-            var isLive = await twitchApiClient.IsBroadcasterLiveAsync(
-                broadcaster.AccessToken,
-                activeConfiguration.TwitchClientId,
-                broadcaster.UserId,
-                cancellationToken);
-            var streamEnded = isBroadcasterLive && !isLive;
-            isBroadcasterLive = isLive;
-            if (!isLive)
+            var isLive = await QueryBroadcasterLiveStateWithRetryAsync(cancellationToken);
+            if (isLive)
             {
-                nextTriggerInfoAnnouncementAt = DateTimeOffset.MinValue;
+                CancelPendingStreamOfflineConfirmation();
             }
-            StreamStateChanged?.Invoke(isLive, streamEnded);
+
+            SetBroadcasterLiveState(isLive, "Helix stream status check");
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             throw;
         }
-        catch
+        catch (Exception ex)
+        {
+            WriteLog($"Twitch stream status check could not complete, so Crystal Relay kept the last known stream state. Source: Helix stream status check. {SensitiveTextSanitizer.Sanitize(ex.Message)}");
+        }
+    }
+
+    private bool StreamNotificationMatchesBroadcaster(EventSubNotification notification)
+    {
+        var expectedBroadcasterId = broadcaster?.UserId?.Trim() ?? string.Empty;
+        var notificationBroadcasterId = GetString(notification.EventData, "broadcaster_user_id")?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(expectedBroadcasterId)
+            || string.IsNullOrWhiteSpace(notificationBroadcasterId))
+        {
+            WriteLog("Ignored Twitch stream status notification because Crystal Relay could not verify the broadcaster ID.");
+            return false;
+        }
+
+        if (string.Equals(expectedBroadcasterId, notificationBroadcasterId, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        WriteLog("Ignored Twitch stream status notification because it did not match the connected broadcaster.");
+        return false;
+    }
+
+    private void QueueStreamOfflineConfirmation(CancellationToken cancellationToken)
+    {
+        CancelPendingStreamOfflineConfirmation();
+
+        var confirmationCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        pendingStreamOfflineConfirmation = confirmationCancellation;
+        WriteLog("Twitch reported the broadcaster offline; confirming before updating stream status. Source: EventSub stream.offline.");
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(StreamOfflineConfirmationDelay, confirmationCancellation.Token);
+                var isLive = await QueryBroadcasterLiveStateWithRetryAsync(confirmationCancellation.Token);
+                if (isLive)
+                {
+                    SetBroadcasterLiveState(true, "Helix confirmation after EventSub stream.offline");
+                    WriteLog("Twitch offline notification was not confirmed, so Crystal Relay kept the stream status live. Source: Helix confirmation after EventSub stream.offline.");
+                    return;
+                }
+
+                SetBroadcasterLiveState(false, "EventSub stream.offline confirmed by Helix");
+            }
+            catch (OperationCanceledException) when (confirmationCancellation.IsCancellationRequested)
+            {
+            }
+            catch (Exception ex)
+            {
+                WriteLog($"Twitch offline confirmation could not complete, so Crystal Relay kept the last known stream state. Source: EventSub stream.offline confirmation. {SensitiveTextSanitizer.Sanitize(ex.Message)}");
+            }
+            finally
+            {
+                if (ReferenceEquals(pendingStreamOfflineConfirmation, confirmationCancellation))
+                {
+                    pendingStreamOfflineConfirmation = null;
+                }
+
+                confirmationCancellation.Dispose();
+            }
+        }, CancellationToken.None);
+    }
+
+    private async Task<bool> QueryBroadcasterLiveStateWithRetryAsync(CancellationToken cancellationToken)
+    {
+        if (activeConfiguration is null || broadcaster is null)
+        {
+            return false;
+        }
+
+        Exception? lastException = null;
+        for (var attempt = 1; attempt <= BroadcasterLiveStateCheckAttempts; attempt++)
+        {
+            try
+            {
+                var isLive = await twitchApiClient.IsBroadcasterLiveAsync(
+                    broadcaster.AccessToken,
+                    activeConfiguration.TwitchClientId,
+                    broadcaster.UserId,
+                    cancellationToken);
+                if (isLive || attempt == BroadcasterLiveStateCheckAttempts)
+                {
+                    return isLive;
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                lastException = ex;
+                if (attempt == BroadcasterLiveStateCheckAttempts)
+                {
+                    throw;
+                }
+            }
+
+            await Task.Delay(BroadcasterLiveStateRetryDelay, cancellationToken);
+        }
+
+        if (lastException is not null)
+        {
+            throw lastException;
+        }
+
+        return false;
+    }
+
+    private void SetBroadcasterLiveState(
+        bool isLive,
+        string source,
+        bool resetTriggerAnnouncementSchedule = false)
+    {
+        var stateChanged = !hasResolvedBroadcasterLiveState || isBroadcasterLive != isLive;
+        var streamEnded = hasResolvedBroadcasterLiveState && isBroadcasterLive && !isLive;
+        isBroadcasterLive = isLive;
+        hasResolvedBroadcasterLiveState = true;
+        if (resetTriggerAnnouncementSchedule || !isLive)
+        {
+            nextTriggerInfoAnnouncementAt = DateTimeOffset.MinValue;
+        }
+
+        StreamStateChanged?.Invoke(isLive, streamEnded);
+        if (stateChanged)
+        {
+            WriteLog($"Broadcaster is {(isLive ? "live" : "offline")} on Twitch. Source: {source}.");
+        }
+    }
+
+    private void ResetBroadcasterLiveState()
+    {
+        isBroadcasterLive = false;
+        hasResolvedBroadcasterLiveState = false;
+        nextTriggerInfoAnnouncementAt = DateTimeOffset.MinValue;
+        StreamStateChanged?.Invoke(false, false);
+    }
+
+    private void CancelPendingStreamOfflineConfirmation()
+    {
+        var pending = pendingStreamOfflineConfirmation;
+        pendingStreamOfflineConfirmation = null;
+        if (pending is null)
+        {
+            return;
+        }
+
+        try
+        {
+            pending.Cancel();
+        }
+        catch (ObjectDisposedException)
         {
         }
     }
@@ -8148,6 +8489,12 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
     private void ApplyRuleLockoutUntil(TriggerRuleSnapshot rule, DateTimeOffset expiresAt)
     {
+        if (rule.SpecialRulePairingMode == SpecialRulePairingMode.ShowPairedWhileActive)
+        {
+            ApplyRuleUnlockUntil(rule, expiresAt);
+            return;
+        }
+
         var normalizedRuleIds = rule.TemporarilyDisabledRuleIds
             .Where(ruleId => ruleId != rule.Id)
             .Distinct()
@@ -8163,7 +8510,38 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         lock (stateGate)
         {
             var before = GetTemporarilyDisabledRuleIdsLocked(now);
+            activeRuleUnlocks.Remove(rule.Id);
             activeRuleLockouts[rule.Id] = new ActiveRuleLockoutState(rule.Name, expiresAt, normalizedRuleIds);
+            var after = GetTemporarilyDisabledRuleIdsLocked(now);
+            changed = !before.SetEquals(after);
+        }
+
+        ScheduleLockoutStateNotification(rule.Id, expiresAt - now);
+        if (changed)
+        {
+            ManagedRewardAvailabilityChanged?.Invoke();
+        }
+    }
+
+    private void ApplyRuleUnlockUntil(TriggerRuleSnapshot rule, DateTimeOffset expiresAt)
+    {
+        var normalizedRuleIds = rule.TemporarilyDisabledRuleIds
+            .Where(ruleId => ruleId != rule.Id)
+            .Distinct()
+            .ToArray();
+        var now = DateTimeOffset.UtcNow;
+        if (normalizedRuleIds.Length == 0 || expiresAt <= now)
+        {
+            ReleaseActiveRuleLockoutState(rule.Id, logRelease: false);
+            return;
+        }
+
+        var changed = false;
+        lock (stateGate)
+        {
+            var before = GetTemporarilyDisabledRuleIdsLocked(now);
+            activeRuleLockouts.Remove(rule.Id);
+            activeRuleUnlocks[rule.Id] = new ActiveRuleLockoutState(rule.Name, expiresAt, normalizedRuleIds);
             var after = GetTemporarilyDisabledRuleIdsLocked(now);
             changed = !before.SetEquals(after);
         }
@@ -8928,7 +9306,10 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         }
         else if (!rule.SharedRewardChoiceEnabled || rule.SharedRewardChoiceNumber <= 0)
         {
-            throw new InvalidOperationException("Set Trigger is only available for shared numbered rewards.");
+            if (rule.UsesSharedNumberedOutfitReward)
+            {
+                throw new InvalidOperationException("Set Trigger shared outfits need an outfit number.");
+            }
         }
 
         var configuredActions = rule.SetTriggerActions
@@ -8967,9 +9348,12 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         }
 
         var sourceAvatarId = ResolveSetTriggerSourceAvatarId(rule);
-        var preTriggerSnapshot = await TryReadSetTriggerFullRestoreSnapshotAsync(
+        var restoreMode = NormalizeSetTriggerRestoreMode(rule.SetTriggerRestoreMode);
+        var preTriggerSnapshot = await TryReadSetTriggerRestoreSnapshotAsync(
             rule.Name,
             sourceAvatarId,
+            preparedActions,
+            restoreMode,
             cancellationToken);
 
         var packets = new List<byte[]>(preparedActions.Count);
@@ -8998,15 +9382,20 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         return new ResolvedRuleAction(
             packets,
             resetPackets,
-            $"Set Trigger ({packets.Count} params, learning restore diff)",
+            restoreMode == SetTriggerRestoreMode.ConfiguredOnly
+                ? $"Set Trigger ({packets.Count} params)"
+                : $"Set Trigger ({packets.Count} params, learning restore diff)",
             observedValues: observedValues,
             resetObservedValues: resetObservedValues,
-            setTriggerRestorePlan: new SetTriggerRestorePlan(
-                sourceAvatarId,
-                preTriggerSnapshot.Values,
-                preTriggerSnapshot.LastWriteTimeUtc,
-                preTriggerSnapshot.SourcePath,
-                configuredRestoreAddresses));
+            setTriggerRestorePlan: restoreMode == SetTriggerRestoreMode.ConfiguredOnly
+                ? null
+                : new SetTriggerRestorePlan(
+                    sourceAvatarId,
+                    preTriggerSnapshot.Values,
+                    preTriggerSnapshot.LastWriteTimeUtc,
+                    preTriggerSnapshot.SourcePath,
+                    restoreMode,
+                    configuredRestoreAddresses));
     }
 
     private string ResolveSetTriggerSourceAvatarId(TriggerRuleSnapshot rule)
@@ -9036,9 +9425,11 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         return requiredAvatarId;
     }
 
-    private async Task<LocalAvatarDataParameterBatchReadResult> TryReadSetTriggerFullRestoreSnapshotAsync(
+    private async Task<LocalAvatarDataParameterBatchReadResult> TryReadSetTriggerRestoreSnapshotAsync(
         string ruleName,
         string sourceAvatarId,
+        IReadOnlyList<SetTriggerPreparedAction> preparedActions,
+        SetTriggerRestoreMode restoreMode,
         CancellationToken cancellationToken)
     {
         var normalizedSourceAvatarId = sourceAvatarId?.Trim() ?? string.Empty;
@@ -9047,22 +9438,78 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             throw new InvalidOperationException($"Safe-canceled Set Trigger '{ruleName}' because Crystal Relay does not know the current VRChat avatar yet.");
         }
 
-        var localValues = await vrChatLocalAvatarDataService.TryReadAvatarFullSnapshotValuesAsync(
+        var localValues = await TryReadSetTriggerRestoreSnapshotValuesAsync(
             normalizedSourceAvatarId,
+            BuildSetTriggerRestoreRequests(preparedActions),
+            restoreMode,
             cancellationToken);
         if (!localValues.Found)
         {
-            throw new InvalidOperationException($"Safe-canceled Set Trigger '{ruleName}' because Crystal Relay could not capture a full LocalAvatarData restore snapshot: {localValues.FailureReason}");
+            throw new InvalidOperationException($"Safe-canceled Set Trigger '{ruleName}' because Crystal Relay could not capture a {DescribeSetTriggerRestoreMode(restoreMode)} LocalAvatarData restore snapshot: {localValues.FailureReason}");
         }
 
         var ageSeconds = Math.Max(0, (DateTime.UtcNow - localValues.LastWriteTimeUtc).TotalSeconds);
-        WriteLog($"Captured full Set Trigger restore snapshot for '{ruleName}' with {localValues.Values.Count} safe typed value(s) from {DescribeLocalAvatarDataSource(localValues.SourcePath)} for avatar {DescribeAvatarId(normalizedSourceAvatarId)}. Cache age: {DescribeDuration(ageSeconds)}.");
+        WriteLog($"Captured {DescribeSetTriggerRestoreMode(restoreMode)} Set Trigger restore snapshot for '{ruleName}' with {localValues.Values.Count} safe typed value(s) from {DescribeLocalAvatarDataSource(localValues.SourcePath)} for avatar {DescribeAvatarId(normalizedSourceAvatarId)}. Cache age: {DescribeDuration(ageSeconds)}.");
 
         return localValues with
         {
             Values = new Dictionary<string, OscObservedValue>(localValues.Values, StringComparer.OrdinalIgnoreCase),
             MatchedParameterNames = new Dictionary<string, string>(localValues.MatchedParameterNames, StringComparer.OrdinalIgnoreCase)
         };
+    }
+
+    private Task<LocalAvatarDataParameterBatchReadResult> TryReadSetTriggerRestoreSnapshotValuesAsync(
+        string sourceAvatarId,
+        IReadOnlyList<LocalAvatarDataParameterRequest> requests,
+        SetTriggerRestoreMode restoreMode,
+        CancellationToken cancellationToken)
+    {
+        return restoreMode switch
+        {
+            SetTriggerRestoreMode.FullSafeDiff => vrChatLocalAvatarDataService.TryReadAvatarFullSnapshotValuesAsync(
+                sourceAvatarId,
+                cancellationToken),
+            SetTriggerRestoreMode.ConfiguredOnly => vrChatLocalAvatarDataService.TryReadAvatarParameterValuesAsync(
+                sourceAvatarId,
+                requests,
+                cancellationToken),
+            _ => vrChatLocalAvatarDataService.TryReadAvatarOutfitSnapshotValuesAsync(
+                sourceAvatarId,
+                requests,
+                cancellationToken)
+        };
+    }
+
+    private static SetTriggerRestoreMode NormalizeSetTriggerRestoreMode(SetTriggerRestoreMode restoreMode) =>
+        Enum.IsDefined(restoreMode) ? restoreMode : SetTriggerRestoreMode.ConfiguredAndRelated;
+
+    private static string DescribeSetTriggerRestoreMode(SetTriggerRestoreMode restoreMode) => restoreMode switch
+    {
+        SetTriggerRestoreMode.FullSafeDiff => "full safe diff",
+        SetTriggerRestoreMode.ConfiguredOnly => "configured-parameter",
+        _ => "configured and related outfit"
+    };
+
+    private static IReadOnlyList<LocalAvatarDataParameterRequest> BuildSetTriggerRestoreRequests(
+        IReadOnlyList<SetTriggerPreparedAction> preparedActions)
+    {
+        return [.. preparedActions.Select(action => new LocalAvatarDataParameterRequest(action.Address, action.ParameterType))];
+    }
+
+    private static IReadOnlyList<LocalAvatarDataParameterRequest> BuildSetTriggerRestoreRequests(
+        IReadOnlyList<string> configuredAddresses,
+        IReadOnlyDictionary<string, OscObservedValue> snapshotValues)
+    {
+        var requests = new List<LocalAvatarDataParameterRequest>(configuredAddresses.Count);
+        foreach (var address in configuredAddresses)
+        {
+            if (snapshotValues.TryGetValue(address, out var observedValue))
+            {
+                requests.Add(new LocalAvatarDataParameterRequest(address, observedValue.ParameterType));
+            }
+        }
+
+        return requests;
     }
 
     private static bool TryCreateObservedValueFromExisting(
@@ -9584,8 +10031,10 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         IReadOnlyList<OscObservedValue> fallbackObservedValues,
         CancellationToken cancellationToken)
     {
-        var postTriggerSnapshot = await vrChatLocalAvatarDataService.TryReadAvatarFullSnapshotValuesAsync(
+        var postTriggerSnapshot = await TryReadSetTriggerRestoreSnapshotValuesAsync(
             restorePlan.SourceAvatarId,
+            BuildSetTriggerRestoreRequests(restorePlan.ConfiguredRestoreAddresses, restorePlan.PreTriggerSnapshotValues),
+            restorePlan.RestoreMode,
             cancellationToken);
         if (!postTriggerSnapshot.Found)
         {
@@ -9615,17 +10064,35 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             }
         }
 
-        var restoreResolution = BuildSetTriggerRestoreResolution(restoreValues.Values);
+        var restoreResolution = BuildSetTriggerRestoreResolution(
+            restoreValues.Values,
+            restorePlan.ConfiguredRestoreAddresses);
         WriteLog($"Set Trigger '{ruleName}' learned {changedCount} changed LocalAvatarData param{(changedCount == 1 ? string.Empty : "s")} and will restore {restoreResolution.Packets.Count} param{(restoreResolution.Packets.Count == 1 ? string.Empty : "s")}.");
         return restoreResolution;
     }
 
-    private SetTriggerRestoreResolution BuildSetTriggerRestoreResolution(IEnumerable<OscObservedValue> restoreValues)
+    private SetTriggerRestoreResolution BuildSetTriggerRestoreResolution(
+        IEnumerable<OscObservedValue> restoreValues,
+        IReadOnlyList<string> configuredRestoreAddresses)
     {
         var packets = new List<byte[]>();
         var observedValues = new List<OscObservedValue>();
+        var valuesByAddress = restoreValues
+            .GroupBy(value => value.Address, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+        var orderedRestoreValues = new List<OscObservedValue>(valuesByAddress.Count);
 
-        foreach (var restoreValue in restoreValues.OrderBy(value => value.Address, StringComparer.OrdinalIgnoreCase))
+        foreach (var configuredAddress in configuredRestoreAddresses)
+        {
+            if (valuesByAddress.Remove(configuredAddress, out var configuredValue))
+            {
+                orderedRestoreValues.Add(configuredValue);
+            }
+        }
+
+        orderedRestoreValues.AddRange(valuesByAddress.Values.OrderBy(value => value.Address, StringComparer.OrdinalIgnoreCase));
+
+        foreach (var restoreValue in orderedRestoreValues)
         {
             if (!TryCreateObservedValueFromExisting(restoreValue.Address, restoreValue.ParameterType, restoreValue, out var restoreText, out var normalizedRestoreValue))
             {
@@ -9936,11 +10403,13 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             thirdPartyChatEmoteIndex = new Dictionary<char, IReadOnlyList<ThirdPartyChatEmoteEntry>>();
             nextThirdPartyChatEmoteRefreshAt = DateTimeOffset.MinValue;
             lockoutsWereActive = activeRuleLockouts.Count > 0
+                || activeRuleUnlocks.Count > 0
                 || activeAvatarSwitchRuleLockouts.Count > 0
                 || activeSupporterOverride is not null
                 || queuedSupporterOverrides.Count > 0
                 || queuedAvatarSwitches.Count > 0;
             activeRuleLockouts.Clear();
+            activeRuleUnlocks.Clear();
             activeAvatarSwitchRuleLockouts.Clear();
             remainingAvatarRouletCandidateIdsByRuleId.Clear();
             queuedAvatarSwitches.Clear();
@@ -10300,6 +10769,33 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                     continue;
                 }
 
+                if (isAvatarRuleLockout
+                    && currentRule!.SpecialRulePairingMode == SpecialRulePairingMode.ShowPairedWhileActive)
+                {
+                    var existingLockoutState = activeRuleLockouts[sourceRuleId];
+                    var normalizedUnlockRuleIds = currentRule.TemporarilyDisabledRuleIds
+                        .Where(ruleId => ruleId != sourceRuleId && validRulesById.ContainsKey(ruleId))
+                        .Distinct()
+                        .ToArray();
+                    activeRuleLockouts.Remove(sourceRuleId);
+                    if (GetLockoutDurationSeconds(currentRule) > 0
+                        && normalizedUnlockRuleIds.Length > 0
+                        && existingLockoutState.ExpiresAt > now)
+                    {
+                        activeRuleUnlocks[sourceRuleId] = new ActiveRuleLockoutState(
+                            currentRule.Name,
+                            existingLockoutState.ExpiresAt,
+                            normalizedUnlockRuleIds);
+                    }
+                    else if (lockoutStateNotifications.Remove(sourceRuleId, out var removedNotification))
+                    {
+                        notificationsToDispose ??= [];
+                        notificationsToDispose.Add(removedNotification);
+                    }
+
+                    continue;
+                }
+
                 var disabledRuleIds = isAvatarRuleLockout
                     ? currentRule!.TemporarilyDisabledRuleIds
                     : currentScaleRule!.TemporarilyDisabledRuleIds;
@@ -10329,6 +10825,65 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 activeRuleLockouts[sourceRuleId] = new ActiveRuleLockoutState(
                     sourceName,
                     existingState.ExpiresAt,
+                    normalizedRuleIds);
+            }
+
+            foreach (var sourceRuleId in activeRuleUnlocks.Keys.ToArray())
+            {
+                if (!validRulesById.TryGetValue(sourceRuleId, out var currentRule))
+                {
+                    activeRuleUnlocks.Remove(sourceRuleId);
+                    if (lockoutStateNotifications.Remove(sourceRuleId, out var removedNotification))
+                    {
+                        notificationsToDispose ??= [];
+                        notificationsToDispose.Add(removedNotification);
+                    }
+                    continue;
+                }
+
+                var normalizedRuleIds = currentRule.TemporarilyDisabledRuleIds
+                    .Where(ruleId => ruleId != sourceRuleId && validRulesById.ContainsKey(ruleId))
+                    .Distinct()
+                    .ToArray();
+                var lockoutDurationSeconds = GetLockoutDurationSeconds(currentRule);
+
+                if (currentRule.SpecialRulePairingMode != SpecialRulePairingMode.ShowPairedWhileActive)
+                {
+                    var unlockStateToMove = activeRuleUnlocks[sourceRuleId];
+                    activeRuleUnlocks.Remove(sourceRuleId);
+                    if (lockoutDurationSeconds > 0
+                        && normalizedRuleIds.Length > 0
+                        && unlockStateToMove.ExpiresAt > now)
+                    {
+                        activeRuleLockouts[sourceRuleId] = new ActiveRuleLockoutState(
+                            currentRule.Name,
+                            unlockStateToMove.ExpiresAt,
+                            normalizedRuleIds);
+                    }
+                    else if (lockoutStateNotifications.Remove(sourceRuleId, out var removedNotification))
+                    {
+                        notificationsToDispose ??= [];
+                        notificationsToDispose.Add(removedNotification);
+                    }
+
+                    continue;
+                }
+
+                if (lockoutDurationSeconds <= 0 || normalizedRuleIds.Length == 0)
+                {
+                    activeRuleUnlocks.Remove(sourceRuleId);
+                    if (lockoutStateNotifications.Remove(sourceRuleId, out var removedNotification))
+                    {
+                        notificationsToDispose ??= [];
+                        notificationsToDispose.Add(removedNotification);
+                    }
+                    continue;
+                }
+
+                var existingUnlockState = activeRuleUnlocks[sourceRuleId];
+                activeRuleUnlocks[sourceRuleId] = new ActiveRuleLockoutState(
+                    currentRule.Name,
+                    existingUnlockState.ExpiresAt,
                     normalizedRuleIds);
             }
 
@@ -10460,6 +11015,14 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
                 avatarScaleSupporterGrowthStates.Remove(ruleId);
             }
+
+            foreach (var ruleId in avatarScaleFollowTriggeredUsers.Keys.ToArray())
+            {
+                if (!validAvatarScaleRuleIds.Contains(ruleId))
+                {
+                    avatarScaleFollowTriggeredUsers.Remove(ruleId);
+                }
+            }
         }
 
         if (cancellationsToDispose is null)
@@ -10508,6 +11071,12 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
     private void UpdateActiveRuleLockoutState(TriggerRuleSnapshot rule)
     {
+        if (rule.SpecialRulePairingMode == SpecialRulePairingMode.ShowPairedWhileActive)
+        {
+            UpdateActiveRuleUnlockState(rule);
+            return;
+        }
+
         var normalizedRuleIds = rule.TemporarilyDisabledRuleIds
             .Where(ruleId => ruleId != rule.Id)
             .Distinct()
@@ -10525,6 +11094,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         lock (stateGate)
         {
             var before = GetTemporarilyDisabledRuleIdsLocked(now);
+            activeRuleUnlocks.Remove(rule.Id);
             activeRuleLockouts[rule.Id] = new ActiveRuleLockoutState(
                 rule.Name,
                 now.AddSeconds(lockoutDurationSeconds),
@@ -10538,6 +11108,43 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         if (changed)
         {
             WriteLog($"'{rule.Name}' temporarily disabled {normalizedRuleIds.Length} linked redeem{(normalizedRuleIds.Length == 1 ? string.Empty : "s")} while it stays active.");
+            ManagedRewardAvailabilityChanged?.Invoke();
+        }
+    }
+
+    private void UpdateActiveRuleUnlockState(TriggerRuleSnapshot rule)
+    {
+        var normalizedRuleIds = rule.TemporarilyDisabledRuleIds
+            .Where(ruleId => ruleId != rule.Id)
+            .Distinct()
+            .ToArray();
+        var lockoutDurationSeconds = GetLockoutDurationSeconds(rule);
+
+        if (lockoutDurationSeconds <= 0 || normalizedRuleIds.Length == 0)
+        {
+            ReleaseActiveRuleLockoutState(rule.Id, logRelease: false);
+            return;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var changed = false;
+        lock (stateGate)
+        {
+            var before = GetTemporarilyDisabledRuleIdsLocked(now);
+            activeRuleLockouts.Remove(rule.Id);
+            activeRuleUnlocks[rule.Id] = new ActiveRuleLockoutState(
+                rule.Name,
+                now.AddSeconds(lockoutDurationSeconds),
+                normalizedRuleIds);
+            var after = GetTemporarilyDisabledRuleIdsLocked(now);
+            changed = !before.SetEquals(after);
+        }
+
+        ScheduleLockoutStateNotification(rule.Id, TimeSpan.FromSeconds(lockoutDurationSeconds));
+
+        if (changed)
+        {
+            WriteLog($"'{rule.Name}' temporarily revealed {normalizedRuleIds.Length} paired redeem{(normalizedRuleIds.Length == 1 ? string.Empty : "s")}.");
             ManagedRewardAvailabilityChanged?.Invoke();
         }
     }
@@ -10668,23 +11275,28 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private void ReleaseActiveRuleLockoutState(Guid sourceRuleId, bool logRelease)
     {
         var changed = false;
-        ActiveRuleLockoutState? releasedState = null;
+        ActiveRuleLockoutState? releasedLockoutState = null;
+        ActiveRuleLockoutState? releasedUnlockState = null;
         CancellationTokenSource? notificationToDispose = null;
 
         lock (stateGate)
         {
-            var before = GetTemporarilyDisabledRuleIdsLocked(DateTimeOffset.UtcNow);
-            if (!activeRuleLockouts.TryGetValue(sourceRuleId, out releasedState))
+            var now = DateTimeOffset.UtcNow;
+            var hadLockout = activeRuleLockouts.TryGetValue(sourceRuleId, out releasedLockoutState);
+            var hadUnlock = activeRuleUnlocks.TryGetValue(sourceRuleId, out releasedUnlockState);
+            if (!hadLockout && !hadUnlock)
             {
                 return;
             }
 
+            var before = BuildTemporarilyDisabledRuleIdsLocked(GetPairingReleaseComparisonTime(now, releasedLockoutState, releasedUnlockState));
             activeRuleLockouts.Remove(sourceRuleId);
+            activeRuleUnlocks.Remove(sourceRuleId);
             if (lockoutStateNotifications.Remove(sourceRuleId, out var notification))
             {
                 notificationToDispose = notification;
             }
-            var after = GetTemporarilyDisabledRuleIdsLocked(DateTimeOffset.UtcNow);
+            var after = GetTemporarilyDisabledRuleIdsLocked(now);
             changed = !before.SetEquals(after);
         }
 
@@ -10696,13 +11308,41 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
         if (changed)
         {
-            if (logRelease && releasedState is not null)
+            if (logRelease && releasedLockoutState is not null)
             {
-                WriteLog($"Re-enabled {releasedState.DisabledRuleIds.Count} linked redeem{(releasedState.DisabledRuleIds.Count == 1 ? string.Empty : "s")} after '{releasedState.SourceRuleName}' finished.");
+                WriteLog($"Re-enabled {releasedLockoutState.DisabledRuleIds.Count} linked redeem{(releasedLockoutState.DisabledRuleIds.Count == 1 ? string.Empty : "s")} after '{releasedLockoutState.SourceRuleName}' finished.");
+            }
+
+            if (logRelease && releasedUnlockState is not null)
+            {
+                WriteLog($"Hid {releasedUnlockState.DisabledRuleIds.Count} reveal-paired redeem{(releasedUnlockState.DisabledRuleIds.Count == 1 ? string.Empty : "s")} after '{releasedUnlockState.SourceRuleName}' finished.");
             }
 
             ManagedRewardAvailabilityChanged?.Invoke();
         }
+    }
+
+    private static DateTimeOffset GetPairingReleaseComparisonTime(
+        DateTimeOffset now,
+        ActiveRuleLockoutState? releasedLockoutState,
+        ActiveRuleLockoutState? releasedUnlockState)
+    {
+        var comparisonTime = now;
+        if (releasedLockoutState is not null && releasedLockoutState.ExpiresAt <= now)
+        {
+            comparisonTime = releasedLockoutState.ExpiresAt.AddTicks(-1);
+        }
+
+        if (releasedUnlockState is not null && releasedUnlockState.ExpiresAt <= now)
+        {
+            var unlockComparisonTime = releasedUnlockState.ExpiresAt.AddTicks(-1);
+            if (unlockComparisonTime < comparisonTime)
+            {
+                comparisonTime = unlockComparisonTime;
+            }
+        }
+
+        return comparisonTime;
     }
 
     private void ReleaseActiveAvatarSwitchLockoutState(Guid sourceRuleId, bool logRelease)
@@ -10748,8 +11388,14 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private HashSet<Guid> GetTemporarilyDisabledRuleIdsLocked(DateTimeOffset now)
     {
         RemoveExpiredLockoutsLocked(activeRuleLockouts, now);
+        RemoveExpiredLockoutsLocked(activeRuleUnlocks, now);
         RemoveExpiredLockoutsLocked(activeAvatarSwitchRuleLockouts, now);
 
+        return BuildTemporarilyDisabledRuleIdsLocked(now);
+    }
+
+    private HashSet<Guid> BuildTemporarilyDisabledRuleIdsLocked(DateTimeOffset now)
+    {
         var disabledRuleIds = new HashSet<Guid>();
         foreach (var state in activeRuleLockouts.Values)
         {
@@ -10767,6 +11413,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             }
         }
 
+        disabledRuleIds.UnionWith(GetReversePairingHiddenRuleIdsLocked(now));
+
         if (IsSupporterOverrideSequenceActiveLocked(now))
         {
             disabledRuleIds.UnionWith(supporterOverrideBlockedRuleIds);
@@ -10778,6 +11426,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private bool TryGetTemporarilyDisabledUntilLocked(Guid ruleId, DateTimeOffset now, out DateTimeOffset temporarilyDisabledUntil)
     {
         RemoveExpiredLockoutsLocked(activeRuleLockouts, now);
+        RemoveExpiredLockoutsLocked(activeRuleUnlocks, now);
         RemoveExpiredLockoutsLocked(activeAvatarSwitchRuleLockouts, now);
 
         var blockedUntil = DateTimeOffset.MinValue;
@@ -10807,6 +11456,13 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             blockedUntil = supporterSuppressionUntil;
         }
 
+        if (IsRuleHiddenByReversePairingLocked(ruleId, now))
+        {
+            var nextPollAt = now.Add(ReversePairingHiddenPollDelay);
+            temporarilyDisabledUntil = blockedUntil > nextPollAt ? blockedUntil : nextPollAt;
+            return true;
+        }
+
         if (blockedUntil <= now)
         {
             temporarilyDisabledUntil = default;
@@ -10815,6 +11471,70 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
         temporarilyDisabledUntil = blockedUntil;
         return true;
+    }
+
+    private HashSet<Guid> GetReversePairingHiddenRuleIdsLocked(DateTimeOffset now)
+    {
+        if (activeConfiguration is null)
+        {
+            return [];
+        }
+
+        var unlockedRuleIds = new HashSet<Guid>();
+        foreach (var unlockState in activeRuleUnlocks.Values)
+        {
+            if (unlockState.ExpiresAt <= now)
+            {
+                continue;
+            }
+
+            foreach (var ruleId in unlockState.DisabledRuleIds)
+            {
+                unlockedRuleIds.Add(ruleId);
+            }
+        }
+
+        var hiddenRuleIds = new HashSet<Guid>();
+        foreach (var sourceRule in activeConfiguration.Rules)
+        {
+            if (sourceRule.SpecialRulePairingMode != SpecialRulePairingMode.ShowPairedWhileActive)
+            {
+                continue;
+            }
+
+            foreach (var pairedRuleId in sourceRule.TemporarilyDisabledRuleIds)
+            {
+                if (pairedRuleId != Guid.Empty
+                    && pairedRuleId != sourceRule.Id
+                    && !unlockedRuleIds.Contains(pairedRuleId))
+                {
+                    hiddenRuleIds.Add(pairedRuleId);
+                }
+            }
+        }
+
+        return hiddenRuleIds;
+    }
+
+    private bool IsRuleHiddenByReversePairingLocked(Guid ruleId, DateTimeOffset now)
+    {
+        if (activeConfiguration is null)
+        {
+            return false;
+        }
+
+        foreach (var unlockState in activeRuleUnlocks.Values)
+        {
+            if (unlockState.ExpiresAt > now && unlockState.DisabledRuleIds.Contains(ruleId))
+            {
+                return false;
+            }
+        }
+
+        return activeConfiguration.Rules.Any(sourceRule =>
+            sourceRule.SpecialRulePairingMode == SpecialRulePairingMode.ShowPairedWhileActive
+            && sourceRule.Id != ruleId
+            && sourceRule.TemporarilyDisabledRuleIds.Contains(ruleId));
     }
 
     private Guid[] GetMasterAvatarSwitchRuleIds(IReadOnlyList<TriggerRuleSnapshot> rules)
@@ -11985,7 +12705,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         !rule.IsGlobalOverride
         && rule.TriggerType == TwitchTriggerType.ChannelPoints
         && rule.SharedRewardChoiceEnabled
-        && rule.SharedRewardChoiceNumber > 0;
+        && rule.SharedRewardChoiceNumber > 0
+        && (rule.ActionType != OscActionType.SetTrigger || rule.UsesSharedNumberedOutfitReward);
 
     private static bool TryParseSharedRewardChoiceNumber(string? userInput, out int choiceNumber)
     {
@@ -14531,6 +15252,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             .Where(rule => rule.IsEnabled
                 && rule.TriggerType == TwitchTriggerType.ChannelPoints
                 && rule.ActionType == OscActionType.SetTrigger
+                && rule.UsesSharedNumberedOutfitReward
+                && rule.PostOutfitChoiceListToTwitchChat
                 && rule.SharedRewardChoiceEnabled
                 && rule.SharedRewardChoiceNumber > 0
                 && AvatarRuleActivationPolicy.IsRuleActiveForCurrentAvatar(
@@ -15663,6 +16386,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             thirdPartyChatEmoteIndex = new Dictionary<char, IReadOnlyList<ThirdPartyChatEmoteEntry>>();
             nextThirdPartyChatEmoteRefreshAt = DateTimeOffset.MinValue;
             activeRuleLockouts.Clear();
+            activeRuleUnlocks.Clear();
             activeAvatarSwitchRuleLockouts.Clear();
             activeAvatarScaleEffects.Clear();
             activeAvatarScaleHeightSessions.Clear();
@@ -15703,6 +16427,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 .Where(cancellation => cancellation is not null)
                 .Cast<CancellationTokenSource>()];
             avatarScaleSupporterGrowthStates.Clear();
+            avatarScaleFollowTriggeredUsers.Clear();
             queuedChatboxRelayMessages.Clear();
             nextChatboxRelayUnavailableLogAt = DateTimeOffset.MinValue;
             relayCancellation = chatboxRelayCancellation;
@@ -16693,6 +17418,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         IReadOnlyDictionary<string, OscObservedValue> PreTriggerSnapshotValues,
         DateTime PreTriggerLastWriteTimeUtc,
         string SourcePath,
+        SetTriggerRestoreMode RestoreMode,
         IReadOnlyList<string> ConfiguredRestoreAddresses);
 
     private sealed record SetTriggerRestoreResolution(

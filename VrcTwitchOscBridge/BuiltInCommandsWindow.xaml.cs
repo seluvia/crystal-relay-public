@@ -9,6 +9,8 @@ namespace VrcTwitchOscBridge;
 
 public partial class BuiltInCommandsWindow : Window
 {
+    private readonly MainWindowViewModel viewModel;
+
     public BuiltInCommandsWindow(AppTheme theme, MainWindowViewModel viewModel)
     {
         InitializeComponent();
@@ -16,6 +18,7 @@ public partial class BuiltInCommandsWindow : Window
         ThemeManager.ThemeChanged += OnThemeManagerThemeChanged;
         Closed += OnWindowClosed;
         DataContext = viewModel;
+        this.viewModel = viewModel;
         SelectWorldCommand();
     }
 
@@ -23,20 +26,59 @@ public partial class BuiltInCommandsWindow : Window
 
     private void OnTriggerInfoCommandButtonClicked(object sender, RoutedEventArgs e) => SelectTriggerInfoCommand();
 
+    private void OnChatControlCommandButtonClicked(object sender, RoutedEventArgs e) => SelectChatControl();
+
     private void SelectWorldCommand()
     {
         WorldCommandPanel.Visibility = Visibility.Visible;
         TriggerInfoCommandPanel.Visibility = Visibility.Collapsed;
+        ChatControlCommandPanel.Visibility = Visibility.Collapsed;
         WorldCommandButton.Opacity = 1;
         TriggerInfoCommandButton.Opacity = 0.72;
+        ChatControlCommandButton.Opacity = 0.72;
     }
 
     private void SelectTriggerInfoCommand()
     {
         WorldCommandPanel.Visibility = Visibility.Collapsed;
         TriggerInfoCommandPanel.Visibility = Visibility.Visible;
+        ChatControlCommandPanel.Visibility = Visibility.Collapsed;
         WorldCommandButton.Opacity = 0.72;
         TriggerInfoCommandButton.Opacity = 1;
+        ChatControlCommandButton.Opacity = 0.72;
+    }
+
+    private void SelectChatControl()
+    {
+        WorldCommandPanel.Visibility = Visibility.Collapsed;
+        TriggerInfoCommandPanel.Visibility = Visibility.Collapsed;
+        ChatControlCommandPanel.Visibility = Visibility.Visible;
+        WorldCommandButton.Opacity = 0.72;
+        TriggerInfoCommandButton.Opacity = 0.72;
+        ChatControlCommandButton.Opacity = 1;
+    }
+
+    private void OnAddRedeemGroupClicked(object sender, RoutedEventArgs e)
+    {
+        var dialog = new RedeemGroupEditorDialog(ThemeManager.CurrentTheme, viewModel, null);
+        dialog.ShowDialog();
+    }
+
+    private void OnEditRedeemGroupClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button button && button.Tag is RedeemGroup group)
+        {
+            var dialog = new RedeemGroupEditorDialog(ThemeManager.CurrentTheme, viewModel, group);
+            dialog.ShowDialog();
+        }
+    }
+
+    private void OnRemoveRedeemGroupClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button button && button.Tag is RedeemGroup group)
+        {
+            viewModel.RemoveRedeemGroup(group);
+        }
     }
 
     private void OnCloseButtonClicked(object sender, RoutedEventArgs e) => DialogResult = true;

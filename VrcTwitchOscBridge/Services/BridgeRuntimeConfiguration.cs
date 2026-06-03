@@ -34,6 +34,11 @@ public sealed record SupporterFloatAddRangeSnapshot(
     int MaximumAmount,
     string AddValue);
 
+public sealed record RedeemGroupSnapshot(
+    string Name,
+    string CommandText,
+    IReadOnlyList<Guid> AssignedRuleIds);
+
 public sealed record TriggerRuleSnapshot(
     Guid Id,
     bool IsEnabled,
@@ -107,8 +112,12 @@ public sealed record TriggerRuleSnapshot(
     bool SharedRewardChoiceEnabled,
     int SharedRewardChoiceNumber,
     string SharedRewardHelpText,
+    bool UsesSharedNumberedOutfitReward,
+    bool PostOutfitChoiceListToTwitchChat,
+    SetTriggerRestoreMode SetTriggerRestoreMode,
     string SupporterKeywordText,
     IReadOnlyList<SetTriggerActionSnapshot> SetTriggerActions,
+    SpecialRulePairingMode SpecialRulePairingMode,
     IReadOnlyList<Guid> TemporarilyDisabledRuleIds,
     string BotMessageTemplate);
 
@@ -283,6 +292,11 @@ public sealed record BridgeRuntimeConfiguration(
     bool AvatarChangeCooldownOnlyModeEnabled,
     bool EmergencyRedeemStopEnabled,
     bool DesktopModeInputLockEnabled,
+    bool PauseCommandEnabled,
+    string PauseCommandText,
+    bool RedeemGroupCommandEnabled,
+    bool RedeemControlCommandEnabled,
+    IReadOnlyList<RedeemGroupSnapshot> RedeemGroups,
     AvatarScaleMasterRewardSnapshot AvatarScaleMasterReward,
     CashPaymentConnectionSnapshot CashPayments,
     IReadOnlyList<TriggerRuleSnapshot> Rules,
@@ -406,6 +420,14 @@ public sealed record BridgeRuntimeConfiguration(
             settings.AvatarChangeCooldownOnlyModeEnabled,
             settings.EmergencyRedeemStopEnabled,
             settings.DesktopModeInputLockEnabled,
+            settings.PauseCommandEnabled,
+            ChatCommandUtility.Normalize(settings.PauseCommandText),
+            settings.RedeemGroupCommandEnabled,
+            settings.RedeemControlCommandEnabled,
+            [.. settings.RedeemGroups.Select(g => new RedeemGroupSnapshot(
+                g.Name,
+                ChatCommandUtility.Normalize(g.CommandText),
+                [.. g.AssignedRuleIds]))],
             ToAvatarScaleMasterRewardSnapshot(settings.AvatarScaleMasterReward),
             ToCashPaymentConnectionSnapshot(settings.CashPayments),
             rules.ToArray(),
@@ -591,9 +613,13 @@ public sealed record BridgeRuntimeConfiguration(
         AvatarTriggerProfile? profile,
         IReadOnlyDictionary<string, int>? linkedRewardCooldownSecondsById)
     {
-        var usesSetTriggerMasterReward = !isGlobalOverride
+        var usesSharedNumberedOutfitReward = !isGlobalOverride
             && rule.ActionType == OscActionType.SetTrigger
-            && profile is not null;
+            && profile?.UseSharedNumberedOutfitReward == true;
+        var usesSetTriggerMasterReward = usesSharedNumberedOutfitReward;
+        var postOutfitChoiceListToTwitchChat = !isGlobalOverride
+            && rule.ActionType == OscActionType.SetTrigger
+            && profile?.PostOutfitChoiceListToTwitchChat == true;
         var channelPointRewardId = usesSetTriggerMasterReward
             ? profile!.SetTriggerMasterRewardId.Trim()
             : rule.ChannelPointRewardId.Trim();
@@ -714,8 +740,14 @@ public sealed record BridgeRuntimeConfiguration(
             rule.SharedRewardChoiceEnabled,
             Math.Max(0, rule.SharedRewardChoiceNumber),
             rule.SharedRewardHelpText.Trim(),
+            usesSharedNumberedOutfitReward,
+            postOutfitChoiceListToTwitchChat,
+            Enum.IsDefined(rule.SetTriggerRestoreMode)
+                ? rule.SetTriggerRestoreMode
+                : SetTriggerRestoreMode.ConfiguredAndRelated,
             rule.SupporterKeywordText.Trim(),
             [.. rule.SetTriggerActions.Select(ToSetTriggerActionSnapshot).Where(action => HasAvatarParameterPath(action.ParameterName) && !string.IsNullOrWhiteSpace(action.ParameterValue))],
+            rule.SpecialRulePairingMode,
             [.. rule.TemporarilyDisabledRuleIds.Where(ruleId => ruleId != Guid.Empty).Distinct()],
             rule.BotMessageTemplate.Trim());
     }
@@ -1052,8 +1084,11 @@ public sealed record BridgeRuntimeConfiguration(
     private static bool IsLiveRuntimeReady(TriggerRule rule, AvatarTriggerProfile? profile, bool isGlobalOverride)
     {
         var hasChatCommandFallback = rule.ChatCommandEnabled && ChatCommandUtility.IsConfigured(rule.ChatCommandText);
-        var hasChannelPointRewardIdentity = rule.ActionType == OscActionType.SetTrigger && profile is not null
-            ? !string.IsNullOrWhiteSpace(profile.SetTriggerMasterRewardId)
+        var usesSharedSetTriggerReward = !isGlobalOverride
+            && rule.ActionType == OscActionType.SetTrigger
+            && profile?.UseSharedNumberedOutfitReward == true;
+        var hasChannelPointRewardIdentity = usesSharedSetTriggerReward
+            ? !string.IsNullOrWhiteSpace(profile!.SetTriggerMasterRewardId)
                 || !string.IsNullOrWhiteSpace(profile.SetTriggerMasterRewardTitle)
             : !string.IsNullOrWhiteSpace(rule.ChannelPointRewardId)
                 || !string.IsNullOrWhiteSpace(rule.ChannelPointRewardTitle);

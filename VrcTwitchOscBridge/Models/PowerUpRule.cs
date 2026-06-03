@@ -61,7 +61,7 @@ public sealed class PowerUpRule : ObservableObject
         get => name;
         set
         {
-            var normalizedValue = string.IsNullOrWhiteSpace(value) ? "New Power Up" : value.Trim();
+            var normalizedValue = value ?? string.Empty;
             if (SetProperty(ref name, normalizedValue))
             {
                 ActionRule.Name = normalizedValue;

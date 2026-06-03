@@ -327,7 +327,7 @@ public sealed class CashPaymentRule : ObservableObject
         get => name;
         set
         {
-            if (SetProperty(ref name, string.IsNullOrWhiteSpace(value) ? "New Cash Payment" : value.Trim()))
+            if (SetProperty(ref name, value ?? string.Empty))
             {
                 TriggerAction.Name = name;
                 ScaleAction.Name = name;

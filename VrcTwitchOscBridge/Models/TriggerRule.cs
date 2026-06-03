@@ -9,6 +9,19 @@ using Brush = System.Windows.Media.Brush;
 
 namespace VrcTwitchOscBridge.Models;
 
+public enum SpecialRulePairingMode
+{
+    HidePairedWhileActive,
+    ShowPairedWhileActive
+}
+
+public enum SetTriggerRestoreMode
+{
+    FullSafeDiff,
+    ConfiguredAndRelated,
+    ConfiguredOnly
+}
+
 public sealed class SupporterFloatAddRange : ObservableObject
 {
     private int minimumAmount = 1;
@@ -112,6 +125,8 @@ public sealed class TriggerRule : ObservableObject
     private string supporterFloatAddMaximumValue = "1";
     private ObservableCollection<SupporterFloatAddRange> supporterFloatAddRanges = [new()];
     private ObservableCollection<SetTriggerAction> setTriggerActions = [];
+    private SetTriggerRestoreMode setTriggerRestoreMode = SetTriggerRestoreMode.ConfiguredAndRelated;
+    private SpecialRulePairingMode specialRulePairingMode = SpecialRulePairingMode.HidePairedWhileActive;
     private ObservableCollection<Guid> temporarilyDisabledRuleIds = [];
     private string supporterAvatarScopeLabel = string.Empty;
 
@@ -499,11 +514,18 @@ public sealed class TriggerRule : ObservableObject
         get => actionType;
         set
         {
+            var previousActionType = actionType;
             if (SetProperty(ref actionType, value))
             {
                 if (value == OscActionType.SetTrigger)
                 {
                     SharedRewardChoiceEnabled = true;
+                    if (previousActionType != OscActionType.SetTrigger
+                        && setTriggerRestoreMode == SetTriggerRestoreMode.FullSafeDiff)
+                    {
+                        SetTriggerRestoreMode = SetTriggerRestoreMode.ConfiguredAndRelated;
+                    }
+
                     if (DurationSeconds <= 0)
                     {
                         DurationSeconds = 3;
@@ -1153,6 +1175,47 @@ public sealed class TriggerRule : ObservableObject
             {
                 temporarilyDisabledRuleIds.CollectionChanged += OnTemporarilyDisabledRuleIdsChanged;
                 RaisePropertyChanged(nameof(HasSpecialRuleLockouts));
+                RaisePropertyChanged(nameof(SpecialRulePairingBadgeText));
+            }
+        }
+    }
+
+    public SetTriggerRestoreMode SetTriggerRestoreMode
+    {
+        get => setTriggerRestoreMode;
+        set
+        {
+            var normalizedValue = Enum.IsDefined(value)
+                ? value
+                : SetTriggerRestoreMode.ConfiguredAndRelated;
+            if (SetProperty(ref setTriggerRestoreMode, normalizedValue))
+            {
+                RaiseSetTriggerRestoreModeProperties();
+            }
+        }
+    }
+
+    [JsonIgnore]
+    public bool SetTriggerAutoRestoreRelatedOutfitParameters
+    {
+        get => SetTriggerRestoreMode == SetTriggerRestoreMode.ConfiguredAndRelated;
+        set => SetTriggerRestoreMode = value
+            ? SetTriggerRestoreMode.ConfiguredAndRelated
+            : SetTriggerRestoreMode.ConfiguredOnly;
+    }
+
+    public SpecialRulePairingMode SpecialRulePairingMode
+    {
+        get => specialRulePairingMode;
+        set
+        {
+            var normalizedValue = Enum.IsDefined(value)
+                ? value
+                : SpecialRulePairingMode.HidePairedWhileActive;
+            if (SetProperty(ref specialRulePairingMode, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(HasSpecialRuleLockouts));
+                RaisePropertyChanged(nameof(SpecialRulePairingBadgeText));
             }
         }
     }
@@ -1227,6 +1290,10 @@ public sealed class TriggerRule : ObservableObject
 
     public bool HasSpecialRuleLockouts => TemporarilyDisabledRuleIds.Count > 0;
 
+    public string SpecialRulePairingBadgeText => SpecialRulePairingMode == SpecialRulePairingMode.ShowPairedWhileActive
+        ? T("Reveal pairing set")
+        : T("Disable pairing set");
+
     public bool HasConfiguredChatCommand => ChatCommandUtility.IsConfigured(ChatCommandText);
 
     public bool UsesSharedRewardChoice => UsesChannelPointReward && SharedRewardChoiceEnabled && SharedRewardChoiceNumber > 0;
@@ -1292,6 +1359,16 @@ public sealed class TriggerRule : ObservableObject
         : T("Shared reward choice not enabled");
 
     public string SetTriggerSummary => TF("Set Trigger ({0} params)", SetTriggerActions.Count);
+
+    public bool UsesLegacySetTriggerFullDiffRestore => SetTriggerRestoreMode == SetTriggerRestoreMode.FullSafeDiff;
+
+    public string SetTriggerRestoreModeSummary => SetTriggerRestoreMode switch
+    {
+        SetTriggerRestoreMode.FullSafeDiff => T("Legacy restore: restore the full safe changed outfit diff."),
+        SetTriggerRestoreMode.ConfiguredAndRelated => T("Restore listed parameters first, then related outfit toggles learned from VRChat."),
+        SetTriggerRestoreMode.ConfiguredOnly => T("Restore only the listed outfit parameters."),
+        _ => T("Restore listed parameters first, then related outfit toggles learned from VRChat.")
+    };
 
     public bool UsesTimedAction => DurationSeconds > 0;
 
@@ -1561,6 +1638,7 @@ public sealed class TriggerRule : ObservableObject
         RaisePropertyChanged(nameof(HasSetTriggerActions));
         RaisePropertyChanged(nameof(SetTriggerActionCount));
         RaisePropertyChanged(nameof(SetTriggerSummary));
+        RaiseSetTriggerRestoreModeProperties();
         RaisePropertyChanged(nameof(DurationHelpText));
         RaisePropertyChanged(nameof(IntModeHelpText));
     }
@@ -1613,6 +1691,7 @@ public sealed class TriggerRule : ObservableObject
     {
         RaisePropertyChanged(nameof(TemporarilyDisabledRuleIds));
         RaisePropertyChanged(nameof(HasSpecialRuleLockouts));
+        RaisePropertyChanged(nameof(SpecialRulePairingBadgeText));
     }
 
     private void OnAvatarRouletAvatarIdsChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -1713,6 +1792,15 @@ public sealed class TriggerRule : ObservableObject
         RaisePropertyChanged(nameof(SetTriggerActionCount));
         RaisePropertyChanged(nameof(SetTriggerSummary));
         RaisePropertyChanged(nameof(AvatarRedeemListSummary));
+        RaisePropertyChanged(nameof(TriggerSummary));
+    }
+
+    private void RaiseSetTriggerRestoreModeProperties()
+    {
+        RaisePropertyChanged(nameof(SetTriggerRestoreMode));
+        RaisePropertyChanged(nameof(SetTriggerAutoRestoreRelatedOutfitParameters));
+        RaisePropertyChanged(nameof(UsesLegacySetTriggerFullDiffRestore));
+        RaisePropertyChanged(nameof(SetTriggerRestoreModeSummary));
         RaisePropertyChanged(nameof(TriggerSummary));
     }
 

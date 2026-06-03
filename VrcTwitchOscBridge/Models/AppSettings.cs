@@ -53,6 +53,7 @@ public sealed class AppSettings : ObservableObject
     private string worldCommandText = "!world";
     private int worldCommandCooldownSeconds = 30;
     private ChatCommandPermission worldCommandPermission = ChatCommandPermission.Everyone;
+    private WorldCommandBlacklistSettings worldCommandBlacklist = new();
     private bool channelPointRewardTestModeEnabled;
     private bool avatarChangeCooldownOnlyModeEnabled;
     private bool emergencyRedeemStopEnabled;
@@ -65,6 +66,11 @@ public sealed class AppSettings : ObservableObject
     private string ignoredBetaUpdateBaseVersion = string.Empty;
     private AppLanguage language = AppLanguage.SystemDefault;
     private AppTheme theme = AppTheme.VoidCrystal;
+    private bool pauseCommandEnabled;
+    private string pauseCommandText = "!pause";
+    private bool redeemGroupCommandEnabled;
+    private bool redeemControlCommandEnabled;
+    private ObservableCollection<RedeemGroup> redeemGroups = [];
 
     public AppSettings()
     {
@@ -377,6 +383,12 @@ public sealed class AppSettings : ObservableObject
             Enum.IsDefined(value) ? value : ChatCommandPermission.Everyone);
     }
 
+    public WorldCommandBlacklistSettings WorldCommandBlacklist
+    {
+        get => worldCommandBlacklist;
+        set => SetProperty(ref worldCommandBlacklist, value ?? new WorldCommandBlacklistSettings());
+    }
+
     public bool ChannelPointRewardTestModeEnabled
     {
         get => channelPointRewardTestModeEnabled;
@@ -435,6 +447,36 @@ public sealed class AppSettings : ObservableObject
     {
         get => ignoredBetaUpdateBaseVersion;
         set => SetProperty(ref ignoredBetaUpdateBaseVersion, string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim());
+    }
+
+    public bool PauseCommandEnabled
+    {
+        get => pauseCommandEnabled;
+        set => SetProperty(ref pauseCommandEnabled, value);
+    }
+
+    public string PauseCommandText
+    {
+        get => pauseCommandText;
+        set => SetProperty(ref pauseCommandText, ChatCommandUtility.Normalize(value));
+    }
+
+    public bool RedeemGroupCommandEnabled
+    {
+        get => redeemGroupCommandEnabled;
+        set => SetProperty(ref redeemGroupCommandEnabled, value);
+    }
+
+    public bool RedeemControlCommandEnabled
+    {
+        get => redeemControlCommandEnabled;
+        set => SetProperty(ref redeemControlCommandEnabled, value);
+    }
+
+    public ObservableCollection<RedeemGroup> RedeemGroups
+    {
+        get => redeemGroups;
+        set => SetProperty(ref redeemGroups, value ?? []);
     }
 
     private void WireCustomTheme(CustomThemeSettings settings)

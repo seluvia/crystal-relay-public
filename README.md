@@ -79,6 +79,11 @@ Crystal Relay connects Twitch events to VRChat through local OSC and OSCQuery co
 
 Recent releases include larger systems shaped by streamer feedback:
 
+- **Power Up Redeem Library**: Twitch Custom Power-ups paid with Bits can link existing Twitch rewards, run OSC actions, Avatar Change, Avatar Roulette, movement, and Avatar Scaling without interfering with normal cheers.
+- **Twitch Chatbox Activity + Moderation drawer**: quick timeouts, ban, purge, message delete, and suspicious-user controls alongside recent activity and chatter badges.
+- **Protected World Guard**: always-on world protection managed through a secure web admin panel with date pickers, search, and name labels for guarded worlds and creators.
+- **Bits/Subs Add float mode**: supporter rules can add to the current float avatar parameter by amount ranges while clamping to a configured maximum.
+- **Follow-type Avatar Scale fix**: repeated unfollow/refollow cycles no longer re-trigger the same scale rule.
 - **Cash Payments and Ko-fi hosted relay**: StreamElements, Streamlabs, and Ko-fi tips can trigger Crystal Relay actions, and Ko-fi can use a Crystal Relay relay so streamers do not need Cloudflare Tunnel, ngrok, router forwarding, or a public local webhook.
 - **Reward Fire Sale**: builds a Bits or channel-point funding goal, then discounts Crystal Relay-owned `VRC:` rewards by the reached tier.
 - **Fire Sale funding reward**: optional dedicated `VRC: Fire Sale Fund` reward with editable point-to-progress conversion, cooldown, and ready/cooldown colors.

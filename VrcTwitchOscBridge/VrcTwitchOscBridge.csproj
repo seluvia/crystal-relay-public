@@ -45,6 +45,7 @@
     <Page Include="AvatarRouletPickerWindow.xaml" />
     <Page Include="VrChatLoginWindow.xaml" />
     <Page Include="VrChatTwoFactorWindow.xaml" />
+    <Page Include="RedeemGroupEditorDialog.xaml" />
     <Resource Include="Assets\crystal-relay-icon.ico" />
     <Resource Include="Assets\crystal-relay-icon.png" />
     <Resource Include="Assets\bubblegum-cuddles.png" />
@@ -79,6 +80,7 @@
     <Compile Include="AvatarRouletPickerWindow.xaml.cs" />
     <Compile Include="VrChatLoginWindow.xaml.cs" />
     <Compile Include="VrChatTwoFactorWindow.xaml.cs" />
+    <Compile Include="RedeemGroupEditorDialog.xaml.cs" />
     <Compile Include="Infrastructure\AsyncRelayCommand.cs" />
     <Compile Include="Infrastructure\ObservableObject.cs" />
     <Compile Include="Infrastructure\RelayCommand.cs" />
@@ -98,6 +100,7 @@
     <Compile Include="Models\OscParameterType.cs" />
     <Compile Include="Models\PlayerMovementDirection.cs" />
     <Compile Include="Models\PowerUpRule.cs" />
+    <Compile Include="Models\RedeemGroup.cs" />
     <Compile Include="Models\RewardFireSaleSettings.cs" />
     <Compile Include="Models\SetTriggerAction.cs" />
     <Compile Include="Models\TriggerRule.cs" />
@@ -112,6 +115,7 @@
     <Compile Include="Models\VrChatAvatarSummary.cs" />
     <Compile Include="Models\VrChatOscParameterSummary.cs" />
     <Compile Include="Models\VrChatTwoFactorMethod.cs" />
+    <Compile Include="Models\WorldCommandBlacklistSettings.cs" />
     <Compile Include="Services\AppDataPaths.cs" />
     <Compile Include="Services\ApplicationSelfUpdateService.cs" />
     <Compile Include="Services\ApplicationUpdateService.cs" />
@@ -152,6 +156,7 @@
     <Compile Include="Services\VrChatLocalOscCacheService.cs" />
     <Compile Include="Services\VrChatOscClient.cs" />
     <Compile Include="Services\WindowsCredentialStore.cs" />
+    <Compile Include="Services\WorldCommandBlacklistService.cs" />
     <Compile Include="ViewModels\MainWindowViewModel.cs" />
   </ItemGroup>
   <ItemGroup>

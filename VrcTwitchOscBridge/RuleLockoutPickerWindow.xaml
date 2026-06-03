@@ -10,7 +10,7 @@
         MinWidth="820"
         MinHeight="700"
         WindowStyle="None"
-        ResizeMode="NoResize"
+        ResizeMode="CanResizeWithGrip"
         WindowStartupLocation="CenterOwner"
         FontFamily="{DynamicResource BodyFontFamily}"
         UseLayoutRounding="True"
@@ -20,7 +20,7 @@
         <shell:WindowChrome CaptionHeight="0"
                             CornerRadius="0"
                             GlassFrameThickness="0"
-                            ResizeBorderThickness="0"
+                            ResizeBorderThickness="6"
                             UseAeroCaptionButtons="False" />
     </shell:WindowChrome.WindowChrome>
     <Window.Resources>
@@ -153,6 +153,53 @@
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Padding" Value="8" />
         </Style>
+
+        <Style TargetType="RadioButton">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Margin" Value="0,8,18,0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border x:Name="OuterMark"
+                                    Width="18"
+                                    Height="18"
+                                    Margin="0,1,9,0"
+                                    VerticalAlignment="Top"
+                                    CornerRadius="9"
+                                    BorderBrush="{DynamicResource InputBorderBrush}"
+                                    BorderThickness="2"
+                                    Background="{DynamicResource InputBrush}">
+                                <Ellipse x:Name="InnerMark"
+                                         Width="8"
+                                         Height="8"
+                                         HorizontalAlignment="Center"
+                                         VerticalAlignment="Center"
+                                         Fill="{DynamicResource AccentBrush}"
+                                         Visibility="Collapsed" />
+                            </Border>
+                            <ContentPresenter Grid.Column="1"
+                                              VerticalAlignment="Top"
+                                              RecognizesAccessKey="True" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="OuterMark" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                <Setter TargetName="InnerMark" Property="Visibility" Value="Visible" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.5" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <Border Margin="1"
@@ -218,6 +265,7 @@
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
@@ -241,12 +289,35 @@
                                 BorderBrush="{DynamicResource BorderBrush}"
                                 BorderThickness="1"
                                 CornerRadius="16">
-                            <TextBlock Text="{loc:Translate 'Choose sibling redeems from this avatar set. While the current redeem is active, Crystal Relay will disable the paired redeems on Twitch and block them in the app until the timer ends.'}"
+                            <TextBlock x:Name="GuidanceTextBlock"
+                                       Text="{loc:Translate 'Choose sibling redeems from this avatar set. While the current redeem is active, Crystal Relay will disable the paired redeems on Twitch and block them in the app until the timer ends.'}"
                                        Foreground="{DynamicResource TextBrush}"
                                        TextWrapping="Wrap" />
                         </Border>
 
-                        <Grid Grid.Row="2"
+                        <Border x:Name="ModeSelectorPanel"
+                                Grid.Row="2"
+                                Margin="0,14,0,0"
+                                Padding="14,12"
+                                Background="{DynamicResource PanelSecondaryBrush}"
+                                BorderBrush="{DynamicResource BorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="16"
+                                Visibility="Collapsed">
+                            <StackPanel>
+                                <TextBlock Text="{loc:Translate 'Pairing Mode'}"
+                                           Foreground="{DynamicResource TextBrush}"
+                                           FontWeight="SemiBold" />
+                                <RadioButton x:Name="HidePairedRadioButton"
+                                             Content="{loc:Translate 'Hide paired redeems while this redeem is active'}"
+                                             Checked="OnPairingModeChanged" />
+                                <RadioButton x:Name="ShowPairedRadioButton"
+                                             Content="{loc:Translate 'Show paired redeems only while this redeem is active'}"
+                                             Checked="OnPairingModeChanged" />
+                            </StackPanel>
+                        </Border>
+
+                        <Grid Grid.Row="3"
                               Margin="0,20,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
@@ -260,7 +331,6 @@
                                            FontWeight="SemiBold" />
                                 <ListBox x:Name="AvailableListBox"
                                          Margin="0,10,0,0"
-                                         Height="280"
                                          DisplayMemberPath="Label"
                                          SelectionChanged="OnSelectionChanged" />
                                 <TextBlock x:Name="AvailableEmptyTextBlock"
@@ -277,12 +347,12 @@
                             </StackPanel>
 
                             <StackPanel Grid.Column="2">
-                                <TextBlock Text="{loc:Translate 'Currently Turned Off While Active'}"
+                                <TextBlock x:Name="ConfiguredHeadingTextBlock"
+                                           Text="{loc:Translate 'Currently Turned Off While Active'}"
                                            Foreground="{DynamicResource TextBrush}"
                                            FontWeight="SemiBold" />
                                 <ListBox x:Name="ConfiguredListBox"
                                          Margin="0,10,0,0"
-                                         Height="280"
                                          DisplayMemberPath="Label"
                                          SelectionChanged="OnSelectionChanged" />
                                 <TextBlock x:Name="ConfiguredEmptyTextBlock"
@@ -299,7 +369,7 @@
                             </StackPanel>
                         </Grid>
 
-                        <StackPanel Grid.Row="3"
+                        <StackPanel Grid.Row="4"
                                     Margin="0,22,0,0"
                                     Orientation="Horizontal"
                                     HorizontalAlignment="Right">

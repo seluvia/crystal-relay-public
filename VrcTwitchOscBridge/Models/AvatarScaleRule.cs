@@ -100,7 +100,7 @@ public sealed class AvatarScaleMasterRewardSettings : ObservableObject
     public string RewardTitle
     {
         get => rewardTitle;
-        set => SetProperty(ref rewardTitle, string.IsNullOrWhiteSpace(value) ? "Avatar Scaling" : value.Trim());
+        set => SetProperty(ref rewardTitle, value ?? string.Empty);
     }
 
     public string RewardDescription
@@ -235,7 +235,7 @@ public sealed class AvatarScaleSet : ObservableObject
         get => name;
         set
         {
-            if (SetProperty(ref name, string.IsNullOrWhiteSpace(value) ? "Default Scale Set" : value.Trim()))
+            if (SetProperty(ref name, value ?? string.Empty))
             {
                 RaisePropertyChanged(nameof(DisplayTitle));
             }
@@ -363,7 +363,7 @@ public sealed class AvatarScaleRule : ObservableObject
     public string Name
     {
         get => name;
-        set => SetAndRaiseSummary(ref name, string.IsNullOrWhiteSpace(value) ? "New Avatar Scale" : value.Trim());
+        set => SetAndRaiseSummary(ref name, value ?? string.Empty);
     }
 
     public AvatarScaleTriggerType TriggerType
