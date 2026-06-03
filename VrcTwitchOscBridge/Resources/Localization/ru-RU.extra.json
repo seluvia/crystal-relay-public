@@ -869,5 +869,15 @@
   "Protected world guard returned an invalid status. World sharing will stay protected.": "Защищённая стража миров вернула неверный статус. Публикация миров останется защищённой.",
   "Protected World Guard is always active and cannot be disabled.": "Защищённая стража миров всегда активна и не может быть отключена.",
   "Protected world list settings changed. Checking the guard...": "Настройки списка защищённых миров изменены. Проверка стражи...",
-  "This VRChat world is protected for this reason: {0}. Crystal Relay is not sharing the world link.": "Этот мир VRChat защищён по причине: {0}. Crystal Relay не публикует ссылку на мир."
+  "This VRChat world is protected for this reason: {0}. Crystal Relay is not sharing the world link.": "Этот мир VRChat защищён по причине: {0}. Crystal Relay не публикует ссылку на мир.",
+  "Pick Avatar | Crystal Relay": "Выбор аватара | Crystal Relay",
+  "Pick Avatar": "Выбор аватара",
+  "Choose an Avatar": "Выбери аватар",
+  "Browse...": "Обзор...",
+  "Grid View": "Сетка",
+  "List View": "Список",
+  "Search avatars...": "Поиск аватаров...",
+  "Select": "Выбрать",
+  "OK": "OK",
+  "Cancel": "Отмена"
 }

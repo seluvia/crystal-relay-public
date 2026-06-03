@@ -869,5 +869,15 @@
   "Protected World Guard is always active and cannot be disabled.": "保護ワールドガードは常に有効で、無効にすることはできません。",
   "Protected world list settings changed. Checking the guard...": "保護ワールドリストの設定が変更されました。ガードを確認中...",
   "Protected World Guard": "保護ワールドガード",
-  "This VRChat world is protected for this reason: {0}. Crystal Relay is not sharing the world link.": "このVRChatワールドは以下の理由で保護されています: {0}。Crystal Relayはワールドリンクを共有していません。"
+  "This VRChat world is protected for this reason: {0}. Crystal Relay is not sharing the world link.": "このVRChatワールドは以下の理由で保護されています: {0}。Crystal Relayはワールドリンクを共有していません。",
+  "Pick Avatar | Crystal Relay": "アバターを選択 | Crystal Relay",
+  "Pick Avatar": "アバターを選択",
+  "Choose an Avatar": "アバターを選んで",
+  "Browse...": "参照...",
+  "Grid View": "グリッド表示",
+  "List View": "リスト表示",
+  "Search avatars...": "アバターを検索...",
+  "Select": "選択",
+  "OK": "OK",
+  "Cancel": "キャンセル"
 }

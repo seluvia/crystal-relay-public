@@ -873,5 +873,15 @@
   "Protected World Guard is always active and cannot be disabled.": "ยามปกป้องโลกเปิดใช้งานตลอดเวลาและไม่สามารถปิดได้",
   "Protected world list settings changed. Checking the guard...": "การตั้งค่ารายชื่อโลกที่ได้รับการปกป้องเปลี่ยนแล้ว กำลังตรวจสอบยาม...",
   "This VRChat world is protected for this reason: {0}. Crystal Relay is not sharing the world link.": "โลก VRChat นี้ได้รับการปกป้องด้วยเหตุผลนี้: {0} Crystal Relay ไม่ได้แชร์ลิงก์โลก",
-  "Protected World Guard": "ยามปกป้องโลก"
+  "Protected World Guard": "ยามปกป้องโลก",
+  "Pick Avatar | Crystal Relay": "เลือกอวาตาร์ | Crystal Relay",
+  "Pick Avatar": "เลือกอวาตาร์",
+  "Choose an Avatar": "เลือกอวาตาร์",
+  "Browse...": "เรียกดู...",
+  "Grid View": "มุมมองตาราง",
+  "List View": "มุมมองรายการ",
+  "Search avatars...": "ค้นหาอวาตาร์...",
+  "Select": "เลือก",
+  "OK": "ตกลง",
+  "Cancel": "ยกเลิก"
 }

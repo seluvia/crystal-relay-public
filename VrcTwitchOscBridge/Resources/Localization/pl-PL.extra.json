@@ -917,5 +917,15 @@
   "Chat send delay (seconds)": "Opóźnienie wysyłania czatu (sekundy)",
   "Use Chat Send": "Użyj wysyłania czatu",
   "Chat send is disabled.": "Wysyłanie czatu jest wyłączone.",
-  "Chat send is enabled.": "Wysyłanie czatu jest włączone."
+  "Chat send is enabled.": "Wysyłanie czatu jest włączone.",
+  "Pick Avatar | Crystal Relay": "Wybierz awatar | Crystal Relay",
+  "Pick Avatar": "Wybierz awatar",
+  "Choose an Avatar": "Wybierz awatar",
+  "Browse...": "Przeglądaj...",
+  "Grid View": "Widok siatki",
+  "List View": "Widok listy",
+  "Search avatars...": "Szukaj awatarów...",
+  "Select": "Wybierz",
+  "OK": "OK",
+  "Cancel": "Anuluj"
 }

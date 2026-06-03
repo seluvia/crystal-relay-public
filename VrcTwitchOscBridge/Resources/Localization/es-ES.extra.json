@@ -868,5 +868,15 @@
   "This VRChat world is protected for this reason: {0}. Crystal Relay is not sharing the world link.": "Este mundo de VRChat está protegido por esta razón: {0}. Crystal Relay no está compartiendo el enlace del mundo.",
   "# [VRChat User ID] - [MM/DD/YYYY - MM/DD/YYYY] [Reason]": "# [ID de usuario VRChat] - [MM/DD/AAAA - MM/DD/AAAA] [Razón]",
   "# [World ID] - [Reason]": "# [ID de mundo] - [Razón]",
-  "Branch / Ref": "Branch / Ref"
+  "Branch / Ref": "Branch / Ref",
+  "Pick Avatar | Crystal Relay": "Elegir avatar | Crystal Relay",
+  "Pick Avatar": "Elegir avatar",
+  "Choose an Avatar": "Elige un avatar",
+  "Browse...": "Explorar...",
+  "Grid View": "Vista de cuadrícula",
+  "List View": "Vista de lista",
+  "Search avatars...": "Buscar avatares...",
+  "Select": "Seleccionar",
+  "OK": "Aceptar",
+  "Cancel": "Cancelar"
 }

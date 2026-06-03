@@ -867,5 +867,17 @@
   "Protected world guard returned an invalid status. World sharing will stay protected.": "Protected world guard returned an invalid status. World sharing will stay protected.",
   "Protected World Guard is always active and cannot be disabled.": "Protected World Guard is always active and cannot be disabled.",
   "Protected world list settings changed. Checking the guard...": "Protected world list settings changed. Checking the guard...",
-  "This VRChat world is protected for this reason: {0}. Crystal Relay is not sharing the world link.": "This VRChat world is protected for this reason: {0}. Crystal Relay is not sharing the world link."
+  "This VRChat world is protected for this reason: {0}. Crystal Relay is not sharing the world link.": "This VRChat world is protected for this reason: {0}. Crystal Relay is not sharing the world link.",
+  "Loading Crystal Relay...": "Loading Crystal Relay...",
+  "Preparing your workspace...": "Preparing your workspace...",
+  "Pick Avatar | Crystal Relay": "Pick Avatar | Crystal Relay",
+  "Pick Avatar": "Pick Avatar",
+  "Choose an Avatar": "Choose an Avatar",
+  "Browse...": "Browse...",
+  "Grid View": "Grid View",
+  "List View": "List View",
+  "Search avatars...": "Search avatars...",
+  "Select": "Select",
+  "OK": "OK",
+  "Cancel": "Cancel"
 }

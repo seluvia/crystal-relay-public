@@ -868,5 +868,15 @@
   "Protected world guard returned an invalid status. World sharing will stay protected.": "보호 월드 가드가 잘못된 상태를 반환했습니다. 월드 공유는 보호 상태를 유지합니다.",
   "Protected World Guard is always active and cannot be disabled.": "보호 월드 가드는 항상 활성화되어 있으며 비활성화할 수 없습니다.",
   "Protected world list settings changed. Checking the guard...": "보호된 월드 목록 설정이 변경되었습니다. 가드 확인 중...",
-  "This VRChat world is protected for this reason: {0}. Crystal Relay is not sharing the world link.": "이 VRChat 월드는 다음 이유로 보호됩니다: {0}. Crystal Relay가 월드 링크를 공유하지 않습니다."
+  "This VRChat world is protected for this reason: {0}. Crystal Relay is not sharing the world link.": "이 VRChat 월드는 다음 이유로 보호됩니다: {0}. Crystal Relay가 월드 링크를 공유하지 않습니다.",
+  "Pick Avatar | Crystal Relay": "아바타 선택 | Crystal Relay",
+  "Pick Avatar": "아바타 선택",
+  "Choose an Avatar": "아바타를 선택해",
+  "Browse...": "찾아보기...",
+  "Grid View": "그리드 보기",
+  "List View": "목록 보기",
+  "Search avatars...": "아바타 검색...",
+  "Select": "선택",
+  "OK": "확인",
+  "Cancel": "취소"
 }

@@ -869,5 +869,15 @@
   "Protected world guard returned an invalid status. World sharing will stay protected.": "A guarda de mundos protegidos retornou um status inválido. O compartilhamento de mundo permanecerá protegido.",
   "Protected World Guard is always active and cannot be disabled.": "A guarda de mundos protegidos está sempre ativa e não pode ser desativada.",
   "Protected world list settings changed. Checking the guard...": "As configurações da lista de mundos protegidos foram alteradas. Verificando a guarda...",
-  "This VRChat world is protected for this reason: {0}. Crystal Relay is not sharing the world link.": "Este mundo VRChat está protegido por este motivo: {0}. O Crystal Relay não está compartilhando o link do mundo."
+  "This VRChat world is protected for this reason: {0}. Crystal Relay is not sharing the world link.": "Este mundo VRChat está protegido por este motivo: {0}. O Crystal Relay não está compartilhando o link do mundo.",
+  "Pick Avatar | Crystal Relay": "Escolher avatar | Crystal Relay",
+  "Pick Avatar": "Escolher avatar",
+  "Choose an Avatar": "Escolha um avatar",
+  "Browse...": "Navegar...",
+  "Grid View": "Visualização em grade",
+  "List View": "Visualização em lista",
+  "Search avatars...": "Pesquisar avatares...",
+  "Select": "Selecionar",
+  "OK": "OK",
+  "Cancel": "Cancelar"
 }

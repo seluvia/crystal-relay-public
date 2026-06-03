@@ -1170,5 +1170,15 @@
   "Protected world list settings changed. Checking the guard...":
     "Inställningar för lista över skyddade världar ändrade. Kontrollerar vakten...",
   "This VRChat world is protected for this reason: {0}. Crystal Relay is not sharing the world link.":
-    "Denna VRChat-värld är skyddad av denna anledning: {0}. Crystal Relay delar inte världslänken."
+    "Denna VRChat-värld är skyddad av denna anledning: {0}. Crystal Relay delar inte världslänken.",
+  "Pick Avatar | Crystal Relay": "Välj avatar | Crystal Relay",
+  "Pick Avatar": "Välj avatar",
+  "Choose an Avatar": "Välj en avatar",
+  "Browse...": "Bläddra...",
+  "Grid View": "Rutnätsvy",
+  "List View": "Listvy",
+  "Search avatars...": "Sök avatarer...",
+  "Select": "Välj",
+  "OK": "OK",
+  "Cancel": "Avbryt"
 }

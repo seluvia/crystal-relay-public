@@ -869,5 +869,15 @@
   "Protected world guard returned an invalid status. World sharing will stay protected.": "受保護世界守衛傳回了無效狀態。世界分享將保持受保護狀態。",
   "Protected World Guard is always active and cannot be disabled.": "受保護世界守衛始終處於活動狀態，無法停用。",
   "Protected world list settings changed. Checking the guard...": "受保護世界清單設定已變更。正在檢查守衛...",
-  "This VRChat world is protected for this reason: {0}. Crystal Relay is not sharing the world link.": "此 VRChat 世界因以下原因受保護：{0}。Crystal Relay 不會分享世界連結。"
+  "This VRChat world is protected for this reason: {0}. Crystal Relay is not sharing the world link.": "此 VRChat 世界因以下原因受保護：{0}。Crystal Relay 不會分享世界連結。",
+  "Pick Avatar | Crystal Relay": "選擇頭像 | Crystal Relay",
+  "Pick Avatar": "選擇頭像",
+  "Choose an Avatar": "選擇一個頭像",
+  "Browse...": "瀏覽...",
+  "Grid View": "網格檢視",
+  "List View": "列表檢視",
+  "Search avatars...": "搜尋頭像...",
+  "Select": "選擇",
+  "OK": "確定",
+  "Cancel": "取消"
 }
