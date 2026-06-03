@@ -43,6 +43,7 @@
     <Page Include="ThemedDialogWindow.xaml" />
     <Page Include="RuleLockoutPickerWindow.xaml" />
     <Page Include="AvatarRouletPickerWindow.xaml" />
+    <Page Include="AvatarPickerWindow.xaml" />
     <Page Include="VrChatLoginWindow.xaml" />
     <Page Include="VrChatTwoFactorWindow.xaml" />
     <Page Include="RedeemGroupEditorDialog.xaml" />
@@ -78,6 +79,8 @@
     <Compile Include="ThemedDialogWindow.xaml.cs" />
     <Compile Include="RuleLockoutPickerWindow.xaml.cs" />
     <Compile Include="AvatarRouletPickerWindow.xaml.cs" />
+    <Compile Include="AvatarPickerWindow.xaml.cs" />
+    <Compile Include="Converters.cs" />
     <Compile Include="VrChatLoginWindow.xaml.cs" />
     <Compile Include="VrChatTwoFactorWindow.xaml.cs" />
     <Compile Include="RedeemGroupEditorDialog.xaml.cs" />
@@ -120,6 +123,7 @@
     <Compile Include="Models\WorldCommandBlacklistSettings.cs" />
     <Compile Include="Services\AppDataPaths.cs" />
     <Compile Include="Services\AvatarImageService.cs" />
+    <Compile Include="Services\AvatarPickerService.cs" />
     <Compile Include="Services\ApplicationSelfUpdateService.cs" />
     <Compile Include="Services\ApplicationUpdateService.cs" />
     <Compile Include="Services\BridgeAccountRole.cs" />
