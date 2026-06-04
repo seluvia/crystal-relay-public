@@ -281,6 +281,36 @@
             </Setter>
         </Style>
 
+        <Style x:Key="TitleBarManageButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="40" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="Background" Value="{DynamicResource TitleBarButtonBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TitleBarTextBrush}" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="TitleBarManageBorder"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="8">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="TitleBarManageBorder" Property="Background" Value="{DynamicResource TitleBarCloseHoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="TitleBarManageBorder" Property="Background" Value="{DynamicResource TitleBarClosePressedBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="IconButtonStyle" TargetType="Button">
             <Setter Property="Width" Value="36" />
             <Setter Property="Height" Value="36" />
@@ -514,6 +544,7 @@
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
                     <DockPanel VerticalAlignment="Center">
@@ -537,6 +568,15 @@
                     </DockPanel>
 
                     <Button Grid.Column="1"
+                            Style="{StaticResource TitleBarManageButtonStyle}"
+                            Click="OnManageButtonClicked">
+                        <TextBlock Text="&#x2699;"
+                                   FontSize="14"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TitleBarTextBrush}" />
+                    </Button>
+
+                    <Button Grid.Column="2"
                             Style="{StaticResource TitleBarCloseButtonStyle}"
                             Click="OnCloseButtonClicked">
                         <TextBlock Text="&#x2715;"
@@ -557,6 +597,7 @@
                         Padding="22">
                     <Grid>
                         <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
@@ -613,8 +654,42 @@
                             </StackPanel>
                         </Grid>
 
+                        <!-- Filter Bar -->
+                        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
+                            <TextBlock Text="{loc:Translate 'Group:'}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <ComboBox Width="150"
+                                      ItemsSource="{Binding Library.Groups}"
+                                      SelectedValue="{Binding SelectedFilterGroupId, UpdateSourceTrigger=PropertyChanged}"
+                                      SelectedValuePath="Id"
+                                      DisplayMemberPath="Name"
+                                      Margin="0,0,16,0">
+                                <ComboBox.Style>
+                                    <Style TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+                                        <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+                                        <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+                                        <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                    </Style>
+                                </ComboBox.Style>
+                            </ComboBox>
+
+                            <TextBlock Text="{loc:Translate 'Tag:'}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <ComboBox Width="150"
+                                      ItemsSource="{Binding Library.Tags}"
+                                      SelectedValue="{Binding SelectedFilterTagId, UpdateSourceTrigger=PropertyChanged}"
+                                      SelectedValuePath="Id"
+                                      DisplayMemberPath="Name">
+                                <ComboBox.Style>
+                                    <Style TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+                                        <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+                                        <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+                                        <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                    </Style>
+                                </ComboBox.Style>
+                            </ComboBox>
+                        </StackPanel>
+
                         <!-- Avatar Display Area -->
-                        <ScrollViewer Grid.Row="2"
+                        <ScrollViewer Grid.Row="3"
                                       Margin="0,20,0,0"
                                       VerticalScrollBarVisibility="Auto"
                                       HorizontalScrollBarVisibility="Disabled">
@@ -642,7 +717,7 @@
                         </ScrollViewer>
 
                         <!-- Bottom Bar -->
-                        <Grid Grid.Row="3"
+                        <Grid Grid.Row="4"
                               Margin="0,22,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />

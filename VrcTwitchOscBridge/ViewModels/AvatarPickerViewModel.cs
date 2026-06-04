@@ -12,6 +12,8 @@ public sealed class AvatarPickerViewModel : ObservableObject
     private readonly AvatarLibrary? avatarLibrary;
     private string searchText = string.Empty;
     private AvatarPickerViewMode viewMode = AvatarPickerViewMode.Grid;
+    private string? selectedFilterGroupId;
+    private string? selectedFilterTagId;
     private string? selectedAvatarId;
     private string? selectedAvatarName;
     private bool isMultiSelectMode;
@@ -94,6 +96,34 @@ public sealed class AvatarPickerViewModel : ObservableObject
         }
     }
 
+    public string? SelectedFilterGroupId
+    {
+        get => selectedFilterGroupId;
+        set
+        {
+            if (SetProperty(ref selectedFilterGroupId, value))
+            {
+                ApplyFilter();
+            }
+        }
+    }
+
+    public string? SelectedFilterTagId
+    {
+        get => selectedFilterTagId;
+        set
+        {
+            if (SetProperty(ref selectedFilterTagId, value))
+            {
+                ApplyFilter();
+            }
+        }
+    }
+
+    public AvatarLibrary? Library => avatarLibrary;
+
+    public void RefreshFilter() => ApplyFilter();
+
     public bool IsMultiSelectMode => isMultiSelectMode;
     public bool CanConfirm => isMultiSelectMode ? SelectedMultiAvatarIds.Count > 0 : !string.IsNullOrWhiteSpace(selectedAvatarId);
     public string SelectedAvatarDisplayName => selectedAvatarName ?? "No avatar selected";
@@ -127,10 +157,40 @@ public sealed class AvatarPickerViewModel : ObservableObject
 
         foreach (var avatar in AllAvatars)
         {
-            if (string.IsNullOrWhiteSpace(search) || avatar.SearchText.Contains(search, StringComparison.OrdinalIgnoreCase))
+            if (!string.IsNullOrWhiteSpace(search))
             {
-                FilteredAvatars.Add(avatar);
+                var entry = avatarLibrary?.GetEntry(avatar.Id);
+                var groupNames = entry?.GroupIds
+                    .Select(id => avatarLibrary?.Groups.FirstOrDefault(g => g.Id == id)?.Name)
+                    .Where(n => n is not null)
+                    .Select(n => n!.ToLowerInvariant())
+                    .ToList() ?? [];
+                var tagNames = entry?.TagIds
+                    .Select(id => avatarLibrary?.Tags.FirstOrDefault(t => t.Id == id)?.Name)
+                    .Where(n => n is not null)
+                    .Select(n => n!.ToLowerInvariant())
+                    .ToList() ?? [];
+
+                var matchesSearch = avatar.SearchText.Contains(search, StringComparison.OrdinalIgnoreCase)
+                    || groupNames.Any(n => n.Contains(search, StringComparison.OrdinalIgnoreCase))
+                    || tagNames.Any(n => n.Contains(search, StringComparison.OrdinalIgnoreCase));
+
+                if (!matchesSearch) continue;
             }
+
+            if (!string.IsNullOrWhiteSpace(selectedFilterGroupId))
+            {
+                var entry = avatarLibrary?.GetEntry(avatar.Id);
+                if (entry?.GroupIds.Contains(selectedFilterGroupId) != true) continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(selectedFilterTagId))
+            {
+                var entry = avatarLibrary?.GetEntry(avatar.Id);
+                if (entry?.TagIds.Contains(selectedFilterTagId) != true) continue;
+            }
+
+            FilteredAvatars.Add(avatar);
         }
 
         RaisePropertyChanged(nameof(FilteredCountText));

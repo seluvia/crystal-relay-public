@@ -10,18 +10,22 @@ namespace VrcTwitchOscBridge;
 public partial class AvatarPickerWindow : Window
 {
     private readonly AvatarPickerViewModel viewModel;
+    private readonly AvatarImageService imageService;
+    private AvatarLibraryManagerWindow? managerWindow;
 
     public AvatarPickerWindow(
         AppTheme theme,
         IReadOnlyList<VrChatAvatarSummary> avatars,
-        AvatarImageService imageService,
+        AvatarImageService imageSvc,
         AvatarLibrary? avatarLibrary = null,
         string? currentAvatarId = null,
         IReadOnlyList<string>? multiSelectCurrentIds = null)
     {
+        this.imageService = imageSvc;
+
         viewModel = new AvatarPickerViewModel(
             avatars,
-            imageService,
+            imageSvc,
             avatarLibrary,
             currentAvatarId,
             multiSelectCurrentIds);
@@ -59,6 +63,32 @@ public partial class AvatarPickerWindow : Window
     {
         DialogResult = false;
         Close();
+    }
+
+    private void OnManageButtonClicked(object sender, RoutedEventArgs e)
+    {
+        if (managerWindow is not null)
+        {
+            managerWindow.Activate();
+            return;
+        }
+
+        managerWindow = new AvatarLibraryManagerWindow(
+            ThemeManager.CurrentTheme,
+            viewModel.Library,
+            imageService);
+        managerWindow.Owner = this;
+        managerWindow.Closed += OnManagerWindowClosed;
+        managerWindow.Show();
+    }
+
+    private void OnManagerWindowClosed(object? sender, EventArgs e)
+    {
+        if (managerWindow is not null)
+        {
+            managerWindow.Closed -= OnManagerWindowClosed;
+            managerWindow = null;
+        }
     }
 
     private void OnConfirmButtonClicked(object sender, RoutedEventArgs e)
