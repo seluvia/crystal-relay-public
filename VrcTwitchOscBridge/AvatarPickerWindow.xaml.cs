@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using VrcTwitchOscBridge.Models;
 using VrcTwitchOscBridge.Services;
 using VrcTwitchOscBridge.ViewModels;
@@ -271,7 +272,131 @@ public partial class AvatarPickerWindow : Window
                 }
                 UpdateSelectionDisplay();
                 e.Handled = true;
+                return;
             }
         }
+
+        // Arrow key navigation for grid view
+        if (viewModel.ViewMode == AvatarPickerViewMode.Grid)
+        {
+            NavigateGridItems(e);
+        }
+    }
+
+    private void NavigateGridItems(KeyEventArgs e)
+    {
+        var focused = FocusManager.GetFocusedElement(this) as FrameworkElement;
+        if (focused?.DataContext is not AvatarPickerItem currentItem) return;
+
+        var items = viewModel.FilteredAvatars;
+        var currentIndex = items.IndexOf(currentItem);
+        if (currentIndex < 0) return;
+
+        // Estimate columns based on actual GridViewControl width
+        var actualWidth = GridViewControl.ActualWidth;
+        var itemWidth = 152.0; // 140 width + 12 margin
+        var columns = Math.Max(1, (int)(actualWidth / itemWidth));
+
+        int nextIndex = currentIndex;
+        switch (e.Key)
+        {
+            case Key.Left:
+                nextIndex = Math.Max(0, currentIndex - 1);
+                break;
+            case Key.Right:
+                nextIndex = Math.Min(items.Count - 1, currentIndex + 1);
+                break;
+            case Key.Up:
+                nextIndex = Math.Max(0, currentIndex - columns);
+                break;
+            case Key.Down:
+                nextIndex = Math.Min(items.Count - 1, currentIndex + columns);
+                break;
+            default:
+                return;
+        }
+
+        if (nextIndex != currentIndex)
+        {
+            e.Handled = true;
+            var nextItem = items[nextIndex];
+            var container = GridViewControl.ItemContainerGenerator.ContainerFromItem(nextItem) as FrameworkElement;
+            container?.Focus();
+        }
+    }
+
+    // Drag-and-drop for list view reordering
+    private AvatarPickerItem? dragDropItem;
+    private Point dragDropStartPoint;
+
+    private void OnListViewPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        var point = e.GetPosition(ListViewControl);
+        var hitTest = VisualTreeHelper.HitTest(ListViewControl, point);
+        if (hitTest is null) return;
+
+        var item = FindListBoxItem(hitTest.VisualHit);
+        if (item?.DataContext is AvatarPickerItem avatarItem)
+        {
+            dragDropItem = avatarItem;
+            dragDropStartPoint = point;
+        }
+    }
+
+    private void OnListViewPreviewMouseMove(object sender, MouseEventArgs e)
+    {
+        if (dragDropItem is null || e.LeftButton != MouseButtonState.Pressed) return;
+
+        var point = e.GetPosition(ListViewControl);
+        var diff = dragDropStartPoint - point;
+
+        if (Math.Abs(diff.X) > SystemParameters.MinimumHorizontalDragDistance ||
+            Math.Abs(diff.Y) > SystemParameters.MinimumVerticalDragDistance)
+        {
+            DragDrop.DoDragDrop(ListViewControl, dragDropItem, DragDropEffects.Move);
+            dragDropItem = null;
+        }
+    }
+
+    private void OnListViewDrop(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetData(typeof(AvatarPickerItem)) is not AvatarPickerItem droppedItem) return;
+
+        var targetPoint = e.GetPosition(ListViewControl);
+        var targetItem = FindListBoxItemAtPoint(targetPoint);
+        if (targetItem is null || ReferenceEquals(targetItem, droppedItem)) return;
+
+        // Reorder in SelectedMultiAvatarIds if in multi-select mode
+        if (viewModel.IsMultiSelectMode)
+        {
+            var pool = viewModel.SelectedMultiAvatarIds;
+            var droppedId = droppedItem.Id;
+            var targetId = targetItem.Id;
+
+            var droppedIndex = pool.IndexOf(droppedId);
+            var targetIndex = pool.IndexOf(targetId);
+
+            if (droppedIndex >= 0 && targetIndex >= 0 && droppedIndex != targetIndex)
+            {
+                pool.RemoveAt(droppedIndex);
+                pool.Insert(targetIndex, droppedId);
+            }
+        }
+    }
+
+    private ListBoxItem? FindListBoxItem(DependencyObject? visual)
+    {
+        while (visual is not null and not ListBoxItem)
+        {
+            visual = VisualTreeHelper.GetParent(visual);
+        }
+        return visual as ListBoxItem;
+    }
+
+    private AvatarPickerItem? FindListBoxItemAtPoint(Point point)
+    {
+        var hitTest = VisualTreeHelper.HitTest(ListViewControl, point);
+        var item = FindListBoxItem(hitTest?.VisualHit);
+        return item?.DataContext as AvatarPickerItem;
     }
 }

@@ -742,6 +742,10 @@
                                          VirtualizingPanel.IsVirtualizing="True"
                                          VirtualizingPanel.VirtualizationMode="Recycling"
                                          ScrollViewer.CanContentScroll="True"
+                                         AllowDrop="True"
+                                         PreviewMouseLeftButtonDown="OnListViewPreviewMouseLeftButtonDown"
+                                         PreviewMouseMove="OnListViewPreviewMouseMove"
+                                         Drop="OnListViewDrop"
                                          Visibility="{Binding ViewMode, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter=List}" />
                             </Grid>
                         </ScrollViewer>
