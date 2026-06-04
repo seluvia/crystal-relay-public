@@ -411,6 +411,12 @@
                     BorderThickness="1"
                     CornerRadius="12"
                     Padding="10">
+                <Border.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="{loc:Translate 'Set Custom Icon...'}" Click="OnSetCustomIconClicked" />
+                        <MenuItem Header="{loc:Translate 'Clear Custom Icon'}" Click="OnClearCustomIconClicked" />
+                    </ContextMenu>
+                </Border.ContextMenu>
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="120" />
@@ -466,6 +472,12 @@
                     CornerRadius="8"
                     Padding="10,8"
                     Margin="0,3">
+                <Border.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="{loc:Translate 'Set Custom Icon...'}" Click="OnSetCustomIconClicked" />
+                        <MenuItem Header="{loc:Translate 'Clear Custom Icon'}" Click="OnClearCustomIconClicked" />
+                    </ContextMenu>
+                </Border.ContextMenu>
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="40" />

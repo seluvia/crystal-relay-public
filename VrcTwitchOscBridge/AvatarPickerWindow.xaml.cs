@@ -167,4 +167,60 @@ public partial class AvatarPickerWindow : Window
     {
         FilteredCountText.Text = viewModel.FilteredCountText;
     }
+
+    private void OnSetCustomIconClicked(object sender, RoutedEventArgs e)
+    {
+        var item = (sender as MenuItem)?.DataContext as AvatarPickerItem;
+        if (item is null) return;
+        var entry = viewModel.Library?.GetEntry(item.Id);
+        if (entry is null)
+        {
+            viewModel.Library?.EnsureEntry(item.Id);
+            entry = viewModel.Library?.GetEntry(item.Id);
+        }
+        if (entry is not null)
+        {
+            var dialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Filter = "Image Files|*.png;*.jpg;*.jpeg;*.gif;*.bmp;*.webp",
+                Title = "Choose Avatar Icon"
+            };
+            if (dialog.ShowDialog(this) == true)
+            {
+                var relativePath = imageService.SaveCustomIcon(entry.AvatarId, dialog.FileName);
+                if (!string.IsNullOrWhiteSpace(relativePath))
+                {
+                    entry.CustomIconPath = relativePath;
+                    RefreshAvatarImage(item);
+                }
+            }
+        }
+    }
+
+    private void OnClearCustomIconClicked(object sender, RoutedEventArgs e)
+    {
+        var item = (sender as MenuItem)?.DataContext as AvatarPickerItem;
+        if (item is null) return;
+        var entry = viewModel.Library?.GetEntry(item.Id);
+        if (entry is not null)
+        {
+            entry.CustomIconPath = string.Empty;
+            RefreshAvatarImage(item);
+        }
+    }
+
+    private void RefreshAvatarImage(AvatarPickerItem item)
+    {
+        imageService.ClearCache();
+        var entry = viewModel.Library?.GetEntry(item.Id);
+        var newImage = imageService.GetAvatarImage(item.Id, entry?.CustomIconPath, vrchatThumbnailUrl: null);
+        var allAvatars = viewModel.AllAvatars;
+        var index = allAvatars.IndexOf(item);
+        if (index >= 0)
+        {
+            var updated = new AvatarPickerItem(item.Id, item.Name, item.SourceLabel, newImage);
+            allAvatars[index] = updated;
+            viewModel.RefreshFilter();
+        }
+    }
 }
