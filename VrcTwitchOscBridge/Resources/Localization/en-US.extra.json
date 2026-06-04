@@ -895,5 +895,9 @@
   "Tag:": "Tag:",
   "All Groups": "All Groups",
   "All Tags": "All Tags",
-  "Choose Avatar Icon": "Choose Avatar Icon"
+  "Choose Avatar Icon": "Choose Avatar Icon",
+  "Select All": "Select All",
+  "Deselect All": "Deselect All",
+  "Avatar is selected": "Avatar is selected",
+  "Avatar is not selected": "Avatar is not selected"
 }

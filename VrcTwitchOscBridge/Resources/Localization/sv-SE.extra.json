@@ -1196,5 +1196,9 @@
   "Tag:": "Tagg:",
   "All Groups": "Alla grupper",
   "All Tags": "Alla taggar",
-  "Choose Avatar Icon": "Välj avatarikon"
+  "Choose Avatar Icon": "Välj avatarikon",
+  "Select All": "Markera alla",
+  "Deselect All": "Avmarkera alla",
+  "Avatar is selected": "Avatar är vald",
+  "Avatar is not selected": "Avatar är inte vald"
 }

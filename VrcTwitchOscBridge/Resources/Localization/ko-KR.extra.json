@@ -894,5 +894,9 @@
   "Tag:": "태그:",
   "All Groups": "모든 그룹",
   "All Tags": "모든 태그",
-  "Choose Avatar Icon": "아바타 아이콘 선택"
+  "Choose Avatar Icon": "아바타 아이콘 선택",
+  "Select All": "전체 선택",
+  "Deselect All": "전체 해제",
+  "Avatar is selected": "아바타가 선택됨",
+  "Avatar is not selected": "아바타가 선택되지 않음"
 }

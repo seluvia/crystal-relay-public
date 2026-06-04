@@ -895,5 +895,9 @@
   "Tag:": "タグ：",
   "All Groups": "すべてのグループ",
   "All Tags": "すべてのタグ",
-  "Choose Avatar Icon": "アバターアイコンを選択"
+  "Choose Avatar Icon": "アバターアイコンを選択",
+  "Select All": "すべて選択",
+  "Deselect All": "すべて解除",
+  "Avatar is selected": "アバターが選択されています",
+  "Avatar is not selected": "アバターは選択されていません"
 }

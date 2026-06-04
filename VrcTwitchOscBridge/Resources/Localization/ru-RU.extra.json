@@ -895,5 +895,9 @@
   "Tag:": "Тег:",
   "All Groups": "Все группы",
   "All Tags": "Все теги",
-  "Choose Avatar Icon": "Выбрать значок аватара"
+  "Choose Avatar Icon": "Выбрать значок аватара",
+  "Select All": "Выбрать все",
+  "Deselect All": "Снять выделение",
+  "Avatar is selected": "Аватар выбран",
+  "Avatar is not selected": "Аватар не выбран"
 }

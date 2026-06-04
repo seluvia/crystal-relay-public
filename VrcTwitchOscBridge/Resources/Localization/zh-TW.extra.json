@@ -895,5 +895,9 @@
   "Tag:": "標籤：",
   "All Groups": "所有分組",
   "All Tags": "所有標籤",
-  "Choose Avatar Icon": "選擇頭像圖示"
+  "Choose Avatar Icon": "選擇頭像圖示",
+  "Select All": "全選",
+  "Deselect All": "取消全選",
+  "Avatar is selected": "已選取頭像",
+  "Avatar is not selected": "未選取頭像"
 }

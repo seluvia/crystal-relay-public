@@ -931,5 +931,9 @@
   "Tag:": "标签：",
   "All Groups": "所有分组",
   "All Tags": "所有标签",
-  "Choose Avatar Icon": "选择头像图标"
+  "Choose Avatar Icon": "选择头像图标",
+  "Select All": "全选",
+  "Deselect All": "取消全选",
+  "Avatar is selected": "头像已选中",
+  "Avatar is not selected": "头像未选中"
 }

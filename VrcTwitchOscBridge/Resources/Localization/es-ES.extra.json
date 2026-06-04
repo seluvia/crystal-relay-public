@@ -894,5 +894,9 @@
   "Tag:": "Etiqueta:",
   "All Groups": "Todos los grupos",
   "All Tags": "Todas las etiquetas",
-  "Choose Avatar Icon": "Elegir icono de avatar"
+  "Choose Avatar Icon": "Elegir icono de avatar",
+  "Select All": "Seleccionar todo",
+  "Deselect All": "Deseleccionar todo",
+  "Avatar is selected": "Avatar seleccionado",
+  "Avatar is not selected": "Avatar no seleccionado"
 }
