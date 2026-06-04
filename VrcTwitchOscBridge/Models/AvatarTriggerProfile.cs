@@ -28,8 +28,8 @@ public sealed class AvatarTriggerProfile : ObservableObject
     private string setTriggerMasterRewardCooldownColor = ManagedRewardPresentation.InUseBackgroundColor;
     private bool deleteSetTriggerMasterRewardWhenInactive;
     private bool useSharedNumberedOutfitReward = true;
-    private bool postOutfitChoiceListToTwitchChat;
-private ObservableCollection<TriggerRule> channelPointRules = [];
+private bool postOutfitChoiceListToTwitchChat;
+    private ObservableCollection<TriggerRule> channelPointRules = [];
     private bool useWardrobeMode;
     private int wardrobeCooldownSeconds;
     private ObservableCollection<WardrobeOutfit> wardrobeOutfits = [];
@@ -237,9 +237,9 @@ private ObservableCollection<TriggerRule> channelPointRules = [];
                 RaisePropertyChanged(nameof(OutfitRewardModeSummary));
             }
         }
-    }
+}
 
-public bool PostOutfitChoiceListToTwitchChat
+    public bool PostOutfitChoiceListToTwitchChat
     {
         get => postOutfitChoiceListToTwitchChat;
         set => SetProperty(ref postOutfitChoiceListToTwitchChat, value);
