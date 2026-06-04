@@ -5891,19 +5891,61 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             .Select(a => new VrChatAvatarSummary(a.Id, a.Name, a.SourceLabel, a.IsCurrentAvatar))
             .ToList();
 
+        var context = parameter as string ?? "Profile";
+        var currentAvatarId = context switch
+        {
+            "Profile" => SelectedAvatarProfile?.AvatarId,
+            "PowerUp" => SelectedPowerUpRule?.AvatarId,
+            "Supporter" => SelectedRule?.SupporterAvatarId,
+            "AvatarChange" => SelectedRule?.AvatarChangeTargetId,
+            _ => SelectedAvatarProfile?.AvatarId,
+        };
+
         var result = AvatarPickerService.OpenSingle(
             ThemeManager.CurrentTheme,
             avatars,
             Settings.AvatarLibrary,
-            SelectedAvatarProfile?.AvatarId,
+            currentAvatarId,
             Application.Current.MainWindow);
 
-        if (result is not null && SelectedAvatarProfile is not null)
+        if (result is null)
         {
-            SelectedAvatarProfile.AvatarId = result.AvatarId;
-            SelectedAvatarProfile.AvatarName = result.AvatarName;
-            RefreshVrChatAvatarSelectionOptions();
+            return;
         }
+
+        switch (context)
+        {
+            case "Profile":
+                if (SelectedAvatarProfile is not null)
+                {
+                    SelectedAvatarProfile.AvatarId = result.AvatarId;
+                    SelectedAvatarProfile.AvatarName = result.AvatarName;
+                }
+                break;
+            case "PowerUp":
+                if (SelectedPowerUpRule is not null)
+                {
+                    SelectedPowerUpRule.AvatarId = result.AvatarId;
+                    SelectedPowerUpRule.AvatarName = result.AvatarName;
+                }
+                break;
+            case "Supporter":
+                if (SelectedRule is not null)
+                {
+                    SelectedRule.SupporterAvatarId = result.AvatarId;
+                    SelectedRule.SupporterAvatarName = result.AvatarName;
+                }
+                break;
+            case "AvatarChange":
+                if (SelectedRule is not null)
+                {
+                    SelectedRule.AvatarChangeTargetId = result.AvatarId;
+                    SelectedRule.AvatarTargetName = result.AvatarName;
+                }
+                break;
+        }
+
+        RefreshVrChatAvatarSelectionOptions();
     }
 
     private bool CanUseCurrentAvatarForSupporterRule()

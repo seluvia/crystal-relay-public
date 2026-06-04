@@ -5064,7 +5064,8 @@
                                                             <Button DockPanel.Dock="Right"
                                                                     Content="{loc:Translate 'Browse...'}"
                                                                     Style="{StaticResource SecondaryButtonStyle}"
-                                                                    Command="{Binding DataContext.OpenAvatarPickerCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                                                    Command="{Binding DataContext.OpenAvatarPickerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                    CommandParameter="PowerUp" />
                                                             <TextBlock Text="{Binding AvatarDisplayName}"
                                                                        Foreground="{DynamicResource TextBrush}"
                                                                        VerticalAlignment="Center"
@@ -5286,11 +5287,12 @@
                                                         <TextBlock Text="{Binding DataContext.SelectedAvatarPickerLabel, RelativeSource={RelativeSource AncestorType=Window}}"
                                                                    Foreground="{DynamicResource TextBrush}"
                                                                    FontWeight="SemiBold" />
-<DockPanel Margin="0,8,0,0">
+ <DockPanel Margin="0,8,0,0">
                                                             <Button DockPanel.Dock="Right"
                                                                     Content="{loc:Translate 'Browse...'}"
                                                                     Style="{StaticResource SecondaryButtonStyle}"
-                                                                    Command="{Binding DataContext.OpenAvatarPickerCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                                                    Command="{Binding DataContext.OpenAvatarPickerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                    CommandParameter="Profile" />
                                                             <TextBlock Text="{Binding AvatarDisplayName}"
                                                                        Foreground="{DynamicResource TextBrush}"
                                                                        VerticalAlignment="Center"
@@ -8608,11 +8610,12 @@
                                                                 <TextBlock Text="{loc:Translate 'Applies to VRChat Avatar'}"
                                                                            Foreground="{DynamicResource TextBrush}"
                                                                            FontWeight="SemiBold" />
-                                                                 <DockPanel Margin="0,6,0,0">
-                                                                     <Button DockPanel.Dock="Right"
-                                                                             Content="{loc:Translate 'Browse...'}"
-                                                                             Style="{StaticResource SecondaryButtonStyle}"
-                                                                             Command="{Binding DataContext.OpenAvatarPickerCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                                                  <DockPanel Margin="0,6,0,0">
+                                                                      <Button DockPanel.Dock="Right"
+                                                                              Content="{loc:Translate 'Browse...'}"
+                                                                              Style="{StaticResource SecondaryButtonStyle}"
+                                                                              Command="{Binding DataContext.OpenAvatarPickerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                              CommandParameter="Supporter" />
                                                                      <TextBlock Text="{Binding SupporterAvatarDisplayName}"
                                                                                 Foreground="{DynamicResource TextBrush}"
                                                                                 VerticalAlignment="Center"
@@ -9769,7 +9772,8 @@
                                                                 <Button DockPanel.Dock="Right"
                                                                         Content="{loc:Translate 'Browse...'}"
                                                                         Style="{StaticResource SecondaryButtonStyle}"
-                                                                        Command="{Binding DataContext.OpenAvatarPickerCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                                                        Command="{Binding DataContext.OpenAvatarPickerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                        CommandParameter="AvatarChange" />
                                                                 <TextBlock Text="{Binding AvatarChangeDisplayName}"
                                                                            Foreground="{DynamicResource TextBrush}"
                                                                            VerticalAlignment="Center"
