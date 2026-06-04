@@ -879,5 +879,21 @@
   "Search avatars...": "アバターを検索...",
   "Select": "選択",
   "OK": "OK",
-  "Cancel": "キャンセル"
+  "Cancel": "キャンセル",
+  "Manage Avatar Library | Crystal Relay": "アバターライブラリを管理 | Crystal Relay",
+  "Manage Avatar Library": "アバターライブラリを管理",
+  "Groups": "グループ",
+  "Tags": "タグ",
+  "Add Group": "グループを追加",
+  "Delete Group": "グループを削除",
+  "Add Tag": "タグを追加",
+  "Delete Tag": "タグを削除",
+  "Hide": "非表示",
+  "Set Custom Icon...": "カスタムアイコンを設定...",
+  "Clear Custom Icon": "カスタムアイコンをクリア",
+  "Group:": "グループ：",
+  "Tag:": "タグ：",
+  "All Groups": "すべてのグループ",
+  "All Tags": "すべてのタグ",
+  "Choose Avatar Icon": "アバターアイコンを選択"
 }

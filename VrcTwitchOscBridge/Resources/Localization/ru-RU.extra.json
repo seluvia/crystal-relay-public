@@ -879,5 +879,21 @@
   "Search avatars...": "Поиск аватаров...",
   "Select": "Выбрать",
   "OK": "OK",
-  "Cancel": "Отмена"
+  "Cancel": "Отмена",
+  "Manage Avatar Library | Crystal Relay": "Управление библиотекой аватаров | Crystal Relay",
+  "Manage Avatar Library": "Управление библиотекой аватаров",
+  "Groups": "Группы",
+  "Tags": "Теги",
+  "Add Group": "Добавить группу",
+  "Delete Group": "Удалить группу",
+  "Add Tag": "Добавить тег",
+  "Delete Tag": "Удалить тег",
+  "Hide": "Скрыть",
+  "Set Custom Icon...": "Установить свой значок...",
+  "Clear Custom Icon": "Очистить свой значок",
+  "Group:": "Группа:",
+  "Tag:": "Тег:",
+  "All Groups": "Все группы",
+  "All Tags": "Все теги",
+  "Choose Avatar Icon": "Выбрать значок аватара"
 }

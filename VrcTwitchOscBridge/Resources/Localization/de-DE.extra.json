@@ -925,5 +925,21 @@
   "Search avatars...": "Avatare suchen...",
   "Select": "Auswählen",
   "OK": "OK",
-  "Cancel": "Abbrechen"
+  "Cancel": "Abbrechen",
+  "Manage Avatar Library | Crystal Relay": "Avatar-Bibliothek verwalten | Crystal Relay",
+  "Manage Avatar Library": "Avatar-Bibliothek verwalten",
+  "Groups": "Gruppen",
+  "Tags": "Tags",
+  "Add Group": "Gruppe hinzufügen",
+  "Delete Group": "Gruppe löschen",
+  "Add Tag": "Tag hinzufügen",
+  "Delete Tag": "Tag löschen",
+  "Hide": "Ausblenden",
+  "Set Custom Icon...": "Benutzerdefiniertes Icon festlegen...",
+  "Clear Custom Icon": "Benutzerdefiniertes Icon entfernen",
+  "Group:": "Gruppe:",
+  "Tag:": "Tag:",
+  "All Groups": "Alle Gruppen",
+  "All Tags": "Alle Tags",
+  "Choose Avatar Icon": "Avatar-Icon auswählen"
 }

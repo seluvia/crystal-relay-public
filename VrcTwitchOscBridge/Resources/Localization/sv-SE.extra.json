@@ -1180,5 +1180,21 @@
   "Search avatars...": "Sök avatarer...",
   "Select": "Välj",
   "OK": "OK",
-  "Cancel": "Avbryt"
+  "Cancel": "Avbryt",
+  "Manage Avatar Library | Crystal Relay": "Hantera avatarbibliotek | Crystal Relay",
+  "Manage Avatar Library": "Hantera avatarbibliotek",
+  "Groups": "Grupper",
+  "Tags": "Taggar",
+  "Add Group": "Lägg till grupp",
+  "Delete Group": "Ta bort grupp",
+  "Add Tag": "Lägg till tagg",
+  "Delete Tag": "Ta bort tagg",
+  "Hide": "Dölj",
+  "Set Custom Icon...": "Välj anpassad ikon...",
+  "Clear Custom Icon": "Rensa anpassad ikon",
+  "Group:": "Grupp:",
+  "Tag:": "Tagg:",
+  "All Groups": "Alla grupper",
+  "All Tags": "Alla taggar",
+  "Choose Avatar Icon": "Välj avatarikon"
 }

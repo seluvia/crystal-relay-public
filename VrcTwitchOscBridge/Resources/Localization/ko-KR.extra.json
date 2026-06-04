@@ -878,5 +878,21 @@
   "Search avatars...": "아바타 검색...",
   "Select": "선택",
   "OK": "확인",
-  "Cancel": "취소"
+  "Cancel": "취소",
+  "Manage Avatar Library | Crystal Relay": "아바타 라이브러리 관리 | Crystal Relay",
+  "Manage Avatar Library": "아바타 라이브러리 관리",
+  "Groups": "그룹",
+  "Tags": "태그",
+  "Add Group": "그룹 추가",
+  "Delete Group": "그룹 삭제",
+  "Add Tag": "태그 추가",
+  "Delete Tag": "태그 삭제",
+  "Hide": "숨기기",
+  "Set Custom Icon...": "사용자 지정 아이콘 설정...",
+  "Clear Custom Icon": "사용자 지정 아이콘 제거",
+  "Group:": "그룹:",
+  "Tag:": "태그:",
+  "All Groups": "모든 그룹",
+  "All Tags": "모든 태그",
+  "Choose Avatar Icon": "아바타 아이콘 선택"
 }

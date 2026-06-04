@@ -883,5 +883,21 @@
   "Search avatars...": "ค้นหาอวาตาร์...",
   "Select": "เลือก",
   "OK": "ตกลง",
-  "Cancel": "ยกเลิก"
+  "Cancel": "ยกเลิก",
+  "Manage Avatar Library | Crystal Relay": "จัดการคลังอวาตาร์ | Crystal Relay",
+  "Manage Avatar Library": "จัดการคลังอวาตาร์",
+  "Groups": "กลุ่ม",
+  "Tags": "แท็ก",
+  "Add Group": "เพิ่มกลุ่ม",
+  "Delete Group": "ลบกลุ่ม",
+  "Add Tag": "เพิ่มแท็ก",
+  "Delete Tag": "ลบแท็ก",
+  "Hide": "ซ่อน",
+  "Set Custom Icon...": "ตั้งค่าไอคอนกำหนดเอง...",
+  "Clear Custom Icon": "ล้างไอคอนกำหนดเอง",
+  "Group:": "กลุ่ม:",
+  "Tag:": "แท็ก:",
+  "All Groups": "ทุกกลุ่ม",
+  "All Tags": "ทุกแท็ก",
+  "Choose Avatar Icon": "เลือกไอคอนอวาตาร์"
 }

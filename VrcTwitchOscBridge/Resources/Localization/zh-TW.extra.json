@@ -879,5 +879,21 @@
   "Search avatars...": "搜尋頭像...",
   "Select": "選擇",
   "OK": "確定",
-  "Cancel": "取消"
+  "Cancel": "取消",
+  "Manage Avatar Library | Crystal Relay": "管理頭像庫 | Crystal Relay",
+  "Manage Avatar Library": "管理頭像庫",
+  "Groups": "分組",
+  "Tags": "標籤",
+  "Add Group": "新增分組",
+  "Delete Group": "刪除分組",
+  "Add Tag": "新增標籤",
+  "Delete Tag": "刪除標籤",
+  "Hide": "隱藏",
+  "Set Custom Icon...": "設定自訂圖示...",
+  "Clear Custom Icon": "清除自訂圖示",
+  "Group:": "分組：",
+  "Tag:": "標籤：",
+  "All Groups": "所有分組",
+  "All Tags": "所有標籤",
+  "Choose Avatar Icon": "選擇頭像圖示"
 }
