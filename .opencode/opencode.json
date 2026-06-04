@@ -1,0 +1,35 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "default_agent": "crystal-dev",
+  "model": "opencode-go/qwen3.6-plus",
+  "small_model": "opencode-go/mimo-v2.5",
+  "skills": {
+    "paths": [".opencode/skills"]
+  },
+  "command": {
+    "research": {
+      "description": "Research with the Crystal Relay researcher (read-only)",
+      "agent": "code-researcher",
+      "subtask": true,
+      "template": "Research this request without editing files. Return the relevant files, current behavior, impact analysis, risks, and a focused implementation plan with [must-have] tags.\n\n$ARGUMENTS"
+    },
+    "implement": {
+      "description": "Implement with the Crystal Relay coder",
+      "agent": "code-builder",
+      "subtask": true,
+      "template": "Implement this focused request. Keep edits scoped, preserve existing patterns, run dotnet build, and confirm every [must-have] item.\n\n$ARGUMENTS"
+    },
+    "verify": {
+      "description": "Debug and verify with the Crystal Relay debugger",
+      "agent": "code-debugger",
+      "subtask": true,
+      "template": "Verify this work or failure. Run dotnet build, diagnose blockers grouped by root cause, fix major issues, and report deferred minor notes.\n\n$ARGUMENTS"
+    },
+    "review": {
+      "description": "Final independent review with the Crystal Relay finalizer",
+      "agent": "code-finalizer",
+      "subtask": true,
+      "template": "Independently review the current work against the original request. Verify every [must-have] item, run dotnet build. Return APPROVED, APPROVED_WITH_MINOR_NOTES, or RETURN_TO_CODER with a full structured report.\n\n$ARGUMENTS"
+    }
+  }
+}

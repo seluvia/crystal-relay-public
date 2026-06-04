@@ -221,6 +221,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private DateTimeOffset cachedWorldCommandResultExpiresAt = DateTimeOffset.MinValue;
     private string cachedWorldCommandUserId = string.Empty;
     private VrChatCurrentWorldLookupResult? cachedWorldCommandResult;
+    private DateTimeOffset lastAvatarChangeAt = DateTimeOffset.MinValue;
+    private static readonly TimeSpan AvatarChangeGracePeriod = TimeSpan.FromSeconds(15);
     private DateTimeOffset avatarScaleMasterUnlockUntil = DateTimeOffset.MinValue;
     private DateTimeOffset avatarScaleMasterCooldownUntil = DateTimeOffset.MinValue;
     private CancellationTokenSource? avatarScaleMasterUnlockNotification;
@@ -7340,6 +7342,17 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             try
             {
                 await Task.Delay(TimeSpan.FromSeconds(Math.Max(1, activeSeconds)), completionCancellation.Token);
+
+                // If the avatar recently changed, defer the reset until the grace period ends.
+                // This prevents reset packets from being lost during world transitions.
+                if (IsInAvatarChangeGracePeriod())
+                {
+                    var graceRemaining = AvatarChangeGracePeriod - (DateTimeOffset.UtcNow - lastAvatarChangeAt);
+                    WriteLog($"Float redeem '{session.Rule.Name}' completion is deferred because the avatar recently changed. The reset will be retried after the grace period. ({DescribeDuration(graceRemaining.TotalSeconds)} remaining)");
+                    ScheduleActiveFloatRedeemCompletionAfterGracePeriod(session, completionCancellation, activeSeconds, transitionSeconds);
+                    return;
+                }
+
                 await session.SendGate.WaitAsync(completionCancellation.Token);
                 try
                 {
@@ -7366,6 +7379,64 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             catch (Exception ex)
             {
                 WriteLog($"Failed to reset '{session.Rule.Name}': {ex.Message}");
+            }
+            finally
+            {
+                FinishActiveFloatRedeemSession(session, completionCancellation, shouldNotifyManagedRewardState);
+            }
+        }, CancellationToken.None);
+    }
+
+    private void ScheduleActiveFloatRedeemCompletionAfterGracePeriod(
+        ActiveFloatRedeemSessionState session,
+        CancellationTokenSource completionCancellation,
+        double activeSeconds,
+        double transitionSeconds)
+    {
+        _ = Task.Run(async () =>
+        {
+            var shouldNotifyManagedRewardState = !session.IsTest;
+            try
+            {
+                var graceRemaining = AvatarChangeGracePeriod - (DateTimeOffset.UtcNow - lastAvatarChangeAt);
+                if (graceRemaining > TimeSpan.Zero)
+                {
+                    await Task.Delay(graceRemaining, completionCancellation.Token);
+                }
+
+                // If we're still in the grace period (avatar changed again), re-defer
+                if (IsInAvatarChangeGracePeriod())
+                {
+                    ScheduleActiveFloatRedeemCompletionAfterGracePeriod(session, completionCancellation, activeSeconds, transitionSeconds);
+                    return;
+                }
+
+                await session.SendGate.WaitAsync(completionCancellation.Token);
+                try
+                {
+                    await SendFloatAvatarParameterValueAsync(
+                        session.Address,
+                        session.CurrentValue,
+                        session.ResetValue,
+                        transitionSeconds,
+                        completionCancellation.Token);
+                    session.CurrentValue = session.ResetValue;
+                }
+                finally
+                {
+                    session.SendGate.Release();
+                }
+
+                RememberAvatarParameterValue(session.Rule, FloatValueModeConverter.ToOscText(session.ResetValue));
+                WriteLog($"Reset '{session.Rule.Name}' after {DescribeDuration(activeSeconds + transitionSeconds + transitionSeconds)} (deferred completion after avatar change grace period).");
+            }
+            catch (OperationCanceledException)
+            {
+                shouldNotifyManagedRewardState = false;
+            }
+            catch (Exception ex)
+            {
+                WriteLog($"Failed to reset '{session.Rule.Name}' during grace period deferral: {ex.Message}");
             }
             finally
             {
@@ -8216,6 +8287,40 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         }, CancellationToken.None);
     }
 
+    private void ScheduleTimedSupporterOverrideCompletionAfterGracePeriod(
+        ActiveSupporterOverrideState activeState,
+        CancellationTokenSource completionCancellation)
+    {
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                // Wait for the grace period to end
+                var graceRemaining = AvatarChangeGracePeriod - (DateTimeOffset.UtcNow - lastAvatarChangeAt);
+                if (graceRemaining > TimeSpan.Zero)
+                {
+                    await Task.Delay(graceRemaining, completionCancellation.Token);
+                }
+
+                // Check if we should still proceed (state might have changed)
+                lock (stateGate)
+                {
+                    if (!ReferenceEquals(activeSupporterOverride, activeState)
+                        || !ReferenceEquals(activeState.CompletionCancellation, completionCancellation))
+                    {
+                        return;
+                    }
+                }
+
+                // Now complete the timed override
+                await CompleteTimedSupporterOverrideAsync(activeState, completionCancellation, completionCancellation.Token);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }, CancellationToken.None);
+    }
+
     private async Task CompleteTimedSupporterOverrideAsync(
         ActiveSupporterOverrideState activeState,
         CancellationTokenSource completionCancellation,
@@ -8230,6 +8335,16 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             {
                 return;
             }
+        }
+
+        // If the avatar recently changed, defer the reset until the grace period ends.
+        // This prevents reset packets from being lost during world transitions.
+        if (IsInAvatarChangeGracePeriod())
+        {
+            var graceRemaining = AvatarChangeGracePeriod - (DateTimeOffset.UtcNow - lastAvatarChangeAt);
+            WriteLog($"Paid override '{activeState.Rule.Name}' completion is deferred because the avatar recently changed. The reset will be retried after the grace period. ({DescribeDuration(graceRemaining.TotalSeconds)} remaining)");
+            ScheduleTimedSupporterOverrideCompletionAfterGracePeriod(activeState, completionCancellation);
+            return;
         }
 
         try
@@ -9939,6 +10054,20 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                     await Task.Delay(TimeSpan.FromSeconds(Math.Max(1, delaySeconds)), cancellation.Token);
                 }
 
+                // If the avatar recently changed, defer the reset until the grace period ends.
+                // This prevents reset packets from being lost during world transitions.
+                if (IsInAvatarChangeGracePeriod())
+                {
+                    var graceRemaining = AvatarChangeGracePeriod - (DateTimeOffset.UtcNow - lastAvatarChangeAt);
+                    keepPendingReset = MarkPendingResetWaitingForSourceAvatarReturn(pendingReset);
+                    if (keepPendingReset)
+                    {
+                        var resetLabel = rule.ActionType == OscActionType.SetTrigger ? "Set Trigger restore" : "Timed reset";
+                        WriteLog($"{resetLabel} for '{rule.Name}' is deferred because the avatar recently changed. Waiting for the grace period to end. ({DescribeDuration(graceRemaining.TotalSeconds)} remaining)");
+                        return;
+                    }
+                }
+
                 if (pendingReset.HasPackets
                     && !string.IsNullOrWhiteSpace(pendingReset.SourceAvatarId)
                     && !string.Equals(GetCurrentVrChatAvatarId(), pendingReset.SourceAvatarId, StringComparison.Ordinal))
@@ -10284,6 +10413,36 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         }
     }
 
+    private void CancelStalePendingResets(string newAvatarId)
+    {
+        List<PendingResetState> staleResets;
+        lock (stateGate)
+        {
+            staleResets = pendingResets.Values
+                .Where(reset =>
+                    reset.IsWaitingForSourceAvatarReturn
+                    && !string.IsNullOrWhiteSpace(reset.SourceAvatarId)
+                    && !string.Equals(reset.SourceAvatarId, newAvatarId, StringComparison.Ordinal))
+                .ToList();
+        }
+
+        foreach (var staleReset in staleResets)
+        {
+            staleReset.Cancellation.Cancel();
+            lock (stateGate)
+            {
+                pendingResets.Remove(staleReset.RuleId);
+            }
+            WriteLog($"Cancelled stale pending reset for '{staleReset.RuleName}' because the source avatar will not return after the world change.");
+            var releasedLaneKeys = ReleaseMovementLanes(staleReset.MovementLaneLeaseId, staleReset.MovementLaneKeys);
+            foreach (var releasedLaneKey in releasedLaneKeys)
+            {
+                EnsureQueuedLaneDrain(releasedLaneKey);
+            }
+            staleReset.Cancellation.Dispose();
+        }
+    }
+
     private void ResumePendingAvatarScopedResetsForCurrentAvatar(string avatarId)
     {
         var normalizedAvatarId = avatarId?.Trim() ?? string.Empty;
@@ -10291,6 +10450,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         {
             return;
         }
+
+        CancelStalePendingResets(normalizedAvatarId);
 
         List<PendingResetState> resetsToResume;
         lock (stateGate)
@@ -12875,6 +13036,14 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         }
     }
 
+    private bool IsInAvatarChangeGracePeriod()
+    {
+        lock (stateGate)
+        {
+            return (DateTimeOffset.UtcNow - lastAvatarChangeAt) < AvatarChangeGracePeriod;
+        }
+    }
+
     private SharedReturnAvatarSnapshot GetSharedReturnAvatarSnapshot()
     {
         lock (stateGate)
@@ -12915,6 +13084,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
         if (changed && !string.IsNullOrWhiteSpace(normalizedAvatarId))
         {
+            lastAvatarChangeAt = DateTimeOffset.UtcNow;
             ResumePendingAvatarScopedResetsForCurrentAvatar(normalizedAvatarId);
             QueueAvatarScaleAvatarChangeHandling(
                 previousAvatarId,

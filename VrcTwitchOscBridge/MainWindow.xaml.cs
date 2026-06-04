@@ -93,6 +93,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         DataContext = viewModel;
+        StartLoadingAnimations();
         SourceInitialized += OnSourceInitialized;
         Loaded += OnLoaded;
         Closing += OnClosing;
@@ -113,6 +114,8 @@ public partial class MainWindow : Window
     {
         await viewModel.InitializeAsync();
         ApplyTheme(viewModel.SelectedTheme);
+        LoadingOverlay.Visibility = Visibility.Collapsed;
+        StopLoadingAnimations();
         QueueApplicationUpdateCheck();
     }
 
@@ -2171,6 +2174,30 @@ public partial class MainWindow : Window
             Show();
             ActivateMainWindow();
         });
+    }
+
+    private void StartLoadingAnimations()
+    {
+        if (Resources["CrystalRotateStoryboard"] is System.Windows.Media.Animation.Storyboard rotateStoryboard)
+            rotateStoryboard.Begin(this);
+        if (Resources["CrystalPulseStoryboard"] is System.Windows.Media.Animation.Storyboard pulseStoryboard)
+            pulseStoryboard.Begin(this);
+        if (Resources["GlowPulseStoryboard"] is System.Windows.Media.Animation.Storyboard glowStoryboard)
+            glowStoryboard.Begin(this);
+        if (Resources["TextFadeStoryboard"] is System.Windows.Media.Animation.Storyboard textStoryboard)
+            textStoryboard.Begin(this);
+    }
+
+    private void StopLoadingAnimations()
+    {
+        if (Resources["CrystalRotateStoryboard"] is System.Windows.Media.Animation.Storyboard rotateStoryboard)
+            rotateStoryboard.Stop(this);
+        if (Resources["CrystalPulseStoryboard"] is System.Windows.Media.Animation.Storyboard pulseStoryboard)
+            pulseStoryboard.Stop(this);
+        if (Resources["GlowPulseStoryboard"] is System.Windows.Media.Animation.Storyboard glowStoryboard)
+            glowStoryboard.Stop(this);
+        if (Resources["TextFadeStoryboard"] is System.Windows.Media.Animation.Storyboard textStoryboard)
+            textStoryboard.Stop(this);
     }
 
     [DllImport("user32.dll")]

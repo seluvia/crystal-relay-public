@@ -260,8 +260,13 @@ finally {
 }
 
 Copy-Item -Path (Join-Path $updaterPublishDir 'CrystalRelayUpdater.exe') -Destination (Join-Path $publishDir 'CrystalRelayUpdater.exe') -Force
-Assert-SafeBuildPath -Path $updaterPublishDir -RequiredParent ([System.IO.Path]::GetTempPath()) -Pattern "CrystalRelayUpdater-*"
-Remove-Item -Path $updaterPublishDir -Recurse -Force
+try {
+    Assert-SafeBuildPath -Path $updaterPublishDir -RequiredParent ([System.IO.Path]::GetTempPath()) -Pattern "CrystalRelayUpdater-*"
+    Remove-Item -Path $updaterPublishDir -Recurse -Force
+}
+catch {
+    Write-Warning "Could not clean up updater temp folder: $_"
+}
 
 Set-Content -Path $betaMarkerPath -Value $betaLabel -Encoding ASCII
 Copy-Item -Path $readmePath -Destination (Join-Path $publishDir 'README.md') -Force

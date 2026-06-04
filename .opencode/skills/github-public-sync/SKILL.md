@@ -70,11 +70,11 @@ Confirm:
 - No untracked files that shouldn't be there
 - No deleted files that should remain
 
-### Step 5: Review the full diff
+### Step 5: Review the full diff (BEFORE staging)
 
 ```powershell
-git -C "C:\Users\screm\Documents\GitHub\crystal-relay-public" diff --staged
 git -C "C:\Users\screm\Documents\GitHub\crystal-relay-public" diff
+git -C "C:\Users\screm\Documents\GitHub\crystal-relay-public" diff --stat
 ```
 
 Read every changed file. Look for:
@@ -83,30 +83,96 @@ Read every changed file. Look for:
 - Internal workflow notes or AI references
 - Anything that looks wrong or out of place
 
-### Step 6: Stage, commit, and push
+Do NOT stage until you have read the entire diff.
 
-Only after ALL checks pass:
+### Step 6: Stage all changes
+
+Only after ALL checks and the full diff review pass:
 
 ```powershell
 git -C "C:\Users\screm\Documents\GitHub\crystal-relay-public" add -A
+```
+
+### Step 6b: Review staged diff before committing
+
+```powershell
+git -C "C:\Users\screm\Documents\GitHub\crystal-relay-public" diff --staged
+```
+
+If the staged diff contains anything unexpected, unstage and report to the user. Do not commit.
+
+### Step 7: Commit
+
+```powershell
 git -C "C:\Users\screm\Documents\GitHub\crystal-relay-public" commit -m "<clear commit message>"
+```
+
+Commit message format: `Release v<version>: <brief description>` or `Update source: <brief description>`.
+
+### Step 8: Push
+
+```powershell
 git -C "C:\Users\screm\Documents\GitHub\crystal-relay-public" push
 ```
 
-### Step 7: Verify push succeeded
+### Step 9: Verify push succeeded
 
 ```powershell
 git -C "C:\Users\screm\Documents\GitHub\crystal-relay-public" log --oneline -3
 ```
 
-Confirm the push completed and the remote is up to date.
+Confirm the push completed and the remote is up to date with `origin/main`.
+
+---
+
+## Workflow B: GitHub release upload
+
+Use this when publishing a release ZIP to GitHub. The build must already exist — this workflow does NOT build the app.
+
+### Release asset locations and naming
+
+ZIPs are in: `E:\!!!Program to work on\Proper Crystal Relay\Releases\v<version>\`
+
+| Type | ZIP name |
+|---|---|
+| Stable | `CrystalRelayTwitchOsc-v<version>-win-x64.zip` |
+| Beta | `CrystalRelayTwitchOsc-v<version>-beta<N>-win-x64.zip` |
+
+### Release upload steps
+
+1. **Confirm ZIP exists** before creating any release on GitHub.
+
+2. **Check if release already exists**:
+   ```powershell
+   gh release view v<version> --repo seluvia/crystal-relay-public
+   ```
+
+3. **Create GitHub release as draft** (if not already exists):
+   - Stable: `gh release create v<version> --repo seluvia/crystal-relay-public --title "Crystal Relay v<version>" --notes-file "E:\!!!Program to work on\Proper Crystal Relay\CHANGELOG.txt" --draft`
+   - Beta: `gh release create v<version>-beta<N> --repo seluvia/crystal-relay-public --title "Crystal Relay v<version> Beta <N>" --notes-file "E:\!!!Program to work on\Proper Crystal Relay\CHANGELOG.txt" --prerelease --draft`
+
+4. **Upload ZIP**:
+   ```powershell
+   gh release upload v<version> "E:\!!!Program to work on\Proper Crystal Relay\Releases\v<version>\CrystalRelayTwitchOsc-v<version>-win-x64.zip" --repo seluvia/crystal-relay-public
+   ```
+
+5. **Verify upload**: `gh release view v<version> --repo seluvia/crystal-relay-public` — confirm asset appears.
+
+6. **Publish (remove draft)** only after user confirmation:
+   ```powershell
+   gh release edit v<version> --draft=false --repo seluvia/crystal-relay-public
+   ```
+
+7. **Confirm live**: `gh release list --repo seluvia/crystal-relay-public`
+
+---
 
 ## Failure handling
 
 If ANY step fails:
 1. Report the exact failure with file paths, line numbers, and matched content
 2. Do NOT attempt to fix the issue — the Code Team handles fixes
-3. Do NOT push — the workflow stops until the issue is resolved
+3. Do NOT push or publish — the workflow stops until the issue is resolved
 4. Wait for the user to confirm the fix, then re-run from Step 1
 
 ## What NEVER goes public
@@ -136,12 +202,6 @@ If ANY step fails:
 | `secrets.json` | Secret config |
 | `appsettings.Development.json` | Dev config |
 | `bridge.runtime.local.json` | Local runtime config |
-
-## Release asset naming
-
-When pushing a release, verify the ZIP asset name matches:
-- Stable: `CrystalRelayTwitchOsc-v<version>-win-x64.zip`
-- Beta: `CrystalRelayTwitchOsc-v<version>-beta<N>-win-x64.zip`
 
 ## Public repo layout
 
