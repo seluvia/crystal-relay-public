@@ -166,6 +166,7 @@
     <Compile Include="Services\VrChatLocalClientStateService.cs" />
     <Compile Include="Services\VrChatLocalOscCacheService.cs" />
     <Compile Include="Services\VrChatOscClient.cs" />
+    <Compile Include="Services\WardrobeExecutorService.cs" />
     <Compile Include="Services\WindowsCredentialStore.cs" />
     <Compile Include="Services\WorldCommandBlacklistService.cs" />
     <Compile Include="ViewModels\MainWindowViewModel.cs" />
