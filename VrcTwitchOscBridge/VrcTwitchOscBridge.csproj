@@ -122,6 +122,8 @@
     <Compile Include="Models\AvatarPickerViewMode.cs" />
     <Compile Include="Models\VrChatOscParameterSummary.cs" />
     <Compile Include="Models\VrChatTwoFactorMethod.cs" />
+    <Compile Include="Models\WardrobeSnapshotParam.cs" />
+    <Compile Include="Models\WardrobeOutfit.cs" />
     <Compile Include="Models\WorldCommandBlacklistSettings.cs" />
     <Compile Include="Services\AppDataPaths.cs" />
     <Compile Include="Services\AvatarImageService.cs" />
