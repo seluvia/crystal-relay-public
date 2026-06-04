@@ -399,6 +399,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private AvatarScaleRule? selectedAvatarScaleRule;
     private CashPaymentRule? selectedCashPaymentRule;
     private PowerUpRule? selectedPowerUpRule;
+    private WardrobeOutfit? selectedWardrobeOutfit;
+    private WardrobeSnapshotParam? selectedWardrobeSnapshotParam;
+    private IReadOnlyList<VrChatOscParameterSummary> availableWardrobeParameters = [];
     private AvatarTriggerProfile? selectedAvatarProfile;
     private VrChatOscParameterSummary? selectedAvatarParameterOption;
     private VrChatOscParameterSummary? selectedSetTriggerParameterOption;
@@ -578,7 +581,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     {
         dispatcher = Dispatcher.CurrentDispatcher;
         desktopInputLockService = new DesktopInputLockService(dispatcher);
-        bridgeCoordinator = new BridgeCoordinator(desktopInputLockService, worldCommandBlacklistService);
+        bridgeCoordinator = new BridgeCoordinator(desktopInputLockService, worldCommandBlacklistService, vrChatLocalOscCacheService, msg => AppendLog(msg));
         LogEntries = [];
         ChatMessages = [];
         ChatActivityEntries = [];
@@ -899,6 +902,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RemoveSelectedOutfitChoiceCommand = new RelayCommand(
             RemoveSelectedOutfitChoice,
             () => IsViewingAvatarTriggers && SelectedAvatarProfile is not null && SelectedRule?.ActionType == OscActionType.SetTrigger);
+        AddWardrobeOutfitCommand = new RelayCommand(AddWardrobeOutfit, () => IsViewingAvatarTriggers && SelectedAvatarProfile is not null);
+        RemoveWardrobeOutfitCommand = new RelayCommand(RemoveWardrobeOutfit, () => IsViewingAvatarTriggers && SelectedWardrobeOutfit is not null);
+        AddWardrobeSnapshotParamCommand = new RelayCommand(AddWardrobeSnapshotParam, () => SelectedWardrobeOutfit is not null);
+        RemoveWardrobeSnapshotParamCommand = new RelayCommand(RemoveWardrobeSnapshotParam, () => SelectedWardrobeSnapshotParam is not null);
+        RefreshWardrobeParametersCommand = new RelayCommand(async () => await RefreshWardrobeParametersAsync());
         SelectRuleCommand = new RelayCommand(SelectRule, target => target is TriggerRule);
         AddAvatarSupporterTriggerCommand = new RelayCommand(AddAvatarSupporterTrigger);
         AddAvatarChangeOverrideCommand = new RelayCommand(AddAvatarChangeOverride);
@@ -1089,6 +1097,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 RaiseRuleSelectionStateProperties();
                 AddOutfitChoiceCommand.NotifyCanExecuteChanged();
                 RemoveSelectedOutfitChoiceCommand.NotifyCanExecuteChanged();
+                AddWardrobeOutfitCommand.NotifyCanExecuteChanged();
+                RemoveWardrobeOutfitCommand.NotifyCanExecuteChanged();
                 RefreshSpecialRuleLockoutOptions();
                 RefreshVrChatAvatarSelectionOptions();
                 _ = EnsureSelectedAvatarParameterCacheLoadedAsync();
@@ -2587,6 +2597,31 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
     }
 
+    public WardrobeOutfit? SelectedWardrobeOutfit
+    {
+        get => selectedWardrobeOutfit;
+        set
+        {
+            if (SetProperty(ref selectedWardrobeOutfit, value))
+            {
+                AddWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
+                RemoveWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
+            }
+        }
+    }
+
+    public WardrobeSnapshotParam? SelectedWardrobeSnapshotParam
+    {
+        get => selectedWardrobeSnapshotParam;
+        set => SetProperty(ref selectedWardrobeSnapshotParam, value);
+    }
+
+    public IReadOnlyList<VrChatOscParameterSummary> AvailableWardrobeParameters
+    {
+        get => availableWardrobeParameters;
+        private set => SetProperty(ref availableWardrobeParameters, value);
+    }
+
     public ObservableCollection<PowerUpRule> PowerUpRules => Settings.PowerUpRules;
 
     public string BridgeStatus
@@ -3182,6 +3217,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     public RelayCommand AddOutfitChoiceCommand { get; }
 
     public RelayCommand RemoveSelectedOutfitChoiceCommand { get; }
+
+    public RelayCommand AddWardrobeOutfitCommand { get; }
+    public RelayCommand RemoveWardrobeOutfitCommand { get; }
+    public RelayCommand AddWardrobeSnapshotParamCommand { get; }
+    public RelayCommand RemoveWardrobeSnapshotParamCommand { get; }
+    public RelayCommand RefreshWardrobeParametersCommand { get; }
 
     public RelayCommand SelectRuleCommand { get; }
 
@@ -6170,6 +6211,60 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
 
         return nextNumber;
+    }
+
+    private void AddWardrobeOutfit()
+    {
+        if (SelectedAvatarProfile is null) return;
+        var outfit = new WardrobeOutfit();
+        SelectedAvatarProfile.WardrobeOutfits.Add(outfit);
+        SelectedWardrobeOutfit = outfit;
+        AppendLog($"Added Wardrobe outfit '{outfit.Name}'.");
+    }
+
+    private void RemoveWardrobeOutfit()
+    {
+        if (SelectedAvatarProfile is null || SelectedWardrobeOutfit is null) return;
+        var outfit = SelectedWardrobeOutfit;
+        SelectedAvatarProfile.WardrobeOutfits.Remove(outfit);
+        SelectedWardrobeOutfit = SelectedAvatarProfile.WardrobeOutfits.FirstOrDefault();
+        AppendLog($"Removed Wardrobe outfit '{outfit.Name}'.");
+    }
+
+    private void AddWardrobeSnapshotParam()
+    {
+        if (SelectedWardrobeOutfit is null) return;
+        var param = new WardrobeSnapshotParam();
+        SelectedWardrobeOutfit.SnapshotParams.Add(param);
+        SelectedWardrobeSnapshotParam = param;
+    }
+
+    private void RemoveWardrobeSnapshotParam()
+    {
+        if (SelectedWardrobeOutfit is null || SelectedWardrobeSnapshotParam is null) return;
+        var param = SelectedWardrobeSnapshotParam;
+        var index = SelectedWardrobeOutfit.SnapshotParams.IndexOf(param);
+        SelectedWardrobeOutfit.SnapshotParams.Remove(param);
+        SelectedWardrobeSnapshotParam = index < SelectedWardrobeOutfit.SnapshotParams.Count
+            ? SelectedWardrobeOutfit.SnapshotParams[index]
+            : SelectedWardrobeOutfit.SnapshotParams.FirstOrDefault();
+    }
+
+    private async Task RefreshWardrobeParametersAsync()
+    {
+        if (Settings?.VrChat?.UserId is not { } userId || string.IsNullOrWhiteSpace(userId)) return;
+        if (SelectedAvatarProfile?.AvatarId is not { } avatarId || string.IsNullOrWhiteSpace(avatarId)) return;
+
+        try
+        {
+            var parameters = await vrChatLocalOscCacheService.LoadAvatarParametersAsync(userId, avatarId, CancellationToken.None);
+            AvailableWardrobeParameters = parameters;
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"Could not load avatar parameters for Wardrobe: {ex.Message}");
+            AvailableWardrobeParameters = [];
+        }
     }
 
     private void SelectRule(object? target)

@@ -131,9 +131,11 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private readonly OscRouterService oscRouterService = new();
     private readonly VrChatLocalAvatarDataService vrChatLocalAvatarDataService = new();
     private readonly CashPaymentProviderService cashPaymentProviderService = new();
-private readonly DesktopInputLockService desktopInputLockService;
+    private readonly DesktopInputLockService desktopInputLockService;
     private readonly WorldCommandBlacklistService worldCommandBlacklistService;
-    private readonly WardrobeExecutorService wardrobeExecutor;
+    private readonly VrChatLocalOscCacheService localOscCacheService;
+    private readonly Action<string> logAction;
+    private WardrobeExecutorService? wardrobeExecutor;
     private readonly object stateGate = new();
     // Runtime state for cooldowns, queued redeems, movement lanes, active timed resets,
     // and the temporary disable-pairing system used by avatar-set redeems.
@@ -238,14 +240,29 @@ private readonly DesktopInputLockService desktopInputLockService;
 internal BridgeCoordinator(
         DesktopInputLockService desktopInputLockService,
         WorldCommandBlacklistService worldCommandBlacklistService,
-        WardrobeExecutorService wardrobeExecutor)
+        VrChatLocalOscCacheService localOscCacheService,
+        Action<string> logAction)
     {
         this.desktopInputLockService = desktopInputLockService;
         this.worldCommandBlacklistService = worldCommandBlacklistService;
-        this.wardrobeExecutor = wardrobeExecutor;
+        this.localOscCacheService = localOscCacheService;
+        this.logAction = logAction;
         oscRouterService.LogWritten += WriteLog;
         oscRouterService.ObservedValueReceived += observedValue => ObserveOscValue(observedValue);
         desktopInputLockService.EmergencyUnlockTriggered += HandleEmergencyDesktopInputUnlock;
+    }
+
+    private WardrobeExecutorService GetWardrobeExecutor()
+    {
+        if (wardrobeExecutor is null)
+        {
+            wardrobeExecutor = new WardrobeExecutorService(
+                vrChatOscClient,
+                oscRouterService,
+                localOscCacheService,
+                logAction);
+        }
+        return wardrobeExecutor;
     }
 
     public event Action<string>? LogWritten;
@@ -858,7 +875,7 @@ internal BridgeCoordinator(
             return false;
         }
 
-        var applied = await wardrobeExecutor.ExecuteOutfitAsync(snapshot, vrChatUserId, cancellationToken);
+        var applied = await GetWardrobeExecutor().ExecuteOutfitAsync(snapshot, vrChatUserId, cancellationToken);
         if (applied)
         {
             WriteLog($"Wardrobe outfit '{snapshot.Name}' applied successfully.");
