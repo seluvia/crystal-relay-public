@@ -31,7 +31,7 @@ public sealed class AvatarPickerViewModel : ObservableObject
         if (multiSelectCurrentIds is { Count: > 0 })
         {
             isMultiSelectMode = true;
-            SelectedMultiAvatarIds = new HashSet<string>(multiSelectCurrentIds, StringComparer.Ordinal);
+            SelectedMultiAvatarIds = new List<string>(multiSelectCurrentIds);
         }
 
         AllAvatars = new ObservableCollection<AvatarPickerItem>(
@@ -70,7 +70,7 @@ public sealed class AvatarPickerViewModel : ObservableObject
         }
     }
 
-    public HashSet<string> SelectedMultiAvatarIds { get; } = [];
+    public List<string> SelectedMultiAvatarIds { get; } = [];
 
     public string SearchText
     {
@@ -144,6 +144,29 @@ public sealed class AvatarPickerViewModel : ObservableObject
     }
 
     public string MultiSelectCountText => $"{SelectedMultiAvatarIds.Count} avatar{(SelectedMultiAvatarIds.Count == 1 ? string.Empty : "s")} in pool";
+
+    public void SelectAll()
+    {
+        if (!isMultiSelectMode) return;
+        SelectedMultiAvatarIds.Clear();
+        foreach (var avatar in AllAvatars)
+        {
+            if (!SelectedMultiAvatarIds.Contains(avatar.Id))
+            {
+                SelectedMultiAvatarIds.Add(avatar.Id);
+            }
+        }
+        RaisePropertyChanged(nameof(CanConfirm));
+        RaisePropertyChanged(nameof(MultiSelectCountText));
+    }
+
+    public void DeselectAll()
+    {
+        if (!isMultiSelectMode) return;
+        SelectedMultiAvatarIds.Clear();
+        RaisePropertyChanged(nameof(CanConfirm));
+        RaisePropertyChanged(nameof(MultiSelectCountText));
+    }
 
     public IReadOnlyList<string> GetSelectedAvatarIds() =>
         isMultiSelectMode
