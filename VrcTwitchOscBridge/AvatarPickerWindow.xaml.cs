@@ -41,6 +41,7 @@ public partial class AvatarPickerWindow : Window
         UpdateFilteredCountText();
 
         Loaded += OnLoaded;
+        PreviewKeyDown += OnPreviewKeyDown;
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
@@ -57,6 +58,7 @@ public partial class AvatarPickerWindow : Window
     {
         ThemeManager.ThemeChanged -= OnThemeManagerThemeChanged;
         Closed -= OnWindowClosed;
+        PreviewKeyDown -= OnPreviewKeyDown;
     }
 
     private void OnCloseButtonClicked(object sender, RoutedEventArgs e)
@@ -221,6 +223,55 @@ public partial class AvatarPickerWindow : Window
             var updated = new AvatarPickerItem(item.Id, item.Name, item.SourceLabel, newImage);
             allAvatars[index] = updated;
             viewModel.RefreshFilter();
+        }
+    }
+
+    private void OnCardCheckBoxClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is CheckBox cb && cb.DataContext is AvatarPickerItem item)
+        {
+            viewModel.ToggleMultiSelect(item);
+            UpdateSelectionDisplay();
+            e.Handled = true;
+        }
+    }
+
+    private void OnPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (viewModel.IsMultiSelectMode)
+        {
+            if (e.Key == Key.A && Keyboard.Modifiers == ModifierKeys.Control)
+            {
+                viewModel.SelectAll();
+                UpdateSelectionDisplay();
+                e.Handled = true;
+                return;
+            }
+            if (e.Key == Key.D && Keyboard.Modifiers == ModifierKeys.Control)
+            {
+                viewModel.DeselectAll();
+                UpdateSelectionDisplay();
+                e.Handled = true;
+                return;
+            }
+        }
+
+        if (e.Key == Key.Enter || e.Key == Key.Space)
+        {
+            var focused = FocusManager.GetFocusedElement(this) as FrameworkElement;
+            if (focused?.DataContext is AvatarPickerItem item)
+            {
+                if (viewModel.IsMultiSelectMode)
+                {
+                    viewModel.ToggleMultiSelect(item);
+                }
+                else
+                {
+                    viewModel.SelectedItem = item;
+                }
+                UpdateSelectionDisplay();
+                e.Handled = true;
+            }
         }
     }
 }

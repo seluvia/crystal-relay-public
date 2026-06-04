@@ -436,6 +436,14 @@
                                RenderOptions.BitmapScalingMode="HighQuality" />
                     </Border>
 
+                    <!-- Multi-Select Checkbox -->
+                    <CheckBox Grid.Row="0"
+                              HorizontalAlignment="Right"
+                              VerticalAlignment="Top"
+                              Margin="4"
+                              Visibility="{Binding DataContext.IsMultiSelectMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibilityConverter}}"
+                              Click="OnCardCheckBoxClicked" />
+
                     <!-- Avatar Name -->
                     <TextBlock Grid.Row="1"
                                Text="{Binding DisplayName}"
@@ -499,6 +507,13 @@
                                Stretch="UniformToFill"
                                RenderOptions.BitmapScalingMode="HighQuality" />
                     </Border>
+
+                    <!-- Multi-Select Checkbox -->
+                    <CheckBox Grid.Column="0"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Center"
+                              Visibility="{Binding DataContext.IsMultiSelectMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibilityConverter}}"
+                              Click="OnCardCheckBoxClicked" />
 
                     <!-- Name -->
                     <TextBlock Grid.Column="1"
@@ -724,6 +739,9 @@
                                          ItemTemplate="{StaticResource AvatarListItemTemplate}"
                                          Background="Transparent"
                                          BorderThickness="0"
+                                         VirtualizingPanel.IsVirtualizing="True"
+                                         VirtualizingPanel.VirtualizationMode="Recycling"
+                                         ScrollViewer.CanContentScroll="True"
                                          Visibility="{Binding ViewMode, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter=List}" />
                             </Grid>
                         </ScrollViewer>
