@@ -29,6 +29,22 @@ public sealed record SetTriggerActionSnapshot(
     OscParameterType ParameterType,
     string ParameterValue);
 
+public sealed record WardrobeOutfitSnapshot(
+    Guid Id,
+    bool IsEnabled,
+    string Name,
+    Guid AvatarProfileId,
+    string AvatarId,
+    int ActiveTimeSeconds,
+    int CooldownSeconds,
+    IReadOnlyList<WardrobeParamSnapshot> Params,
+    bool UsesMasterReward);
+
+public sealed record WardrobeParamSnapshot(
+    string ParameterName,
+    OscParameterType ParameterType,
+    string SetValue);
+
 public sealed record SupporterFloatAddRangeSnapshot(
     int MinimumAmount,
     int MaximumAmount,
@@ -604,6 +620,46 @@ public sealed record BridgeRuntimeConfiguration(
         }
 
         snapshot = CreateSnapshot(rule, isGlobalOverride, profile, linkedRewardCooldownSecondsById);
+        return true;
+    }
+
+    private static bool TryToWardrobeSnapshot(
+        WardrobeOutfit outfit,
+        AvatarTriggerProfile profile,
+        out WardrobeOutfitSnapshot snapshot)
+    {
+        snapshot = default!;
+
+        if (!outfit.IsEnabled || string.IsNullOrWhiteSpace(profile.AvatarId))
+        {
+            return false;
+        }
+
+        var validParams = outfit.SnapshotParams
+            .Where(p => !string.IsNullOrWhiteSpace(p.ParameterName)
+                     && !string.IsNullOrWhiteSpace(p.SetValue)
+                     && p.ParameterType is OscParameterType.Bool or OscParameterType.Int or OscParameterType.Float)
+            .Select(p => new WardrobeParamSnapshot(
+                VrChatOscClient.NormalizeAvatarParameterAddress(p.ParameterName),
+                p.ParameterType,
+                p.SetValue))
+            .ToList();
+
+        if (validParams.Count == 0)
+        {
+            return false;
+        }
+
+        snapshot = new WardrobeOutfitSnapshot(
+            outfit.Id,
+            outfit.IsEnabled,
+            outfit.DisplayTitle,
+            profile.Id,
+            profile.AvatarId,
+            Math.Max(1, outfit.ActiveTimeSeconds),
+            Math.Max(0, profile.WardrobeCooldownSeconds),
+            validParams,
+            profile.UseWardrobeMasterReward);
         return true;
     }
 
