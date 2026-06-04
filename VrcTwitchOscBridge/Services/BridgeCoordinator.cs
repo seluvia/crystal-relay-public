@@ -884,6 +884,74 @@ internal BridgeCoordinator(
         return applied;
     }
 
+    /// <summary>
+    /// Resolves and executes a Wardrobe outfit from a Twitch redemption.
+    /// Supports individual outfit rewards and master reward with typed outfit name.
+    /// Returns true if a Wardrobe outfit was executed, false otherwise.
+    /// </summary>
+    private async Task<bool> TryExecuteWardrobeFromRedemptionAsync(
+        BridgeRuntimeConfiguration configuration,
+        string rewardId,
+        string? redemptionInputText,
+        CancellationToken cancellationToken)
+    {
+        foreach (var profile in configuration.AvatarProfiles)
+        {
+            if (!profile.UseWardrobeMode || !profile.IsEnabled) continue;
+            if (string.IsNullOrWhiteSpace(profile.AvatarId)) continue;
+
+            // Check individual outfit rewards
+            foreach (var outfit in profile.WardrobeOutfits)
+            {
+                if (!outfit.IsEnabled) continue;
+                if (!string.Equals(outfit.TwitchRewardId, rewardId, StringComparison.Ordinal)) continue;
+
+                if (!BridgeRuntimeConfiguration.TryToWardrobeSnapshot(outfit, profile, out var snapshot)) continue;
+
+                var applied = await ExecuteWardrobeOutfitAsync(snapshot, cancellationToken);
+                if (applied)
+                {
+                    WriteLog($"Wardrobe outfit '{outfit.Name}' fired from individual reward.");
+                }
+                return true;
+            }
+
+            // Check master reward
+            if (profile.UseWardrobeMasterReward
+                && !string.IsNullOrWhiteSpace(profile.WardrobeMasterRewardId)
+                && string.Equals(profile.WardrobeMasterRewardId, rewardId, StringComparison.Ordinal))
+            {
+                if (string.IsNullOrWhiteSpace(redemptionInputText))
+                {
+                    WriteLog("Wardrobe master reward redeemed but no outfit name was typed.");
+                    return true;
+                }
+
+                var inputName = redemptionInputText.Trim();
+                var matchedOutfit = profile.WardrobeOutfits
+                    .FirstOrDefault(o => o.IsEnabled
+                        && string.Equals(o.Name, inputName, StringComparison.OrdinalIgnoreCase));
+
+                if (matchedOutfit is null)
+                {
+                    WriteLog($"Wardrobe master reward: No outfit found matching '{inputName}'.");
+                    return true;
+                }
+
+                if (!BridgeRuntimeConfiguration.TryToWardrobeSnapshot(matchedOutfit, profile, out var masterSnapshot)) continue;
+
+                var masterApplied = await ExecuteWardrobeOutfitAsync(masterSnapshot, cancellationToken);
+                if (masterApplied)
+                {
+                    WriteLog($"Wardrobe outfit '{matchedOutfit.Name}' fired from master reward.");
+                }
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private async Task<bool> TryHandleDevChatCommandAsync(
         BridgeIncomingEvent bridgeEvent,
         CancellationToken cancellationToken)
@@ -3085,6 +3153,18 @@ internal BridgeCoordinator(
         }
 
         if (bridgeEvent is null)
+        {
+            return;
+        }
+
+        // Try Wardrobe first (individual outfit rewards and master reward with typed input)
+        if (!bridgeEvent.IsChatCommandTrigger
+            && bridgeEvent.TriggerType == TwitchTriggerType.ChannelPoints
+            && await TryExecuteWardrobeFromRedemptionAsync(
+                configuration,
+                bridgeEvent.RewardId?.Trim() ?? string.Empty,
+                bridgeEvent.RewardUserInput,
+                cancellationToken))
         {
             return;
         }

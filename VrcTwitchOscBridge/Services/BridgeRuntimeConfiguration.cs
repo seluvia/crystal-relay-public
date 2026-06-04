@@ -319,7 +319,8 @@ public sealed record BridgeRuntimeConfiguration(
     IReadOnlyList<PowerUpRuleSnapshot> PowerUpRules,
     IReadOnlyList<UniversalTriggerRuleSnapshot> UniversalTriggers,
     IReadOnlyList<AvatarScaleRuleSnapshot> AvatarScaleRules,
-    IReadOnlyList<CashPaymentRuleSnapshot> CashPaymentRules)
+    IReadOnlyList<CashPaymentRuleSnapshot> CashPaymentRules,
+    IReadOnlyList<AvatarTriggerProfile> AvatarProfiles)
 {
     public static BridgeRuntimeConfiguration FromSettings(
         AppSettings settings,
@@ -450,7 +451,8 @@ public sealed record BridgeRuntimeConfiguration(
             powerUpRules.ToArray(),
             universalTriggers.ToArray(),
             avatarScaleRules.ToArray(),
-            cashPaymentRules.ToArray());
+            cashPaymentRules.ToArray(),
+            settings.AvatarProfiles.ToArray());
     }
 
     public static TwitchAccountSnapshot ToSnapshot(TwitchAccountSettings settings)
@@ -623,7 +625,7 @@ public sealed record BridgeRuntimeConfiguration(
         return true;
     }
 
-    private static bool TryToWardrobeSnapshot(
+    internal static bool TryToWardrobeSnapshot(
         WardrobeOutfit outfit,
         AvatarTriggerProfile profile,
         out WardrobeOutfitSnapshot snapshot)
