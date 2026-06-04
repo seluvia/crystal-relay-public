@@ -17462,47 +17462,42 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             return;
         }
 
-        var configuredOptions = BuildConfiguredAvatarRouletPoolOptions(SelectedRule);
-        var configuredIds = configuredOptions
-            .Select(option => option.Id)
-            .Where(avatarId => !string.IsNullOrWhiteSpace(avatarId))
-            .ToHashSet(StringComparer.Ordinal);
-        var availableOptions = BuildAllSelectableVrChatAvatarOptions()
-            .Where(option => !configuredIds.Contains(option.Id))
-            .ToArray();
-        var dialog = new AvatarRouletPickerWindow(
-            SelectedTheme,
-            IsViewingCashPayments ? "Cash Payments" : MasterAvatarProfile?.DisplayTitle ?? "Return Avatar",
-            SelectedRule.RewardDisplayTitle,
-            availableOptions,
-            configuredOptions)
-        {
-            Owner = Application.Current?.MainWindow
-        };
+        var configuredIds = SelectedRule.AvatarRouletAvatarIds
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .ToList();
 
-        if (dialog.ShowDialog() != true)
+        var avatars = availableVrChatAvatars
+            .Select(a => new VrChatAvatarSummary(a.Id, a.Name, a.SourceLabel, a.IsCurrentAvatar))
+            .ToList();
+
+        var result = AvatarPickerService.OpenMulti(
+            ThemeManager.CurrentTheme,
+            avatars,
+            Settings.AvatarLibrary,
+            configuredIds,
+            Application.Current.MainWindow);
+
+        if (result is null)
         {
             return;
         }
 
-        var selectedOptions = dialog.SelectedAvatars
-            .Where(option => !string.IsNullOrWhiteSpace(option.Id))
-            .ToArray();
-        var updatedAvatarIds = selectedOptions
-            .Select(option => option.Id.Trim())
+        var updatedAvatarIds = result
+            .Where(id => !string.IsNullOrWhiteSpace(id))
             .Distinct(StringComparer.Ordinal)
-            .ToArray();
-        var updatedAvatarNames = selectedOptions
-            .Select(option => option.Name?.Trim() ?? string.Empty)
-            .ToArray();
+            .ToList();
+        var updatedAvatarNames = updatedAvatarIds
+            .Select(id => ResolveVrChatAvatarName(id))
+            .ToList();
+
         var currentAvatarIds = SelectedRule.AvatarRouletAvatarIds
-            .Where(avatarId => !string.IsNullOrWhiteSpace(avatarId))
-            .Select(avatarId => avatarId.Trim())
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Select(id => id.Trim())
             .Distinct(StringComparer.Ordinal)
-            .ToArray();
+            .ToList();
         var currentAvatarNames = SelectedRule.AvatarRouletAvatarNames
-            .Select(avatarName => avatarName?.Trim() ?? string.Empty)
-            .ToArray();
+            .Select(n => n?.Trim() ?? string.Empty)
+            .ToList();
 
         if (updatedAvatarIds.SequenceEqual(currentAvatarIds, StringComparer.Ordinal)
             && updatedAvatarNames.SequenceEqual(currentAvatarNames, StringComparer.Ordinal))
@@ -17516,7 +17511,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         QueueSave();
         QueueBridgeRefresh();
         QueueManagedRewardSync(0);
-        AppendLog(updatedAvatarIds.Length == 0
+        AppendLog(updatedAvatarIds.Count == 0
             ? $"Cleared the Avatar Roulette pool for '{SelectedRule.DisplayTitle}'."
             : $"Updated the Avatar Roulette pool for '{SelectedRule.DisplayTitle}'.");
     }
