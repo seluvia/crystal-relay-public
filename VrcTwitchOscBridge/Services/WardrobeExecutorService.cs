@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using VrcTwitchOscBridge.Models;
 
 namespace VrcTwitchOscBridge.Services;
@@ -76,12 +77,27 @@ internal sealed class WardrobeExecutorService : IAsyncDisposable
             }
         }
 
-        // Auto-capture current values from VRChat via OSCQuery
-        var capturedValues = new Dictionary<string, OscObservedValue?>();
+        // Capture only the configured outfit parameters. Capture failures should not block
+        // the initial outfit send; they only mean that parameter cannot be restored later.
+        var capturedValues = new Dictionary<string, OscObservedValue>(StringComparer.OrdinalIgnoreCase);
         foreach (var param in snapshot.Params)
         {
-            var currentValue = await oscRouterService.GetCurrentOscValueAsync(param.ParameterName, cancellationToken);
-            capturedValues[param.ParameterName] = currentValue;
+            try
+            {
+                var currentValue = await oscRouterService.GetCurrentOscValueAsync(param.ParameterName, cancellationToken);
+                if (currentValue?.ParameterType == param.ParameterType)
+                {
+                    capturedValues[param.ParameterName] = currentValue;
+                }
+                else if (currentValue is not null)
+                {
+                    logWritten($"Wardrobe outfit '{snapshot.Name}' skipped restore capture for '{param.ParameterName}' because VRChat reported {currentValue.ParameterType}, not {param.ParameterType}.");
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logWritten($"Wardrobe outfit '{snapshot.Name}' could not capture restore value for '{param.ParameterName}': {ex.Message}");
+            }
         }
 
         // Cancel any previous restore for this outfit (independent snapshots: last one wins)
@@ -113,23 +129,28 @@ internal sealed class WardrobeExecutorService : IAsyncDisposable
 
                 if (restoreCts.IsCancellationRequested) return;
 
-                // Restore captured values
                 var restorePackets = new List<byte[]>();
-                foreach (var param in snapshot.Params)
+                foreach (var captured in capturedValues.Values)
                 {
-                    var captured = capturedValues[param.ParameterName];
-                    if (captured != null)
+                    if (TryFormatObservedValue(captured, out var restoreText))
                     {
                         var restorePacket = oscClient.BuildAvatarParameterPacket(
-                            param.ParameterName,
-                            param.ParameterType,
-                            captured!.Value?.ToString() ?? string.Empty);
+                            captured.Address,
+                            captured.ParameterType,
+                            restoreText);
                         restorePackets.Add(restorePacket);
                     }
                 }
 
-                await SendPacketsAsync(restorePackets, CancellationToken.None);
-                logWritten($"Restored Wardrobe outfit '{snapshot.Name}' captured values ({restorePackets.Count} params).");
+                if (restorePackets.Count > 0)
+                {
+                    await SendPacketsAsync(restorePackets, CancellationToken.None);
+                    logWritten($"Restored Wardrobe outfit '{snapshot.Name}' captured values ({restorePackets.Count} params).");
+                }
+                else
+                {
+                    logWritten($"Wardrobe outfit '{snapshot.Name}' had no captured values to restore.");
+                }
 
                 // Start global cooldown after restore
                 if (snapshot.CooldownSeconds > 0)
@@ -160,6 +181,25 @@ internal sealed class WardrobeExecutorService : IAsyncDisposable
         }, CancellationToken.None);
 
         return true;
+    }
+
+    private static bool TryFormatObservedValue(OscObservedValue observedValue, out string valueText)
+    {
+        valueText = string.Empty;
+        switch (observedValue.ParameterType)
+        {
+            case OscParameterType.Bool when observedValue.Value is bool boolValue:
+                valueText = boolValue ? "True" : "False";
+                return true;
+            case OscParameterType.Int when observedValue.Value is int intValue:
+                valueText = intValue.ToString(CultureInfo.InvariantCulture);
+                return true;
+            case OscParameterType.Float when observedValue.Value is float floatValue:
+                valueText = floatValue.ToString(CultureInfo.InvariantCulture);
+                return true;
+            default:
+                return false;
+        }
     }
 
     /// <summary>

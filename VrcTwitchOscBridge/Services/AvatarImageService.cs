@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.IO;
 using System.Net.Http;
+using System.Threading;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -13,14 +14,29 @@ namespace VrcTwitchOscBridge.Services;
 /// </summary>
 public sealed class AvatarImageService
 {
-    private static readonly HttpClient HttpClient = new()
+    private static readonly HttpClient HttpClient = CreateHttpClient();
+
+    private static HttpClient CreateHttpClient()
     {
-        Timeout = TimeSpan.FromSeconds(10)
-    };
+        var client = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("CrystalRelayTwitchOsc/desktop");
+        return client;
+    }
 
     private readonly string iconFolder;
     private readonly string cacheFolder;
     private readonly ConcurrentDictionary<string, ImageSource> imageCache = new(StringComparer.Ordinal);
+
+    private string? vrChatAuthCookie;
+
+    /// <summary>
+    /// Sets the VRChat auth cookie used for authenticated thumbnail downloads.
+    /// Call when VRChat connects (pass the cookie) or disconnects (pass null).
+    /// </summary>
+    public void SetVrChatAuthCookie(string? cookie)
+    {
+        vrChatAuthCookie = string.IsNullOrWhiteSpace(cookie) ? null : cookie.Trim();
+    }
 
     public AvatarImageService()
     {
@@ -65,11 +81,66 @@ public sealed class AvatarImageService
     }
 
     /// <summary>
+    /// Gets the custom icon for an avatar synchronously, without loading VRChat thumbnails.
+    /// Returns null if no custom icon is available.
+    /// </summary>
+    public ImageSource? GetCustomIconOnly(string? customIconPath)
+    {
+        return LoadCustomIcon(customIconPath);
+    }
+
+    /// <summary>
+    /// Gets the image source for an avatar asynchronously. Tries custom icon first, then VRChat thumbnail, then placeholder.
+    /// </summary>
+    public async Task<ImageSource?> GetAvatarImageAsync(
+        string avatarId,
+        string? customIconPath,
+        string? vrchatThumbnailUrl,
+        CancellationToken cancellationToken)
+    {
+        var cacheKey = avatarId;
+        if (imageCache.TryGetValue(cacheKey, out var cached))
+        {
+            return cached;
+        }
+
+        var image = LoadCustomIcon(customIconPath)
+            ?? await LoadVrChatThumbnailAsync(avatarId, vrchatThumbnailUrl, cancellationToken)
+            ?? GetPlaceholderImage();
+
+        imageCache[cacheKey] = image;
+        return image;
+    }
+
+    /// <summary>
     /// Clears the in-memory image cache. Called when avatar list is refreshed.
     /// </summary>
     public void ClearCache()
     {
         imageCache.Clear();
+    }
+
+    /// <summary>
+    /// Deletes all cached thumbnail files from disk so they are re-downloaded on next load.
+    /// </summary>
+    public void ClearDiskCache()
+    {
+        if (string.IsNullOrWhiteSpace(cacheFolder) || !Directory.Exists(cacheFolder))
+        {
+            return;
+        }
+
+        foreach (var file in Directory.GetFiles(cacheFolder))
+        {
+            try
+            {
+                File.Delete(file);
+            }
+            catch
+            {
+                // File may be locked; skip and continue
+            }
+        }
     }
 
     /// <summary>
@@ -153,6 +224,48 @@ public sealed class AvatarImageService
         }
     }
 
+    private async Task<ImageSource?> LoadVrChatThumbnailAsync(string avatarId, string? thumbnailUrl, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(thumbnailUrl) || string.IsNullOrWhiteSpace(cacheFolder))
+        {
+            return null;
+        }
+
+        var cachePath = Path.Combine(cacheFolder, $"{avatarId}.jpg");
+        if (File.Exists(cachePath))
+        {
+            return LoadImageFromFile(cachePath);
+        }
+
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, thumbnailUrl);
+            if (!string.IsNullOrWhiteSpace(vrChatAuthCookie))
+            {
+                request.Headers.TryAddWithoutValidation("Cookie", $"auth={vrChatAuthCookie}");
+            }
+
+            using var response = await HttpClient.SendAsync(request, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                System.Diagnostics.Debug.WriteLine($"[AvatarImageService] HTTP {(int)response.StatusCode} for {thumbnailUrl}");
+                return null;
+            }
+
+            var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+            File.WriteAllBytes(cachePath, bytes);
+            return LoadImageFromFile(cachePath);
+        }
+        catch (OperationCanceledException)
+        {
+            return null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private static ImageSource? LoadImageFromFile(string path)
     {
         try
@@ -171,7 +284,12 @@ public sealed class AvatarImageService
         }
     }
 
-    private static ImageSource GetPlaceholderImage()
+    /// <summary>
+    /// Gets the built-in placeholder image used when no custom icon or thumbnail is available.
+    /// </summary>
+    public ImageSource GetPlaceholderImage() => GetPlaceholderImageCore();
+
+    private static ImageSource GetPlaceholderImageCore()
     {
         var drawing = new DrawingGroup();
         using (var context = drawing.Open())

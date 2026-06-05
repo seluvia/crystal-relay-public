@@ -899,5 +899,14 @@
   "Select All": "全選",
   "Deselect All": "取消全選",
   "Avatar is selected": "已選取頭像",
-  "Avatar is not selected": "未選取頭像"
+  "Avatar is not selected": "未選取頭像",
+  "What is the Master Reward?": "What is the Master Reward?",
+  "The Master Reward acts as a gate for your Avatar Scaling channel-point rewards. When enabled, all child scale rewards stay hidden or deleted on Twitch until a viewer redeems the master reward to unlock them for a set duration.": "The Master Reward acts as a gate for your Avatar Scaling channel-point rewards. When enabled, all child scale rewards stay hidden or deleted on Twitch until a viewer redeems the master reward to unlock them for a set duration.",
+  "This keeps your Twitch reward panel clean - you don't need every scale reward visible all the time. Viewers redeem the master reward once, then pick which height they want from the unlocked child rewards.": "This keeps your Twitch reward panel clean - you don't need every scale reward visible all the time. Viewers redeem the master reward once, then pick which height they want from the unlocked child rewards.",
+  "Supporter Growth rules are not affected - they listen to bits and subs directly and do not need the master reward to fire.": "Supporter Growth rules are not affected - they listen to bits and subs directly and do not need the master reward to fire.",
+  "Avatar-Tied Redeems": "Avatar-Tied Redeems",
+  "These two share the same avatar profile list.": "These two share the same avatar profile list.",
+  "Avatar Actions": "Avatar Actions",
+  "Trigger Systems": "Trigger Systems",
+  "Viewer Support": "Viewer Support"
 }

@@ -1055,6 +1055,8 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             ActiveTimeSeconds = outfit.ActiveTimeSeconds,
             TwitchRewardId = outfit.TwitchRewardId,
             TwitchRewardTitle = outfit.TwitchRewardTitle,
+            TwitchRewardCost = outfit.TwitchRewardCost,
+            TwitchRewardDescription = outfit.TwitchRewardDescription,
             TwitchRewardSyncMode = outfit.TwitchRewardSyncMode,
             ChatCommandText = outfit.ChatCommandText,
             SnapshotParams = [.. outfit.SnapshotParams.Select(ToPersistedWardrobeSnapshotParam)]
@@ -1238,6 +1240,8 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             ActiveTimeSeconds = persisted.ActiveTimeSeconds <= 0 ? 30 : persisted.ActiveTimeSeconds,
             TwitchRewardId = persisted.TwitchRewardId ?? string.Empty,
             TwitchRewardTitle = persisted.TwitchRewardTitle ?? string.Empty,
+            TwitchRewardCost = persisted.TwitchRewardCost ?? "100",
+            TwitchRewardDescription = persisted.TwitchRewardDescription ?? string.Empty,
             TwitchRewardSyncMode = Enum.IsDefined(persisted.TwitchRewardSyncMode)
                 ? persisted.TwitchRewardSyncMode
                 : TwitchRewardSyncMode.CreateOrManage,
@@ -2892,6 +2896,10 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
         public string? TwitchRewardId { get; set; }
 
         public string? TwitchRewardTitle { get; set; }
+
+        public string? TwitchRewardCost { get; set; }
+
+        public string? TwitchRewardDescription { get; set; }
 
         public TwitchRewardSyncMode TwitchRewardSyncMode { get; set; }
 

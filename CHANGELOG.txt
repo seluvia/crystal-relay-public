@@ -7,6 +7,7 @@ v3.1.9
 - Optimized startup speed by deferring heavy initialization out of the main constructor. The window now appears faster with a loading overlay while settings, currency codes, and font lists load in the background.
 - Added a lightweight settings read path during startup that only loads language and theme preferences, so the correct theme is applied immediately without a flash.
 - Added a loading overlay with the Crystal Relay icon and localized "Loading" text that disappears once initialization is complete.
+- Fixed Wardrobe setup so Test Outfit sends configured OSC parameters, parameter removal enables correctly, and individual outfit rewards can be created from the outfit name.
 
 v3.1.8
 - Added a Power Up Redeem Library for Twitch Custom Power-ups paid with Bits. Power Ups can link existing Twitch Custom Power-ups, stay separate from normal cheers, and run OSC actions, Set Trigger, Avatar Change, Avatar Roulette, movement, or Avatar Scaling actions.

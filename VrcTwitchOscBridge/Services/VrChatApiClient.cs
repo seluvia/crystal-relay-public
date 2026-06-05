@@ -132,7 +132,8 @@ public sealed class VrChatApiClient : IDisposable
                 avatar.Id,
                 avatar.Name,
                 string.Join(" / ", avatar.Sources.OrderBy(source => source, StringComparer.OrdinalIgnoreCase)),
-                avatar.IsCurrentAvatar))
+                avatar.IsCurrentAvatar,
+                avatar.ThumbnailUrl))
             .ToArray();
     }
 
@@ -272,6 +273,7 @@ public sealed class VrChatApiClient : IDisposable
                 {
                     Id = avatar.Id,
                     Name = string.IsNullOrWhiteSpace(avatar.Name) ? avatar.Id : avatar.Name,
+                    ThumbnailUrl = avatar.ThumbnailImageUrl ?? avatar.ImageUrl,
                     IsCurrentAvatar = string.Equals(avatar.Id, currentAvatarId, StringComparison.Ordinal)
                 };
                 merged[avatar.Id] = current;
@@ -515,6 +517,12 @@ public sealed class VrChatApiClient : IDisposable
 
         [JsonPropertyName("name")]
         public string Name { get; set; } = string.Empty;
+
+        [JsonPropertyName("imageUrl")]
+        public string? ImageUrl { get; set; }
+
+        [JsonPropertyName("thumbnailImageUrl")]
+        public string? ThumbnailImageUrl { get; set; }
     }
 
     private sealed class MutableAvatar
@@ -522,6 +530,8 @@ public sealed class VrChatApiClient : IDisposable
         public string Id { get; init; } = string.Empty;
 
         public string Name { get; init; } = string.Empty;
+
+        public string? ThumbnailUrl { get; init; }
 
         public bool IsCurrentAvatar { get; set; }
 

@@ -95,6 +95,16 @@ public static class AvatarPickerService
     {
         Instance.ClearCache();
     }
+
+    /// <summary>
+    /// Sets the VRChat auth cookie for authenticated thumbnail downloads.
+    /// Call when VRChat connects (pass cookie) or disconnects (pass null).
+    /// </summary>
+    public static void SetVrChatAuthCookie(string? cookie)
+    {
+        Instance.SetVrChatAuthCookie(cookie);
+        Instance.ClearCache();
+    }
 }
 
 public sealed record AvatarPickerResult(string AvatarId, string AvatarName);

@@ -270,7 +270,16 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         nameof(AvatarTriggerProfile.SetTriggerMasterRewardSyncMode),
         nameof(AvatarTriggerProfile.SetTriggerMasterRewardCooldownSeconds),
         nameof(AvatarTriggerProfile.UseSharedNumberedOutfitReward),
-        nameof(AvatarTriggerProfile.PostOutfitChoiceListToTwitchChat)
+        nameof(AvatarTriggerProfile.PostOutfitChoiceListToTwitchChat),
+        nameof(AvatarTriggerProfile.UseWardrobeMode),
+        nameof(AvatarTriggerProfile.WardrobeCooldownSeconds),
+        nameof(AvatarTriggerProfile.WardrobeOutfits),
+        nameof(AvatarTriggerProfile.UseWardrobeMasterReward),
+        nameof(AvatarTriggerProfile.WardrobeMasterRewardId),
+        nameof(AvatarTriggerProfile.WardrobeMasterRewardTitle),
+        nameof(AvatarTriggerProfile.WardrobeMasterRewardCost),
+        nameof(AvatarTriggerProfile.WardrobeMasterRewardSyncMode),
+        nameof(AvatarTriggerProfile.WardrobeMasterRewardCooldownSeconds)
     };
     private static readonly HashSet<string> AvatarProfilePropertiesRequiringManagedRewardSync = new(StringComparer.Ordinal)
     {
@@ -287,7 +296,37 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         nameof(AvatarTriggerProfile.SetTriggerMasterRewardReadyColor),
         nameof(AvatarTriggerProfile.SetTriggerMasterRewardCooldownColor),
         nameof(AvatarTriggerProfile.DeleteSetTriggerMasterRewardWhenInactive),
-        nameof(AvatarTriggerProfile.UseSharedNumberedOutfitReward)
+        nameof(AvatarTriggerProfile.UseSharedNumberedOutfitReward),
+        nameof(AvatarTriggerProfile.UseWardrobeMode),
+        nameof(AvatarTriggerProfile.WardrobeOutfits),
+        nameof(AvatarTriggerProfile.UseWardrobeMasterReward),
+        nameof(AvatarTriggerProfile.WardrobeMasterRewardId),
+        nameof(AvatarTriggerProfile.WardrobeMasterRewardTitle),
+        nameof(AvatarTriggerProfile.WardrobeMasterRewardCost),
+        nameof(AvatarTriggerProfile.WardrobeMasterRewardSyncMode),
+        nameof(AvatarTriggerProfile.WardrobeMasterRewardCooldownSeconds),
+        nameof(AvatarTriggerProfile.WardrobeMasterRewardReadyColor),
+        nameof(AvatarTriggerProfile.WardrobeMasterRewardCooldownColor)
+    };
+    private static readonly HashSet<string> WardrobeOutfitPropertiesRequiringBridgeRefresh = new(StringComparer.Ordinal)
+    {
+        nameof(WardrobeOutfit.IsEnabled),
+        nameof(WardrobeOutfit.Name),
+        nameof(WardrobeOutfit.ActiveTimeSeconds),
+        nameof(WardrobeOutfit.TwitchRewardId),
+        nameof(WardrobeOutfit.ChatCommandText),
+        nameof(WardrobeOutfit.SnapshotParams)
+    };
+    private static readonly HashSet<string> WardrobeOutfitPropertiesRequiringManagedRewardSync = new(StringComparer.Ordinal)
+    {
+        nameof(WardrobeOutfit.IsEnabled),
+        nameof(WardrobeOutfit.Name),
+        nameof(WardrobeOutfit.TwitchRewardId),
+        nameof(WardrobeOutfit.TwitchRewardTitle),
+        nameof(WardrobeOutfit.TwitchRewardCost),
+        nameof(WardrobeOutfit.TwitchRewardDescription),
+        nameof(WardrobeOutfit.TwitchRewardSyncMode),
+        nameof(WardrobeOutfit.SnapshotParams)
     };
     private static readonly HashSet<string> UniversalTriggerPropertiesRequiringManagedRewardSync = new(StringComparer.Ordinal)
     {
@@ -401,6 +440,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private PowerUpRule? selectedPowerUpRule;
     private WardrobeOutfit? selectedWardrobeOutfit;
     private WardrobeSnapshotParam? selectedWardrobeSnapshotParam;
+    private VrChatOscParameterSummary? selectedWardrobeParameterOption;
     private IReadOnlyList<VrChatOscParameterSummary> availableWardrobeParameters = [];
     private AvatarTriggerProfile? selectedAvatarProfile;
     private VrChatOscParameterSummary? selectedAvatarParameterOption;
@@ -444,6 +484,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private bool isInitialized;
     private bool isRestoringAvatarParameterSelection;
     private bool isRestoringSetTriggerParameterSelection;
+    private bool isRestoringWardrobeParameterSelection;
     private bool isApplyingMasterAvatarDefaults;
     private bool isRefreshingVrChatAvatarSelectionOptions;
     private bool isSynchronizingManagedRewards;
@@ -878,6 +919,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ShowAvatarScalingCommand = new RelayCommand(ShowAvatarScaling);
         ShowCashPaymentsCommand = new RelayCommand(ShowCashPayments);
         ShowRewardFireSaleCommand = new RelayCommand(ShowRewardFireSale);
+        ShowWardrobeCommand = new RelayCommand(ShowWardrobe);
         AddAvatarProfileCommand = new RelayCommand(AddAvatarProfile);
         DeleteSelectedAvatarProfileCommand = new RelayCommand(DeleteSelectedAvatarProfile, () => SelectedAvatarProfile is not null);
         DeleteAllAvatarProfilesCommand = new RelayCommand(DeleteAllAvatarProfiles, () => AvatarRuleProfiles.Count > 0);
@@ -902,11 +944,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RemoveSelectedOutfitChoiceCommand = new RelayCommand(
             RemoveSelectedOutfitChoice,
             () => IsViewingAvatarTriggers && SelectedAvatarProfile is not null && SelectedRule?.ActionType == OscActionType.SetTrigger);
-        AddWardrobeOutfitCommand = new RelayCommand(AddWardrobeOutfit, () => IsViewingAvatarTriggers && SelectedAvatarProfile is not null);
-        RemoveWardrobeOutfitCommand = new RelayCommand(RemoveWardrobeOutfit, () => IsViewingAvatarTriggers && SelectedWardrobeOutfit is not null);
+        AddWardrobeOutfitCommand = new RelayCommand(AddWardrobeOutfit, () => (IsViewingAvatarTriggers || IsViewingWardrobe) && SelectedAvatarProfile is not null);
+        RemoveWardrobeOutfitCommand = new RelayCommand(RemoveWardrobeOutfit, () => (IsViewingAvatarTriggers || IsViewingWardrobe) && SelectedWardrobeOutfit is not null);
         AddWardrobeSnapshotParamCommand = new RelayCommand(AddWardrobeSnapshotParam, () => SelectedWardrobeOutfit is not null);
         RemoveWardrobeSnapshotParamCommand = new RelayCommand(RemoveWardrobeSnapshotParam, () => SelectedWardrobeSnapshotParam is not null);
         RefreshWardrobeParametersCommand = new RelayCommand(async () => await RefreshWardrobeParametersAsync());
+        TestWardrobeOutfitCommand = new AsyncRelayCommand(TestWardrobeOutfitAsync, () => SelectedWardrobeOutfit is not null && SelectedAvatarProfile is not null);
         SelectRuleCommand = new RelayCommand(SelectRule, target => target is TriggerRule);
         AddAvatarSupporterTriggerCommand = new RelayCommand(AddAvatarSupporterTrigger);
         AddAvatarChangeOverrideCommand = new RelayCommand(AddAvatarChangeOverride);
@@ -1102,6 +1145,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 RefreshSpecialRuleLockoutOptions();
                 RefreshVrChatAvatarSelectionOptions();
                 _ = EnsureSelectedAvatarParameterCacheLoadedAsync();
+                if (IsViewingWardrobe)
+                {
+                    _ = RefreshWardrobeParametersAsync();
+                }
                 SelectedRule = value is null ? null : GetRememberedRuleForProfile(value);
 
                 if (Settings.ChannelPointRewardTestModeEnabled && !IsBroadcasterLive)
@@ -1402,6 +1449,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     public bool IsViewingCashPayments => activeRuleListView == RuleListView.CashPayments;
 
     public bool IsViewingRewardFireSale => activeRuleListView == RuleListView.RewardFireSale;
+
+    public bool IsViewingWardrobe => activeRuleListView == RuleListView.Wardrobe;
 
     public bool IsRewardFireSaleTemporary => Settings.RewardFireSale.SaleMode == RewardFireSaleMode.Temporary;
 
@@ -2604,8 +2653,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         {
             if (SetProperty(ref selectedWardrobeOutfit, value))
             {
+                SelectedWardrobeSnapshotParam = value?.SnapshotParams.FirstOrDefault();
                 AddWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
                 RemoveWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
+                AddWardrobeOutfitCommand.NotifyCanExecuteChanged();
+                RemoveWardrobeOutfitCommand.NotifyCanExecuteChanged();
+                TestWardrobeOutfitCommand.NotifyCanExecuteChanged();
             }
         }
     }
@@ -2613,7 +2666,55 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     public WardrobeSnapshotParam? SelectedWardrobeSnapshotParam
     {
         get => selectedWardrobeSnapshotParam;
-        set => SetProperty(ref selectedWardrobeSnapshotParam, value);
+        set
+        {
+            if (SetProperty(ref selectedWardrobeSnapshotParam, value))
+            {
+                RefreshWardrobeParameterOption();
+                RemoveWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
+            }
+        }
+    }
+
+    public VrChatOscParameterSummary? SelectedWardrobeParameterOption
+    {
+        get => selectedWardrobeParameterOption;
+        set
+        {
+            if (SetProperty(ref selectedWardrobeParameterOption, value)
+                && !isRestoringWardrobeParameterSelection
+                && SelectedWardrobeSnapshotParam is not null
+                && value is not null)
+            {
+                if (SelectedWardrobeSnapshotParam.ParameterType != value.ParameterType)
+                    SelectedWardrobeSnapshotParam.ParameterType = value.ParameterType;
+                SelectedWardrobeSnapshotParam.ParameterName = value.Address;
+            }
+        }
+    }
+
+    private void RefreshWardrobeParameterOption()
+    {
+        isRestoringWardrobeParameterSelection = true;
+        try
+        {
+            if (selectedWardrobeSnapshotParam is null)
+            {
+                selectedWardrobeParameterOption = null;
+                RaisePropertyChanged(nameof(SelectedWardrobeParameterOption));
+                return;
+            }
+
+            var address = selectedWardrobeSnapshotParam.ParameterName ?? string.Empty;
+            var match = availableWardrobeParameters.FirstOrDefault(p =>
+                string.Equals(p.Address, address, StringComparison.Ordinal));
+            selectedWardrobeParameterOption = match;
+            RaisePropertyChanged(nameof(SelectedWardrobeParameterOption));
+        }
+        finally
+        {
+            isRestoringWardrobeParameterSelection = false;
+        }
     }
 
     public IReadOnlyList<VrChatOscParameterSummary> AvailableWardrobeParameters
@@ -3188,6 +3289,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public RelayCommand ShowRewardFireSaleCommand { get; }
 
+    public RelayCommand ShowWardrobeCommand { get; }
+
     public RelayCommand AddAvatarProfileCommand { get; }
 
     public RelayCommand DeleteSelectedAvatarProfileCommand { get; }
@@ -3223,6 +3326,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     public RelayCommand AddWardrobeSnapshotParamCommand { get; }
     public RelayCommand RemoveWardrobeSnapshotParamCommand { get; }
     public RelayCommand RefreshWardrobeParametersCommand { get; }
+    public AsyncRelayCommand TestWardrobeOutfitCommand { get; }
 
     public RelayCommand SelectRuleCommand { get; }
 
@@ -5053,6 +5157,13 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RefreshRewardFireSaleStateProperties();
     }
 
+    private void ShowWardrobe()
+    {
+        var profile = GetRememberedAvatarRuleProfile();
+        ApplyAvatarProfileDefaults(profile);
+        SwitchRuleView(RuleListView.Wardrobe, profile, rule: null);
+    }
+
     private bool NormalizeRewardFireSaleSettings()
     {
         var changed = false;
@@ -6219,7 +6330,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         var outfit = new WardrobeOutfit();
         SelectedAvatarProfile.WardrobeOutfits.Add(outfit);
         SelectedWardrobeOutfit = outfit;
+        RemoveWardrobeOutfitCommand.NotifyCanExecuteChanged();
         AppendLog($"Added Wardrobe outfit '{outfit.Name}'.");
+        QueueSave();
     }
 
     private void RemoveWardrobeOutfit()
@@ -6228,7 +6341,54 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         var outfit = SelectedWardrobeOutfit;
         SelectedAvatarProfile.WardrobeOutfits.Remove(outfit);
         SelectedWardrobeOutfit = SelectedAvatarProfile.WardrobeOutfits.FirstOrDefault();
+        RemoveWardrobeOutfitCommand.NotifyCanExecuteChanged();
+        AddWardrobeOutfitCommand.NotifyCanExecuteChanged();
         AppendLog($"Removed Wardrobe outfit '{outfit.Name}'.");
+        QueueSave();
+    }
+
+    private async Task TestWardrobeOutfitAsync()
+    {
+        if (SelectedWardrobeOutfit is null || SelectedAvatarProfile is null)
+        {
+            return;
+        }
+
+        await ReloadRuntimeConfigAsync();
+
+        await bridgeRefreshGate.WaitAsync();
+        try
+        {
+            await EnsureBridgeStateAsync(CancellationToken.None, allowOscOnly: true);
+
+            if (!BridgeRuntimeConfiguration.TryToWardrobeSnapshot(
+                    SelectedWardrobeOutfit, SelectedAvatarProfile, out var snapshot))
+            {
+                BridgeStatus = "Wardrobe outfit test did not run: outfit has no valid parameters.";
+                AppendLog("Could not test wardrobe outfit: outfit is missing valid parameter snapshots.");
+                return;
+            }
+
+            var applied = await bridgeCoordinator.ExecuteWardrobeOutfitAsync(snapshot, CancellationToken.None);
+            if (applied)
+            {
+                BridgeStatus = $"Sent test for wardrobe outfit '{snapshot.Name}'.";
+            }
+            else
+            {
+                BridgeStatus = "Wardrobe outfit test did not run: VRChat may not be connected or avatar cache may not be available.";
+                AppendLog("Could not test wardrobe outfit: VRChat may not be connected or avatar cache may not be available.");
+            }
+        }
+        catch (Exception ex)
+        {
+            BridgeStatus = "Wardrobe outfit test did not run.";
+            AppendLog($"Could not test wardrobe outfit: {ex.Message}");
+        }
+        finally
+        {
+            bridgeRefreshGate.Release();
+        }
     }
 
     private void AddWardrobeSnapshotParam()
@@ -7507,10 +7667,16 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RefreshSpecialRuleLockoutOptions();
         RefreshAvailableActionTypes();
         RefreshVrChatAvatarSelectionOptions();
+        AddWardrobeOutfitCommand.NotifyCanExecuteChanged();
+        RemoveWardrobeOutfitCommand.NotifyCanExecuteChanged();
         if (IsViewingUniversalTriggers)
         {
             RefreshAvatarParameterOptions();
             _ = EnsureSelectedAvatarParameterCacheLoadedAsync();
+        }
+        else if (IsViewingWardrobe)
+        {
+            _ = RefreshWardrobeParametersAsync();
         }
         else if (SelectedRule?.ActionType == OscActionType.AvatarParameter)
         {
@@ -8707,11 +8873,17 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     {
         profile.PropertyChanged += AvatarProfileChanged;
         profile.ChannelPointRules.CollectionChanged += AvatarProfileRulesCollectionChanged;
+        profile.WardrobeOutfits.CollectionChanged += WardrobeOutfitsCollectionChanged;
 
         foreach (var rule in profile.ChannelPointRules)
         {
             rule.TriggerType = TwitchTriggerType.ChannelPoints;
             rule.PropertyChanged += RuleChanged;
+        }
+
+        foreach (var outfit in profile.WardrobeOutfits)
+        {
+            outfit.PropertyChanged += WardrobeOutfitPropertyChanged;
         }
     }
 
@@ -8719,10 +8891,16 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     {
         profile.PropertyChanged -= AvatarProfileChanged;
         profile.ChannelPointRules.CollectionChanged -= AvatarProfileRulesCollectionChanged;
+        profile.WardrobeOutfits.CollectionChanged -= WardrobeOutfitsCollectionChanged;
 
         foreach (var rule in profile.ChannelPointRules)
         {
             rule.PropertyChanged -= RuleChanged;
+        }
+
+        foreach (var outfit in profile.WardrobeOutfits)
+        {
+            outfit.PropertyChanged -= WardrobeOutfitPropertyChanged;
         }
     }
 
@@ -8756,6 +8934,71 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RaiseAvatarRedeemGroupProperties();
         RefreshRuleCommandStates();
         QueueManagedRewardSync();
+    }
+
+    private void WardrobeOutfitsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.OldItems is not null)
+        {
+            foreach (WardrobeOutfit outfit in e.OldItems)
+            {
+                outfit.PropertyChanged -= WardrobeOutfitPropertyChanged;
+            }
+        }
+
+        if (e.NewItems is not null)
+        {
+            foreach (WardrobeOutfit outfit in e.NewItems)
+            {
+                outfit.PropertyChanged += WardrobeOutfitPropertyChanged;
+            }
+        }
+
+        if (SelectedWardrobeOutfit is not null
+            && sender is ObservableCollection<WardrobeOutfit> outfits
+            && !outfits.Contains(SelectedWardrobeOutfit))
+        {
+            SelectedWardrobeOutfit = outfits.FirstOrDefault();
+        }
+
+        QueueSave();
+        QueueBridgeRefresh();
+        QueueManagedRewardSync();
+        AddWardrobeOutfitCommand.NotifyCanExecuteChanged();
+        RemoveWardrobeOutfitCommand.NotifyCanExecuteChanged();
+        AddWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
+        RemoveWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
+        TestWardrobeOutfitCommand.NotifyCanExecuteChanged();
+    }
+
+    private void WardrobeOutfitPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        QueueSave();
+
+        if (ShouldRefreshBridgeForWardrobeOutfitChange(e.PropertyName))
+        {
+            QueueBridgeRefresh();
+        }
+
+        if (!isSynchronizingManagedRewards
+            && ShouldSynchronizeManagedRewardsForWardrobeOutfitChange(e.PropertyName))
+        {
+            QueueManagedRewardSync();
+        }
+
+        var selectedOutfit = SelectedWardrobeOutfit;
+        if (ReferenceEquals(sender, selectedOutfit)
+            && e.PropertyName == nameof(WardrobeOutfit.SnapshotParams))
+        {
+            if (SelectedWardrobeSnapshotParam is not null
+                && selectedOutfit is not null
+                && !selectedOutfit.SnapshotParams.Contains(SelectedWardrobeSnapshotParam))
+            {
+                SelectedWardrobeSnapshotParam = selectedOutfit.SnapshotParams.FirstOrDefault();
+            }
+
+            TestWardrobeOutfitCommand.NotifyCanExecuteChanged();
+        }
     }
 
     private void AvatarProfileChanged(object? sender, PropertyChangedEventArgs e)
@@ -11489,6 +11732,37 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                         TwitchRewardSyncMode.CreateOrManage);
                 }
             }
+
+            foreach (var outfit in profile.WardrobeOutfits)
+            {
+                var rewardTitle = GetWardrobeOutfitRewardTitle(outfit);
+                if (string.IsNullOrWhiteSpace(rewardTitle)
+                    && string.IsNullOrWhiteSpace(outfit.TwitchRewardId))
+                {
+                    continue;
+                }
+
+                yield return new ManagedRewardOwnershipEntry(
+                    outfit.Id,
+                    outfit.TwitchRewardId,
+                    rewardTitle,
+                    outfit.TwitchRewardSyncMode);
+            }
+
+            if ((profile.UseWardrobeMasterReward && profile.UseWardrobeMode)
+                || !string.IsNullOrWhiteSpace(profile.WardrobeMasterRewardId))
+            {
+                var masterRewardTitle = profile.WardrobeMasterRewardTitle?.Trim() ?? string.Empty;
+                if (!string.IsNullOrWhiteSpace(masterRewardTitle)
+                    || !string.IsNullOrWhiteSpace(profile.WardrobeMasterRewardId))
+                {
+                    yield return new ManagedRewardOwnershipEntry(
+                        profile.Id,
+                        profile.WardrobeMasterRewardId,
+                        masterRewardTitle,
+                        profile.WardrobeMasterRewardSyncMode);
+                }
+            }
         }
 
         foreach (var rule in supportedMovementRules)
@@ -11607,6 +11881,94 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             deleteWhenInactive: rule.DeleteManagedRewardWhenInactive && !isCooldownOnlyDirectAvatarChange && !temporarilyDisabledRuleIds.Contains(rule.Id) && !isActiveFloatBoostParent,
             protectFromCapReclaim: desiredEnabled || isOnLocalCooldown || temporarilyDisabledRuleIds.Contains(rule.Id) || isActiveFloatBoostParent || isCooldownOnlyDirectAvatarChange,
             applyRewardId: rewardId => rule.ChannelPointRewardId = rewardId);
+    }
+
+    private ManagedRewardSyncTarget? CreateManagedRewardTargetForWardrobeOutfit(
+        AvatarTriggerProfile profile,
+        WardrobeOutfit outfit,
+        bool allowManagedRewardActivation)
+    {
+        if (string.IsNullOrWhiteSpace(profile.AvatarId))
+        {
+            return null;
+        }
+
+        var rewardTitle = GetWardrobeOutfitRewardTitle(outfit);
+        if (string.IsNullOrWhiteSpace(rewardTitle))
+        {
+            return null;
+        }
+
+        if (!int.TryParse(outfit.TwitchRewardCost, out var parsedCost) || parsedCost < 1)
+        {
+            parsedCost = 100;
+        }
+
+        var desiredEnabled = allowManagedRewardActivation
+            && profile.IsEnabled
+            && profile.UseWardrobeMode
+            && outfit.IsEnabled;
+
+        return new ManagedRewardSyncTarget(
+            outfit.Id,
+            outfit.DisplayTitle,
+            outfit.TwitchRewardId,
+            rewardTitle,
+            parsedCost,
+            outfit.TwitchRewardSyncMode,
+            cooldownSeconds: 0,
+            backgroundColor: ManagedRewardPresentation.NormalizeReadyBackgroundColor(string.Empty),
+            prompt: outfit.TwitchRewardDescription,
+            requireUserInput: false,
+            desiredEnabled: desiredEnabled,
+            isCooldownActive: false,
+            deleteWhenInactive: false,
+            protectFromCapReclaim: desiredEnabled,
+            applyRewardId: rewardId => outfit.TwitchRewardId = rewardId);
+    }
+
+    private static string GetWardrobeOutfitRewardTitle(WardrobeOutfit outfit)
+    {
+        var explicitTitle = outfit.TwitchRewardTitle?.Trim() ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(explicitTitle))
+        {
+            return explicitTitle;
+        }
+
+        return outfit.DisplayTitle?.Trim() ?? string.Empty;
+    }
+
+    private ManagedRewardSyncTarget? CreateManagedRewardTargetForWardrobeMasterReward(
+        AvatarTriggerProfile profile,
+        bool allowManagedRewardActivation)
+    {
+        if (string.IsNullOrWhiteSpace(profile.AvatarId)
+            || string.IsNullOrWhiteSpace(profile.WardrobeMasterRewardTitle))
+        {
+            return null;
+        }
+
+        var desiredEnabled = allowManagedRewardActivation
+            && profile.IsEnabled
+            && profile.UseWardrobeMode
+            && profile.UseWardrobeMasterReward;
+
+        return new ManagedRewardSyncTarget(
+            profile.Id,
+            profile.WardrobeMasterRewardTitle,
+            profile.WardrobeMasterRewardId,
+            profile.WardrobeMasterRewardTitle,
+            profile.WardrobeMasterRewardCost,
+            profile.WardrobeMasterRewardSyncMode,
+            profile.WardrobeMasterRewardCooldownSeconds,
+            ManagedRewardPresentation.NormalizeReadyBackgroundColor(profile.WardrobeMasterRewardReadyColor),
+            prompt: string.Empty,
+            requireUserInput: true,
+            desiredEnabled: desiredEnabled,
+            isCooldownActive: false,
+            deleteWhenInactive: false,
+            protectFromCapReclaim: desiredEnabled,
+            applyRewardId: rewardId => profile.WardrobeMasterRewardId = rewardId);
     }
 
     private ManagedRewardSyncTarget? CreateManagedRewardTargetForActiveFloatBoostReward(
@@ -12425,6 +12787,24 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                     {
                         avatarProfileTargets.Add(boostTarget);
                     }
+                }
+
+                foreach (var outfit in profile.WardrobeOutfits)
+                {
+                    if (CreateManagedRewardTargetForWardrobeOutfit(
+                            profile,
+                            outfit,
+                            allowManagedRewardActivation) is { } outfitTarget)
+                    {
+                        avatarProfileTargets.Add(outfitTarget);
+                    }
+                }
+
+                if (CreateManagedRewardTargetForWardrobeMasterReward(
+                        profile,
+                        allowManagedRewardActivation) is { } masterTarget)
+                {
+                    avatarProfileTargets.Add(masterTarget);
                 }
             }
 
@@ -13777,6 +14157,25 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 clearedCount++;
             }
 
+            if (profile.Id != newOwnerId
+                && profile.WardrobeMasterRewardSyncMode == TwitchRewardSyncMode.CreateOrManage
+                && string.Equals(profile.WardrobeMasterRewardId?.Trim(), normalizedRewardId, StringComparison.Ordinal))
+            {
+                profile.WardrobeMasterRewardId = string.Empty;
+                clearedCount++;
+            }
+
+            foreach (var outfit in profile.WardrobeOutfits)
+            {
+                if (outfit.Id != newOwnerId
+                    && outfit.TwitchRewardSyncMode == TwitchRewardSyncMode.CreateOrManage
+                    && string.Equals(outfit.TwitchRewardId?.Trim(), normalizedRewardId, StringComparison.Ordinal))
+                {
+                    outfit.TwitchRewardId = string.Empty;
+                    clearedCount++;
+                }
+            }
+
             foreach (var rule in profile.ChannelPointRules)
             {
                 ClearTriggerRule(rule);
@@ -14772,6 +15171,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     private static bool ShouldSynchronizeManagedRewardsForRuleChange(string? propertyName) =>
         string.IsNullOrWhiteSpace(propertyName) || RulePropertiesRequiringManagedRewardSync.Contains(propertyName);
+
+    private static bool ShouldRefreshBridgeForWardrobeOutfitChange(string? propertyName) =>
+        string.IsNullOrWhiteSpace(propertyName) || WardrobeOutfitPropertiesRequiringBridgeRefresh.Contains(propertyName);
+
+    private static bool ShouldSynchronizeManagedRewardsForWardrobeOutfitChange(string? propertyName) =>
+        string.IsNullOrWhiteSpace(propertyName) || WardrobeOutfitPropertiesRequiringManagedRewardSync.Contains(propertyName);
 
     private static bool ShouldSynchronizeManagedRewardsForUniversalTriggerChange(string? propertyName) =>
         string.IsNullOrWhiteSpace(propertyName) || UniversalTriggerPropertiesRequiringManagedRewardSync.Contains(propertyName);
@@ -17888,6 +18293,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RaisePropertyChanged(nameof(IsViewingAvatarScaling));
         RaisePropertyChanged(nameof(IsViewingCashPayments));
         RaisePropertyChanged(nameof(IsViewingRewardFireSale));
+        RaisePropertyChanged(nameof(IsViewingWardrobe));
         RaisePropertyChanged(nameof(MovementRedeemSets));
         RaisePropertyChanged(nameof(MovementRedeemRules));
         RaisePropertyChanged(nameof(AvatarScaleSets));
@@ -19628,7 +20034,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         UniversalTriggers,
         AvatarScaling,
         CashPayments,
-        RewardFireSale
+        RewardFireSale,
+        Wardrobe
     }
 
     private sealed record ChatModerationTarget(string DisplayName, string Login, string UserId);

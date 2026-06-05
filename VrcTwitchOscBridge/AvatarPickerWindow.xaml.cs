@@ -48,6 +48,7 @@ public partial class AvatarPickerWindow : Window
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         SearchTextBox.Focus();
+        _ = viewModel.LoadImagesAsync();
     }
 
     private void OnThemeManagerThemeChanged(object? sender, EventArgs e)
@@ -57,9 +58,15 @@ public partial class AvatarPickerWindow : Window
 
     private void OnWindowClosed(object? sender, EventArgs e)
     {
+        viewModel.CancelImageLoading();
         ThemeManager.ThemeChanged -= OnThemeManagerThemeChanged;
         Closed -= OnWindowClosed;
         PreviewKeyDown -= OnPreviewKeyDown;
+    }
+
+    private void OnRefreshIconsClicked(object sender, RoutedEventArgs e)
+    {
+        _ = viewModel.RefreshAllImagesAsync();
     }
 
     private void OnCloseButtonClicked(object sender, RoutedEventArgs e)
@@ -135,6 +142,7 @@ public partial class AvatarPickerWindow : Window
         if (sender is Button button && button.Tag is AvatarPickerItem item)
         {
             SelectAvatarItem(item);
+            UpdateSelectionDisplay();
         }
     }
 
@@ -221,7 +229,7 @@ public partial class AvatarPickerWindow : Window
         var index = allAvatars.IndexOf(item);
         if (index >= 0)
         {
-            var updated = new AvatarPickerItem(item.Id, item.Name, item.SourceLabel, newImage);
+            var updated = new AvatarPickerItem(item.Id, item.Name, item.SourceLabel, newImage, item.ThumbnailUrl, item.IsSelected);
             allAvatars[index] = updated;
             viewModel.RefreshFilter();
         }

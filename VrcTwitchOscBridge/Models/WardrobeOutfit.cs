@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using System.ComponentModel;
 using VrcTwitchOscBridge.Infrastructure;
 using VrcTwitchOscBridge.Services;
 
@@ -13,6 +14,8 @@ public sealed class WardrobeOutfit : ObservableObject
     private int activeTimeSeconds = 30;
     private string twitchRewardId = string.Empty;
     private string twitchRewardTitle = string.Empty;
+    private string twitchRewardCost = "100";
+    private string twitchRewardDescription = string.Empty;
     private TwitchRewardSyncMode twitchRewardSyncMode = TwitchRewardSyncMode.CreateOrManage;
     private string chatCommandText = string.Empty;
     private ObservableCollection<WardrobeSnapshotParam> snapshotParams = [];
@@ -74,6 +77,18 @@ public sealed class WardrobeOutfit : ObservableObject
         }
     }
 
+    public string TwitchRewardCost
+    {
+        get => twitchRewardCost;
+        set => SetProperty(ref twitchRewardCost, value ?? string.Empty);
+    }
+
+    public string TwitchRewardDescription
+    {
+        get => twitchRewardDescription;
+        set => SetProperty(ref twitchRewardDescription, value ?? string.Empty);
+    }
+
     public TwitchRewardSyncMode TwitchRewardSyncMode
     {
         get => twitchRewardSyncMode;
@@ -106,9 +121,13 @@ public sealed class WardrobeOutfit : ObservableObject
         {
             if (ReferenceEquals(snapshotParams, value)) return;
             snapshotParams.CollectionChanged -= OnSnapshotParamsChanged;
-            if (SetProperty(ref snapshotParams, value ?? []))
+            UnwireSnapshotParams(snapshotParams);
+            var normalizedValue = value ?? [];
+            if (SetProperty(ref snapshotParams, normalizedValue))
             {
+                WireSnapshotParams(snapshotParams);
                 snapshotParams.CollectionChanged += OnSnapshotParamsChanged;
+                RaisePropertyChanged(nameof(SnapshotParams));
                 RaisePropertyChanged(nameof(ParamCountText));
                 RaisePropertyChanged(nameof(DisplaySummary));
             }
@@ -121,7 +140,45 @@ public sealed class WardrobeOutfit : ObservableObject
 
     private void OnSnapshotParamsChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
+        if (e.OldItems is not null)
+        {
+            foreach (WardrobeSnapshotParam param in e.OldItems)
+            {
+                param.PropertyChanged -= SnapshotParamChanged;
+            }
+        }
+
+        if (e.NewItems is not null)
+        {
+            foreach (WardrobeSnapshotParam param in e.NewItems)
+            {
+                param.PropertyChanged += SnapshotParamChanged;
+            }
+        }
+
+        RaisePropertyChanged(nameof(SnapshotParams));
         RaisePropertyChanged(nameof(ParamCountText));
         RaisePropertyChanged(nameof(DisplaySummary));
+    }
+
+    private void SnapshotParamChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        RaisePropertyChanged(nameof(SnapshotParams));
+    }
+
+    private void WireSnapshotParams(IEnumerable<WardrobeSnapshotParam> parameters)
+    {
+        foreach (var parameter in parameters)
+        {
+            parameter.PropertyChanged += SnapshotParamChanged;
+        }
+    }
+
+    private void UnwireSnapshotParams(IEnumerable<WardrobeSnapshotParam> parameters)
+    {
+        foreach (var parameter in parameters)
+        {
+            parameter.PropertyChanged -= SnapshotParamChanged;
+        }
     }
 }

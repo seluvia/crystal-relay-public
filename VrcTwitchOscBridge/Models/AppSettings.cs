@@ -49,7 +49,7 @@ public sealed class AppSettings : ObservableObject
     private int triggerInfoCommandCooldownSeconds = 300;
     private ChatCommandPermission triggerInfoCommandPermission = ChatCommandPermission.Everyone;
     private bool useManagedRewardTitlePrefix = true;
-    private bool worldCommandEnabled;
+    private bool worldCommandEnabled = true;
     private string worldCommandText = "!world";
     private int worldCommandCooldownSeconds = 30;
     private ChatCommandPermission worldCommandPermission = ChatCommandPermission.Everyone;

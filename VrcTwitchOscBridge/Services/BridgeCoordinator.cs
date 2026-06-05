@@ -868,6 +868,11 @@ internal BridgeCoordinator(
         WardrobeOutfitSnapshot snapshot,
         CancellationToken cancellationToken = default)
     {
+        if (!IsOscActive)
+        {
+            throw new InvalidOperationException("OSC is not running yet, so Crystal Relay cannot send a wardrobe outfit test to VRChat.");
+        }
+
         var vrChatUserId = activeConfiguration?.VrChatSession?.UserId?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(vrChatUserId))
         {

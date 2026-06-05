@@ -25,6 +25,7 @@ Pending Release Draft
 Added:
 
 Changed:
+- Fixed Wardrobe setup so Test Outfit sends configured OSC parameters, parameter removal enables correctly, and individual outfit rewards can be created from the outfit name.
 
 Removed:
 - (none)
