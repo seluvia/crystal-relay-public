@@ -260,6 +260,7 @@ internal BridgeCoordinator(
                 vrChatOscClient,
                 oscRouterService,
                 localOscCacheService,
+                vrChatLocalAvatarDataService,
                 logAction);
         }
         return wardrobeExecutor;
