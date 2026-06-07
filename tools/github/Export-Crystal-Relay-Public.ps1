@@ -35,10 +35,13 @@ Releases/
 TestBuilds/
 Code Review/
 temp-build/
+docs/superpowers/
 
 **/bin/
 **/obj/
 
+\!open-opencode.bat
+\!start-opencode Server.bat
 *.user
 *.suo
 *.cache
@@ -71,6 +74,7 @@ function Assert-PublicExportClean {
         'TestBuilds',
         'Code Review',
         'temp-build',
+        'docs/superpowers',
         'tools/private',
         'tools/private/crystal-relay-live-list',
         'crystal-relay-live-list',
@@ -84,6 +88,8 @@ function Assert-PublicExportClean {
         'AGENTS.md',
         'Backup-Crystal-Relay-Project.ps1',
         'Backup-Crystal-Relay-AppData.ps1',
+        '!open-opencode.bat',
+        '!start-opencode Server.bat',
         'Open-Crystal-Relay-GitHub-Desktop-Workflow.ps1',
         'Prepare-Crystal-Relay-GitHub-Uploads.ps1',
         'Sync-Crystal-Relay-GitHub-Repos.ps1',
@@ -189,6 +195,7 @@ $excludedDirs = @(
     'TestBuilds',
     'Code Review',
     'temp-build',
+    'docs\superpowers',
     'tools/private',
     'tools/private/crystal-relay-live-list',
     'crystal-relay-live-list',
@@ -200,6 +207,8 @@ $excludedDirs = @(
 $excludedFiles = @(
     'AGENTS.md',
     'Backup-Crystal-Relay-Project.ps1',
+    '!open-opencode.bat',
+    '!start-opencode Server.bat',
     'GITHUB-UPLOAD-NOTES.txt',
     'RELEASE-CHANGE-RECORD.txt',
     'Backup-Crystal-Relay-AppData.ps1',

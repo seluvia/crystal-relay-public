@@ -173,12 +173,25 @@ Assert-NoBlockedPaths `
         'TestBuilds',
         'Code Review',
         'temp-build',
+        'superpowers',
         'tools',
         'private',
         'crystal-relay-live-list',
         'cloudflare',
         'bin',
         'obj'
+    ) `
+    -BlockedFiles @(
+        'AGENTS.md',
+        'Backup-Crystal-Relay-Project.ps1',
+        'Backup-Crystal-Relay-AppData.ps1',
+        '!open-opencode.bat',
+        '!start-opencode Server.bat',
+        'Open-Crystal-Relay-GitHub-Desktop-Workflow.ps1',
+        'Prepare-Crystal-Relay-GitHub-Uploads.ps1',
+        'Sync-Crystal-Relay-GitHub-Repos.ps1',
+        'GITHUB-UPLOAD-NOTES.txt',
+        'RELEASE-CHANGE-RECORD.txt'
     )
 
 Assert-NoContentMatches `
