@@ -851,10 +851,9 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="ScrollViewer">
                         <Grid Background="{TemplateBinding Background}">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="*" />
                                 <RowDefinition Height="Auto" />
@@ -2141,69 +2140,13 @@
                             </CheckBox>
                             <TextBlock Margin="26,6,0,0"
                                        Text="{loc:Translate 'When checked, the VRChat restart button launches VRChat with --no-vr.'}"
-                                       Foreground="{DynamicResource MutedBrush}"
-                                       TextWrapping="Wrap" />
+                                                Foreground="{DynamicResource MutedBrush}"
+                                                TextWrapping="Wrap" />
                         </StackPanel>
                     </Border>
 
                     <Border Style="{StaticResource PanelBorderStyle}" Margin="0,16,0,0" Background="{DynamicResource PanelSecondaryBrush}" Padding="18">
                         <Border.Resources>
-                            <Style x:Key="StreamingStatusIllustrationBorderStyle" TargetType="Border">
-                                <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
-                                <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
-                                <Setter Property="BorderThickness" Value="2" />
-                                <Setter Property="CornerRadius" Value="16" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Live">
-                                        <Setter Property="Background" Value="{DynamicResource PanelHighlightBrush}" />
-                                        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                                    </DataTrigger>
-                                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Healthy">
-                                        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                                    </DataTrigger>
-                                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Checking">
-                                        <Setter Property="Background" Value="{DynamicResource StatusChipBrush}" />
-                                    </DataTrigger>
-                                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Error">
-                                        <Setter Property="BorderBrush" Value="{DynamicResource DangerBrush}" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-
-                            <Style x:Key="StreamingStatusIllustrationShapeStyle" TargetType="Shape">
-                                <Setter Property="Stroke" Value="{DynamicResource InputBorderBrush}" />
-                                <Setter Property="StrokeThickness" Value="2" />
-                                <Setter Property="StrokeStartLineCap" Value="Round" />
-                                <Setter Property="StrokeEndLineCap" Value="Round" />
-                                <Setter Property="StrokeLineJoin" Value="Round" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Live">
-                                        <Setter Property="Stroke" Value="{DynamicResource AccentBrush}" />
-                                    </DataTrigger>
-                                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Healthy">
-                                        <Setter Property="Stroke" Value="{DynamicResource AccentBrush}" />
-                                    </DataTrigger>
-                                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Error">
-                                        <Setter Property="Stroke" Value="{DynamicResource DangerBrush}" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-
-                            <Style x:Key="StreamingStatusIndicatorDotStyle" TargetType="Ellipse">
-                                <Setter Property="Fill" Value="{DynamicResource InputBorderBrush}" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Live">
-                                        <Setter Property="Fill" Value="{DynamicResource AccentBrush}" />
-                                    </DataTrigger>
-                                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Healthy">
-                                        <Setter Property="Fill" Value="{DynamicResource AccentBrush}" />
-                                    </DataTrigger>
-                                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Error">
-                                        <Setter Property="Fill" Value="{DynamicResource DangerBrush}" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-
                             <Style x:Key="StreamingStatusChipBorderStyle" TargetType="Border">
                                 <Setter Property="Background" Value="{DynamicResource StatusChipBrush}" />
                                 <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
@@ -2236,6 +2179,250 @@
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
+
+                            <Style x:Key="CrystalMonitorFrameStyle" TargetType="Path">
+                                <Setter Property="Stroke" Value="{DynamicResource InputBorderBrush}" />
+                                <Setter Property="StrokeThickness" Value="2" />
+                                <Setter Property="StrokeLineJoin" Value="Round" />
+                                <Setter Property="Fill" Value="Transparent" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Live">
+                                        <Setter Property="Stroke" Value="{DynamicResource AccentBrush}" />
+                                        <Setter Property="StrokeThickness" Value="2.5" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Healthy">
+                                        <Setter Property="Stroke" Value="{DynamicResource AccentBrush}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Checking">
+                                        <Setter Property="Stroke" Value="{DynamicResource InputBorderBrush}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Error">
+                                        <Setter Property="Stroke" Value="{DynamicResource DangerBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+
+                            <Style x:Key="CrystalMonitorInnerBezelStyle" TargetType="Path">
+                                <Setter Property="Stroke" Value="{DynamicResource AccentBrush}" />
+                                <Setter Property="StrokeThickness" Value="1" />
+                                <Setter Property="StrokeLineJoin" Value="Round" />
+                                <Setter Property="Fill" Value="Transparent" />
+                                <Setter Property="Opacity" Value="0.3" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Live">
+                                        <Setter Property="Opacity" Value="0.6" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Error">
+                                        <Setter Property="Stroke" Value="{DynamicResource DangerBrush}" />
+                                        <Setter Property="Opacity" Value="0.3" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+
+                            <Style x:Key="CrystalMonitorScreenStyle" TargetType="Path">
+                                <Setter Property="Fill" Value="{DynamicResource PanelBrush}" />
+                                <Setter Property="Stroke" Value="{DynamicResource InputBorderBrush}" />
+                                <Setter Property="StrokeThickness" Value="1.5" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Live">
+                                        <Setter Property="Fill" Value="{DynamicResource PanelHighlightBrush}" />
+                                        <Setter Property="Stroke" Value="{DynamicResource AccentBrush}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Error">
+                                        <Setter Property="Stroke" Value="{DynamicResource DangerBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+
+                            <Style x:Key="CrystalMonitorStandStyle" TargetType="Path">
+                                <Setter Property="Fill" Value="{DynamicResource PanelSecondaryBrush}" />
+                                <Setter Property="Stroke" Value="{DynamicResource InputBorderBrush}" />
+                                <Setter Property="StrokeThickness" Value="1.5" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Live">
+                                        <Setter Property="Fill" Value="{DynamicResource PanelHighlightBrush}" />
+                                        <Setter Property="Stroke" Value="{DynamicResource AccentBrush}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Error">
+                                        <Setter Property="Stroke" Value="{DynamicResource DangerBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+
+                            <Style x:Key="CrystalMonitorWebcamStyle" TargetType="Path">
+                                <Setter Property="Fill" Value="{DynamicResource PanelSecondaryBrush}" />
+                                <Setter Property="Stroke" Value="{DynamicResource InputBorderBrush}" />
+                                <Setter Property="StrokeThickness" Value="1.5" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Live">
+                                        <Setter Property="Fill" Value="{DynamicResource PanelHighlightBrush}" />
+                                        <Setter Property="Stroke" Value="{DynamicResource AccentBrush}" />
+                                        <Setter Property="StrokeThickness" Value="2" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Error">
+                                        <Setter Property="Stroke" Value="{DynamicResource DangerBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+
+                            <Style x:Key="CrystalMonitorGemDotStyle" TargetType="Ellipse">
+                                <Setter Property="Fill" Value="{DynamicResource InputBorderBrush}" />
+                                <Setter Property="Opacity" Value="0.4" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Live">
+                                        <Setter Property="Fill" Value="{DynamicResource AccentBrush}" />
+                                        <Setter Property="Opacity" Value="1.0" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Healthy">
+                                        <Setter Property="Fill" Value="{DynamicResource AccentBrush}" />
+                                        <Setter Property="Opacity" Value="0.6" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Error">
+                                        <Setter Property="Fill" Value="{DynamicResource DangerBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+
+                            <Style x:Key="CrystalMonitorGemGlowStyle" TargetType="Ellipse">
+                                <Setter Property="Stroke" Value="{DynamicResource AccentBrush}" />
+                                <Setter Property="Fill" Value="Transparent" />
+                                <Setter Property="Opacity" Value="0.0" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Live">
+                                        <Setter Property="Opacity" Value="0.5" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+
+                            <Style x:Key="CrystalMonitorUserStyle" TargetType="Shape">
+                                <Setter Property="Stroke" Value="{DynamicResource InputBorderBrush}" />
+                                <Setter Property="StrokeThickness" Value="2" />
+                                <Setter Property="StrokeStartLineCap" Value="Round" />
+                                <Setter Property="StrokeEndLineCap" Value="Round" />
+                                <Setter Property="StrokeLineJoin" Value="Round" />
+                                <Setter Property="Fill" Value="Transparent" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Live">
+                                        <Setter Property="Stroke" Value="{DynamicResource AccentBrush}" />
+                                        <Setter Property="StrokeThickness" Value="2.5" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Healthy">
+                                        <Setter Property="Stroke" Value="{DynamicResource AccentBrush}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Error">
+                                        <Setter Property="Stroke" Value="{DynamicResource DangerBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+
+                            <Style x:Key="CrystalMonitorLiveBadgeStyle" TargetType="Path">
+                                <Setter Property="Fill" Value="{DynamicResource DangerBrush}" />
+                                <Setter Property="Stroke" Value="{DynamicResource DangerBorderBrush}" />
+                                <Setter Property="StrokeThickness" Value="1.5" />
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Live">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+
+                            <Style x:Key="CrystalMonitorLiveBadgeTextStyle" TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                <Setter Property="FontSize" Value="7" />
+                                <Setter Property="FontWeight" Value="Bold" />
+                                <Setter Property="FontFamily" Value="{DynamicResource BodyFontFamily}" />
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Live">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+
+                            <Style x:Key="CrystalMonitorTopDotStyle" TargetType="Path">
+                                <Setter Property="Fill" Value="{DynamicResource InputBorderBrush}" />
+                                <Setter Property="Stroke" Value="{DynamicResource InputBorderBrush}" />
+                                <Setter Property="StrokeThickness" Value="1" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Live">
+                                        <Setter Property="Fill" Value="{DynamicResource AccentBrush}" />
+                                        <Setter Property="Stroke" Value="{DynamicResource AccentBrush}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Healthy">
+                                        <Setter Property="Fill" Value="{DynamicResource AccentBrush}" />
+                                        <Setter Property="Stroke" Value="{DynamicResource AccentBrush}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Error">
+                                        <Setter Property="Fill" Value="{DynamicResource DangerBrush}" />
+                                        <Setter Property="Stroke" Value="{DynamicResource DangerBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+
+                            <Style x:Key="CrystalMonitorOuterGlowStyle" TargetType="Path">
+                                <Setter Property="Stroke" Value="{DynamicResource AccentBrush}" />
+                                <Setter Property="StrokeThickness" Value="4" />
+                                <Setter Property="StrokeLineJoin" Value="Round" />
+                                <Setter Property="Fill" Value="Transparent" />
+                                <Setter Property="Opacity" Value="0.0" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="Live">
+                                        <Setter Property="Opacity" Value="0.15" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+
+                            <Storyboard x:Key="GemPulseStoryboard" RepeatBehavior="Forever" AutoReverse="True">
+                                <DoubleAnimation
+                                    Storyboard.TargetName="GemDot"
+                                    Storyboard.TargetProperty="Opacity"
+                                    From="0.35" To="1.0" Duration="0:0:2.5">
+                                    <DoubleAnimation.EasingFunction>
+                                        <CubicEase EasingMode="EaseInOut"/>
+                                    </DoubleAnimation.EasingFunction>
+                                </DoubleAnimation>
+                                <DoubleAnimation
+                                    Storyboard.TargetName="GemGlowRing1"
+                                    Storyboard.TargetProperty="Opacity"
+                                    From="0.25" To="0.7" Duration="0:0:2.5">
+                                    <DoubleAnimation.EasingFunction>
+                                        <CubicEase EasingMode="EaseInOut"/>
+                                    </DoubleAnimation.EasingFunction>
+                                </DoubleAnimation>
+                                <DoubleAnimation
+                                    Storyboard.TargetName="GemGlowRing2"
+                                    Storyboard.TargetProperty="Opacity"
+                                    From="0.12" To="0.35" Duration="0:0:2.5">
+                                    <DoubleAnimation.EasingFunction>
+                                        <CubicEase EasingMode="EaseInOut"/>
+                                    </DoubleAnimation.EasingFunction>
+                                </DoubleAnimation>
+                                <DoubleAnimation
+                                    Storyboard.TargetName="GemGlowRing3"
+                                    Storyboard.TargetProperty="Opacity"
+                                    From="0.05" To="0.15" Duration="0:0:2.5">
+                                    <DoubleAnimation.EasingFunction>
+                                        <CubicEase EasingMode="EaseInOut"/>
+                                    </DoubleAnimation.EasingFunction>
+                                </DoubleAnimation>
+                                <DoubleAnimation
+                                    Storyboard.TargetName="TopRightGlowRing1"
+                                    Storyboard.TargetProperty="Opacity"
+                                    From="0.15" To="0.5" Duration="0:0:2.5">
+                                    <DoubleAnimation.EasingFunction>
+                                        <CubicEase EasingMode="EaseInOut"/>
+                                    </DoubleAnimation.EasingFunction>
+                                </DoubleAnimation>
+                                <DoubleAnimation
+                                    Storyboard.TargetName="TopRightGlowRing2"
+                                    Storyboard.TargetProperty="Opacity"
+                                    From="0.05" To="0.2" Duration="0:0:2.5">
+                                    <DoubleAnimation.EasingFunction>
+                                        <CubicEase EasingMode="EaseInOut"/>
+                                    </DoubleAnimation.EasingFunction>
+                                </DoubleAnimation>
+                            </Storyboard>
                         </Border.Resources>
                         <StackPanel>
                             <Grid>
@@ -2244,7 +2431,7 @@
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <StackPanel>
-                            <TextBlock Text="{loc:Translate 'Streaming Status'}"
+                                    <TextBlock Text="{loc:Translate 'Streaming Status'}"
                                                Style="{StaticResource HeadingTextStyle}"
                                                FontSize="18"
                                                FontWeight="SemiBold"
@@ -2258,51 +2445,143 @@
                                     <TextBlock Margin="0,6,0,0"
                                                Text="{Binding StreamingStatusDetail}"
                                                Foreground="{DynamicResource MutedBrush}"
-                                               TextWrapping="Wrap" />
+                                                TextWrapping="Wrap" />
                                 </StackPanel>
-
                                 <Grid Grid.Column="1"
-                                      Width="92"
-                                      Height="78"
+                                      Width="110"
+                                      Height="90"
                                       Margin="16,0,0,0"
                                       HorizontalAlignment="Right"
                                       VerticalAlignment="Top">
-                                    <Border Width="78"
-                                            Height="52"
-                                            Margin="0,4,0,0"
-                                            HorizontalAlignment="Center"
-                                            VerticalAlignment="Top"
-                                            Style="{StaticResource StreamingStatusIllustrationBorderStyle}"
-                                            Tag="{Binding StreamingStatusVisualState}">
-                                        <Grid>
-                                            <Ellipse Width="8"
-                                                     Height="8"
+                                    <Viewbox Stretch="Uniform">
+                                        <Grid Width="220" Height="170">
+                                            <!-- Outer ambient glow -->
+                                            <Path Data="M20 40 L40 20 L180 20 L200 40 L200 120 L180 140 L40 140 L20 120 Z"
+                                                  Style="{StaticResource CrystalMonitorOuterGlowStyle}"
+                                                  Tag="{Binding StreamingStatusVisualState}" />
+
+                                            <!-- Outer frame -->
+                                            <Path Data="M20 40 L40 20 L180 20 L200 40 L200 120 L180 140 L40 140 L20 120 Z"
+                                                  Style="{StaticResource CrystalMonitorFrameStyle}"
+                                                  Tag="{Binding StreamingStatusVisualState}" />
+
+                                            <!-- Inner bezel glow -->
+                                            <Path Data="M24 42 L42 24 L178 24 L196 42 L196 118 L178 136 L42 136 L24 118 Z"
+                                                  Style="{StaticResource CrystalMonitorInnerBezelStyle}"
+                                                  Tag="{Binding StreamingStatusVisualState}" />
+
+                                            <!-- Screen -->
+                                            <Path Data="M30 48 L46 32 L174 32 L190 48 L190 112 L174 128 L46 128 L30 112 Z"
+                                                  Style="{StaticResource CrystalMonitorScreenStyle}"
+                                                  Tag="{Binding StreamingStatusVisualState}" />
+
+                                            <!-- Stand (centered) -->
+                                            <Path Data="M95 140 L125 140 L110 152 Z"
+                                                  Style="{StaticResource CrystalMonitorStandStyle}"
+                                                  Tag="{Binding StreamingStatusVisualState}" />
+                                            <Path Data="M80 152 L140 152 L130 162 L90 162 Z"
+                                                  Style="{StaticResource CrystalMonitorStandStyle}"
+                                                  Tag="{Binding StreamingStatusVisualState}" />
+
+                                            <!-- Webcam crystal shard -->
+                                            <Path Data="M100 12 L110 4 L120 12 L115 20 L105 20 Z"
+                                                  Style="{StaticResource CrystalMonitorWebcamStyle}"
+                                                  Tag="{Binding StreamingStatusVisualState}" />
+
+                                            <!-- Gem dot (centered in webcam) -->
+                                            <Ellipse x:Name="GemDot"
+                                                     Width="6" Height="6"
+                                                     Margin="0,0,0,5"
+                                                     HorizontalAlignment="Center"
+                                                     VerticalAlignment="Top"
+                                                     Style="{StaticResource CrystalMonitorGemDotStyle}"
+                                                     Tag="{Binding StreamingStatusVisualState}" />
+
+                                            <!-- Gem glow ring 1 -->
+                                            <Ellipse x:Name="GemGlowRing1"
+                                                     Width="14" Height="14"
+                                                     Margin="0,0,0,5"
+                                                     HorizontalAlignment="Center"
+                                                     VerticalAlignment="Top"
+                                                     Style="{StaticResource CrystalMonitorGemGlowStyle}" />
+
+                                            <!-- Gem glow ring 2 -->
+                                            <Ellipse x:Name="GemGlowRing2"
+                                                     Width="22" Height="22"
+                                                     Margin="0,0,0,5"
+                                                     HorizontalAlignment="Center"
+                                                     VerticalAlignment="Top"
+                                                     Style="{StaticResource CrystalMonitorGemGlowStyle}" />
+
+                                            <!-- Gem glow ring 3 -->
+                                            <Ellipse x:Name="GemGlowRing3"
+                                                     Width="30" Height="30"
+                                                     Margin="0,0,0,5"
+                                                     HorizontalAlignment="Center"
+                                                     VerticalAlignment="Top"
+                                                     Style="{StaticResource CrystalMonitorGemGlowStyle}" />
+
+                                            <!-- User silhouette -->
+                                            <Ellipse Width="24" Height="24"
                                                      Margin="0,0,0,6"
                                                      HorizontalAlignment="Center"
                                                      VerticalAlignment="Center"
-                                                     Style="{StaticResource StreamingStatusIndicatorDotStyle}"
+                                                     Style="{StaticResource CrystalMonitorUserStyle}"
                                                      Tag="{Binding StreamingStatusVisualState}" />
-                                            <Path Data="M26,31 C31,24 39,24 44,31"
-                                                  Style="{StaticResource StreamingStatusIllustrationShapeStyle}"
+                                            <Path Data="M95 88 Q110 75 125 88"
+                                                  Style="{StaticResource CrystalMonitorUserStyle}"
                                                   Tag="{Binding StreamingStatusVisualState}" />
-                                            <Path Data="M20,36 C27,25 43,25 50,36"
-                                                  Style="{StaticResource StreamingStatusIllustrationShapeStyle}"
+                                            <Path Data="M88 98 Q110 82 132 98"
+                                                  Style="{StaticResource CrystalMonitorUserStyle}"
                                                   Tag="{Binding StreamingStatusVisualState}" />
+
+                                            <!-- LIVE badge -->
+                                            <Path Data="M160 8 L170 2 L180 8 L175 16 L165 16 Z"
+                                                  Style="{StaticResource CrystalMonitorLiveBadgeStyle}"
+                                                  Tag="{Binding StreamingStatusVisualState}" />
+                                            <TextBlock Text="LIVE"
+                                                       Margin="0,0,0,0"
+                                                       HorizontalAlignment="Right"
+                                                       VerticalAlignment="Top"
+                                                       Style="{StaticResource CrystalMonitorLiveBadgeTextStyle}"
+                                                       Tag="{Binding StreamingStatusVisualState}" />
+
+                                            <!-- Top-right crystal dot -->
+                                            <Path Data="M175 28 L180 22 L185 28 L180 34 Z"
+                                                  Style="{StaticResource CrystalMonitorTopDotStyle}"
+                                                  Tag="{Binding StreamingStatusVisualState}" />
+
+                                            <!-- Top-right glow rings -->
+                                            <Ellipse x:Name="TopRightGlowRing1"
+                                                     Width="12" Height="12"
+                                                     Margin="0,0,0,0"
+                                                     HorizontalAlignment="Right"
+                                                     VerticalAlignment="Top"
+                                                     Style="{StaticResource CrystalMonitorGemGlowStyle}" />
+                                            <Ellipse x:Name="TopRightGlowRing2"
+                                                     Width="20" Height="20"
+                                                     Margin="0,0,0,0"
+                                                     HorizontalAlignment="Right"
+                                                     VerticalAlignment="Top"
+                                                     Style="{StaticResource CrystalMonitorGemGlowStyle}" />
+
+                                            <!-- Animation trigger -->
+                                            <Grid.Style>
+                                                <Style TargetType="Grid">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding StreamingStatusVisualState}" Value="Live">
+                                                            <DataTrigger.EnterActions>
+                                                                <BeginStoryboard x:Name="GemPulseBegin" Storyboard="{StaticResource GemPulseStoryboard}" />
+                                                            </DataTrigger.EnterActions>
+                                                            <DataTrigger.ExitActions>
+                                                                <StopStoryboard BeginStoryboardName="GemPulseBegin" />
+                                                            </DataTrigger.ExitActions>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Grid.Style>
                                         </Grid>
-                                    </Border>
-                                    <Ellipse Width="12"
-                                             Height="12"
-                                             Margin="0,0,10,0"
-                                             HorizontalAlignment="Right"
-                                             VerticalAlignment="Top"
-                                             Style="{StaticResource StreamingStatusIndicatorDotStyle}"
-                                             Tag="{Binding StreamingStatusVisualState}" />
-                                    <Path Data="M30,62 L62,62"
-                                          Style="{StaticResource StreamingStatusIllustrationShapeStyle}"
-                                          Tag="{Binding StreamingStatusVisualState}" />
-                                    <Path Data="M46,56 L46,66"
-                                          Style="{StaticResource StreamingStatusIllustrationShapeStyle}"
-                                          Tag="{Binding StreamingStatusVisualState}" />
+                                    </Viewbox>
                                 </Grid>
                             </Grid>
 
