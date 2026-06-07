@@ -8,10 +8,12 @@ namespace VrcTwitchOscBridge.Models;
 
 public sealed class WardrobeOutfit : ObservableObject
 {
+    public const int SafeObservationSeconds = 70;
+
     private Guid id = Guid.NewGuid();
     private bool isEnabled = true;
     private string name = "New Outfit";
-    private int activeTimeSeconds = 30;
+    private int activeTimeSeconds = SafeObservationSeconds;
     private string twitchRewardId = string.Empty;
     private string twitchRewardTitle = string.Empty;
     private string twitchRewardCost = "100";
@@ -56,7 +58,13 @@ public sealed class WardrobeOutfit : ObservableObject
     public int ActiveTimeSeconds
     {
         get => activeTimeSeconds;
-        set => SetProperty(ref activeTimeSeconds, Math.Max(1, value));
+        set
+        {
+            if (SetProperty(ref activeTimeSeconds, Math.Max(1, value)))
+            {
+                RaisePropertyChanged(nameof(UsesShortActiveTime));
+            }
+        }
     }
 
     public string TwitchRewardId
@@ -137,6 +145,7 @@ public sealed class WardrobeOutfit : ObservableObject
     public string DisplayTitle => !string.IsNullOrWhiteSpace(Name) ? Name : "New Outfit";
     public string DisplaySummary => TF("{0} ({1} param{2})", DisplayTitle, SnapshotParams.Count, SnapshotParams.Count == 1 ? string.Empty : "s");
     public string ParamCountText => SnapshotParams.Count == 1 ? "1 param" : $"{SnapshotParams.Count} params";
+    public bool UsesShortActiveTime => ActiveTimeSeconds < SafeObservationSeconds;
 
     private void OnSnapshotParamsChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {

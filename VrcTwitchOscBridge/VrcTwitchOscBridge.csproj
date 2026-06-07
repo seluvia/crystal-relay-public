@@ -128,6 +128,7 @@
     <Compile Include="Services\AppDataPaths.cs" />
     <Compile Include="Services\AvatarImageService.cs" />
     <Compile Include="Services\AvatarPickerService.cs" />
+    <Compile Include="Services\ApplicationRestartService.cs" />
     <Compile Include="Services\ApplicationSelfUpdateService.cs" />
     <Compile Include="Services\ApplicationUpdateService.cs" />
     <Compile Include="Services\BridgeAccountRole.cs" />
@@ -162,11 +163,13 @@
     <Compile Include="Services\UniversalTriggerFusionService.cs" />
     <Compile Include="Services\VrChatApiClient.cs" />
     <Compile Include="Services\VrChatApiException.cs" />
+    <Compile Include="Services\VrChatApiRoutes.cs" />
     <Compile Include="Services\VrChatLocalAvatarDataService.cs" />
     <Compile Include="Services\VrChatLocalClientStateService.cs" />
     <Compile Include="Services\VrChatLocalOscCacheService.cs" />
     <Compile Include="Services\VrChatOscClient.cs" />
     <Compile Include="Services\WardrobeExecutorService.cs" />
+    <Compile Include="Services\WindowPlacementStateStore.cs" />
     <Compile Include="Services\WindowsCredentialStore.cs" />
     <Compile Include="Services\WorldCommandBlacklistService.cs" />
     <Compile Include="ViewModels\MainWindowViewModel.cs" />

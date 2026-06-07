@@ -11,6 +11,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Navigation;
+using System.Windows.Threading;
 using Microsoft.Win32;
 using Drawing = System.Drawing;
 using WinForms = System.Windows.Forms;
@@ -40,6 +41,15 @@ public partial class MainWindow : Window
     private static readonly TimeSpan PeekabooEasterEggCooldown = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan TeapotShakeSampleWindow = TimeSpan.FromMilliseconds(1250);
     private static readonly TimeSpan TeapotShakeCooldown = TimeSpan.FromSeconds(30);
+    private static readonly string[] LoadingStoryboardKeys =
+    [
+        "CrystalRotateStoryboard",
+        "CrystalPulseStoryboard",
+        "GlowPulseStoryboard",
+        "OrbitStoryboard",
+        "ShimmerStoryboard",
+        "TextFadeStoryboard"
+    ];
     private const int PeekabooRequiredToggleCount = 6;
     private const int TeapotShakeRequiredDirectionChanges = 5;
     private const double TeapotShakeRequiredTravelDistance = 320d;
@@ -86,14 +96,24 @@ public partial class MainWindow : Window
     private AppTheme? loadedThemeBackground;
     private WinForms.NotifyIcon? trayNotifyIcon;
     private Drawing.Icon? trayIconImage;
+    private readonly ApplicationRestartSessionState? restartRestoreState;
     private DateTimeOffset peekabooLastTriggeredAt = DateTimeOffset.MinValue;
     private DateTimeOffset teapotLastShownAt = DateTimeOffset.MinValue;
 
     public MainWindow()
+        : this(null)
     {
+    }
+
+    internal MainWindow(ApplicationRestartSessionState? restartRestoreState)
+    {
+        this.restartRestoreState = restartRestoreState;
         InitializeComponent();
         DataContext = viewModel;
-        StartLoadingAnimations();
+        WindowPlacementStateStore.ApplyWindowPlacement(
+            this,
+            restartRestoreState?.Windows.FirstOrDefault(window =>
+                string.Equals(window.WindowKey, WindowPlacementStateStore.MainWindowKey, StringComparison.Ordinal)));
         SourceInitialized += OnSourceInitialized;
         Loaded += OnLoaded;
         Closing += OnClosing;
@@ -112,10 +132,15 @@ public partial class MainWindow : Window
 
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
+        LoadingOverlay.Visibility = Visibility.Visible;
+        StartLoadingAnimations();
+        await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+
         await viewModel.InitializeAsync();
         ApplyTheme(viewModel.SelectedTheme);
         LoadingOverlay.Visibility = Visibility.Collapsed;
         StopLoadingAnimations();
+        RestoreRestartSessionWindows();
         QueueApplicationUpdateCheck();
     }
 
@@ -1290,6 +1315,81 @@ public partial class MainWindow : Window
         Close();
     }
 
+    private void OnRestartCrystalRelayClicked(object sender, RoutedEventArgs e)
+    {
+        if (isGracefulShutdownInProgress || isGracefulShutdownCompleted)
+        {
+            return;
+        }
+
+        if (!ThemedDialogWindow.ShowYesNo(
+                this,
+                viewModel.SelectedTheme,
+                LocalizationService.Translate("Restart Crystal Relay?"),
+                LocalizationService.Translate("Crystal Relay will close and reopen. Open Crystal Relay windows will be restored.")))
+        {
+            return;
+        }
+
+        StartRestart(ApplicationRestartMode.CrystalRelayOnly);
+    }
+
+    private async void OnRestartVrChatAndCrystalRelayClicked(object sender, RoutedEventArgs e)
+    {
+        if (isGracefulShutdownInProgress || isGracefulShutdownCompleted)
+        {
+            return;
+        }
+
+        if (!ThemedDialogWindow.ShowYesNo(
+                this,
+                viewModel.SelectedTheme,
+                LocalizationService.Translate("Restart VRChat and Crystal Relay?"),
+                LocalizationService.Translate("Crystal Relay will read your current VRChat instance, close VRChat, force-close it if needed, reopen that instance, and restart Crystal Relay.")))
+        {
+            return;
+        }
+
+        IsEnabled = false;
+        try
+        {
+            var location = await viewModel.PrepareVrChatRestartRejoinAsync();
+            if (!location.IsAvailable)
+            {
+                ThemedDialogWindow.ShowOk(
+                    this,
+                    viewModel.SelectedTheme,
+                    LocalizationService.Translate("VRChat restart unavailable"),
+                    string.IsNullOrWhiteSpace(location.FailureReason)
+                        ? LocalizationService.Translate("Crystal Relay could not find a current VRChat instance to rejoin. VRChat was not restarted.")
+                        : location.FailureReason);
+                return;
+            }
+
+            StartRestart(
+                ApplicationRestartMode.VrChatAndCrystalRelay,
+                location.LaunchUri,
+                viewModel.Settings.RestartVrChatInDesktopMode);
+        }
+        finally
+        {
+            if (!isGracefulShutdownInProgress && !isGracefulShutdownCompleted)
+            {
+                IsEnabled = true;
+            }
+        }
+    }
+
+    private void StartRestart(
+        ApplicationRestartMode restartMode,
+        string? vrChatLaunchUri = null,
+        bool restartVrChatInDesktopMode = false)
+    {
+        var state = CaptureRestartSessionState(restartMode, vrChatLaunchUri, restartVrChatInDesktopMode);
+        ApplicationRestartService.StartRestartHelper(state);
+        Close();
+    }
+
     private void OnHomeBrandIconClicked(object sender, RoutedEventArgs e)
     {
         if (!AreEasterEggsEnabled)
@@ -1585,14 +1685,65 @@ public partial class MainWindow : Window
             return true;
         }
 
+        OpenDebugLogWindow();
+        return true;
+    }
+
+    private void OpenDebugLogWindow(WindowPlacementSnapshot? placement = null)
+    {
+        if (debugLogWindow is { IsVisible: true } existingWindow)
+        {
+            existingWindow.Activate();
+            return;
+        }
+
         debugLogWindow = new DebugLogWindow(viewModel.SelectedTheme)
         {
             Owner = this
         };
         debugLogWindow.Closed += (_, _) => debugLogWindow = null;
+        WindowPlacementStateStore.ApplyWindowPlacement(debugLogWindow, placement);
         debugLogWindow.Show();
         debugLogWindow.Activate();
-        return true;
+    }
+
+    private void RestoreRestartSessionWindows()
+    {
+        if (restartRestoreState is null)
+        {
+            return;
+        }
+
+        viewModel.RestoreRestartSessionWindows(restartRestoreState);
+        var debugPlacement = restartRestoreState.Windows.FirstOrDefault(window =>
+            string.Equals(window.WindowKey, WindowPlacementStateStore.DebugLogKey, StringComparison.Ordinal));
+        if (debugPlacement is { WasOpen: true })
+        {
+            OpenDebugLogWindow(debugPlacement);
+        }
+    }
+
+    private ApplicationRestartSessionState CaptureRestartSessionState(
+        ApplicationRestartMode restartMode,
+        string? vrChatLaunchUri = null,
+        bool restartVrChatInDesktopMode = false)
+    {
+        return new ApplicationRestartSessionState
+        {
+            Mode = restartMode,
+            VrChatLaunchUri = vrChatLaunchUri,
+            RestartVrChatInDesktopMode = restartVrChatInDesktopMode,
+            Windows =
+            [
+                WindowPlacementStateStore.CaptureWindow(this, WindowPlacementStateStore.MainWindowKey),
+                viewModel.CaptureTwitchChatboxPlacement(),
+                viewModel.CaptureTestModePlacement(),
+                WindowPlacementStateStore.CaptureWindow(
+                    debugLogWindow,
+                    WindowPlacementStateStore.DebugLogKey,
+                    debugLogWindow is { IsVisible: true })
+            ]
+        };
     }
 
     private void PlayHomeIconEasterEggAudio()
@@ -2178,26 +2329,39 @@ public partial class MainWindow : Window
 
     private void StartLoadingAnimations()
     {
-        if (Resources["CrystalRotateStoryboard"] is System.Windows.Media.Animation.Storyboard rotateStoryboard)
-            rotateStoryboard.Begin(this);
-        if (Resources["CrystalPulseStoryboard"] is System.Windows.Media.Animation.Storyboard pulseStoryboard)
-            pulseStoryboard.Begin(this);
-        if (Resources["GlowPulseStoryboard"] is System.Windows.Media.Animation.Storyboard glowStoryboard)
-            glowStoryboard.Begin(this);
-        if (Resources["TextFadeStoryboard"] is System.Windows.Media.Animation.Storyboard textStoryboard)
-            textStoryboard.Begin(this);
+        foreach (var storyboardKey in LoadingStoryboardKeys)
+        {
+            if (TryGetLoadingStoryboard(storyboardKey, out var storyboard))
+            {
+                storyboard.Begin(this, true);
+            }
+        }
     }
 
     private void StopLoadingAnimations()
     {
-        if (Resources["CrystalRotateStoryboard"] is System.Windows.Media.Animation.Storyboard rotateStoryboard)
-            rotateStoryboard.Stop(this);
-        if (Resources["CrystalPulseStoryboard"] is System.Windows.Media.Animation.Storyboard pulseStoryboard)
-            pulseStoryboard.Stop(this);
-        if (Resources["GlowPulseStoryboard"] is System.Windows.Media.Animation.Storyboard glowStoryboard)
-            glowStoryboard.Stop(this);
-        if (Resources["TextFadeStoryboard"] is System.Windows.Media.Animation.Storyboard textStoryboard)
-            textStoryboard.Stop(this);
+        foreach (var storyboardKey in LoadingStoryboardKeys)
+        {
+            if (TryGetLoadingStoryboard(storyboardKey, out var storyboard))
+            {
+                storyboard.Stop(this);
+            }
+        }
+    }
+
+    private bool TryGetLoadingStoryboard(
+        string storyboardKey,
+        out System.Windows.Media.Animation.Storyboard storyboard)
+    {
+        if (LoadingOverlay.Resources.Contains(storyboardKey)
+            && LoadingOverlay.Resources[storyboardKey] is System.Windows.Media.Animation.Storyboard foundStoryboard)
+        {
+            storyboard = foundStoryboard;
+            return true;
+        }
+
+        storyboard = null!;
+        return false;
     }
 
     [DllImport("user32.dll")]

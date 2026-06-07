@@ -134,7 +134,6 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private readonly DesktopInputLockService desktopInputLockService;
     private readonly WorldCommandBlacklistService worldCommandBlacklistService;
     private readonly VrChatLocalOscCacheService localOscCacheService;
-    private readonly Action<string> logAction;
     private WardrobeExecutorService? wardrobeExecutor;
     private readonly object stateGate = new();
     // Runtime state for cooldowns, queued redeems, movement lanes, active timed resets,
@@ -192,6 +191,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private ActiveAvatarScaleOperationState? activeAvatarScaleOperation;
     private ActiveAvatarScaleCarryoverState? activeAvatarScaleCarryover;
     private ActiveAvatarScaleRestoreSequenceState? activeAvatarScaleRestoreSequence;
+    private PausedAvatarScaleTimerSnapshot? pausedDevAvatarScaleTimerSnapshot;
     private CancellationTokenSource? avatarScaleRestoreSequenceCancellation;
     private CancellationTokenSource? pendingStreamOfflineConfirmation;
     private bool drainingQueuedAvatarScaleOperations;
@@ -240,13 +240,11 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 internal BridgeCoordinator(
         DesktopInputLockService desktopInputLockService,
         WorldCommandBlacklistService worldCommandBlacklistService,
-        VrChatLocalOscCacheService localOscCacheService,
-        Action<string> logAction)
+        VrChatLocalOscCacheService localOscCacheService)
     {
         this.desktopInputLockService = desktopInputLockService;
         this.worldCommandBlacklistService = worldCommandBlacklistService;
         this.localOscCacheService = localOscCacheService;
-        this.logAction = logAction;
         oscRouterService.LogWritten += WriteLog;
         oscRouterService.ObservedValueReceived += observedValue => ObserveOscValue(observedValue);
         desktopInputLockService.EmergencyUnlockTriggered += HandleEmergencyDesktopInputUnlock;
@@ -261,7 +259,7 @@ internal BridgeCoordinator(
                 oscRouterService,
                 localOscCacheService,
                 vrChatLocalAvatarDataService,
-                logAction);
+                WriteLog);
         }
         return wardrobeExecutor;
     }
@@ -1560,11 +1558,13 @@ internal BridgeCoordinator(
                 sequence.RestoreSmoothTransitionSeconds,
                 sequence.RestoreToPaidGrowthIfActive,
                 sequence.IsTest,
+                now.Add(devDuration).Add(remaining),
                 remaining,
                 CountQueuedLiveAvatarScaleOperationsLocked(),
                 DescribeAvatarScaleTimerSource(ruleId, sequence.SourceRuleName),
                 FindAvatarScaleRuleSnapshot(ruleId),
                 effectWasActive);
+            pausedDevAvatarScaleTimerSnapshot = snapshot;
 
             pausedCancellation = avatarScaleRestoreSequenceCancellation;
             avatarScaleRestoreSequenceCancellation = null;
@@ -1609,31 +1609,14 @@ internal BridgeCoordinator(
         PausedAvatarScaleTimerSnapshot snapshot,
         CancellationToken cancellationToken)
     {
-        if (snapshot.Remaining <= TimeSpan.Zero)
-        {
-            return;
-        }
-
-        if (HasNewerLiveAvatarScaleWork(snapshot.QueuedLiveScaleCountAtPause))
-        {
-            WriteLog($"Dev avatar scale did not resume {snapshot.SourceDescription} because a newer scale reward or payment is waiting.");
-            EnsureQueuedAvatarScaleOperationDrain();
-            return;
-        }
-
-        var operation = await WaitForAvatarScaleOperationSlotAsync(
-            Guid.Empty,
-            $"Resume {snapshot.SourceRuleName}",
-            AvatarScaleOperationPriority.LiveRedeem,
-            snapshot.IsTest,
-            cancellationToken);
-        if (operation is null)
-        {
-            return;
-        }
-
+        snapshot = GetRetargetedPausedDevAvatarScaleTimerSnapshot(snapshot);
         try
         {
+            if (snapshot.Remaining <= TimeSpan.Zero)
+            {
+                return;
+            }
+
             if (HasNewerLiveAvatarScaleWork(snapshot.QueuedLiveScaleCountAtPause))
             {
                 WriteLog($"Dev avatar scale did not resume {snapshot.SourceDescription} because a newer scale reward or payment is waiting.");
@@ -1641,34 +1624,59 @@ internal BridgeCoordinator(
                 return;
             }
 
-            if (!await SendAvatarHeightForOperationAsync(
-                    operation,
-                    snapshot.CarriedHeightMeters,
-                    0,
-                    cancellationToken))
+            var operation = await WaitForAvatarScaleOperationSlotAsync(
+                Guid.Empty,
+                $"Resume {snapshot.SourceRuleName}",
+                AvatarScaleOperationPriority.LiveRedeem,
+                snapshot.IsTest,
+                cancellationToken);
+            if (operation is null)
             {
                 return;
             }
 
-            if (HasNewerLiveAvatarScaleWork(snapshot.QueuedLiveScaleCountAtPause))
+            try
             {
-                WriteLog($"Dev avatar scale restored {snapshot.SourceDescription}'s height, then let a newer scale reward or payment take over.");
-                EnsureQueuedAvatarScaleOperationDrain();
-                return;
-            }
+                if (HasNewerLiveAvatarScaleWork(snapshot.QueuedLiveScaleCountAtPause))
+                {
+                    WriteLog($"Dev avatar scale did not resume {snapshot.SourceDescription} because a newer scale reward or payment is waiting.");
+                    EnsureQueuedAvatarScaleOperationDrain();
+                    return;
+                }
 
-            if (!TryStartPausedAvatarScaleRestoreSequence(snapshot, out var activeUntil))
+                if (!await SendAvatarHeightForOperationAsync(
+                        operation,
+                        snapshot.CarriedHeightMeters,
+                        0,
+                        cancellationToken))
+                {
+                    return;
+                }
+
+                if (HasNewerLiveAvatarScaleWork(snapshot.QueuedLiveScaleCountAtPause))
+                {
+                    WriteLog($"Dev avatar scale restored {snapshot.SourceDescription}'s height, then let a newer scale reward or payment take over.");
+                    EnsureQueuedAvatarScaleOperationDrain();
+                    return;
+                }
+
+                if (!TryStartPausedAvatarScaleRestoreSequence(snapshot, out var activeUntil))
+                {
+                    WriteLog($"Dev avatar scale could not resume {snapshot.SourceDescription} because a newer scale reward or payment is active.");
+                    EnsureQueuedAvatarScaleOperationDrain();
+                    return;
+                }
+
+                WriteLog($"Resumed {snapshot.SourceDescription} at held height {snapshot.CarriedHeightMeters:0.###}m with {DescribeDuration((activeUntil - DateTimeOffset.UtcNow).TotalSeconds)} remaining.");
+            }
+            finally
             {
-                WriteLog($"Dev avatar scale could not resume {snapshot.SourceDescription} because a newer scale reward or payment is active.");
-                EnsureQueuedAvatarScaleOperationDrain();
-                return;
+                EndAvatarScaleOperation(operation);
             }
-
-            WriteLog($"Resumed {snapshot.SourceDescription} at held height {snapshot.CarriedHeightMeters:0.###}m with {DescribeDuration((activeUntil - DateTimeOffset.UtcNow).TotalSeconds)} remaining.");
         }
         finally
         {
-            EndAvatarScaleOperation(operation);
+            ClearPausedDevAvatarScaleTimerSnapshot(snapshot);
         }
     }
 
@@ -1717,6 +1725,60 @@ internal BridgeCoordinator(
         finally
         {
             EndAvatarScaleOperation(operation);
+        }
+    }
+
+    private PausedAvatarScaleTimerSnapshot GetRetargetedPausedDevAvatarScaleTimerSnapshot(
+        PausedAvatarScaleTimerSnapshot snapshot)
+    {
+        lock (stateGate)
+        {
+            return pausedDevAvatarScaleTimerSnapshot is { } current
+                && current.RestoreSequenceId == snapshot.RestoreSequenceId
+                ? current
+                : snapshot;
+        }
+    }
+
+    private void ClearPausedDevAvatarScaleTimerSnapshot(PausedAvatarScaleTimerSnapshot snapshot)
+    {
+        lock (stateGate)
+        {
+            if (pausedDevAvatarScaleTimerSnapshot is { } current
+                && current.RestoreSequenceId == snapshot.RestoreSequenceId)
+            {
+                pausedDevAvatarScaleTimerSnapshot = null;
+            }
+        }
+    }
+
+    private void RetargetPausedDevAvatarScaleTimerForAvatarChange(string avatarId)
+    {
+        var normalizedAvatarId = avatarId?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(normalizedAvatarId))
+        {
+            return;
+        }
+
+        PausedAvatarScaleTimerSnapshot? retargetedSnapshot = null;
+        lock (stateGate)
+        {
+            if (pausedDevAvatarScaleTimerSnapshot is not { } snapshot
+                || string.Equals(snapshot.AvatarId, normalizedAvatarId, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            pausedDevAvatarScaleTimerSnapshot = snapshot with
+            {
+                AvatarId = normalizedAvatarId
+            };
+            retargetedSnapshot = pausedDevAvatarScaleTimerSnapshot;
+        }
+
+        if (retargetedSnapshot is not null)
+        {
+            WriteLog($"Paused avatar scale restore from '{retargetedSnapshot.SourceRuleName}' will resume on the current avatar after the dev height command finishes.");
         }
     }
 
@@ -2299,6 +2361,15 @@ internal BridgeCoordinator(
         if (matchingRules.Length == 0)
         {
             if (TryQueueAvatarSwitchTriggerDuringSupporterOverride(
+                ruleIndex,
+                bridgeEvent,
+                currentAvatarId,
+                configuration.AvatarChangeCooldownOnlyModeEnabled))
+            {
+                return;
+            }
+
+            if (TryQueueAvatarSwitchTriggerDuringActiveAvatarSwitch(
                 ruleIndex,
                 bridgeEvent,
                 currentAvatarId,
@@ -3244,6 +3315,18 @@ internal BridgeCoordinator(
             && !bridgeEvent.IsChatCommandTrigger
             && bridgeEvent.TriggerType == TwitchTriggerType.ChannelPoints
             && TryQueueAvatarSwitchTriggerDuringSupporterOverride(
+                ruleIndex,
+                bridgeEvent,
+                currentAvatarId,
+                configuration.AvatarChangeCooldownOnlyModeEnabled))
+        {
+            return;
+        }
+
+        if (matchingRules.Length == 0
+            && !bridgeEvent.IsChatCommandTrigger
+            && bridgeEvent.TriggerType == TwitchTriggerType.ChannelPoints
+            && TryQueueAvatarSwitchTriggerDuringActiveAvatarSwitch(
                 ruleIndex,
                 bridgeEvent,
                 currentAvatarId,
@@ -6431,6 +6514,100 @@ internal BridgeCoordinator(
         WriteLog($"{bridgeEvent.UserDisplayName} queued avatar switch '{queuedRule.Name}' until the paid override finishes. {queuedCount} avatar switch{(queuedCount == 1 ? string.Empty : "es")} waiting.");
         EnsureQueuedAvatarSwitchDrain();
         return true;
+    }
+
+    private bool TryQueueAvatarSwitchTriggerDuringActiveAvatarSwitch(
+        RuntimeRuleIndex ruleIndex,
+        BridgeIncomingEvent bridgeEvent,
+        string currentAvatarId,
+        bool avatarChangeCooldownOnlyModeEnabled)
+    {
+        if (bridgeEvent.IsChatCommandTrigger || bridgeEvent.TriggerType != TwitchTriggerType.ChannelPoints)
+        {
+            return false;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        lock (stateGate)
+        {
+            if (!IsAvatarSwitchSequenceActiveLocked(now))
+            {
+                return false;
+            }
+        }
+
+        var queuedRule = SelectQueuedAvatarSwitchMatch(
+            ruleIndex,
+            bridgeEvent,
+            currentAvatarId,
+            avatarChangeCooldownOnlyModeEnabled);
+        if (queuedRule is null)
+        {
+            return false;
+        }
+
+        var queuedCount = QueueAvatarSwitchTrigger(queuedRule, bridgeEvent);
+        WriteLog($"{bridgeEvent.UserDisplayName} queued avatar switch '{queuedRule.Name}' until the current avatar switch finishes. {queuedCount} avatar switch{(queuedCount == 1 ? string.Empty : "es")} waiting.");
+        EnsureQueuedAvatarSwitchDrain();
+        return true;
+    }
+
+    private bool IsAvatarSwitchSequenceActiveLocked(DateTimeOffset now)
+    {
+        return queuedAvatarSwitches.Count > 0
+            || pendingResets.Values.Any(IsPauseableAvatarSwitchReset)
+            || (actionLanes.TryGetValue(AvatarSwitchLaneKey, out var activeLane) && activeLane.BusyUntil > now);
+    }
+
+    private TriggerRuleSnapshot? SelectQueuedAvatarSwitchMatch(
+        RuntimeRuleIndex ruleIndex,
+        BridgeIncomingEvent bridgeEvent,
+        string currentAvatarId,
+        bool avatarChangeCooldownOnlyModeEnabled)
+    {
+        var normalizedRewardId = bridgeEvent.RewardId?.Trim() ?? string.Empty;
+        var normalizedRewardTitle = NormalizeRewardTitle(bridgeEvent.RewardTitle);
+        if (string.IsNullOrWhiteSpace(normalizedRewardId) && string.IsNullOrWhiteSpace(normalizedRewardTitle))
+        {
+            return null;
+        }
+
+        var sharedReturnAvatar = GetSharedReturnAvatarSnapshot();
+        var activationAvatarId = !string.IsNullOrWhiteSpace(sharedReturnAvatar.AvatarId)
+            ? sharedReturnAvatar.AvatarId
+            : currentAvatarId?.Trim() ?? string.Empty;
+        var candidates = ruleIndex.GetChannelPointCandidates(normalizedRewardId, normalizedRewardTitle)
+            .Where(rule => rule.IsEnabled
+                && IsQueuedAvatarSwitchRule(rule)
+                && AvatarRuleActivationPolicy.IsRuleActiveForCurrentAvatar(
+                    rule.IsGlobalOverride,
+                    rule.BelongsToMasterAvatarProfile,
+                    rule.ActionType,
+                    rule.AvatarChangeTargetId,
+                    rule.RequiredAvatarId,
+                    activationAvatarId,
+                    avatarChangeTransitionActive: false,
+                    avatarChangeCooldownOnlyModeEnabled))
+            .ToArray();
+        if (candidates.Length == 0)
+        {
+            return null;
+        }
+
+        var sharedChoiceCandidates = candidates
+            .Where(IsSharedRewardChoiceRule)
+            .ToArray();
+        if (sharedChoiceCandidates.Length > 0)
+        {
+            if (!TryParseSharedRewardChoiceNumber(bridgeEvent.RewardUserInput, out var choiceNumber))
+            {
+                return null;
+            }
+
+            return sharedChoiceCandidates.FirstOrDefault(rule => rule.SharedRewardChoiceNumber == choiceNumber);
+        }
+
+        return candidates[0];
     }
 
     private TriggerRuleSnapshot? SelectPaidSuppressedAvatarSwitchMatch(
@@ -10183,6 +10360,12 @@ internal BridgeCoordinator(
                     await Task.Delay(TimeSpan.FromSeconds(Math.Max(1, delaySeconds)), cancellation.Token);
                 }
 
+                if (TryGetReadyQueuedAvatarSwitchNameForDirectTransition(pendingReset, out var queuedAvatarSwitchName))
+                {
+                    WriteLog($"Skipped return avatar for '{rule.Name}' because queued avatar switch '{queuedAvatarSwitchName}' is ready.");
+                    return;
+                }
+
                 // If the avatar recently changed, defer the reset until the grace period ends.
                 // This prevents reset packets from being lost during world transitions.
                 if (IsInAvatarChangeGracePeriod())
@@ -10273,6 +10456,10 @@ internal BridgeCoordinator(
                         foreach (var releasedLaneKey in releasedLaneKeys)
                         {
                             EnsureQueuedLaneDrain(releasedLaneKey);
+                            if (string.Equals(releasedLaneKey, AvatarSwitchLaneKey, StringComparison.Ordinal))
+                            {
+                                EnsureQueuedAvatarSwitchDrain();
+                            }
                         }
                     }
 
@@ -10524,6 +10711,52 @@ internal BridgeCoordinator(
         {
             return actionLanes.TryGetValue(laneKey, out var activeLane)
                 && activeLane.OwnerId == laneLeaseId;
+        }
+    }
+
+    private bool TryGetReadyQueuedAvatarSwitchNameForDirectTransition(
+        PendingResetState pendingReset,
+        out string queuedRuleName)
+    {
+        queuedRuleName = string.Empty;
+        if (!IsPauseableAvatarSwitchReset(pendingReset))
+        {
+            return false;
+        }
+
+        lock (stateGate)
+        {
+            if (queuedAvatarSwitches.Count == 0)
+            {
+                return false;
+            }
+
+            var now = DateTimeOffset.UtcNow;
+            if (IsSupporterOverrideSequenceActiveLocked(now))
+            {
+                return false;
+            }
+
+            var nextSwitch = queuedAvatarSwitches.Peek();
+            var currentRule = activeConfiguration?.Rules.FirstOrDefault(rule => rule.Id == nextSwitch.Rule.Id);
+            if (currentRule is null || !currentRule.IsEnabled || !IsQueuedAvatarSwitchRule(currentRule))
+            {
+                return false;
+            }
+
+            if (TryGetTemporarilyDisabledUntilLocked(currentRule.Id, now, out var temporarilyDisabledUntil)
+                && temporarilyDisabledUntil > now)
+            {
+                return false;
+            }
+
+            if (cooldowns.TryGetValue(currentRule.Id, out var cooldownUntil) && cooldownUntil > now)
+            {
+                return false;
+            }
+
+            queuedRuleName = currentRule.Name;
+            return true;
         }
     }
 
@@ -13280,6 +13513,7 @@ internal BridgeCoordinator(
                     carryover.SourceRuleName);
 
                 RetargetAvatarScaleRestoreSequenceForAvatarChange(newAvatarId);
+                RetargetPausedDevAvatarScaleTimerForAvatarChange(newAvatarId);
                 WriteLog($"Avatar scale carryover from '{carryover.SourceRuleName}' is waiting {AvatarScaleCarryoverInitialSendDelay.TotalSeconds:0.#}s for the new avatar to finish loading before applying {carryover.CarriedHeightMeters:0.###}m.");
                 await Task.Delay(AvatarScaleCarryoverInitialSendDelay, cancellationToken);
                 for (var attempt = 1; attempt <= AvatarScaleCarryoverApplyAttemptCount; attempt++)
@@ -13389,29 +13623,60 @@ internal BridgeCoordinator(
                 if (activeAvatarScaleRestoreSequence is null
                     || activeAvatarScaleRestoreSequence.ActiveUntil <= now)
                 {
-                    return null;
+                    if (pausedDevAvatarScaleTimerSnapshot is not { } pausedSnapshot
+                        || pausedSnapshot.ActiveUntil <= now)
+                    {
+                        return null;
+                    }
+
+                    var fallbackPreviousAvatarId = previousAvatarId?.Trim() ?? string.Empty;
+                    if (!string.IsNullOrWhiteSpace(fallbackPreviousAvatarId)
+                        && !pendingAvatarScaleHeightRestores.ContainsKey(fallbackPreviousAvatarId))
+                    {
+                        pendingAvatarScaleHeightRestores[fallbackPreviousAvatarId] = new PendingAvatarScaleHeightRestoreState(
+                            pausedSnapshot.RestoreHeightMeters,
+                            pausedSnapshot.ActiveUntil,
+                            pausedSnapshot.SourceRuleName);
+                    }
+
+                    return new AvatarScaleCarryoverSnapshot(
+                        pausedSnapshot.RuleId,
+                        pausedSnapshot.SessionId,
+                        pausedSnapshot.RestoreSequenceId,
+                        Guid.Empty,
+                        pausedSnapshot.SourceRuleName,
+                        pausedSnapshot.CarriedHeightMeters,
+                        pausedSnapshot.RestoreHeightMeters,
+                        pausedSnapshot.ActiveUntil);
                 }
 
-                var activeSequence = activeAvatarScaleRestoreSequence;
-                var fallbackPreviousAvatarId = previousAvatarId?.Trim() ?? string.Empty;
-                if (!string.IsNullOrWhiteSpace(fallbackPreviousAvatarId)
-                    && !pendingAvatarScaleHeightRestores.ContainsKey(fallbackPreviousAvatarId))
                 {
-                    pendingAvatarScaleHeightRestores[fallbackPreviousAvatarId] = new PendingAvatarScaleHeightRestoreState(
-                        activeSequence.RestoreHeightMeters,
-                        activeSequence.ActiveUntil,
-                        activeSequence.SourceRuleName);
-                }
+                    var activeSequence = activeAvatarScaleRestoreSequence;
+                    if (activeSequence is null)
+                    {
+                        return null;
+                    }
 
-                return new AvatarScaleCarryoverSnapshot(
-                    Guid.Empty,
-                    Guid.Empty,
-                    activeSequence.SequenceId,
-                    Guid.Empty,
-                    activeSequence.SourceRuleName,
-                    activeSequence.CarriedHeightMeters,
-                    activeSequence.RestoreHeightMeters,
-                    activeSequence.ActiveUntil);
+                    var fallbackPreviousAvatarId = previousAvatarId?.Trim() ?? string.Empty;
+                    if (!string.IsNullOrWhiteSpace(fallbackPreviousAvatarId)
+                        && !pendingAvatarScaleHeightRestores.ContainsKey(fallbackPreviousAvatarId))
+                    {
+                        pendingAvatarScaleHeightRestores[fallbackPreviousAvatarId] = new PendingAvatarScaleHeightRestoreState(
+                            activeSequence.RestoreHeightMeters,
+                            activeSequence.ActiveUntil,
+                            activeSequence.SourceRuleName);
+                    }
+
+                    return new AvatarScaleCarryoverSnapshot(
+                        Guid.Empty,
+                        Guid.Empty,
+                        activeSequence.SequenceId,
+                        Guid.Empty,
+                        activeSequence.SourceRuleName,
+                        activeSequence.CarriedHeightMeters,
+                        activeSequence.RestoreHeightMeters,
+                        activeSequence.ActiveUntil);
+                }
             }
 
             var normalizedPreviousAvatarId = previousAvatarId?.Trim() ?? string.Empty;
@@ -13469,6 +13734,14 @@ internal BridgeCoordinator(
                 && activeAvatarScaleHeightSessions.TryGetValue(carryover.SourceRuleId, out var session)
                 && session.SessionId == carryover.SessionId
                 && session.ActiveUntil > now)
+            {
+                return true;
+            }
+
+            if (carryover.RestoreSequenceId > 0
+                && pausedDevAvatarScaleTimerSnapshot is { } pausedSnapshot
+                && pausedSnapshot.RestoreSequenceId == carryover.RestoreSequenceId
+                && pausedSnapshot.ActiveUntil > now)
             {
                 return true;
             }
@@ -17569,6 +17842,7 @@ internal BridgeCoordinator(
         double RestoreSmoothTransitionSeconds,
         bool RestoreToPaidGrowthIfActive,
         bool IsTest,
+        DateTimeOffset ActiveUntil,
         TimeSpan Remaining,
         int QueuedLiveScaleCountAtPause,
         string SourceDescription,

@@ -3,11 +3,21 @@ Crystal Relay Changelog
 
 Newest updates appear first. This changelog focuses on the changes users will notice most.
 
-v3.1.9
+v3.1.9 beta 1
 - Optimized startup speed by deferring heavy initialization out of the main constructor. The window now appears faster with a loading overlay while settings, currency codes, and font lists load in the background.
 - Added a lightweight settings read path during startup that only loads language and theme preferences, so the correct theme is applied immediately without a flash.
-- Added a loading overlay with the Crystal Relay icon and localized "Loading" text that disappears once initialization is complete.
+- Added a richer loading overlay animation with a pulsing crystal glow, orbiting accents, shimmer, and calm loading text that stops when initialization completes.
+- Improved Avatar Change and Avatar Roulette timing so queued channel-point avatar swaps can run one after another without bouncing through the return avatar between redeems.
+- Fixed Wardrobe return restore so saved VRChat LocalAvatarData values match the current avatar's typed OSC parameter names and path suffixes, including nested paths and space/underscore differences.
+- Fixed Wardrobe parameter picking so type-filtered Bool/Int/Float choices save as `/avatar/parameters/...` paths immediately.
+- Added Wardrobe copy/paste tools for outfits and snapshot parameters, plus a clearer warning when outfit active time is below the safe 70-second observation window.
+- Simplified Wardrobe setup so the Wardrobe reward system is always available for avatar sets and the master reward card sits below Avatar Setup.
+- Fixed avatar picker thumbnails so VRChat image URLs are preserved through cached avatar lists, single avatar picker, and Avatar Roulette picker refreshes.
+- Added OSC Status restart controls for restarting Crystal Relay or restarting VRChat and Crystal Relay while restoring open Crystal Relay windows.
+- Improved VRChat + Crystal Relay restart so it can relaunch VRChat in desktop mode and rejoin the same private, group, or friends instance instead of falling back to home.
+- Added a Twitch Chatbox XSOverlay compatibility mode and remembered chatbox placement so overlay capture can keep a stable target between launches and restarts.
 - Fixed Wardrobe setup so Test Outfit sends configured OSC parameters, parameter removal enables correctly, and individual outfit rewards can be created from the outfit name.
+- Improved avatar-scaling height carryover around queued avatar swaps and interrupted height changes.
 
 v3.1.8
 - Added a Power Up Redeem Library for Twitch Custom Power-ups paid with Bits. Power Ups can link existing Twitch Custom Power-ups, stay separate from normal cheers, and run OSC actions, Set Trigger, Avatar Change, Avatar Roulette, movement, or Avatar Scaling actions.

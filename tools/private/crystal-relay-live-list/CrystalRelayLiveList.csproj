@@ -11,8 +11,12 @@
     <Description>Private Crystal Relay live feedback list viewer</Description>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3967.48" />
+  </ItemGroup>
+  <ItemGroup>
     <Resource Include="..\..\..\VrcTwitchOscBridge\Assets\crystal-relay-icon.ico" Link="Assets\crystal-relay-icon.ico" />
     <Resource Include="..\..\..\VrcTwitchOscBridge\Assets\crystal-relay-icon.png" Link="Assets\crystal-relay-icon.png" />
     <None Include="live-list.example.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="stream-viewer.html" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

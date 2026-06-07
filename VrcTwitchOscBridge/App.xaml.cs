@@ -50,6 +50,15 @@ public partial class App : Application
             await ApplicationSelfUpdateService.CleanupCompletedUpdateAsync(updateCleanupRequest);
         }
 
+        if (ApplicationRestartService.TryCreateHelperRequest(e.Args, out var restartHelperRequest))
+        {
+            ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            base.OnStartup(e);
+            await ApplicationRestartService.RunRestartHelperAsync(restartHelperRequest);
+            Shutdown();
+            return;
+        }
+
         if (SavedLoginStateRecoveryService.TryCreateHelperRequest(e.Args, out var recoveryHelperRequest))
         {
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
@@ -75,10 +84,11 @@ public partial class App : Application
         var fastProfile = LoadFastProfilePreferences();
         LocalizationService.Initialize(fastProfile.Language);
         ThemeManager.UpdateTheme(fastProfile.Theme, customTheme: null);
+        ApplicationRestartService.TryConsumeRestoreState(e.Args, out var restartRestoreState);
 
         base.OnStartup(e);
 
-        MainWindow = new MainWindow();
+        MainWindow = new MainWindow(restartRestoreState);
         MainWindow.Show();
     }
 

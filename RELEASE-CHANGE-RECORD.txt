@@ -19,13 +19,25 @@ How To Use:
 
 Pending Release Draft
 - Target version: v3.1.9
-- Release lane: none
+- Release lane: beta
 - Source files reflect v3.1.9; csproj and updater project will be updated when new work begins.
 
 Added:
+- Added a richer loading overlay animation with a pulsing crystal glow, orbiting accents, shimmer, and calm loading text that stops when initialization completes.
+- Added OSC Status restart controls for restarting Crystal Relay or restarting VRChat and Crystal Relay while restoring open Crystal Relay windows.
+- Added a restart-only desktop mode option so the VRChat + Crystal Relay restart can relaunch VRChat with Desktop mode for testing.
+- Added a Twitch Chatbox XSOverlay compatibility mode and remembered chatbox placement so overlay capture can keep a stable target between launches and restarts.
+- Added Wardrobe copy/paste tools for outfits and snapshot parameters to speed up reward setup.
 
 Changed:
+- Improved Avatar Change and Avatar Roulette timing so queued channel-point avatar swaps can run one after another without bouncing through the return avatar between redeems.
+- Fixed Wardrobe return restore so saved VRChat LocalAvatarData values match the current avatar's typed OSC parameter names and path suffixes, including nested paths and space/underscore differences.
+- Fixed Wardrobe parameter picking so type-filtered Bool/Int/Float choices save as `/avatar/parameters/...` paths immediately.
+- Simplified Wardrobe setup so the Wardrobe reward system is always available for avatar sets and the master reward card sits below Avatar Setup.
+- Fixed avatar picker thumbnails so VRChat image URLs are preserved through cached avatar lists, single avatar picker, and Avatar Roulette picker refreshes.
 - Fixed Wardrobe setup so Test Outfit sends configured OSC parameters, parameter removal enables correctly, and individual outfit rewards can be created from the outfit name.
+- Improved VRChat + Crystal Relay restart rejoin so private/group/friends instance launch targets are passed back to VRChat in the raw format it expects.
+- Improved avatar-scaling height carryover around queued avatar swaps and interrupted height changes.
 
 Removed:
 - (none)

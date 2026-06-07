@@ -441,7 +441,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private WardrobeOutfit? selectedWardrobeOutfit;
     private WardrobeSnapshotParam? selectedWardrobeSnapshotParam;
     private VrChatOscParameterSummary? selectedWardrobeParameterOption;
+    private string wardrobeParameterText = string.Empty;
+    private IReadOnlyList<VrChatOscParameterSummary> wardrobeParameterSourceParameters = [];
     private IReadOnlyList<VrChatOscParameterSummary> availableWardrobeParameters = [];
+    private WardrobeOutfit? copiedWardrobeOutfit;
+    private WardrobeSnapshotParam? copiedWardrobeSnapshotParam;
     private AvatarTriggerProfile? selectedAvatarProfile;
     private VrChatOscParameterSummary? selectedAvatarParameterOption;
     private VrChatOscParameterSummary? selectedSetTriggerParameterOption;
@@ -485,6 +489,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private bool isRestoringAvatarParameterSelection;
     private bool isRestoringSetTriggerParameterSelection;
     private bool isRestoringWardrobeParameterSelection;
+    private bool isRestoringWardrobeParameterText;
     private bool isApplyingMasterAvatarDefaults;
     private bool isRefreshingVrChatAvatarSelectionOptions;
     private bool isSynchronizingManagedRewards;
@@ -622,7 +627,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     {
         dispatcher = Dispatcher.CurrentDispatcher;
         desktopInputLockService = new DesktopInputLockService(dispatcher);
-        bridgeCoordinator = new BridgeCoordinator(desktopInputLockService, worldCommandBlacklistService, vrChatLocalOscCacheService, msg => AppendLog(msg));
+        bridgeCoordinator = new BridgeCoordinator(desktopInputLockService, worldCommandBlacklistService, vrChatLocalOscCacheService);
         LogEntries = [];
         ChatMessages = [];
         ChatActivityEntries = [];
@@ -948,6 +953,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RemoveWardrobeOutfitCommand = new RelayCommand(RemoveWardrobeOutfit, () => (IsViewingAvatarTriggers || IsViewingWardrobe) && SelectedWardrobeOutfit is not null);
         AddWardrobeSnapshotParamCommand = new RelayCommand(AddWardrobeSnapshotParam, () => SelectedWardrobeOutfit is not null);
         RemoveWardrobeSnapshotParamCommand = new RelayCommand(RemoveWardrobeSnapshotParam, () => SelectedWardrobeSnapshotParam is not null);
+        CopyWardrobeOutfitCommand = new RelayCommand(CopyWardrobeOutfit, () => SelectedWardrobeOutfit is not null);
+        PasteWardrobeOutfitCommand = new RelayCommand(PasteWardrobeOutfit, () => SelectedAvatarProfile is not null && copiedWardrobeOutfit is not null);
+        CopyWardrobeSnapshotParamCommand = new RelayCommand(CopyWardrobeSnapshotParam, () => SelectedWardrobeSnapshotParam is not null);
+        PasteWardrobeSnapshotParamCommand = new RelayCommand(PasteWardrobeSnapshotParam, () => SelectedWardrobeOutfit is not null && copiedWardrobeSnapshotParam is not null);
         RefreshWardrobeParametersCommand = new RelayCommand(async () => await RefreshWardrobeParametersAsync());
         TestWardrobeOutfitCommand = new AsyncRelayCommand(TestWardrobeOutfitAsync, () => SelectedWardrobeOutfit is not null && SelectedAvatarProfile is not null);
         SelectRuleCommand = new RelayCommand(SelectRule, target => target is TriggerRule);
@@ -2656,6 +2665,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 SelectedWardrobeSnapshotParam = value?.SnapshotParams.FirstOrDefault();
                 AddWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
                 RemoveWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
+                CopyWardrobeOutfitCommand.NotifyCanExecuteChanged();
+                PasteWardrobeOutfitCommand.NotifyCanExecuteChanged();
+                CopyWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
+                PasteWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
                 AddWardrobeOutfitCommand.NotifyCanExecuteChanged();
                 RemoveWardrobeOutfitCommand.NotifyCanExecuteChanged();
                 TestWardrobeOutfitCommand.NotifyCanExecuteChanged();
@@ -2668,10 +2681,23 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         get => selectedWardrobeSnapshotParam;
         set
         {
+            var previous = selectedWardrobeSnapshotParam;
             if (SetProperty(ref selectedWardrobeSnapshotParam, value))
             {
-                RefreshWardrobeParameterOption();
+                if (previous is not null)
+                {
+                    previous.PropertyChanged -= SelectedWardrobeSnapshotParamChanged;
+                }
+
+                if (selectedWardrobeSnapshotParam is not null)
+                {
+                    selectedWardrobeSnapshotParam.PropertyChanged += SelectedWardrobeSnapshotParamChanged;
+                }
+
+                RefreshWardrobeParameterOptions();
                 RemoveWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
+                CopyWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
+                PasteWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
             }
         }
     }
@@ -2689,31 +2715,281 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 if (SelectedWardrobeSnapshotParam.ParameterType != value.ParameterType)
                     SelectedWardrobeSnapshotParam.ParameterType = value.ParameterType;
                 SelectedWardrobeSnapshotParam.ParameterName = value.Address;
+                SetWardrobeParameterText(value.DisplayLabel);
             }
         }
     }
 
-    private void RefreshWardrobeParameterOption()
+    public string WardrobeParameterText
+    {
+        get => wardrobeParameterText;
+        set
+        {
+            if (SetProperty(ref wardrobeParameterText, value ?? string.Empty)
+                && !isRestoringWardrobeParameterText)
+            {
+                CommitWardrobeParameterText(value);
+            }
+        }
+    }
+
+    private void SelectedWardrobeSnapshotParamChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (isRestoringWardrobeParameterSelection)
+        {
+            return;
+        }
+
+        if (ReferenceEquals(sender, SelectedWardrobeSnapshotParam)
+            && (e.PropertyName == nameof(WardrobeSnapshotParam.ParameterType)
+                || e.PropertyName == nameof(WardrobeSnapshotParam.ParameterName)))
+        {
+            RefreshWardrobeParameterOptions();
+        }
+    }
+
+    private void CommitWardrobeParameterText(string? rawText)
+    {
+        if (SelectedWardrobeSnapshotParam is not { } selectedParam)
+        {
+            return;
+        }
+
+        var text = rawText?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            if (!string.IsNullOrWhiteSpace(selectedParam.ParameterName))
+            {
+                selectedParam.ParameterName = string.Empty;
+            }
+
+            RefreshWardrobeParameterOptions();
+            return;
+        }
+
+        var changed = false;
+        if (TryResolveWardrobeParameterInput(
+                text,
+                selectedParam.ParameterType,
+                out var resolvedAddress,
+                out var resolvedType,
+                out var matchedOption))
+        {
+            if (selectedParam.ParameterType != resolvedType)
+            {
+                selectedParam.ParameterType = resolvedType;
+                changed = true;
+            }
+
+            if (!string.Equals(selectedParam.ParameterName?.Trim(), resolvedAddress, StringComparison.Ordinal))
+            {
+                selectedParam.ParameterName = resolvedAddress;
+                changed = true;
+            }
+
+            if (matchedOption is not null)
+            {
+                selectedWardrobeParameterOption = matchedOption;
+                RaisePropertyChanged(nameof(SelectedWardrobeParameterOption));
+            }
+        }
+        else
+        {
+            var cleanedText = StripWardrobeParameterDisplayTypeSuffix(text, out var parsedType);
+            if (parsedType is OscParameterType supportedType && selectedParam.ParameterType != supportedType)
+            {
+                selectedParam.ParameterType = supportedType;
+                changed = true;
+            }
+
+            var normalizedAddress = NormalizeAvatarParameterAddressOrEmpty(cleanedText);
+            if (!string.Equals(selectedParam.ParameterName?.Trim(), normalizedAddress, StringComparison.Ordinal))
+            {
+                selectedParam.ParameterName = normalizedAddress;
+                changed = true;
+            }
+        }
+
+        if (!changed)
+        {
+            RefreshWardrobeParameterOptions();
+        }
+    }
+
+    private void RefreshWardrobeParameterOptions()
     {
         isRestoringWardrobeParameterSelection = true;
         try
         {
             if (selectedWardrobeSnapshotParam is null)
             {
+                AvailableWardrobeParameters = [];
                 selectedWardrobeParameterOption = null;
                 RaisePropertyChanged(nameof(SelectedWardrobeParameterOption));
+                SetWardrobeParameterText(string.Empty);
                 return;
             }
 
-            var address = selectedWardrobeSnapshotParam.ParameterName ?? string.Empty;
-            var match = availableWardrobeParameters.FirstOrDefault(p =>
+            TryRepairSelectedWardrobeParameter();
+            var address = NormalizeAvatarParameterAddressOrEmpty(selectedWardrobeSnapshotParam.ParameterName ?? string.Empty);
+            AvailableWardrobeParameters = BuildWardrobeParameterOptionsForType(
+                selectedWardrobeSnapshotParam.ParameterType,
+                selectedWardrobeSnapshotParam.ParameterName ?? string.Empty);
+            var match = AvailableWardrobeParameters.FirstOrDefault(p =>
                 string.Equals(p.Address, address, StringComparison.Ordinal));
             selectedWardrobeParameterOption = match;
             RaisePropertyChanged(nameof(SelectedWardrobeParameterOption));
+            SetWardrobeParameterText(match?.DisplayLabel ?? selectedWardrobeSnapshotParam.ParameterName ?? string.Empty);
         }
         finally
         {
             isRestoringWardrobeParameterSelection = false;
+        }
+    }
+
+    private void TryRepairSelectedWardrobeParameter()
+    {
+        if (selectedWardrobeSnapshotParam is null)
+        {
+            return;
+        }
+
+        var rawName = selectedWardrobeSnapshotParam.ParameterName?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(rawName))
+        {
+            return;
+        }
+
+        if (TryResolveWardrobeParameterInput(
+                rawName,
+                selectedWardrobeSnapshotParam.ParameterType,
+                out var resolvedAddress,
+                out var resolvedType,
+                out _))
+        {
+            if (selectedWardrobeSnapshotParam.ParameterType != resolvedType)
+            {
+                selectedWardrobeSnapshotParam.ParameterType = resolvedType;
+            }
+
+            if (!string.Equals(selectedWardrobeSnapshotParam.ParameterName?.Trim(), resolvedAddress, StringComparison.Ordinal))
+            {
+                selectedWardrobeSnapshotParam.ParameterName = resolvedAddress;
+            }
+
+            return;
+        }
+
+        var cleanedName = StripWardrobeParameterDisplayTypeSuffix(rawName, out var parsedType);
+        if (parsedType is OscParameterType supportedType && selectedWardrobeSnapshotParam.ParameterType != supportedType)
+        {
+            selectedWardrobeSnapshotParam.ParameterType = supportedType;
+        }
+
+        var normalizedAddress = NormalizeAvatarParameterAddressOrEmpty(cleanedName);
+        if (!string.Equals(selectedWardrobeSnapshotParam.ParameterName?.Trim(), normalizedAddress, StringComparison.Ordinal))
+        {
+            selectedWardrobeSnapshotParam.ParameterName = normalizedAddress;
+        }
+    }
+
+    private List<VrChatOscParameterSummary> BuildWardrobeParameterOptionsForType(
+        OscParameterType parameterType,
+        string selectedParameterName)
+    {
+        var nextOptions = wardrobeParameterSourceParameters
+            .Where(parameter => parameter.ParameterType == parameterType)
+            .OrderBy(parameter => parameter.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var cleanedName = StripWardrobeParameterDisplayTypeSuffix(selectedParameterName ?? string.Empty, out _);
+        var selectedParameterAddress = NormalizeAvatarParameterAddressOrEmpty(cleanedName);
+        if (!string.IsNullOrWhiteSpace(selectedParameterAddress)
+            && !nextOptions.Any(option => string.Equals(option.Address, selectedParameterAddress, StringComparison.Ordinal)))
+        {
+            nextOptions.Insert(0, CreateCustomAvatarParameterOption(selectedParameterAddress, parameterType));
+        }
+
+        return nextOptions;
+    }
+
+    private bool TryResolveWardrobeParameterInput(
+        string rawText,
+        OscParameterType preferredType,
+        out string address,
+        out OscParameterType parameterType,
+        out VrChatOscParameterSummary? matchedOption)
+    {
+        address = string.Empty;
+        parameterType = preferredType;
+        matchedOption = null;
+
+        var trimmedText = rawText?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(trimmedText))
+        {
+            return false;
+        }
+
+        var cleanedText = StripWardrobeParameterDisplayTypeSuffix(trimmedText, out var parsedType);
+        var normalizedAddress = NormalizeAvatarParameterAddressOrEmpty(cleanedText);
+        var sourceParameters = wardrobeParameterSourceParameters.Count > 0
+            ? wardrobeParameterSourceParameters
+            : availableWardrobeParameters;
+        var candidates = parsedType is OscParameterType parsed
+            ? sourceParameters.Where(parameter => parameter.ParameterType == parsed)
+            : sourceParameters
+                .Where(parameter => parameter.ParameterType == preferredType)
+                .Concat(sourceParameters.Where(parameter => parameter.ParameterType != preferredType));
+
+        matchedOption = candidates.FirstOrDefault(parameter =>
+            string.Equals(parameter.Address, trimmedText, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(parameter.Address, normalizedAddress, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(parameter.Name, trimmedText, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(parameter.Name, cleanedText, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(parameter.DisplayLabel, trimmedText, StringComparison.OrdinalIgnoreCase));
+
+        if (matchedOption is null)
+        {
+            return false;
+        }
+
+        address = matchedOption.Address;
+        parameterType = matchedOption.ParameterType;
+        return true;
+    }
+
+    private static string StripWardrobeParameterDisplayTypeSuffix(string rawText, out OscParameterType? parsedType)
+    {
+        parsedType = null;
+        var text = rawText?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return string.Empty;
+        }
+
+        foreach (var parameterType in new[] { OscParameterType.Bool, OscParameterType.Int, OscParameterType.Float })
+        {
+            var suffix = $" [{parameterType}]";
+            if (text.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+            {
+                parsedType = parameterType;
+                return text[..^suffix.Length].Trim();
+            }
+        }
+
+        return text;
+    }
+
+    private void SetWardrobeParameterText(string text)
+    {
+        isRestoringWardrobeParameterText = true;
+        try
+        {
+            WardrobeParameterText = text ?? string.Empty;
+        }
+        finally
+        {
+            isRestoringWardrobeParameterText = false;
         }
     }
 
@@ -3325,6 +3601,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     public RelayCommand RemoveWardrobeOutfitCommand { get; }
     public RelayCommand AddWardrobeSnapshotParamCommand { get; }
     public RelayCommand RemoveWardrobeSnapshotParamCommand { get; }
+    public RelayCommand CopyWardrobeOutfitCommand { get; }
+    public RelayCommand PasteWardrobeOutfitCommand { get; }
+    public RelayCommand CopyWardrobeSnapshotParamCommand { get; }
+    public RelayCommand PasteWardrobeSnapshotParamCommand { get; }
     public RelayCommand RefreshWardrobeParametersCommand { get; }
     public AsyncRelayCommand TestWardrobeOutfitCommand { get; }
 
@@ -3732,6 +4012,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
         twitchChatboxWindow = new TwitchChatboxWindow(this, SelectedTheme);
         twitchChatboxWindow.Closed += OnTwitchChatboxClosed;
+        WindowPlacementStateStore.ApplyWindowPlacement(
+            twitchChatboxWindow,
+            WindowPlacementStateStore.TryLoadChatboxPlacement());
         twitchChatboxWindow.Show();
         UpdateChatboxListenerStatus();
     }
@@ -3761,6 +4044,141 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         };
         testModeWindow.Closed += OnTestModeWindowClosed;
         testModeWindow.Show();
+    }
+
+    internal WindowPlacementSnapshot CaptureTwitchChatboxPlacement() =>
+        WindowPlacementStateStore.CaptureWindow(
+            twitchChatboxWindow,
+            WindowPlacementStateStore.TwitchChatboxKey,
+            twitchChatboxWindow is { IsVisible: true });
+
+    internal WindowPlacementSnapshot CaptureTestModePlacement() =>
+        WindowPlacementStateStore.CaptureWindow(
+            testModeWindow,
+            WindowPlacementStateStore.TestModeKey,
+            testModeWindow is { IsVisible: true });
+
+    internal void RestoreRestartSessionWindows(ApplicationRestartSessionState state)
+    {
+        var chatboxPlacement = state.Windows.FirstOrDefault(window =>
+            string.Equals(window.WindowKey, WindowPlacementStateStore.TwitchChatboxKey, StringComparison.Ordinal));
+        if (chatboxPlacement is { WasOpen: true })
+        {
+            OpenTwitchChatbox();
+            WindowPlacementStateStore.ApplyWindowPlacement(twitchChatboxWindow!, chatboxPlacement);
+        }
+
+        var testModePlacement = state.Windows.FirstOrDefault(window =>
+            string.Equals(window.WindowKey, WindowPlacementStateStore.TestModeKey, StringComparison.Ordinal));
+        if (testModePlacement is { WasOpen: true })
+        {
+            OpenTestModeWindow();
+            WindowPlacementStateStore.ApplyWindowPlacement(testModeWindow!, testModePlacement);
+        }
+    }
+
+    internal async Task<VrChatCurrentLocationLookupResult> PrepareVrChatRestartRejoinAsync()
+    {
+        if (!Settings.VrChat.IsConnected)
+        {
+            return VrChatCurrentLocationLookupResult.Unavailable(T("Connect VRChat before using the VRChat restart action."));
+        }
+
+        try
+        {
+            var location = await vrChatApiClient.GetCurrentLocationAsync(Settings.VrChat.AuthCookie, CancellationToken.None);
+            if (!location.IsAvailable)
+            {
+                AppendLog(location.FailureReason);
+                location = await TryGetVrChatRestartLocationFromLocalLogAsync(location.FailureReason);
+                if (!location.IsAvailable)
+                {
+                    return location;
+                }
+            }
+
+            if (string.Equals(location.Source, "local-log", StringComparison.Ordinal))
+            {
+                AppendLog(T("VRChat restart will use the last real instance found in the local VRChat log because the VRChat API did not report a rejoinable instance."));
+            }
+
+            try
+            {
+                var invited = await vrChatApiClient.InviteMyselfToInstanceAsync(
+                    Settings.VrChat.AuthCookie,
+                    location.Location,
+                    CancellationToken.None);
+                AppendLog(invited
+                    ? T("Prepared a VRChat self-invite for the restart rejoin path.")
+                    : T("VRChat restart will continue without a self-invite because VRChat did not accept the invite request."));
+            }
+            catch (Exception ex)
+            {
+                AppendLog(TF("VRChat restart self-invite was skipped: {0}", GetFriendlyVrChatError(ex)));
+            }
+
+            return location;
+        }
+        catch (Exception ex)
+        {
+            var message = GetFriendlyVrChatError(ex);
+            AppendLog(message);
+            var fallbackLocation = await TryGetVrChatRestartLocationFromLocalLogAsync(message);
+            if (!fallbackLocation.IsAvailable)
+            {
+                return fallbackLocation;
+            }
+
+            AppendLog(T("VRChat restart will use the last real instance found in the local VRChat log because the VRChat API did not report a rejoinable instance."));
+            try
+            {
+                var invited = await vrChatApiClient.InviteMyselfToInstanceAsync(
+                    Settings.VrChat.AuthCookie,
+                    fallbackLocation.Location,
+                    CancellationToken.None);
+                AppendLog(invited
+                    ? T("Prepared a VRChat self-invite for the restart rejoin path.")
+                    : T("VRChat restart will continue without a self-invite because VRChat did not accept the invite request."));
+            }
+            catch (Exception inviteException)
+            {
+                AppendLog(TF("VRChat restart self-invite was skipped: {0}", GetFriendlyVrChatError(inviteException)));
+            }
+
+            return fallbackLocation;
+        }
+    }
+
+    private async Task<VrChatCurrentLocationLookupResult> TryGetVrChatRestartLocationFromLocalLogAsync(string apiFailureReason)
+    {
+        try
+        {
+            var localLocation = await vrChatLocalClientStateService.ReadLatestJoinedInstanceAsync(CancellationToken.None);
+            if (!localLocation.IsAvailable)
+            {
+                AppendLog(localLocation.FailureReason);
+                var combinedFailure = string.IsNullOrWhiteSpace(apiFailureReason)
+                    ? localLocation.FailureReason
+                    : TF("{0} Local log fallback also failed: {1}", apiFailureReason, localLocation.FailureReason);
+                return VrChatCurrentLocationLookupResult.Unavailable(combinedFailure);
+            }
+
+            return VrChatCurrentLocationLookupResult.Available(
+                localLocation.WorldId,
+                localLocation.InstanceId,
+                localLocation.Location,
+                localLocation.LaunchUri,
+                "local-log");
+        }
+        catch (Exception ex)
+        {
+            var fallbackFailure = TF("Local VRChat log fallback failed: {0}", ex.Message);
+            AppendLog(fallbackFailure);
+            var combinedFailure = string.IsNullOrWhiteSpace(apiFailureReason)
+                ? fallbackFailure
+                : TF("{0} {1}", apiFailureReason, fallbackFailure);
+            return VrChatCurrentLocationLookupResult.Unavailable(combinedFailure);
+        }
     }
 
     private void OpenBuiltInCommands()
@@ -3875,6 +4293,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             }
 
             Settings.VrChat.Apply(account);
+            AvatarPickerService.SetVrChatAuthCookie(account.AuthCookie);
             RaiseVrChatConnectionStateProperties();
             SyncVrChatRuntimeState(queueManagedRewardSync: false);
             QueueSave();
@@ -3887,6 +4306,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         catch (Exception ex)
         {
             ClearVrChatAccountPreservingCurrentAvatar();
+            AvatarPickerService.SetVrChatAuthCookie(null);
             RaiseVrChatConnectionStateProperties();
             SyncVrChatRuntimeState(queueManagedRewardSync: false);
             VrChatStatus = GetFriendlyVrChatError(ex);
@@ -3936,6 +4356,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         await settingsStore.ClearVrChatAvatarCacheAsync(CancellationToken.None);
         await settingsStore.ClearVrChatOscParameterCacheAsync(CancellationToken.None);
         ClearVrChatAccountPreservingCurrentAvatar();
+        AvatarPickerService.SetVrChatAuthCookie(null);
         ClearAvailableVrChatAvatars();
         cachedVrChatParametersByAvatarId.Clear();
         AvatarParameterOptions.Clear();
@@ -3979,6 +4400,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     {
         var currentAvatarId = GetBestKnownCurrentAvatarId();
         Settings.VrChat.Clear();
+        AvatarPickerService.SetVrChatAuthCookie(null);
         if (!string.IsNullOrWhiteSpace(currentAvatarId))
         {
             Settings.VrChat.CurrentAvatarId = currentAvatarId;
@@ -4140,6 +4562,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
         if (!Settings.VrChat.IsConnected)
         {
+            AvatarPickerService.SetVrChatAuthCookie(null);
             VrChatStatus = T("VRChat avatar access is not connected.");
             VrChatAvatarStatus = T("Connect VRChat to load avatar choices.");
             VrChatOscParameterStatus = T("Connect VRChat to load avatar parameters.");
@@ -4149,6 +4572,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             return;
         }
 
+        AvatarPickerService.SetVrChatAuthCookie(Settings.VrChat.AuthCookie);
         var cachedAvatars = await settingsStore.LoadVrChatAvatarCacheAsync(Settings.VrChat.UserId, CancellationToken.None);
         ReplaceAvailableVrChatAvatars(cachedAvatars);
         if (NormalizeSupporterAvatarScopes())
@@ -4190,6 +4614,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     {
         if (!Settings.VrChat.IsConnected)
         {
+            AvatarPickerService.SetVrChatAuthCookie(null);
             VrChatStatus = T("VRChat avatar access is not connected.");
             VrChatAvatarStatus = T("Connect VRChat to load avatar choices.");
             ResetVrChatLocalRuntimeTracking();
@@ -4199,6 +4624,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             return;
         }
 
+        AvatarPickerService.SetVrChatAuthCookie(Settings.VrChat.AuthCookie);
         if (!forceRemoteRefresh)
         {
             var cachedAvatars = await settingsStore.LoadVrChatAvatarCacheAsync(Settings.VrChat.UserId, CancellationToken.None);
@@ -4232,6 +4658,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 CancellationToken.None);
 
             Settings.VrChat.Apply(account);
+            AvatarPickerService.SetVrChatAuthCookie(account.AuthCookie);
             ReplaceAvailableVrChatAvatars(avatars);
             SyncVrChatRuntimeState(queueManagedRewardSync: false);
             if (NormalizeSupporterAvatarScopes())
@@ -6040,7 +6467,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private void OpenAvatarPicker(object? parameter)
     {
         var avatars = availableVrChatAvatars
-            .Select(a => new VrChatAvatarSummary(a.Id, a.Name, a.SourceLabel, a.IsCurrentAvatar))
+            .Select(a => new VrChatAvatarSummary(a.Id, a.Name, a.SourceLabel, a.IsCurrentAvatar, a.ThumbnailUrl))
             .ToList();
 
         var context = parameter as string ?? "Profile";
@@ -6410,6 +6837,129 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             : SelectedWardrobeOutfit.SnapshotParams.FirstOrDefault();
     }
 
+    private void CopyWardrobeOutfit()
+    {
+        if (SelectedWardrobeOutfit is null)
+        {
+            return;
+        }
+
+        copiedWardrobeOutfit = CloneWardrobeOutfit(SelectedWardrobeOutfit, clearRewardId: false, copyName: SelectedWardrobeOutfit.Name);
+        PasteWardrobeOutfitCommand.NotifyCanExecuteChanged();
+        AppendLog(TF("Copied Wardrobe outfit '{0}'.", SelectedWardrobeOutfit.DisplayTitle));
+    }
+
+    private void PasteWardrobeOutfit()
+    {
+        if (SelectedAvatarProfile is null || copiedWardrobeOutfit is null)
+        {
+            return;
+        }
+
+        var pastedName = GetUniqueWardrobeCopyName(copiedWardrobeOutfit.Name, SelectedAvatarProfile.WardrobeOutfits.Select(outfit => outfit.Name));
+        var outfit = CloneWardrobeOutfit(copiedWardrobeOutfit, clearRewardId: true, copyName: pastedName);
+        if (!string.IsNullOrWhiteSpace(outfit.TwitchRewardTitle))
+        {
+            outfit.TwitchRewardTitle = GetUniqueWardrobeCopyName(
+                outfit.TwitchRewardTitle,
+                SelectedAvatarProfile.WardrobeOutfits.Select(existing => existing.TwitchRewardTitle));
+        }
+
+        SelectedAvatarProfile.WardrobeOutfits.Add(outfit);
+        SelectedWardrobeOutfit = outfit;
+        SelectedWardrobeSnapshotParam = outfit.SnapshotParams.FirstOrDefault();
+        AppendLog(TF("Pasted Wardrobe outfit '{0}'.", outfit.DisplayTitle));
+    }
+
+    private void CopyWardrobeSnapshotParam()
+    {
+        if (SelectedWardrobeSnapshotParam is null)
+        {
+            return;
+        }
+
+        copiedWardrobeSnapshotParam = CloneWardrobeSnapshotParam(SelectedWardrobeSnapshotParam);
+        PasteWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
+        AppendLog(TF("Copied Wardrobe parameter: {0}", SelectedWardrobeSnapshotParam.DisplaySummary));
+    }
+
+    private void PasteWardrobeSnapshotParam()
+    {
+        if (SelectedWardrobeOutfit is null || copiedWardrobeSnapshotParam is null)
+        {
+            return;
+        }
+
+        var param = CloneWardrobeSnapshotParam(copiedWardrobeSnapshotParam);
+        var insertIndex = SelectedWardrobeSnapshotParam is not null
+            ? SelectedWardrobeOutfit.SnapshotParams.IndexOf(SelectedWardrobeSnapshotParam) + 1
+            : SelectedWardrobeOutfit.SnapshotParams.Count;
+        if (insertIndex < 0 || insertIndex > SelectedWardrobeOutfit.SnapshotParams.Count)
+        {
+            insertIndex = SelectedWardrobeOutfit.SnapshotParams.Count;
+        }
+
+        SelectedWardrobeOutfit.SnapshotParams.Insert(insertIndex, param);
+        SelectedWardrobeSnapshotParam = param;
+        AppendLog(TF("Pasted Wardrobe parameter: {0}", param.DisplaySummary));
+    }
+
+    private static WardrobeOutfit CloneWardrobeOutfit(WardrobeOutfit source, bool clearRewardId, string copyName)
+    {
+        return new WardrobeOutfit
+        {
+            Id = Guid.NewGuid(),
+            IsEnabled = source.IsEnabled,
+            Name = string.IsNullOrWhiteSpace(copyName) ? "New Outfit Copy" : copyName.Trim(),
+            ActiveTimeSeconds = source.ActiveTimeSeconds,
+            TwitchRewardId = clearRewardId ? string.Empty : source.TwitchRewardId,
+            TwitchRewardTitle = source.TwitchRewardTitle,
+            TwitchRewardCost = source.TwitchRewardCost,
+            TwitchRewardDescription = source.TwitchRewardDescription,
+            TwitchRewardSyncMode = source.TwitchRewardSyncMode,
+            ChatCommandText = source.ChatCommandText,
+            SnapshotParams = new ObservableCollection<WardrobeSnapshotParam>(
+                source.SnapshotParams.Select(CloneWardrobeSnapshotParam))
+        };
+    }
+
+    private static WardrobeSnapshotParam CloneWardrobeSnapshotParam(WardrobeSnapshotParam source)
+    {
+        return new WardrobeSnapshotParam
+        {
+            Id = Guid.NewGuid(),
+            ParameterName = source.ParameterName,
+            ParameterType = source.ParameterType,
+            SetValue = source.SetValue
+        };
+    }
+
+    private static string GetUniqueWardrobeCopyName(string sourceName, IEnumerable<string> existingNames)
+    {
+        var baseName = string.IsNullOrWhiteSpace(sourceName) ? "New Outfit" : sourceName.Trim();
+        if (!baseName.EndsWith(" Copy", StringComparison.OrdinalIgnoreCase))
+        {
+            baseName += " Copy";
+        }
+
+        var usedNames = existingNames
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => name.Trim())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (!usedNames.Contains(baseName))
+        {
+            return baseName;
+        }
+
+        var index = 2;
+        while (usedNames.Contains($"{baseName} {index}"))
+        {
+            index++;
+        }
+
+        return $"{baseName} {index}";
+    }
+
     private async Task RefreshWardrobeParametersAsync()
     {
         if (Settings?.VrChat?.UserId is not { } userId || string.IsNullOrWhiteSpace(userId)) return;
@@ -6418,12 +6968,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         try
         {
             var parameters = await vrChatLocalOscCacheService.LoadAvatarParametersAsync(userId, avatarId, CancellationToken.None);
-            AvailableWardrobeParameters = parameters;
+            wardrobeParameterSourceParameters = parameters;
+            RefreshWardrobeParameterOptions();
         }
         catch (Exception ex)
         {
             AppendLog($"Could not load avatar parameters for Wardrobe: {ex.Message}");
+            wardrobeParameterSourceParameters = [];
             AvailableWardrobeParameters = [];
+            RefreshWardrobeParameterOptions();
         }
     }
 
@@ -8968,6 +9521,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RemoveWardrobeOutfitCommand.NotifyCanExecuteChanged();
         AddWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
         RemoveWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
+        CopyWardrobeOutfitCommand.NotifyCanExecuteChanged();
+        PasteWardrobeOutfitCommand.NotifyCanExecuteChanged();
+        CopyWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
+        PasteWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
         TestWardrobeOutfitCommand.NotifyCanExecuteChanged();
     }
 
@@ -17967,7 +18524,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             .ToList();
 
         var avatars = availableVrChatAvatars
-            .Select(a => new VrChatAvatarSummary(a.Id, a.Name, a.SourceLabel, a.IsCurrentAvatar))
+            .Select(a => new VrChatAvatarSummary(a.Id, a.Name, a.SourceLabel, a.IsCurrentAvatar, a.ThumbnailUrl))
             .ToList();
 
         var result = AvatarPickerService.OpenMulti(

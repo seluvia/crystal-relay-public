@@ -10,6 +10,7 @@ using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Shell;
 using System.Windows.Threading;
 using VrcTwitchOscBridge.Services;
 using VrcTwitchOscBridge.Models;
@@ -44,16 +45,21 @@ public partial class TwitchChatboxWindow : Window
         Loaded += OnLoaded;
         Closed += OnClosed;
         StateChanged += OnStateChanged;
+        LocationChanged += OnPlacementChanged;
+        SizeChanged += OnPlacementChanged;
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        WindowPlacementStateStore.ApplyWindowPlacement(this, WindowPlacementStateStore.TryLoadChatboxPlacement());
         ApplyChatboxStateFromSettings();
+        SavePlacementIfLoaded();
         ScrollChatToBottom();
     }
 
     private void OnClosed(object? sender, EventArgs e)
     {
+        WindowPlacementStateStore.SaveChatboxPlacement(this);
         ThemeManager.ThemeChanged -= OnThemeManagerThemeChanged;
         ChatMessageInlinePresenter.DiagnosticWritten -= OnChatInlineDiagnosticWritten;
         viewModel.PropertyChanged -= OnViewModelPropertyChanged;
@@ -62,6 +68,8 @@ public partial class TwitchChatboxWindow : Window
         Loaded -= OnLoaded;
         Closed -= OnClosed;
         StateChanged -= OnStateChanged;
+        LocationChanged -= OnPlacementChanged;
+        SizeChanged -= OnPlacementChanged;
         CleanupViewerNotificationAudio();
     }
 
@@ -100,7 +108,8 @@ public partial class TwitchChatboxWindow : Window
 
         if (e.PropertyName is nameof(AppSettings.ChatboxAlwaysOnTop)
             or nameof(AppSettings.ChatboxSettingsPanelOpen)
-            or nameof(AppSettings.ChatboxOverlayMode))
+            or nameof(AppSettings.ChatboxOverlayMode)
+            or nameof(AppSettings.ChatboxXsOverlayCompatibilityMode))
         {
             Dispatcher.BeginInvoke(ApplyChatboxStateFromSettings, DispatcherPriority.Background);
         }
@@ -205,6 +214,20 @@ public partial class TwitchChatboxWindow : Window
     private void OnStateChanged(object? sender, EventArgs e)
     {
         UpdateWindowStateGlyph();
+        SavePlacementIfLoaded();
+    }
+
+    private void OnPlacementChanged(object? sender, EventArgs e)
+    {
+        SavePlacementIfLoaded();
+    }
+
+    private void SavePlacementIfLoaded()
+    {
+        if (IsLoaded)
+        {
+            WindowPlacementStateStore.SaveChatboxPlacement(this);
+        }
     }
 
     private void OnTitleBarMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -460,19 +483,28 @@ public partial class TwitchChatboxWindow : Window
 
     private void ApplyOverlayLayout(bool overlayMode)
     {
+        var xsOverlayMode = viewModel.Settings.ChatboxXsOverlayCompatibilityMode;
+        var chrome = WindowChrome.GetWindowChrome(this);
+        if (chrome is not null)
+        {
+            chrome.ResizeBorderThickness = xsOverlayMode
+                ? new Thickness(0)
+                : new Thickness(8);
+        }
+
         if (overlayMode)
         {
             TitleBarHost.Visibility = Visibility.Collapsed;
-            ContentHostGrid.Margin = new Thickness(6);
-            ChatShellBorder.Padding = new Thickness(10);
-            ChatShellBorder.CornerRadius = new CornerRadius(12);
+            ContentHostGrid.Margin = xsOverlayMode ? new Thickness(0) : new Thickness(6);
+            ChatShellBorder.Padding = xsOverlayMode ? new Thickness(6) : new Thickness(10);
+            ChatShellBorder.CornerRadius = xsOverlayMode ? new CornerRadius(0) : new CornerRadius(12);
             return;
         }
 
         TitleBarHost.Visibility = Visibility.Visible;
-        ContentHostGrid.Margin = new Thickness(14);
-        ChatShellBorder.Padding = new Thickness(16);
-        ChatShellBorder.CornerRadius = new CornerRadius(18);
+        ContentHostGrid.Margin = xsOverlayMode ? new Thickness(4) : new Thickness(14);
+        ChatShellBorder.Padding = xsOverlayMode ? new Thickness(10) : new Thickness(16);
+        ChatShellBorder.CornerRadius = xsOverlayMode ? new CornerRadius(8) : new CornerRadius(18);
     }
 
     private void ApplyTheme(AppTheme theme)

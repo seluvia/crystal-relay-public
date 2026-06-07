@@ -30,7 +30,7 @@ public sealed class AvatarTriggerProfile : ObservableObject
     private bool useSharedNumberedOutfitReward = true;
 private bool postOutfitChoiceListToTwitchChat;
     private ObservableCollection<TriggerRule> channelPointRules = [];
-    private bool useWardrobeMode;
+    private bool useWardrobeMode = true;
     private int wardrobeCooldownSeconds;
     private ObservableCollection<WardrobeOutfit> wardrobeOutfits = [];
     private bool useWardrobeMasterReward;
@@ -358,9 +358,7 @@ private bool postOutfitChoiceListToTwitchChat;
     public Brush WardrobeMasterRewardReadyColorBrush => CreateColorBrush(WardrobeMasterRewardReadyColor);
     public Brush WardrobeMasterRewardCooldownColorBrush => CreateColorBrush(WardrobeMasterRewardCooldownColor);
 
-    public string WardrobeModeSummary => UseWardrobeMode
-        ? "Named outfits with mixed Bool/Int/Float snapshots and auto-capture restore."
-        : "Numbered outfit choices using Set Trigger. Toggle on to switch to Wardrobe mode.";
+    public string WardrobeModeSummary => "Named outfits with mixed Bool/Int/Float snapshots and auto-capture restore.";
 
     public ObservableCollection<TriggerRule> ChannelPointRules
     {

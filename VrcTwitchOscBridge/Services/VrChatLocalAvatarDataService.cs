@@ -143,43 +143,51 @@ internal sealed class VrChatLocalAvatarDataService
             var observedValues = new Dictionary<string, OscObservedValue>(StringComparer.OrdinalIgnoreCase);
             var matchedNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             var duplicateAddresses = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var ambiguousNames = new List<string>();
 
             foreach (var entry in animationParameters)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                string address;
-                try
+                var metadataMatch = ResolveOscMetadataForLocalName(typeMetadata, entry.Name);
+                if (metadataMatch.Status == LocalAvatarDataParameterMatchStatus.Failed || metadataMatch.Metadata is null)
                 {
-                    address = VrChatOscClient.NormalizeAvatarParameterAddress(entry.Name);
+                    if (!string.IsNullOrWhiteSpace(metadataMatch.FailureReason)
+                        && metadataMatch.FailureReason.Contains("multiple", StringComparison.OrdinalIgnoreCase))
+                    {
+                        ambiguousNames.Add(entry.Name);
+                    }
+
+                    continue;
                 }
-                catch (InvalidOperationException)
+
+                var metadata = metadataMatch.Metadata;
+                if (!IsSupportedLocalAvatarDataType(metadata.ParameterType)
+                    || !TryConvertValue(metadata.Address, metadata.ParameterType, entry.Value, out var observedValue))
                 {
                     continue;
                 }
 
-                if (IsHeightOrScaleParameter(address)
-                    || !typeMetadata.Types.TryGetValue(address, out var declaredType)
-                    || declaredType is not (OscParameterType.Bool or OscParameterType.Int or OscParameterType.Float)
-                    || !TryConvertValue(address, declaredType, entry.Value, out var observedValue))
+                if (observedValues.ContainsKey(metadata.Address))
                 {
+                    duplicateAddresses.Add(metadata.Address);
                     continue;
                 }
 
-                if (observedValues.ContainsKey(address))
-                {
-                    duplicateAddresses.Add(address);
-                    continue;
-                }
-
-                observedValues[address] = observedValue;
-                matchedNames[address] = entry.Name;
+                observedValues[metadata.Address] = observedValue;
+                matchedNames[metadata.Address] = entry.Name;
             }
 
             if (duplicateAddresses.Count > 0)
             {
                 return LocalAvatarDataParameterBatchReadResult.Unsafe(
                     $"LocalAvatarData contains duplicate animation parameter entries for {string.Join(", ", duplicateAddresses.OrderBy(address => address, StringComparer.OrdinalIgnoreCase))}.");
+            }
+
+            if (ambiguousNames.Count > 0 && observedValues.Count == 0)
+            {
+                return LocalAvatarDataParameterBatchReadResult.Unsafe(
+                    $"LocalAvatarData parameter names matched multiple OSC paths and were skipped: {string.Join(", ", ambiguousNames.Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(name => name, StringComparer.OrdinalIgnoreCase))}.");
             }
 
             if (observedValues.Count == 0)
@@ -238,9 +246,11 @@ internal sealed class VrChatLocalAvatarDataService
         }
 
         var typeMetadata = await TryReadAvatarOscParameterTypesAsync(normalizedAvatarId, cancellationToken);
-        if (typeMetadata.FailureMode == LocalAvatarDataReadFailureMode.Unsafe)
+        if (!typeMetadata.Found)
         {
-            return LocalAvatarDataParameterBatchReadResult.Unsafe(typeMetadata.FailureReason);
+            return typeMetadata.FailureMode == LocalAvatarDataReadFailureMode.Unsafe
+                ? LocalAvatarDataParameterBatchReadResult.Unsafe(typeMetadata.FailureReason)
+                : LocalAvatarDataParameterBatchReadResult.Unavailable(typeMetadata.FailureReason);
         }
 
         try
@@ -253,45 +263,46 @@ internal sealed class VrChatLocalAvatarDataService
 
             var observedValues = new Dictionary<string, OscObservedValue>(StringComparer.Ordinal);
             var matchedNames = new Dictionary<string, string>(StringComparer.Ordinal);
-            var typeFallbackAddresses = new List<string>();
+            var resolvedRequestMetadata = new List<LocalAvatarOscParameterMetadata>();
 
             foreach (var request in preparedRequests)
             {
-                var match = FindAnimationParameterMatch(animationParameters, request.AnimationParameterKey);
+                var metadataMatch = ResolveOscMetadataForRequest(typeMetadata, request);
+                if (metadataMatch.Status != LocalAvatarDataParameterMatchStatus.Matched || metadataMatch.Metadata is null)
+                {
+                    return LocalAvatarDataParameterBatchReadResult.Unsafe(metadataMatch.FailureReason);
+                }
+
+                var metadata = metadataMatch.Metadata;
+                if (metadata.ParameterType != request.ExpectedType)
+                {
+                    return LocalAvatarDataParameterBatchReadResult.Unsafe(
+                        $"The avatar OSC config says {metadata.Address} is {metadata.ParameterType}, but the Set Trigger child is configured as {request.ExpectedType}.");
+                }
+
+                var match = FindAnimationParameterMatch(animationParameters, metadata);
                 if (match.Status != LocalAvatarDataParameterMatchStatus.Matched || match.Entry is null)
                 {
                     return LocalAvatarDataParameterBatchReadResult.Unsafe(match.FailureReason);
                 }
 
-                var declaredType = typeMetadata.Types.TryGetValue(request.Address, out var metadataType)
-                    ? metadataType
-                    : request.ExpectedType;
-                if (!typeMetadata.Types.ContainsKey(request.Address))
-                {
-                    typeFallbackAddresses.Add(request.Address);
-                }
-                else if (declaredType != request.ExpectedType)
+                if (!TryConvertValue(metadata.Address, metadata.ParameterType, match.Entry.Value, out var observedValue))
                 {
                     return LocalAvatarDataParameterBatchReadResult.Unsafe(
-                        $"The avatar OSC config says {request.Address} is {declaredType}, but the Set Trigger child is configured as {request.ExpectedType}.");
+                        $"The LocalAvatarData value for '{match.Entry.Name}' did not match the {metadata.ParameterType} type declared for {metadata.Address}.");
                 }
 
-                if (!TryConvertValue(request.Address, declaredType, match.Entry.Value, out var observedValue))
-                {
-                    return LocalAvatarDataParameterBatchReadResult.Unsafe(
-                        $"The LocalAvatarData value for '{match.Entry.Name}' did not match the {declaredType} type declared for {request.Address}.");
-                }
-
-                observedValues[request.Address] = observedValue;
-                matchedNames[request.Address] = match.Entry.Name;
+                observedValues[metadata.Address] = observedValue;
+                matchedNames[metadata.Address] = match.Entry.Name;
+                resolvedRequestMetadata.Add(metadata);
             }
 
             if (includeOutfitSnapshotValues)
             {
                 AddRelatedOutfitSnapshotValues(
                     animationParameters,
-                    preparedRequests,
-                    typeMetadata.Types,
+                    resolvedRequestMetadata,
+                    typeMetadata,
                     observedValues,
                     matchedNames);
             }
@@ -300,7 +311,7 @@ internal sealed class VrChatLocalAvatarDataService
                 observedValues,
                 avatarFile.LastWriteTimeUtc,
                 matchedNames,
-                typeFallbackAddresses,
+                [],
                 avatarFile.FullName);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -315,20 +326,18 @@ internal sealed class VrChatLocalAvatarDataService
 
     private static void AddRelatedOutfitSnapshotValues(
         IReadOnlyList<LocalAnimationParameterEntry> animationParameters,
-        IReadOnlyList<PreparedLocalAvatarDataParameterRequest> requiredRequests,
-        IReadOnlyDictionary<string, OscParameterType> declaredTypes,
+        IReadOnlyList<LocalAvatarOscParameterMetadata> requiredMetadata,
+        LocalAvatarDataTypeMetadataResult typeMetadata,
         IDictionary<string, OscObservedValue> observedValues,
         IDictionary<string, string> matchedNames)
     {
-        if (declaredTypes.Count == 0)
+        if (requiredMetadata.Count == 0)
         {
             return;
         }
 
-        var requiredDescriptors = requiredRequests
-            .Select(request => TryCreateOutfitParameterDescriptor(request.AnimationParameterKey, out var descriptor)
-                ? descriptor
-                : null)
+        var requiredDescriptors = requiredMetadata
+            .SelectMany(CreateOutfitDescriptorCandidates)
             .Where(descriptor => descriptor is not null)
             .Cast<OutfitParameterDescriptor>()
             .ToArray();
@@ -338,7 +347,7 @@ internal sealed class VrChatLocalAvatarDataService
         }
 
         var requiredKeys = new HashSet<string>(
-            requiredRequests.Select(request => request.AnimationParameterKey),
+            requiredMetadata.SelectMany(CreateParameterNameCandidates),
             StringComparer.OrdinalIgnoreCase);
 
         foreach (var entry in animationParameters)
@@ -348,27 +357,54 @@ internal sealed class VrChatLocalAvatarDataService
                 continue;
             }
 
-            string address;
-            try
-            {
-                address = VrChatOscClient.NormalizeAvatarParameterAddress(entry.Name);
-            }
-            catch (InvalidOperationException)
+            var metadataMatch = ResolveOscMetadataForLocalName(typeMetadata, entry.Name);
+            if (metadataMatch.Status != LocalAvatarDataParameterMatchStatus.Matched || metadataMatch.Metadata is null)
             {
                 continue;
             }
 
-            if (observedValues.ContainsKey(address)
-                || !declaredTypes.TryGetValue(address, out var declaredType)
-                || declaredType is not (OscParameterType.Bool or OscParameterType.Int or OscParameterType.Float)
-                || !TryConvertValue(address, declaredType, entry.Value, out var observedValue))
+            var metadata = metadataMatch.Metadata;
+            if (observedValues.ContainsKey(metadata.Address)
+                || !IsSupportedLocalAvatarDataType(metadata.ParameterType)
+                || !TryConvertValue(metadata.Address, metadata.ParameterType, entry.Value, out var observedValue))
             {
                 continue;
             }
 
-            observedValues[address] = observedValue;
-            matchedNames[address] = entry.Name;
+            observedValues[metadata.Address] = observedValue;
+            matchedNames[metadata.Address] = entry.Name;
         }
+    }
+
+    private static IEnumerable<OutfitParameterDescriptor?> CreateOutfitDescriptorCandidates(LocalAvatarOscParameterMetadata metadata)
+    {
+        foreach (var candidate in CreateParameterNameCandidates(metadata))
+        {
+            if (TryCreateOutfitParameterDescriptor(candidate, out var descriptor))
+            {
+                yield return descriptor;
+            }
+        }
+    }
+
+    private static IEnumerable<string> CreateParameterNameCandidates(LocalAvatarOscParameterMetadata metadata)
+    {
+        if (!string.IsNullOrWhiteSpace(metadata.ParameterName))
+        {
+            yield return metadata.ParameterName;
+        }
+
+        if (!string.IsNullOrWhiteSpace(metadata.FinalPathSegment))
+        {
+            yield return metadata.FinalPathSegment;
+        }
+
+        if (!string.IsNullOrWhiteSpace(metadata.AnimationParameterKey))
+        {
+            yield return metadata.AnimationParameterKey;
+        }
+
+        yield return metadata.Address;
     }
 
     private static bool ShouldIncludeRelatedOutfitSnapshotParameter(
@@ -604,30 +640,88 @@ internal sealed class VrChatLocalAvatarDataService
         IReadOnlyList<LocalAnimationParameterEntry> entries,
         string parameterKey)
     {
-        var exactMatches = entries
-            .Where(entry => string.Equals(entry.Name, parameterKey, StringComparison.Ordinal))
+        return FindAnimationParameterMatch(entries, [parameterKey], parameterKey);
+    }
+
+    private static LocalAvatarDataParameterMatch FindAnimationParameterMatch(
+        IReadOnlyList<LocalAnimationParameterEntry> entries,
+        LocalAvatarOscParameterMetadata metadata)
+    {
+        var candidates = CreateParameterNameCandidates(metadata)
+            .Where(candidate => !string.IsNullOrWhiteSpace(candidate))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
-        if (exactMatches.Length == 1)
+
+        return FindAnimationParameterMatch(entries, candidates, metadata.Address);
+    }
+
+    private static LocalAvatarDataParameterMatch FindAnimationParameterMatch(
+        IReadOnlyList<LocalAnimationParameterEntry> entries,
+        IReadOnlyList<string> parameterKeys,
+        string displayName)
+    {
+        var exactMatches = entries
+            .Where(entry => parameterKeys.Any(parameterKey => string.Equals(entry.Name, parameterKey, StringComparison.Ordinal)))
+            .ToArray();
+        var exactMatch = SelectUniqueEntry(exactMatches);
+        if (exactMatch.Status == LocalAvatarDataParameterMatchStatus.Matched)
         {
-            return LocalAvatarDataParameterMatch.Matched(exactMatches[0]);
+            return exactMatch;
         }
 
         if (exactMatches.Length > 1)
         {
-            return LocalAvatarDataParameterMatch.Failed($"LocalAvatarData contains '{parameterKey}' more than once.");
+            return LocalAvatarDataParameterMatch.Failed($"LocalAvatarData contains '{displayName}' more than once.");
         }
 
         var caseInsensitiveMatches = entries
-            .Where(entry => string.Equals(entry.Name, parameterKey, StringComparison.OrdinalIgnoreCase))
+            .Where(entry => parameterKeys.Any(parameterKey => string.Equals(entry.Name, parameterKey, StringComparison.OrdinalIgnoreCase)))
             .ToArray();
-        if (caseInsensitiveMatches.Length == 1)
+        var caseInsensitiveMatch = SelectUniqueEntry(caseInsensitiveMatches);
+        if (caseInsensitiveMatch.Status == LocalAvatarDataParameterMatchStatus.Matched)
         {
-            return LocalAvatarDataParameterMatch.Matched(caseInsensitiveMatches[0]);
+            return caseInsensitiveMatch;
         }
 
-        return caseInsensitiveMatches.Length > 1
-            ? LocalAvatarDataParameterMatch.Failed($"LocalAvatarData contains multiple case-insensitive matches for '{parameterKey}'.")
-            : LocalAvatarDataParameterMatch.Failed($"LocalAvatarData did not contain '{parameterKey}'.");
+        if (caseInsensitiveMatches.Length > 1)
+        {
+            return LocalAvatarDataParameterMatch.Failed($"LocalAvatarData contains multiple case-insensitive matches for '{displayName}'.");
+        }
+
+        var normalizedKeys = parameterKeys
+            .Select(NormalizeParameterLookupKey)
+            .Where(key => !string.IsNullOrWhiteSpace(key))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var normalizedMatches = entries
+            .Where(entry => normalizedKeys.Contains(NormalizeParameterLookupKey(entry.Name), StringComparer.Ordinal))
+            .ToArray();
+        var normalizedMatch = SelectUniqueEntry(normalizedMatches);
+        if (normalizedMatch.Status == LocalAvatarDataParameterMatchStatus.Matched)
+        {
+            return normalizedMatch;
+        }
+
+        return normalizedMatches.Length > 1
+            ? LocalAvatarDataParameterMatch.Failed($"LocalAvatarData contains multiple normalized matches for '{displayName}'.")
+            : LocalAvatarDataParameterMatch.Failed($"LocalAvatarData did not contain '{displayName}'.");
+    }
+
+    private static LocalAvatarDataParameterMatch SelectUniqueEntry(IReadOnlyList<LocalAnimationParameterEntry> matches)
+    {
+        if (matches.Count == 0)
+        {
+            return LocalAvatarDataParameterMatch.Failed(string.Empty);
+        }
+
+        var uniqueEntries = matches
+            .GroupBy(entry => entry.Name, StringComparer.Ordinal)
+            .Select(group => group.First())
+            .ToArray();
+
+        return uniqueEntries.Length == 1
+            ? LocalAvatarDataParameterMatch.Matched(uniqueEntries[0])
+            : LocalAvatarDataParameterMatch.Failed(string.Empty);
     }
 
     private static async Task<LocalAvatarDataTypeMetadataResult> TryReadAvatarOscParameterTypesAsync(
@@ -654,15 +748,18 @@ internal sealed class VrChatLocalAvatarDataService
                 return LocalAvatarDataTypeMetadataResult.Unavailable("The current avatar's OSC config file has no parameters list.");
             }
 
-            var parameterTypes = new Dictionary<string, OscParameterType>(StringComparer.OrdinalIgnoreCase);
+            var parameterMetadata = new Dictionary<string, LocalAvatarOscParameterMetadata>(StringComparer.OrdinalIgnoreCase);
             foreach (var parameter in parameters.EnumerateArray())
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                AddEndpointType(parameterTypes, parameter, "output");
-                AddEndpointType(parameterTypes, parameter, "input");
+                if (!AddEndpointMetadata(parameterMetadata, parameter, "output", out var failureReason)
+                    || !AddEndpointMetadata(parameterMetadata, parameter, "input", out failureReason))
+                {
+                    return LocalAvatarDataTypeMetadataResult.Unsafe(failureReason);
+                }
             }
 
-            return LocalAvatarDataTypeMetadataResult.Success(parameterTypes);
+            return LocalAvatarDataTypeMetadataResult.Success(parameterMetadata);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -674,11 +771,13 @@ internal sealed class VrChatLocalAvatarDataService
         }
     }
 
-    private static void AddEndpointType(
-        IDictionary<string, OscParameterType> parameterTypes,
+    private static bool AddEndpointMetadata(
+        IDictionary<string, LocalAvatarOscParameterMetadata> parameterMetadata,
         JsonElement parameter,
-        string endpointPropertyName)
+        string endpointPropertyName,
+        out string failureReason)
     {
+        failureReason = string.Empty;
         if (!parameter.TryGetProperty(endpointPropertyName, out var endpoint)
             || endpoint.ValueKind != JsonValueKind.Object
             || !endpoint.TryGetProperty("address", out var addressElement)
@@ -687,22 +786,198 @@ internal sealed class VrChatLocalAvatarDataService
             || typeElement.ValueKind != JsonValueKind.String
             || !TryMapParameterType(typeElement.GetString(), out var parameterType))
         {
-            return;
+            return true;
         }
 
         var address = addressElement.GetString()?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(address) || IsHeightOrScaleParameter(address))
         {
-            return;
+            return true;
         }
 
         try
         {
             var normalizedAddress = VrChatOscClient.NormalizeAvatarParameterAddress(address);
-            parameterTypes.TryAdd(normalizedAddress, parameterType);
+            if (parameterMetadata.TryGetValue(normalizedAddress, out var existing))
+            {
+                if (existing.ParameterType != parameterType)
+                {
+                    failureReason = $"The avatar OSC config declares conflicting types for {normalizedAddress}.";
+                    return false;
+                }
+
+                return true;
+            }
+
+            var parameterName = string.Empty;
+            if (parameter.TryGetProperty("name", out var nameElement)
+                && nameElement.ValueKind == JsonValueKind.String)
+            {
+                parameterName = nameElement.GetString()?.Trim() ?? string.Empty;
+            }
+
+            if (string.IsNullOrWhiteSpace(parameterName))
+            {
+                parameterName = GetAnimationParameterKey(normalizedAddress);
+            }
+
+            var animationParameterKey = GetAnimationParameterKey(normalizedAddress);
+            var finalPathSegment = GetFinalPathSegment(animationParameterKey);
+            parameterMetadata[normalizedAddress] = new LocalAvatarOscParameterMetadata(
+                normalizedAddress,
+                parameterName,
+                animationParameterKey,
+                finalPathSegment,
+                parameterType);
         }
         catch (InvalidOperationException)
         {
+        }
+
+        return true;
+    }
+
+    private static LocalAvatarOscMetadataMatch ResolveOscMetadataForRequest(
+        LocalAvatarDataTypeMetadataResult typeMetadata,
+        PreparedLocalAvatarDataParameterRequest request)
+    {
+        if (typeMetadata.ParametersByAddress.TryGetValue(request.Address, out var exactMetadata))
+        {
+            return LocalAvatarOscMetadataMatch.Matched(exactMetadata);
+        }
+
+        var match = ResolveOscMetadataForLocalName(typeMetadata, request.AnimationParameterKey);
+        return match.Status == LocalAvatarDataParameterMatchStatus.Matched
+            ? match
+            : LocalAvatarOscMetadataMatch.Failed(
+                $"The avatar OSC config did not contain a safe typed match for {request.Address}. {match.FailureReason}");
+    }
+
+    private static LocalAvatarOscMetadataMatch ResolveOscMetadataForLocalName(
+        LocalAvatarDataTypeMetadataResult typeMetadata,
+        string localName)
+    {
+        var candidate = localName?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(candidate))
+        {
+            return LocalAvatarOscMetadataMatch.Failed("LocalAvatarData contained a blank animation parameter name.");
+        }
+
+        if (TryNormalizeOptionalAvatarParameterAddress(candidate, out var normalizedAddress)
+            && typeMetadata.ParametersByAddress.TryGetValue(normalizedAddress, out var exactMetadata))
+        {
+            return LocalAvatarOscMetadataMatch.Matched(exactMetadata);
+        }
+
+        var exactNameMatch = SelectUniqueMetadata(
+            typeMetadata.Parameters.Where(parameter => string.Equals(parameter.ParameterName, candidate, StringComparison.Ordinal)),
+            candidate,
+            "OSC parameter name");
+        if (exactNameMatch.Status == LocalAvatarDataParameterMatchStatus.Matched)
+        {
+            return exactNameMatch;
+        }
+        if (!string.IsNullOrWhiteSpace(exactNameMatch.FailureReason))
+        {
+            return exactNameMatch;
+        }
+
+        var exactFinalSegmentMatch = SelectUniqueMetadata(
+            typeMetadata.Parameters.Where(parameter => string.Equals(parameter.FinalPathSegment, candidate, StringComparison.Ordinal)),
+            candidate,
+            "OSC path suffix");
+        if (exactFinalSegmentMatch.Status == LocalAvatarDataParameterMatchStatus.Matched)
+        {
+            return exactFinalSegmentMatch;
+        }
+        if (!string.IsNullOrWhiteSpace(exactFinalSegmentMatch.FailureReason))
+        {
+            return exactFinalSegmentMatch;
+        }
+
+        var exactKeyMatch = SelectUniqueMetadata(
+            typeMetadata.Parameters.Where(parameter => string.Equals(parameter.AnimationParameterKey, candidate, StringComparison.Ordinal)),
+            candidate,
+            "OSC parameter path");
+        if (exactKeyMatch.Status == LocalAvatarDataParameterMatchStatus.Matched)
+        {
+            return exactKeyMatch;
+        }
+        if (!string.IsNullOrWhiteSpace(exactKeyMatch.FailureReason))
+        {
+            return exactKeyMatch;
+        }
+
+        var ignoreCaseMatch = SelectUniqueMetadata(
+            typeMetadata.Parameters.Where(parameter =>
+                string.Equals(parameter.ParameterName, candidate, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(parameter.FinalPathSegment, candidate, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(parameter.AnimationParameterKey, candidate, StringComparison.OrdinalIgnoreCase)),
+            candidate,
+            "case-insensitive OSC metadata");
+        if (ignoreCaseMatch.Status == LocalAvatarDataParameterMatchStatus.Matched)
+        {
+            return ignoreCaseMatch;
+        }
+        if (!string.IsNullOrWhiteSpace(ignoreCaseMatch.FailureReason))
+        {
+            return ignoreCaseMatch;
+        }
+
+        var lookupKey = NormalizeParameterLookupKey(candidate);
+        if (!string.IsNullOrWhiteSpace(lookupKey))
+        {
+            var normalizedMatch = SelectUniqueMetadata(
+                typeMetadata.Parameters.Where(parameter =>
+                    string.Equals(NormalizeParameterLookupKey(parameter.ParameterName), lookupKey, StringComparison.Ordinal)
+                    || string.Equals(NormalizeParameterLookupKey(parameter.FinalPathSegment), lookupKey, StringComparison.Ordinal)
+                    || string.Equals(NormalizeParameterLookupKey(parameter.AnimationParameterKey), lookupKey, StringComparison.Ordinal)),
+                candidate,
+                "normalized OSC metadata");
+            if (normalizedMatch.Status == LocalAvatarDataParameterMatchStatus.Matched)
+            {
+                return normalizedMatch;
+            }
+
+            if (!string.IsNullOrWhiteSpace(normalizedMatch.FailureReason))
+            {
+                return normalizedMatch;
+            }
+        }
+
+        return LocalAvatarOscMetadataMatch.Failed($"LocalAvatarData parameter '{candidate}' did not match any typed OSC parameter name or path suffix.");
+    }
+
+    private static LocalAvatarOscMetadataMatch SelectUniqueMetadata(
+        IEnumerable<LocalAvatarOscParameterMetadata> matches,
+        string candidate,
+        string matchKind)
+    {
+        var uniqueMatches = matches
+            .GroupBy(parameter => parameter.Address, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .ToArray();
+
+        return uniqueMatches.Length switch
+        {
+            0 => LocalAvatarOscMetadataMatch.Failed(string.Empty),
+            1 => LocalAvatarOscMetadataMatch.Matched(uniqueMatches[0]),
+            _ => LocalAvatarOscMetadataMatch.Failed(
+                $"LocalAvatarData parameter '{candidate}' matched multiple {matchKind} entries: {string.Join(", ", uniqueMatches.Select(match => match.Address).OrderBy(address => address, StringComparer.OrdinalIgnoreCase))}.")
+        };
+    }
+
+    private static bool TryNormalizeOptionalAvatarParameterAddress(string parameterName, out string normalizedAddress)
+    {
+        normalizedAddress = string.Empty;
+        try
+        {
+            normalizedAddress = VrChatOscClient.NormalizeAvatarParameterAddress(parameterName);
+            return true;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
         }
     }
 
@@ -775,6 +1050,29 @@ internal sealed class VrChatLocalAvatarDataService
             ? normalized[avatarParameterPrefix.Length..].Trim()
             : normalized.Split('/', StringSplitOptions.RemoveEmptyEntries).LastOrDefault()?.Trim() ?? normalized;
     }
+
+    private static string GetFinalPathSegment(string? parameterName)
+    {
+        var normalized = (parameterName ?? string.Empty).Trim().Replace('\\', '/');
+        return normalized.Split('/', StringSplitOptions.RemoveEmptyEntries).LastOrDefault()?.Trim() ?? normalized;
+    }
+
+    private static string NormalizeParameterLookupKey(string? parameterName)
+    {
+        var normalized = GetAnimationParameterKey(parameterName).Trim();
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return string.Empty;
+        }
+
+        return new string(normalized
+            .Where(character => char.IsLetterOrDigit(character))
+            .Select(char.ToLowerInvariant)
+            .ToArray());
+    }
+
+    private static bool IsSupportedLocalAvatarDataType(OscParameterType parameterType) =>
+        parameterType is OscParameterType.Bool or OscParameterType.Int or OscParameterType.Float;
 
     private static bool TryConvertValue(
         string parameterName,
@@ -1020,18 +1318,62 @@ internal sealed record LocalAvatarDataParameterMatch(
         new(LocalAvatarDataParameterMatchStatus.Failed, null, failureReason);
 }
 
+internal sealed record LocalAvatarOscParameterMetadata(
+    string Address,
+    string ParameterName,
+    string AnimationParameterKey,
+    string FinalPathSegment,
+    OscParameterType ParameterType);
+
+internal sealed record LocalAvatarOscMetadataMatch(
+    LocalAvatarDataParameterMatchStatus Status,
+    LocalAvatarOscParameterMetadata? Metadata,
+    string FailureReason)
+{
+    public static LocalAvatarOscMetadataMatch Matched(LocalAvatarOscParameterMetadata metadata) =>
+        new(LocalAvatarDataParameterMatchStatus.Matched, metadata, string.Empty);
+
+    public static LocalAvatarOscMetadataMatch Failed(string failureReason) =>
+        new(LocalAvatarDataParameterMatchStatus.Failed, null, failureReason);
+}
+
 internal sealed record LocalAvatarDataTypeMetadataResult(
     bool Found,
     IReadOnlyDictionary<string, OscParameterType> Types,
+    IReadOnlyDictionary<string, LocalAvatarOscParameterMetadata> ParametersByAddress,
+    IReadOnlyList<LocalAvatarOscParameterMetadata> Parameters,
     LocalAvatarDataReadFailureMode FailureMode,
     string FailureReason)
 {
-    public static LocalAvatarDataTypeMetadataResult Success(IReadOnlyDictionary<string, OscParameterType> types) =>
-        new(true, types, LocalAvatarDataReadFailureMode.None, string.Empty);
+    public static LocalAvatarDataTypeMetadataResult Success(IReadOnlyDictionary<string, LocalAvatarOscParameterMetadata> parametersByAddress) =>
+        new(
+            true,
+            parametersByAddress.ToDictionary(
+                pair => pair.Key,
+                pair => pair.Value.ParameterType,
+                StringComparer.OrdinalIgnoreCase),
+            parametersByAddress,
+            parametersByAddress.Values
+                .OrderBy(parameter => parameter.Address, StringComparer.OrdinalIgnoreCase)
+                .ToArray(),
+            LocalAvatarDataReadFailureMode.None,
+            string.Empty);
 
     public static LocalAvatarDataTypeMetadataResult Unavailable(string failureReason) =>
-        new(false, new Dictionary<string, OscParameterType>(StringComparer.OrdinalIgnoreCase), LocalAvatarDataReadFailureMode.Unavailable, failureReason);
+        new(
+            false,
+            new Dictionary<string, OscParameterType>(StringComparer.OrdinalIgnoreCase),
+            new Dictionary<string, LocalAvatarOscParameterMetadata>(StringComparer.OrdinalIgnoreCase),
+            [],
+            LocalAvatarDataReadFailureMode.Unavailable,
+            failureReason);
 
     public static LocalAvatarDataTypeMetadataResult Unsafe(string failureReason) =>
-        new(false, new Dictionary<string, OscParameterType>(StringComparer.OrdinalIgnoreCase), LocalAvatarDataReadFailureMode.Unsafe, failureReason);
+        new(
+            false,
+            new Dictionary<string, OscParameterType>(StringComparer.OrdinalIgnoreCase),
+            new Dictionary<string, LocalAvatarOscParameterMetadata>(StringComparer.OrdinalIgnoreCase),
+            [],
+            LocalAvatarDataReadFailureMode.Unsafe,
+            failureReason);
 }

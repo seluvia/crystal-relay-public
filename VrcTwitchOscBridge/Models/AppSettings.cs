@@ -37,6 +37,7 @@ public sealed class AppSettings : ObservableObject
     private bool chatboxAlwaysOnTop = true;
     private bool chatboxSettingsPanelOpen;
     private bool chatboxOverlayMode;
+    private bool chatboxXsOverlayCompatibilityMode;
     private bool chatboxOscEnabled;
     private int chatboxOscDelaySeconds = 3;
     private bool chatboxViewerSoundEnabled;
@@ -58,6 +59,7 @@ public sealed class AppSettings : ObservableObject
     private bool avatarChangeCooldownOnlyModeEnabled;
     private bool emergencyRedeemStopEnabled;
     private bool desktopModeInputLockEnabled;
+    private bool restartVrChatInDesktopMode;
     private bool liveFeedbackHeartbeatEnabled = true;
     private bool betaApplicationUpdatesEnabled;
     private bool easterEggsEnabled = true;
@@ -291,6 +293,12 @@ public sealed class AppSettings : ObservableObject
         set => SetProperty(ref chatboxOverlayMode, value);
     }
 
+    public bool ChatboxXsOverlayCompatibilityMode
+    {
+        get => chatboxXsOverlayCompatibilityMode;
+        set => SetProperty(ref chatboxXsOverlayCompatibilityMode, value);
+    }
+
     public bool ChatboxOscEnabled
     {
         get => chatboxOscEnabled;
@@ -419,6 +427,12 @@ public sealed class AppSettings : ObservableObject
     {
         get => desktopModeInputLockEnabled;
         set => SetProperty(ref desktopModeInputLockEnabled, value);
+    }
+
+    public bool RestartVrChatInDesktopMode
+    {
+        get => restartVrChatInDesktopMode;
+        set => SetProperty(ref restartVrChatInDesktopMode, value);
     }
 
     public bool LiveFeedbackHeartbeatEnabled

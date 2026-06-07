@@ -7,7 +7,7 @@
 - Current source version: `v3.1.9`
 - Next post-release development version: `v3.1.10`
 - Active development build: `v3.1.9`
-- Active build lane: `test`
+- Active build lane: `beta`
 - Platform: Windows desktop app
 - Primary purpose: Twitch-to-OSC / OSCQuery control for VRChat
 - Public GitHub repo: `seluvia/crystal-relay-public`
@@ -20,6 +20,12 @@
 - Scripts: `PowerShell`
 - Supporting library: local OSCQuery library project in `oscquery-lib`
 - Localization audit project: `LocalizationAudit`
+
+## OSC / VRChat API Source Of Truth
+- Trust the vendored OSCQuery library in `oscquery-lib` and Crystal Relay's internal `VrChatApiClient` / `VrChatApiRoutes` wrapper for OSCQuery and VRChat API behavior.
+- Do not guess VRChat API endpoints or add external VRChat API SDK packages unless the wrapper is deliberately updated as part of the change.
+- When adding VRChat API behavior, add the endpoint to the internal route helper first, keep auth/cookie handling inside the wrapper, and document any community API reference used during implementation.
+- VRChat LocalLow OSC and LocalAvatarData files are read-only inputs. Use the avatar OSC JSON as the authority for OSC parameter address and type, then match LocalAvatarData values onto those declared parameters.
 
 ## Core Product Areas
 - Twitch broadcaster login through Crystal Relay's built-in Twitch app

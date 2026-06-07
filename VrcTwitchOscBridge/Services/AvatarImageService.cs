@@ -66,7 +66,7 @@ public sealed class AvatarImageService
         string? customIconPath,
         string? vrchatThumbnailUrl)
     {
-        var cacheKey = avatarId;
+        var cacheKey = BuildMemoryCacheKey(avatarId, customIconPath, vrchatThumbnailUrl);
         if (imageCache.TryGetValue(cacheKey, out var cached))
         {
             return cached;
@@ -98,7 +98,7 @@ public sealed class AvatarImageService
         string? vrchatThumbnailUrl,
         CancellationToken cancellationToken)
     {
-        var cacheKey = avatarId;
+        var cacheKey = BuildMemoryCacheKey(avatarId, customIconPath, vrchatThumbnailUrl);
         if (imageCache.TryGetValue(cacheKey, out var cached))
         {
             return cached;
@@ -110,6 +110,13 @@ public sealed class AvatarImageService
 
         imageCache[cacheKey] = image;
         return image;
+    }
+
+    private string BuildMemoryCacheKey(string avatarId, string? customIconPath, string? vrchatThumbnailUrl)
+    {
+        var customIconKey = ResolveCustomIconPath(customIconPath) ?? string.Empty;
+        var thumbnailKey = string.IsNullOrWhiteSpace(vrchatThumbnailUrl) ? string.Empty : vrchatThumbnailUrl.Trim();
+        return string.Join("|", avatarId.Trim(), customIconKey, thumbnailKey);
     }
 
     /// <summary>
@@ -214,7 +221,19 @@ public sealed class AvatarImageService
 
         try
         {
-            var bytes = HttpClient.GetByteArrayAsync(thumbnailUrl).GetAwaiter().GetResult();
+            using var request = new HttpRequestMessage(HttpMethod.Get, thumbnailUrl);
+            if (!string.IsNullOrWhiteSpace(vrChatAuthCookie))
+            {
+                request.Headers.TryAddWithoutValidation("Cookie", $"auth={vrChatAuthCookie}");
+            }
+
+            using var response = HttpClient.Send(request);
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            var bytes = response.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult();
             File.WriteAllBytes(cachePath, bytes);
             return LoadImageFromFile(cachePath);
         }

@@ -144,7 +144,8 @@ public sealed class SettingsStore
                 avatar.Id ?? string.Empty,
                 avatar.Name ?? (avatar.Id ?? string.Empty),
                 avatar.SourceLabel ?? "Cached",
-                avatar.IsCurrentAvatar))
+                avatar.IsCurrentAvatar,
+                avatar.ThumbnailUrl))
             .ToArray();
     }
 
@@ -165,7 +166,8 @@ public sealed class SettingsStore
                 Id = avatar.Id,
                 Name = avatar.Name,
                 SourceLabel = avatar.SourceLabel,
-                IsCurrentAvatar = avatar.IsCurrentAvatar
+                IsCurrentAvatar = avatar.IsCurrentAvatar,
+                ThumbnailUrl = avatar.ThumbnailUrl
             }).ToList()
         };
 
@@ -367,6 +369,7 @@ public sealed class SettingsStore
             settings.ChatboxAlwaysOnTop = profile.ChatboxAlwaysOnTop ?? settings.ChatboxAlwaysOnTop;
             settings.ChatboxSettingsPanelOpen = profile.ChatboxSettingsPanelOpen ?? settings.ChatboxSettingsPanelOpen;
             settings.ChatboxOverlayMode = profile.ChatboxOverlayMode ?? settings.ChatboxOverlayMode;
+            settings.ChatboxXsOverlayCompatibilityMode = profile.ChatboxXsOverlayCompatibilityMode ?? settings.ChatboxXsOverlayCompatibilityMode;
             settings.ChatboxOscEnabled = profile.ChatboxOscEnabled ?? settings.ChatboxOscEnabled;
             settings.ChatboxOscDelaySeconds = profile.ChatboxOscDelaySeconds is >= 1 and <= 6
                 ? profile.ChatboxOscDelaySeconds.Value
@@ -405,6 +408,7 @@ public sealed class SettingsStore
             settings.AvatarChangeCooldownOnlyModeEnabled = profile.AvatarChangeCooldownOnlyModeEnabled ?? settings.AvatarChangeCooldownOnlyModeEnabled;
             settings.EmergencyRedeemStopEnabled = profile.EmergencyRedeemStopEnabled ?? settings.EmergencyRedeemStopEnabled;
             settings.DesktopModeInputLockEnabled = profile.DesktopModeInputLockEnabled ?? settings.DesktopModeInputLockEnabled;
+            settings.RestartVrChatInDesktopMode = profile.RestartVrChatInDesktopMode ?? settings.RestartVrChatInDesktopMode;
             settings.LiveFeedbackHeartbeatEnabled = profile.LiveFeedbackHeartbeatEnabled ?? settings.LiveFeedbackHeartbeatEnabled;
             settings.BetaApplicationUpdatesEnabled = profile.BetaApplicationUpdatesEnabled ?? settings.BetaApplicationUpdatesEnabled;
             settings.EasterEggsEnabled = profile.EasterEggsEnabled ?? settings.EasterEggsEnabled;
@@ -542,6 +546,7 @@ public sealed class SettingsStore
             ChatboxAlwaysOnTop = settings.ChatboxAlwaysOnTop,
             ChatboxSettingsPanelOpen = settings.ChatboxSettingsPanelOpen,
             ChatboxOverlayMode = settings.ChatboxOverlayMode,
+            ChatboxXsOverlayCompatibilityMode = settings.ChatboxXsOverlayCompatibilityMode,
             ChatboxOscEnabled = settings.ChatboxOscEnabled,
             ChatboxOscDelaySeconds = settings.ChatboxOscDelaySeconds,
             ChatboxViewerSoundEnabled = settings.ChatboxViewerSoundEnabled,
@@ -562,6 +567,7 @@ public sealed class SettingsStore
             AvatarChangeCooldownOnlyModeEnabled = settings.AvatarChangeCooldownOnlyModeEnabled,
             EmergencyRedeemStopEnabled = settings.EmergencyRedeemStopEnabled,
             DesktopModeInputLockEnabled = settings.DesktopModeInputLockEnabled,
+            RestartVrChatInDesktopMode = settings.RestartVrChatInDesktopMode,
             LiveFeedbackHeartbeatEnabled = settings.LiveFeedbackHeartbeatEnabled,
             BetaApplicationUpdatesEnabled = settings.BetaApplicationUpdatesEnabled,
             EasterEggsEnabled = settings.EasterEggsEnabled,
@@ -905,7 +911,7 @@ public sealed class SettingsStore
             UseSharedNumberedOutfitReward = profile.UseSharedNumberedOutfitReward,
             PostOutfitChoiceListToTwitchChat = profile.PostOutfitChoiceListToTwitchChat,
 ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
-            UseWardrobeMode = profile.UseWardrobeMode,
+            UseWardrobeMode = true,
             WardrobeCooldownSeconds = profile.WardrobeCooldownSeconds,
             WardrobeOutfits = [.. profile.WardrobeOutfits.Select(ToPersistedWardrobeOutfit)],
             UseWardrobeMasterReward = profile.UseWardrobeMasterReward,
@@ -950,7 +956,7 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
                     rule.TriggerType = TwitchTriggerType.ChannelPoints;
                     return rule;
                 })),
-            UseWardrobeMode = profile.UseWardrobeMode,
+            UseWardrobeMode = true,
             WardrobeCooldownSeconds = Math.Max(0, profile.WardrobeCooldownSeconds),
             WardrobeOutfits = new ObservableCollection<WardrobeOutfit>((profile.WardrobeOutfits ?? []).Select(ToWardrobeOutfit)),
             UseWardrobeMasterReward = profile.UseWardrobeMasterReward,
@@ -1237,7 +1243,9 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             Id = persisted.Id == Guid.Empty ? Guid.NewGuid() : persisted.Id,
             IsEnabled = persisted.IsEnabled,
             Name = string.IsNullOrWhiteSpace(persisted.Name) ? "New Outfit" : persisted.Name,
-            ActiveTimeSeconds = persisted.ActiveTimeSeconds <= 0 ? 30 : persisted.ActiveTimeSeconds,
+            ActiveTimeSeconds = persisted.ActiveTimeSeconds <= 0
+                ? WardrobeOutfit.SafeObservationSeconds
+                : persisted.ActiveTimeSeconds,
             TwitchRewardId = persisted.TwitchRewardId ?? string.Empty,
             TwitchRewardTitle = persisted.TwitchRewardTitle ?? string.Empty,
             TwitchRewardCost = persisted.TwitchRewardCost ?? "100",
@@ -2452,6 +2460,8 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
 
         public bool? ChatboxOverlayMode { get; set; }
 
+        public bool? ChatboxXsOverlayCompatibilityMode { get; set; }
+
         public bool? ChatboxOscEnabled { get; set; }
 
         public int? ChatboxOscDelaySeconds { get; set; }
@@ -2491,6 +2501,8 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
         public bool? EmergencyRedeemStopEnabled { get; set; }
 
         public bool? DesktopModeInputLockEnabled { get; set; }
+
+        public bool? RestartVrChatInDesktopMode { get; set; }
 
         [JsonPropertyName("liveFeedbackHeartbeatEnabled")]
         public bool? LiveFeedbackHeartbeatEnabled { get; set; }
@@ -2818,6 +2830,8 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
         public string? SourceLabel { get; set; }
 
         public bool IsCurrentAvatar { get; set; }
+
+        public string? ThumbnailUrl { get; set; }
     }
 
     private sealed class PersistedAvatarTriggerProfile

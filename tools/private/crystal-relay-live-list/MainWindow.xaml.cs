@@ -14,6 +14,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
+using Microsoft.Web.WebView2.Core;
 
 namespace CrystalRelayLiveList;
 
@@ -32,6 +33,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private const int HtBottomLeft = 16;
     private const int HtBottomRight = 17;
     private const double ResizeHitTestThickness = 16d;
+    private const string TwitchViewerHost = "crystal-relay-live-feedback.test";
+    private const string StreamViewerPageName = "stream-viewer.html";
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         PropertyNameCaseInsensitive = true
@@ -53,10 +56,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string lastUpdatedText = "Not refreshed yet.";
     private string historyStatusText = "History covers live users observed by this tool in the last 24 hours.";
     private string commandCopyStatus = "No command copied yet.";
+    private string streamViewerTitleText = "Stream Viewer";
+    private string streamViewerStatusText = "Choose a live user to view their stream here.";
+    private string currentStreamTwitchUrl = string.Empty;
+    private string currentStreamChannelSlug = string.Empty;
     private bool canRefresh = true;
     private bool soundAlertsEnabled = true;
     private bool isShowingHistory;
+    private bool isShowingStream;
     private bool hasLoadedLiveSnapshot;
+    private bool hasInitializedStreamWebView;
     private readonly HashSet<string> knownLiveUserKeys = new(StringComparer.OrdinalIgnoreCase);
     private HwndSource? hwndSource;
 
@@ -83,6 +92,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             }
 
             activeAlertPlayers.Clear();
+            CloseStreamWebView();
             httpClient.Dispose();
         };
     }
@@ -141,6 +151,42 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         private set => SetProperty(ref commandCopyStatus, value);
     }
 
+    public string StreamViewerTitleText
+    {
+        get => streamViewerTitleText;
+        private set
+        {
+            if (SetProperty(ref streamViewerTitleText, value))
+            {
+                RaisePropertyChanged(nameof(ViewTitleText));
+            }
+        }
+    }
+
+    public string StreamViewerStatusText
+    {
+        get => streamViewerStatusText;
+        private set
+        {
+            if (SetProperty(ref streamViewerStatusText, value))
+            {
+                RaisePropertyChanged(nameof(ViewPrimaryStatusText));
+            }
+        }
+    }
+
+    public string CurrentStreamTwitchUrl
+    {
+        get => currentStreamTwitchUrl;
+        private set
+        {
+            if (SetProperty(ref currentStreamTwitchUrl, value))
+            {
+                RaisePropertyChanged(nameof(ViewSecondaryStatusText));
+            }
+        }
+    }
+
     public bool CanRefresh
     {
         get => canRefresh;
@@ -155,19 +201,29 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     public bool IsEmpty => Users.Count == 0;
 
-    public bool IsLiveViewVisible => !isShowingHistory;
+    public bool IsLiveViewVisible => !isShowingHistory && !isShowingStream;
 
-    public bool IsHistoryViewVisible => isShowingHistory;
+    public bool IsHistoryViewVisible => isShowingHistory && !isShowingStream;
+
+    public bool IsStreamViewVisible => isShowingStream;
+
+    public bool IsDecorativeBackdropVisible => !isShowingStream;
 
     public bool IsLiveEmptyVisible => IsLiveViewVisible && Users.Count == 0;
 
     public bool IsHistoryEmptyVisible => IsHistoryViewVisible && HistoryEntries.Count == 0;
 
-    public string ViewTitleText => isShowingHistory ? "24h Live History" : "Live Crystal Relay Users";
+    public string ViewTitleText => isShowingStream
+        ? StreamViewerTitleText
+        : isShowingHistory ? "24h Live History" : "Live Crystal Relay Users";
 
-    public string ViewPrimaryStatusText => isShowingHistory ? HistoryStatusText : StatusText;
+    public string ViewPrimaryStatusText => isShowingStream
+        ? StreamViewerStatusText
+        : isShowingHistory ? HistoryStatusText : StatusText;
 
-    public string ViewSecondaryStatusText => isShowingHistory ? "Saved locally in AppData." : LastUpdatedText;
+    public string ViewSecondaryStatusText => isShowingStream
+        ? CurrentStreamTwitchUrl
+        : isShowingHistory ? "Saved locally in AppData." : LastUpdatedText;
 
     private async Task RefreshAsync()
     {
@@ -760,7 +816,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void OnShowLiveNowClicked(object sender, RoutedEventArgs e)
     {
-        SetHistoryView(false);
+        SetLiveListView();
     }
 
     private void OnShowHistoryClicked(object sender, RoutedEventArgs e)
@@ -768,15 +824,48 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         SetHistoryView(true);
     }
 
-    private void SetHistoryView(bool showHistory)
+    private void SetLiveListView()
     {
-        if (isShowingHistory == showHistory)
+        if (!isShowingHistory && !isShowingStream)
         {
             return;
         }
 
-        isShowingHistory = showHistory;
+        if (isShowingStream)
+        {
+            StopStreamViewer();
+        }
+
+        isShowingHistory = false;
+        isShowingStream = false;
         RaiseViewModePropertiesChanged();
+    }
+
+    private void SetHistoryView(bool showHistory)
+    {
+        if (isShowingHistory == showHistory && !isShowingStream)
+        {
+            return;
+        }
+
+        if (isShowingStream)
+        {
+            StopStreamViewer();
+        }
+
+        isShowingHistory = showHistory;
+        isShowingStream = false;
+        RaiseViewModePropertiesChanged();
+    }
+
+    private void OnViewStreamClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: string twitchUrl } || string.IsNullOrWhiteSpace(twitchUrl))
+        {
+            return;
+        }
+
+        _ = ViewStreamAsync(twitchUrl);
     }
 
     private void OnOpenStreamClicked(object sender, RoutedEventArgs e)
@@ -797,6 +886,148 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         OpenTwitchUrl(twitchUrl, "Could not open the Twitch VOD link.");
+    }
+
+    private async Task ViewStreamAsync(string twitchUrl)
+    {
+        if (!TryGetTwitchChannelSlug(twitchUrl, out var channelSlug))
+        {
+            StatusText = "Could not read the Twitch channel from that live user.";
+            return;
+        }
+
+        CurrentStreamTwitchUrl = twitchUrl.Trim();
+        currentStreamChannelSlug = channelSlug;
+        StreamViewerTitleText = $"Viewing {channelSlug}";
+        StreamViewerStatusText = "Loading Twitch video and chat...";
+        isShowingHistory = false;
+        isShowingStream = true;
+        RaiseViewModePropertiesChanged();
+
+        try
+        {
+            await EnsureStreamWebViewReadyAsync();
+            StreamWebView.CoreWebView2.Navigate(BuildStreamViewerUri(channelSlug).ToString());
+            StreamViewerStatusText = "Twitch video and chat are loading inside Crystal Relay Live Feedback.";
+        }
+        catch (Exception ex)
+        {
+            StreamViewerStatusText = $"Could not open the in-app viewer: {ex.Message}";
+        }
+    }
+
+    private async Task EnsureStreamWebViewReadyAsync()
+    {
+        if (hasInitializedStreamWebView && StreamWebView.CoreWebView2 is not null)
+        {
+            return;
+        }
+
+        var userDataFolder = GetStreamWebViewUserDataFolder();
+        Directory.CreateDirectory(userDataFolder);
+        var environment = await CoreWebView2Environment.CreateAsync(null, userDataFolder);
+        await StreamWebView.EnsureCoreWebView2Async(environment);
+        var coreWebView = StreamWebView.CoreWebView2
+            ?? throw new InvalidOperationException("WebView2 did not finish initializing.");
+        coreWebView.SetVirtualHostNameToFolderMapping(
+            TwitchViewerHost,
+            AppContext.BaseDirectory,
+            CoreWebView2HostResourceAccessKind.DenyCors);
+        coreWebView.NewWindowRequested += OnStreamWebViewNewWindowRequested;
+        coreWebView.Settings.IsStatusBarEnabled = false;
+        hasInitializedStreamWebView = true;
+    }
+
+    private static Uri BuildStreamViewerUri(string channelSlug)
+    {
+        var builder = new UriBuilder(Uri.UriSchemeHttps, TwitchViewerHost)
+        {
+            Path = StreamViewerPageName,
+            Query = $"channel={Uri.EscapeDataString(channelSlug)}"
+        };
+
+        return builder.Uri;
+    }
+
+    private static string GetStreamWebViewUserDataFolder()
+    {
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "CrystalRelay",
+            "DevTools",
+            "LiveList",
+            "WebView2");
+    }
+
+    private void OnStreamWebViewNewWindowRequested(object? sender, CoreWebView2NewWindowRequestedEventArgs e)
+    {
+        e.Handled = true;
+        if (StreamWebView.CoreWebView2 is null || string.IsNullOrWhiteSpace(e.Uri))
+        {
+            return;
+        }
+
+        StreamWebView.CoreWebView2.Navigate(e.Uri);
+    }
+
+    private void OnBackToLiveListClicked(object sender, RoutedEventArgs e)
+    {
+        if (LiveNowModeButton is not null)
+        {
+            LiveNowModeButton.IsChecked = true;
+        }
+
+        SetLiveListView();
+    }
+
+    private async void OnClearTwitchLoginClicked(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            await EnsureStreamWebViewReadyAsync();
+            StreamWebView.CoreWebView2.CookieManager.DeleteAllCookies();
+            await StreamWebView.CoreWebView2.Profile.ClearBrowsingDataAsync(CoreWebView2BrowsingDataKinds.AllProfile);
+            StreamViewerStatusText = "Cleared the Twitch login data for this dev tool viewer.";
+            if (!string.IsNullOrWhiteSpace(currentStreamChannelSlug))
+            {
+                StreamWebView.CoreWebView2.Navigate(BuildStreamViewerUri(currentStreamChannelSlug).ToString());
+            }
+        }
+        catch (Exception ex)
+        {
+            StreamViewerStatusText = $"Could not clear the Twitch login data: {ex.Message}";
+        }
+    }
+
+    private void StopStreamViewer()
+    {
+        if (hasInitializedStreamWebView && StreamWebView is not null && StreamWebView.CoreWebView2 is not null)
+        {
+            StreamWebView.CoreWebView2.Stop();
+            StreamWebView.CoreWebView2.Navigate("about:blank");
+        }
+
+        CurrentStreamTwitchUrl = string.Empty;
+        currentStreamChannelSlug = string.Empty;
+        StreamViewerStatusText = "Choose a live user to view their stream here.";
+    }
+
+    private void CloseStreamWebView()
+    {
+        try
+        {
+            if (hasInitializedStreamWebView && StreamWebView is not null && StreamWebView.CoreWebView2 is not null)
+            {
+                StreamWebView.CoreWebView2.NewWindowRequested -= OnStreamWebViewNewWindowRequested;
+                StreamWebView.CoreWebView2.Stop();
+                StreamWebView.CoreWebView2.Navigate("about:blank");
+            }
+
+            StreamWebView?.Dispose();
+        }
+        catch (Exception)
+        {
+        }
     }
 
     private void OpenTwitchUrl(string twitchUrl, string failureStatusText)
@@ -1083,6 +1314,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         RaisePropertyChanged(nameof(IsLiveViewVisible));
         RaisePropertyChanged(nameof(IsHistoryViewVisible));
+        RaisePropertyChanged(nameof(IsStreamViewVisible));
+        RaisePropertyChanged(nameof(IsDecorativeBackdropVisible));
         RaisePropertyChanged(nameof(IsLiveEmptyVisible));
         RaisePropertyChanged(nameof(IsHistoryEmptyVisible));
         RaisePropertyChanged(nameof(ViewTitleText));
