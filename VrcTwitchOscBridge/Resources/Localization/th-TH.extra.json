@@ -962,5 +962,9 @@
   "Copied Wardrobe parameter: {0}": "Copied Wardrobe parameter: {0}",
   "Pasted Wardrobe parameter: {0}": "Pasted Wardrobe parameter: {0}",
   "Restart VRChat in desktop mode": "Restart VRChat in desktop mode",
-  "When checked, the VRChat restart button launches VRChat with --no-vr.": "When checked, the VRChat restart button launches VRChat with --no-vr."
+  "When checked, the VRChat restart button launches VRChat with --no-vr.": "When checked, the VRChat restart button launches VRChat with --no-vr.",
+  "Support Crystal Relay on Ko-fi": "Support Crystal Relay on Ko-fi",
+  "Crystal Relay is completely free for everyone. If it helps your stream and you want to support development, you can leave a tip on Ko-fi. Every contribution helps keep the program free and growing.": "Crystal Relay is completely free for everyone. If it helps your stream and you want to support development, you can leave a tip on Ko-fi. Every contribution helps keep the program free and growing.",
+  "Open Ko-fi": "Open Ko-fi",
+  "Get live update pings, sneak peeks, dev-related information, and meet other Crystal Relay users.": "Get live update pings, sneak peeks, dev-related information, and meet other Crystal Relay users."
 }

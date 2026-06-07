@@ -1,4 +1,4 @@
-﻿{
+{
   " - Test Build": " - เวอร์ชันทดสอบ",
   "{0} | Crystal Relay": "{0} | Crystal Relay",
   "12-hour": "12 ชั่วโมง",
@@ -482,7 +482,6 @@
   "When enabled, Crystal Relay ignores the fixed Active Time for this paid override and calculates the timer from separate Bits and Subs ratios. Bits use the bit count, normal subs count as 1, and gift subs use the gift total.": "เมื่อเปิดใช้งาน Crystal Relay จะละเว้นเวลาใช้งานที่กำหนดไว้สำหรับการเขียนทับแบบเสียค่าใช้จ่ายนี้และคำนวณตัวจับเวลาจากอัตราส่วน Bits และ Subs แยกกัน Bits ใช้จำนวน Bits Subs ปกตินับเป็น 1 และของขวัญ Subs ใช้ผลรวมของขวัญ",
   "Bits timer": "ตัวจับเวลา Bits",
   "Subs timer": "ตัวจับเวลา Subs",
-  "Every this many bits": "ทุกๆ bits จำนวนนี้",
   "Every this many subs": "ทุกๆ subs จำนวนนี้",
   "Bits/Subs override info messages": "ข้อความข้อมูลการเขียนทับ Bits/Subs",
   "Enable automatic Bits/Subs info messages": "เปิดใช้งานข้อความข้อมูล Bits/Subs อัตโนมัติ",
@@ -629,5 +628,11 @@
   "What is the Master Reward?": "What is the Master Reward?",
   "The Master Reward acts as a gate for your Avatar Scaling channel-point rewards. When enabled, all child scale rewards stay hidden or deleted on Twitch until a viewer redeems the master reward to unlock them for a set duration.": "The Master Reward acts as a gate for your Avatar Scaling channel-point rewards. When enabled, all child scale rewards stay hidden or deleted on Twitch until a viewer redeems the master reward to unlock them for a set duration.",
   "This keeps your Twitch reward panel clean — you don't need every scale reward visible all the time. Viewers redeem the master reward once, then pick which height they want from the unlocked child rewards.": "This keeps your Twitch reward panel clean — you don't need every scale reward visible all the time. Viewers redeem the master reward once, then pick which height they want from the unlocked child rewards.",
-  "Supporter Growth rules are not affected — they listen to bits and subs directly and do not need the master reward to fire.": "Supporter Growth rules are not affected — they listen to bits and subs directly and do not need the master reward to fire."
+  "Supporter Growth rules are not affected — they listen to bits and subs directly and do not need the master reward to fire.": "Supporter Growth rules are not affected — they listen to bits and subs directly and do not need the master reward to fire.",
+  "Support Crystal Relay on Ko-fi": "Support Crystal Relay on Ko-fi",
+  "Crystal Relay is completely free for everyone. If it helps your stream and you want to support development, you can leave a tip on Ko-fi. Every contribution helps keep the program free and growing.": "Crystal Relay is completely free for everyone. If it helps your stream and you want to support development, you can leave a tip on Ko-fi. Every contribution helps keep the program free and growing.",
+  "Open Ko-fi": "Open Ko-fi",
+  "Join the Crystal Relay Discord": "Join the Crystal Relay Discord",
+  "Get live update pings, sneak peeks, dev-related information, and meet other Crystal Relay users.": "Get live update pings, sneak peeks, dev-related information, and meet other Crystal Relay users.",
+  "Open Discord": "Open Discord"
 }

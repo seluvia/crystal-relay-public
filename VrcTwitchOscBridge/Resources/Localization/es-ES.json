@@ -1,4 +1,4 @@
-﻿{
+{
   " - Test Build": " - Build de Prueba",
   "{0} | Crystal Relay": "{0} | Crystal Relay",
   "{0} used the pause command.": "{0} usó el comando de pausa.",
@@ -83,10 +83,6 @@
   "Crystal Relay ran into an unexpected error and needs to close.": "Crystal Relay encontró un error inesperado y necesita cerrarse.",
   "Crystal Relay tried to save a crash log, but logging failed.": "Crystal Relay intentó guardar un registro de error, pero el registro falló.",
   "Crystal Relay v{0}{1} | Twitch to OSC": "Crystal Relay v{0}{1} | Twitch a OSC",
-  "{0} | Crystal Relay": "{0} | Crystal Relay",
-  "{0} used the pause command.": "{0} usó el comando de pausa.",
-  "{0} toggled the '{1}' redeem group.": "{0} cambió el grupo de recompensas '{1}'.",
-  "{0} used redeem control: {1} '{2}'.": "{0} usó el control de recompensa: {1} '{2}'.",
   "Crystal Relay will create this redeem on Twitch and only turn it on while you are using {0}. When you switch away, Crystal Relay turns the managed Twitch redeem off again so viewers only see rules that belong to the avatar you are actually using.": "Crystal Relay creará esta recompensa en Twitch y solo la activará mientras estés usando {0}. Cuando cambies, Crystal Relay desactivará la recompensa administrada de Twitch para que los espectadores solo vean las reglas del avatar que estás usando.",
   "Crystal Relay will create this redeem on Twitch and only turn it on while you are using the shared return avatar. That keeps avatar-switch redeems hidden while you are already on a temporary or different avatar. Timed Avatar Change and Avatar Roulette rules switch back to the shared return avatar when they finish.": "Crystal Relay creará esta recompensa en Twitch y solo la activará mientras estés usando el avatar de retorno compartido. Esto mantiene ocultas las recompensas de cambio de avatar mientras ya estás en un avatar temporal o diferente. Las reglas de Cambio de Avatar con tiempo y Ruleta de Avatar vuelven al avatar de retorno compartido cuando terminan.",
   "Crystal Relay will create this redeem on Twitch as a global movement rule. Movement redeems are not tied to one avatar set, so they stay available across every avatar unless you pause redeems.": "Crystal Relay creará esta recompensa en Twitch como una regla de movimiento global. Las recompensas de movimiento no están vinculadas a un conjunto de avatares, así que permanecen disponibles en cada avatar a menos que pauses las recompensas.",
@@ -633,5 +629,11 @@
   "What is the Master Reward?": "What is the Master Reward?",
   "The Master Reward acts as a gate for your Avatar Scaling channel-point rewards. When enabled, all child scale rewards stay hidden or deleted on Twitch until a viewer redeems the master reward to unlock them for a set duration.": "The Master Reward acts as a gate for your Avatar Scaling channel-point rewards. When enabled, all child scale rewards stay hidden or deleted on Twitch until a viewer redeems the master reward to unlock them for a set duration.",
   "This keeps your Twitch reward panel clean — you don't need every scale reward visible all the time. Viewers redeem the master reward once, then pick which height they want from the unlocked child rewards.": "This keeps your Twitch reward panel clean — you don't need every scale reward visible all the time. Viewers redeem the master reward once, then pick which height they want from the unlocked child rewards.",
-  "Supporter Growth rules are not affected — they listen to bits and subs directly and do not need the master reward to fire.": "Supporter Growth rules are not affected — they listen to bits and subs directly and do not need the master reward to fire."
+  "Supporter Growth rules are not affected — they listen to bits and subs directly and do not need the master reward to fire.": "Supporter Growth rules are not affected — they listen to bits and subs directly and do not need the master reward to fire.",
+  "Support Crystal Relay on Ko-fi": "Support Crystal Relay on Ko-fi",
+  "Crystal Relay is completely free for everyone. If it helps your stream and you want to support development, you can leave a tip on Ko-fi. Every contribution helps keep the program free and growing.": "Crystal Relay is completely free for everyone. If it helps your stream and you want to support development, you can leave a tip on Ko-fi. Every contribution helps keep the program free and growing.",
+  "Open Ko-fi": "Open Ko-fi",
+  "Join the Crystal Relay Discord": "Join the Crystal Relay Discord",
+  "Get live update pings, sneak peeks, dev-related information, and meet other Crystal Relay users.": "Get live update pings, sneak peeks, dev-related information, and meet other Crystal Relay users.",
+  "Open Discord": "Open Discord"
 }
