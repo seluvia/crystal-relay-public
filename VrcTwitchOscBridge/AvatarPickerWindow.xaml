@@ -1,0 +1,820 @@
+<Window x:Class="VrcTwitchOscBridge.AvatarPickerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:VrcTwitchOscBridge.Services"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        xmlns:vm="clr-namespace:VrcTwitchOscBridge.ViewModels"
+        xmlns:local="clr-namespace:VrcTwitchOscBridge"
+        Title="{loc:Translate 'Pick Avatar | Crystal Relay'}"
+        Icon="Assets/crystal-relay-icon.ico"
+        Width="900"
+        Height="700"
+        MinWidth="700"
+        MinHeight="500"
+        WindowStyle="None"
+        WindowStartupLocation="CenterOwner"
+        FontFamily="{DynamicResource BodyFontFamily}"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        Background="{DynamicResource WindowBackgroundBrush}">
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="0"
+                            CornerRadius="0"
+                            GlassFrameThickness="0"
+                            ResizeBorderThickness="0"
+                            UseAeroCaptionButtons="False" />
+    </shell:WindowChrome.WindowChrome>
+    <Window.Resources>
+        <FontFamily x:Key="BodyFontFamily">Verdana</FontFamily>
+        <FontFamily x:Key="HeadingFontFamily">Constantia</FontFamily>
+        <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#130B1E" />
+        <SolidColorBrush x:Key="PanelBrush" Color="#CC1C132B" />
+        <SolidColorBrush x:Key="BorderBrush" Color="#4B2B78" />
+        <SolidColorBrush x:Key="AccentBrush" Color="#A855F7" />
+        <SolidColorBrush x:Key="TextBrush" Color="#F5EEFF" />
+        <SolidColorBrush x:Key="MutedBrush" Color="#C9B8E3" />
+        <SolidColorBrush x:Key="InputBrush" Color="#B8271A3D" />
+        <SolidColorBrush x:Key="InputBorderBrush" Color="#5B3A8E" />
+        <SolidColorBrush x:Key="StatusChipBrush" Color="#8E241841" />
+        <SolidColorBrush x:Key="SecondaryButtonBrush" Color="#2C1C48" />
+        <SolidColorBrush x:Key="SecondaryButtonBorderBrush" Color="#6942A7" />
+        <SolidColorBrush x:Key="TitleBarBrush" Color="#20122F" />
+        <SolidColorBrush x:Key="TitleBarTextBrush" Color="#F5EEFF" />
+        <SolidColorBrush x:Key="TitleBarSubTextBrush" Color="#CBB9E5" />
+        <SolidColorBrush x:Key="TitleBarButtonBrush" Color="#00000000" />
+        <SolidColorBrush x:Key="TitleBarButtonHoverBrush" Color="#3B235B" />
+        <SolidColorBrush x:Key="TitleBarButtonPressedBrush" Color="#543183" />
+        <SolidColorBrush x:Key="TitleBarCloseHoverBrush" Color="#B43D62" />
+        <SolidColorBrush x:Key="TitleBarClosePressedBrush" Color="#8C2648" />
+        <SolidColorBrush x:Key="ScrollTrackBrush" Color="#25183D" />
+        <SolidColorBrush x:Key="ScrollThumbBrush" Color="#7B57D0" />
+        <SolidColorBrush x:Key="RuleCardHoverBrush" Color="#8D56E8" />
+        <SolidColorBrush x:Key="CardBackgroundBrush" Color="#1A142A" />
+        <SolidColorBrush x:Key="CardHoverBrush" Color="#2A1E3A" />
+        <SolidColorBrush x:Key="CardSelectedBrush" Color="#3A2A5A" />
+        <SolidColorBrush x:Key="ImagePlaceholderBrush" Color="#3D2A5E" />
+
+        <!-- Converters -->
+        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+        <local:EnumBooleanConverter x:Key="EnumBooleanConverter" />
+        <local:EnumToVisibilityConverter x:Key="EnumToVisibilityConverter" />
+        <local:InverseBooleanConverter x:Key="InverseBooleanConverter" />
+
+        <Style x:Key="ScrollBarThumbStyle" TargetType="Thumb">
+            <Setter Property="MinHeight" Value="32" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Border x:Name="ThumbChrome"
+                                Margin="2"
+                                Background="{DynamicResource ScrollThumbBrush}"
+                                CornerRadius="8" />
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ThumbChrome" Property="Background" Value="{DynamicResource RuleCardHoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsDragging" Value="True">
+                                <Setter TargetName="ThumbChrome" Property="Background" Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ScrollBarTrackButtonStyle" TargetType="RepeatButton">
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="IsTabStop" Value="False" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RepeatButton">
+                        <Border Background="Transparent" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <ControlTemplate x:Key="VerticalScrollBarTemplate" TargetType="ScrollBar">
+            <Grid Width="{TemplateBinding Width}"
+                  MinWidth="18"
+                  Background="Transparent">
+                <Border Background="{DynamicResource ScrollTrackBrush}"
+                        BorderBrush="{DynamicResource InputBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8" />
+                <Track x:Name="PART_Track"
+                       Margin="2"
+                       IsDirectionReversed="True">
+                    <Track.DecreaseRepeatButton>
+                        <RepeatButton Style="{StaticResource ScrollBarTrackButtonStyle}"
+                                      Command="{x:Static ScrollBar.PageUpCommand}" />
+                    </Track.DecreaseRepeatButton>
+                    <Track.Thumb>
+                        <Thumb Style="{StaticResource ScrollBarThumbStyle}" />
+                    </Track.Thumb>
+                    <Track.IncreaseRepeatButton>
+                        <RepeatButton Style="{StaticResource ScrollBarTrackButtonStyle}"
+                                      Command="{x:Static ScrollBar.PageDownCommand}" />
+                    </Track.IncreaseRepeatButton>
+                </Track>
+            </Grid>
+        </ControlTemplate>
+
+        <ControlTemplate x:Key="HorizontalScrollBarTemplate" TargetType="ScrollBar">
+            <Grid Height="{TemplateBinding Height}"
+                  MinHeight="18"
+                  Background="Transparent">
+                <Border Background="{DynamicResource ScrollTrackBrush}"
+                        BorderBrush="{DynamicResource InputBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8" />
+                <Track x:Name="PART_Track"
+                       Margin="2"
+                       IsDirectionReversed="True">
+                    <Track.DecreaseRepeatButton>
+                        <RepeatButton Style="{StaticResource ScrollBarTrackButtonStyle}"
+                                      Command="{x:Static ScrollBar.PageLeftCommand}" />
+                    </Track.DecreaseRepeatButton>
+                    <Track.Thumb>
+                        <Thumb Style="{StaticResource ScrollBarThumbStyle}"
+                               MinWidth="32" />
+                    </Track.Thumb>
+                    <Track.IncreaseRepeatButton>
+                        <RepeatButton Style="{StaticResource ScrollBarTrackButtonStyle}"
+                                      Command="{x:Static ScrollBar.PageRightCommand}" />
+                    </Track.IncreaseRepeatButton>
+                </Track>
+            </Grid>
+        </ControlTemplate>
+
+        <Style TargetType="ScrollBar">
+            <Setter Property="Background" Value="{DynamicResource ScrollTrackBrush}" />
+            <Setter Property="Width" Value="18" />
+            <Setter Property="Height" Value="Auto" />
+            <Setter Property="Template" Value="{StaticResource VerticalScrollBarTemplate}" />
+            <Style.Triggers>
+                <Trigger Property="Orientation" Value="Horizontal">
+                    <Setter Property="Width" Value="Auto" />
+                    <Setter Property="Height" Value="18" />
+                    <Setter Property="Template" Value="{StaticResource HorizontalScrollBarTemplate}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style TargetType="ScrollViewer">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollViewer">
+                        <Grid Background="{TemplateBinding Background}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <ScrollContentPresenter x:Name="PART_ScrollContentPresenter"
+                                                    Grid.Row="0"
+                                                    Grid.Column="0"
+                                                    Margin="{TemplateBinding Padding}"
+                                                    CanContentScroll="{TemplateBinding CanContentScroll}"
+                                                    Content="{TemplateBinding Content}" />
+
+                            <ScrollBar x:Name="PART_VerticalScrollBar"
+                                       Grid.Row="0"
+                                       Grid.Column="1"
+                                       Margin="10,0,0,0"
+                                       VerticalAlignment="Stretch"
+                                       Orientation="Vertical"
+                                       Minimum="0"
+                                       Maximum="{TemplateBinding ScrollableHeight}"
+                                       ViewportSize="{TemplateBinding ViewportHeight}"
+                                       Value="{Binding VerticalOffset, RelativeSource={RelativeSource TemplatedParent}, Mode=OneWay}"
+                                       Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}" />
+
+                            <ScrollBar x:Name="PART_HorizontalScrollBar"
+                                       Grid.Row="1"
+                                       Grid.Column="0"
+                                       Margin="0,10,0,0"
+                                       HorizontalAlignment="Stretch"
+                                       Orientation="Horizontal"
+                                       Minimum="0"
+                                       Maximum="{TemplateBinding ScrollableWidth}"
+                                       ViewportSize="{TemplateBinding ViewportWidth}"
+                                       Value="{Binding HorizontalOffset, RelativeSource={RelativeSource TemplatedParent}, Mode=OneWay}"
+                                       Visibility="{TemplateBinding ComputedHorizontalScrollBarVisibility}" />
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{DynamicResource BodyFontFamily}" />
+            <Setter Property="FontSize" Value="13" />
+        </Style>
+
+        <Style x:Key="HeadingTextStyle" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{DynamicResource HeadingFontFamily}" />
+        </Style>
+
+        <Style x:Key="PrimaryButtonStyle" TargetType="Button">
+            <Setter Property="FontFamily" Value="{DynamicResource HeadingFontFamily}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="15,10" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                CornerRadius="14"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SecondaryButtonStyle" TargetType="Button" BasedOn="{StaticResource PrimaryButtonStyle}">
+            <Setter Property="Background" Value="{DynamicResource SecondaryButtonBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SecondaryButtonBorderBrush}" />
+        </Style>
+
+        <Style x:Key="TitleBarCloseButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="40" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="Background" Value="{DynamicResource TitleBarButtonBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TitleBarTextBrush}" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="TitleBarCloseBorder"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="8">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="TitleBarCloseBorder" Property="Background" Value="{DynamicResource TitleBarCloseHoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="TitleBarCloseBorder" Property="Background" Value="{DynamicResource TitleBarClosePressedBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="TitleBarManageButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="40" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="Background" Value="{DynamicResource TitleBarButtonBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TitleBarTextBrush}" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="TitleBarManageBorder"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="8">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="TitleBarManageBorder" Property="Background" Value="{DynamicResource TitleBarCloseHoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="TitleBarManageBorder" Property="Background" Value="{DynamicResource TitleBarClosePressedBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="IconButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="36" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Background" Value="{DynamicResource SecondaryButtonBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SecondaryButtonBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="IconBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="IconBorder" Property="Background" Value="{DynamicResource CardHoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="IconBorder" Property="Background" Value="{DynamicResource CardSelectedBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ToggleIconButtonStyle" TargetType="ToggleButton">
+            <Setter Property="Width" Value="36" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Background" Value="{DynamicResource SecondaryButtonBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SecondaryButtonBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="ToggleBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ToggleBorder" Property="Background" Value="{DynamicResource CardHoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="ToggleBorder" Property="Background" Value="{DynamicResource AccentBrush}" />
+                                <Setter TargetName="ToggleBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SearchTextBoxStyle" TargetType="TextBox">
+            <Setter Property="FontFamily" Value="{DynamicResource BodyFontFamily}" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="12,10" />
+            <Setter Property="CaretBrush" Value="{DynamicResource TextBrush}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="10"
+                                Padding="{TemplateBinding Padding}">
+                            <ScrollViewer x:Name="PART_ContentHost"
+                                          VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Avatar Card Template for Grid View -->
+        <DataTemplate x:Key="AvatarCardTemplate" DataType="{x:Type vm:AvatarPickerItem}">
+            <Border x:Name="CardBorder"
+                    Width="140"
+                    Margin="6"
+                    Background="{DynamicResource CardBackgroundBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    Padding="10">
+                <Border.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="{loc:Translate 'Set Custom Icon...'}" Click="OnSetCustomIconClicked" />
+                        <MenuItem Header="{loc:Translate 'Clear Custom Icon'}" Click="OnClearCustomIconClicked" />
+                    </ContextMenu>
+                </Border.ContextMenu>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="120" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Avatar Image -->
+                    <Border Grid.Row="0"
+                            Background="{DynamicResource ImagePlaceholderBrush}"
+                            CornerRadius="8"
+                            ClipToBounds="True"
+                            Margin="0,0,0,8">
+                        <Image Source="{Binding Image}"
+                               Stretch="UniformToFill"
+                               RenderOptions.BitmapScalingMode="HighQuality" />
+                    </Border>
+
+                    <!-- Multi-Select Checkbox -->
+                    <CheckBox Grid.Row="0"
+                              HorizontalAlignment="Right"
+                              VerticalAlignment="Top"
+                              Margin="4"
+                              Visibility="{Binding DataContext.IsMultiSelectMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibilityConverter}}"
+                              Click="OnCardCheckBoxClicked" />
+
+                    <!-- Avatar Name -->
+                    <TextBlock Grid.Row="1"
+                               Text="{Binding DisplayName}"
+                               Foreground="{DynamicResource TextBrush}"
+                               FontSize="12"
+                               FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis"
+                               TextAlignment="Center"
+                               Margin="0,0,0,6" />
+
+                    <!-- Select Button -->
+                    <Button Grid.Row="2"
+                            Content="{loc:Translate 'Select'}"
+                            Style="{StaticResource PrimaryButtonStyle}"
+                            Padding="10,6"
+                            FontSize="11"
+                            Click="OnAvatarSelectClicked"
+                            Tag="{Binding}" />
+                </Grid>
+            </Border>
+            <DataTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter TargetName="CardBorder" Property="Background" Value="{DynamicResource CardHoverBrush}" />
+                </Trigger>
+                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                    <Setter TargetName="CardBorder" Property="Background" Value="{DynamicResource CardSelectedBrush}" />
+                    <Setter TargetName="CardBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- Avatar List Item Template -->
+        <DataTemplate x:Key="AvatarListItemTemplate" DataType="{x:Type vm:AvatarPickerItem}">
+            <Border x:Name="ListItemBorder"
+                    Background="{DynamicResource CardBackgroundBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="10,8"
+                    Margin="0,3">
+                <Border.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="{loc:Translate 'Set Custom Icon...'}" Click="OnSetCustomIconClicked" />
+                        <MenuItem Header="{loc:Translate 'Clear Custom Icon'}" Click="OnClearCustomIconClicked" />
+                    </ContextMenu>
+                </Border.ContextMenu>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="40" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Avatar Image -->
+                    <Border Grid.Column="0"
+                            Width="40"
+                            Height="40"
+                            Background="{DynamicResource ImagePlaceholderBrush}"
+                            CornerRadius="6"
+                            ClipToBounds="True"
+                            Margin="0,0,10,0">
+                        <Image Source="{Binding Image}"
+                               Stretch="UniformToFill"
+                               RenderOptions.BitmapScalingMode="HighQuality" />
+                    </Border>
+
+                    <!-- Multi-Select Checkbox -->
+                    <CheckBox Grid.Column="0"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Center"
+                              Visibility="{Binding DataContext.IsMultiSelectMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibilityConverter}}"
+                              Click="OnCardCheckBoxClicked" />
+
+                    <!-- Name -->
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding DisplayName}"
+                               Foreground="{DynamicResource TextBrush}"
+                               FontSize="13"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"
+                               Margin="0,0,10,0" />
+
+                    <!-- Source Label -->
+                    <TextBlock Grid.Column="2"
+                               Text="{Binding SourceLabel}"
+                               Foreground="{DynamicResource MutedBrush}"
+                               FontSize="11"
+                               VerticalAlignment="Center"
+                               Margin="0,0,10,0" />
+
+                    <!-- Select Button -->
+                    <Button Grid.Column="3"
+                            Content="{loc:Translate 'Select'}"
+                            Style="{StaticResource PrimaryButtonStyle}"
+                            Padding="12,6"
+                            FontSize="11"
+                            Click="OnAvatarSelectClicked"
+                            Tag="{Binding}" />
+                </Grid>
+            </Border>
+            <DataTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter TargetName="ListItemBorder" Property="Background" Value="{DynamicResource CardHoverBrush}" />
+                </Trigger>
+                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                    <Setter TargetName="ListItemBorder" Property="Background" Value="{DynamicResource CardSelectedBrush}" />
+                    <Setter TargetName="ListItemBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+    </Window.Resources>
+
+    <Border Margin="1"
+            Background="{DynamicResource WindowBackgroundBrush}"
+            BorderBrush="{DynamicResource BorderBrush}"
+            BorderThickness="1">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="48" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- Title Bar -->
+            <Border Grid.Row="0"
+                    Background="{DynamicResource TitleBarBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="0,0,0,1"
+                    MouseLeftButtonDown="OnTitleBarMouseDown">
+                <Grid Margin="12,0,8,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <DockPanel VerticalAlignment="Center">
+                        <Image Source="Assets/crystal-relay-icon.png"
+                               Width="18"
+                               Height="18"
+                               Margin="0,0,10,0"
+                               Stretch="Uniform" />
+                        <StackPanel Orientation="Horizontal"
+                                    VerticalAlignment="Center">
+                            <TextBlock Text="{loc:Translate 'Pick Avatar'}"
+                                       FontFamily="{DynamicResource HeadingFontFamily}"
+                                       FontSize="16"
+                                       FontWeight="Bold"
+                                       Foreground="{DynamicResource TitleBarTextBrush}" />
+                            <TextBlock Margin="8,0,0,0"
+                                       Text="{loc:Translate 'Crystal Relay'}"
+                                       Foreground="{DynamicResource TitleBarSubTextBrush}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DockPanel>
+
+                    <Button Grid.Column="1"
+                            x:Name="RefreshIconsButton"
+                            Style="{StaticResource TitleBarManageButtonStyle}"
+                            Click="OnRefreshIconsClicked"
+                            ToolTip="{loc:Translate 'Refresh Icons'}">
+                        <TextBlock Text="&#x21BB;"
+                                   FontSize="14"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TitleBarTextBrush}" />
+                    </Button>
+
+                    <Button Grid.Column="2"
+                            Style="{StaticResource TitleBarManageButtonStyle}"
+                            Click="OnManageButtonClicked">
+                        <TextBlock Text="&#x2699;"
+                                   FontSize="14"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TitleBarTextBrush}" />
+                    </Button>
+
+                    <Button Grid.Column="3"
+                            Style="{StaticResource TitleBarCloseButtonStyle}"
+                            Click="OnCloseButtonClicked">
+                        <TextBlock Text="&#x2715;"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TitleBarTextBrush}" />
+                    </Button>
+                </Grid>
+            </Border>
+
+            <!-- Main Content -->
+            <Grid Grid.Row="1"
+                  Margin="20">
+                <Border Background="{DynamicResource PanelBrush}"
+                        BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="22"
+                        Padding="22">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <!-- Header with count -->
+                        <StackPanel Grid.Row="0">
+                            <TextBlock Text="{loc:Translate 'Choose an Avatar'}"
+                                       Style="{StaticResource HeadingTextStyle}"
+                                       FontSize="24"
+                                       FontWeight="Bold"
+                                       Foreground="{DynamicResource TextBrush}" />
+                            <TextBlock x:Name="FilteredCountText"
+                                       Margin="0,10,0,0"
+                                       Foreground="{DynamicResource MutedBrush}"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+
+                        <!-- Search and View Toggle Bar -->
+                        <Grid Grid.Row="1" Margin="0,16,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Search TextBox -->
+                            <TextBox x:Name="SearchTextBox"
+                                     Grid.Column="0"
+                                     Style="{StaticResource SearchTextBoxStyle}"
+                                     Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                     MaxLength="200" />
+
+                            <!-- View Mode Toggle -->
+                            <StackPanel Grid.Column="1"
+                                        Orientation="Horizontal"
+                                        Margin="12,0,0,0"
+                                        VerticalAlignment="Center">
+                                <ToggleButton x:Name="GridViewToggle"
+                                              Style="{StaticResource ToggleIconButtonStyle}"
+                                              IsChecked="{Binding ViewMode, Converter={StaticResource EnumBooleanConverter}, ConverterParameter=Grid}"
+                                              Click="OnGridViewToggled"
+                                              ToolTip="{loc:Translate 'Grid View'}">
+                                    <TextBlock Text="&#x2630;" FontSize="14" />
+                                </ToggleButton>
+                                <ToggleButton x:Name="ListViewToggle"
+                                              Margin="6,0,0,0"
+                                              Style="{StaticResource ToggleIconButtonStyle}"
+                                              IsChecked="{Binding ViewMode, Converter={StaticResource EnumBooleanConverter}, ConverterParameter=List}"
+                                              Click="OnListViewToggled"
+                                              ToolTip="{loc:Translate 'List View'}">
+                                    <TextBlock Text="&#x2637;" FontSize="14" />
+                                </ToggleButton>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Filter Bar -->
+                        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
+                            <TextBlock Text="{loc:Translate 'Group:'}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <ComboBox Width="150"
+                                      ItemsSource="{Binding Library.Groups}"
+                                      SelectedValue="{Binding SelectedFilterGroupId, UpdateSourceTrigger=PropertyChanged}"
+                                      SelectedValuePath="Id"
+                                      DisplayMemberPath="Name"
+                                      Margin="0,0,16,0">
+                                <ComboBox.Style>
+                                    <Style TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+                                        <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+                                        <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+                                        <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                    </Style>
+                                </ComboBox.Style>
+                            </ComboBox>
+
+                            <TextBlock Text="{loc:Translate 'Tag:'}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <ComboBox Width="150"
+                                      ItemsSource="{Binding Library.Tags}"
+                                      SelectedValue="{Binding SelectedFilterTagId, UpdateSourceTrigger=PropertyChanged}"
+                                      SelectedValuePath="Id"
+                                      DisplayMemberPath="Name">
+                                <ComboBox.Style>
+                                    <Style TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+                                        <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+                                        <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+                                        <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                    </Style>
+                                </ComboBox.Style>
+                            </ComboBox>
+                        </StackPanel>
+
+                        <!-- Avatar Display Area -->
+                        <Grid Grid.Row="3" Margin="0,20,0,0">
+                            <!-- Grid View -->
+                            <ScrollViewer x:Name="GridViewScroll"
+                                          VerticalScrollBarVisibility="Auto"
+                                          HorizontalScrollBarVisibility="Disabled"
+                                          Visibility="{Binding ViewMode, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter=Grid}">
+                                <ItemsControl x:Name="GridViewControl"
+                                              ItemsSource="{Binding FilteredAvatars}"
+                                              ItemTemplate="{StaticResource AvatarCardTemplate}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel Orientation="Horizontal" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                </ItemsControl>
+                            </ScrollViewer>
+
+                            <!-- List View -->
+                            <ListBox x:Name="ListViewControl"
+                                     ItemsSource="{Binding FilteredAvatars}"
+                                     ItemTemplate="{StaticResource AvatarListItemTemplate}"
+                                     Background="Transparent"
+                                     BorderThickness="0"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                     ScrollViewer.CanContentScroll="True"
+                                     AllowDrop="True"
+                                     PreviewMouseLeftButtonDown="OnListViewPreviewMouseLeftButtonDown"
+                                     PreviewMouseMove="OnListViewPreviewMouseMove"
+                                     Drop="OnListViewDrop"
+                                     Visibility="{Binding ViewMode, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter=List}">
+                                <ListBox.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ListBox.ItemsPanel>
+                            </ListBox>
+                        </Grid>
+
+                        <!-- Bottom Bar -->
+                        <Grid Grid.Row="4"
+                              Margin="0,22,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Selection Display -->
+                            <StackPanel Grid.Column="0"
+                                        VerticalAlignment="Center">
+                                <TextBlock x:Name="SelectionLabel"
+                                           Foreground="{DynamicResource MutedBrush}"
+                                           FontSize="12" />
+                                <TextBlock x:Name="SelectionName"
+                                           Foreground="{DynamicResource TextBrush}"
+                                           FontSize="16"
+                                           FontWeight="SemiBold"
+                                           TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+
+                            <!-- Buttons -->
+                            <StackPanel Grid.Column="1"
+                                        Orientation="Horizontal">
+                                <Button Width="110"
+                                        Margin="0,0,10,0"
+                                        Content="{loc:Translate 'Cancel'}"
+                                        Style="{StaticResource SecondaryButtonStyle}"
+                                        IsCancel="True"
+                                        Click="OnCancelButtonClicked" />
+                                <Button Width="126"
+                                        Content="{loc:Translate 'OK'}"
+                                        Style="{StaticResource PrimaryButtonStyle}"
+                                        IsDefault="True"
+                                        IsEnabled="{Binding CanConfirm}"
+                                        Click="OnConfirmButtonClicked" />
+                            </StackPanel>
+                        </Grid>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

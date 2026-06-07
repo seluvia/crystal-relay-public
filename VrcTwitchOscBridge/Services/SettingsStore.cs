@@ -144,7 +144,8 @@ public sealed class SettingsStore
                 avatar.Id ?? string.Empty,
                 avatar.Name ?? (avatar.Id ?? string.Empty),
                 avatar.SourceLabel ?? "Cached",
-                avatar.IsCurrentAvatar))
+                avatar.IsCurrentAvatar,
+                avatar.ThumbnailUrl))
             .ToArray();
     }
 
@@ -165,7 +166,8 @@ public sealed class SettingsStore
                 Id = avatar.Id,
                 Name = avatar.Name,
                 SourceLabel = avatar.SourceLabel,
-                IsCurrentAvatar = avatar.IsCurrentAvatar
+                IsCurrentAvatar = avatar.IsCurrentAvatar,
+                ThumbnailUrl = avatar.ThumbnailUrl
             }).ToList()
         };
 
@@ -367,6 +369,7 @@ public sealed class SettingsStore
             settings.ChatboxAlwaysOnTop = profile.ChatboxAlwaysOnTop ?? settings.ChatboxAlwaysOnTop;
             settings.ChatboxSettingsPanelOpen = profile.ChatboxSettingsPanelOpen ?? settings.ChatboxSettingsPanelOpen;
             settings.ChatboxOverlayMode = profile.ChatboxOverlayMode ?? settings.ChatboxOverlayMode;
+            settings.ChatboxXsOverlayCompatibilityMode = profile.ChatboxXsOverlayCompatibilityMode ?? settings.ChatboxXsOverlayCompatibilityMode;
             settings.ChatboxOscEnabled = profile.ChatboxOscEnabled ?? settings.ChatboxOscEnabled;
             settings.ChatboxOscDelaySeconds = profile.ChatboxOscDelaySeconds is >= 1 and <= 6
                 ? profile.ChatboxOscDelaySeconds.Value
@@ -405,6 +408,7 @@ public sealed class SettingsStore
             settings.AvatarChangeCooldownOnlyModeEnabled = profile.AvatarChangeCooldownOnlyModeEnabled ?? settings.AvatarChangeCooldownOnlyModeEnabled;
             settings.EmergencyRedeemStopEnabled = profile.EmergencyRedeemStopEnabled ?? settings.EmergencyRedeemStopEnabled;
             settings.DesktopModeInputLockEnabled = profile.DesktopModeInputLockEnabled ?? settings.DesktopModeInputLockEnabled;
+            settings.RestartVrChatInDesktopMode = profile.RestartVrChatInDesktopMode ?? settings.RestartVrChatInDesktopMode;
             settings.LiveFeedbackHeartbeatEnabled = profile.LiveFeedbackHeartbeatEnabled ?? settings.LiveFeedbackHeartbeatEnabled;
             settings.BetaApplicationUpdatesEnabled = profile.BetaApplicationUpdatesEnabled ?? settings.BetaApplicationUpdatesEnabled;
             settings.EasterEggsEnabled = profile.EasterEggsEnabled ?? settings.EasterEggsEnabled;
@@ -542,6 +546,7 @@ public sealed class SettingsStore
             ChatboxAlwaysOnTop = settings.ChatboxAlwaysOnTop,
             ChatboxSettingsPanelOpen = settings.ChatboxSettingsPanelOpen,
             ChatboxOverlayMode = settings.ChatboxOverlayMode,
+            ChatboxXsOverlayCompatibilityMode = settings.ChatboxXsOverlayCompatibilityMode,
             ChatboxOscEnabled = settings.ChatboxOscEnabled,
             ChatboxOscDelaySeconds = settings.ChatboxOscDelaySeconds,
             ChatboxViewerSoundEnabled = settings.ChatboxViewerSoundEnabled,
@@ -562,6 +567,7 @@ public sealed class SettingsStore
             AvatarChangeCooldownOnlyModeEnabled = settings.AvatarChangeCooldownOnlyModeEnabled,
             EmergencyRedeemStopEnabled = settings.EmergencyRedeemStopEnabled,
             DesktopModeInputLockEnabled = settings.DesktopModeInputLockEnabled,
+            RestartVrChatInDesktopMode = settings.RestartVrChatInDesktopMode,
             LiveFeedbackHeartbeatEnabled = settings.LiveFeedbackHeartbeatEnabled,
             BetaApplicationUpdatesEnabled = settings.BetaApplicationUpdatesEnabled,
             EasterEggsEnabled = settings.EasterEggsEnabled,
@@ -904,7 +910,18 @@ public sealed class SettingsStore
             DeleteSetTriggerMasterRewardWhenInactive = profile.DeleteSetTriggerMasterRewardWhenInactive,
             UseSharedNumberedOutfitReward = profile.UseSharedNumberedOutfitReward,
             PostOutfitChoiceListToTwitchChat = profile.PostOutfitChoiceListToTwitchChat,
-            ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)]
+ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
+            UseWardrobeMode = true,
+            WardrobeCooldownSeconds = profile.WardrobeCooldownSeconds,
+            WardrobeOutfits = [.. profile.WardrobeOutfits.Select(ToPersistedWardrobeOutfit)],
+            UseWardrobeMasterReward = profile.UseWardrobeMasterReward,
+            WardrobeMasterRewardId = profile.WardrobeMasterRewardId,
+            WardrobeMasterRewardTitle = profile.WardrobeMasterRewardTitle,
+            WardrobeMasterRewardCost = profile.WardrobeMasterRewardCost,
+            WardrobeMasterRewardSyncMode = profile.WardrobeMasterRewardSyncMode,
+            WardrobeMasterRewardCooldownSeconds = profile.WardrobeMasterRewardCooldownSeconds,
+            WardrobeMasterRewardReadyColor = profile.WardrobeMasterRewardReadyColor,
+            WardrobeMasterRewardCooldownColor = profile.WardrobeMasterRewardCooldownColor,
         };
     }
 
@@ -938,7 +955,20 @@ public sealed class SettingsStore
                 {
                     rule.TriggerType = TwitchTriggerType.ChannelPoints;
                     return rule;
-                }))
+                })),
+            UseWardrobeMode = true,
+            WardrobeCooldownSeconds = Math.Max(0, profile.WardrobeCooldownSeconds),
+            WardrobeOutfits = new ObservableCollection<WardrobeOutfit>((profile.WardrobeOutfits ?? []).Select(ToWardrobeOutfit)),
+            UseWardrobeMasterReward = profile.UseWardrobeMasterReward,
+            WardrobeMasterRewardId = profile.WardrobeMasterRewardId ?? string.Empty,
+            WardrobeMasterRewardTitle = profile.WardrobeMasterRewardTitle ?? string.Empty,
+            WardrobeMasterRewardCost = profile.WardrobeMasterRewardCost <= 0 ? 100 : profile.WardrobeMasterRewardCost,
+            WardrobeMasterRewardSyncMode = Enum.IsDefined(profile.WardrobeMasterRewardSyncMode)
+                ? profile.WardrobeMasterRewardSyncMode
+                : TwitchRewardSyncMode.CreateOrManage,
+            WardrobeMasterRewardCooldownSeconds = Math.Max(0, profile.WardrobeMasterRewardCooldownSeconds),
+            WardrobeMasterRewardReadyColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(profile.WardrobeMasterRewardReadyColor),
+            WardrobeMasterRewardCooldownColor = ManagedRewardPresentation.NormalizeCooldownBackgroundColor(profile.WardrobeMasterRewardCooldownColor),
         };
     }
 
@@ -1018,6 +1048,35 @@ public sealed class SettingsStore
             SpecialRulePairingMode = rule.SpecialRulePairingMode,
             BotMessageTemplate = rule.BotMessageTemplate,
             TemporarilyDisabledRuleIds = [.. rule.TemporarilyDisabledRuleIds]
+};
+    }
+
+    private static PersistedWardrobeOutfit ToPersistedWardrobeOutfit(WardrobeOutfit outfit)
+    {
+        return new PersistedWardrobeOutfit
+        {
+            Id = outfit.Id,
+            IsEnabled = outfit.IsEnabled,
+            Name = outfit.Name,
+            ActiveTimeSeconds = outfit.ActiveTimeSeconds,
+            TwitchRewardId = outfit.TwitchRewardId,
+            TwitchRewardTitle = outfit.TwitchRewardTitle,
+            TwitchRewardCost = outfit.TwitchRewardCost,
+            TwitchRewardDescription = outfit.TwitchRewardDescription,
+            TwitchRewardSyncMode = outfit.TwitchRewardSyncMode,
+            ChatCommandText = outfit.ChatCommandText,
+            SnapshotParams = [.. outfit.SnapshotParams.Select(ToPersistedWardrobeSnapshotParam)]
+        };
+    }
+
+    private static PersistedWardrobeSnapshotParam ToPersistedWardrobeSnapshotParam(WardrobeSnapshotParam param)
+    {
+        return new PersistedWardrobeSnapshotParam
+        {
+            Id = param.Id,
+            ParameterName = param.ParameterName,
+            ParameterType = param.ParameterType,
+            SetValue = param.SetValue
         };
     }
 
@@ -1174,6 +1233,41 @@ public sealed class SettingsStore
             BotMessageTemplate = string.IsNullOrWhiteSpace(rule.BotMessageTemplate)
                 ? "{user} triggered {rule}. Active for {duration}. Cooldown {cooldown}."
                 : rule.BotMessageTemplate
+};
+    }
+
+    private static WardrobeOutfit ToWardrobeOutfit(PersistedWardrobeOutfit persisted)
+    {
+        return new WardrobeOutfit
+        {
+            Id = persisted.Id == Guid.Empty ? Guid.NewGuid() : persisted.Id,
+            IsEnabled = persisted.IsEnabled,
+            Name = string.IsNullOrWhiteSpace(persisted.Name) ? "New Outfit" : persisted.Name,
+            ActiveTimeSeconds = persisted.ActiveTimeSeconds <= 0
+                ? WardrobeOutfit.SafeObservationSeconds
+                : persisted.ActiveTimeSeconds,
+            TwitchRewardId = persisted.TwitchRewardId ?? string.Empty,
+            TwitchRewardTitle = persisted.TwitchRewardTitle ?? string.Empty,
+            TwitchRewardCost = persisted.TwitchRewardCost ?? "100",
+            TwitchRewardDescription = persisted.TwitchRewardDescription ?? string.Empty,
+            TwitchRewardSyncMode = Enum.IsDefined(persisted.TwitchRewardSyncMode)
+                ? persisted.TwitchRewardSyncMode
+                : TwitchRewardSyncMode.CreateOrManage,
+            ChatCommandText = persisted.ChatCommandText ?? string.Empty,
+            SnapshotParams = new ObservableCollection<WardrobeSnapshotParam>((persisted.SnapshotParams ?? []).Select(ToWardrobeSnapshotParam))
+        };
+    }
+
+    private static WardrobeSnapshotParam ToWardrobeSnapshotParam(PersistedWardrobeSnapshotParam persisted)
+    {
+        return new WardrobeSnapshotParam
+        {
+            Id = persisted.Id == Guid.Empty ? Guid.NewGuid() : persisted.Id,
+            ParameterName = persisted.ParameterName ?? string.Empty,
+            ParameterType = Enum.IsDefined(persisted.ParameterType)
+                ? persisted.ParameterType
+                : OscParameterType.Bool,
+            SetValue = persisted.SetValue ?? string.Empty
         };
     }
 
@@ -2366,6 +2460,8 @@ public sealed class SettingsStore
 
         public bool? ChatboxOverlayMode { get; set; }
 
+        public bool? ChatboxXsOverlayCompatibilityMode { get; set; }
+
         public bool? ChatboxOscEnabled { get; set; }
 
         public int? ChatboxOscDelaySeconds { get; set; }
@@ -2405,6 +2501,8 @@ public sealed class SettingsStore
         public bool? EmergencyRedeemStopEnabled { get; set; }
 
         public bool? DesktopModeInputLockEnabled { get; set; }
+
+        public bool? RestartVrChatInDesktopMode { get; set; }
 
         [JsonPropertyName("liveFeedbackHeartbeatEnabled")]
         public bool? LiveFeedbackHeartbeatEnabled { get; set; }
@@ -2732,6 +2830,8 @@ public sealed class SettingsStore
         public string? SourceLabel { get; set; }
 
         public bool IsCurrentAvatar { get; set; }
+
+        public string? ThumbnailUrl { get; set; }
     }
 
     private sealed class PersistedAvatarTriggerProfile
@@ -2772,7 +2872,65 @@ public sealed class SettingsStore
 
         public bool PostOutfitChoiceListToTwitchChat { get; set; }
 
-        public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
+public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
+
+        public bool UseWardrobeMode { get; set; }
+
+        public int WardrobeCooldownSeconds { get; set; }
+
+        public List<PersistedWardrobeOutfit>? WardrobeOutfits { get; set; }
+
+        public bool UseWardrobeMasterReward { get; set; }
+
+        public string? WardrobeMasterRewardId { get; set; }
+
+        public string? WardrobeMasterRewardTitle { get; set; }
+
+        public int WardrobeMasterRewardCost { get; set; }
+
+        public TwitchRewardSyncMode WardrobeMasterRewardSyncMode { get; set; }
+
+        public int WardrobeMasterRewardCooldownSeconds { get; set; }
+
+        public string? WardrobeMasterRewardReadyColor { get; set; }
+
+        public string? WardrobeMasterRewardCooldownColor { get; set; }
+    }
+
+    private sealed class PersistedWardrobeOutfit
+    {
+        public Guid Id { get; set; }
+
+        public bool IsEnabled { get; set; }
+
+        public string? Name { get; set; }
+
+        public int ActiveTimeSeconds { get; set; }
+
+        public string? TwitchRewardId { get; set; }
+
+        public string? TwitchRewardTitle { get; set; }
+
+        public string? TwitchRewardCost { get; set; }
+
+        public string? TwitchRewardDescription { get; set; }
+
+        public TwitchRewardSyncMode TwitchRewardSyncMode { get; set; }
+
+        public string? ChatCommandText { get; set; }
+
+        public List<PersistedWardrobeSnapshotParam>? SnapshotParams { get; set; }
+    }
+
+    private sealed class PersistedWardrobeSnapshotParam
+    {
+        public Guid Id { get; set; }
+
+        public string? ParameterName { get; set; }
+
+        public OscParameterType ParameterType { get; set; }
+
+        public string? SetValue { get; set; }
     }
 
     private sealed class PersistedTriggerRule

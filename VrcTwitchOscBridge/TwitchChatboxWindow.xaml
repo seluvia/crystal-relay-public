@@ -2041,6 +2041,14 @@
                                                   Style="{StaticResource ChatboxOptionToggleStyle}"
                                                   IsChecked="{Binding Settings.ChatboxOverlayMode, UpdateSourceTrigger=PropertyChanged}" />
                                     <ToggleButton Margin="0,10,0,0"
+                                                  Content="{loc:Translate 'XSOverlay Compatibility'}"
+                                                  Style="{StaticResource ChatboxOptionToggleStyle}"
+                                                  IsChecked="{Binding Settings.ChatboxXsOverlayCompatibilityMode, UpdateSourceTrigger=PropertyChanged}" />
+                                    <TextBlock Margin="0,6,0,0"
+                                               Foreground="{DynamicResource MutedBrush}"
+                                               TextWrapping="Wrap"
+                                               Text="{loc:Translate 'Use this when XSOverlay mouse capture feels too narrow for the chatbox.'}" />
+                                    <ToggleButton Margin="0,10,0,0"
                                                   Content="{loc:Translate 'Viewer Message Sound'}"
                                                   Style="{StaticResource ChatboxOptionToggleStyle}"
                                                   IsChecked="{Binding Settings.ChatboxViewerSoundEnabled, UpdateSourceTrigger=PropertyChanged}" />

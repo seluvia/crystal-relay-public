@@ -133,6 +133,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private readonly CashPaymentProviderService cashPaymentProviderService = new();
     private readonly DesktopInputLockService desktopInputLockService;
     private readonly WorldCommandBlacklistService worldCommandBlacklistService;
+    private readonly VrChatLocalOscCacheService localOscCacheService;
+    private WardrobeExecutorService? wardrobeExecutor;
     private readonly object stateGate = new();
     // Runtime state for cooldowns, queued redeems, movement lanes, active timed resets,
     // and the temporary disable-pairing system used by avatar-set redeems.
@@ -189,6 +191,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private ActiveAvatarScaleOperationState? activeAvatarScaleOperation;
     private ActiveAvatarScaleCarryoverState? activeAvatarScaleCarryover;
     private ActiveAvatarScaleRestoreSequenceState? activeAvatarScaleRestoreSequence;
+    private PausedAvatarScaleTimerSnapshot? pausedDevAvatarScaleTimerSnapshot;
     private CancellationTokenSource? avatarScaleRestoreSequenceCancellation;
     private CancellationTokenSource? pendingStreamOfflineConfirmation;
     private bool drainingQueuedAvatarScaleOperations;
@@ -221,6 +224,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private DateTimeOffset cachedWorldCommandResultExpiresAt = DateTimeOffset.MinValue;
     private string cachedWorldCommandUserId = string.Empty;
     private VrChatCurrentWorldLookupResult? cachedWorldCommandResult;
+    private DateTimeOffset lastAvatarChangeAt = DateTimeOffset.MinValue;
+    private static readonly TimeSpan AvatarChangeGracePeriod = TimeSpan.FromSeconds(15);
     private DateTimeOffset avatarScaleMasterUnlockUntil = DateTimeOffset.MinValue;
     private DateTimeOffset avatarScaleMasterCooldownUntil = DateTimeOffset.MinValue;
     private CancellationTokenSource? avatarScaleMasterUnlockNotification;
@@ -232,15 +237,31 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private long nextAvatarScaleRestoreSequenceId;
     private long nextAvatarScaleAvatarChangeSequenceId;
 
-    internal BridgeCoordinator(
+internal BridgeCoordinator(
         DesktopInputLockService desktopInputLockService,
-        WorldCommandBlacklistService worldCommandBlacklistService)
+        WorldCommandBlacklistService worldCommandBlacklistService,
+        VrChatLocalOscCacheService localOscCacheService)
     {
         this.desktopInputLockService = desktopInputLockService;
         this.worldCommandBlacklistService = worldCommandBlacklistService;
+        this.localOscCacheService = localOscCacheService;
         oscRouterService.LogWritten += WriteLog;
         oscRouterService.ObservedValueReceived += observedValue => ObserveOscValue(observedValue);
         desktopInputLockService.EmergencyUnlockTriggered += HandleEmergencyDesktopInputUnlock;
+    }
+
+    private WardrobeExecutorService GetWardrobeExecutor()
+    {
+        if (wardrobeExecutor is null)
+        {
+            wardrobeExecutor = new WardrobeExecutorService(
+                vrChatOscClient,
+                oscRouterService,
+                localOscCacheService,
+                vrChatLocalAvatarDataService,
+                WriteLog);
+        }
+        return wardrobeExecutor;
     }
 
     public event Action<string>? LogWritten;
@@ -837,6 +858,102 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
         WriteLog($"Simulating {DescribeCashPaymentProvider(paymentEvent.Provider)} cash payment of {paymentEvent.Amount:0.##} {paymentEvent.CurrencyCode}.");
         await HandleCashPaymentEventAsync(paymentEvent, cancellationToken);
+    }
+
+    /// <summary>
+    /// Executes a Wardrobe outfit snapshot. Returns true if applied, false if blocked.
+    /// </summary>
+    public async Task<bool> ExecuteWardrobeOutfitAsync(
+        WardrobeOutfitSnapshot snapshot,
+        CancellationToken cancellationToken = default)
+    {
+        if (!IsOscActive)
+        {
+            throw new InvalidOperationException("OSC is not running yet, so Crystal Relay cannot send a wardrobe outfit test to VRChat.");
+        }
+
+        var vrChatUserId = activeConfiguration?.VrChatSession?.UserId?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(vrChatUserId))
+        {
+            WriteLog("Wardrobe outfit blocked: VRChat user ID not configured.");
+            return false;
+        }
+
+        var applied = await GetWardrobeExecutor().ExecuteOutfitAsync(snapshot, vrChatUserId, cancellationToken);
+        if (applied)
+        {
+            WriteLog($"Wardrobe outfit '{snapshot.Name}' applied successfully.");
+        }
+
+        return applied;
+    }
+
+    /// <summary>
+    /// Resolves and executes a Wardrobe outfit from a Twitch redemption.
+    /// Supports individual outfit rewards and master reward with typed outfit name.
+    /// Returns true if a Wardrobe outfit was executed, false otherwise.
+    /// </summary>
+    private async Task<bool> TryExecuteWardrobeFromRedemptionAsync(
+        BridgeRuntimeConfiguration configuration,
+        string rewardId,
+        string? redemptionInputText,
+        CancellationToken cancellationToken)
+    {
+        foreach (var profile in configuration.AvatarProfiles)
+        {
+            if (!profile.UseWardrobeMode || !profile.IsEnabled) continue;
+            if (string.IsNullOrWhiteSpace(profile.AvatarId)) continue;
+
+            // Check individual outfit rewards
+            foreach (var outfit in profile.WardrobeOutfits)
+            {
+                if (!outfit.IsEnabled) continue;
+                if (!string.Equals(outfit.TwitchRewardId, rewardId, StringComparison.Ordinal)) continue;
+
+                if (!BridgeRuntimeConfiguration.TryToWardrobeSnapshot(outfit, profile, out var snapshot)) continue;
+
+                var applied = await ExecuteWardrobeOutfitAsync(snapshot, cancellationToken);
+                if (applied)
+                {
+                    WriteLog($"Wardrobe outfit '{outfit.Name}' fired from individual reward.");
+                }
+                return true;
+            }
+
+            // Check master reward
+            if (profile.UseWardrobeMasterReward
+                && !string.IsNullOrWhiteSpace(profile.WardrobeMasterRewardId)
+                && string.Equals(profile.WardrobeMasterRewardId, rewardId, StringComparison.Ordinal))
+            {
+                if (string.IsNullOrWhiteSpace(redemptionInputText))
+                {
+                    WriteLog("Wardrobe master reward redeemed but no outfit name was typed.");
+                    return true;
+                }
+
+                var inputName = redemptionInputText.Trim();
+                var matchedOutfit = profile.WardrobeOutfits
+                    .FirstOrDefault(o => o.IsEnabled
+                        && string.Equals(o.Name, inputName, StringComparison.OrdinalIgnoreCase));
+
+                if (matchedOutfit is null)
+                {
+                    WriteLog($"Wardrobe master reward: No outfit found matching '{inputName}'.");
+                    return true;
+                }
+
+                if (!BridgeRuntimeConfiguration.TryToWardrobeSnapshot(matchedOutfit, profile, out var masterSnapshot)) continue;
+
+                var masterApplied = await ExecuteWardrobeOutfitAsync(masterSnapshot, cancellationToken);
+                if (masterApplied)
+                {
+                    WriteLog($"Wardrobe outfit '{matchedOutfit.Name}' fired from master reward.");
+                }
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private async Task<bool> TryHandleDevChatCommandAsync(
@@ -1441,11 +1558,13 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 sequence.RestoreSmoothTransitionSeconds,
                 sequence.RestoreToPaidGrowthIfActive,
                 sequence.IsTest,
+                now.Add(devDuration).Add(remaining),
                 remaining,
                 CountQueuedLiveAvatarScaleOperationsLocked(),
                 DescribeAvatarScaleTimerSource(ruleId, sequence.SourceRuleName),
                 FindAvatarScaleRuleSnapshot(ruleId),
                 effectWasActive);
+            pausedDevAvatarScaleTimerSnapshot = snapshot;
 
             pausedCancellation = avatarScaleRestoreSequenceCancellation;
             avatarScaleRestoreSequenceCancellation = null;
@@ -1490,31 +1609,14 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         PausedAvatarScaleTimerSnapshot snapshot,
         CancellationToken cancellationToken)
     {
-        if (snapshot.Remaining <= TimeSpan.Zero)
-        {
-            return;
-        }
-
-        if (HasNewerLiveAvatarScaleWork(snapshot.QueuedLiveScaleCountAtPause))
-        {
-            WriteLog($"Dev avatar scale did not resume {snapshot.SourceDescription} because a newer scale reward or payment is waiting.");
-            EnsureQueuedAvatarScaleOperationDrain();
-            return;
-        }
-
-        var operation = await WaitForAvatarScaleOperationSlotAsync(
-            Guid.Empty,
-            $"Resume {snapshot.SourceRuleName}",
-            AvatarScaleOperationPriority.LiveRedeem,
-            snapshot.IsTest,
-            cancellationToken);
-        if (operation is null)
-        {
-            return;
-        }
-
+        snapshot = GetRetargetedPausedDevAvatarScaleTimerSnapshot(snapshot);
         try
         {
+            if (snapshot.Remaining <= TimeSpan.Zero)
+            {
+                return;
+            }
+
             if (HasNewerLiveAvatarScaleWork(snapshot.QueuedLiveScaleCountAtPause))
             {
                 WriteLog($"Dev avatar scale did not resume {snapshot.SourceDescription} because a newer scale reward or payment is waiting.");
@@ -1522,34 +1624,59 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 return;
             }
 
-            if (!await SendAvatarHeightForOperationAsync(
-                    operation,
-                    snapshot.CarriedHeightMeters,
-                    0,
-                    cancellationToken))
+            var operation = await WaitForAvatarScaleOperationSlotAsync(
+                Guid.Empty,
+                $"Resume {snapshot.SourceRuleName}",
+                AvatarScaleOperationPriority.LiveRedeem,
+                snapshot.IsTest,
+                cancellationToken);
+            if (operation is null)
             {
                 return;
             }
 
-            if (HasNewerLiveAvatarScaleWork(snapshot.QueuedLiveScaleCountAtPause))
+            try
             {
-                WriteLog($"Dev avatar scale restored {snapshot.SourceDescription}'s height, then let a newer scale reward or payment take over.");
-                EnsureQueuedAvatarScaleOperationDrain();
-                return;
-            }
+                if (HasNewerLiveAvatarScaleWork(snapshot.QueuedLiveScaleCountAtPause))
+                {
+                    WriteLog($"Dev avatar scale did not resume {snapshot.SourceDescription} because a newer scale reward or payment is waiting.");
+                    EnsureQueuedAvatarScaleOperationDrain();
+                    return;
+                }
 
-            if (!TryStartPausedAvatarScaleRestoreSequence(snapshot, out var activeUntil))
+                if (!await SendAvatarHeightForOperationAsync(
+                        operation,
+                        snapshot.CarriedHeightMeters,
+                        0,
+                        cancellationToken))
+                {
+                    return;
+                }
+
+                if (HasNewerLiveAvatarScaleWork(snapshot.QueuedLiveScaleCountAtPause))
+                {
+                    WriteLog($"Dev avatar scale restored {snapshot.SourceDescription}'s height, then let a newer scale reward or payment take over.");
+                    EnsureQueuedAvatarScaleOperationDrain();
+                    return;
+                }
+
+                if (!TryStartPausedAvatarScaleRestoreSequence(snapshot, out var activeUntil))
+                {
+                    WriteLog($"Dev avatar scale could not resume {snapshot.SourceDescription} because a newer scale reward or payment is active.");
+                    EnsureQueuedAvatarScaleOperationDrain();
+                    return;
+                }
+
+                WriteLog($"Resumed {snapshot.SourceDescription} at held height {snapshot.CarriedHeightMeters:0.###}m with {DescribeDuration((activeUntil - DateTimeOffset.UtcNow).TotalSeconds)} remaining.");
+            }
+            finally
             {
-                WriteLog($"Dev avatar scale could not resume {snapshot.SourceDescription} because a newer scale reward or payment is active.");
-                EnsureQueuedAvatarScaleOperationDrain();
-                return;
+                EndAvatarScaleOperation(operation);
             }
-
-            WriteLog($"Resumed {snapshot.SourceDescription} at held height {snapshot.CarriedHeightMeters:0.###}m with {DescribeDuration((activeUntil - DateTimeOffset.UtcNow).TotalSeconds)} remaining.");
         }
         finally
         {
-            EndAvatarScaleOperation(operation);
+            ClearPausedDevAvatarScaleTimerSnapshot(snapshot);
         }
     }
 
@@ -1598,6 +1725,60 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         finally
         {
             EndAvatarScaleOperation(operation);
+        }
+    }
+
+    private PausedAvatarScaleTimerSnapshot GetRetargetedPausedDevAvatarScaleTimerSnapshot(
+        PausedAvatarScaleTimerSnapshot snapshot)
+    {
+        lock (stateGate)
+        {
+            return pausedDevAvatarScaleTimerSnapshot is { } current
+                && current.RestoreSequenceId == snapshot.RestoreSequenceId
+                ? current
+                : snapshot;
+        }
+    }
+
+    private void ClearPausedDevAvatarScaleTimerSnapshot(PausedAvatarScaleTimerSnapshot snapshot)
+    {
+        lock (stateGate)
+        {
+            if (pausedDevAvatarScaleTimerSnapshot is { } current
+                && current.RestoreSequenceId == snapshot.RestoreSequenceId)
+            {
+                pausedDevAvatarScaleTimerSnapshot = null;
+            }
+        }
+    }
+
+    private void RetargetPausedDevAvatarScaleTimerForAvatarChange(string avatarId)
+    {
+        var normalizedAvatarId = avatarId?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(normalizedAvatarId))
+        {
+            return;
+        }
+
+        PausedAvatarScaleTimerSnapshot? retargetedSnapshot = null;
+        lock (stateGate)
+        {
+            if (pausedDevAvatarScaleTimerSnapshot is not { } snapshot
+                || string.Equals(snapshot.AvatarId, normalizedAvatarId, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            pausedDevAvatarScaleTimerSnapshot = snapshot with
+            {
+                AvatarId = normalizedAvatarId
+            };
+            retargetedSnapshot = pausedDevAvatarScaleTimerSnapshot;
+        }
+
+        if (retargetedSnapshot is not null)
+        {
+            WriteLog($"Paused avatar scale restore from '{retargetedSnapshot.SourceRuleName}' will resume on the current avatar after the dev height command finishes.");
         }
     }
 
@@ -2180,6 +2361,15 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         if (matchingRules.Length == 0)
         {
             if (TryQueueAvatarSwitchTriggerDuringSupporterOverride(
+                ruleIndex,
+                bridgeEvent,
+                currentAvatarId,
+                configuration.AvatarChangeCooldownOnlyModeEnabled))
+            {
+                return;
+            }
+
+            if (TryQueueAvatarSwitchTriggerDuringActiveAvatarSwitch(
                 ruleIndex,
                 bridgeEvent,
                 currentAvatarId,
@@ -3044,6 +3234,18 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             return;
         }
 
+        // Try Wardrobe first (individual outfit rewards and master reward with typed input)
+        if (!bridgeEvent.IsChatCommandTrigger
+            && bridgeEvent.TriggerType == TwitchTriggerType.ChannelPoints
+            && await TryExecuteWardrobeFromRedemptionAsync(
+                configuration,
+                bridgeEvent.RewardId?.Trim() ?? string.Empty,
+                bridgeEvent.RewardUserInput,
+                cancellationToken))
+        {
+            return;
+        }
+
         var currentAvatarId = GetCurrentVrChatAvatarId();
         var temporarilyDisabledRuleIds = GetTemporarilyDisabledRuleIds();
         var avatarChangeTransitionActive = IsAvatarChangeTransitionActive();
@@ -3113,6 +3315,18 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             && !bridgeEvent.IsChatCommandTrigger
             && bridgeEvent.TriggerType == TwitchTriggerType.ChannelPoints
             && TryQueueAvatarSwitchTriggerDuringSupporterOverride(
+                ruleIndex,
+                bridgeEvent,
+                currentAvatarId,
+                configuration.AvatarChangeCooldownOnlyModeEnabled))
+        {
+            return;
+        }
+
+        if (matchingRules.Length == 0
+            && !bridgeEvent.IsChatCommandTrigger
+            && bridgeEvent.TriggerType == TwitchTriggerType.ChannelPoints
+            && TryQueueAvatarSwitchTriggerDuringActiveAvatarSwitch(
                 ruleIndex,
                 bridgeEvent,
                 currentAvatarId,
@@ -6302,6 +6516,100 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         return true;
     }
 
+    private bool TryQueueAvatarSwitchTriggerDuringActiveAvatarSwitch(
+        RuntimeRuleIndex ruleIndex,
+        BridgeIncomingEvent bridgeEvent,
+        string currentAvatarId,
+        bool avatarChangeCooldownOnlyModeEnabled)
+    {
+        if (bridgeEvent.IsChatCommandTrigger || bridgeEvent.TriggerType != TwitchTriggerType.ChannelPoints)
+        {
+            return false;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        lock (stateGate)
+        {
+            if (!IsAvatarSwitchSequenceActiveLocked(now))
+            {
+                return false;
+            }
+        }
+
+        var queuedRule = SelectQueuedAvatarSwitchMatch(
+            ruleIndex,
+            bridgeEvent,
+            currentAvatarId,
+            avatarChangeCooldownOnlyModeEnabled);
+        if (queuedRule is null)
+        {
+            return false;
+        }
+
+        var queuedCount = QueueAvatarSwitchTrigger(queuedRule, bridgeEvent);
+        WriteLog($"{bridgeEvent.UserDisplayName} queued avatar switch '{queuedRule.Name}' until the current avatar switch finishes. {queuedCount} avatar switch{(queuedCount == 1 ? string.Empty : "es")} waiting.");
+        EnsureQueuedAvatarSwitchDrain();
+        return true;
+    }
+
+    private bool IsAvatarSwitchSequenceActiveLocked(DateTimeOffset now)
+    {
+        return queuedAvatarSwitches.Count > 0
+            || pendingResets.Values.Any(IsPauseableAvatarSwitchReset)
+            || (actionLanes.TryGetValue(AvatarSwitchLaneKey, out var activeLane) && activeLane.BusyUntil > now);
+    }
+
+    private TriggerRuleSnapshot? SelectQueuedAvatarSwitchMatch(
+        RuntimeRuleIndex ruleIndex,
+        BridgeIncomingEvent bridgeEvent,
+        string currentAvatarId,
+        bool avatarChangeCooldownOnlyModeEnabled)
+    {
+        var normalizedRewardId = bridgeEvent.RewardId?.Trim() ?? string.Empty;
+        var normalizedRewardTitle = NormalizeRewardTitle(bridgeEvent.RewardTitle);
+        if (string.IsNullOrWhiteSpace(normalizedRewardId) && string.IsNullOrWhiteSpace(normalizedRewardTitle))
+        {
+            return null;
+        }
+
+        var sharedReturnAvatar = GetSharedReturnAvatarSnapshot();
+        var activationAvatarId = !string.IsNullOrWhiteSpace(sharedReturnAvatar.AvatarId)
+            ? sharedReturnAvatar.AvatarId
+            : currentAvatarId?.Trim() ?? string.Empty;
+        var candidates = ruleIndex.GetChannelPointCandidates(normalizedRewardId, normalizedRewardTitle)
+            .Where(rule => rule.IsEnabled
+                && IsQueuedAvatarSwitchRule(rule)
+                && AvatarRuleActivationPolicy.IsRuleActiveForCurrentAvatar(
+                    rule.IsGlobalOverride,
+                    rule.BelongsToMasterAvatarProfile,
+                    rule.ActionType,
+                    rule.AvatarChangeTargetId,
+                    rule.RequiredAvatarId,
+                    activationAvatarId,
+                    avatarChangeTransitionActive: false,
+                    avatarChangeCooldownOnlyModeEnabled))
+            .ToArray();
+        if (candidates.Length == 0)
+        {
+            return null;
+        }
+
+        var sharedChoiceCandidates = candidates
+            .Where(IsSharedRewardChoiceRule)
+            .ToArray();
+        if (sharedChoiceCandidates.Length > 0)
+        {
+            if (!TryParseSharedRewardChoiceNumber(bridgeEvent.RewardUserInput, out var choiceNumber))
+            {
+                return null;
+            }
+
+            return sharedChoiceCandidates.FirstOrDefault(rule => rule.SharedRewardChoiceNumber == choiceNumber);
+        }
+
+        return candidates[0];
+    }
+
     private TriggerRuleSnapshot? SelectPaidSuppressedAvatarSwitchMatch(
         RuntimeRuleIndex ruleIndex,
         BridgeIncomingEvent bridgeEvent,
@@ -7340,6 +7648,17 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             try
             {
                 await Task.Delay(TimeSpan.FromSeconds(Math.Max(1, activeSeconds)), completionCancellation.Token);
+
+                // If the avatar recently changed, defer the reset until the grace period ends.
+                // This prevents reset packets from being lost during world transitions.
+                if (IsInAvatarChangeGracePeriod())
+                {
+                    var graceRemaining = AvatarChangeGracePeriod - (DateTimeOffset.UtcNow - lastAvatarChangeAt);
+                    WriteLog($"Float redeem '{session.Rule.Name}' completion is deferred because the avatar recently changed. The reset will be retried after the grace period. ({DescribeDuration(graceRemaining.TotalSeconds)} remaining)");
+                    ScheduleActiveFloatRedeemCompletionAfterGracePeriod(session, completionCancellation, activeSeconds, transitionSeconds);
+                    return;
+                }
+
                 await session.SendGate.WaitAsync(completionCancellation.Token);
                 try
                 {
@@ -7366,6 +7685,64 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             catch (Exception ex)
             {
                 WriteLog($"Failed to reset '{session.Rule.Name}': {ex.Message}");
+            }
+            finally
+            {
+                FinishActiveFloatRedeemSession(session, completionCancellation, shouldNotifyManagedRewardState);
+            }
+        }, CancellationToken.None);
+    }
+
+    private void ScheduleActiveFloatRedeemCompletionAfterGracePeriod(
+        ActiveFloatRedeemSessionState session,
+        CancellationTokenSource completionCancellation,
+        double activeSeconds,
+        double transitionSeconds)
+    {
+        _ = Task.Run(async () =>
+        {
+            var shouldNotifyManagedRewardState = !session.IsTest;
+            try
+            {
+                var graceRemaining = AvatarChangeGracePeriod - (DateTimeOffset.UtcNow - lastAvatarChangeAt);
+                if (graceRemaining > TimeSpan.Zero)
+                {
+                    await Task.Delay(graceRemaining, completionCancellation.Token);
+                }
+
+                // If we're still in the grace period (avatar changed again), re-defer
+                if (IsInAvatarChangeGracePeriod())
+                {
+                    ScheduleActiveFloatRedeemCompletionAfterGracePeriod(session, completionCancellation, activeSeconds, transitionSeconds);
+                    return;
+                }
+
+                await session.SendGate.WaitAsync(completionCancellation.Token);
+                try
+                {
+                    await SendFloatAvatarParameterValueAsync(
+                        session.Address,
+                        session.CurrentValue,
+                        session.ResetValue,
+                        transitionSeconds,
+                        completionCancellation.Token);
+                    session.CurrentValue = session.ResetValue;
+                }
+                finally
+                {
+                    session.SendGate.Release();
+                }
+
+                RememberAvatarParameterValue(session.Rule, FloatValueModeConverter.ToOscText(session.ResetValue));
+                WriteLog($"Reset '{session.Rule.Name}' after {DescribeDuration(activeSeconds + transitionSeconds + transitionSeconds)} (deferred completion after avatar change grace period).");
+            }
+            catch (OperationCanceledException)
+            {
+                shouldNotifyManagedRewardState = false;
+            }
+            catch (Exception ex)
+            {
+                WriteLog($"Failed to reset '{session.Rule.Name}' during grace period deferral: {ex.Message}");
             }
             finally
             {
@@ -8216,6 +8593,40 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         }, CancellationToken.None);
     }
 
+    private void ScheduleTimedSupporterOverrideCompletionAfterGracePeriod(
+        ActiveSupporterOverrideState activeState,
+        CancellationTokenSource completionCancellation)
+    {
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                // Wait for the grace period to end
+                var graceRemaining = AvatarChangeGracePeriod - (DateTimeOffset.UtcNow - lastAvatarChangeAt);
+                if (graceRemaining > TimeSpan.Zero)
+                {
+                    await Task.Delay(graceRemaining, completionCancellation.Token);
+                }
+
+                // Check if we should still proceed (state might have changed)
+                lock (stateGate)
+                {
+                    if (!ReferenceEquals(activeSupporterOverride, activeState)
+                        || !ReferenceEquals(activeState.CompletionCancellation, completionCancellation))
+                    {
+                        return;
+                    }
+                }
+
+                // Now complete the timed override
+                await CompleteTimedSupporterOverrideAsync(activeState, completionCancellation, completionCancellation.Token);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }, CancellationToken.None);
+    }
+
     private async Task CompleteTimedSupporterOverrideAsync(
         ActiveSupporterOverrideState activeState,
         CancellationTokenSource completionCancellation,
@@ -8230,6 +8641,16 @@ public sealed class BridgeCoordinator : IAsyncDisposable
             {
                 return;
             }
+        }
+
+        // If the avatar recently changed, defer the reset until the grace period ends.
+        // This prevents reset packets from being lost during world transitions.
+        if (IsInAvatarChangeGracePeriod())
+        {
+            var graceRemaining = AvatarChangeGracePeriod - (DateTimeOffset.UtcNow - lastAvatarChangeAt);
+            WriteLog($"Paid override '{activeState.Rule.Name}' completion is deferred because the avatar recently changed. The reset will be retried after the grace period. ({DescribeDuration(graceRemaining.TotalSeconds)} remaining)");
+            ScheduleTimedSupporterOverrideCompletionAfterGracePeriod(activeState, completionCancellation);
+            return;
         }
 
         try
@@ -9939,6 +10360,26 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                     await Task.Delay(TimeSpan.FromSeconds(Math.Max(1, delaySeconds)), cancellation.Token);
                 }
 
+                if (TryGetReadyQueuedAvatarSwitchNameForDirectTransition(pendingReset, out var queuedAvatarSwitchName))
+                {
+                    WriteLog($"Skipped return avatar for '{rule.Name}' because queued avatar switch '{queuedAvatarSwitchName}' is ready.");
+                    return;
+                }
+
+                // If the avatar recently changed, defer the reset until the grace period ends.
+                // This prevents reset packets from being lost during world transitions.
+                if (IsInAvatarChangeGracePeriod())
+                {
+                    var graceRemaining = AvatarChangeGracePeriod - (DateTimeOffset.UtcNow - lastAvatarChangeAt);
+                    keepPendingReset = MarkPendingResetWaitingForSourceAvatarReturn(pendingReset);
+                    if (keepPendingReset)
+                    {
+                        var resetLabel = rule.ActionType == OscActionType.SetTrigger ? "Set Trigger restore" : "Timed reset";
+                        WriteLog($"{resetLabel} for '{rule.Name}' is deferred because the avatar recently changed. Waiting for the grace period to end. ({DescribeDuration(graceRemaining.TotalSeconds)} remaining)");
+                        return;
+                    }
+                }
+
                 if (pendingReset.HasPackets
                     && !string.IsNullOrWhiteSpace(pendingReset.SourceAvatarId)
                     && !string.Equals(GetCurrentVrChatAvatarId(), pendingReset.SourceAvatarId, StringComparison.Ordinal))
@@ -10015,6 +10456,10 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                         foreach (var releasedLaneKey in releasedLaneKeys)
                         {
                             EnsureQueuedLaneDrain(releasedLaneKey);
+                            if (string.Equals(releasedLaneKey, AvatarSwitchLaneKey, StringComparison.Ordinal))
+                            {
+                                EnsureQueuedAvatarSwitchDrain();
+                            }
                         }
                     }
 
@@ -10269,6 +10714,52 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         }
     }
 
+    private bool TryGetReadyQueuedAvatarSwitchNameForDirectTransition(
+        PendingResetState pendingReset,
+        out string queuedRuleName)
+    {
+        queuedRuleName = string.Empty;
+        if (!IsPauseableAvatarSwitchReset(pendingReset))
+        {
+            return false;
+        }
+
+        lock (stateGate)
+        {
+            if (queuedAvatarSwitches.Count == 0)
+            {
+                return false;
+            }
+
+            var now = DateTimeOffset.UtcNow;
+            if (IsSupporterOverrideSequenceActiveLocked(now))
+            {
+                return false;
+            }
+
+            var nextSwitch = queuedAvatarSwitches.Peek();
+            var currentRule = activeConfiguration?.Rules.FirstOrDefault(rule => rule.Id == nextSwitch.Rule.Id);
+            if (currentRule is null || !currentRule.IsEnabled || !IsQueuedAvatarSwitchRule(currentRule))
+            {
+                return false;
+            }
+
+            if (TryGetTemporarilyDisabledUntilLocked(currentRule.Id, now, out var temporarilyDisabledUntil)
+                && temporarilyDisabledUntil > now)
+            {
+                return false;
+            }
+
+            if (cooldowns.TryGetValue(currentRule.Id, out var cooldownUntil) && cooldownUntil > now)
+            {
+                return false;
+            }
+
+            queuedRuleName = currentRule.Name;
+            return true;
+        }
+    }
+
     private bool MarkPendingResetWaitingForSourceAvatarReturn(PendingResetState pendingReset)
     {
         lock (stateGate)
@@ -10284,6 +10775,36 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         }
     }
 
+    private void CancelStalePendingResets(string newAvatarId)
+    {
+        List<PendingResetState> staleResets;
+        lock (stateGate)
+        {
+            staleResets = pendingResets.Values
+                .Where(reset =>
+                    reset.IsWaitingForSourceAvatarReturn
+                    && !string.IsNullOrWhiteSpace(reset.SourceAvatarId)
+                    && !string.Equals(reset.SourceAvatarId, newAvatarId, StringComparison.Ordinal))
+                .ToList();
+        }
+
+        foreach (var staleReset in staleResets)
+        {
+            staleReset.Cancellation.Cancel();
+            lock (stateGate)
+            {
+                pendingResets.Remove(staleReset.RuleId);
+            }
+            WriteLog($"Cancelled stale pending reset for '{staleReset.RuleName}' because the source avatar will not return after the world change.");
+            var releasedLaneKeys = ReleaseMovementLanes(staleReset.MovementLaneLeaseId, staleReset.MovementLaneKeys);
+            foreach (var releasedLaneKey in releasedLaneKeys)
+            {
+                EnsureQueuedLaneDrain(releasedLaneKey);
+            }
+            staleReset.Cancellation.Dispose();
+        }
+    }
+
     private void ResumePendingAvatarScopedResetsForCurrentAvatar(string avatarId)
     {
         var normalizedAvatarId = avatarId?.Trim() ?? string.Empty;
@@ -10291,6 +10812,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         {
             return;
         }
+
+        CancelStalePendingResets(normalizedAvatarId);
 
         List<PendingResetState> resetsToResume;
         lock (stateGate)
@@ -12875,6 +13398,14 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         }
     }
 
+    private bool IsInAvatarChangeGracePeriod()
+    {
+        lock (stateGate)
+        {
+            return (DateTimeOffset.UtcNow - lastAvatarChangeAt) < AvatarChangeGracePeriod;
+        }
+    }
+
     private SharedReturnAvatarSnapshot GetSharedReturnAvatarSnapshot()
     {
         lock (stateGate)
@@ -12915,6 +13446,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 
         if (changed && !string.IsNullOrWhiteSpace(normalizedAvatarId))
         {
+            lastAvatarChangeAt = DateTimeOffset.UtcNow;
             ResumePendingAvatarScopedResetsForCurrentAvatar(normalizedAvatarId);
             QueueAvatarScaleAvatarChangeHandling(
                 previousAvatarId,
@@ -12981,6 +13513,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                     carryover.SourceRuleName);
 
                 RetargetAvatarScaleRestoreSequenceForAvatarChange(newAvatarId);
+                RetargetPausedDevAvatarScaleTimerForAvatarChange(newAvatarId);
                 WriteLog($"Avatar scale carryover from '{carryover.SourceRuleName}' is waiting {AvatarScaleCarryoverInitialSendDelay.TotalSeconds:0.#}s for the new avatar to finish loading before applying {carryover.CarriedHeightMeters:0.###}m.");
                 await Task.Delay(AvatarScaleCarryoverInitialSendDelay, cancellationToken);
                 for (var attempt = 1; attempt <= AvatarScaleCarryoverApplyAttemptCount; attempt++)
@@ -13090,29 +13623,60 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 if (activeAvatarScaleRestoreSequence is null
                     || activeAvatarScaleRestoreSequence.ActiveUntil <= now)
                 {
-                    return null;
+                    if (pausedDevAvatarScaleTimerSnapshot is not { } pausedSnapshot
+                        || pausedSnapshot.ActiveUntil <= now)
+                    {
+                        return null;
+                    }
+
+                    var fallbackPreviousAvatarId = previousAvatarId?.Trim() ?? string.Empty;
+                    if (!string.IsNullOrWhiteSpace(fallbackPreviousAvatarId)
+                        && !pendingAvatarScaleHeightRestores.ContainsKey(fallbackPreviousAvatarId))
+                    {
+                        pendingAvatarScaleHeightRestores[fallbackPreviousAvatarId] = new PendingAvatarScaleHeightRestoreState(
+                            pausedSnapshot.RestoreHeightMeters,
+                            pausedSnapshot.ActiveUntil,
+                            pausedSnapshot.SourceRuleName);
+                    }
+
+                    return new AvatarScaleCarryoverSnapshot(
+                        pausedSnapshot.RuleId,
+                        pausedSnapshot.SessionId,
+                        pausedSnapshot.RestoreSequenceId,
+                        Guid.Empty,
+                        pausedSnapshot.SourceRuleName,
+                        pausedSnapshot.CarriedHeightMeters,
+                        pausedSnapshot.RestoreHeightMeters,
+                        pausedSnapshot.ActiveUntil);
                 }
 
-                var activeSequence = activeAvatarScaleRestoreSequence;
-                var fallbackPreviousAvatarId = previousAvatarId?.Trim() ?? string.Empty;
-                if (!string.IsNullOrWhiteSpace(fallbackPreviousAvatarId)
-                    && !pendingAvatarScaleHeightRestores.ContainsKey(fallbackPreviousAvatarId))
                 {
-                    pendingAvatarScaleHeightRestores[fallbackPreviousAvatarId] = new PendingAvatarScaleHeightRestoreState(
-                        activeSequence.RestoreHeightMeters,
-                        activeSequence.ActiveUntil,
-                        activeSequence.SourceRuleName);
-                }
+                    var activeSequence = activeAvatarScaleRestoreSequence;
+                    if (activeSequence is null)
+                    {
+                        return null;
+                    }
 
-                return new AvatarScaleCarryoverSnapshot(
-                    Guid.Empty,
-                    Guid.Empty,
-                    activeSequence.SequenceId,
-                    Guid.Empty,
-                    activeSequence.SourceRuleName,
-                    activeSequence.CarriedHeightMeters,
-                    activeSequence.RestoreHeightMeters,
-                    activeSequence.ActiveUntil);
+                    var fallbackPreviousAvatarId = previousAvatarId?.Trim() ?? string.Empty;
+                    if (!string.IsNullOrWhiteSpace(fallbackPreviousAvatarId)
+                        && !pendingAvatarScaleHeightRestores.ContainsKey(fallbackPreviousAvatarId))
+                    {
+                        pendingAvatarScaleHeightRestores[fallbackPreviousAvatarId] = new PendingAvatarScaleHeightRestoreState(
+                            activeSequence.RestoreHeightMeters,
+                            activeSequence.ActiveUntil,
+                            activeSequence.SourceRuleName);
+                    }
+
+                    return new AvatarScaleCarryoverSnapshot(
+                        Guid.Empty,
+                        Guid.Empty,
+                        activeSequence.SequenceId,
+                        Guid.Empty,
+                        activeSequence.SourceRuleName,
+                        activeSequence.CarriedHeightMeters,
+                        activeSequence.RestoreHeightMeters,
+                        activeSequence.ActiveUntil);
+                }
             }
 
             var normalizedPreviousAvatarId = previousAvatarId?.Trim() ?? string.Empty;
@@ -13170,6 +13734,14 @@ public sealed class BridgeCoordinator : IAsyncDisposable
                 && activeAvatarScaleHeightSessions.TryGetValue(carryover.SourceRuleId, out var session)
                 && session.SessionId == carryover.SessionId
                 && session.ActiveUntil > now)
+            {
+                return true;
+            }
+
+            if (carryover.RestoreSequenceId > 0
+                && pausedDevAvatarScaleTimerSnapshot is { } pausedSnapshot
+                && pausedSnapshot.RestoreSequenceId == carryover.RestoreSequenceId
+                && pausedSnapshot.ActiveUntil > now)
             {
                 return true;
             }
@@ -17270,6 +17842,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
         double RestoreSmoothTransitionSeconds,
         bool RestoreToPaidGrowthIfActive,
         bool IsTest,
+        DateTimeOffset ActiveUntil,
         TimeSpan Remaining,
         int QueuedLiveScaleCountAtPause,
         string SourceDescription,

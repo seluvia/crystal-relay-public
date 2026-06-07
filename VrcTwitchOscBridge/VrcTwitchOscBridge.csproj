@@ -11,10 +11,10 @@
     <EnableDefaultPageItems>false</EnableDefaultPageItems>
     <ApplicationIcon>Assets\crystal-relay-icon.ico</ApplicationIcon>
     <UseWindowsForms>true</UseWindowsForms>
-    <Version>3.1.8</Version>
-    <AssemblyVersion>3.1.8.0</AssemblyVersion>
-    <FileVersion>3.1.8.0</FileVersion>
-    <InformationalVersion>3.1.8</InformationalVersion>
+    <Version>3.1.9</Version>
+    <AssemblyVersion>3.1.9.0</AssemblyVersion>
+    <FileVersion>3.1.9.0</FileVersion>
+    <InformationalVersion>3.1.9</InformationalVersion>
     <AssemblyName>CrystalRelayTwitchOsc</AssemblyName>
     <Product>Crystal Relay</Product>
     <Title>Crystal Relay - Twitch to OSC</Title>
@@ -43,6 +43,8 @@
     <Page Include="ThemedDialogWindow.xaml" />
     <Page Include="RuleLockoutPickerWindow.xaml" />
     <Page Include="AvatarRouletPickerWindow.xaml" />
+    <Page Include="AvatarPickerWindow.xaml" />
+    <Page Include="AvatarLibraryManagerWindow.xaml" />
     <Page Include="VrChatLoginWindow.xaml" />
     <Page Include="VrChatTwoFactorWindow.xaml" />
     <Page Include="RedeemGroupEditorDialog.xaml" />
@@ -78,6 +80,9 @@
     <Compile Include="ThemedDialogWindow.xaml.cs" />
     <Compile Include="RuleLockoutPickerWindow.xaml.cs" />
     <Compile Include="AvatarRouletPickerWindow.xaml.cs" />
+    <Compile Include="AvatarPickerWindow.xaml.cs" />
+    <Compile Include="AvatarLibraryManagerWindow.xaml.cs" />
+    <Compile Include="Converters.cs" />
     <Compile Include="VrChatLoginWindow.xaml.cs" />
     <Compile Include="VrChatTwoFactorWindow.xaml.cs" />
     <Compile Include="RedeemGroupEditorDialog.xaml.cs" />
@@ -113,10 +118,17 @@
     <Compile Include="Models\UniversalTriggerValueKind.cs" />
     <Compile Include="Models\VrChatAccountSettings.cs" />
     <Compile Include="Models\VrChatAvatarSummary.cs" />
+    <Compile Include="Models\AvatarLibrary.cs" />
+    <Compile Include="Models\AvatarPickerViewMode.cs" />
     <Compile Include="Models\VrChatOscParameterSummary.cs" />
     <Compile Include="Models\VrChatTwoFactorMethod.cs" />
+    <Compile Include="Models\WardrobeSnapshotParam.cs" />
+    <Compile Include="Models\WardrobeOutfit.cs" />
     <Compile Include="Models\WorldCommandBlacklistSettings.cs" />
     <Compile Include="Services\AppDataPaths.cs" />
+    <Compile Include="Services\AvatarImageService.cs" />
+    <Compile Include="Services\AvatarPickerService.cs" />
+    <Compile Include="Services\ApplicationRestartService.cs" />
     <Compile Include="Services\ApplicationSelfUpdateService.cs" />
     <Compile Include="Services\ApplicationUpdateService.cs" />
     <Compile Include="Services\BridgeAccountRole.cs" />
@@ -151,13 +163,18 @@
     <Compile Include="Services\UniversalTriggerFusionService.cs" />
     <Compile Include="Services\VrChatApiClient.cs" />
     <Compile Include="Services\VrChatApiException.cs" />
+    <Compile Include="Services\VrChatApiRoutes.cs" />
     <Compile Include="Services\VrChatLocalAvatarDataService.cs" />
     <Compile Include="Services\VrChatLocalClientStateService.cs" />
     <Compile Include="Services\VrChatLocalOscCacheService.cs" />
     <Compile Include="Services\VrChatOscClient.cs" />
+    <Compile Include="Services\WardrobeExecutorService.cs" />
+    <Compile Include="Services\WindowPlacementStateStore.cs" />
     <Compile Include="Services\WindowsCredentialStore.cs" />
     <Compile Include="Services\WorldCommandBlacklistService.cs" />
     <Compile Include="ViewModels\MainWindowViewModel.cs" />
+    <Compile Include="ViewModels\AvatarPickerViewModel.cs" />
+    <Compile Include="ViewModels\AvatarLibraryManagerViewModel.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\oscquery-lib\vrc-oscquery-lib\vrc-oscquery-lib.csproj" SetTargetFramework="TargetFramework=net6.0" />

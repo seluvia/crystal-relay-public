@@ -1,4 +1,4 @@
-﻿.vs/
+.vs/
 .vscode/
 .idea/
 .opencode/
@@ -15,10 +15,13 @@ Releases/
 TestBuilds/
 Code Review/
 temp-build/
+docs/superpowers/
 
 **/bin/
 **/obj/
 
+\!open-opencode.bat
+\!start-opencode Server.bat
 *.user
 *.suo
 *.cache

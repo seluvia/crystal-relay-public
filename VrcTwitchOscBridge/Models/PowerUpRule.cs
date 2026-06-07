@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Text.Json.Serialization;
 using VrcTwitchOscBridge.Infrastructure;
 
 namespace VrcTwitchOscBridge.Models;
@@ -176,6 +177,11 @@ public sealed class PowerUpRule : ObservableObject
 
     public string AvatarScopeLabel => string.IsNullOrWhiteSpace(AvatarName)
         ? AvatarId
+        : AvatarName;
+
+    [JsonIgnore]
+    public string AvatarDisplayName => string.IsNullOrWhiteSpace(AvatarName)
+        ? string.IsNullOrWhiteSpace(AvatarId) ? "(Not set)" : AvatarId
         : AvatarName;
 
     public int CooldownSeconds

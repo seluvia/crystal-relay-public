@@ -28,12 +28,24 @@ public sealed class AvatarTriggerProfile : ObservableObject
     private string setTriggerMasterRewardCooldownColor = ManagedRewardPresentation.InUseBackgroundColor;
     private bool deleteSetTriggerMasterRewardWhenInactive;
     private bool useSharedNumberedOutfitReward = true;
-    private bool postOutfitChoiceListToTwitchChat;
+private bool postOutfitChoiceListToTwitchChat;
     private ObservableCollection<TriggerRule> channelPointRules = [];
+    private bool useWardrobeMode = true;
+    private int wardrobeCooldownSeconds;
+    private ObservableCollection<WardrobeOutfit> wardrobeOutfits = [];
+    private bool useWardrobeMasterReward;
+    private string wardrobeMasterRewardId = string.Empty;
+    private string wardrobeMasterRewardTitle = string.Empty;
+    private int wardrobeMasterRewardCost = 100;
+    private TwitchRewardSyncMode wardrobeMasterRewardSyncMode = TwitchRewardSyncMode.CreateOrManage;
+    private int wardrobeMasterRewardCooldownSeconds;
+    private string wardrobeMasterRewardReadyColor = ManagedRewardPresentation.ReadyBackgroundColor;
+    private string wardrobeMasterRewardCooldownColor = ManagedRewardPresentation.InUseBackgroundColor;
 
     public AvatarTriggerProfile()
     {
         channelPointRules.CollectionChanged += OnChannelPointRulesChanged;
+        wardrobeOutfits.CollectionChanged += OnWardrobeOutfitsChanged;
     }
 
     public Guid Id
@@ -225,13 +237,128 @@ public sealed class AvatarTriggerProfile : ObservableObject
                 RaisePropertyChanged(nameof(OutfitRewardModeSummary));
             }
         }
-    }
+}
 
     public bool PostOutfitChoiceListToTwitchChat
     {
         get => postOutfitChoiceListToTwitchChat;
         set => SetProperty(ref postOutfitChoiceListToTwitchChat, value);
     }
+
+    public bool UseWardrobeMode
+    {
+        get => useWardrobeMode;
+        set
+        {
+            if (SetProperty(ref useWardrobeMode, value))
+            {
+                RaisePropertyChanged(nameof(WardrobeModeSummary));
+            }
+        }
+    }
+
+    public int WardrobeCooldownSeconds
+    {
+        get => wardrobeCooldownSeconds;
+        set => SetProperty(ref wardrobeCooldownSeconds, Math.Max(0, value));
+    }
+
+    public ObservableCollection<WardrobeOutfit> WardrobeOutfits
+    {
+        get => wardrobeOutfits;
+        set
+        {
+            if (ReferenceEquals(wardrobeOutfits, value)) return;
+            wardrobeOutfits.CollectionChanged -= OnWardrobeOutfitsChanged;
+            if (SetProperty(ref wardrobeOutfits, value ?? []))
+            {
+                wardrobeOutfits.CollectionChanged += OnWardrobeOutfitsChanged;
+            }
+        }
+    }
+
+    public bool UseWardrobeMasterReward
+    {
+        get => useWardrobeMasterReward;
+        set => SetProperty(ref useWardrobeMasterReward, value);
+    }
+
+    public string WardrobeMasterRewardId
+    {
+        get => wardrobeMasterRewardId;
+        set => SetProperty(ref wardrobeMasterRewardId, value ?? string.Empty);
+    }
+
+    public string WardrobeMasterRewardTitle
+    {
+        get => wardrobeMasterRewardTitle;
+        set => SetProperty(ref wardrobeMasterRewardTitle, value ?? string.Empty);
+    }
+
+    public int WardrobeMasterRewardCost
+    {
+        get => wardrobeMasterRewardCost;
+        set => SetProperty(ref wardrobeMasterRewardCost, Math.Max(1, value));
+    }
+
+    public TwitchRewardSyncMode WardrobeMasterRewardSyncMode
+    {
+        get => wardrobeMasterRewardSyncMode;
+        set
+        {
+            var normalizedValue = Enum.IsDefined(value)
+                ? value
+                : TwitchRewardSyncMode.CreateOrManage;
+            if (SetProperty(ref wardrobeMasterRewardSyncMode, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(UsesCreateOrManageWardrobeMasterReward));
+                RaisePropertyChanged(nameof(UsesLinkedExistingWardrobeMasterReward));
+            }
+        }
+    }
+
+    public bool UsesCreateOrManageWardrobeMasterReward =>
+        WardrobeMasterRewardSyncMode == TwitchRewardSyncMode.CreateOrManage;
+
+    public bool UsesLinkedExistingWardrobeMasterReward =>
+        WardrobeMasterRewardSyncMode == TwitchRewardSyncMode.LinkExisting;
+
+    public int WardrobeMasterRewardCooldownSeconds
+    {
+        get => wardrobeMasterRewardCooldownSeconds;
+        set => SetProperty(ref wardrobeMasterRewardCooldownSeconds, Math.Max(0, value));
+    }
+
+    public string WardrobeMasterRewardReadyColor
+    {
+        get => wardrobeMasterRewardReadyColor;
+        set
+        {
+            var normalizedValue = ManagedRewardPresentation.NormalizeReadyBackgroundColor(value);
+            if (SetProperty(ref wardrobeMasterRewardReadyColor, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(WardrobeMasterRewardReadyColorBrush));
+            }
+        }
+    }
+
+    public string WardrobeMasterRewardCooldownColor
+    {
+        get => wardrobeMasterRewardCooldownColor;
+        set
+        {
+            var normalizedValue = ManagedRewardPresentation.NormalizeCooldownBackgroundColor(value);
+            if (SetProperty(ref wardrobeMasterRewardCooldownColor, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(WardrobeMasterRewardCooldownColorBrush));
+            }
+        }
+    }
+
+    public Brush WardrobeMasterRewardReadyColorBrush => CreateColorBrush(WardrobeMasterRewardReadyColor);
+    public Brush WardrobeMasterRewardCooldownColorBrush => CreateColorBrush(WardrobeMasterRewardCooldownColor);
+
+    public string WardrobeModeSummary => "Named outfits with mixed Bool/Int/Float snapshots and auto-capture restore.";
 
     public ObservableCollection<TriggerRule> ChannelPointRules
     {
@@ -310,5 +437,10 @@ public sealed class AvatarTriggerProfile : ObservableObject
     private void OnChannelPointRulesChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         RaisePropertyChanged(nameof(TriggerCountText));
+    }
+
+    private void OnWardrobeOutfitsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        // Future: raise aggregate properties if needed
     }
 }

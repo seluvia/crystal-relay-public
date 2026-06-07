@@ -20,6 +20,7 @@
         ResizeMode="CanResize"
         SnapsToDevicePixels="True"
         FontFamily="{DynamicResource BodyFontFamily}"
+        WindowStartupLocation="CenterScreen"
         Background="{DynamicResource WindowBackgroundBrush}">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="0"
@@ -30,6 +31,7 @@
     </shell:WindowChrome.WindowChrome>
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+        <local:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
         <DataTemplate x:Key="AboutTwitchProfileTemplate">
             <Border x:Name="AboutProfileCard"
                     Margin="0,12,0,0"
@@ -2165,10 +2167,29 @@
                             <TextBlock Text="{loc:Translate 'OSC Status'}" Style="{StaticResource HeadingTextStyle}" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                             <TextBlock Margin="0,10,0,0" Text="{Binding OscBridgeSummary}" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
                             <TextBlock Margin="0,6,0,0" Text="{Binding OscStatusDetail}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
-                            <Button Margin="0,12,0,0"
-                                    Style="{StaticResource SecondaryButtonStyle}"
-                                    Content="{loc:Translate 'Force Refresh'}"
-                                    Command="{Binding RefreshOscConnectionCommand}" />
+                            <WrapPanel Margin="0,12,0,0">
+                                <Button Margin="0,0,8,8"
+                                        Style="{StaticResource SecondaryButtonStyle}"
+                                        Content="{loc:Translate 'Force Refresh'}"
+                                        Command="{Binding RefreshOscConnectionCommand}" />
+                                <Button Margin="0,0,8,8"
+                                        Style="{StaticResource SecondaryButtonStyle}"
+                                        Content="{loc:Translate 'Restart Crystal Relay'}"
+                                        Click="OnRestartCrystalRelayClicked" />
+                                <Button Margin="0,0,0,8"
+                                        Style="{StaticResource SecondaryButtonStyle}"
+                                        Content="{loc:Translate 'Restart VRChat + Crystal Relay'}"
+                                        Click="OnRestartVrChatAndCrystalRelayClicked" />
+                            </WrapPanel>
+                            <CheckBox Margin="0,4,0,0"
+                                      IsChecked="{Binding Settings.RestartVrChatInDesktopMode, UpdateSourceTrigger=PropertyChanged}">
+                                <TextBlock Text="{loc:Translate 'Restart VRChat in desktop mode'}"
+                                           TextWrapping="Wrap" />
+                            </CheckBox>
+                            <TextBlock Margin="26,6,0,0"
+                                       Text="{loc:Translate 'When checked, the VRChat restart button launches VRChat with --no-vr.'}"
+                                       Foreground="{DynamicResource MutedBrush}"
+                                       TextWrapping="Wrap" />
                         </StackPanel>
                     </Border>
 
@@ -3374,154 +3395,242 @@
                                    Foreground="{DynamicResource TextBrush}"
                                    TextAlignment="Center"
                                    HorizontalAlignment="Center" />
-                        <!-- Rule Library tabs switch between the four editing modes:
-                             avatar-tied redeems, avatar changes, movement redeems, and paid overrides. -->
-                        <UniformGrid Margin="0,12,0,0"
-                                     Width="340"
-                                     Columns="2"
-                                     HorizontalAlignment="Center">
-                            <Button Content="{loc:Translate 'Avatar Sets'}"
-                                    Command="{Binding ShowAvatarTriggerRulesCommand}">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource RuleLibraryTabButtonStyle}">
-                                        <Setter Property="Margin" Value="0,0,10,10" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsViewingAvatarTriggers}" Value="True">
-                                                <Setter Property="Background" Value="{DynamicResource SectionActiveBrush}" />
-                                                <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                                                <Setter Property="Foreground" Value="White" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                            </Button>
-                            <Button Content="{loc:Translate 'Avatar Change'}"
-                                    Command="{Binding ShowMasterAvatarTabCommand}">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource RuleLibraryTabButtonStyle}">
-                                        <Setter Property="Margin" Value="10,0,0,10" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsViewingMasterAvatar}" Value="True">
-                                                <Setter Property="Background" Value="{DynamicResource SectionActiveBrush}" />
-                                                <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                                                <Setter Property="Foreground" Value="White" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                            </Button>
-                            <Button Content="{loc:Translate 'Movement Redeems'}"
-                                    Command="{Binding ShowMovementRedeemsCommand}">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource RuleLibraryTabButtonStyle}">
-                                        <Setter Property="Margin" Value="0,0,10,0" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsViewingMovementRedeems}" Value="True">
-                                                <Setter Property="Background" Value="{DynamicResource SectionActiveBrush}" />
-                                                <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                                                <Setter Property="Foreground" Value="White" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                            </Button>
-                            <Button Content="{loc:Translate 'Bits + Subs'}"
-                                    Command="{Binding ShowSupporterOverridesCommand}">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource RuleLibraryTabButtonStyle}">
-                                        <Setter Property="Margin" Value="10,0,0,0" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsViewingSupporterOverrides}" Value="True">
-                                                <Setter Property="Background" Value="{DynamicResource SectionActiveBrush}" />
-                                                <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                                                <Setter Property="Foreground" Value="White" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                            </Button>
-                            <Button Content="{loc:Translate 'Universal Triggers'}"
-                                    Command="{Binding ShowUniversalTriggersCommand}">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource RuleLibraryTabButtonStyle}">
-                                        <Setter Property="Margin" Value="0,10,10,0" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsViewingUniversalTriggers}" Value="True">
-                                                <Setter Property="Background" Value="{DynamicResource SectionActiveBrush}" />
-                                                <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                                                <Setter Property="Foreground" Value="White" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                            </Button>
-                            <Button Content="{loc:Translate 'Avatar Scaling'}"
-                                    Command="{Binding ShowAvatarScalingCommand}">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource RuleLibraryTabButtonStyle}">
-                                        <Setter Property="Margin" Value="10,10,0,0" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsViewingAvatarScaling}" Value="True">
-                                                <Setter Property="Background" Value="{DynamicResource SectionActiveBrush}" />
-                                                <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                                                <Setter Property="Foreground" Value="White" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                            </Button>
-                        </UniformGrid>
-                        <Button Content="{loc:Translate 'Cash Payments'}"
-                                Command="{Binding ShowCashPaymentsCommand}"
-                                Width="340"
-                                Margin="0,10,0,0"
-                                HorizontalAlignment="Center">
-                            <Button.Style>
-                                <Style TargetType="Button" BasedOn="{StaticResource RuleLibraryTabButtonStyle}">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsViewingCashPayments}" Value="True">
-                                            <Setter Property="Background" Value="{DynamicResource SectionActiveBrush}" />
-                                            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                                            <Setter Property="Foreground" Value="White" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                        </Button>
-                        <Button Content="{loc:Translate 'Power Up'}"
-                                Command="{Binding ShowPowerUpsCommand}"
-                                Width="340"
-                                Margin="0,10,0,0"
-                                HorizontalAlignment="Center">
-                            <Button.Style>
-                                <Style TargetType="Button" BasedOn="{StaticResource RuleLibraryTabButtonStyle}">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsViewingPowerUps}" Value="True">
-                                            <Setter Property="Background" Value="{DynamicResource SectionActiveBrush}" />
-                                            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                                            <Setter Property="Foreground" Value="White" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                        </Button>
-                        <Button Content="{loc:Translate 'Reward Fire Sale'}"
-                                Command="{Binding ShowRewardFireSaleCommand}"
-                                Width="340"
-                                Margin="0,10,0,0"
-                                HorizontalAlignment="Center">
-                            <Button.Style>
-                                <Style TargetType="Button" BasedOn="{StaticResource RuleLibraryTabButtonStyle}">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsViewingRewardFireSale}" Value="True">
-                                            <Setter Property="Background" Value="{DynamicResource SectionActiveBrush}" />
-                                            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                                            <Setter Property="Foreground" Value="White" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                        </Button>
+                         <!-- Avatar-Tied Redeems group -->
+                         <Border Margin="0,12,0,0"
+                                 Background="{DynamicResource NestedPanelBrush}"
+                                 BorderBrush="{DynamicResource HighlightBorderBrush}"
+                                 BorderThickness="1"
+                                 CornerRadius="14"
+                                 Padding="12">
+                             <StackPanel>
+                                 <TextBlock Text="{loc:Translate 'Avatar-Tied Redeems'}"
+                                            FontFamily="{DynamicResource HeadingFontFamily}"
+                                            FontSize="12"
+                                            FontWeight="SemiBold"
+                                            Foreground="{DynamicResource MutedBrush}"
+                                            HorizontalAlignment="Center"
+                                            TextAlignment="Center" />
+                                 <UniformGrid Margin="0,8,0,0"
+                                              Columns="2">
+                                     <Button Content="{loc:Translate 'Avatar Sets'}"
+                                             Command="{Binding ShowAvatarTriggerRulesCommand}">
+                                         <Button.Style>
+                                             <Style TargetType="Button" BasedOn="{StaticResource RuleLibraryTabButtonStyle}">
+                                                 <Setter Property="Margin" Value="0,0,5,0" />
+                                                 <Style.Triggers>
+                                                     <DataTrigger Binding="{Binding IsViewingAvatarTriggers}" Value="True">
+                                                         <Setter Property="Background" Value="{DynamicResource SectionActiveBrush}" />
+                                                         <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                                         <Setter Property="Foreground" Value="White" />
+                                                     </DataTrigger>
+                                                 </Style.Triggers>
+                                             </Style>
+                                         </Button.Style>
+                                     </Button>
+                                     <Button Content="{loc:Translate 'Wardrobe'}"
+                                             Command="{Binding ShowWardrobeCommand}">
+                                         <Button.Style>
+                                             <Style TargetType="Button" BasedOn="{StaticResource RuleLibraryTabButtonStyle}">
+                                                 <Setter Property="Margin" Value="5,0,0,0" />
+                                                 <Style.Triggers>
+                                                     <DataTrigger Binding="{Binding IsViewingWardrobe}" Value="True">
+                                                         <Setter Property="Background" Value="{DynamicResource SectionActiveBrush}" />
+                                                         <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                                         <Setter Property="Foreground" Value="White" />
+                                                     </DataTrigger>
+                                                 </Style.Triggers>
+                                             </Style>
+                                         </Button.Style>
+                                     </Button>
+                                 </UniformGrid>
+                                 <TextBlock Margin="0,6,0,0"
+                                            Text="{loc:Translate 'These two share the same avatar profile list.'}"
+                                            FontSize="11"
+                                            Foreground="{DynamicResource MutedBrush}"
+                                            HorizontalAlignment="Center"
+                                            TextAlignment="Center" />
+                             </StackPanel>
+                         </Border>
+                         <!-- Avatar Actions group -->
+                         <Border Margin="0,10,0,0"
+                                 Background="{DynamicResource NestedPanelBrush}"
+                                 BorderBrush="{DynamicResource HighlightBorderBrush}"
+                                 BorderThickness="1"
+                                 CornerRadius="14"
+                                 Padding="12">
+                             <StackPanel>
+                                 <TextBlock Text="{loc:Translate 'Avatar Actions'}"
+                                            FontFamily="{DynamicResource HeadingFontFamily}"
+                                            FontSize="12"
+                                            FontWeight="SemiBold"
+                                            Foreground="{DynamicResource MutedBrush}"
+                                            HorizontalAlignment="Center"
+                                            TextAlignment="Center" />
+                                 <UniformGrid Margin="0,8,0,0"
+                                              Columns="2">
+                                     <Button Content="{loc:Translate 'Avatar Change'}"
+                                             Command="{Binding ShowMasterAvatarTabCommand}">
+                                         <Button.Style>
+                                             <Style TargetType="Button" BasedOn="{StaticResource RuleLibraryTabButtonStyle}">
+                                                 <Setter Property="Margin" Value="0,0,5,0" />
+                                                 <Style.Triggers>
+                                                     <DataTrigger Binding="{Binding IsViewingMasterAvatar}" Value="True">
+                                                         <Setter Property="Background" Value="{DynamicResource SectionActiveBrush}" />
+                                                         <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                                         <Setter Property="Foreground" Value="White" />
+                                                     </DataTrigger>
+                                                 </Style.Triggers>
+                                             </Style>
+                                         </Button.Style>
+                                     </Button>
+                                     <Button Content="{loc:Translate 'Avatar Scaling'}"
+                                             Command="{Binding ShowAvatarScalingCommand}">
+                                         <Button.Style>
+                                             <Style TargetType="Button" BasedOn="{StaticResource RuleLibraryTabButtonStyle}">
+                                                 <Setter Property="Margin" Value="5,0,0,0" />
+                                                 <Style.Triggers>
+                                                     <DataTrigger Binding="{Binding IsViewingAvatarScaling}" Value="True">
+                                                         <Setter Property="Background" Value="{DynamicResource SectionActiveBrush}" />
+                                                         <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                                         <Setter Property="Foreground" Value="White" />
+                                                     </DataTrigger>
+                                                 </Style.Triggers>
+                                             </Style>
+                                         </Button.Style>
+                                     </Button>
+                                 </UniformGrid>
+                             </StackPanel>
+                         </Border>
+                         <!-- Trigger Systems group -->
+                         <Border Margin="0,10,0,0"
+                                 Background="{DynamicResource NestedPanelBrush}"
+                                 BorderBrush="{DynamicResource HighlightBorderBrush}"
+                                 BorderThickness="1"
+                                 CornerRadius="14"
+                                 Padding="12">
+                             <StackPanel>
+                                 <TextBlock Text="{loc:Translate 'Trigger Systems'}"
+                                            FontFamily="{DynamicResource HeadingFontFamily}"
+                                            FontSize="12"
+                                            FontWeight="SemiBold"
+                                            Foreground="{DynamicResource MutedBrush}"
+                                            HorizontalAlignment="Center"
+                                            TextAlignment="Center" />
+                                 <UniformGrid Margin="0,8,0,0"
+                                              Columns="2">
+                                     <Button Content="{loc:Translate 'Movement Redeems'}"
+                                             Command="{Binding ShowMovementRedeemsCommand}">
+                                         <Button.Style>
+                                             <Style TargetType="Button" BasedOn="{StaticResource RuleLibraryTabButtonStyle}">
+                                                 <Setter Property="Margin" Value="0,0,5,0" />
+                                                 <Style.Triggers>
+                                                     <DataTrigger Binding="{Binding IsViewingMovementRedeems}" Value="True">
+                                                         <Setter Property="Background" Value="{DynamicResource SectionActiveBrush}" />
+                                                         <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                                         <Setter Property="Foreground" Value="White" />
+                                                     </DataTrigger>
+                                                 </Style.Triggers>
+                                             </Style>
+                                         </Button.Style>
+                                     </Button>
+                                     <Button Content="{loc:Translate 'Universal Triggers'}"
+                                             Command="{Binding ShowUniversalTriggersCommand}">
+                                         <Button.Style>
+                                             <Style TargetType="Button" BasedOn="{StaticResource RuleLibraryTabButtonStyle}">
+                                                 <Setter Property="Margin" Value="5,0,0,0" />
+                                                 <Style.Triggers>
+                                                     <DataTrigger Binding="{Binding IsViewingUniversalTriggers}" Value="True">
+                                                         <Setter Property="Background" Value="{DynamicResource SectionActiveBrush}" />
+                                                         <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                                         <Setter Property="Foreground" Value="White" />
+                                                     </DataTrigger>
+                                                 </Style.Triggers>
+                                             </Style>
+                                         </Button.Style>
+                                     </Button>
+                                 </UniformGrid>
+                             </StackPanel>
+                         </Border>
+                         <!-- Viewer Support group -->
+                         <Border Margin="0,10,0,0"
+                                 Background="{DynamicResource NestedPanelBrush}"
+                                 BorderBrush="{DynamicResource HighlightBorderBrush}"
+                                 BorderThickness="1"
+                                 CornerRadius="14"
+                                 Padding="12">
+                             <StackPanel>
+                                 <TextBlock Text="{loc:Translate 'Viewer Support'}"
+                                            FontFamily="{DynamicResource HeadingFontFamily}"
+                                            FontSize="12"
+                                            FontWeight="SemiBold"
+                                            Foreground="{DynamicResource MutedBrush}"
+                                            HorizontalAlignment="Center"
+                                            TextAlignment="Center" />
+                                 <UniformGrid Margin="0,8,0,0"
+                                              Columns="2">
+                                     <Button Content="{loc:Translate 'Bits + Subs'}"
+                                             Command="{Binding ShowSupporterOverridesCommand}">
+                                         <Button.Style>
+                                             <Style TargetType="Button" BasedOn="{StaticResource RuleLibraryTabButtonStyle}">
+                                                 <Setter Property="Margin" Value="0,0,5,8" />
+                                                 <Style.Triggers>
+                                                     <DataTrigger Binding="{Binding IsViewingSupporterOverrides}" Value="True">
+                                                         <Setter Property="Background" Value="{DynamicResource SectionActiveBrush}" />
+                                                         <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                                         <Setter Property="Foreground" Value="White" />
+                                                     </DataTrigger>
+                                                 </Style.Triggers>
+                                             </Style>
+                                         </Button.Style>
+                                     </Button>
+                                     <Button Content="{loc:Translate 'Cash Payments'}"
+                                             Command="{Binding ShowCashPaymentsCommand}">
+                                         <Button.Style>
+                                             <Style TargetType="Button" BasedOn="{StaticResource RuleLibraryTabButtonStyle}">
+                                                 <Setter Property="Margin" Value="5,0,0,8" />
+                                                 <Style.Triggers>
+                                                     <DataTrigger Binding="{Binding IsViewingCashPayments}" Value="True">
+                                                         <Setter Property="Background" Value="{DynamicResource SectionActiveBrush}" />
+                                                         <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                                         <Setter Property="Foreground" Value="White" />
+                                                     </DataTrigger>
+                                                 </Style.Triggers>
+                                             </Style>
+                                         </Button.Style>
+                                     </Button>
+                                     <Button Content="{loc:Translate 'Power Up'}"
+                                             Command="{Binding ShowPowerUpsCommand}">
+                                         <Button.Style>
+                                             <Style TargetType="Button" BasedOn="{StaticResource RuleLibraryTabButtonStyle}">
+                                                 <Setter Property="Margin" Value="0,0,5,0" />
+                                                 <Style.Triggers>
+                                                     <DataTrigger Binding="{Binding IsViewingPowerUps}" Value="True">
+                                                         <Setter Property="Background" Value="{DynamicResource SectionActiveBrush}" />
+                                                         <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                                         <Setter Property="Foreground" Value="White" />
+                                                     </DataTrigger>
+                                                 </Style.Triggers>
+                                             </Style>
+                                         </Button.Style>
+                                     </Button>
+                                     <Button Content="{loc:Translate 'Reward Fire Sale'}"
+                                             Command="{Binding ShowRewardFireSaleCommand}">
+                                         <Button.Style>
+                                             <Style TargetType="Button" BasedOn="{StaticResource RuleLibraryTabButtonStyle}">
+                                                 <Setter Property="Margin" Value="5,0,0,0" />
+                                                 <Style.Triggers>
+                                                     <DataTrigger Binding="{Binding IsViewingRewardFireSale}" Value="True">
+                                                         <Setter Property="Background" Value="{DynamicResource SectionActiveBrush}" />
+                                                         <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                                         <Setter Property="Foreground" Value="White" />
+                                                     </DataTrigger>
+                                                 </Style.Triggers>
+                                             </Style>
+                                         </Button.Style>
+                                     </Button>
+                                 </UniformGrid>
+                             </StackPanel>
+                         </Border>
                         <StackPanel Margin="0,16,0,0"
                                     Width="340"
                                     HorizontalAlignment="Center">
@@ -3576,16 +3685,19 @@
                                         <DataTrigger Binding="{Binding IsViewingPowerUps}" Value="True">
                                             <Setter Property="Visibility" Value="Collapsed" />
                                         </DataTrigger>
-                                        <DataTrigger Binding="{Binding IsViewingRewardFireSale}" Value="True">
-                                            <Setter Property="Visibility" Value="Collapsed" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </StackPanel.Style>
-                            <UniformGrid Columns="2">
-                                <Button Style="{StaticResource RuleLibraryPrimaryButtonStyle}"
-                                        Margin="0,0,10,0"
-                                        Content="{loc:Translate 'Add Avatar Set'}"
+                                         <DataTrigger Binding="{Binding IsViewingRewardFireSale}" Value="True">
+                                             <Setter Property="Visibility" Value="Collapsed" />
+                                         </DataTrigger>
+                                         <DataTrigger Binding="{Binding IsViewingWardrobe}" Value="True">
+                                             <Setter Property="Visibility" Value="Collapsed" />
+                                         </DataTrigger>
+                                     </Style.Triggers>
+                                 </Style>
+                             </StackPanel.Style>
+                             <UniformGrid Columns="2">
+                                 <Button Style="{StaticResource RuleLibraryPrimaryButtonStyle}"
+                                         Margin="0,0,10,0"
+                                         Content="{loc:Translate 'Add Avatar Set'}"
                                         Command="{Binding AddAvatarProfileCommand}" />
                                 <Button Style="{StaticResource RuleLibraryButtonStyle}"
                                         Margin="10,0,0,0"
@@ -5059,15 +5171,18 @@
                                                             <TextBlock Text="{loc:Translate 'Only run while this VRChat avatar is active'}"
                                                                        TextWrapping="Wrap" />
                                                         </CheckBox>
-                                                        <ComboBox Margin="0,10,0,0"
-                                                                  ItemsSource="{Binding DataContext.VrChatAvatarOptions, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                  IsEditable="True"
-                                                                  IsTextSearchEnabled="True"
-                                                                  StaysOpenOnEdit="True"
-                                                                  TextSearch.TextPath="SearchText"
-                                                                  ItemTemplate="{StaticResource VrChatAvatarOptionTemplate}"
-                                                                  SelectedValuePath="Id"
-                                                                  SelectedValue="{Binding AvatarId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                                        <DockPanel Margin="0,10,0,0">
+                                                            <Button DockPanel.Dock="Right"
+                                                                    Content="{loc:Translate 'Browse...'}"
+                                                                    Style="{StaticResource SecondaryButtonStyle}"
+                                                                    Command="{Binding DataContext.OpenAvatarPickerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                    CommandParameter="PowerUp" />
+                                                            <TextBlock Text="{Binding AvatarDisplayName}"
+                                                                       Foreground="{DynamicResource TextBrush}"
+                                                                       VerticalAlignment="Center"
+                                                                       Margin="0,0,8,0"
+                                                                       TextWrapping="Wrap" />
+                                                        </DockPanel>
                                                         <Button Margin="0,8,0,0"
                                                                 Content="{loc:Translate 'Use Current Avatar'}"
                                                                 Style="{StaticResource SecondaryButtonStyle}"
@@ -5283,15 +5398,18 @@
                                                         <TextBlock Text="{Binding DataContext.SelectedAvatarPickerLabel, RelativeSource={RelativeSource AncestorType=Window}}"
                                                                    Foreground="{DynamicResource TextBrush}"
                                                                    FontWeight="SemiBold" />
-                                                        <ComboBox ItemsSource="{Binding DataContext.ProfileAvatarOptions, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                  Margin="0,8,0,0"
-                                                                  IsEditable="True"
-                                                                  IsTextSearchEnabled="True"
-                                                                  StaysOpenOnEdit="True"
-                                                                  TextSearch.TextPath="SearchText"
-                                                                  ItemTemplate="{StaticResource VrChatAvatarOptionTemplate}"
-                                                                  SelectedValuePath="Id"
-                                                                  SelectedValue="{Binding AvatarId, UpdateSourceTrigger=PropertyChanged}" />
+ <DockPanel Margin="0,8,0,0">
+                                                            <Button DockPanel.Dock="Right"
+                                                                    Content="{loc:Translate 'Browse...'}"
+                                                                    Style="{StaticResource SecondaryButtonStyle}"
+                                                                    Command="{Binding DataContext.OpenAvatarPickerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                    CommandParameter="Profile" />
+                                                            <TextBlock Text="{Binding AvatarDisplayName}"
+                                                                       Foreground="{DynamicResource TextBrush}"
+                                                                       VerticalAlignment="Center"
+                                                                       Margin="0,0,8,0"
+                                                                       TextWrapping="Wrap" />
+                                                        </DockPanel>
                                                     </StackPanel>
                                                 </Grid>
                                                 <WrapPanel Margin="0,16,0,0">
@@ -5344,6 +5462,131 @@
                                     </DataTemplate>
                                 </ContentControl.ContentTemplate>
                             </ContentControl>
+
+                            <Border Margin="0,12,0,0"
+                                    Background="{DynamicResource PanelHighlightBrush}"
+                                    BorderBrush="{DynamicResource HighlightBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="18"
+                                    Padding="18">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsViewingSupporterOverrides}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsViewingMovementRedeems}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsViewingUniversalTriggers}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsViewingAvatarScaling}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsViewingCashPayments}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsViewingPowerUps}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding SelectedAvatarProfile}" Value="{x:Null}">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding IsViewingMasterAvatar}" Value="True" />
+                                                    <Condition Binding="{Binding Settings.AvatarChangeCooldownOnlyModeEnabled}" Value="True" />
+                                                </MultiDataTrigger.Conditions>
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </MultiDataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <StackPanel DataContext="{Binding SelectedAvatarProfile}">
+                                    <TextBlock Text="{loc:Translate 'Wardrobe Master Reward'}"
+                                               Style="{StaticResource HeadingTextStyle}"
+                                               FontSize="20"
+                                               FontWeight="Bold"
+                                               Foreground="{DynamicResource TextBrush}" />
+                                    <TextBlock Margin="0,8,0,0"
+                                               Foreground="{DynamicResource MutedBrush}"
+                                               TextWrapping="Wrap"
+                                               Text="{loc:Translate 'Let viewers type an outfit name in one shared reward to choose which Wardrobe outfit fires.'}" />
+                                    <CheckBox Margin="0,12,0,0"
+                                              IsChecked="{Binding UseWardrobeMasterReward, UpdateSourceTrigger=PropertyChanged}">
+                                        <TextBlock Text="{loc:Translate 'Enable Master Wardrobe Reward'}"
+                                                   TextWrapping="Wrap" />
+                                    </CheckBox>
+                                    <TextBlock Margin="26,6,0,0"
+                                               Foreground="{DynamicResource MutedBrush}"
+                                               TextWrapping="Wrap"
+                                               Text="{loc:Translate 'Separate outfit rewards stay available. Enable this only if you want one shared chooser reward.'}">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding UseWardrobeMasterReward}" Value="True">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                    <Border Margin="0,12,0,0"
+                                            Background="{DynamicResource NestedPanelBrush}"
+                                            BorderBrush="{DynamicResource HighlightBorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="16"
+                                            Padding="14">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding UseWardrobeMasterReward}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <StackPanel>
+                                            <StackPanel Margin="0,0,0,0">
+                                                <TextBlock Text="{loc:Translate 'Reward Source'}"
+                                                           Foreground="{DynamicResource TextBrush}"
+                                                           FontWeight="SemiBold" />
+                                                <ComboBox ItemsSource="{Binding DataContext.RewardSyncModeOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                          DisplayMemberPath="Label"
+                                                          SelectedValuePath="Value"
+                                                          SelectedValue="{Binding WardrobeMasterRewardSyncMode, UpdateSourceTrigger=PropertyChanged}" />
+                                            </StackPanel>
+                                            <UniformGrid Columns="2" Margin="0,12,0,0">
+                                                <StackPanel>
+                                                    <TextBlock Text="{loc:Translate 'Reward Title'}"
+                                                               Foreground="{DynamicResource TextBrush}"
+                                                               FontWeight="SemiBold" />
+                                                    <TextBox Margin="0,6,0,0"
+                                                             Text="{Binding WardrobeMasterRewardTitle, UpdateSourceTrigger=PropertyChanged}" />
+                                                </StackPanel>
+                                                <StackPanel Margin="12,0,0,0">
+                                                    <TextBlock Text="{loc:Translate 'Cost'}"
+                                                               Foreground="{DynamicResource TextBrush}"
+                                                               FontWeight="SemiBold" />
+                                                    <TextBox Margin="0,6,0,0"
+                                                             Text="{Binding WardrobeMasterRewardCost, UpdateSourceTrigger=PropertyChanged}" />
+                                                </StackPanel>
+                                            </UniformGrid>
+                                            <StackPanel Margin="0,12,0,0">
+                                                <TextBlock Text="{loc:Translate 'Cooldown (seconds)'}"
+                                                           Foreground="{DynamicResource TextBrush}"
+                                                           FontWeight="SemiBold" />
+                                                <TextBox Margin="0,6,0,0"
+                                                         Text="{Binding WardrobeMasterRewardCooldownSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
 
                             <Border Margin="0,18,0,0"
                                     Background="{DynamicResource PanelHighlightBrush}"
@@ -6696,345 +6939,368 @@
                                     BorderThickness="1"
                                     CornerRadius="18"
                                     Padding="18">
-                                <Border.Style>
-                                    <Style TargetType="Border">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsViewingAvatarTriggers}" Value="True">
-                                                <Setter Property="Visibility" Value="Visible" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding SelectedAvatarProfile}" Value="{x:Null}">
-                                                <Setter Property="Visibility" Value="Collapsed" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Border.Style>
-                                <StackPanel>
-                                    <DockPanel LastChildFill="False">
-                                        <TextBlock Text="{loc:Translate 'Redeems In This Avatar Set'}"
+                                 <Border.Style>
+                                     <Style TargetType="Border">
+                                         <Setter Property="Visibility" Value="Collapsed" />
+                                         <Style.Triggers>
+                                             <DataTrigger Binding="{Binding IsViewingAvatarTriggers}" Value="True">
+                                                 <Setter Property="Visibility" Value="Visible" />
+                                             </DataTrigger>
+                                             <DataTrigger Binding="{Binding IsViewingWardrobe}" Value="True">
+                                                 <Setter Property="Visibility" Value="Visible" />
+                                             </DataTrigger>
+                                             <DataTrigger Binding="{Binding SelectedAvatarProfile}" Value="{x:Null}">
+                                                 <Setter Property="Visibility" Value="Collapsed" />
+                                             </DataTrigger>
+                                         </Style.Triggers>
+                                     </Style>
+                                 </Border.Style>
+                                 <StackPanel>
+                                     <StackPanel>
+                                         <StackPanel.Style>
+                                             <Style TargetType="StackPanel">
+                                                 <Setter Property="Visibility" Value="Visible" />
+                                                 <Style.Triggers>
+                                                     <DataTrigger Binding="{Binding IsViewingWardrobe}" Value="True">
+                                                         <Setter Property="Visibility" Value="Collapsed" />
+                                                     </DataTrigger>
+                                                 </Style.Triggers>
+                                             </Style>
+                                         </StackPanel.Style>
+                                         <DockPanel LastChildFill="False">
+                                             <TextBlock Text="{loc:Translate 'Redeems In This Avatar Set'}"
+                                                       Style="{StaticResource HeadingTextStyle}"
+                                                       FontSize="20"
+                                                       FontWeight="Bold"
+                                                       Foreground="{DynamicResource TextBrush}" />
+                                             <Button Style="{StaticResource HelpIconButtonStyle}"
+                                                     Click="OnHelpButtonClicked"
+                                                     CommandParameter="Redeems In This Avatar Set"
+                                                     Tag="This list holds the redeems that belong to the avatar set you selected. These rules turn on when Crystal Relay detects that exact avatar, and they turn off again when you switch away. Add Redeem creates another rule for this avatar, Delete Redeem removes the selected one, Test Redeem lets you try it locally, and Disable Pairing can hide sibling redeems while one is active or reveal special sibling redeems only after another one triggers." />
+                                         </DockPanel>
+                                         <TextBlock Margin="0,10,0,0"
+                                                    Text="{loc:Translate 'This is the redeem list for this avatar set. Pick a redeem to edit it below, test it, or choose how paired sibling redeems should hide or reveal.'}"
+                                                    Foreground="{DynamicResource MutedBrush}"
+                                                    TextWrapping="Wrap" />
+                                         <WrapPanel Margin="0,14,0,0">
+                                             <Button Style="{StaticResource PrimaryButtonStyle}"
+                                                     Content="{loc:Translate 'Add Redeem'}"
+                                                     Command="{Binding AddRuleCommand}" />
+                                             <Button Style="{StaticResource SecondaryButtonStyle}"
+                                                     Content="{loc:Translate 'Delete Redeem'}"
+                                                     Command="{Binding RemoveSelectedRuleCommand}" />
+                                             <Button Style="{StaticResource SecondaryButtonStyle}"
+                                                     Content="{loc:Translate 'Test Redeem'}"
+                                                     Command="{Binding TestSelectedRuleCommand}" />
+                                             <Button Style="{StaticResource SecondaryButtonStyle}"
+                                                     Content="{loc:Translate 'Disable Pairing'}"
+                                                     Command="{Binding OpenSpecialRuleLockoutPickerCommand}" />
+                                         </WrapPanel>
+                                         <TextBlock Margin="0,10,0,0"
+                                                    Text="{Binding SpecialRuleLockoutSummaryText}"
+                                                    Foreground="{DynamicResource MutedBrush}"
+                                                    TextWrapping="Wrap">
+                                             <TextBlock.Style>
+                                                 <Style TargetType="TextBlock">
+                                                     <Setter Property="Visibility" Value="Visible" />
+                                                     <Style.Triggers>
+                                                         <DataTrigger Binding="{Binding SelectedRule}" Value="{x:Null}">
+                                                             <Setter Property="Visibility" Value="Collapsed" />
+                                                         </DataTrigger>
+                                                     </Style.Triggers>
+                                                 </Style>
+                                             </TextBlock.Style>
+                                         </TextBlock>
+                                     </StackPanel>
+
+                                <StackPanel Margin="0,14,0,0">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsViewingWardrobe}" Value="True">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <DockPanel>
+                                        <TextBlock Text="{loc:Translate 'Wardrobe'}"
                                                    Style="{StaticResource HeadingTextStyle}"
                                                    FontSize="20"
                                                    FontWeight="Bold"
                                                    Foreground="{DynamicResource TextBrush}" />
                                         <Button Style="{StaticResource HelpIconButtonStyle}"
                                                 Click="OnHelpButtonClicked"
-                                                CommandParameter="Redeems In This Avatar Set"
-                                                Tag="This list holds the redeems that belong to the avatar set you selected. These rules turn on when Crystal Relay detects that exact avatar, and they turn off again when you switch away. Add Redeem creates another rule for this avatar, Delete Redeem removes the selected one, Test Redeem lets you try it locally, and Disable Pairing can hide sibling redeems while one is active or reveal special sibling redeems only after another one triggers." />
+                                                CommandParameter="Wardrobe"
+                                                Tag="Wardrobe lets you create named outfits that capture snapshots of avatar parameters. When redeemed, the outfit applies its parameters and restores the original values after the active time ends." />
                                     </DockPanel>
                                     <TextBlock Margin="0,10,0,0"
-                                               Text="{loc:Translate 'This is the redeem list for this avatar set. Pick a redeem to edit it below, test it, or choose how paired sibling redeems should hide or reveal.'}"
+                                               Text="{loc:Translate 'Create named outfits for this avatar. Each outfit captures a snapshot of avatar parameters, applies them when redeemed, and restores the original values after the active time ends.'}"
                                                Foreground="{DynamicResource MutedBrush}"
                                                TextWrapping="Wrap" />
-                                    <WrapPanel Margin="0,14,0,0">
-                                        <Button Style="{StaticResource PrimaryButtonStyle}"
-                                                Content="{loc:Translate 'Add Redeem'}"
-                                                Command="{Binding AddRuleCommand}" />
-                                        <Button Style="{StaticResource SecondaryButtonStyle}"
-                                                Content="{loc:Translate 'Delete Redeem'}"
-                                                Command="{Binding RemoveSelectedRuleCommand}" />
-                                        <Button Style="{StaticResource SecondaryButtonStyle}"
-                                                Content="{loc:Translate 'Test Redeem'}"
-                                                Command="{Binding TestSelectedRuleCommand}" />
-                                        <Button Style="{StaticResource SecondaryButtonStyle}"
-                                                Content="{loc:Translate 'Disable Pairing'}"
-                                                Command="{Binding OpenSpecialRuleLockoutPickerCommand}" />
-                                    </WrapPanel>
-                                    <TextBlock Margin="0,10,0,0"
-                                               Text="{Binding SpecialRuleLockoutSummaryText}"
-                                               Foreground="{DynamicResource MutedBrush}"
-                                               TextWrapping="Wrap">
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="Visibility" Value="Visible" />
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding SelectedRule}" Value="{x:Null}">
-                                                        <Setter Property="Visibility" Value="Collapsed" />
-                                                    </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                                <Border Margin="0,14,0,0"
-                                        Background="{DynamicResource NestedPanelBrush}"
-                                        BorderBrush="{DynamicResource HighlightBorderBrush}"
-                                        BorderThickness="1"
-                                        CornerRadius="16"
-                                        Padding="14">
-                                    <StackPanel>
-                                        <DockPanel LastChildFill="False">
-                                            <TextBlock Text="{loc:Translate 'Outfit Workspace'}"
-                                                       Foreground="{DynamicResource TextBrush}"
-                                                       FontWeight="SemiBold"
-                                                       FontSize="17" />
-                                            <Button Style="{StaticResource HelpIconButtonStyle}"
-                                                    Click="OnHelpButtonClicked"
-                                                    CommandParameter="Outfit Workspace"
-                                                    Tag="Outfits are Set Trigger choices for this Avatar Set. Use one shared numbered reward when viewers should type an outfit number, or turn it off so every outfit choice has its own Twitch reward." />
-                                        </DockPanel>
-                                        <TextBlock Margin="0,6,0,0"
-                                                   Text="{loc:Translate 'Create outfit choices here, then edit the selected outfit number, name, timer, reward settings, and ordered parameter list below.'}"
-                                                   Foreground="{DynamicResource MutedBrush}"
-                                                   TextWrapping="Wrap" />
-                                        <StackPanel Margin="0,12,0,0"
-                                                    DataContext="{Binding SelectedAvatarProfile}">
-                                            <CheckBox IsChecked="{Binding UseSharedNumberedOutfitReward, UpdateSourceTrigger=PropertyChanged}">
-                                                <TextBlock Text="{loc:Translate 'Use one shared numbered outfit reward'}"
-                                                           TextWrapping="Wrap" />
-                                            </CheckBox>
-                                            <TextBlock Margin="26,6,0,0"
-                                                       Foreground="{DynamicResource MutedBrush}"
-                                                       TextWrapping="Wrap"
-                                                       Text="{loc:Translate 'On: viewers type the outfit number in one master reward. Off: each outfit has its own reward and no viewer input is needed.'}" />
-                                            <StackPanel Margin="0,10,0,0">
-                                                <StackPanel.Style>
-                                                    <Style TargetType="StackPanel">
-                                                        <Setter Property="Visibility" Value="Collapsed" />
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding UseSharedNumberedOutfitReward}" Value="True">
-                                                                <Setter Property="Visibility" Value="Visible" />
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </StackPanel.Style>
-                                                <CheckBox IsChecked="{Binding PostOutfitChoiceListToTwitchChat, UpdateSourceTrigger=PropertyChanged}">
-                                                    <TextBlock Text="{loc:Translate 'Post outfit choices to Twitch chat'}"
-                                                               TextWrapping="Wrap" />
-                                                </CheckBox>
-                                                <TextBlock Margin="26,6,0,0"
-                                                           Foreground="{DynamicResource MutedBrush}"
-                                                           TextWrapping="Wrap"
-                                                           Text="{loc:Translate 'When trigger info announcements run, Crystal Relay can post the current numbered outfit list through the configured chat sender.'}" />
-                                            </StackPanel>
-                                        </StackPanel>
-                                        <WrapPanel Margin="0,12,0,0">
+                                    <TextBlock Margin="0,8,0,0"
+                                               Text="{loc:Translate 'Wardrobe needs 70 seconds to safely read VRChat avatar data before it restores an outfit. Shorter active times will be extended during runtime.'}"
+                                               Foreground="{DynamicResource DangerBrush}"
+                                               TextWrapping="Wrap" />
+                                    <StackPanel Margin="0,14,0,0">
+                                        <WrapPanel>
                                             <Button Style="{StaticResource PrimaryButtonStyle}"
                                                     Content="{loc:Translate 'Add Outfit'}"
-                                                    Command="{Binding AddOutfitChoiceCommand}" />
-                                            <Button Style="{StaticResource SecondaryButtonStyle}"
+                                                    Command="{Binding AddWardrobeOutfitCommand}" />
+                                            <Button Margin="8,0,0,0"
+                                                    Style="{StaticResource SecondaryButtonStyle}"
                                                     Content="{loc:Translate 'Delete Outfit'}"
-                                                    Command="{Binding RemoveSelectedOutfitChoiceCommand}" />
+                                                    Command="{Binding RemoveWardrobeOutfitCommand}" />
+                                            <Button Margin="8,0,0,0"
+                                                    Style="{StaticResource SecondaryButtonStyle}"
+                                                    Content="{loc:Translate 'Copy Outfit'}"
+                                                    Command="{Binding CopyWardrobeOutfitCommand}" />
+                                            <Button Margin="8,0,0,0"
+                                                    Style="{StaticResource SecondaryButtonStyle}"
+                                                    Content="{loc:Translate 'Paste Outfit'}"
+                                                    Command="{Binding PasteWardrobeOutfitCommand}" />
+                                            <Button Margin="8,0,0,0"
+                                                    Style="{StaticResource SecondaryButtonStyle}"
+                                                    Content="{loc:Translate 'Refresh Parameters'}"
+                                                    Command="{Binding RefreshWardrobeParametersCommand}" />
+                                            <Button Margin="8,0,0,0"
+                                                    Style="{StaticResource SecondaryButtonStyle}"
+                                                    Content="{loc:Translate 'Test Outfit'}"
+                                                    Command="{Binding TestWardrobeOutfitCommand}" />
                                         </WrapPanel>
                                         <ListBox Margin="0,12,0,0"
-                                                 MaxHeight="170"
-                                                 ItemsSource="{Binding SelectedAvatarOutfitChoices}"
-                                                 SelectedItem="{Binding SelectedRule, Mode=OneWay}"
+                                                 MaxHeight="200"
+                                                 ItemsSource="{Binding SelectedAvatarProfile.WardrobeOutfits}"
+                                                 SelectedItem="{Binding SelectedWardrobeOutfit, Mode=TwoWay}"
                                                  ScrollViewer.CanContentScroll="True"
                                                  VirtualizingStackPanel.IsVirtualizing="True"
-                                                 VirtualizingStackPanel.VirtualizationMode="Recycling"
-                                                 ItemTemplate="{StaticResource AvatarRedeemListItemTemplate}" />
+                                                 VirtualizingStackPanel.VirtualizationMode="Recycling">
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate DataType="{x:Type models:WardrobeOutfit}">
+                                                    <TextBlock Text="{Binding DisplaySummary}"
+                                                               Foreground="{DynamicResource TextBrush}"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                        </ListBox>
                                         <TextBlock Margin="0,8,0,0"
-                                                   Text="{loc:Translate 'No outfits yet. Add Outfit creates the next available number without renumbering existing choices.'}"
+                                                   Text="{loc:Translate 'No outfits yet. Add Outfit to create your first Wardrobe outfit.'}"
                                                    Foreground="{DynamicResource MutedBrush}"
                                                    TextWrapping="Wrap">
                                             <TextBlock.Style>
                                                 <Style TargetType="TextBlock">
                                                     <Setter Property="Visibility" Value="Collapsed" />
                                                     <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding HasSelectedAvatarOutfitChoices}" Value="False">
+                                                        <DataTrigger Binding="{Binding SelectedAvatarProfile.WardrobeOutfits.Count}" Value="0">
                                                             <Setter Property="Visibility" Value="Visible" />
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
                                             </TextBlock.Style>
                                         </TextBlock>
-                                    </StackPanel>
-                                </Border>
-                                <Border Margin="0,14,0,0"
-                                        Background="{DynamicResource NestedPanelBrush}"
-                                        BorderBrush="{DynamicResource HighlightBorderBrush}"
-                                        BorderThickness="1"
-                                        CornerRadius="16"
-                                        Padding="14">
-                                    <Border.Style>
-                                        <Style TargetType="Border">
-                                            <Setter Property="Visibility" Value="Collapsed" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsSetTriggerMasterRewardEditorVisible}" Value="True">
-                                                    <Setter Property="Visibility" Value="Visible" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Border.Style>
-                                    <StackPanel DataContext="{Binding SelectedAvatarProfile}">
-                                        <TextBlock Text="{loc:Translate 'Master Outfit Set Reward'}"
-                                                   Foreground="{DynamicResource TextBrush}"
-                                                   FontWeight="SemiBold" />
-                                        <TextBlock Margin="0,6,0,0"
-                                                   Foreground="{DynamicResource MutedBrush}"
-                                                   TextWrapping="Wrap"
-                                                   Text="{loc:Translate 'These outfit choices share one Twitch reward. Viewers type the choice number in the redeem input.'}" />
-                                        <StackPanel Margin="0,12,0,0">
-                                            <TextBlock Text="{loc:Translate 'Reward Source'}"
+                                        <Border Margin="0,14,0,0"
+                                                Background="{DynamicResource NestedPanelBrush}"
+                                                BorderBrush="{DynamicResource HighlightBorderBrush}"
+                                                BorderThickness="1"
+                                                CornerRadius="16"
+                                                Padding="14"
+                                                Visibility="{Binding SelectedWardrobeOutfit, Converter={StaticResource NullToVisibilityConverter}}">
+                                            <StackPanel DataContext="{Binding SelectedWardrobeOutfit}">
+                                                <TextBlock Text="{loc:Translate 'Outfit Name'}"
+                                                           Foreground="{DynamicResource TextBrush}"
+                                                           FontWeight="SemiBold" />
+                                                <TextBox Margin="0,6,0,0"
+                                                         Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" />
+                                                <StackPanel Margin="0,12,0,0" Orientation="Horizontal">
+                                                    <TextBlock Text="{loc:Translate 'Active Time:'}"
+                                                               Foreground="{DynamicResource TextBrush}"
+                                                               FontWeight="SemiBold"
+                                                               VerticalAlignment="Center" />
+                                                    <TextBox Width="60"
+                                                             Margin="8,0,0,0"
+                                                             Text="{Binding ActiveTimeSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                                                    <TextBlock Margin="4,0,0,0"
+                                                               Text="{loc:Translate 'seconds'}"
+                                                               Foreground="{DynamicResource MutedBrush}"
+                                                               VerticalAlignment="Center" />
+                                                </StackPanel>
+                                                <TextBlock Margin="0,6,0,0"
+                                                           Text="{loc:Translate 'Active times below 70 seconds can restore before VRChat finishes writing outfit changes, so Crystal Relay will extend this outfit to 70 seconds when it runs.'}"
+                                                           Foreground="{DynamicResource DangerBrush}"
+                                                           TextWrapping="Wrap"
+                                                           Visibility="{Binding UsesShortActiveTime, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                                <StackPanel Margin="0,12,0,0">
+                                                    <TextBlock Text="{loc:Translate 'Twitch Reward'}"
+                                                               Foreground="{DynamicResource TextBrush}"
+                                                               FontWeight="SemiBold" />
+                                                    <ComboBox ItemsSource="{Binding DataContext.RewardSyncModeOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                              DisplayMemberPath="Label"
+                                                              SelectedValuePath="Value"
+                                                              SelectedValue="{Binding TwitchRewardSyncMode, UpdateSourceTrigger=PropertyChanged}" />
+                                                </StackPanel>
+                                                <UniformGrid Columns="2" Margin="0,12,0,0">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{loc:Translate 'Reward Title'}"
+                                                                   Foreground="{DynamicResource TextBrush}"
+                                                                   FontWeight="SemiBold" />
+                                                        <TextBox Margin="0,6,0,0"
+                                                                 Text="{Binding TwitchRewardTitle, UpdateSourceTrigger=PropertyChanged}" />
+                                                    </StackPanel>
+                                                    <StackPanel Margin="12,0,0,0">
+                                                        <TextBlock Text="{loc:Translate 'Cost'}"
+                                                                   Foreground="{DynamicResource TextBrush}"
+                                                                   FontWeight="SemiBold" />
+                                                        <TextBox Margin="0,6,0,0"
+                                                                 Text="{Binding TwitchRewardCost, UpdateSourceTrigger=PropertyChanged}" />
+                                                    </StackPanel>
+                                                </UniformGrid>
+                                                <StackPanel Margin="0,12,0,0">
+                                                    <TextBlock Text="{loc:Translate 'Reward Description'}"
+                                                               Foreground="{DynamicResource TextBrush}"
+                                                               FontWeight="SemiBold" />
+                                                    <TextBox Margin="0,6,0,0"
+                                                             Text="{Binding TwitchRewardDescription, UpdateSourceTrigger=PropertyChanged}"
+                                                             TextWrapping="Wrap" />
+                                                </StackPanel>
+                                                <StackPanel Margin="0,12,0,0">
+                                                    <TextBlock Text="{loc:Translate 'Chat Command'}"
+                                                               Foreground="{DynamicResource TextBrush}"
+                                                               FontWeight="SemiBold" />
+                                                    <TextBox Text="{Binding ChatCommandText, UpdateSourceTrigger=PropertyChanged}" />
+                                                </StackPanel>
+                                                <StackPanel Margin="0,16,0,0">
+                                                    <WrapPanel>
+                                                        <TextBlock Text="{loc:Translate 'Parameters'}"
+                                                                   Foreground="{DynamicResource TextBrush}"
+                                                                   FontWeight="SemiBold"
+                                                                   VerticalAlignment="Center" />
+                                                        <Button Margin="12,0,0,0"
+                                                                Style="{StaticResource PrimaryButtonStyle}"
+                                                                Content="{loc:Translate 'Add Parameter'}"
+                                                                Command="{Binding DataContext.AddWardrobeSnapshotParamCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                Padding="10,6"
+                                                                FontSize="11" />
+                                                        <Button Margin="6,0,0,0"
+                                                                Style="{StaticResource SecondaryButtonStyle}"
+                                                                Content="{loc:Translate 'Remove'}"
+                                                                Command="{Binding DataContext.RemoveWardrobeSnapshotParamCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                Padding="10,6"
+                                                                FontSize="11" />
+                                                        <Button Margin="6,0,0,0"
+                                                                Style="{StaticResource SecondaryButtonStyle}"
+                                                                Content="{loc:Translate 'Copy Parameter'}"
+                                                                Command="{Binding DataContext.CopyWardrobeSnapshotParamCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                Padding="10,6"
+                                                                FontSize="11" />
+                                                        <Button Margin="6,0,0,0"
+                                                                Style="{StaticResource SecondaryButtonStyle}"
+                                                                Content="{loc:Translate 'Paste Parameter'}"
+                                                                Command="{Binding DataContext.PasteWardrobeSnapshotParamCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                Padding="10,6"
+                                                                FontSize="11" />
+                                                    </WrapPanel>
+                                                                     <ListBox Margin="0,10,0,0"
+                                                              MaxHeight="150"
+                                                              ItemsSource="{Binding SnapshotParams}"
+                                                              SelectedItem="{Binding DataContext.SelectedWardrobeSnapshotParam, RelativeSource={RelativeSource AncestorType=Window}, Mode=TwoWay}"
+                                                              ScrollViewer.CanContentScroll="True">
+                                                         <ListBox.ItemTemplate>
+                                                             <DataTemplate DataType="{x:Type models:WardrobeSnapshotParam}">
+                                                                 <TextBlock Text="{Binding DisplaySummary}"
+                                                                            TextTrimming="CharacterEllipsis"
+                                                                            Foreground="{DynamicResource TextBrush}" />
+                                                             </DataTemplate>
+                                                         </ListBox.ItemTemplate>
+                                                     </ListBox>
+                                                     <Border Margin="0,10,0,0"
+                                                             Background="{DynamicResource NestedPanelBrush}"
+                                                             BorderBrush="{DynamicResource HighlightBorderBrush}"
+                                                             BorderThickness="1"
+                                                             CornerRadius="12"
+                                                             Padding="12"
+                                                             Visibility="{Binding DataContext.SelectedWardrobeSnapshotParam, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource NullToVisibilityConverter}}">
+                                                         <StackPanel DataContext="{Binding DataContext.SelectedWardrobeSnapshotParam, RelativeSource={RelativeSource AncestorType=Window}}">
+                                                             <TextBlock Text="{loc:Translate 'Parameter Path'}"
+                                                                        Foreground="{DynamicResource TextBrush}"
+                                                                        FontWeight="SemiBold" />
+                                                             <ComboBox Margin="0,6,0,0"
+                                                                       IsEditable="True"
+                                                                       StaysOpenOnEdit="True"
+                                                                       TextSearch.TextPath="DisplayLabel"
+                                                                       DisplayMemberPath="DisplayLabel"
+                                                                       ItemsSource="{Binding DataContext.AvailableWardrobeParameters, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                       SelectedItem="{Binding DataContext.SelectedWardrobeParameterOption, RelativeSource={RelativeSource AncestorType=Window}, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                       Text="{Binding DataContext.WardrobeParameterText, RelativeSource={RelativeSource AncestorType=Window}, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
+                                                             <TextBlock Margin="0,4,0,0"
+                                                                        FontSize="11"
+                                                                        Foreground="{DynamicResource MutedBrush}"
+                                                                        TextWrapping="Wrap"
+                                                                        Text="{loc:Translate 'Pick from the list or type a custom path. Click Refresh Parameters first to load this avatar\'s parameters.'}" />
+                                                             <UniformGrid Columns="2" Margin="0,12,0,0">
+                                                                 <StackPanel Margin="0,0,8,0">
+                                                                     <TextBlock Text="{loc:Translate 'Type'}"
+                                                                                Foreground="{DynamicResource TextBrush}"
+                                                                                FontWeight="SemiBold" />
+                                                                     <ComboBox Margin="0,6,0,0"
+                                                                               ItemsSource="{Binding DataContext.ParameterTypes, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                               SelectedItem="{Binding ParameterType, UpdateSourceTrigger=PropertyChanged}" />
+                                                                 </StackPanel>
+                                                                 <StackPanel Margin="8,0,0,0">
+                                                                     <TextBlock Text="{loc:Translate 'Value'}"
+                                                                                Foreground="{DynamicResource TextBrush}"
+                                                                                FontWeight="SemiBold" />
+                                                                     <ComboBox Margin="0,6,0,0"
+                                                                               ItemsSource="{Binding DataContext.BoolValueOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                               SelectedItem="{Binding SetValue, UpdateSourceTrigger=PropertyChanged}"
+                                                                               Visibility="{Binding UsesBoolParameter, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                                                     <TextBox Margin="0,6,0,0"
+                                                                              Text="{Binding SetValue, UpdateSourceTrigger=PropertyChanged}"
+                                                                              Visibility="{Binding UsesIntParameter, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                                                     <TextBox Margin="0,6,0,0"
+                                                                              Text="{Binding SetValue, UpdateSourceTrigger=PropertyChanged}"
+                                                                              Visibility="{Binding UsesFloatParameter, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                                                 </StackPanel>
+                                                             </UniformGrid>
+                                                         </StackPanel>
+                                                     </Border>
+                                                                 </StackPanel>
+                                                             </StackPanel>
+                                                         </Border>
+                                        <StackPanel Margin="0,14,0,0" Orientation="Horizontal">
+                                            <TextBlock Text="{loc:Translate 'Global Wardrobe Cooldown:'}"
                                                        Foreground="{DynamicResource TextBrush}"
-                                                       FontWeight="SemiBold" />
-                                            <ComboBox ItemsSource="{Binding DataContext.RewardSyncModeOptions, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                      DisplayMemberPath="Label"
-                                                      SelectedValuePath="Value"
-                                                      SelectedValue="{Binding SetTriggerMasterRewardSyncMode, UpdateSourceTrigger=PropertyChanged}" />
-                                        </StackPanel>
-                                        <StackPanel Margin="0,12,0,0"
-                                                    Visibility="{Binding UsesLinkedExistingSetTriggerMasterReward, Converter={StaticResource BoolToVisibilityConverter}}">
-                                            <TextBlock Text="{loc:Translate 'Existing Twitch Reward'}"
-                                                       Foreground="{DynamicResource TextBrush}"
-                                                       FontWeight="SemiBold" />
-                                            <ComboBox ItemsSource="{Binding DataContext.RewardOptions, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                      ItemTemplate="{StaticResource TwitchRewardOptionTemplate}"
-                                                      SelectedValuePath="Id"
-                                                      SelectedValue="{Binding SetTriggerMasterRewardId, UpdateSourceTrigger=PropertyChanged}" />
-                                            <DockPanel Margin="0,8,0,0"
-                                                       LastChildFill="False">
-                                                <Button Style="{StaticResource RewardLinkButtonStyle}"
-                                                        Content="{loc:Translate 'Refresh Rewards'}"
-                                                        Command="{Binding DataContext.RefreshTwitchRewardsCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
-                                                <Button Margin="8,0,0,0"
-                                                        Style="{StaticResource RewardLinkButtonStyle}"
-                                                        Content="{loc:Translate 'Unlink Reward'}"
-                                                        Command="{Binding DataContext.UnlinkTwitchRewardCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                        CommandParameter="{Binding}" />
-                                            </DockPanel>
-                                            <TextBlock Margin="0,6,0,0"
-                                                      Text="{loc:Translate 'Linked rewards are configured on Twitch. Crystal Relay only listens for this reward being redeemed and will not edit its name, cost, prompt, color, input settings, visibility, or cooldown.'}"
+                                                       FontWeight="SemiBold"
+                                                       VerticalAlignment="Center" />
+                                            <TextBox Width="60"
+                                                     Margin="8,0,0,0"
+                                                     Text="{Binding SelectedAvatarProfile.WardrobeCooldownSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                                            <TextBlock Margin="4,0,0,0"
+                                                       Text="{loc:Translate 'seconds'}"
                                                        Foreground="{DynamicResource MutedBrush}"
-                                                       TextWrapping="Wrap" />
-                                        </StackPanel>
-                                        <UniformGrid Columns="2"
-                                                     Margin="0,12,0,0">
-                                            <UniformGrid.Style>
-                                                <Style TargetType="UniformGrid">
-                                                    <Setter Property="Visibility" Value="Visible" />
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding UsesLinkedExistingSetTriggerMasterReward}" Value="True">
-                                                            <Setter Property="Visibility" Value="Collapsed" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </UniformGrid.Style>
-                                            <StackPanel Margin="0,0,14,0">
-                                                <TextBlock Text="{loc:Translate 'Reward Name'}"
-                                                           Foreground="{DynamicResource TextBrush}"
-                                                           FontWeight="SemiBold" />
-                                                <TextBox Text="{Binding SetTriggerMasterRewardTitle, UpdateSourceTrigger=PropertyChanged}" />
-                                            </StackPanel>
-                                            <StackPanel Margin="14,0,0,0">
-                                                <TextBlock Text="{loc:Translate 'Reward Cost'}"
-                                                           Foreground="{DynamicResource TextBrush}"
-                                                           FontWeight="SemiBold" />
-                                                <TextBox Text="{Binding SetTriggerMasterRewardCost, UpdateSourceTrigger=PropertyChanged}" />
-                                            </StackPanel>
-                                        </UniformGrid>
-                                        <StackPanel Margin="0,12,0,0">
-                                            <StackPanel.Style>
-                                                <Style TargetType="StackPanel">
-                                                    <Setter Property="Visibility" Value="Visible" />
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding UsesLinkedExistingSetTriggerMasterReward}" Value="True">
-                                                            <Setter Property="Visibility" Value="Collapsed" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </StackPanel.Style>
-                                            <TextBlock Text="{loc:Translate 'Reward Description'}"
-                                                       Foreground="{DynamicResource TextBrush}"
-                                                       FontWeight="SemiBold" />
-                                            <TextBox Text="{Binding SetTriggerMasterRewardDescription, UpdateSourceTrigger=PropertyChanged}"
-                                                     AcceptsReturn="True"
-                                                     Height="70"
-                                                     TextWrapping="Wrap" />
-                                            <TextBlock Margin="0,6,0,0"
-                                                       Text="{loc:Translate 'Shown on Twitch as the reward description. Leave blank to use the automatic choice instructions.'}"
-                                                       Foreground="{DynamicResource MutedBrush}"
-                                                       TextWrapping="Wrap" />
-                                        </StackPanel>
-                                        <UniformGrid Columns="2"
-                                                     Margin="0,12,0,0">
-                                            <StackPanel Margin="0,0,14,0">
-                                                <TextBlock Text="{loc:Translate 'Reward Cooldown'}"
-                                                           Foreground="{DynamicResource TextBrush}"
-                                                           FontWeight="SemiBold" />
-                                                <TextBox Text="{Binding SetTriggerMasterRewardCooldownSeconds, UpdateSourceTrigger=PropertyChanged}" />
-                                            </StackPanel>
-                                            <StackPanel Margin="14,0,0,0"
-                                                        VerticalAlignment="Bottom">
-                                                <StackPanel.Style>
-                                                    <Style TargetType="StackPanel">
-                                                        <Setter Property="Visibility" Value="Visible" />
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding UsesLinkedExistingSetTriggerMasterReward}" Value="True">
-                                                                <Setter Property="Visibility" Value="Collapsed" />
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </StackPanel.Style>
-                                                <CheckBox IsChecked="{Binding DeleteSetTriggerMasterRewardWhenInactive, UpdateSourceTrigger=PropertyChanged}">
-                                                    <TextBlock Text="{loc:Translate 'Delete Twitch reward when inactive'}"
-                                                               TextWrapping="Wrap" />
-                                                </CheckBox>
-                                            </StackPanel>
-                                        </UniformGrid>
-                                        <StackPanel Margin="0,12,0,0">
-                                            <StackPanel.Style>
-                                                <Style TargetType="StackPanel">
-                                                    <Setter Property="Visibility" Value="Visible" />
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding UsesLinkedExistingSetTriggerMasterReward}" Value="True">
-                                                            <Setter Property="Visibility" Value="Collapsed" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </StackPanel.Style>
-                                            <TextBlock Text="{loc:Translate 'Managed Reward Colors'}"
-                                                       Foreground="{DynamicResource TextBrush}"
-                                                       FontWeight="SemiBold" />
-                                            <DockPanel Margin="0,8,0,0"
-                                                       LastChildFill="False">
-                                                <Border Width="28"
-                                                        Height="28"
-                                                        CornerRadius="14"
-                                                        Background="{Binding SetTriggerMasterRewardReadyColorBrush}"
-                                                        BorderBrush="{DynamicResource InputBorderBrush}"
-                                                        BorderThickness="1" />
-                                                <TextBlock Margin="12,0,16,0"
-                                                           VerticalAlignment="Center"
-                                                           Foreground="{DynamicResource TextBrush}"
-                                                           FontWeight="SemiBold"
-                                                           Text="{Binding SetTriggerMasterRewardReadyColor}" />
-                                                <Button Content="{loc:Translate 'Choose Color'}"
-                                                        Padding="16,6"
-                                                        MinWidth="132"
-                                                        Click="OnPickManagedRewardColorClicked"
-                                                        Tag="Ready" />
-                                            </DockPanel>
-                                            <DockPanel Margin="0,8,0,0"
-                                                       LastChildFill="False">
-                                                <Border Width="28"
-                                                        Height="28"
-                                                        CornerRadius="14"
-                                                        Background="{Binding SetTriggerMasterRewardCooldownColorBrush}"
-                                                        BorderBrush="{DynamicResource InputBorderBrush}"
-                                                        BorderThickness="1" />
-                                                <TextBlock Margin="12,0,16,0"
-                                                           VerticalAlignment="Center"
-                                                           Foreground="{DynamicResource TextBrush}"
-                                                           FontWeight="SemiBold"
-                                                           Text="{Binding SetTriggerMasterRewardCooldownColor}" />
-                                                <Button Content="{loc:Translate 'Choose Color'}"
-                                                        Padding="16,6"
-                                                        MinWidth="132"
-                                                        Click="OnPickManagedRewardColorClicked"
-                                                        Tag="Cooldown" />
-                                            </DockPanel>
+                                                       VerticalAlignment="Center" />
                                         </StackPanel>
                                     </StackPanel>
-                                </Border>
+                                </StackPanel>
                                 <Border Margin="0,14,0,0"
-                                        Background="{DynamicResource NestedPanelBrush}"
-                                        BorderBrush="{DynamicResource HighlightBorderBrush}"
-                                            BorderThickness="1"
-                                            CornerRadius="16"
-                                            Padding="14">
-                                        <StackPanel>
-                                            <Expander Margin="0,0,0,8"
-                                                      IsExpanded="{Binding IsAvatarBoolRedeemsExpanded, Mode=TwoWay}"
+                                         Background="{DynamicResource NestedPanelBrush}"
+                                         BorderBrush="{DynamicResource HighlightBorderBrush}"
+                                             BorderThickness="1"
+                                             CornerRadius="16"
+                                             Padding="14">
+                                         <Border.Style>
+                                             <Style TargetType="Border">
+                                                 <Setter Property="Visibility" Value="Visible" />
+                                                 <Style.Triggers>
+                                                     <DataTrigger Binding="{Binding IsViewingWardrobe}" Value="True">
+                                                         <Setter Property="Visibility" Value="Collapsed" />
+                                                     </DataTrigger>
+                                                 </Style.Triggers>
+                                             </Style>
+                                         </Border.Style>
+                                         <StackPanel>
+                                             <Expander Margin="0,0,0,8"
+                                                       IsExpanded="{Binding IsAvatarBoolRedeemsExpanded, Mode=TwoWay}"
                                                       Foreground="{DynamicResource TextBrush}">
                                                 <Expander.Header>
                                                     <Border Padding="10,5"
@@ -8603,15 +8869,18 @@
                                                                 <TextBlock Text="{loc:Translate 'Applies to VRChat Avatar'}"
                                                                            Foreground="{DynamicResource TextBrush}"
                                                                            FontWeight="SemiBold" />
-                                                                <ComboBox Margin="0,6,0,0"
-                                                                          ItemsSource="{Binding DataContext.VrChatAvatarOptions, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                          IsEditable="True"
-                                                                          IsTextSearchEnabled="True"
-                                                                          StaysOpenOnEdit="True"
-                                                                          TextSearch.TextPath="SearchText"
-                                                                          ItemTemplate="{StaticResource VrChatAvatarOptionTemplate}"
-                                                                          SelectedValuePath="Id"
-                                                                          SelectedValue="{Binding SupporterAvatarId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                                                  <DockPanel Margin="0,6,0,0">
+                                                                      <Button DockPanel.Dock="Right"
+                                                                              Content="{loc:Translate 'Browse...'}"
+                                                                              Style="{StaticResource SecondaryButtonStyle}"
+                                                                              Command="{Binding DataContext.OpenAvatarPickerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                              CommandParameter="Supporter" />
+                                                                     <TextBlock Text="{Binding SupporterAvatarDisplayName}"
+                                                                                Foreground="{DynamicResource TextBrush}"
+                                                                                VerticalAlignment="Center"
+                                                                                Margin="0,0,8,0"
+                                                                                TextWrapping="Wrap" />
+                                                                 </DockPanel>
                                                                 <Button Margin="0,8,0,0"
                                                                         Content="{loc:Translate 'Use Current Avatar'}"
                                                                         Style="{StaticResource SecondaryButtonStyle}"
@@ -9758,15 +10027,18 @@
                                                                         CommandParameter="Avatar To Switch To"
                                                                         Tag="Choose the exact VRChat avatar this rule should switch you to. Crystal Relay shows clean avatar names here, but it still stores the real avatar ID behind the scenes so OSC avatar changes go to the correct target. Start typing to search the cached avatar list by name." />
                                                             </DockPanel>
-                                                            <ComboBox ItemsSource="{Binding DataContext.VrChatAvatarOptions, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                      Margin="0,8,0,0"
-                                                                      IsEditable="True"
-                                                                      IsTextSearchEnabled="True"
-                                                                      StaysOpenOnEdit="True"
-                                                                      TextSearch.TextPath="SearchText"
-                                                                      ItemTemplate="{StaticResource VrChatAvatarOptionTemplate}"
-                                                                      SelectedValuePath="Id"
-                                                                      SelectedValue="{Binding AvatarChangeTargetId, UpdateSourceTrigger=PropertyChanged}" />
+                                                            <DockPanel Margin="0,8,0,0">
+                                                                <Button DockPanel.Dock="Right"
+                                                                        Content="{loc:Translate 'Browse...'}"
+                                                                        Style="{StaticResource SecondaryButtonStyle}"
+                                                                        Command="{Binding DataContext.OpenAvatarPickerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                        CommandParameter="AvatarChange" />
+                                                                <TextBlock Text="{Binding AvatarChangeDisplayName}"
+                                                                           Foreground="{DynamicResource TextBrush}"
+                                                                           VerticalAlignment="Center"
+                                                                           Margin="0,0,8,0"
+                                                                           TextWrapping="Wrap" />
+                                                            </DockPanel>
                                                             <Button Margin="0,8,0,0"
                                                                     Content="{loc:Translate 'Use Current Avatar'}"
                                                                     Style="{StaticResource SecondaryButtonStyle}"
@@ -10161,6 +10433,216 @@
                 </ScrollViewer>
             </Border>
         </Grid>
+            <Grid x:Name="LoadingOverlay"
+                  Grid.RowSpan="2"
+                  Panel.ZIndex="999"
+                  Background="{DynamicResource WindowBackgroundBrush}">
+                <Grid.Resources>
+                    <Storyboard x:Key="CrystalRotateStoryboard">
+                        <DoubleAnimation Storyboard.TargetName="CrystalRotateTransform"
+                                         Storyboard.TargetProperty="Angle"
+                                         From="0" To="360" Duration="0:0:4"
+                                         RepeatBehavior="Forever" />
+                    </Storyboard>
+                    <Storyboard x:Key="CrystalPulseStoryboard">
+                        <DoubleAnimationUsingKeyFrames Storyboard.TargetName="CrystalScaleTransform"
+                                                       Storyboard.TargetProperty="ScaleX"
+                                                       RepeatBehavior="Forever">
+                            <LinearDoubleKeyFrame KeyTime="0:0:0" Value="1" />
+                            <LinearDoubleKeyFrame KeyTime="0:0:1" Value="1.1" />
+                            <LinearDoubleKeyFrame KeyTime="0:0:2" Value="1" />
+                        </DoubleAnimationUsingKeyFrames>
+                        <DoubleAnimationUsingKeyFrames Storyboard.TargetName="CrystalScaleTransform"
+                                                       Storyboard.TargetProperty="ScaleY"
+                                                       RepeatBehavior="Forever">
+                            <LinearDoubleKeyFrame KeyTime="0:0:0" Value="1" />
+                            <LinearDoubleKeyFrame KeyTime="0:0:1" Value="1.1" />
+                            <LinearDoubleKeyFrame KeyTime="0:0:2" Value="1" />
+                        </DoubleAnimationUsingKeyFrames>
+                    </Storyboard>
+                    <Storyboard x:Key="GlowPulseStoryboard">
+                        <DoubleAnimationUsingKeyFrames Storyboard.TargetName="GlowEllipse"
+                                                       Storyboard.TargetProperty="Opacity"
+                                                       RepeatBehavior="Forever">
+                            <LinearDoubleKeyFrame KeyTime="0:0:0" Value="0.25" />
+                            <LinearDoubleKeyFrame KeyTime="0:0:1" Value="0.7" />
+                            <LinearDoubleKeyFrame KeyTime="0:0:2" Value="0.25" />
+                        </DoubleAnimationUsingKeyFrames>
+                    </Storyboard>
+                    <Storyboard x:Key="OrbitStoryboard">
+                        <DoubleAnimation Storyboard.TargetName="OrbitRingRotateTransform"
+                                         Storyboard.TargetProperty="Angle"
+                                         From="0" To="360" Duration="0:0:7"
+                                         RepeatBehavior="Forever" />
+                        <DoubleAnimation Storyboard.TargetName="SparkOrbitOneRotateTransform"
+                                         Storyboard.TargetProperty="Angle"
+                                         From="360" To="0" Duration="0:0:5"
+                                         RepeatBehavior="Forever" />
+                        <DoubleAnimation Storyboard.TargetName="SparkOrbitTwoRotateTransform"
+                                         Storyboard.TargetProperty="Angle"
+                                         From="0" To="360" Duration="0:0:6.5"
+                                         RepeatBehavior="Forever" />
+                    </Storyboard>
+                    <Storyboard x:Key="ShimmerStoryboard">
+                        <DoubleAnimation Storyboard.TargetName="CrystalShimmerTransform"
+                                         Storyboard.TargetProperty="X"
+                                         From="-86" To="86" Duration="0:0:2.4"
+                                         BeginTime="0:0:0.3"
+                                         RepeatBehavior="Forever" />
+                        <DoubleAnimationUsingKeyFrames Storyboard.TargetName="CrystalShimmer"
+                                                       Storyboard.TargetProperty="Opacity"
+                                                       RepeatBehavior="Forever">
+                            <LinearDoubleKeyFrame KeyTime="0:0:0" Value="0" />
+                            <LinearDoubleKeyFrame KeyTime="0:0:0.45" Value="0.58" />
+                            <LinearDoubleKeyFrame KeyTime="0:0:1.05" Value="0" />
+                            <LinearDoubleKeyFrame KeyTime="0:0:2.4" Value="0" />
+                        </DoubleAnimationUsingKeyFrames>
+                    </Storyboard>
+                    <Storyboard x:Key="TextFadeStoryboard">
+                        <DoubleAnimationUsingKeyFrames Storyboard.TargetName="LoadingTextBlock"
+                                                       Storyboard.TargetProperty="Opacity"
+                                                       RepeatBehavior="Forever">
+                            <LinearDoubleKeyFrame KeyTime="0:0:0" Value="0.65" />
+                            <LinearDoubleKeyFrame KeyTime="0:0:0.75" Value="1" />
+                            <LinearDoubleKeyFrame KeyTime="0:0:1.5" Value="0.65" />
+                        </DoubleAnimationUsingKeyFrames>
+                    </Storyboard>
+                </Grid.Resources>
+
+                <!-- Glow behind crystal -->
+                <Ellipse x:Name="GlowEllipse"
+                         Width="180"
+                         Height="180"
+                         Fill="{DynamicResource AccentBrush}"
+                         Opacity="0.45"
+                         HorizontalAlignment="Center"
+                         VerticalAlignment="Center"
+                         Margin="0,0,0,40">
+                    <Ellipse.Effect>
+                        <BlurEffect Radius="45" />
+                    </Ellipse.Effect>
+                </Ellipse>
+
+                <Canvas Width="220"
+                        Height="220"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Margin="0,0,0,42"
+                        IsHitTestVisible="False"
+                        RenderTransformOrigin="0.5,0.5">
+                    <Canvas.RenderTransform>
+                        <RotateTransform x:Name="OrbitRingRotateTransform" Angle="0" />
+                    </Canvas.RenderTransform>
+                    <Ellipse Canvas.Left="37"
+                             Canvas.Top="37"
+                             Width="146"
+                             Height="146"
+                             Stroke="{DynamicResource AccentBrush}"
+                             StrokeThickness="1.4"
+                             StrokeDashArray="6 8"
+                             Opacity="0.42" />
+                    <Ellipse Canvas.Left="106"
+                             Canvas.Top="22"
+                             Width="8"
+                             Height="8"
+                             Fill="{DynamicResource AccentBrush}"
+                             Opacity="0.82">
+                        <Ellipse.Effect>
+                            <BlurEffect Radius="1.5" />
+                        </Ellipse.Effect>
+                    </Ellipse>
+                </Canvas>
+
+                <Canvas Width="220"
+                        Height="220"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Margin="0,0,0,42"
+                        IsHitTestVisible="False"
+                        RenderTransformOrigin="0.5,0.5">
+                    <Canvas.RenderTransform>
+                        <RotateTransform x:Name="SparkOrbitOneRotateTransform" Angle="0" />
+                    </Canvas.RenderTransform>
+                    <Ellipse Canvas.Left="54"
+                             Canvas.Top="44"
+                             Width="5"
+                             Height="5"
+                             Fill="{DynamicResource TextBrush}"
+                             Opacity="0.72" />
+                </Canvas>
+
+                <Canvas Width="180"
+                        Height="180"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Margin="0,0,0,42"
+                        IsHitTestVisible="False"
+                        RenderTransformOrigin="0.5,0.5">
+                    <Canvas.RenderTransform>
+                        <RotateTransform x:Name="SparkOrbitTwoRotateTransform" Angle="0" />
+                    </Canvas.RenderTransform>
+                    <Ellipse Canvas.Left="132"
+                             Canvas.Top="118"
+                             Width="6"
+                             Height="6"
+                             Fill="{DynamicResource MutedBrush}"
+                             Opacity="0.64" />
+                </Canvas>
+
+                <!-- Crystal with animations -->
+                <StackPanel HorizontalAlignment="Center"
+                            VerticalAlignment="Center">
+                    <Grid Width="106"
+                          Height="106"
+                          Margin="0,0,0,24"
+                          ClipToBounds="True"
+                          RenderTransformOrigin="0.5,0.5">
+                        <Grid.RenderTransform>
+                            <TransformGroup>
+                                <RotateTransform x:Name="CrystalRotateTransform" Angle="0" />
+                                <ScaleTransform x:Name="CrystalScaleTransform" ScaleX="1" ScaleY="1" />
+                            </TransformGroup>
+                        </Grid.RenderTransform>
+                        <Image Source="Assets/crystal-relay-icon.png"
+                               Width="96"
+                               Height="96"
+                               Stretch="Uniform"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center" />
+                        <Rectangle x:Name="CrystalShimmer"
+                                   Width="24"
+                                   Height="118"
+                                   Opacity="0"
+                                   RenderTransformOrigin="0.5,0.5">
+                            <Rectangle.Fill>
+                                <LinearGradientBrush StartPoint="0,0"
+                                                     EndPoint="1,0">
+                                    <GradientStop Color="#00FFFFFF" Offset="0" />
+                                    <GradientStop Color="#A8FFFFFF" Offset="0.5" />
+                                    <GradientStop Color="#00FFFFFF" Offset="1" />
+                                </LinearGradientBrush>
+                            </Rectangle.Fill>
+                            <Rectangle.RenderTransform>
+                                <TransformGroup>
+                                    <RotateTransform Angle="24" />
+                                    <TranslateTransform x:Name="CrystalShimmerTransform" X="-86" />
+                                </TransformGroup>
+                            </Rectangle.RenderTransform>
+                        </Rectangle>
+                    </Grid>
+                    <TextBlock x:Name="LoadingTextBlock"
+                               Text="{loc:Translate 'Loading Crystal Relay...'}"
+                               FontSize="20"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextBrush}"
+                               HorizontalAlignment="Center" />
+                    <TextBlock Text="{loc:Translate 'Preparing your workspace...'}"
+                               FontSize="13"
+                               Foreground="{DynamicResource MutedBrush}"
+                               HorizontalAlignment="Center"
+                               Margin="0,8,0,0" />
+                </StackPanel>
+            </Grid>
             <Grid x:Name="AdvertisementOverlay"
                   Grid.RowSpan="2"
                   Panel.ZIndex="1000"

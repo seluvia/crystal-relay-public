@@ -36,7 +36,7 @@ public sealed class VrChatApiClient : IDisposable
         string password,
         CancellationToken cancellationToken = default)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Get, "auth/user");
+        using var request = new HttpRequestMessage(HttpMethod.Get, VrChatApiRoutes.CurrentUser);
         request.Headers.Authorization = new AuthenticationHeaderValue("Basic", BuildBasicAuthorization(username, password));
 
         using var response = await SendAsync(request, cancellationToken);
@@ -84,7 +84,7 @@ public sealed class VrChatApiClient : IDisposable
         string authCookie,
         CancellationToken cancellationToken = default)
     {
-        using var request = CreateRequest(HttpMethod.Get, "auth/user", authCookie);
+        using var request = CreateRequest(HttpMethod.Get, VrChatApiRoutes.CurrentUser, authCookie);
         using var response = await SendAsync(request, cancellationToken);
         var payload = await ReadAsJsonAsync<VrChatCurrentUserEnvelope>(response, cancellationToken);
 
@@ -104,7 +104,7 @@ public sealed class VrChatApiClient : IDisposable
             return;
         }
 
-        using var request = CreateRequest(HttpMethod.Put, "logout", authCookie);
+        using var request = CreateRequest(HttpMethod.Put, VrChatApiRoutes.Logout, authCookie);
         using var response = await SendAsync(request, cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
     }
@@ -115,9 +115,9 @@ public sealed class VrChatApiClient : IDisposable
         CancellationToken cancellationToken = default)
     {
         var merged = new Dictionary<string, MutableAvatar>(StringComparer.Ordinal);
-        var uploadedTask = GetPagedAvatarsAsync("avatars?user=me&releaseStatus=all", authCookie, cancellationToken);
-        var favoritesTask = GetPagedAvatarsAsync("avatars/favorites", authCookie, cancellationToken);
-        var licensedTask = GetPagedAvatarsAsync("avatars/licensed", authCookie, cancellationToken);
+        var uploadedTask = GetPagedAvatarsAsync(VrChatApiRoutes.UploadedAvatars, authCookie, cancellationToken);
+        var favoritesTask = GetPagedAvatarsAsync(VrChatApiRoutes.FavoriteAvatars, authCookie, cancellationToken);
+        var licensedTask = GetPagedAvatarsAsync(VrChatApiRoutes.LicensedAvatars, authCookie, cancellationToken);
 
         await Task.WhenAll(uploadedTask, favoritesTask, licensedTask);
 
@@ -132,7 +132,8 @@ public sealed class VrChatApiClient : IDisposable
                 avatar.Id,
                 avatar.Name,
                 string.Join(" / ", avatar.Sources.OrderBy(source => source, StringComparer.OrdinalIgnoreCase)),
-                avatar.IsCurrentAvatar))
+                avatar.IsCurrentAvatar,
+                avatar.ThumbnailUrl))
             .ToArray();
     }
 
@@ -145,7 +146,7 @@ public sealed class VrChatApiClient : IDisposable
             return VrChatCurrentWorldLookupResult.Unavailable;
         }
 
-        using var currentUserRequest = CreateRequest(HttpMethod.Get, "auth/user", authCookie);
+        using var currentUserRequest = CreateRequest(HttpMethod.Get, VrChatApiRoutes.CurrentUser, authCookie);
         using var currentUserResponse = await SendAsync(currentUserRequest, cancellationToken);
         var currentUser = await ReadAsJsonAsync<VrChatCurrentUserEnvelope>(currentUserResponse, cancellationToken);
         var worldId = ResolveCurrentWorldId(currentUser);
@@ -154,7 +155,7 @@ public sealed class VrChatApiClient : IDisposable
             return VrChatCurrentWorldLookupResult.Unavailable;
         }
 
-        using var worldRequest = CreateRequest(HttpMethod.Get, $"worlds/{worldId}", authCookie);
+        using var worldRequest = CreateRequest(HttpMethod.Get, VrChatApiRoutes.World(worldId), authCookie);
         using var worldResponse = await SendAsync(worldRequest, cancellationToken);
         var world = await ReadAsJsonAsync<VrChatWorldRecord>(worldResponse, cancellationToken);
         if (string.IsNullOrWhiteSpace(world.Id)
@@ -172,6 +173,56 @@ public sealed class VrChatApiClient : IDisposable
             world.AuthorId?.Trim() ?? string.Empty,
             worldName,
             $"https://vrchat.com/home/world/{worldId}");
+    }
+
+    public async Task<VrChatCurrentLocationLookupResult> GetCurrentLocationAsync(
+        string authCookie,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(authCookie))
+        {
+            return VrChatCurrentLocationLookupResult.Unavailable("VRChat avatar access is not connected.");
+        }
+
+        using var currentUserRequest = CreateRequest(HttpMethod.Get, VrChatApiRoutes.CurrentUser, authCookie);
+        using var currentUserResponse = await SendAsync(currentUserRequest, cancellationToken);
+        var currentUser = await ReadAsJsonAsync<VrChatCurrentUserEnvelope>(currentUserResponse, cancellationToken);
+        var location = ResolveCurrentLocation(currentUser);
+        if (!TryExtractWorldId(location, out var worldId)
+            || !TryExtractInstanceId(location, worldId, out var instanceId))
+        {
+            return VrChatCurrentLocationLookupResult.Unavailable(
+                "Crystal Relay could not read a current VRChat world instance to rejoin.");
+        }
+
+        var normalizedLocation = $"{worldId}:{instanceId}";
+        return VrChatCurrentLocationLookupResult.Available(
+            worldId,
+            instanceId,
+            normalizedLocation,
+            BuildLaunchUri(normalizedLocation),
+            "api");
+    }
+
+    public async Task<bool> InviteMyselfToInstanceAsync(
+        string authCookie,
+        string location,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(authCookie) || string.IsNullOrWhiteSpace(location))
+        {
+            return false;
+        }
+
+        using var request = CreateRequest(HttpMethod.Post, VrChatApiRoutes.InviteMyselfToInstance(location), authCookie);
+        using var response = await SendAsync(request, cancellationToken);
+        if (response.IsSuccessStatusCode)
+        {
+            return true;
+        }
+
+        await EnsureSuccessAsync(response, cancellationToken);
+        return true;
     }
 
     public void Dispose() => httpClient.Dispose();
@@ -193,6 +244,28 @@ public sealed class VrChatApiClient : IDisposable
             if (TryExtractWorldId(candidate, out var worldId))
             {
                 return worldId;
+            }
+        }
+
+        return string.Empty;
+    }
+
+    private static string ResolveCurrentLocation(VrChatCurrentUserEnvelope payload)
+    {
+        string?[] candidates =
+        [
+            payload.Location,
+            payload.TravelingToLocation,
+            payload.Presence?.Location
+        ];
+
+        foreach (var candidate in candidates)
+        {
+            var normalized = candidate?.Trim() ?? string.Empty;
+            if (TryExtractWorldId(normalized, out _)
+                && normalized.Contains(':', StringComparison.Ordinal))
+            {
+                return normalized;
             }
         }
 
@@ -223,6 +296,29 @@ public sealed class VrChatApiClient : IDisposable
 
         worldId = candidate;
         return true;
+    }
+
+    internal static string BuildLaunchUri(string location) => $"vrchat://launch?id={location?.Trim() ?? string.Empty}";
+
+    internal static bool TryExtractInstanceId(string? rawValue, string worldId, out string instanceId)
+    {
+        instanceId = string.Empty;
+        var candidate = rawValue?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(candidate)
+            || string.IsNullOrWhiteSpace(worldId)
+            || !candidate.StartsWith(worldId, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var separatorIndex = candidate.IndexOf(':');
+        if (separatorIndex < 0 || separatorIndex == candidate.Length - 1)
+        {
+            return false;
+        }
+
+        instanceId = candidate[(separatorIndex + 1)..].Trim();
+        return !string.IsNullOrWhiteSpace(instanceId);
     }
 
     private async Task<IReadOnlyList<VrChatAvatarRecord>> GetPagedAvatarsAsync(
@@ -272,6 +368,7 @@ public sealed class VrChatApiClient : IDisposable
                 {
                     Id = avatar.Id,
                     Name = string.IsNullOrWhiteSpace(avatar.Name) ? avatar.Id : avatar.Name,
+                    ThumbnailUrl = avatar.ThumbnailImageUrl ?? avatar.ImageUrl,
                     IsCurrentAvatar = string.Equals(avatar.Id, currentAvatarId, StringComparison.Ordinal)
                 };
                 merged[avatar.Id] = current;
@@ -486,6 +583,9 @@ public sealed class VrChatApiClient : IDisposable
 
     private sealed class VrChatPresenceRecord
     {
+        [JsonPropertyName("location")]
+        public string? Location { get; set; }
+
         [JsonPropertyName("world")]
         public string? World { get; set; }
 
@@ -515,6 +615,12 @@ public sealed class VrChatApiClient : IDisposable
 
         [JsonPropertyName("name")]
         public string Name { get; set; } = string.Empty;
+
+        [JsonPropertyName("imageUrl")]
+        public string? ImageUrl { get; set; }
+
+        [JsonPropertyName("thumbnailImageUrl")]
+        public string? ThumbnailImageUrl { get; set; }
     }
 
     private sealed class MutableAvatar
@@ -522,6 +628,8 @@ public sealed class VrChatApiClient : IDisposable
         public string Id { get; init; } = string.Empty;
 
         public string Name { get; init; } = string.Empty;
+
+        public string? ThumbnailUrl { get; init; }
 
         public bool IsCurrentAvatar { get; set; }
 
@@ -540,4 +648,25 @@ public sealed record VrChatCurrentWorldLookupResult(
 
     public static VrChatCurrentWorldLookupResult Available(string worldId, string worldAuthorId, string worldName, string worldUrl) =>
         new(true, worldId, worldAuthorId, worldName, worldUrl);
+}
+
+public sealed record VrChatCurrentLocationLookupResult(
+    bool IsAvailable,
+    string WorldId,
+    string InstanceId,
+    string Location,
+    string LaunchUri,
+    string Source,
+    string FailureReason)
+{
+    public static VrChatCurrentLocationLookupResult Unavailable(string failureReason) =>
+        new(false, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, failureReason);
+
+    public static VrChatCurrentLocationLookupResult Available(
+        string worldId,
+        string instanceId,
+        string location,
+        string launchUri,
+        string source) =>
+        new(true, worldId, instanceId, location, launchUri, source, string.Empty);
 }

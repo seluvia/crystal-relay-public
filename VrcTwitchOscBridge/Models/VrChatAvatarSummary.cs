@@ -4,4 +4,5 @@ public sealed record VrChatAvatarSummary(
     string Id,
     string Name,
     string SourceLabel,
-    bool IsCurrentAvatar);
+    bool IsCurrentAvatar,
+    string? ThumbnailUrl = null);

@@ -1,10 +1,12 @@
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
+using VrcTwitchOscBridge.Models;
 using VrcTwitchOscBridge.Services;
 using Application = System.Windows.Application;
 
@@ -48,6 +50,15 @@ public partial class App : Application
             await ApplicationSelfUpdateService.CleanupCompletedUpdateAsync(updateCleanupRequest);
         }
 
+        if (ApplicationRestartService.TryCreateHelperRequest(e.Args, out var restartHelperRequest))
+        {
+            ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            base.OnStartup(e);
+            await ApplicationRestartService.RunRestartHelperAsync(restartHelperRequest);
+            Shutdown();
+            return;
+        }
+
         if (SavedLoginStateRecoveryService.TryCreateHelperRequest(e.Args, out var recoveryHelperRequest))
         {
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
@@ -67,14 +78,53 @@ public partial class App : Application
             return;
         }
 
-        var settingsStore = new SettingsStore();
-        LocalizationService.Initialize(settingsStore.LoadLanguagePreference());
+        // Lightweight startup: ensure folders exist and read only language + theme preferences.
+        // Full SettingsStore construction is deferred to the view model after the window shows.
+        AppDataPaths.EnsureCoreFolders();
+        var fastProfile = LoadFastProfilePreferences();
+        LocalizationService.Initialize(fastProfile.Language);
+        ThemeManager.UpdateTheme(fastProfile.Theme, customTheme: null);
+        ApplicationRestartService.TryConsumeRestoreState(e.Args, out var restartRestoreState);
 
         base.OnStartup(e);
 
-        MainWindow = new MainWindow();
+        MainWindow = new MainWindow(restartRestoreState);
         MainWindow.Show();
     }
+
+    /// <summary>
+    /// Reads only the language and theme fields from the settings file without constructing a full SettingsStore.
+    /// This is a fast path used during startup to avoid blocking the UI thread.
+    /// </summary>
+    private static FastProfilePreferences LoadFastProfilePreferences()
+    {
+        try
+        {
+            var portableProfilePath = Path.Combine(AppDataPaths.PortableSaveFolder, "crystal-relay.rules.json");
+            if (!File.Exists(portableProfilePath))
+            {
+                return new FastProfilePreferences(AppLanguage.SystemDefault, AppTheme.VoidCrystal);
+            }
+
+            var json = File.ReadAllText(portableProfilePath);
+            var profile = JsonSerializer.Deserialize<MinimalProfilePreferences>(json);
+            var language = profile is not null && Enum.IsDefined(profile.Language)
+                ? profile.Language
+                : AppLanguage.SystemDefault;
+            var theme = profile is not null && Enum.IsDefined(profile.Theme)
+                ? profile.Theme
+                : AppTheme.VoidCrystal;
+            return new FastProfilePreferences(language, theme);
+        }
+        catch
+        {
+            return new FastProfilePreferences(AppLanguage.SystemDefault, AppTheme.VoidCrystal);
+        }
+    }
+
+    private sealed record FastProfilePreferences(AppLanguage Language, AppTheme Theme);
+
+    private sealed record MinimalProfilePreferences(AppLanguage Language, AppTheme Theme);
 
     protected override void OnExit(ExitEventArgs e)
     {

@@ -11,9 +11,13 @@ namespace VrcTwitchOscBridge.Services;
 internal sealed class VrChatLocalClientStateService
 {
     private const int InitialTailByteCount = 262144;
+    private const int InstanceLookupTailByteCount = 8388608;
     private static readonly TimeSpan LatestLogRescanInterval = TimeSpan.FromSeconds(30);
     private static readonly Regex AvatarSwitchRegex = new(
         @"\[Behaviour\] Switching (?<player>.+?) to avatar (?<avatar>.+)$",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+    private static readonly Regex JoinedInstanceRegex = new(
+        @"\[(?:Behaviour|RoomManager)\]\s+Joining\s+(?<location>wrld_[0-9a-fA-F-]{36}:[^\s]+)",
         RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
     private readonly object latestLogStateGate = new();
     private string cachedLatestOutputLogPath = string.Empty;
@@ -92,6 +96,43 @@ internal sealed class VrChatLocalClientStateService
 
         var detectedAvatarName = FindMostRecentLocalAvatarName(content, normalizedDisplayName);
         return new VrChatLocalLogReadResult(latestLogPath, stream.Position, detectedAvatarName ?? string.Empty);
+    }
+
+    public async Task<VrChatLocalInstanceLookupResult> ReadLatestJoinedInstanceAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var latestLogPath = ResolveLatestOutputLogPath(currentLogPath: null);
+        if (string.IsNullOrWhiteSpace(latestLogPath) || !File.Exists(latestLogPath))
+        {
+            return VrChatLocalInstanceLookupResult.Unavailable("Crystal Relay could not find a VRChat output log to read.");
+        }
+
+        var fileInfo = new FileInfo(latestLogPath);
+        var startPosition = Math.Max(0, fileInfo.Length - InstanceLookupTailByteCount);
+        using var stream = new FileStream(
+            latestLogPath,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.ReadWrite | FileShare.Delete);
+
+        stream.Seek(startPosition, SeekOrigin.Begin);
+
+        using var reader = new StreamReader(stream);
+        var content = await reader.ReadToEndAsync();
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (!TryFindMostRecentJoinedInstance(content, out var worldId, out var instanceId, out var location))
+        {
+            return VrChatLocalInstanceLookupResult.Unavailable(
+                "Crystal Relay could not find a recent VRChat world instance in the local output log.");
+        }
+
+        return VrChatLocalInstanceLookupResult.Available(
+            worldId,
+            instanceId,
+            location,
+            VrChatApiClient.BuildLaunchUri(location),
+            latestLogPath);
     }
 
     private string ResolveLatestOutputLogPath(string? currentLogPath)
@@ -202,9 +243,93 @@ internal sealed class VrChatLocalClientStateService
         avatarName = match.Groups["avatar"].Value.Trim();
         return !string.IsNullOrWhiteSpace(avatarName);
     }
+
+    private static bool TryFindMostRecentJoinedInstance(
+        string content,
+        out string worldId,
+        out string instanceId,
+        out string location)
+    {
+        worldId = string.Empty;
+        instanceId = string.Empty;
+        location = string.Empty;
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return false;
+        }
+
+        using var reader = new StringReader(content);
+        while (reader.ReadLine() is { } line)
+        {
+            if (!TryParseJoinedInstance(line, out var parsedWorldId, out var parsedInstanceId, out var parsedLocation))
+            {
+                continue;
+            }
+
+            worldId = parsedWorldId;
+            instanceId = parsedInstanceId;
+            location = parsedLocation;
+        }
+
+        return !string.IsNullOrWhiteSpace(location);
+    }
+
+    private static bool TryParseJoinedInstance(
+        string line,
+        out string worldId,
+        out string instanceId,
+        out string location)
+    {
+        worldId = string.Empty;
+        instanceId = string.Empty;
+        location = string.Empty;
+        if (string.IsNullOrWhiteSpace(line))
+        {
+            return false;
+        }
+
+        var match = JoinedInstanceRegex.Match(line);
+        if (!match.Success)
+        {
+            return false;
+        }
+
+        var candidate = match.Groups["location"].Value.Trim().TrimEnd('.', ',', ';');
+        if (!VrChatApiClient.TryExtractWorldId(candidate, out worldId)
+            || !VrChatApiClient.TryExtractInstanceId(candidate, worldId, out instanceId))
+        {
+            worldId = string.Empty;
+            instanceId = string.Empty;
+            return false;
+        }
+
+        location = $"{worldId}:{instanceId}";
+        return true;
+    }
 }
 
 internal sealed record VrChatLocalLogReadResult(
     string LogPath,
     long NextPosition,
     string AvatarName);
+
+internal sealed record VrChatLocalInstanceLookupResult(
+    bool IsAvailable,
+    string WorldId,
+    string InstanceId,
+    string Location,
+    string LaunchUri,
+    string LogPath,
+    string FailureReason)
+{
+    public static VrChatLocalInstanceLookupResult Unavailable(string failureReason) =>
+        new(false, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, failureReason);
+
+    public static VrChatLocalInstanceLookupResult Available(
+        string worldId,
+        string instanceId,
+        string location,
+        string launchUri,
+        string logPath) =>
+        new(true, worldId, instanceId, location, launchUri, logPath, string.Empty);
+}
