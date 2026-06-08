@@ -17290,17 +17290,6 @@ internal BridgeCoordinator(
         masterUnlockNotification?.Dispose();
         masterCooldownNotification?.Cancel();
         masterCooldownNotification?.Dispose();
-
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await activityResumeService.ClearAllAsync();
-            }
-            catch
-            {
-            }
-        });
     }
 
     private int EnqueueTrigger(TriggerRuleSnapshot rule, BridgeIncomingEvent bridgeEvent)
