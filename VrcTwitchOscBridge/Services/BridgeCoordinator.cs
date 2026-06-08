@@ -7094,12 +7094,12 @@ internal BridgeCoordinator(
                 catch (Exception ex)
                 {
                     WriteLog($"Crystal Relay could not start the desktop input lock for '{executionRule.Name}', so it fell back to a VRChat soft lock. {ex.Message}");
-                    await ExecuteMovementSoftLockAsync(executionRule, cancellationToken);
+await ExecuteMovementSoftLockAsync(executionRule, cancellationToken, isResuming);
                 }
             }
             else
             {
-                await ExecuteMovementSoftLockAsync(executionRule, cancellationToken);
+                await ExecuteMovementSoftLockAsync(executionRule, cancellationToken, isResuming);
             }
 
             lock (stateGate)
@@ -9083,7 +9083,7 @@ internal BridgeCoordinator(
         }, CancellationToken.None);
     }
 
-    private async Task ExecuteMovementSoftLockAsync(TriggerRuleSnapshot rule, CancellationToken cancellationToken)
+    private async Task ExecuteMovementSoftLockAsync(TriggerRuleSnapshot rule, CancellationToken cancellationToken, bool isResuming = false)
     {
         if (runtimeCancellation is null)
         {
