@@ -427,6 +427,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private readonly Dictionary<Guid, Guid> lastSelectedRuleIdsByAvatarProfileId = new();
     private readonly Dictionary<string, DateTimeOffset> recentChatActivityKeys = new(StringComparer.Ordinal);
     private readonly ObservableCollection<TriggerRule> emptyMasterAvatarRules = [];
+    private readonly IActivityResumeService activityResumeService;
 
     private AppSettings settings = new();
     private RuntimeConfig runtimeConfig = RuntimeConfig.CreateDefault();
@@ -627,7 +628,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     {
         dispatcher = Dispatcher.CurrentDispatcher;
         desktopInputLockService = new DesktopInputLockService(dispatcher);
-        bridgeCoordinator = new BridgeCoordinator(desktopInputLockService, worldCommandBlacklistService, vrChatLocalOscCacheService);
+        activityResumeService = new ActivityResumeService();
+        bridgeCoordinator = new BridgeCoordinator(desktopInputLockService, worldCommandBlacklistService, vrChatLocalOscCacheService, activityResumeService);
         LogEntries = [];
         ChatMessages = [];
         ChatActivityEntries = [];
@@ -3796,6 +3798,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         await QueueRewardRefreshAsync();
         QueueManagedRewardSync(reason: ManagedRewardSyncReason.Startup);
         await aboutProfilesRefreshTask;
+        await activityResumeService.LoadPendingAsync();
         QueueBridgeRefresh();
         QueueLiveFeedbackHeartbeatEvaluation();
     }
