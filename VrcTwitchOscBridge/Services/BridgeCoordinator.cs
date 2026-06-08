@@ -13646,6 +13646,7 @@ internal BridgeCoordinator(
         {
             lastAvatarChangeAt = DateTimeOffset.UtcNow;
             ResumePendingAvatarScopedResetsForCurrentAvatar(normalizedAvatarId);
+            _ = TryResumePendingActivitiesAsync();
             QueueAvatarScaleAvatarChangeHandling(
                 previousAvatarId,
                 normalizedAvatarId,
