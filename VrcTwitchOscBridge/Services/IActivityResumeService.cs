@@ -8,7 +8,7 @@ public interface IActivityResumeService
     bool HasPendingResume { get; }
     bool IsPendingForAvatar(string avatarId);
     IReadOnlyList<ResumeActivity> GetPendingActivities();
-    Task RecordActivityStartedAsync(ResumeActivity activity);
+    Task RecordActivityStartedAsync(ResumeActivity activity, string avatarId);
     Task RecordActivityEndedAsync(Guid ruleId);
     Task ClearAllAsync();
     Task CommitAsync();

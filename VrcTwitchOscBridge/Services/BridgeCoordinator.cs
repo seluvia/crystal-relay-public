@@ -4685,7 +4685,7 @@ internal BridgeCoordinator(
                             ["scaleMode"] = rule.ScaleMode.ToString(),
                             ["targetHeight"] = targetHeight
                         }
-                    });
+                    }, GetCurrentVrChatAvatarId());
                 }
             }
             else
@@ -7295,7 +7295,7 @@ internal BridgeCoordinator(
                 {
                     ["avatarTargetId"] = action.AvatarTargetId ?? string.Empty
                 }
-            });
+            }, action.AvatarTargetId ?? string.Empty);
         }
 
         if (isTest)
@@ -7347,7 +7347,7 @@ internal BridgeCoordinator(
                 {
                     ["movementDirection"] = executionRule.MovementDirection.ToString()
                 }
-            });
+            }, GetCurrentVrChatAvatarId());
         }
 
         if (shouldNotifyManagedRewardState)

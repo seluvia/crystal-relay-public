@@ -90,11 +90,12 @@ public sealed class ActivityResumeService : IActivityResumeService
         }
     }
 
-    public Task RecordActivityStartedAsync(ResumeActivity activity)
+    public Task RecordActivityStartedAsync(ResumeActivity activity, string avatarId)
     {
         lock (stateGate)
         {
             pendingSnapshot ??= new ActivityResumeSnapshot();
+            pendingSnapshot.CurrentAvatarId = avatarId?.Trim() ?? string.Empty;
             pendingSnapshot.Activities.RemoveAll(a => a.RuleId == activity.RuleId);
             pendingSnapshot.Activities.Add(activity);
         }
