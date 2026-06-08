@@ -44,6 +44,8 @@ public sealed class OscRouterService : IAsyncDisposable
 
     public event Action<OscObservedValue>? ObservedValueReceived;
 
+    public event Action<OscDiscoveryState>? DiscoveryStateChanged;
+
     public bool IsRunning => runtimeTasks.Any(task => !task.IsCompleted);
 
     public bool HasDiscoveredVrChat
@@ -496,6 +498,7 @@ public sealed class OscRouterService : IAsyncDisposable
             discoveryState = OscDiscoveryState.Discovered;
         }
 
+        DiscoveryStateChanged?.Invoke(OscDiscoveryState.Discovered);
         LogWritten?.Invoke($"Discovered VRChat through OSCQuery: {match.Name}. Crystal Relay will send actions to {match.Address}:{match.OscPort} and receive values on 127.0.0.1:{localUdpPort}.");
     }
 
@@ -691,15 +694,16 @@ public sealed class OscRouterService : IAsyncDisposable
 
     private InvalidOperationException CreateTargetLostException(string operation, Exception ex)
     {
-        MarkTargetLost($"Crystal Relay lost the OSCQuery connection to VRChat while {operation}. It will wait for VRChat to come back or you can use Refresh OSC after VRChat is ready again.");
+        MarkTargetLost($"Crystal Relay lost the OSCQuery connection to VRChat while {operation}. It will wait for VRChat to come back automatically.");
         return new InvalidOperationException(
-            $"Crystal Relay lost the OSCQuery connection to VRChat while {operation}. Wait a moment for VRChat to finish loading, or use Refresh OSC if it just restarted.",
+            $"Crystal Relay lost the OSCQuery connection to VRChat while {operation}. Wait a moment for VRChat to finish loading.",
             ex);
     }
 
     private void MarkTargetLost(string reason)
     {
         var shouldLog = false;
+        var shouldNotify = false;
 
         lock (stateGate)
         {
@@ -712,6 +716,12 @@ public sealed class OscRouterService : IAsyncDisposable
             discoveryState = OscDiscoveryState.Lost;
             nextDiscoveryLogAt = DateTimeOffset.MinValue;
             shouldLog = true;
+            shouldNotify = true;
+        }
+
+        if (shouldNotify)
+        {
+            DiscoveryStateChanged?.Invoke(OscDiscoveryState.Lost);
         }
 
         if (shouldLog)
