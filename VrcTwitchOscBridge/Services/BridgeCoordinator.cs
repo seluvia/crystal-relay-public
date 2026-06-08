@@ -4470,7 +4470,7 @@ internal BridgeCoordinator(
         return (liveCount, testCount);
     }
 
-private async Task<bool> ExecuteAvatarScaleRuleAsync(
+    private async Task<bool> ExecuteAvatarScaleRuleAsync(
         AvatarScaleRuleSnapshot rule,
         UniversalIncomingEvent incomingEvent,
         bool isTest,
