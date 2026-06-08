@@ -925,7 +925,9 @@ public sealed class AvatarScaleRule : ObservableObject
         AvatarScaleMode.RandomHeight => $"Random {Math.Min(MinimumHeightMeters, MaximumHeightMeters):0.##}-{Math.Max(MinimumHeightMeters, MaximumHeightMeters):0.##}m",
         AvatarScaleMode.GlitchyRandomHeight => $"Glitchy {Math.Min(MinimumHeightMeters, MaximumHeightMeters):0.##}-{Math.Max(MinimumHeightMeters, MaximumHeightMeters):0.##}m",
         AvatarScaleMode.RelativeHeight => $"{RelativeHeightMeters:+0.##;-0.##;0}m relative",
-        AvatarScaleMode.Multiplier => $"x{HeightMultiplier:0.##}",
+        AvatarScaleMode.Multiplier => MultiplierDirection == AvatarScaleMultiplierDirection.Divide
+            ? $"÷{HeightMultiplier:0.##}"
+            : $"x{HeightMultiplier:0.##}",
         AvatarScaleMode.Preset => Preset.ToString(),
         _ => "Scale"
     };
