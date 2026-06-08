@@ -662,7 +662,7 @@ internal BridgeCoordinator(
             throw new InvalidOperationException("OSC is not running yet, so Crystal Relay cannot send a test to VRChat.");
         }
 
-        await ExecuteRuleActionAsync(rule, null, cancellationToken, isTest: true, queuedReplay: false, allowLaneQueue: true);
+        await ExecuteRuleActionAsync(rule, null, cancellationToken, isTest: true, queuedReplay: false, allowLaneQueue: true, isResuming: false);
     }
 
     public async Task SendTestUniversalTriggerAsync(UniversalTriggerRuleSnapshot trigger, CancellationToken cancellationToken = default)
@@ -7021,7 +7021,7 @@ internal BridgeCoordinator(
             }
         }
 
-        await ExecuteRuleActionAsync(rule, bridgeEvent, cancellationToken, isTest: false, queuedReplay: false, allowLaneQueue: true);
+        await ExecuteRuleActionAsync(rule, bridgeEvent, cancellationToken, isTest: false, queuedReplay: false, allowLaneQueue: true, isResuming: false);
     }
 
     // Executes one rule action end-to-end. This is where Crystal Relay checks pause state,
@@ -7032,7 +7032,8 @@ internal BridgeCoordinator(
         CancellationToken cancellationToken,
         bool isTest,
         bool queuedReplay,
-        bool allowLaneQueue)
+        bool allowLaneQueue,
+        bool isResuming = false)
     {
         if (!isTest && AreRedeemsPaused())
         {
@@ -7110,7 +7111,7 @@ internal BridgeCoordinator(
                 }
             }
 
-            if (!isTest)
+            if (!isTest && !isResuming)
             {
                 CancelCooldownStateNotification(rule.Id);
                 UpdateActiveRuleLockoutState(executionRule);
@@ -7122,14 +7123,14 @@ internal BridgeCoordinator(
                     ? $"Sent queued test trigger for '{executionRule.Name}'."
                     : $"Sent a test trigger for '{executionRule.Name}'.");
             }
-            else if (bridgeEvent is not null)
+            else if (bridgeEvent is not null && !isResuming)
             {
                 WriteLog(queuedReplay
                     ? $"{bridgeEvent.UserDisplayName} triggered '{executionRule.Name}' from the queue."
                     : $"{bridgeEvent.UserDisplayName} triggered '{executionRule.Name}'.");
             }
 
-            if (!isTest && bridgeEvent is not null)
+            if (!isTest && !isResuming && bridgeEvent is not null)
             {
                 await TrySendBotMessageAsync(executionRule, bridgeEvent, movementDisplayValue, cancellationToken);
             }
@@ -7209,7 +7210,7 @@ internal BridgeCoordinator(
                     false);
             }
 
-            if (!isTest)
+            if (!isTest && !isResuming)
             {
                 if (cooldownSeconds > 0)
                 {
@@ -7222,7 +7223,7 @@ internal BridgeCoordinator(
             }
         }
 
-        if (!isTest)
+        if (!isTest && !isResuming)
         {
             if (cooldownSeconds > 0)
             {
@@ -7256,7 +7257,7 @@ internal BridgeCoordinator(
                 ? $"Sent queued test trigger for '{rule.Name}'."
                 : $"Sent a test trigger for '{rule.Name}'.");
         }
-        else if (bridgeEvent is not null)
+        else if (bridgeEvent is not null && !isResuming)
         {
             WriteLog(queuedReplay
                 ? $"{bridgeEvent.UserDisplayName} triggered '{rule.Name}' from the queue."
@@ -7264,12 +7265,12 @@ internal BridgeCoordinator(
         }
 
         var lockoutDurationSeconds = isTest ? 0 : GetLockoutDurationSeconds(executionRule);
-        if (!isTest)
+        if (!isTest && !isResuming)
         {
             UpdateActiveAvatarSwitchLockoutState(executionRule);
         }
 
-        var shouldNotifyManagedRewardState = !isTest && cooldownSeconds > 0;
+        var shouldNotifyManagedRewardState = !isTest && !isResuming && cooldownSeconds > 0;
         if ((action.HasResetPackets && effectiveTimedActionSeconds > 0)
             || lockoutDurationSeconds > 0)
         {
@@ -7292,7 +7293,7 @@ internal BridgeCoordinator(
             ManagedRewardAvailabilityChanged?.Invoke();
         }
 
-        if (!isTest && bridgeEvent is not null)
+        if (!isTest && !isResuming && bridgeEvent is not null)
         {
             await TrySendBotMessageAsync(executionRule, bridgeEvent, action.DisplayValue, cancellationToken);
         }
@@ -17261,7 +17262,7 @@ internal BridgeCoordinator(
                         }
                         else
                         {
-                            await ExecuteRuleActionAsync(ruleSnapshot, queuedTrigger.Event, cancellationToken, isTest: false, queuedReplay: true, allowLaneQueue: true);
+                            await ExecuteRuleActionAsync(ruleSnapshot, queuedTrigger.Event, cancellationToken, isTest: false, queuedReplay: true, allowLaneQueue: true, isResuming: false);
                         }
                     }
                     catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -17423,7 +17424,7 @@ internal BridgeCoordinator(
                             WriteLog($"Starting queued Bits outfit Set Trigger '{ruleToExecute.Name}'.");
                         }
 
-                        await ExecuteRuleActionAsync(ruleToExecute, queuedAction.Event, cancellationToken, queuedAction.IsTest, queuedReplay: true, allowLaneQueue: true);
+                        await ExecuteRuleActionAsync(ruleToExecute, queuedAction.Event, cancellationToken, queuedAction.IsTest, queuedReplay: true, allowLaneQueue: true, isResuming: false);
                     }
                     catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                     {
@@ -17691,7 +17692,8 @@ internal BridgeCoordinator(
             cancellationToken,
             isTest: false,
             queuedReplay: true,
-            allowLaneQueue: false);
+            allowLaneQueue: false,
+            isResuming: false);
         await Task.Delay(TimeSpan.FromSeconds(Math.Max(1, rule.DurationSeconds)), cancellationToken);
     }
 
