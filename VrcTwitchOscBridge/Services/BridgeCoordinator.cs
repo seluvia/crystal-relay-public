@@ -13498,23 +13498,27 @@ internal BridgeCoordinator(
 
         if (!HasDiscoveredVrChat)
         {
+            WriteLog("Activity resume skipped: OSC not discovered yet.");
             return;
         }
 
         var currentAvatarId = GetCurrentVrChatAvatarId();
         if (string.IsNullOrWhiteSpace(currentAvatarId))
         {
+            WriteLog("Activity resume skipped: current avatar ID is empty.");
             return;
         }
 
         if (!activityResumeService.HasPendingResume)
         {
+            WriteLog("Activity resume skipped: no pending resume file found.");
             hasAttemptedResume = true;
             return;
         }
 
         if (!activityResumeService.IsPendingForAvatar(currentAvatarId))
         {
+            WriteLog($"Activity resume skipped: current avatar '{currentAvatarId}' does not match saved avatar.");
             return;
         }
 
