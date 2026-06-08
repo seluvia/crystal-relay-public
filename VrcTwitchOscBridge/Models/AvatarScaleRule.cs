@@ -879,6 +879,8 @@ public sealed class AvatarScaleRule : ObservableObject
 
     public bool UsesConfiguredRestoreHeight => HasActiveTime;
 
+    public AvatarScaleMode ActiveMode => ScaleMode;
+
     public bool HasScaleDisablePairings => TemporarilyDisabledScaleRuleIds.Count > 0;
 
     public Brush ManagedRewardReadyColorBrush => CreateColorBrush(ManagedRewardReadyColor);
@@ -1095,6 +1097,7 @@ public sealed class AvatarScaleRule : ObservableObject
         RaisePropertyChanged(nameof(UsesPreset));
         RaisePropertyChanged(nameof(HasActiveTime));
         RaisePropertyChanged(nameof(UsesConfiguredRestoreHeight));
+        RaisePropertyChanged(nameof(ActiveMode));
         RaisePropertyChanged(nameof(ScaleSummary));
         RaisePropertyChanged(nameof(TriggerSummary));
     }
