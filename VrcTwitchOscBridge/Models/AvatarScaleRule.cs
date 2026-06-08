@@ -44,6 +44,12 @@ public enum AvatarScaleRestoreMode
     ConfiguredHeight
 }
 
+public enum AvatarScaleMultiplierDirection
+{
+    Grow,
+    Divide
+}
+
 public sealed class AvatarScaleBitGrowthRange : ObservableObject
 {
     private int minimumBits = 1;
@@ -316,6 +322,7 @@ public sealed class AvatarScaleRule : ObservableObject
     private double activeTimeSeconds;
     private AvatarScaleRestoreMode restoreMode = AvatarScaleRestoreMode.ConfiguredHeight;
     private double restoreHeightMeters = 1.6;
+    private int multiplierDirectionId;
     private double smoothTransitionSeconds;
     private bool advancedRangeEnabled;
     private bool bypassVrChatScaleLimits;
@@ -644,6 +651,26 @@ public sealed class AvatarScaleRule : ObservableObject
         set => SetAndRaiseScale(ref restoreHeightMeters, ClampHeight(value));
     }
 
+    public int MultiplierDirectionId
+    {
+        get => multiplierDirectionId;
+        set
+        {
+            var normalized = Enum.IsDefined((AvatarScaleMultiplierDirection)value)
+                ? value
+                : (int)AvatarScaleMultiplierDirection.Grow;
+            if (SetAndRaiseScale(ref multiplierDirectionId, normalized))
+            {
+                RaisePropertyChanged(nameof(MultiplierDirection));
+            }
+        }
+    }
+
+    public AvatarScaleMultiplierDirection MultiplierDirection =>
+        Enum.IsDefined((AvatarScaleMultiplierDirection)multiplierDirectionId)
+            ? (AvatarScaleMultiplierDirection)multiplierDirectionId
+            : AvatarScaleMultiplierDirection.Grow;
+
     public double SmoothTransitionSeconds
     {
         get => smoothTransitionSeconds;
@@ -964,6 +991,17 @@ public sealed class AvatarScaleRule : ObservableObject
     }
 
     private bool SetAndRaiseScale(ref double storage, double value)
+    {
+        if (!SetProperty(ref storage, value))
+        {
+            return false;
+        }
+
+        RaiseScaleProperties();
+        return true;
+    }
+
+    private bool SetAndRaiseScale(ref int storage, int value)
     {
         if (!SetProperty(ref storage, value))
         {
