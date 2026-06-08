@@ -5950,7 +5950,9 @@ internal BridgeCoordinator(
                 * (Math.Max(rule.MinimumHeightMeters, rule.MaximumHeightMeters) - Math.Min(rule.MinimumHeightMeters, rule.MaximumHeightMeters))
                 + Math.Min(rule.MinimumHeightMeters, rule.MaximumHeightMeters),
             AvatarScaleMode.RelativeHeight => ClampRelativeScaleTarget(rule, currentHeight, current + rule.RelativeHeightMeters),
-            AvatarScaleMode.Multiplier => current * Math.Max(0.01, rule.HeightMultiplier),
+            AvatarScaleMode.Multiplier => rule.MultiplierDirectionId == (int)AvatarScaleMultiplierDirection.Divide
+                ? current / Math.Max(0.01, rule.HeightMultiplier)
+                : current * Math.Max(0.01, rule.HeightMultiplier),
             AvatarScaleMode.Preset => AvatarScaleRule.GetPresetHeight(rule.Preset),
             _ => rule.TargetHeightMeters
         };
