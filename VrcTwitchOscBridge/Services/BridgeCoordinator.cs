@@ -7146,7 +7146,8 @@ internal BridgeCoordinator(
                 cancellationToken,
                 isTest,
                 queuedReplay,
-                cooldownSeconds);
+                cooldownSeconds,
+                false);
             return;
         }
 
@@ -7303,7 +7304,8 @@ internal BridgeCoordinator(
         CancellationToken cancellationToken,
         bool isTest,
         bool queuedReplay,
-        int cooldownSeconds)
+        int cooldownSeconds,
+        bool isResuming = false)
     {
         var laneKeys = GetGlitchyMovementLaneKeys();
         var laneLeaseId = laneKeys.Count == 0 ? Guid.Empty : Guid.NewGuid();
@@ -7324,7 +7326,7 @@ internal BridgeCoordinator(
                     false);
             }
 
-            if (!isTest)
+            if (!isTest && !isResuming)
             {
                 if (cooldownSeconds > 0)
                 {
