@@ -324,6 +324,7 @@ public sealed class AvatarScaleRule : ObservableObject
     private double restoreHeightMeters = 1.6;
     private int multiplierDirectionId;
     private double smoothTransitionSeconds;
+    private double glitchyTransitionSeconds = 0.4;
     private bool advancedRangeEnabled;
     private bool bypassVrChatScaleLimits;
     private double supporterGrowthNormalHeightMeters = 1.6;
@@ -675,6 +676,12 @@ public sealed class AvatarScaleRule : ObservableObject
     {
         get => smoothTransitionSeconds;
         set => SetAndRaiseScale(ref smoothTransitionSeconds, Math.Clamp(value, 0, 30));
+    }
+
+    public double GlitchyTransitionSeconds
+    {
+        get => glitchyTransitionSeconds;
+        set => SetAndRaiseScale(ref glitchyTransitionSeconds, Math.Clamp(value, 0, 5));
     }
 
     public bool AdvancedRangeEnabled
