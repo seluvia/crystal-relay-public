@@ -91,6 +91,7 @@
     <Compile Include="Infrastructure\RelayCommand.cs" />
     <Compile Include="Models\AppTheme.cs" />
     <Compile Include="Models\CustomThemeSettings.cs" />
+    <Compile Include="Models\ActivityResumeSnapshot.cs" />
     <Compile Include="Models\AppLanguage.cs" />
     <Compile Include="Models\AppSettings.cs" />
     <Compile Include="Models\AvatarTriggerProfile.cs" />
@@ -106,6 +107,8 @@
     <Compile Include="Models\PlayerMovementDirection.cs" />
     <Compile Include="Models\PowerUpRule.cs" />
     <Compile Include="Models\RedeemGroup.cs" />
+    <Compile Include="Models\ResumeActivity.cs" />
+    <Compile Include="Models\ResumeActivityType.cs" />
     <Compile Include="Models\RewardFireSaleSettings.cs" />
     <Compile Include="Models\SetTriggerAction.cs" />
     <Compile Include="Models\TriggerRule.cs" />
@@ -171,6 +174,8 @@
     <Compile Include="Services\WardrobeExecutorService.cs" />
     <Compile Include="Services\WindowPlacementStateStore.cs" />
     <Compile Include="Services\WindowsCredentialStore.cs" />
+    <Compile Include="Services\ActivityResumeService.cs" />
+    <Compile Include="Services\IActivityResumeService.cs" />
     <Compile Include="Services\WorldCommandBlacklistService.cs" />
     <Compile Include="ViewModels\MainWindowViewModel.cs" />
     <Compile Include="ViewModels\AvatarPickerViewModel.cs" />
