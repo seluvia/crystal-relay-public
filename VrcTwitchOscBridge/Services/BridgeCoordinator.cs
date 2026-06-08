@@ -13561,13 +13561,7 @@ internal BridgeCoordinator(
                         return;
                     }
 
-                    var incomingEvent = new UniversalIncomingEvent(
-                        string.Empty,
-                        string.Empty,
-                        string.Empty,
-                        string.Empty,
-                        0,
-                        DateTimeOffset.UtcNow);
+                    var incomingEvent = UniversalIncomingEvent.Test;
 
                     await ExecuteAvatarScaleRuleAsync(
                         rule,
