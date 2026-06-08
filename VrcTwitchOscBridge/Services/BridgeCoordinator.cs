@@ -192,6 +192,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private ActiveAvatarScaleCarryoverState? activeAvatarScaleCarryover;
     private ActiveAvatarScaleRestoreSequenceState? activeAvatarScaleRestoreSequence;
     private PausedAvatarScaleTimerSnapshot? pausedDevAvatarScaleTimerSnapshot;
+    private DateTimeOffset? avatarScaleTransitionGraceUntil;
     private CancellationTokenSource? avatarScaleRestoreSequenceCancellation;
     private CancellationTokenSource? pendingStreamOfflineConfirmation;
     private bool drainingQueuedAvatarScaleOperations;
@@ -684,7 +685,7 @@ internal BridgeCoordinator(
 
         if (rule.TriggerType == AvatarScaleTriggerType.SupporterGrowth)
         {
-            await ExecuteAvatarScaleRuleAsync(rule, UniversalIncomingEvent.Test, isTest: true, cancellationToken);
+            await ExecuteAvatarScaleRuleAsync(rule, UniversalIncomingEvent.Test, isTest: true, cancellationToken, isResuming: false);
             return;
         }
 
@@ -3433,7 +3434,7 @@ internal BridgeCoordinator(
                     false,
                     false);
                 WriteLog($"{paymentEvent.UserDisplayName} triggered cash payment scale '{rule.Name}' through {DescribeCashPaymentProvider(paymentEvent.Provider)}.");
-                await ExecuteAvatarScaleRuleAsync(rule.ScaleAction, incomingEvent, isTest: false, cancellationToken);
+                await ExecuteAvatarScaleRuleAsync(rule.ScaleAction, incomingEvent, isTest: false, cancellationToken, isResuming: false);
                 continue;
             }
 
@@ -3809,19 +3810,33 @@ internal BridgeCoordinator(
         var now = DateTimeOffset.UtcNow;
         lock (stateGate)
         {
-            PruneExpiredAvatarScaleHeightSessionsLocked(now);
+            if (activeAvatarScaleOperation?.IsTransitionActive == true)
+            {
+                return true;
+            }
 
-            if (activeAvatarScaleHeightSessions.Count > 0
-                || avatarScaleSupporterGrowthStates.Count > 0
-                || activeAvatarScaleEffects.Values.Any(expiresAt => expiresAt > now)
-                || activeAvatarScaleOperation is not null
-                || activeAvatarScaleRestoreSequence?.ActiveUntil > now)
+            if (avatarScaleTransitionGraceUntil.HasValue && avatarScaleTransitionGraceUntil.Value > now)
             {
                 return true;
             }
 
             return false;
         }
+    }
+
+    private TimeSpan GetAvatarScaleTransitionBlockRemainingLocked(DateTimeOffset now)
+    {
+        if (activeAvatarScaleOperation?.IsTransitionActive == true)
+        {
+            return TimeSpan.FromSeconds(2);
+        }
+
+        if (avatarScaleTransitionGraceUntil.HasValue && avatarScaleTransitionGraceUntil.Value > now)
+        {
+            return avatarScaleTransitionGraceUntil.Value - now;
+        }
+
+        return TimeSpan.Zero;
     }
 
     private static AvatarScaleAvatarChangeCarryoverMode GetAvatarScaleAvatarChangeCarryoverMode(TriggerRuleSnapshot rule) =>
@@ -4175,7 +4190,7 @@ internal BridgeCoordinator(
         {
             try
             {
-                await ExecuteAvatarScaleRuleAsync(rule, incomingEvent, isTest: false, executionToken);
+                await ExecuteAvatarScaleRuleAsync(rule, incomingEvent, isTest: false, executionToken, isResuming: false);
             }
             catch (OperationCanceledException) when (executionToken.IsCancellationRequested)
             {
@@ -4356,7 +4371,8 @@ internal BridgeCoordinator(
                             ruleToExecute,
                             queuedOperation.IncomingEvent,
                             queuedOperation.IsTest,
-                            cancellationToken);
+                            cancellationToken,
+                            isResuming: false);
                         if (!completed)
                         {
                             RequeueAvatarScaleOperationAtFront(queuedOperation);
@@ -4454,11 +4470,12 @@ internal BridgeCoordinator(
         return (liveCount, testCount);
     }
 
-    private async Task<bool> ExecuteAvatarScaleRuleAsync(
+private async Task<bool> ExecuteAvatarScaleRuleAsync(
         AvatarScaleRuleSnapshot rule,
         UniversalIncomingEvent incomingEvent,
         bool isTest,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool isResuming = false)
     {
         if (rule.TriggerType == AvatarScaleTriggerType.SupporterGrowth)
         {
@@ -4466,7 +4483,7 @@ internal BridgeCoordinator(
             return true;
         }
 
-        if (rule.TriggerType == AvatarScaleTriggerType.Follow && !isTest)
+        if (rule.TriggerType == AvatarScaleTriggerType.Follow && !isTest && !isResuming)
         {
             lock (stateGate)
             {
@@ -4484,8 +4501,8 @@ internal BridgeCoordinator(
             }
         }
 
-        var cooldownSeconds = GetAvatarScaleEffectiveCooldownSeconds(rule);
-        if (!isTest)
+        var cooldownSeconds = isResuming ? 0 : GetAvatarScaleEffectiveCooldownSeconds(rule);
+        if (!isTest && !isResuming)
         {
             var now = DateTimeOffset.UtcNow;
             lock (stateGate)
@@ -4566,7 +4583,10 @@ internal BridgeCoordinator(
                     return;
                 }
 
-                UpdateActiveAvatarScaleRuleLockoutState(rule);
+                if (!isResuming)
+                {
+                    UpdateActiveAvatarScaleRuleLockoutState(rule);
+                }
 
                 var effectDurationSeconds = GetAvatarScaleEffectDurationSeconds(rule);
                 var activeWindowSeconds = effectDurationSeconds;
@@ -4588,49 +4608,55 @@ internal BridgeCoordinator(
 
                 lock (stateGate)
                 {
-                    if (effectDurationSeconds > 0)
+                    if (!isResuming)
                     {
-                        activeAvatarScaleEffects[rule.Id] = DateTimeOffset.UtcNow.AddSeconds(effectDurationSeconds);
-                    }
-                    else
-                    {
-                        activeAvatarScaleEffects.Remove(rule.Id);
-                    }
+                        if (effectDurationSeconds > 0)
+                        {
+                            activeAvatarScaleEffects[rule.Id] = DateTimeOffset.UtcNow.AddSeconds(effectDurationSeconds);
+                        }
+                        else
+                        {
+                            activeAvatarScaleEffects.Remove(rule.Id);
+                        }
 
+                        if (cooldownSeconds > 0)
+                        {
+                            cooldowns[rule.Id] = DateTimeOffset.UtcNow.AddSeconds(cooldownSeconds);
+                        }
+                        else
+                        {
+                            cooldowns.Remove(rule.Id);
+                        }
+
+                        if (rule.TriggerType == AvatarScaleTriggerType.Follow && !string.IsNullOrWhiteSpace(incomingEvent.UserId))
+                        {
+                            if (!avatarScaleFollowTriggeredUsers.TryGetValue(rule.Id, out var triggeredUsers))
+                            {
+                                triggeredUsers = new HashSet<string>(StringComparer.Ordinal);
+                                avatarScaleFollowTriggeredUsers[rule.Id] = triggeredUsers;
+                            }
+                            triggeredUsers.Add(incomingEvent.UserId);
+                        }
+                    }
+                }
+
+                if (!isResuming)
+                {
                     if (cooldownSeconds > 0)
                     {
-                        cooldowns[rule.Id] = DateTimeOffset.UtcNow.AddSeconds(cooldownSeconds);
+                        ScheduleCooldownStateNotification(rule.Id, TimeSpan.FromSeconds(cooldownSeconds));
+                        ManagedRewardAvailabilityChanged?.Invoke();
                     }
                     else
                     {
-                        cooldowns.Remove(rule.Id);
+                        CancelCooldownStateNotification(rule.Id);
                     }
 
-                    if (rule.TriggerType == AvatarScaleTriggerType.Follow && !string.IsNullOrWhiteSpace(incomingEvent.UserId))
+                    if (effectDurationSeconds > 0)
                     {
-                        if (!avatarScaleFollowTriggeredUsers.TryGetValue(rule.Id, out var triggeredUsers))
-                        {
-                            triggeredUsers = new HashSet<string>(StringComparer.Ordinal);
-                            avatarScaleFollowTriggeredUsers[rule.Id] = triggeredUsers;
-                        }
-                        triggeredUsers.Add(incomingEvent.UserId);
+                        ScheduleAvatarScaleEffectStateNotification(rule.Id, TimeSpan.FromSeconds(effectDurationSeconds));
+                        ManagedRewardAvailabilityChanged?.Invoke();
                     }
-                }
-
-                if (cooldownSeconds > 0)
-                {
-                    ScheduleCooldownStateNotification(rule.Id, TimeSpan.FromSeconds(cooldownSeconds));
-                    ManagedRewardAvailabilityChanged?.Invoke();
-                }
-                else
-                {
-                    CancelCooldownStateNotification(rule.Id);
-                }
-
-                if (effectDurationSeconds > 0)
-                {
-                    ScheduleAvatarScaleEffectStateNotification(rule.Id, TimeSpan.FromSeconds(effectDurationSeconds));
-                    ManagedRewardAvailabilityChanged?.Invoke();
                 }
             }
 
@@ -4991,6 +5017,10 @@ internal BridgeCoordinator(
             {
                 IsTransitionActive = isTransitionActive
             };
+
+            avatarScaleTransitionGraceUntil = isTransitionActive
+                ? null
+                : DateTimeOffset.UtcNow.AddSeconds(2);
         }
     }
 
@@ -7034,7 +7064,13 @@ internal BridgeCoordinator(
 
         if (ShouldBlockAvatarChangeDuringActiveScaling(rule, isTest))
         {
-            WriteLog($"Blocked avatar-change reward '{rule.Name}' because Avatar Scaling is active. Paid Bits, Subs, and Power Up avatar changes can still change avatars.");
+            if (bridgeEvent is not null)
+            {
+                var queuedCount = QueueAvatarSwitchTrigger(rule, bridgeEvent);
+                WriteLog($"Queued avatar switch '{rule.Name}' until the Avatar Scaling transition finishes. {queuedCount} waiting.");
+                EnsureQueuedAvatarSwitchDrain();
+            }
+
             return;
         }
 
@@ -17510,6 +17546,15 @@ internal BridgeCoordinator(
                                 logMessage = $"Queued avatar switch '{nextSwitch.Rule.Name}' is waiting for the current avatar switch to finish.";
                             }
                         }
+                        else if (GetAvatarScaleTransitionBlockRemainingLocked(now) is { TotalMilliseconds: > 0 } scalingBlockDelay)
+                        {
+                            delay = scalingBlockDelay;
+                            if (!nextSwitch.ScalingWaitLogged)
+                            {
+                                nextSwitch.ScalingWaitLogged = true;
+                                logMessage = $"Queued avatar switch '{nextSwitch.Rule.Name}' is waiting for the Avatar Scaling transition to finish.";
+                            }
+                        }
                         else if (nextSwitch.Kind == QueuedAvatarSwitchKind.PendingTrigger)
                         {
                             var currentRule = activeConfiguration?.Rules.FirstOrDefault(rule => rule.Id == nextSwitch.Rule.Id);
@@ -17671,7 +17716,13 @@ internal BridgeCoordinator(
         var rule = queuedSwitch.Rule;
         if (ShouldBlockAvatarChangeDuringActiveScaling(rule, isTest: false))
         {
-            WriteLog($"Dropped queued avatar switch '{rule.Name}' because Avatar Scaling is active.");
+            if (queuedSwitch.Event is not null)
+            {
+                var queuedCount = QueueAvatarSwitchTrigger(rule, queuedSwitch.Event);
+                WriteLog($"Re-queued avatar switch '{rule.Name}' because a new Avatar Scaling transition started. {queuedCount} waiting.");
+                EnsureQueuedAvatarSwitchDrain();
+            }
+
             return;
         }
 
@@ -18484,6 +18535,8 @@ internal BridgeCoordinator(
         public bool CooldownWaitLogged { get; set; }
 
         public bool TemporaryDisableWaitLogged { get; set; }
+
+        public bool ScalingWaitLogged { get; set; }
     }
 
     private sealed class QueuedAvatarScaleOperation
