@@ -8003,99 +8003,314 @@
                                                         </Style>
                                                     </Border.Style>
                                                     <StackPanel DataContext="{Binding ScaleAction}">
+                                                        <!-- Heading -->
                                                         <TextBlock Text="{loc:Translate 'Avatar Scaling Action'}"
                                                                    Foreground="{DynamicResource TextBrush}"
                                                                    FontWeight="SemiBold"
                                                                    FontSize="17" />
-                                                        <TextBlock Margin="0,10,0,0"
-                                                                   Text="{loc:Translate 'Scale Mode'}"
-                                                                   Foreground="{DynamicResource TextBrush}"
-                                                                   FontWeight="SemiBold" />
-                                                        <ComboBox ItemsSource="{Binding DataContext.AvatarScaleModes, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                  DisplayMemberPath="Label"
-                                                                  SelectedValuePath="Value"
-                                                                  SelectedValue="{Binding ScaleMode, UpdateSourceTrigger=PropertyChanged}" />
-                                                        <UniformGrid Columns="2"
-                                                                     Margin="0,12,0,0">
-                                                            <StackPanel Margin="0,0,14,0">
-                                                                <TextBlock Text="{loc:Translate 'Target Height'}"
-                                                                           Foreground="{DynamicResource TextBrush}"
-                                                                           FontWeight="SemiBold" />
-                                                                <TextBox Text="{Binding TargetHeightMeters, UpdateSourceTrigger=LostFocus}" />
+
+                                                        <!-- Mode sub-card: six buttons in a row, current mode highlighted -->
+                                                        <Border Margin="0,12,0,0"
+                                                                Background="{DynamicResource NestedPanelBrush}"
+                                                                BorderBrush="{DynamicResource HighlightBorderBrush}"
+                                                                BorderThickness="1" CornerRadius="8" Padding="6">
+                                                            <Grid>
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="*" />
+                                                                    <ColumnDefinition Width="*" />
+                                                                    <ColumnDefinition Width="*" />
+                                                                    <ColumnDefinition Width="*" />
+                                                                    <ColumnDefinition Width="*" />
+                                                                    <ColumnDefinition Width="*" />
+                                                                </Grid.ColumnDefinitions>
+                                                                <Button Grid.Column="0" Margin="2" Tag="SetHeight" Click="ScaleActionModeButton_Click"
+                                                                        Content="{loc:Translate 'Set Height'}">
+                                                                    <Button.Style>
+                                                                        <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding ActiveMode}" Value="SetHeight">
+                                                                                    <Setter Property="Background" Value="{DynamicResource HighlightBorderBrush}" />
+                                                                                    <Setter Property="Foreground" Value="White" />
+                                                                                    <Setter Property="FontWeight" Value="SemiBold" />
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </Button.Style>
+                                                                </Button>
+                                                                <Button Grid.Column="1" Margin="2" Tag="RandomHeight" Click="ScaleActionModeButton_Click"
+                                                                        Content="{loc:Translate 'Random'}">
+                                                                    <Button.Style>
+                                                                        <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding ActiveMode}" Value="RandomHeight">
+                                                                                    <Setter Property="Background" Value="{DynamicResource HighlightBorderBrush}" />
+                                                                                    <Setter Property="Foreground" Value="White" />
+                                                                                    <Setter Property="FontWeight" Value="SemiBold" />
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </Button.Style>
+                                                                </Button>
+                                                                <Button Grid.Column="2" Margin="2" Tag="RelativeHeight" Click="ScaleActionModeButton_Click"
+                                                                        Content="{loc:Translate 'Relative'}">
+                                                                    <Button.Style>
+                                                                        <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding ActiveMode}" Value="RelativeHeight">
+                                                                                    <Setter Property="Background" Value="{DynamicResource HighlightBorderBrush}" />
+                                                                                    <Setter Property="Foreground" Value="White" />
+                                                                                    <Setter Property="FontWeight" Value="SemiBold" />
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </Button.Style>
+                                                                </Button>
+                                                                <Button Grid.Column="3" Margin="2" Tag="Multiplier" Click="ScaleActionModeButton_Click"
+                                                                        Content="{loc:Translate 'Multiplier'}">
+                                                                    <Button.Style>
+                                                                        <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding ActiveMode}" Value="Multiplier">
+                                                                                    <Setter Property="Background" Value="{DynamicResource HighlightBorderBrush}" />
+                                                                                    <Setter Property="Foreground" Value="White" />
+                                                                                    <Setter Property="FontWeight" Value="SemiBold" />
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </Button.Style>
+                                                                </Button>
+                                                                <Button Grid.Column="4" Margin="2" Tag="Preset" Click="ScaleActionModeButton_Click"
+                                                                        Content="{loc:Translate 'Preset'}">
+                                                                    <Button.Style>
+                                                                        <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding ActiveMode}" Value="Preset">
+                                                                                    <Setter Property="Background" Value="{DynamicResource HighlightBorderBrush}" />
+                                                                                    <Setter Property="Foreground" Value="White" />
+                                                                                    <Setter Property="FontWeight" Value="SemiBold" />
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </Button.Style>
+                                                                </Button>
+                                                                <Button Grid.Column="5" Margin="2" Tag="GlitchyRandomHeight" Click="ScaleActionModeButton_Click"
+                                                                        Content="{loc:Translate 'Glitchy'}">
+                                                                    <Button.Style>
+                                                                        <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding ActiveMode}" Value="GlitchyRandomHeight">
+                                                                                    <Setter Property="Background" Value="{DynamicResource HighlightBorderBrush}" />
+                                                                                    <Setter Property="Foreground" Value="White" />
+                                                                                    <Setter Property="FontWeight" Value="SemiBold" />
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </Button.Style>
+                                                                </Button>
+                                                            </Grid>
+                                                        </Border>
+
+                                                        <!-- Value sub-card: per-mode fields -->
+                                                        <Border Margin="0,12,0,0"
+                                                                Background="{DynamicResource NestedPanelBrush}"
+                                                                BorderBrush="{DynamicResource HighlightBorderBrush}"
+                                                                BorderThickness="1" CornerRadius="8" Padding="14">
+                                                            <StackPanel>
+                                                                <!-- SetHeight variant -->
+                                                                <StackPanel>
+                                                                    <StackPanel.Style>
+                                                                        <Style TargetType="StackPanel">
+                                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding UsesTargetHeight}" Value="True">
+                                                                                    <Setter Property="Visibility" Value="Visible" />
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </StackPanel.Style>
+                                                                    <TextBlock Text="{loc:Translate 'Target Height Meters'}"
+                                                                               Foreground="{DynamicResource TextBrush}"
+                                                                               FontWeight="SemiBold" />
+                                                                    <TextBox Text="{Binding TargetHeightMeters, UpdateSourceTrigger=LostFocus}" />
+                                                                </StackPanel>
+
+                                                                <!-- Random / Glitchy shared range variant -->
+                                                                <StackPanel>
+                                                                    <StackPanel.Style>
+                                                                        <Style TargetType="StackPanel">
+                                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding UsesRandomHeightRange}" Value="True">
+                                                                                    <Setter Property="Visibility" Value="Visible" />
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </StackPanel.Style>
+                                                                    <UniformGrid Columns="2">
+                                                                        <StackPanel Margin="0,0,7,0">
+                                                                            <TextBlock Text="{loc:Translate 'Random Min Height'}"
+                                                                                       Foreground="{DynamicResource TextBrush}"
+                                                                                       FontWeight="SemiBold" />
+                                                                            <TextBox Text="{Binding MinimumHeightMeters, UpdateSourceTrigger=LostFocus}" />
+                                                                        </StackPanel>
+                                                                        <StackPanel Margin="7,0,0,0">
+                                                                            <TextBlock Text="{loc:Translate 'Random Max Height'}"
+                                                                                       Foreground="{DynamicResource TextBrush}"
+                                                                                       FontWeight="SemiBold" />
+                                                                            <TextBox Text="{Binding MaximumHeightMeters, UpdateSourceTrigger=LostFocus}" />
+                                                                        </StackPanel>
+                                                                    </UniformGrid>
+                                                                    <!-- Glitchy-only: Transition field -->
+                                                                    <StackPanel Margin="0,12,0,0">
+                                                                        <StackPanel.Style>
+                                                                            <Style TargetType="StackPanel">
+                                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                                                <Style.Triggers>
+                                                                                    <DataTrigger Binding="{Binding UsesGlitchyRandomHeight}" Value="True">
+                                                                                        <Setter Property="Visibility" Value="Visible" />
+                                                                                    </DataTrigger>
+                                                                                </Style.Triggers>
+                                                                            </Style>
+                                                                        </StackPanel.Style>
+                                                                        <TextBlock Text="{loc:Translate 'Glitchy Transition Seconds'}"
+                                                                                   Foreground="{DynamicResource TextBrush}"
+                                                                                   FontWeight="SemiBold" />
+                                                                        <TextBox Text="{Binding GlitchyTransitionSeconds, UpdateSourceTrigger=LostFocus}" />
+                                                                    </StackPanel>
+                                                                </StackPanel>
+
+                                                                <!-- Relative variant -->
+                                                                <StackPanel>
+                                                                    <StackPanel.Style>
+                                                                        <Style TargetType="StackPanel">
+                                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding UsesRelativeHeight}" Value="True">
+                                                                                    <Setter Property="Visibility" Value="Visible" />
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </StackPanel.Style>
+                                                                    <Grid>
+                                                                        <Grid.ColumnDefinitions>
+                                                                            <ColumnDefinition Width="*" />
+                                                                            <ColumnDefinition Width="*" />
+                                                                        </Grid.ColumnDefinitions>
+                                                                        <StackPanel Grid.Column="0" Margin="0,0,7,0">
+                                                                            <TextBlock Text="{loc:Translate 'Change (meters)'}"
+                                                                                       Foreground="{DynamicResource TextBrush}"
+                                                                                       FontWeight="SemiBold" />
+                                                                            <TextBox Text="{Binding RelativeHeightMeters, UpdateSourceTrigger=LostFocus}" />
+                                                                        </StackPanel>
+                                                                        <StackPanel Grid.Column="1" Margin="7,0,0,0">
+                                                                            <TextBlock Text="{loc:Translate 'Current (meters)'}"
+                                                                                       Foreground="{DynamicResource TextBrush}"
+                                                                                       FontWeight="SemiBold" />
+                                                                            <TextBox Text="{Binding MultCurrentPreview, UpdateSourceTrigger=LostFocus}" />
+                                                                        </StackPanel>
+                                                                    </Grid>
+                                                                </StackPanel>
+
+                                                                <!-- Multiplier variant -->
+                                                                <StackPanel>
+                                                                    <StackPanel.Style>
+                                                                        <Style TargetType="StackPanel">
+                                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding UsesMultiplier}" Value="True">
+                                                                                    <Setter Property="Visibility" Value="Visible" />
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </StackPanel.Style>
+                                                                    <Grid>
+                                                                        <Grid.ColumnDefinitions>
+                                                                            <ColumnDefinition Width="Auto" />
+                                                                            <ColumnDefinition Width="*" />
+                                                                            <ColumnDefinition Width="*" />
+                                                                        </Grid.ColumnDefinitions>
+                                                                        <Button Grid.Column="0" Margin="0,0,6,0"
+                                                                                Tag="multOp" Click="ScaleActionMultOpButton_Click"
+                                                                                Content="{Binding MultiplierOperatorDisplay}"
+                                                                                Width="48" Height="32"
+                                                                                FontSize="20" FontWeight="Bold"
+                                                                                Foreground="White"
+                                                                                Background="{DynamicResource HighlightBorderBrush}" />
+                                                                        <StackPanel Grid.Column="1" Margin="0,0,7,0">
+                                                                            <TextBlock Text="{loc:Translate 'Value'}"
+                                                                                       Foreground="{DynamicResource TextBrush}"
+                                                                                       FontWeight="SemiBold" />
+                                                                            <TextBox Text="{Binding HeightMultiplier, UpdateSourceTrigger=LostFocus}" />
+                                                                        </StackPanel>
+                                                                        <StackPanel Grid.Column="2" Margin="7,0,0,0">
+                                                                            <TextBlock Text="{loc:Translate 'Current (meters)'}"
+                                                                                       Foreground="{DynamicResource TextBrush}"
+                                                                                       FontWeight="SemiBold" />
+                                                                            <TextBox Text="{Binding MultCurrentPreview, UpdateSourceTrigger=LostFocus}" />
+                                                                        </StackPanel>
+                                                                    </Grid>
+                                                                </StackPanel>
+
+                                                                <!-- Preset variant -->
+                                                                <StackPanel>
+                                                                    <StackPanel.Style>
+                                                                        <Style TargetType="StackPanel">
+                                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding UsesPreset}" Value="True">
+                                                                                    <Setter Property="Visibility" Value="Visible" />
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </StackPanel.Style>
+                                                                    <TextBlock Text="{loc:Translate 'Preset'}"
+                                                                               Foreground="{DynamicResource TextBrush}"
+                                                                               FontWeight="SemiBold" />
+                                                                    <ComboBox ItemsSource="{Binding DataContext.AvatarScalePresets, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                              SelectedItem="{Binding Preset, UpdateSourceTrigger=PropertyChanged}" />
+                                                                </StackPanel>
                                                             </StackPanel>
-                                                            <StackPanel Margin="14,0,0,0">
-                                                                <TextBlock Text="{loc:Translate 'Relative Height'}"
-                                                                           Foreground="{DynamicResource TextBrush}"
-                                                                           FontWeight="SemiBold" />
-                                                                <TextBox Text="{Binding RelativeHeightMeters, UpdateSourceTrigger=LostFocus}" />
+                                                        </Border>
+
+                                                        <!-- Behavior sub-card: active time, restore height, smooth seconds -->
+                                                        <Border Margin="0,12,0,0"
+                                                                Background="{DynamicResource NestedPanelBrush}"
+                                                                BorderBrush="{DynamicResource HighlightBorderBrush}"
+                                                                BorderThickness="1" CornerRadius="8" Padding="14">
+                                                            <StackPanel>
+                                                                <UniformGrid Columns="3">
+                                                                    <StackPanel Margin="0,0,10,0">
+                                                                        <TextBlock Text="{loc:Translate 'Active Time Seconds'}"
+                                                                                   Foreground="{DynamicResource TextBrush}"
+                                                                                   FontWeight="SemiBold" />
+                                                                        <TextBox Text="{Binding ActiveTimeSeconds, UpdateSourceTrigger=LostFocus}" />
+                                                                    </StackPanel>
+                                                                    <StackPanel Margin="10,0,10,0">
+                                                                        <TextBlock Text="{loc:Translate 'Restore Height Meters'}"
+                                                                                   Foreground="{DynamicResource TextBrush}"
+                                                                                   FontWeight="SemiBold" />
+                                                                        <TextBox Text="{Binding RestoreHeightMeters, UpdateSourceTrigger=LostFocus}" />
+                                                                    </StackPanel>
+                                                                    <StackPanel Margin="10,0,0,0">
+                                                                        <TextBlock Text="{loc:Translate 'Smooth Seconds'}"
+                                                                                   Foreground="{DynamicResource TextBrush}"
+                                                                                   FontWeight="SemiBold" />
+                                                                        <TextBox Text="{Binding SmoothTransitionSeconds, UpdateSourceTrigger=LostFocus}" />
+                                                                    </StackPanel>
+                                                                </UniformGrid>
                                                             </StackPanel>
-                                                        </UniformGrid>
-                                                        <UniformGrid Columns="2"
-                                                                     Margin="0,12,0,0">
-                                                            <StackPanel Margin="0,0,14,0">
-                                                                <TextBlock Text="{loc:Translate 'Random Minimum'}"
-                                                                           Foreground="{DynamicResource TextBrush}"
-                                                                           FontWeight="SemiBold" />
-                                                                <TextBox Text="{Binding MinimumHeightMeters, UpdateSourceTrigger=LostFocus}" />
+                                                        </Border>
+
+                                                        <!-- Advanced sub-card: single advanced-range checkbox -->
+                                                        <Border Margin="0,12,0,0"
+                                                                Background="{DynamicResource NestedPanelBrush}"
+                                                                BorderBrush="{DynamicResource HighlightBorderBrush}"
+                                                                BorderThickness="1" CornerRadius="8" Padding="14">
+                                                            <StackPanel>
+                                                                <CheckBox IsChecked="{Binding AdvancedRangeEnabled, UpdateSourceTrigger=PropertyChanged}"
+                                                                          Content="{loc:Translate 'Unlock advanced VRChat scale range (0.01m - 10000m)'}" />
                                                             </StackPanel>
-                                                            <StackPanel Margin="14,0,0,0">
-                                                                <TextBlock Text="{loc:Translate 'Random Maximum'}"
-                                                                           Foreground="{DynamicResource TextBrush}"
-                                                                           FontWeight="SemiBold" />
-                                                                <TextBox Text="{Binding MaximumHeightMeters, UpdateSourceTrigger=LostFocus}" />
-                                                            </StackPanel>
-                                                        </UniformGrid>
-                                                        <UniformGrid Columns="2"
-                                                                     Margin="0,12,0,0">
-                                                            <StackPanel Margin="0,0,14,0">
-                                                                <TextBlock Text="{loc:Translate 'Height Multiplier'}"
-                                                                           Foreground="{DynamicResource TextBrush}"
-                                                                           FontWeight="SemiBold" />
-                                                                <TextBox Text="{Binding HeightMultiplier, UpdateSourceTrigger=LostFocus}" />
-                                                            </StackPanel>
-                                                            <StackPanel Margin="14,0,0,0">
-                                                                <TextBlock Text="{loc:Translate 'Preset'}"
-                                                                           Foreground="{DynamicResource TextBrush}"
-                                                                           FontWeight="SemiBold" />
-                                                                <ComboBox ItemsSource="{Binding DataContext.AvatarScalePresets, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                          SelectedItem="{Binding Preset, UpdateSourceTrigger=PropertyChanged}" />
-                                                            </StackPanel>
-                                                        </UniformGrid>
-                                                        <UniformGrid Columns="3"
-                                                                     Margin="0,12,0,0">
-                                                            <StackPanel Margin="0,0,10,0">
-                                                                <TextBlock Text="{loc:Translate 'Active Time'}"
-                                                                           Foreground="{DynamicResource TextBrush}"
-                                                                           FontWeight="SemiBold" />
-                                                                <TextBox Text="{Binding ActiveTimeSeconds, UpdateSourceTrigger=LostFocus}" />
-                                                            </StackPanel>
-                                                            <StackPanel Margin="10,0,10,0">
-                                                                <TextBlock Text="{loc:Translate 'Restore Height'}"
-                                                                           Foreground="{DynamicResource TextBrush}"
-                                                                           FontWeight="SemiBold" />
-                                                                <TextBox Text="{Binding RestoreHeightMeters, UpdateSourceTrigger=LostFocus}" />
-                                                            </StackPanel>
-                                                            <StackPanel Margin="10,0,0,0">
-                                                                <TextBlock Text="{loc:Translate 'Smooth Seconds'}"
-                                                                           Foreground="{DynamicResource TextBrush}"
-                                                                           FontWeight="SemiBold" />
-                                                                <TextBox Text="{Binding SmoothTransitionSeconds, UpdateSourceTrigger=LostFocus}" />
-                                                            </StackPanel>
-                                                        </UniformGrid>
-                                                        <CheckBox Margin="0,14,0,0"
-                                                                  Content="{loc:Translate 'Unlock advanced VRChat scale range'}"
-                                                                  IsChecked="{Binding AdvancedRangeEnabled, UpdateSourceTrigger=PropertyChanged}" />
-                                                        <CheckBox Margin="0,10,0,0"
-                                                                  Content="{loc:Translate 'Bypass VRChat world min/max'}"
-                                                                  IsChecked="{Binding BypassVrChatScaleLimits, UpdateSourceTrigger=PropertyChanged}" />
-                                                        <TextBlock Margin="0,6,0,0"
-                                                                   Text="{loc:Translate 'When enabled, this scale redeem ignores VRChat world min/max values. Worlds may still block extreme scaling, and very large or tiny values can be uncomfortable.'}"
-                                                                   Foreground="{DynamicResource MutedBrush}"
-                                                                   TextWrapping="Wrap" />
-                                                        <TextBlock Margin="0,8,0,0"
-                                                                   Text="{Binding ScaleRangeHelpText}"
-                                                                   Foreground="{DynamicResource MutedBrush}"
-                                                                   TextWrapping="Wrap" />
+                                                        </Border>
                                                     </StackPanel>
                                                 </Border>
                                             </StackPanel>
