@@ -13032,7 +13032,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private static int GetAvatarScaleEffectDurationSeconds(AvatarScaleRule rule)
     {
         var transitionSeconds = rule.ScaleMode == AvatarScaleMode.GlitchyRandomHeight
-            ? 0
+            ? Math.Clamp(rule.GlitchyTransitionSeconds, 0, 5)
             : Math.Max(0, rule.SmoothTransitionSeconds);
         var activeSeconds = Math.Max(0, rule.ActiveTimeSeconds);
         var restoreTransitionSeconds = activeSeconds > 0 && rule.RestoreMode != AvatarScaleRestoreMode.None
