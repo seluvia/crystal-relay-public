@@ -5958,6 +5958,19 @@ internal BridgeCoordinator(
         };
     }
 
+    private static bool IsAutoBypassingVrChatLimits(AvatarScaleRuleSnapshot rule)
+    {
+        if (rule.BypassVrChatScaleLimits)
+        {
+            return true;
+        }
+
+        return rule.ScaleMode is AvatarScaleMode.RelativeHeight or AvatarScaleMode.Multiplier
+            && rule.RelativeMinimumHeightMeters > 0
+            && rule.RelativeMaximumHeightMeters > 0
+            && rule.RelativeMinimumHeightMeters < rule.RelativeMaximumHeightMeters;
+    }
+
     private static bool IsRelativeScaleAtLimit(
         AvatarScaleRuleSnapshot rule,
         double? currentHeight,
@@ -6030,7 +6043,7 @@ internal BridgeCoordinator(
         string targetDescription)
     {
         var clampedValue = ClampAvatarScaleHeight(rule, value);
-        if (!rule.BypassVrChatScaleLimits)
+        if (!IsAutoBypassingVrChatLimits(rule))
         {
             return ClampToVrChatScaleLimits(clampedValue);
         }
