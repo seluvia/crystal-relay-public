@@ -663,6 +663,8 @@ public sealed class AvatarScaleRule : ObservableObject
             if (SetAndRaiseScale(ref multiplierDirectionId, normalized))
             {
                 RaisePropertyChanged(nameof(MultiplierDirection));
+                RaisePropertyChanged(nameof(IsDivideDirection));
+                RaisePropertyChanged(nameof(MultiplierOperatorDisplay));
             }
         }
     }
@@ -931,6 +933,16 @@ public sealed class AvatarScaleRule : ObservableObject
         AvatarScaleMode.Preset => Preset.ToString(),
         _ => "Scale"
     };
+
+    // Local UI-only preview value for Relative and Multiplier modes. Not persisted.
+    public double MultCurrentPreview { get; set; } = 1.64;
+
+    public double PresetHeight => GetPresetHeight(Preset);
+
+    public bool IsDivideDirection => MultiplierDirection == AvatarScaleMultiplierDirection.Divide;
+
+    public string MultiplierOperatorDisplay =>
+        MultiplierDirection == AvatarScaleMultiplierDirection.Divide ? "÷" : "×";
 
     public string SupporterGrowthSummary =>
         $"Supporter growth +{SupporterGrowthTier1HeightMeters:0.##}/+{SupporterGrowthTier2HeightMeters:0.##}/+{SupporterGrowthTier3HeightMeters:0.##}m";

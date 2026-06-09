@@ -10651,6 +10651,14 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         _ = TestSelectedAvatarScaleRuleAsync();
     }
 
+    public void SetSelectedAvatarScaleMode(AvatarScaleMode mode)
+    {
+        if (SelectedAvatarScaleRule is { } rule)
+        {
+            rule.ScaleMode = mode;
+        }
+    }
+
     private AvatarScaleRule? ResolveAvatarScaleRuleForTest()
     {
         if (SelectedAvatarScaleRule is not null

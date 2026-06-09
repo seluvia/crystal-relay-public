@@ -501,6 +501,22 @@ public partial class MainWindow : Window
         rule.SupporterFloatAddRanges.Remove(range);
     }
 
+    private void ScaleActionModeButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement fe || fe.Tag is not string tagName) return;
+        if (!Enum.TryParse<AvatarScaleMode>(tagName, out var mode)) return;
+        if (DataContext is MainWindowViewModel vm) vm.SetSelectedAvatarScaleMode(mode);
+    }
+
+    private void ScaleActionMultOpButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel vm) return;
+        if (vm.SelectedAvatarScaleRule is not { } rule) return;
+        rule.MultiplierDirectionId = rule.MultiplierDirection == AvatarScaleMultiplierDirection.Grow
+            ? (int)AvatarScaleMultiplierDirection.Divide
+            : (int)AvatarScaleMultiplierDirection.Grow;
+    }
+
     private void ApplyTheme(AppTheme theme)
     {
         ApplyThemeBackground(theme);
