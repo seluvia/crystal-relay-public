@@ -44,6 +44,18 @@ public enum AvatarScaleRestoreMode
     ConfiguredHeight
 }
 
+public enum AvatarScaleMultiplierDirection
+{
+    Grow,
+    Divide
+}
+
+public enum AvatarScaleRelativeHeightDirection
+{
+    Add,
+    Subtract
+}
+
 public sealed class AvatarScaleBitGrowthRange : ObservableObject
 {
     private int minimumBits = 1;
@@ -316,7 +328,15 @@ public sealed class AvatarScaleRule : ObservableObject
     private double activeTimeSeconds;
     private AvatarScaleRestoreMode restoreMode = AvatarScaleRestoreMode.ConfiguredHeight;
     private double restoreHeightMeters = 1.6;
-    private double smoothTransitionSeconds;
+    private int multiplierDirectionId;
+    private int relativeHeightDirectionId;
+    private double glitchyTransitionSeconds = 0.4;
+    private double setHeightTransitionSeconds;
+    private double randomHeightTransitionSeconds;
+    private double relativeHeightTransitionSeconds;
+    private double multiplierTransitionSeconds;
+    private double presetTransitionSeconds;
+    private double supporterGrowthTransitionSeconds;
     private bool advancedRangeEnabled;
     private bool bypassVrChatScaleLimits;
     private double supporterGrowthNormalHeightMeters = 1.6;
@@ -644,10 +664,116 @@ public sealed class AvatarScaleRule : ObservableObject
         set => SetAndRaiseScale(ref restoreHeightMeters, ClampHeight(value));
     }
 
+    public int MultiplierDirectionId
+    {
+        get => multiplierDirectionId;
+        set
+        {
+            var normalized = Enum.IsDefined((AvatarScaleMultiplierDirection)value)
+                ? value
+                : (int)AvatarScaleMultiplierDirection.Grow;
+            if (SetAndRaiseScale(ref multiplierDirectionId, normalized))
+            {
+                RaisePropertyChanged(nameof(MultiplierDirection));
+                RaisePropertyChanged(nameof(IsDivideDirection));
+                RaisePropertyChanged(nameof(MultiplierOperatorDisplay));
+            }
+        }
+    }
+
+    public AvatarScaleMultiplierDirection MultiplierDirection =>
+        Enum.IsDefined((AvatarScaleMultiplierDirection)multiplierDirectionId)
+            ? (AvatarScaleMultiplierDirection)multiplierDirectionId
+            : AvatarScaleMultiplierDirection.Grow;
+
+    public int RelativeHeightDirectionId
+    {
+        get => relativeHeightDirectionId;
+        set
+        {
+            var normalized = Enum.IsDefined((AvatarScaleRelativeHeightDirection)value)
+                ? value
+                : (int)AvatarScaleRelativeHeightDirection.Add;
+            if (SetAndRaiseScale(ref relativeHeightDirectionId, normalized))
+            {
+                RaisePropertyChanged(nameof(RelativeHeightDirection));
+                RaisePropertyChanged(nameof(IsSubtractRelativeHeight));
+                RaisePropertyChanged(nameof(RelativeHeightOperatorDisplay));
+                RaisePropertyChanged(nameof(UsesRelativeMinimumHeight));
+                RaisePropertyChanged(nameof(UsesRelativeMaximumHeight));
+            }
+        }
+    }
+
+    public AvatarScaleRelativeHeightDirection RelativeHeightDirection =>
+        Enum.IsDefined((AvatarScaleRelativeHeightDirection)relativeHeightDirectionId)
+            ? (AvatarScaleRelativeHeightDirection)relativeHeightDirectionId
+            : AvatarScaleRelativeHeightDirection.Add;
+
+    public bool IsSubtractRelativeHeight => RelativeHeightDirection == AvatarScaleRelativeHeightDirection.Subtract;
+
+    public string RelativeHeightOperatorDisplay => IsSubtractRelativeHeight ? "\u2212" : "+";
+
     public double SmoothTransitionSeconds
     {
-        get => smoothTransitionSeconds;
-        set => SetAndRaiseScale(ref smoothTransitionSeconds, Math.Clamp(value, 0, 30));
+        get => ScaleMode switch
+        {
+            AvatarScaleMode.SetHeight => SetHeightTransitionSeconds,
+            AvatarScaleMode.RandomHeight => RandomHeightTransitionSeconds,
+            AvatarScaleMode.RelativeHeight => RelativeHeightTransitionSeconds,
+            AvatarScaleMode.Multiplier => MultiplierTransitionSeconds,
+            AvatarScaleMode.Preset => PresetTransitionSeconds,
+            AvatarScaleMode.GlitchyRandomHeight => GlitchyRandomHeightTransitionSeconds,
+            _ => 0
+        };
+    }
+
+    public double GlitchyTransitionSeconds
+    {
+        get => glitchyTransitionSeconds;
+        set => SetAndRaiseScale(ref glitchyTransitionSeconds, Math.Clamp(value, 0, 5));
+    }
+
+    public double SetHeightTransitionSeconds
+    {
+        get => setHeightTransitionSeconds;
+        set => SetAndRaiseScale(ref setHeightTransitionSeconds, Math.Clamp(value, 0, 30));
+    }
+
+    public double RandomHeightTransitionSeconds
+    {
+        get => randomHeightTransitionSeconds;
+        set => SetAndRaiseScale(ref randomHeightTransitionSeconds, Math.Clamp(value, 0, 30));
+    }
+
+    public double RelativeHeightTransitionSeconds
+    {
+        get => relativeHeightTransitionSeconds;
+        set => SetAndRaiseScale(ref relativeHeightTransitionSeconds, Math.Clamp(value, 0, 30));
+    }
+
+    public double MultiplierTransitionSeconds
+    {
+        get => multiplierTransitionSeconds;
+        set => SetAndRaiseScale(ref multiplierTransitionSeconds, Math.Clamp(value, 0, 30));
+    }
+
+    public double PresetTransitionSeconds
+    {
+        get => presetTransitionSeconds;
+        set => SetAndRaiseScale(ref presetTransitionSeconds, Math.Clamp(value, 0, 30));
+    }
+
+    public double GlitchyRandomHeightTransitionSeconds
+    {
+        get => glitchyTransitionSeconds;
+        set => SetAndRaiseScale(ref glitchyTransitionSeconds, Math.Clamp(value, 0, 30));
+    }
+
+    public double SupporterGrowthTransitionSeconds
+    {
+        get => supporterGrowthTransitionSeconds;
+        set => SetAndRaiseSupporterGrowth(ref supporterGrowthTransitionSeconds, Math.Clamp(value, 0, 30));
     }
 
     public bool AdvancedRangeEnabled
@@ -833,9 +959,9 @@ public sealed class AvatarScaleRule : ObservableObject
 
     public bool UsesRelativeHeight => ScaleMode == AvatarScaleMode.RelativeHeight;
 
-    public bool UsesRelativeMinimumHeight => UsesRelativeHeight && RelativeHeightMeters < 0;
+    public bool UsesRelativeMinimumHeight => UsesRelativeHeight && IsSubtractRelativeHeight;
 
-    public bool UsesRelativeMaximumHeight => UsesRelativeHeight && RelativeHeightMeters > 0;
+    public bool UsesRelativeMaximumHeight => UsesRelativeHeight && !IsSubtractRelativeHeight;
 
     public bool UsesMultiplier => ScaleMode == AvatarScaleMode.Multiplier;
 
@@ -844,6 +970,8 @@ public sealed class AvatarScaleRule : ObservableObject
     public bool HasActiveTime => ActiveTimeSeconds > 0;
 
     public bool UsesConfiguredRestoreHeight => HasActiveTime;
+
+    public AvatarScaleMode ActiveMode => ScaleMode;
 
     public bool HasScaleDisablePairings => TemporarilyDisabledScaleRuleIds.Count > 0;
 
@@ -888,11 +1016,25 @@ public sealed class AvatarScaleRule : ObservableObject
         AvatarScaleMode.SetHeight => $"Set {TargetHeightMeters:0.##}m",
         AvatarScaleMode.RandomHeight => $"Random {Math.Min(MinimumHeightMeters, MaximumHeightMeters):0.##}-{Math.Max(MinimumHeightMeters, MaximumHeightMeters):0.##}m",
         AvatarScaleMode.GlitchyRandomHeight => $"Glitchy {Math.Min(MinimumHeightMeters, MaximumHeightMeters):0.##}-{Math.Max(MinimumHeightMeters, MaximumHeightMeters):0.##}m",
-        AvatarScaleMode.RelativeHeight => $"{RelativeHeightMeters:+0.##;-0.##;0}m relative",
-        AvatarScaleMode.Multiplier => $"x{HeightMultiplier:0.##}",
+        AvatarScaleMode.RelativeHeight => IsSubtractRelativeHeight
+            ? $"-{RelativeHeightMeters:0.##}m relative"
+            : $"+{RelativeHeightMeters:0.##}m relative",
+        AvatarScaleMode.Multiplier => MultiplierDirection == AvatarScaleMultiplierDirection.Divide
+            ? $"÷{HeightMultiplier:0.##}"
+            : $"x{HeightMultiplier:0.##}",
         AvatarScaleMode.Preset => Preset.ToString(),
         _ => "Scale"
     };
+
+    // Local UI-only preview value for Relative and Multiplier modes. Not persisted.
+    public double MultCurrentPreview { get; set; } = 1.64;
+
+    public double PresetHeight => GetPresetHeight(Preset);
+
+    public bool IsDivideDirection => MultiplierDirection == AvatarScaleMultiplierDirection.Divide;
+
+    public string MultiplierOperatorDisplay =>
+        MultiplierDirection == AvatarScaleMultiplierDirection.Divide ? "÷" : "×";
 
     public string SupporterGrowthSummary =>
         $"Supporter growth +{SupporterGrowthTier1HeightMeters:0.##}/+{SupporterGrowthTier2HeightMeters:0.##}/+{SupporterGrowthTier3HeightMeters:0.##}m";
@@ -964,6 +1106,17 @@ public sealed class AvatarScaleRule : ObservableObject
     }
 
     private bool SetAndRaiseScale(ref double storage, double value)
+    {
+        if (!SetProperty(ref storage, value))
+        {
+            return false;
+        }
+
+        RaiseScaleProperties();
+        return true;
+    }
+
+    private bool SetAndRaiseScale(ref int storage, int value)
     {
         if (!SetProperty(ref storage, value))
         {
@@ -1046,12 +1199,16 @@ public sealed class AvatarScaleRule : ObservableObject
         RaisePropertyChanged(nameof(UsesRelativeHeight));
         RaisePropertyChanged(nameof(UsesRelativeMinimumHeight));
         RaisePropertyChanged(nameof(UsesRelativeMaximumHeight));
+        RaisePropertyChanged(nameof(IsSubtractRelativeHeight));
+        RaisePropertyChanged(nameof(RelativeHeightOperatorDisplay));
         RaisePropertyChanged(nameof(UsesMultiplier));
         RaisePropertyChanged(nameof(UsesPreset));
         RaisePropertyChanged(nameof(HasActiveTime));
         RaisePropertyChanged(nameof(UsesConfiguredRestoreHeight));
+        RaisePropertyChanged(nameof(ActiveMode));
         RaisePropertyChanged(nameof(ScaleSummary));
         RaisePropertyChanged(nameof(TriggerSummary));
+        RaisePropertyChanged(nameof(SmoothTransitionSeconds));
     }
 
     private void RaiseSupporterGrowthProperties()

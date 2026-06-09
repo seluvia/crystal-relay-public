@@ -23,6 +23,10 @@ internal static class ApplicationRestartService
 
     private static string RestartSessionPath => Path.Combine(AppDataPaths.RootFolder, "restart-session.json");
 
+    public static bool IsRestartSession { get; private set; }
+
+    public static bool IsShuttingDownForRestart { get; private set; }
+
     public static bool TryCreateHelperRequest(string[] args, out ApplicationRestartHelperRequest request)
     {
         request = new ApplicationRestartHelperRequest();
@@ -47,6 +51,7 @@ internal static class ApplicationRestartService
     public static bool TryConsumeRestoreState(string[] args, out ApplicationRestartSessionState? state)
     {
         state = null;
+        IsRestartSession = false;
         if (args.Length < 2 || !string.Equals(args[0], RestoreArgument, StringComparison.OrdinalIgnoreCase))
         {
             return false;
@@ -54,11 +59,13 @@ internal static class ApplicationRestartService
 
         state = TryReadSessionState(args[1]);
         TryDeleteSessionFile(args[1]);
+        IsRestartSession = state is not null;
         return true;
     }
 
     public static void StartRestartHelper(ApplicationRestartSessionState state)
     {
+        IsShuttingDownForRestart = true;
         AppDataPaths.EnsureCoreFolders();
         var sessionPath = RestartSessionPath;
         var json = JsonSerializer.Serialize(state, SerializerOptions);

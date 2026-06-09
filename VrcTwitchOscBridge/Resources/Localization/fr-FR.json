@@ -1,4 +1,4 @@
-﻿{
+{
   " - Test Build": " - Version de test",
   "{0} | Crystal Relay": "{0} | Crystal Relay",
   "12-hour": "12 heures",
@@ -504,7 +504,6 @@
   "When enabled, Crystal Relay ignores the fixed Active Time for this paid override and calculates the timer from separate Bits and Subs ratios. Bits use the bit count, normal subs count as 1, and gift subs use the gift total.": "Quand activé, Crystal Relay ignore la durée active fixe pour ce remplacement payant et calcule le timer selon des ratios Bits et Subs séparés. Les bits utilisent le nombre de bits, les Subs normaux comptent pour 1, et les gift subs utilisent le total des cadeaux.",
   "Bits timer": "Timer des Bits",
   "Subs timer": "Timer des Subs",
-  "Every this many bits": "Tous ces bits",
   "Every this many subs": "Tous ces subs",
   "Bits/Subs override info messages": "Messages d'info des remplacements Bits/Subs",
   "Enable automatic Bits/Subs info messages": "Activer les messages d'info automatiques Bits/Subs",
@@ -597,6 +596,7 @@
   "Smooth Transition Seconds": "Secondes de transition fluide",
   "Subscription Filter": "Filtre d'abonnement",
   "Target Height Meters": "Hauteur cible en mètres",
+  "Transition Seconds": "Secondes de transition",
   "Test Scale": "Tester la mise à l'échelle",
   "This tab is for avatar height scale redeems using VRChat OSC Avatar Scaling. Build fixed, random, relative, multiplier, or preset height changes here without mixing them into other redeem systems.": "Cet onglet est pour les récompenses de mise à l'échelle de hauteur d'avatar utilisant VRChat OSC Avatar Scaling. Créez des changements de hauteur fixes, aléatoires, relatifs, multiplicateurs ou préréglagés ici sans les mélanger à d'autres systèmes de récompenses.",
   "This tab is for avatar height scale redeems using VRChat OSC Avatar Scaling. Use Scale Sets to keep different height reward ideas organized without changing how the triggers run.": "Cet onglet est pour les récompenses de mise à l'échelle de hauteur d'avatar utilisant VRChat OSC Avatar Scaling. Utilisez les ensembles de mise à l'échelle pour garder les différentes idées de récompenses de hauteur organisées sans changer le fonctionnement des déclencheurs.",
@@ -629,5 +629,11 @@
   "What is the Master Reward?": "What is the Master Reward?",
   "The Master Reward acts as a gate for your Avatar Scaling channel-point rewards. When enabled, all child scale rewards stay hidden or deleted on Twitch until a viewer redeems the master reward to unlock them for a set duration.": "The Master Reward acts as a gate for your Avatar Scaling channel-point rewards. When enabled, all child scale rewards stay hidden or deleted on Twitch until a viewer redeems the master reward to unlock them for a set duration.",
   "This keeps your Twitch reward panel clean — you don't need every scale reward visible all the time. Viewers redeem the master reward once, then pick which height they want from the unlocked child rewards.": "This keeps your Twitch reward panel clean — you don't need every scale reward visible all the time. Viewers redeem the master reward once, then pick which height they want from the unlocked child rewards.",
-  "Supporter Growth rules are not affected — they listen to bits and subs directly and do not need the master reward to fire.": "Supporter Growth rules are not affected — they listen to bits and subs directly and do not need the master reward to fire."
+  "Supporter Growth rules are not affected — they listen to bits and subs directly and do not need the master reward to fire.": "Supporter Growth rules are not affected — they listen to bits and subs directly and do not need the master reward to fire.",
+  "Support Crystal Relay on Ko-fi": "Support Crystal Relay on Ko-fi",
+  "Crystal Relay is completely free for everyone. If it helps your stream and you want to support development, you can leave a tip on Ko-fi. Every contribution helps keep the program free and growing.": "Crystal Relay is completely free for everyone. If it helps your stream and you want to support development, you can leave a tip on Ko-fi. Every contribution helps keep the program free and growing.",
+  "Open Ko-fi": "Open Ko-fi",
+  "Join the Crystal Relay Discord": "Join the Crystal Relay Discord",
+  "Get live update pings, sneak peeks, dev-related information, and meet other Crystal Relay users.": "Get live update pings, sneak peeks, dev-related information, and meet other Crystal Relay users.",
+  "Open Discord": "Open Discord"
 }

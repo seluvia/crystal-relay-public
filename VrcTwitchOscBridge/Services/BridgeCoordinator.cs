@@ -134,6 +134,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private readonly DesktopInputLockService desktopInputLockService;
     private readonly WorldCommandBlacklistService worldCommandBlacklistService;
     private readonly VrChatLocalOscCacheService localOscCacheService;
+    private readonly IActivityResumeService activityResumeService;
     private WardrobeExecutorService? wardrobeExecutor;
     private readonly object stateGate = new();
     // Runtime state for cooldowns, queued redeems, movement lanes, active timed resets,
@@ -240,13 +241,16 @@ public sealed class BridgeCoordinator : IAsyncDisposable
 internal BridgeCoordinator(
         DesktopInputLockService desktopInputLockService,
         WorldCommandBlacklistService worldCommandBlacklistService,
-        VrChatLocalOscCacheService localOscCacheService)
+        VrChatLocalOscCacheService localOscCacheService,
+        IActivityResumeService? activityResumeService = null)
     {
         this.desktopInputLockService = desktopInputLockService;
         this.worldCommandBlacklistService = worldCommandBlacklistService;
         this.localOscCacheService = localOscCacheService;
+        this.activityResumeService = activityResumeService ?? new ActivityResumeService();
         oscRouterService.LogWritten += WriteLog;
         oscRouterService.ObservedValueReceived += observedValue => ObserveOscValue(observedValue);
+        oscRouterService.DiscoveryStateChanged += OnOscDiscoveryStateChanged;
         desktopInputLockService.EmergencyUnlockTriggered += HandleEmergencyDesktopInputUnlock;
     }
 
@@ -262,6 +266,14 @@ internal BridgeCoordinator(
                 WriteLog);
         }
         return wardrobeExecutor;
+    }
+
+    private void OnOscDiscoveryStateChanged(OscDiscoveryState state)
+    {
+        if (state == OscDiscoveryState.Discovered)
+        {
+            _ = TryResumePendingActivitiesAsync();
+        }
     }
 
     public event Action<string>? LogWritten;
@@ -662,7 +674,7 @@ internal BridgeCoordinator(
             throw new InvalidOperationException("OSC is not running yet, so Crystal Relay cannot send a test to VRChat.");
         }
 
-        await ExecuteRuleActionAsync(rule, null, cancellationToken, isTest: true, queuedReplay: false, allowLaneQueue: true);
+        await ExecuteRuleActionAsync(rule, null, cancellationToken, isTest: true, queuedReplay: false, allowLaneQueue: true, isResuming: false);
     }
 
     public async Task SendTestUniversalTriggerAsync(UniversalTriggerRuleSnapshot trigger, CancellationToken cancellationToken = default)
@@ -684,7 +696,7 @@ internal BridgeCoordinator(
 
         if (rule.TriggerType == AvatarScaleTriggerType.SupporterGrowth)
         {
-            await ExecuteAvatarScaleRuleAsync(rule, UniversalIncomingEvent.Test, isTest: true, cancellationToken);
+            await ExecuteAvatarScaleRuleAsync(rule, UniversalIncomingEvent.Test, isTest: true, cancellationToken, isResuming: false);
             return;
         }
 
@@ -2441,6 +2453,7 @@ internal BridgeCoordinator(
             nextTriggerInfoAnnouncementAt = DateTimeOffset.MinValue;
             oscSessionMode = OscSessionMode.Stopped;
             ClearRuntimeState();
+            hasAttemptedResume = false;
             StreamStateChanged?.Invoke(false, false);
             StatusChanged?.Invoke("Background bridge stopped.");
             return;
@@ -2459,6 +2472,7 @@ internal BridgeCoordinator(
             nextTriggerInfoAnnouncementAt = DateTimeOffset.MinValue;
             oscSessionMode = OscSessionMode.Stopped;
             ClearRuntimeState();
+            hasAttemptedResume = false;
             StreamStateChanged?.Invoke(false, false);
             StatusChanged?.Invoke("Background bridge stopped.");
             return;
@@ -2489,6 +2503,7 @@ internal BridgeCoordinator(
             nextTriggerInfoAnnouncementAt = DateTimeOffset.MinValue;
             oscSessionMode = OscSessionMode.Stopped;
             ClearRuntimeState();
+            hasAttemptedResume = false;
             StatusChanged?.Invoke("Background bridge stopped.");
         }
     }
@@ -3433,7 +3448,7 @@ internal BridgeCoordinator(
                     false,
                     false);
                 WriteLog($"{paymentEvent.UserDisplayName} triggered cash payment scale '{rule.Name}' through {DescribeCashPaymentProvider(paymentEvent.Provider)}.");
-                await ExecuteAvatarScaleRuleAsync(rule.ScaleAction, incomingEvent, isTest: false, cancellationToken);
+                await ExecuteAvatarScaleRuleAsync(rule.ScaleAction, incomingEvent, isTest: false, cancellationToken, isResuming: false);
                 continue;
             }
 
@@ -4175,7 +4190,7 @@ internal BridgeCoordinator(
         {
             try
             {
-                await ExecuteAvatarScaleRuleAsync(rule, incomingEvent, isTest: false, executionToken);
+                await ExecuteAvatarScaleRuleAsync(rule, incomingEvent, isTest: false, executionToken, isResuming: false);
             }
             catch (OperationCanceledException) when (executionToken.IsCancellationRequested)
             {
@@ -4356,7 +4371,8 @@ internal BridgeCoordinator(
                             ruleToExecute,
                             queuedOperation.IncomingEvent,
                             queuedOperation.IsTest,
-                            cancellationToken);
+                            cancellationToken,
+                            isResuming: false);
                         if (!completed)
                         {
                             RequeueAvatarScaleOperationAtFront(queuedOperation);
@@ -4458,7 +4474,8 @@ internal BridgeCoordinator(
         AvatarScaleRuleSnapshot rule,
         UniversalIncomingEvent incomingEvent,
         bool isTest,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool isResuming = false)
     {
         if (rule.TriggerType == AvatarScaleTriggerType.SupporterGrowth)
         {
@@ -4466,7 +4483,7 @@ internal BridgeCoordinator(
             return true;
         }
 
-        if (rule.TriggerType == AvatarScaleTriggerType.Follow && !isTest)
+        if (rule.TriggerType == AvatarScaleTriggerType.Follow && !isTest && !isResuming)
         {
             lock (stateGate)
             {
@@ -4484,8 +4501,8 @@ internal BridgeCoordinator(
             }
         }
 
-        var cooldownSeconds = GetAvatarScaleEffectiveCooldownSeconds(rule);
-        if (!isTest)
+        var cooldownSeconds = isResuming ? 0 : GetAvatarScaleEffectiveCooldownSeconds(rule);
+        if (!isTest && !isResuming)
         {
             var now = DateTimeOffset.UtcNow;
             lock (stateGate)
@@ -4566,7 +4583,10 @@ internal BridgeCoordinator(
                     return;
                 }
 
-                UpdateActiveAvatarScaleRuleLockoutState(rule);
+                if (!isResuming)
+                {
+                    UpdateActiveAvatarScaleRuleLockoutState(rule);
+                }
 
                 var effectDurationSeconds = GetAvatarScaleEffectDurationSeconds(rule);
                 var activeWindowSeconds = effectDurationSeconds;
@@ -4586,51 +4606,54 @@ internal BridgeCoordinator(
                         cancellationToken);
                 }
 
-                lock (stateGate)
+                if (!isResuming)
                 {
-                    if (effectDurationSeconds > 0)
+                    lock (stateGate)
                     {
-                        activeAvatarScaleEffects[rule.Id] = DateTimeOffset.UtcNow.AddSeconds(effectDurationSeconds);
-                    }
-                    else
-                    {
-                        activeAvatarScaleEffects.Remove(rule.Id);
+                        if (effectDurationSeconds > 0)
+                        {
+                            activeAvatarScaleEffects[rule.Id] = DateTimeOffset.UtcNow.AddSeconds(effectDurationSeconds);
+                        }
+                        else
+                        {
+                            activeAvatarScaleEffects.Remove(rule.Id);
+                        }
+
+                        if (cooldownSeconds > 0)
+                        {
+                            cooldowns[rule.Id] = DateTimeOffset.UtcNow.AddSeconds(cooldownSeconds);
+                        }
+                        else
+                        {
+                            cooldowns.Remove(rule.Id);
+                        }
+
+                        if (rule.TriggerType == AvatarScaleTriggerType.Follow && !string.IsNullOrWhiteSpace(incomingEvent.UserId))
+                        {
+                            if (!avatarScaleFollowTriggeredUsers.TryGetValue(rule.Id, out var triggeredUsers))
+                            {
+                                triggeredUsers = new HashSet<string>(StringComparer.Ordinal);
+                                avatarScaleFollowTriggeredUsers[rule.Id] = triggeredUsers;
+                            }
+                            triggeredUsers.Add(incomingEvent.UserId);
+                        }
                     }
 
                     if (cooldownSeconds > 0)
                     {
-                        cooldowns[rule.Id] = DateTimeOffset.UtcNow.AddSeconds(cooldownSeconds);
+                        ScheduleCooldownStateNotification(rule.Id, TimeSpan.FromSeconds(cooldownSeconds));
+                        ManagedRewardAvailabilityChanged?.Invoke();
                     }
                     else
                     {
-                        cooldowns.Remove(rule.Id);
+                        CancelCooldownStateNotification(rule.Id);
                     }
 
-                    if (rule.TriggerType == AvatarScaleTriggerType.Follow && !string.IsNullOrWhiteSpace(incomingEvent.UserId))
+                    if (effectDurationSeconds > 0)
                     {
-                        if (!avatarScaleFollowTriggeredUsers.TryGetValue(rule.Id, out var triggeredUsers))
-                        {
-                            triggeredUsers = new HashSet<string>(StringComparer.Ordinal);
-                            avatarScaleFollowTriggeredUsers[rule.Id] = triggeredUsers;
-                        }
-                        triggeredUsers.Add(incomingEvent.UserId);
+                        ScheduleAvatarScaleEffectStateNotification(rule.Id, TimeSpan.FromSeconds(effectDurationSeconds));
+                        ManagedRewardAvailabilityChanged?.Invoke();
                     }
-                }
-
-                if (cooldownSeconds > 0)
-                {
-                    ScheduleCooldownStateNotification(rule.Id, TimeSpan.FromSeconds(cooldownSeconds));
-                    ManagedRewardAvailabilityChanged?.Invoke();
-                }
-                else
-                {
-                    CancelCooldownStateNotification(rule.Id);
-                }
-
-                if (effectDurationSeconds > 0)
-                {
-                    ScheduleAvatarScaleEffectStateNotification(rule.Id, TimeSpan.FromSeconds(effectDurationSeconds));
-                    ManagedRewardAvailabilityChanged?.Invoke();
                 }
             }
 
@@ -4647,6 +4670,23 @@ internal BridgeCoordinator(
             if (rule.ActiveTimeSeconds > 0)
             {
                 ScheduleAvatarScaleRestoreSequence(rule, isTest, targetHeight);
+                if (!isTest && !isResuming)
+                {
+                    var effectDurationSeconds = GetAvatarScaleEffectDurationSeconds(rule);
+                    var expiresAt = effectDurationSeconds > 0 ? DateTimeOffset.UtcNow.AddSeconds(effectDurationSeconds) : (DateTimeOffset?)null;
+                    await activityResumeService.RecordActivityStartedAsync(new ResumeActivity
+                    {
+                        Type = ResumeActivityType.AvatarScale,
+                        RuleId = rule.Id,
+                        ExpiresAt = expiresAt,
+                        CurrentValue = targetHeight,
+                        Payload = new Dictionary<string, object>
+                        {
+                            ["scaleMode"] = rule.ScaleMode.ToString(),
+                            ["targetHeight"] = targetHeight
+                        }
+                    }, GetCurrentVrChatAvatarId());
+                }
             }
             else
             {
@@ -5368,7 +5408,7 @@ internal BridgeCoordinator(
                 if (!await SendAvatarHeightForOperationAsync(
                         operation,
                         testTargetHeight,
-                        rule.SmoothTransitionSeconds,
+                        rule.SupporterGrowthTransitionSeconds,
                         cancellationToken))
                 {
                     return;
@@ -5384,7 +5424,7 @@ internal BridgeCoordinator(
                 await SendAvatarHeightForOperationAsync(
                     operation,
                     normalHeight,
-                    rule.SmoothTransitionSeconds,
+                    rule.SupporterGrowthTransitionSeconds,
                     cancellationToken);
 
                 WriteLog($"Sent supporter growth test/simulated effect for '{rule.Name}' to {testTargetHeight:0.###}m (+{addedHeight:0.###}m) for {DescribeDuration(addedPaidSeconds)}.");
@@ -5445,7 +5485,7 @@ internal BridgeCoordinator(
                     rule.Name,
                     targetHeight,
                     normalHeight,
-                    rule.SmoothTransitionSeconds,
+                    rule.SupporterGrowthTransitionSeconds,
                     paidActiveUntil,
                     rule.SupporterGrowthAllowRewardScaleOverlay,
                     sessionCancellation),
@@ -5909,11 +5949,28 @@ internal BridgeCoordinator(
             AvatarScaleMode.GlitchyRandomHeight => Random.Shared.NextDouble()
                 * (Math.Max(rule.MinimumHeightMeters, rule.MaximumHeightMeters) - Math.Min(rule.MinimumHeightMeters, rule.MaximumHeightMeters))
                 + Math.Min(rule.MinimumHeightMeters, rule.MaximumHeightMeters),
-            AvatarScaleMode.RelativeHeight => ClampRelativeScaleTarget(rule, currentHeight, current + rule.RelativeHeightMeters),
-            AvatarScaleMode.Multiplier => current * Math.Max(0.01, rule.HeightMultiplier),
+            AvatarScaleMode.RelativeHeight => rule.RelativeHeightDirectionId == (int)AvatarScaleRelativeHeightDirection.Subtract
+                ? ClampRelativeScaleTarget(rule, currentHeight, current - rule.RelativeHeightMeters)
+                : ClampRelativeScaleTarget(rule, currentHeight, current + rule.RelativeHeightMeters),
+            AvatarScaleMode.Multiplier => rule.MultiplierDirectionId == (int)AvatarScaleMultiplierDirection.Divide
+                ? current / Math.Max(0.01, rule.HeightMultiplier)
+                : current * Math.Max(0.01, rule.HeightMultiplier),
             AvatarScaleMode.Preset => AvatarScaleRule.GetPresetHeight(rule.Preset),
             _ => rule.TargetHeightMeters
         };
+    }
+
+    private static bool IsAutoBypassingVrChatLimits(AvatarScaleRuleSnapshot rule)
+    {
+        if (rule.BypassVrChatScaleLimits)
+        {
+            return true;
+        }
+
+        return rule.ScaleMode is AvatarScaleMode.RelativeHeight or AvatarScaleMode.Multiplier
+            && rule.RelativeMinimumHeightMeters > 0
+            && rule.RelativeMaximumHeightMeters > 0
+            && rule.RelativeMinimumHeightMeters < rule.RelativeMaximumHeightMeters;
     }
 
     private static bool IsRelativeScaleAtLimit(
@@ -5929,14 +5986,14 @@ internal BridgeCoordinator(
             return false;
         }
 
-        if (rule.RelativeHeightMeters < 0
+        if (rule.RelativeHeightDirectionId == (int)AvatarScaleRelativeHeightDirection.Subtract
             && currentHeight.Value <= rule.RelativeMinimumHeightMeters)
         {
             limitMessage = $"the current height is already at or below the relative minimum of {rule.RelativeMinimumHeightMeters:0.###}m.";
             return true;
         }
 
-        if (rule.RelativeHeightMeters > 0
+        if (rule.RelativeHeightDirectionId != (int)AvatarScaleRelativeHeightDirection.Subtract
             && currentHeight.Value >= rule.RelativeMaximumHeightMeters)
         {
             limitMessage = $"the current height is already at or above the relative maximum of {rule.RelativeMaximumHeightMeters:0.###}m.";
@@ -5956,12 +6013,12 @@ internal BridgeCoordinator(
             return targetHeight;
         }
 
-        if (rule.RelativeHeightMeters < 0)
+        if (rule.RelativeHeightDirectionId == (int)AvatarScaleRelativeHeightDirection.Subtract)
         {
             return Math.Max(targetHeight, rule.RelativeMinimumHeightMeters);
         }
 
-        if (rule.RelativeHeightMeters > 0)
+        if (rule.RelativeHeightDirectionId != (int)AvatarScaleRelativeHeightDirection.Subtract)
         {
             return Math.Min(targetHeight, rule.RelativeMaximumHeightMeters);
         }
@@ -5988,7 +6045,7 @@ internal BridgeCoordinator(
         string targetDescription)
     {
         var clampedValue = ClampAvatarScaleHeight(rule, value);
-        if (!rule.BypassVrChatScaleLimits)
+        if (!IsAutoBypassingVrChatLimits(rule))
         {
             return ClampToVrChatScaleLimits(clampedValue);
         }
@@ -7013,7 +7070,7 @@ internal BridgeCoordinator(
             }
         }
 
-        await ExecuteRuleActionAsync(rule, bridgeEvent, cancellationToken, isTest: false, queuedReplay: false, allowLaneQueue: true);
+        await ExecuteRuleActionAsync(rule, bridgeEvent, cancellationToken, isTest: false, queuedReplay: false, allowLaneQueue: true, isResuming: false);
     }
 
     // Executes one rule action end-to-end. This is where Crystal Relay checks pause state,
@@ -7024,7 +7081,8 @@ internal BridgeCoordinator(
         CancellationToken cancellationToken,
         bool isTest,
         bool queuedReplay,
-        bool allowLaneQueue)
+        bool allowLaneQueue,
+        bool isResuming = false)
     {
         if (!isTest && AreRedeemsPaused())
         {
@@ -7086,12 +7144,12 @@ internal BridgeCoordinator(
                 catch (Exception ex)
                 {
                     WriteLog($"Crystal Relay could not start the desktop input lock for '{executionRule.Name}', so it fell back to a VRChat soft lock. {ex.Message}");
-                    await ExecuteMovementSoftLockAsync(executionRule, cancellationToken);
+                    await ExecuteMovementSoftLockAsync(executionRule, cancellationToken, false);
                 }
             }
             else
             {
-                await ExecuteMovementSoftLockAsync(executionRule, cancellationToken);
+                await ExecuteMovementSoftLockAsync(executionRule, cancellationToken, false);
             }
 
             lock (stateGate)
@@ -7102,7 +7160,7 @@ internal BridgeCoordinator(
                 }
             }
 
-            if (!isTest)
+            if (!isTest && !isResuming)
             {
                 CancelCooldownStateNotification(rule.Id);
                 UpdateActiveRuleLockoutState(executionRule);
@@ -7114,14 +7172,14 @@ internal BridgeCoordinator(
                     ? $"Sent queued test trigger for '{executionRule.Name}'."
                     : $"Sent a test trigger for '{executionRule.Name}'.");
             }
-            else if (bridgeEvent is not null)
+            else if (bridgeEvent is not null && !isResuming)
             {
                 WriteLog(queuedReplay
                     ? $"{bridgeEvent.UserDisplayName} triggered '{executionRule.Name}' from the queue."
                     : $"{bridgeEvent.UserDisplayName} triggered '{executionRule.Name}'.");
             }
 
-            if (!isTest && bridgeEvent is not null)
+            if (!isTest && !isResuming && bridgeEvent is not null)
             {
                 await TrySendBotMessageAsync(executionRule, bridgeEvent, movementDisplayValue, cancellationToken);
             }
@@ -7138,7 +7196,8 @@ internal BridgeCoordinator(
                 cancellationToken,
                 isTest,
                 queuedReplay,
-                cooldownSeconds);
+                cooldownSeconds,
+                false);
             return;
         }
 
@@ -7200,7 +7259,7 @@ internal BridgeCoordinator(
                     false);
             }
 
-            if (!isTest)
+            if (!isTest && !isResuming)
             {
                 if (cooldownSeconds > 0)
                 {
@@ -7213,7 +7272,7 @@ internal BridgeCoordinator(
             }
         }
 
-        if (!isTest)
+        if (!isTest && !isResuming)
         {
             if (cooldownSeconds > 0)
             {
@@ -7241,13 +7300,28 @@ internal BridgeCoordinator(
             }
         }
 
+        if (!isTest && !isResuming && executionRule.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet)
+        {
+            var expiresAt = executionRule.DurationSeconds > 0 ? DateTimeOffset.UtcNow.AddSeconds(executionRule.DurationSeconds) : (DateTimeOffset?)null;
+            await activityResumeService.RecordActivityStartedAsync(new ResumeActivity
+            {
+                Type = ResumeActivityType.AvatarChange,
+                RuleId = rule.Id,
+                ExpiresAt = expiresAt,
+                Payload = new Dictionary<string, object>
+                {
+                    ["avatarTargetId"] = action.AvatarTargetId ?? string.Empty
+                }
+            }, action.AvatarTargetId ?? string.Empty);
+        }
+
         if (isTest)
         {
             WriteLog(queuedReplay
                 ? $"Sent queued test trigger for '{rule.Name}'."
                 : $"Sent a test trigger for '{rule.Name}'.");
         }
-        else if (bridgeEvent is not null)
+        else if (bridgeEvent is not null && !isResuming)
         {
             WriteLog(queuedReplay
                 ? $"{bridgeEvent.UserDisplayName} triggered '{rule.Name}' from the queue."
@@ -7255,12 +7329,12 @@ internal BridgeCoordinator(
         }
 
         var lockoutDurationSeconds = isTest ? 0 : GetLockoutDurationSeconds(executionRule);
-        if (!isTest)
+        if (!isTest && !isResuming)
         {
             UpdateActiveAvatarSwitchLockoutState(executionRule);
         }
 
-        var shouldNotifyManagedRewardState = !isTest && cooldownSeconds > 0;
+        var shouldNotifyManagedRewardState = !isTest && !isResuming && cooldownSeconds > 0;
         if ((action.HasResetPackets && effectiveTimedActionSeconds > 0)
             || lockoutDurationSeconds > 0)
         {
@@ -7278,12 +7352,27 @@ internal BridgeCoordinator(
             }
         }
 
+        if (!isTest && !isResuming && executionRule.ActionType == OscActionType.PlayerMovement)
+        {
+            var expiresAt = executionRule.DurationSeconds > 0 ? DateTimeOffset.UtcNow.AddSeconds(executionRule.DurationSeconds) : (DateTimeOffset?)null;
+            await activityResumeService.RecordActivityStartedAsync(new ResumeActivity
+            {
+                Type = ResumeActivityType.Movement,
+                RuleId = rule.Id,
+                ExpiresAt = expiresAt,
+                Payload = new Dictionary<string, object>
+                {
+                    ["movementDirection"] = executionRule.MovementDirection.ToString()
+                }
+            }, GetCurrentVrChatAvatarId());
+        }
+
         if (shouldNotifyManagedRewardState)
         {
             ManagedRewardAvailabilityChanged?.Invoke();
         }
 
-        if (!isTest && bridgeEvent is not null)
+        if (!isTest && !isResuming && bridgeEvent is not null)
         {
             await TrySendBotMessageAsync(executionRule, bridgeEvent, action.DisplayValue, cancellationToken);
         }
@@ -7295,7 +7384,8 @@ internal BridgeCoordinator(
         CancellationToken cancellationToken,
         bool isTest,
         bool queuedReplay,
-        int cooldownSeconds)
+        int cooldownSeconds,
+        bool isResuming = false)
     {
         var laneKeys = GetGlitchyMovementLaneKeys();
         var laneLeaseId = laneKeys.Count == 0 ? Guid.Empty : Guid.NewGuid();
@@ -7316,7 +7406,7 @@ internal BridgeCoordinator(
                     false);
             }
 
-            if (!isTest)
+            if (!isTest && !isResuming)
             {
                 if (cooldownSeconds > 0)
                 {
@@ -9075,7 +9165,7 @@ internal BridgeCoordinator(
         }, CancellationToken.None);
     }
 
-    private async Task ExecuteMovementSoftLockAsync(TriggerRuleSnapshot rule, CancellationToken cancellationToken)
+    private async Task ExecuteMovementSoftLockAsync(TriggerRuleSnapshot rule, CancellationToken cancellationToken, bool isResuming = false)
     {
         if (runtimeCancellation is null)
         {
@@ -11786,7 +11876,7 @@ internal BridgeCoordinator(
     private static int GetAvatarScaleEffectDurationSeconds(AvatarScaleRuleSnapshot rule)
     {
         var transitionSeconds = rule.ScaleMode == AvatarScaleMode.GlitchyRandomHeight
-            ? 0
+            ? Math.Clamp(rule.GlitchyRandomHeightTransitionSeconds, 0, 30)
             : Math.Max(0, rule.SmoothTransitionSeconds);
         var activeSeconds = Math.Max(0, rule.ActiveTimeSeconds);
         var restoreTransitionSeconds = activeSeconds > 0 && rule.RestoreMode != AvatarScaleRestoreMode.None
@@ -13414,6 +13504,164 @@ internal BridgeCoordinator(
         }
     }
 
+    private bool hasAttemptedResume;
+
+    public async Task TryResumePendingActivitiesAsync()
+    {
+        if (hasAttemptedResume)
+        {
+            return;
+        }
+
+        if (!HasDiscoveredVrChat)
+        {
+            WriteLog("Activity resume skipped: OSC not discovered yet.");
+            return;
+        }
+
+        var currentAvatarId = GetCurrentVrChatAvatarId();
+        if (string.IsNullOrWhiteSpace(currentAvatarId))
+        {
+            WriteLog("Activity resume skipped: current avatar ID is empty.");
+            return;
+        }
+
+        if (!activityResumeService.HasPendingResume)
+        {
+            WriteLog("Activity resume skipped: no pending resume file found.");
+            hasAttemptedResume = true;
+            return;
+        }
+
+        if (!activityResumeService.IsPendingForAvatar(currentAvatarId))
+        {
+            WriteLog($"Activity resume skipped: current avatar '{currentAvatarId}' does not match saved avatar.");
+            return;
+        }
+
+        hasAttemptedResume = true;
+        var pendingActivities = activityResumeService.GetPendingActivities();
+        if (pendingActivities.Count == 0)
+        {
+            return;
+        }
+
+        WriteLog("Resuming saved activities...");
+        foreach (var activity in pendingActivities)
+        {
+            try
+            {
+                await ResumeActivityAsync(activity);
+            }
+            catch (Exception ex)
+            {
+                WriteLog($"Failed to resume activity {activity.Type} for rule {activity.RuleId}: {ex.Message}");
+            }
+        }
+
+        WriteLog("Saved activities resumed.");
+    }
+
+    private async Task ResumeActivityAsync(ResumeActivity activity)
+    {
+        if (activeConfiguration is null)
+        {
+            return;
+        }
+
+        var cancellationToken = runtimeCancellation?.Token ?? CancellationToken.None;
+
+        switch (activity.Type)
+        {
+            case ResumeActivityType.AvatarScale:
+                {
+                    var rule = activeConfiguration.AvatarScaleRules.FirstOrDefault(r => r.Id == activity.RuleId);
+                    if (rule is null)
+                    {
+                        return;
+                    }
+
+                    var currentHeight = await TryGetCurrentAvatarHeightAsync(cancellationToken);
+                    var savedHeight = activity.CurrentValue ?? 0;
+                    var heightMatches = currentHeight.HasValue
+                        && Math.Abs(currentHeight.Value - savedHeight) < 0.01;
+
+                    if (heightMatches)
+                    {
+                        var effectDurationSeconds = GetAvatarScaleEffectDurationSeconds(rule);
+                        var activeWindowSeconds = effectDurationSeconds;
+                        var heightSessionId = StartAvatarScaleHeightSession(
+                            rule.Id,
+                            rule.Name,
+                            rule.RestoreHeightMeters,
+                            savedHeight,
+                            activeWindowSeconds);
+                        if (heightSessionId != Guid.Empty)
+                        {
+                            ScheduleAvatarScaleHeightSessionEnd(
+                                rule.Id,
+                                heightSessionId,
+                                TimeSpan.FromSeconds(Math.Max(0.5, activeWindowSeconds)),
+                                cancellationToken);
+                        }
+
+                        ScheduleAvatarScaleRestoreSequence(rule, isTest: false, savedHeight);
+                        WriteLog($"Skipped OSC send for '{rule.Name}' during resume ΓÇö avatar is already at {savedHeight:0.###}m. Carryover timer rearmed for {rule.ActiveTimeSeconds}s.");
+                    }
+                    else
+                    {
+                        var incomingEvent = UniversalIncomingEvent.Test;
+                        await ExecuteAvatarScaleRuleAsync(
+                            rule,
+                            incomingEvent,
+                            isTest: false,
+                            cancellationToken,
+                            isResuming: true);
+                    }
+
+                    break;
+                }
+
+            case ResumeActivityType.Movement:
+                {
+                    var rule = activeConfiguration.Rules.FirstOrDefault(r => r.Id == activity.RuleId);
+                    if (rule is null)
+                    {
+                        return;
+                    }
+
+                    await ExecuteRuleActionAsync(
+                        rule,
+                        null,
+                        cancellationToken,
+                        isTest: false,
+                        queuedReplay: false,
+                        allowLaneQueue: false,
+                        isResuming: true);
+                    break;
+                }
+
+            case ResumeActivityType.AvatarChange:
+                {
+                    var rule = activeConfiguration.Rules.FirstOrDefault(r => r.Id == activity.RuleId);
+                    if (rule is null)
+                    {
+                        return;
+                    }
+
+                    await ExecuteRuleActionAsync(
+                        rule,
+                        null,
+                        cancellationToken,
+                        isTest: false,
+                        queuedReplay: false,
+                        allowLaneQueue: false,
+                        isResuming: true);
+                    break;
+                }
+        }
+    }
+
     private void SetCurrentVrChatAvatar(
         string avatarId,
         bool notify,
@@ -13448,6 +13696,7 @@ internal BridgeCoordinator(
         {
             lastAvatarChangeAt = DateTimeOffset.UtcNow;
             ResumePendingAvatarScopedResetsForCurrentAvatar(normalizedAvatarId);
+            _ = TryResumePendingActivitiesAsync();
             QueueAvatarScaleAvatarChangeHandling(
                 previousAvatarId,
                 normalizedAvatarId,
@@ -17251,7 +17500,7 @@ internal BridgeCoordinator(
                         }
                         else
                         {
-                            await ExecuteRuleActionAsync(ruleSnapshot, queuedTrigger.Event, cancellationToken, isTest: false, queuedReplay: true, allowLaneQueue: true);
+                            await ExecuteRuleActionAsync(ruleSnapshot, queuedTrigger.Event, cancellationToken, isTest: false, queuedReplay: true, allowLaneQueue: true, isResuming: false);
                         }
                     }
                     catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -17413,7 +17662,7 @@ internal BridgeCoordinator(
                             WriteLog($"Starting queued Bits outfit Set Trigger '{ruleToExecute.Name}'.");
                         }
 
-                        await ExecuteRuleActionAsync(ruleToExecute, queuedAction.Event, cancellationToken, queuedAction.IsTest, queuedReplay: true, allowLaneQueue: true);
+                        await ExecuteRuleActionAsync(ruleToExecute, queuedAction.Event, cancellationToken, queuedAction.IsTest, queuedReplay: true, allowLaneQueue: true, isResuming: false);
                     }
                     catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                     {
@@ -17681,7 +17930,8 @@ internal BridgeCoordinator(
             cancellationToken,
             isTest: false,
             queuedReplay: true,
-            allowLaneQueue: false);
+            allowLaneQueue: false,
+            isResuming: false);
         await Task.Delay(TimeSpan.FromSeconds(Math.Max(1, rule.DurationSeconds)), cancellationToken);
     }
 

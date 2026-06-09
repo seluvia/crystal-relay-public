@@ -3,6 +3,16 @@ Crystal Relay Changelog
 
 Newest updates appear first. This changelog focuses on the changes users will notice most.
 
+v3.1.9 beta 2
+- Added Activity Resume so Crystal Relay remembers active redeems and picks up where it left off after a restart. Avatar changes, movement redeems, and scaling actions now survive app restarts instead of being lost.
+- Redesigned the Avatar Scaling action setup with a cleaner, compact layout. Each scale mode (Set Height, Random, Relative, Multiplier, Preset, Glitchy) now shows only the options that matter for that mode.
+- Added a Multiplier direction option so multiplier scaling can push height up, down, or both.
+- Added a configurable transition speed for Glitchy Random Height so you can control how fast the height jumps around.
+- Avatar Scaling now bypasses VRChat's built-in world height limits when custom Min/Max values are set, giving more precise control.
+- Redesigned the Streaming Status illustration with a refreshed look.
+- Compacted the Home page support section with popup explanations for Ko-fi and Discord.
+- Fixed scale preview so all modes correctly show the current avatar height.
+
 v3.1.9 beta 1
 - Optimized startup speed by deferring heavy initialization out of the main constructor. The window now appears faster with a loading overlay while settings, currency codes, and font lists load in the background.
 - Added a lightweight settings read path during startup that only loads language and theme preferences, so the correct theme is applied immediately without a flash.

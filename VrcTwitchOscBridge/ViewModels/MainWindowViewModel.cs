@@ -427,6 +427,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private readonly Dictionary<Guid, Guid> lastSelectedRuleIdsByAvatarProfileId = new();
     private readonly Dictionary<string, DateTimeOffset> recentChatActivityKeys = new(StringComparer.Ordinal);
     private readonly ObservableCollection<TriggerRule> emptyMasterAvatarRules = [];
+    private readonly IActivityResumeService activityResumeService;
+    private bool previousSessionWasClean;
 
     private AppSettings settings = new();
     private RuntimeConfig runtimeConfig = RuntimeConfig.CreateDefault();
@@ -543,6 +545,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private readonly Dictionary<string, DateTimeOffset> throttledLogExpiryByKey = new(StringComparer.Ordinal);
     private readonly List<ActionTypeOption> allActionTypes;
     private string lastSuccessfulManagedRewardDesiredFingerprint = string.Empty;
+    private int pendingSkippedDeleteSuppressedCount;
     private DateTimeOffset? managedRewardApiBackoffUntil;
     private DateTimeOffset aboutProfilesLastRefreshedAt = DateTimeOffset.MinValue;
     private DateTime latestLocalVrChatAvatarWriteTimeUtc = DateTime.MinValue;
@@ -627,7 +630,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     {
         dispatcher = Dispatcher.CurrentDispatcher;
         desktopInputLockService = new DesktopInputLockService(dispatcher);
-        bridgeCoordinator = new BridgeCoordinator(desktopInputLockService, worldCommandBlacklistService, vrChatLocalOscCacheService);
+        activityResumeService = new ActivityResumeService();
+        bridgeCoordinator = new BridgeCoordinator(desktopInputLockService, worldCommandBlacklistService, vrChatLocalOscCacheService, activityResumeService);
         LogEntries = [];
         ChatMessages = [];
         ChatActivityEntries = [];
@@ -881,7 +885,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         OpenKoFiWebhooksCommand = new RelayCommand(OpenKoFiWebhooksPage);
         OpenDiscordInviteCommand = new RelayCommand(OpenDiscordInvite);
         OpenBugReportCommand = new AsyncRelayCommand(OpenBugReportAsync);
-        RefreshOscConnectionCommand = new AsyncRelayCommand(RefreshOscConnectionAsync);
         RefreshTwitchRewardsCommand = new AsyncRelayCommand(RefreshTwitchRewardsAsync);
         UnlinkTwitchRewardCommand = new RelayCommand(UnlinkTwitchReward);
         TestSelectedRuleCommand = new AsyncRelayCommand(TestSelectedRuleAsync, () => SelectedRule is not null);
@@ -942,8 +945,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             UseCurrentAvatarForAvatarChangeRule,
             () => CanUseCurrentAvatarForAvatarChangeRule());
         OpenAvatarPickerCommand = new RelayCommand(OpenAvatarPicker);
-        RefreshVrChatOscParametersCommand = new AsyncRelayCommand(RefreshVrChatOscParametersAsync);
-
         AddRuleCommand = new RelayCommand(AddRule);
         AddOutfitChoiceCommand = new RelayCommand(AddOutfitChoice, () => IsViewingAvatarTriggers && SelectedAvatarProfile is not null);
         RemoveSelectedOutfitChoiceCommand = new RelayCommand(
@@ -2000,6 +2001,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 ? "Add or select a scale redeem to edit it."
                 : SelectedAvatarScaleRule.ScaleRangeHelpText;
             return $"Current height: {current} | Min: {minimum} | Max: {maximum} | Scaling: {allowed}{Environment.NewLine}{selected}";
+        }
+    }
+
+    public double CurrentAvatarHeightMeters
+    {
+        get
+        {
+            var status = bridgeCoordinator.GetAvatarScaleRuntimeStatus();
+            return status.CurrentHeightMeters ?? 1.6;
         }
     }
 
@@ -3479,8 +3489,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public AsyncRelayCommand OpenBugReportCommand { get; }
 
-    public AsyncRelayCommand RefreshOscConnectionCommand { get; }
-
     public AsyncRelayCommand RefreshTwitchRewardsCommand { get; }
 
     public RelayCommand UnlinkTwitchRewardCommand { get; }
@@ -3588,8 +3596,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     public RelayCommand UseCurrentAvatarForAvatarChangeRuleCommand { get; }
 
     public RelayCommand OpenAvatarPickerCommand { get; }
-
-    public AsyncRelayCommand RefreshVrChatOscParametersCommand { get; }
 
     public RelayCommand AddRuleCommand { get; }
 
@@ -3725,6 +3731,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     public async Task InitializeAsync()
     {
         var previousSessionNeedsRecovery = ShutdownRecoveryStateStore.BeginSession();
+        previousSessionWasClean = !previousSessionNeedsRecovery;
         ReplaceSettings(await settingsStore.LoadAsync());
         var savedLoginRecoveryResult = SavedLoginStateRecoveryService.TryConsumeRecoveryResult();
         activeLanguageAtStartup = Settings.Language;
@@ -3798,6 +3805,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
         AppendLog("Loaded saved settings.");
         ReportSavedLoginRecoveryResult(savedLoginRecoveryResult);
+        if (previousSessionWasClean && !ApplicationRestartService.IsRestartSession)
+        {
+            await activityResumeService.DeleteStaleFileIfPresentAsync();
+        }
+        await activityResumeService.LoadPendingAsync();
         await RefreshWorldCommandBlacklistOnStartupAsync();
         await InitializeVrChatAsync();
         await QueueRewardRefreshAsync();
@@ -3902,9 +3914,17 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         vrChatLocalStateRefreshGate.Dispose();
         vrChatCurrentAvatarRefreshGate.Dispose();
 
-        if (!isInitialized || shutdownCleanupCompleted)
+        var isRestartShutdown = ApplicationRestartService.IsShuttingDownForRestart;
+        AppendLog($"Shutdown: isRestartShutdown={isRestartShutdown}. Running cleanup...");
+        ShutdownRecoveryStateStore.CompleteSession();
+        if (!isRestartShutdown)
         {
-            ShutdownRecoveryStateStore.CompleteSession();
+            await activityResumeService.ClearAllAsync();
+            AppendLog("Shutdown: activity resume file cleared.");
+        }
+        else
+        {
+            AppendLog("Shutdown: restart session detected — keeping activity resume file.");
         }
     }
 
@@ -9293,6 +9313,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private void HandleAvatarScaleStatusChanged()
     {
         RaisePropertyChanged(nameof(AvatarScaleRuntimeStatusText));
+        RaisePropertyChanged(nameof(CurrentAvatarHeightMeters));
 
         if (!isInitialized || isShuttingDown)
         {
@@ -10399,7 +10420,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
                     if (oscFallbackStarted)
                     {
-                        AppendLog("Crystal Relay kept OSCQuery running so Force Refresh and Test Rule can still work.");
+                        AppendLog("Crystal Relay kept OSCQuery running so Test Rule can still work.");
                     }
 
                     return;
@@ -10451,7 +10472,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
                     if (oscFallbackStarted)
                     {
-                        AppendLog("Crystal Relay kept OSCQuery running so Force Refresh and Test Rule can still work.");
+                        AppendLog("Crystal Relay kept OSCQuery running so Test Rule can still work.");
                     }
 
                     return;
@@ -10653,6 +10674,14 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private void StartSelectedAvatarScaleRuleTest()
     {
         _ = TestSelectedAvatarScaleRuleAsync();
+    }
+
+    public void SetSelectedAvatarScaleMode(AvatarScaleMode mode)
+    {
+        if (SelectedAvatarScaleRule is { } rule)
+        {
+            rule.ScaleMode = mode;
+        }
     }
 
     private AvatarScaleRule? ResolveAvatarScaleRuleForTest()
@@ -13036,7 +13065,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private static int GetAvatarScaleEffectDurationSeconds(AvatarScaleRule rule)
     {
         var transitionSeconds = rule.ScaleMode == AvatarScaleMode.GlitchyRandomHeight
-            ? 0
+            ? Math.Clamp(rule.GlitchyRandomHeightTransitionSeconds, 0, 30)
             : Math.Max(0, rule.SmoothTransitionSeconds);
         var activeSeconds = Math.Max(0, rule.ActiveTimeSeconds);
         var restoreTransitionSeconds = activeSeconds > 0 && rule.RestoreMode != AvatarScaleRestoreMode.None
@@ -13523,6 +13552,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 reason,
                 cancellationToken);
 
+            pendingSkippedDeleteSuppressedCount = 0;
             foreach (var target in allSyncTargets)
             {
                 changesMade |= await SynchronizeManagedRewardForTargetAsync(
@@ -13540,6 +13570,16 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                     allowMissingManagedRewardMaterialization,
                     reason,
                     cancellationToken);
+            }
+
+            if (pendingSkippedDeleteSuppressedCount > 0)
+            {
+                var suppressedCount = pendingSkippedDeleteSuppressedCount;
+                pendingSkippedDeleteSuppressedCount = 0;
+                RunOnUi(() => AppendThrottledLog(
+                    $"managed-reward-delete-suppressed-summary:{reason}",
+                    $"Skipped deleting {suppressedCount} inactive Twitch reward(s) during {DescribeManagedRewardSyncReason(reason)} to avoid reward API churn. Crystal Relay only deletes opted-in inactive rewards during explicit cleanup/maintenance or direct rule removal.",
+                    ThrottledRewardSyncLogWindow));
             }
 
             RunOnUi(() => ApplyRewardCatalog(rewardCatalog.Rewards));
@@ -13770,10 +13810,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             && (!desiredEnabled || string.IsNullOrWhiteSpace(rewardTitle));
         if (shouldDeleteInactiveReward && !allowInactiveRewardDeletion)
         {
-            RunOnUi(() => AppendThrottledLog(
-                $"managed-reward-delete-suppressed:{reason}:{target.Id}",
-                $"Skipped deleting inactive Twitch reward for '{target.DisplayTitle}' during {DescribeManagedRewardSyncReason(reason)} to avoid reward API churn. Crystal Relay only deletes opted-in inactive rewards during explicit cleanup/maintenance or direct rule removal.",
-                ThrottledRewardSyncLogWindow));
+            pendingSkippedDeleteSuppressedCount++;
+            DebugLogService.Write($"Skipped deleting inactive Twitch reward for '{target.DisplayTitle}' (ID: {target.Id}) during {DescribeManagedRewardSyncReason(reason)} to avoid reward API churn. Crystal Relay only deletes opted-in inactive rewards during explicit cleanup/maintenance or direct rule removal.");
             if (existingReward is null || string.IsNullOrWhiteSpace(rewardTitle))
             {
                 return changed;
@@ -14248,7 +14286,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             return false;
         }
 
-        if (rule.RelativeHeightMeters < 0)
+        if (rule.IsSubtractRelativeHeight)
         {
             if (!rule.HideRewardWhenMinimumHeightReached)
             {
@@ -17562,13 +17600,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         TestSelectedCashPaymentRuleCommand.NotifyCanExecuteChanged();
         OpenBroadcasterLoginCommand.NotifyCanExecuteChanged();
         OpenBotLoginCommand.NotifyCanExecuteChanged();
-        RefreshOscConnectionCommand.NotifyCanExecuteChanged();
         DeleteSelectedAvatarProfileCommand.NotifyCanExecuteChanged();
         DeleteAllAvatarProfilesCommand.NotifyCanExecuteChanged();
         SetSelectedAvatarProfileAsMasterCommand.NotifyCanExecuteChanged();
         ToggleSelectedAvatarRewardTestOverrideCommand.NotifyCanExecuteChanged();
         UseCurrentVrChatAvatarForProfileCommand.NotifyCanExecuteChanged();
-        RefreshVrChatOscParametersCommand.NotifyCanExecuteChanged();
         RefreshChatModerationCommandStates();
         RefreshRuleCommandStates();
     }
@@ -17910,7 +17946,18 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     private void OpenKoFiSupportPage()
     {
-        OpenUri(KoFiSupportUri);
+        var shouldOpenKoFi = ThemedDialogWindow.ShowYesNo(
+            Application.Current?.MainWindow,
+            SelectedTheme,
+            T("Support Crystal Relay on Ko-fi"),
+            T("Crystal Relay is completely free for everyone. If it helps your stream and you want to support development, you can leave a tip on Ko-fi. Every contribution helps keep the program free and growing."),
+            T("Open Ko-fi"),
+            T("Close"));
+
+        if (shouldOpenKoFi)
+        {
+            OpenUri(KoFiSupportUri);
+        }
     }
 
     private void OpenKoFiWebhooksPage()
@@ -17924,7 +17971,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             Application.Current?.MainWindow,
             SelectedTheme,
             T("Join the Crystal Relay Discord"),
-            $"{T("Join the Crystal Relay Discord for update pings, beta announcements, and community news.")}{Environment.NewLine}{Environment.NewLine}{T("This invite is temporary-protected. If you join while offline or leave before receiving the verification role, Discord may automatically remove you from the server. If that happens, just rejoin while you are online and try the verification step again.")}",
+            T("Get live update pings, sneak peeks, dev-related information, and meet other Crystal Relay users."),
             T("Open Discord"),
             T("Close"));
 
@@ -19251,7 +19298,13 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             ActiveTimeSeconds = 0,
             RestoreMode = AvatarScaleRestoreMode.ConfiguredHeight,
             RestoreHeightMeters = 1.6,
-            SmoothTransitionSeconds = 0
+            SetHeightTransitionSeconds = 0,
+            RandomHeightTransitionSeconds = 0,
+            RelativeHeightTransitionSeconds = 0,
+            MultiplierTransitionSeconds = 0,
+            PresetTransitionSeconds = 0,
+            GlitchyRandomHeightTransitionSeconds = 0,
+            SupporterGrowthTransitionSeconds = 0
         };
     }
 
@@ -19577,8 +19630,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         else
         {
             VrChatOscParameterStatus = SelectedParameterAvatarMatchesCurrentAvatar()
-                ? T("No saved OSC parameters yet. Wear this avatar in VRChat, then press Refresh OSC Parameters.")
-                : T("No saved OSC parameters for this avatar yet. Switch to it in VRChat, then press Refresh OSC Parameters.");
+                ? T("No saved OSC parameters yet. Wear this avatar in VRChat to generate them.")
+                : T("No saved OSC parameters for this avatar yet. Switch to it in VRChat to generate them.");
         }
     }
 
@@ -20550,6 +20603,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         {
             builder.Append(LocalizationService.Translate(" - Test Build"));
         }
+
+#if DEBUG
+        builder.Append(" - DEBUG");
+#endif
 
         return builder.ToString();
     }

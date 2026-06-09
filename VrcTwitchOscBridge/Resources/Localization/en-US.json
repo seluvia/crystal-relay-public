@@ -1,4 +1,4 @@
-﻿{
+{
   " - Test Build": " - Test Build",
   "{0} | Crystal Relay": "{0} | Crystal Relay",
   "12-hour": "12-hour",
@@ -577,6 +577,7 @@
   "Smooth Transition Seconds": "Smooth Transition Seconds",
   "Subscription Filter": "Subscription Filter",
   "Target Height Meters": "Target Height Meters",
+  "Transition Seconds": "Transition Seconds",
   "Test Scale": "Test Scale",
   "This tab is for avatar height scale redeems using VRChat OSC Avatar Scaling. Build fixed, random, relative, multiplier, or preset height changes here without mixing them into other redeem systems.": "This tab is for avatar height scale redeems using VRChat OSC Avatar Scaling. Build fixed, random, relative, multiplier, or preset height changes here without mixing them into other redeem systems.",
   "This tab is for avatar height scale redeems using VRChat OSC Avatar Scaling. Use Scale Sets to keep different height reward ideas organized without changing how the triggers run.": "This tab is for avatar height scale redeems using VRChat OSC Avatar Scaling. Use Scale Sets to keep different height reward ideas organized without changing how the triggers run.",
@@ -588,7 +589,6 @@
   "Allow moderators to pause/resume redeems, toggle redeem groups, and enable/disable specific redeems through chat commands.": "Allow moderators to pause/resume redeems, toggle redeem groups, and enable/disable specific redeems through chat commands.",
   "Pause Command": "Pause Command",
   "Enable pause command": "Enable pause command",
-  "Moderators + Broadcaster": "Moderators + Broadcaster",
   "Group Commands": "Group Commands",
   "Enable group toggle commands": "Enable group toggle commands",
   "Each group gets its own chat command. Toggle all rules in the group on or off.": "Each group gets its own chat command. Toggle all rules in the group on or off.",
@@ -598,7 +598,6 @@
   "Use !enable name or !disable name in chat to control individual redeems. Moderators and broadcaster only.": "Use !enable name or !disable name in chat to control individual redeems. Moderators and broadcaster only.",
   "Edit Redeem Group": "Edit Redeem Group",
   "Group Name": "Group Name",
-  "Command Text": "Command Text",
   "Assigned Rules": "Assigned Rules",
   "Check the rules that belong to this group.": "Check the rules that belong to this group.",
   "Save": "Save",
@@ -631,5 +630,11 @@
   "What is the Master Reward?": "What is the Master Reward?",
   "The Master Reward acts as a gate for your Avatar Scaling channel-point rewards. When enabled, all child scale rewards stay hidden or deleted on Twitch until a viewer redeems the master reward to unlock them for a set duration.": "The Master Reward acts as a gate for your Avatar Scaling channel-point rewards. When enabled, all child scale rewards stay hidden or deleted on Twitch until a viewer redeems the master reward to unlock them for a set duration.",
   "This keeps your Twitch reward panel clean — you don't need every scale reward visible all the time. Viewers redeem the master reward once, then pick which height they want from the unlocked child rewards.": "This keeps your Twitch reward panel clean — you don't need every scale reward visible all the time. Viewers redeem the master reward once, then pick which height they want from the unlocked child rewards.",
-  "Supporter Growth rules are not affected — they listen to bits and subs directly and do not need the master reward to fire.": "Supporter Growth rules are not affected — they listen to bits and subs directly and do not need the master reward to fire."
+  "Supporter Growth rules are not affected — they listen to bits and subs directly and do not need the master reward to fire.": "Supporter Growth rules are not affected — they listen to bits and subs directly and do not need the master reward to fire.",
+  "Support Crystal Relay on Ko-fi": "Support Crystal Relay on Ko-fi",
+  "Crystal Relay is completely free for everyone. If it helps your stream and you want to support development, you can leave a tip on Ko-fi. Every contribution helps keep the program free and growing.": "Crystal Relay is completely free for everyone. If it helps your stream and you want to support development, you can leave a tip on Ko-fi. Every contribution helps keep the program free and growing.",
+  "Open Ko-fi": "Open Ko-fi",
+  "Join the Crystal Relay Discord": "Join the Crystal Relay Discord",
+  "Get live update pings, sneak peeks, dev-related information, and meet other Crystal Relay users.": "Get live update pings, sneak peeks, dev-related information, and meet other Crystal Relay users.",
+  "Open Discord": "Open Discord"
 }

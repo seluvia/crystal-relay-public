@@ -1,4 +1,4 @@
-﻿{
+{
   " - Test Build": " - Тестовая сборка",
   "{0} | Crystal Relay": "{0} | Crystal Relay",
   "12-hour": "12-часовой",
@@ -577,6 +577,7 @@
   "Smooth Transition Seconds": "Секунды плавного перехода",
   "Subscription Filter": "Фильтр подписок",
   "Target Height Meters": "Целевая высота в метрах",
+  "Transition Seconds": "Секунды перехода",
   "Test Scale": "Тест масштаба",
   "This tab is for avatar height scale redeems using VRChat OSC Avatar Scaling. Build fixed, random, relative, multiplier, or preset height changes here without mixing them into other redeem systems.": "Эта вкладка для наград масштабирования высоты аватара через VRChat OSC Avatar Scaling. Создавайте фиксированные, случайные, относительные, множительные или пресетные изменения высоты без смешивания с другими системами наград.",
   "This tab is for avatar height scale redeems using VRChat OSC Avatar Scaling. Use Scale Sets to keep different height reward ideas organized without changing how the triggers run.": "Эта вкладка для наград масштабирования высоты аватара через VRChat OSC Avatar Scaling. Используйте наборы масштабов для организации разных идей наград высоты без изменения работы триггеров.",
@@ -629,5 +630,11 @@
   "What is the Master Reward?": "What is the Master Reward?",
   "The Master Reward acts as a gate for your Avatar Scaling channel-point rewards. When enabled, all child scale rewards stay hidden or deleted on Twitch until a viewer redeems the master reward to unlock them for a set duration.": "The Master Reward acts as a gate for your Avatar Scaling channel-point rewards. When enabled, all child scale rewards stay hidden or deleted on Twitch until a viewer redeems the master reward to unlock them for a set duration.",
   "This keeps your Twitch reward panel clean — you don't need every scale reward visible all the time. Viewers redeem the master reward once, then pick which height they want from the unlocked child rewards.": "This keeps your Twitch reward panel clean — you don't need every scale reward visible all the time. Viewers redeem the master reward once, then pick which height they want from the unlocked child rewards.",
-  "Supporter Growth rules are not affected — they listen to bits and subs directly and do not need the master reward to fire.": "Supporter Growth rules are not affected — they listen to bits and subs directly and do not need the master reward to fire."
+  "Supporter Growth rules are not affected — they listen to bits and subs directly and do not need the master reward to fire.": "Supporter Growth rules are not affected — they listen to bits and subs directly and do not need the master reward to fire.",
+  "Support Crystal Relay on Ko-fi": "Support Crystal Relay on Ko-fi",
+  "Crystal Relay is completely free for everyone. If it helps your stream and you want to support development, you can leave a tip on Ko-fi. Every contribution helps keep the program free and growing.": "Crystal Relay is completely free for everyone. If it helps your stream and you want to support development, you can leave a tip on Ko-fi. Every contribution helps keep the program free and growing.",
+  "Open Ko-fi": "Open Ko-fi",
+  "Join the Crystal Relay Discord": "Join the Crystal Relay Discord",
+  "Get live update pings, sneak peeks, dev-related information, and meet other Crystal Relay users.": "Get live update pings, sneak peeks, dev-related information, and meet other Crystal Relay users.",
+  "Open Discord": "Open Discord"
 }

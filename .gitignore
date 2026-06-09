@@ -1,7 +1,8 @@
-.vs/
+﻿.vs/
 .vscode/
 .idea/
 .opencode/
+.superpowers/
 
 .appdata/
 .dotnet/
