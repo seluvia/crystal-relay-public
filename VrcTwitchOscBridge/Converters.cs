@@ -1,6 +1,7 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
+using VrcTwitchOscBridge.Models;
 
 namespace VrcTwitchOscBridge;
 
@@ -74,38 +75,53 @@ public sealed class ScalePreviewConverter : IMultiValueConverter
 {
     public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
     {
-        if (values is null || values.Length == 0 || values[0] is not string mode)
+        if (values is null || values.Length == 0)
         {
-            return "—";
+            return "\u2014";
         }
+
+        string? mode = values[0] switch
+        {
+            AvatarScaleMode modeEnum => modeEnum.ToString(),
+            string modeStr => modeStr,
+            _ => null
+        };
+
+        if (mode is null)
+        {
+            return "\u2014";
+        }
+
+        TryGetDouble(values[6], out var cu);
+        if (cu <= 0) cu = 1.6;
+        var currentPrefix = string.Format(culture, "Your current height is {0:0.##}m. ", cu);
 
         return mode switch
         {
             "SetHeight" => values.Length >= 2 && TryGetDouble(values[1], out var h)
-                ? string.Format(culture, "Sets the avatar height directly to {0:0.##}m.", h)
-                : "Sets the avatar height directly.",
+                ? string.Format(culture, "{0}Sets avatar height to {1:0.##}m.", currentPrefix, h)
+                : string.Format(culture, "{0}Sets avatar height directly.", currentPrefix),
             "RandomHeight" or "GlitchyRandomHeight" =>
                 values.Length >= 3 && TryGetDouble(values[1], out var lo) && TryGetDouble(values[2], out var hi)
                     ? string.Format(culture, mode == "GlitchyRandomHeight"
-                        ? "Rapidly rolls random heights between {0:0.##}m and {1:0.##}m with a {2:0.##}s transition between each jump, until Active Time ends."
-                        : "Each trigger rolls a random height between {0:0.##}m and {1:0.##}m.", lo, hi,
+                        ? "{0}Rapidly rolls random heights between {1:0.##}m and {2:0.##}m with a {3:0.##}s transition between each jump, until Active Time ends."
+                        : "{0}Each trigger rolls a random height between {1:0.##}m and {2:0.##}m.", currentPrefix, lo, hi,
                         values.Length >= 4 ? values[3] : null)
-                    : "—",
+                    : "\u2014",
             "RelativeHeight" =>
-                values.Length >= 3 && TryGetDouble(values[1], out var ch) && TryGetDouble(values[2], out var cu)
-                    ? string.Format(culture, "Adds {0:+0.##;-0.##;0}m to the current height, going from {1:0.##}m to {2:0.##}m.", ch, cu, cu + ch)
-                    : "—",
+                values.Length >= 6 && TryGetDouble(values[4], out var ch) && TryGetDouble(values[5], out var mcu)
+                    ? string.Format(culture, "{0}Adds {1:+0.##;-0.##;0}m, changing height to {2:0.##}m.", currentPrefix, ch, mcu + ch)
+                    : "\u2014",
             "Multiplier" =>
-                values.Length >= 4 && TryGetDouble(values[1], out var mul) && TryGetDouble(values[2], out var mcu) && values[3] is bool divide
-                    ? string.Format(culture, divide
-                        ? "Going from {0:0.##}m to {1:0.##}m using ÷{2:0.##}."
-                        : "Going from {0:0.##}m to {1:0.##}m using ×{2:0.##}.", mcu, divide && mul != 0 ? mcu / mul : mcu * mul, mul)
-                    : "—",
+                values.Length >= 8 && TryGetDouble(values[7], out var mul) && TryGetDouble(values[5], out var mulCu) && values[8] is bool divide
+                    ? string.Format(culture, "{0}Multiplies height by {1}{2:0.##}, changing to {3:0.##}m.",
+                        currentPrefix, divide ? "\u00F7" : "\u00D7", mul, divide && mul != 0 ? mulCu / mul : mulCu * mul)
+                    : "\u2014",
             "Preset" =>
-                values.Length >= 3 && values[1] is string label && TryGetDouble(values[2], out var h2)
-                    ? string.Format(culture, "Sets the avatar height to the {0} preset, which is {1:0.##}m.", label, h2)
-                    : "—",
-            _ => "—"
+                values.Length >= 10 && values[9] is string label && TryGetDouble(values[10], out var ph)
+                    ? string.Format(culture, "{0}Sets avatar height to {1} preset ({2:0.##}m).", currentPrefix, label, ph)
+                    : "\u2014",
+            _ => "\u2014"
         };
     }
 
