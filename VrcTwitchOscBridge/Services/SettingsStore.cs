@@ -1724,6 +1724,8 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             HideRewardWhenMinimumHeightReached = rule.HideRewardWhenMinimumHeightReached,
             HideRewardWhenMaximumHeightReached = rule.HideRewardWhenMaximumHeightReached,
             HeightMultiplier = rule.HeightMultiplier,
+            MultiplierDirectionId = (int)rule.MultiplierDirection,
+            GlitchyTransitionSeconds = rule.GlitchyTransitionSeconds,
             Preset = rule.Preset,
             ActiveTimeSeconds = rule.ActiveTimeSeconds,
             RestoreMode = rule.RestoreMode,
@@ -1810,6 +1812,8 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             HideRewardWhenMinimumHeightReached = rule.HideRewardWhenMinimumHeightReached,
             HideRewardWhenMaximumHeightReached = rule.HideRewardWhenMaximumHeightReached,
             HeightMultiplier = rule.HeightMultiplier <= 0 ? 1.25 : rule.HeightMultiplier,
+            MultiplierDirectionId = rule.MultiplierDirectionId,
+            GlitchyTransitionSeconds = rule.GlitchyTransitionSeconds <= 0 ? 0.4 : rule.GlitchyTransitionSeconds,
             Preset = Enum.IsDefined(rule.Preset) ? rule.Preset : AvatarScalePreset.Normal,
             ActiveTimeSeconds = Math.Max(0, rule.ActiveTimeSeconds),
             RestoreMode = AvatarScaleRestoreMode.ConfiguredHeight,
@@ -3327,6 +3331,10 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
         public bool HideRewardWhenMaximumHeightReached { get; set; } = true;
 
         public double HeightMultiplier { get; set; }
+
+        public int MultiplierDirectionId { get; set; }
+
+        public double GlitchyTransitionSeconds { get; set; } = 0.4;
 
         public AvatarScalePreset Preset { get; set; }
 
