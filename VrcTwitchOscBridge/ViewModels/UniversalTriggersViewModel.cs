@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq;
+using System.Windows;
 using System.Windows.Data;
 using VrcTwitchOscBridge.Infrastructure;
 using VrcTwitchOscBridge.Models;
@@ -246,7 +247,16 @@ public sealed class UniversalTriggersViewModel : ObservableObject
 
     private async Task OpenCreateWizardAsync()
     {
-        // Wired in Task 7 (wizard).
+        var window = new UniversalTriggerCreateWizardWindow
+        {
+            Owner = Application.Current?.MainWindow,
+            DataContext = new UniversalTriggerCreateWizardViewModel()
+        };
+        var result = window.ShowDialog();
+        if (result == true && window.DataContext is UniversalTriggerCreateWizardViewModel vm)
+        {
+            UniversalTriggers.Add(vm.Draft);
+        }
         await Task.CompletedTask;
     }
 

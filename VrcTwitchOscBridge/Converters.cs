@@ -150,3 +150,25 @@ public sealed class CountToVisibilityConverter : IValueConverter
     }
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotSupportedException();
 }
+
+public sealed class StepGreaterConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is not int step) return false;
+        if (parameter is null || !int.TryParse(parameter.ToString(), out var threshold)) return false;
+        return step > threshold;
+    }
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotSupportedException();
+}
+
+public sealed class StepVisibilityConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is not int step) return Visibility.Collapsed;
+        if (parameter is null || !int.TryParse(parameter.ToString(), out var target)) return Visibility.Collapsed;
+        return step == target ? Visibility.Visible : Visibility.Collapsed;
+    }
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotSupportedException();
+}

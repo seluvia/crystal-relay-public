@@ -48,6 +48,7 @@
     <Page Include="VrChatLoginWindow.xaml" />
     <Page Include="VrChatTwoFactorWindow.xaml" />
     <Page Include="RedeemGroupEditorDialog.xaml" />
+    <Page Include="UniversalTriggerCreateWizardWindow.xaml" />
     <Page Include="UniversalTriggersView.xaml" />
     <Resource Include="Assets\crystal-relay-icon.ico" />
     <Resource Include="Assets\crystal-relay-icon.png" />
@@ -87,6 +88,7 @@
     <Compile Include="VrChatLoginWindow.xaml.cs" />
     <Compile Include="VrChatTwoFactorWindow.xaml.cs" />
     <Compile Include="RedeemGroupEditorDialog.xaml.cs" />
+    <Compile Include="UniversalTriggerCreateWizardWindow.xaml.cs" />
     <Compile Include="UniversalTriggersView.xaml.cs" />
     <Compile Include="Infrastructure\AsyncRelayCommand.cs" />
     <Compile Include="Infrastructure\ObservableObject.cs" />
@@ -183,6 +185,7 @@
     <Compile Include="ViewModels\AvatarPickerViewModel.cs" />
     <Compile Include="ViewModels\AvatarLibraryManagerViewModel.cs" />
     <Compile Include="ViewModels\UniversalTriggerCardViewModel.cs" />
+    <Compile Include="ViewModels\UniversalTriggerCreateWizardViewModel.cs" />
     <Compile Include="ViewModels\UniversalTriggersViewModel.cs" />
   </ItemGroup>
   <ItemGroup>
