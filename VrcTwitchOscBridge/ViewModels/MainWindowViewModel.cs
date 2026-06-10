@@ -428,6 +428,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private readonly Dictionary<string, DateTimeOffset> recentChatActivityKeys = new(StringComparer.Ordinal);
     private readonly ObservableCollection<TriggerRule> emptyMasterAvatarRules = [];
     private readonly IActivityResumeService activityResumeService;
+    private bool previousSessionWasClean;
 
     private AppSettings settings = new();
     private RuntimeConfig runtimeConfig = RuntimeConfig.CreateDefault();
@@ -486,6 +487,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private RuleListView activeRuleListView = RuleListView.AvatarTriggers;
     private TwitchChatboxWindow? twitchChatboxWindow;
     private TestModeWindow? testModeWindow;
+    private ViewModels.UniversalTriggersViewModel? _universalTriggersViewModel;
     private bool isInitialized;
     private bool isRestoringAvatarParameterSelection;
     private bool isRestoringSetTriggerParameterSelection;
@@ -544,6 +546,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private readonly Dictionary<string, DateTimeOffset> throttledLogExpiryByKey = new(StringComparer.Ordinal);
     private readonly List<ActionTypeOption> allActionTypes;
     private string lastSuccessfulManagedRewardDesiredFingerprint = string.Empty;
+    private int pendingSkippedDeleteSuppressedCount;
     private DateTimeOffset? managedRewardApiBackoffUntil;
     private DateTimeOffset aboutProfilesLastRefreshedAt = DateTimeOffset.MinValue;
     private DateTime latestLocalVrChatAvatarWriteTimeUtc = DateTime.MinValue;
@@ -885,6 +888,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         OpenBugReportCommand = new AsyncRelayCommand(OpenBugReportAsync);
         RefreshTwitchRewardsCommand = new AsyncRelayCommand(RefreshTwitchRewardsAsync);
         UnlinkTwitchRewardCommand = new RelayCommand(UnlinkTwitchReward);
+        UnlinkWardrobeMasterRewardCommand = new RelayCommand(UnlinkWardrobeMasterReward);
         TestSelectedRuleCommand = new AsyncRelayCommand(TestSelectedRuleAsync, () => SelectedRule is not null);
         SimulateTestModeBitsCommand = new AsyncRelayCommand(SimulateTestModeBitsAsync);
         SimulateTestModeSubscriptionCommand = new AsyncRelayCommand(SimulateTestModeSubscriptionAsync);
@@ -966,15 +970,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         EnableAllRulesCommand = new RelayCommand(EnableAllRules, () => GetCurrentEditableRuleCollection().Count > 0);
         DisableAllRulesCommand = new RelayCommand(DisableAllRules, () => GetCurrentEditableRuleCollection().Count > 0);
         DeleteAllRulesCommand = new RelayCommand(DeleteAllRules, () => GetCurrentEditableRuleCollection().Count > 0);
-        AddUniversalTriggerCommand = new RelayCommand(AddUniversalTrigger);
-        RemoveSelectedUniversalTriggerCommand = new RelayCommand(RemoveSelectedUniversalTrigger, () => SelectedUniversalTrigger is not null);
-        EnableAllUniversalTriggersCommand = new RelayCommand(EnableAllUniversalTriggers, () => Settings.UniversalTriggers.Count > 0);
-        DisableAllUniversalTriggersCommand = new RelayCommand(DisableAllUniversalTriggers, () => Settings.UniversalTriggers.Count > 0);
-        DeleteAllUniversalTriggersCommand = new RelayCommand(DeleteAllUniversalTriggers, () => Settings.UniversalTriggers.Count > 0);
-        TestSelectedUniversalTriggerCommand = new AsyncRelayCommand(TestSelectedUniversalTriggerAsync, () => SelectedUniversalTrigger is not null);
-        ImportFoomaInteractionConfigCommand = new AsyncRelayCommand(ImportFoomaInteractionConfigAsync);
-        AddUniversalTriggerActionCommand = new RelayCommand(AddUniversalTriggerAction, () => SelectedUniversalTrigger is not null);
-        RemoveSelectedUniversalTriggerActionCommand = new RelayCommand(RemoveSelectedUniversalTriggerAction, () => SelectedUniversalTriggerAction is not null);
         AddMovementRedeemSetCommand = new RelayCommand(AddMovementRedeemSet);
         RemoveSelectedMovementRedeemSetCommand = new RelayCommand(RemoveSelectedMovementRedeemSet, () => SelectedMovementRedeemSet is not null);
         DeleteAllMovementRedeemSetsCommand = new RelayCommand(DeleteAllMovementRedeemSets, () => Settings.MovementRedeemSets.Count > 0);
@@ -2002,6 +1997,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
     }
 
+    public double CurrentAvatarHeightMeters
+    {
+        get
+        {
+            var status = bridgeCoordinator.GetAvatarScaleRuntimeStatus();
+            return status.CurrentHeightMeters ?? 1.6;
+        }
+    }
+
     public string AvatarScaleMasterRewardStatusText
     {
         get
@@ -2523,6 +2527,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             }
         }
     }
+
+    public ViewModels.UniversalTriggersViewModel UniversalTriggersViewModel => _universalTriggersViewModel ??= new ViewModels.UniversalTriggersViewModel(Settings, bridgeCoordinator, action => Application.Current.Dispatcher.Invoke(action));
 
     public MovementRedeemSet? SelectedMovementRedeemSet
     {
@@ -3482,6 +3488,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public RelayCommand UnlinkTwitchRewardCommand { get; }
 
+    public RelayCommand UnlinkWardrobeMasterRewardCommand { get; }
+
     public AsyncRelayCommand TestSelectedRuleCommand { get; }
 
     public AsyncRelayCommand SimulateTestModeBitsCommand { get; }
@@ -3720,6 +3728,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     public async Task InitializeAsync()
     {
         var previousSessionNeedsRecovery = ShutdownRecoveryStateStore.BeginSession();
+        previousSessionWasClean = !previousSessionNeedsRecovery;
         ReplaceSettings(await settingsStore.LoadAsync());
         var savedLoginRecoveryResult = SavedLoginStateRecoveryService.TryConsumeRecoveryResult();
         activeLanguageAtStartup = Settings.Language;
@@ -3793,12 +3802,16 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
         AppendLog("Loaded saved settings.");
         ReportSavedLoginRecoveryResult(savedLoginRecoveryResult);
+        if (previousSessionWasClean && !ApplicationRestartService.IsRestartSession)
+        {
+            await activityResumeService.DeleteStaleFileIfPresentAsync();
+        }
+        await activityResumeService.LoadPendingAsync();
         await RefreshWorldCommandBlacklistOnStartupAsync();
         await InitializeVrChatAsync();
         await QueueRewardRefreshAsync();
         QueueManagedRewardSync(reason: ManagedRewardSyncReason.Startup);
         await aboutProfilesRefreshTask;
-        await activityResumeService.LoadPendingAsync();
         QueueBridgeRefresh();
         QueueLiveFeedbackHeartbeatEvaluation();
     }
@@ -3898,9 +3911,17 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         vrChatLocalStateRefreshGate.Dispose();
         vrChatCurrentAvatarRefreshGate.Dispose();
 
-        if (!isInitialized || shutdownCleanupCompleted)
+        var isRestartShutdown = ApplicationRestartService.IsShuttingDownForRestart;
+        AppendLog($"Shutdown: isRestartShutdown={isRestartShutdown}. Running cleanup...");
+        ShutdownRecoveryStateStore.CompleteSession();
+        if (!isRestartShutdown)
         {
-            ShutdownRecoveryStateStore.CompleteSession();
+            await activityResumeService.ClearAllAsync();
+            AppendLog("Shutdown: activity resume file cleared.");
+        }
+        else
+        {
+            AppendLog("Shutdown: restart session detected — keeping activity resume file.");
         }
     }
 
@@ -8175,10 +8196,22 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     private void SwitchRuleView(RuleListView targetView, AvatarTriggerProfile? profile, TriggerRule? rule)
     {
+        activeRuleListView = targetView;
+
+        RaisePropertyChanged(nameof(IsViewingAvatarTriggers));
+        RaisePropertyChanged(nameof(IsViewingMasterAvatar));
+        RaisePropertyChanged(nameof(IsViewingMovementRedeems));
+        RaisePropertyChanged(nameof(IsViewingSupporterOverrides));
+        RaisePropertyChanged(nameof(IsViewingPowerUps));
+        RaisePropertyChanged(nameof(IsViewingUniversalTriggers));
+        RaisePropertyChanged(nameof(IsViewingAvatarScaling));
+        RaisePropertyChanged(nameof(IsViewingCashPayments));
+        RaisePropertyChanged(nameof(IsViewingRewardFireSale));
+        RaisePropertyChanged(nameof(IsViewingWardrobe));
+
         isSwitchingRuleView = true;
         try
         {
-            activeRuleListView = targetView;
             SelectedAvatarProfile = profile;
             SelectedRule = rule;
             if (targetView != RuleListView.UniversalTriggers)
@@ -9289,6 +9322,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private void HandleAvatarScaleStatusChanged()
     {
         RaisePropertyChanged(nameof(AvatarScaleRuntimeStatusText));
+        RaisePropertyChanged(nameof(CurrentAvatarHeightMeters));
 
         if (!isInitialized || isShuttingDown)
         {
@@ -11169,9 +11203,25 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             case AvatarTriggerProfile profile:
                 profile.SetTriggerMasterRewardId = string.Empty;
                 break;
+            case WardrobeOutfit outfit:
+                outfit.TwitchRewardId = string.Empty;
+                break;
             default:
                 return;
         }
+
+        QueueManagedRewardSync(0);
+        QueueSave(0);
+    }
+
+    private void UnlinkWardrobeMasterReward(object? target)
+    {
+        if (target is not AvatarTriggerProfile profile)
+        {
+            return;
+        }
+
+        profile.WardrobeMasterRewardId = string.Empty;
 
         QueueManagedRewardSync(0);
         QueueSave(0);
@@ -13040,7 +13090,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private static int GetAvatarScaleEffectDurationSeconds(AvatarScaleRule rule)
     {
         var transitionSeconds = rule.ScaleMode == AvatarScaleMode.GlitchyRandomHeight
-            ? Math.Clamp(rule.GlitchyTransitionSeconds, 0, 5)
+            ? Math.Clamp(rule.GlitchyRandomHeightTransitionSeconds, 0, 30)
             : Math.Max(0, rule.SmoothTransitionSeconds);
         var activeSeconds = Math.Max(0, rule.ActiveTimeSeconds);
         var restoreTransitionSeconds = activeSeconds > 0 && rule.RestoreMode != AvatarScaleRestoreMode.None
@@ -13527,6 +13577,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 reason,
                 cancellationToken);
 
+            pendingSkippedDeleteSuppressedCount = 0;
             foreach (var target in allSyncTargets)
             {
                 changesMade |= await SynchronizeManagedRewardForTargetAsync(
@@ -13544,6 +13595,16 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                     allowMissingManagedRewardMaterialization,
                     reason,
                     cancellationToken);
+            }
+
+            if (pendingSkippedDeleteSuppressedCount > 0)
+            {
+                var suppressedCount = pendingSkippedDeleteSuppressedCount;
+                pendingSkippedDeleteSuppressedCount = 0;
+                RunOnUi(() => AppendThrottledLog(
+                    $"managed-reward-delete-suppressed-summary:{reason}",
+                    $"Skipped deleting {suppressedCount} inactive Twitch reward(s) during {DescribeManagedRewardSyncReason(reason)} to avoid reward API churn. Crystal Relay only deletes opted-in inactive rewards during explicit cleanup/maintenance or direct rule removal.",
+                    ThrottledRewardSyncLogWindow));
             }
 
             RunOnUi(() => ApplyRewardCatalog(rewardCatalog.Rewards));
@@ -13774,10 +13835,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             && (!desiredEnabled || string.IsNullOrWhiteSpace(rewardTitle));
         if (shouldDeleteInactiveReward && !allowInactiveRewardDeletion)
         {
-            RunOnUi(() => AppendThrottledLog(
-                $"managed-reward-delete-suppressed:{reason}:{target.Id}",
-                $"Skipped deleting inactive Twitch reward for '{target.DisplayTitle}' during {DescribeManagedRewardSyncReason(reason)} to avoid reward API churn. Crystal Relay only deletes opted-in inactive rewards during explicit cleanup/maintenance or direct rule removal.",
-                ThrottledRewardSyncLogWindow));
+            pendingSkippedDeleteSuppressedCount++;
+            DebugLogService.Write($"Skipped deleting inactive Twitch reward for '{target.DisplayTitle}' (ID: {target.Id}) during {DescribeManagedRewardSyncReason(reason)} to avoid reward API churn. Crystal Relay only deletes opted-in inactive rewards during explicit cleanup/maintenance or direct rule removal.");
             if (existingReward is null || string.IsNullOrWhiteSpace(rewardTitle))
             {
                 return changed;
@@ -14252,7 +14311,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             return false;
         }
 
-        if (rule.RelativeHeightMeters < 0)
+        if (rule.IsSubtractRelativeHeight)
         {
             if (!rule.HideRewardWhenMinimumHeightReached)
             {
@@ -15451,6 +15510,26 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             yield return new LinkedTwitchRewardReference(
                 rule.RewardId.Trim(),
                 GetLinkedRewardFallbackTitle(rule.RewardTitle, rule.DisplayTitle));
+        }
+
+        foreach (var profile in Settings.AvatarProfiles)
+        {
+            foreach (var outfit in profile.WardrobeOutfits.Where(outfit =>
+                         outfit.TwitchRewardSyncMode == TwitchRewardSyncMode.LinkExisting
+                         && !string.IsNullOrWhiteSpace(outfit.TwitchRewardId)))
+            {
+                yield return new LinkedTwitchRewardReference(
+                    outfit.TwitchRewardId.Trim(),
+                    GetLinkedRewardFallbackTitle(outfit.TwitchRewardTitle, outfit.DisplayTitle));
+            }
+
+            if (profile.WardrobeMasterRewardSyncMode == TwitchRewardSyncMode.LinkExisting
+                && !string.IsNullOrWhiteSpace(profile.WardrobeMasterRewardId))
+            {
+                yield return new LinkedTwitchRewardReference(
+                    profile.WardrobeMasterRewardId.Trim(),
+                    GetLinkedRewardFallbackTitle(profile.WardrobeMasterRewardTitle, T("Wardrobe Master Reward")));
+            }
         }
     }
 
@@ -19264,7 +19343,13 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             ActiveTimeSeconds = 0,
             RestoreMode = AvatarScaleRestoreMode.ConfiguredHeight,
             RestoreHeightMeters = 1.6,
-            SmoothTransitionSeconds = 0
+            SetHeightTransitionSeconds = 0,
+            RandomHeightTransitionSeconds = 0,
+            RelativeHeightTransitionSeconds = 0,
+            MultiplierTransitionSeconds = 0,
+            PresetTransitionSeconds = 0,
+            GlitchyRandomHeightTransitionSeconds = 0,
+            SupporterGrowthTransitionSeconds = 0
         };
     }
 

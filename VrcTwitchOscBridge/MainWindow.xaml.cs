@@ -517,6 +517,15 @@ public partial class MainWindow : Window
             : (int)AvatarScaleMultiplierDirection.Grow;
     }
 
+    private void ScaleActionRelHeightOpButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel vm) return;
+        if (vm.SelectedAvatarScaleRule is not { } rule) return;
+        rule.RelativeHeightDirectionId = rule.IsSubtractRelativeHeight
+            ? (int)AvatarScaleRelativeHeightDirection.Add
+            : (int)AvatarScaleRelativeHeightDirection.Subtract;
+    }
+
     private void ApplyTheme(AppTheme theme)
     {
         ApplyThemeBackground(theme);
@@ -1948,6 +1957,17 @@ public partial class MainWindow : Window
 
     private void OnRuleTogglePreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
+        if (sender is ListBox listBox)
+        {
+            var internalScroll = FindDescendant<ScrollViewer>(listBox);
+            if (internalScroll is not null && internalScroll.ScrollableHeight > 0)
+            {
+                e.Handled = true;
+                ScrollViewerByMouseWheel(internalScroll, e.Delta);
+                return;
+            }
+        }
+
         var senderDo = sender as DependencyObject;
         var originalDo = e.OriginalSource as DependencyObject;
 
@@ -2020,6 +2040,32 @@ public partial class MainWindow : Window
             }
 
             current = VisualTreeHelper.GetParent(current);
+        }
+
+        return null;
+    }
+
+    private static T? FindDescendant<T>(DependencyObject? current) where T : DependencyObject
+    {
+        if (current is null)
+        {
+            return null;
+        }
+
+        var childCount = VisualTreeHelper.GetChildrenCount(current);
+        for (var i = 0; i < childCount; i++)
+        {
+            var child = VisualTreeHelper.GetChild(current, i);
+            if (child is T match)
+            {
+                return match;
+            }
+
+            var descendant = FindDescendant<T>(child);
+            if (descendant is not null)
+            {
+                return descendant;
+            }
         }
 
         return null;
