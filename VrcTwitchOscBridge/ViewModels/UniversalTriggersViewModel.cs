@@ -262,7 +262,22 @@ public sealed class UniversalTriggersViewModel : ObservableObject
 
     private async Task OpenImportPreviewAsync()
     {
-        // Wired in Task 8 (import preview).
+        var window = new UniversalTriggerImportPreviewWindow
+        {
+            Owner = Application.Current?.MainWindow,
+            DataContext = new UniversalTriggerImportPreviewViewModel()
+        };
+        var result = window.ShowDialog();
+        if (result == true && window.DataContext is UniversalTriggerImportPreviewViewModel vm && vm.ParsedResult is not null)
+        {
+            // The parsed triggers have already been fused by the importer.
+            // Add each to UniversalTriggers. The reward sync runs automatically
+            // when the settings change.
+            foreach (var trigger in vm.ParsedResult.Triggers)
+            {
+                UniversalTriggers.Add(trigger);
+            }
+        }
         await Task.CompletedTask;
     }
 

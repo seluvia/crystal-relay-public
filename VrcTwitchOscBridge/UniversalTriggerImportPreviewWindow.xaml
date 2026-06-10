@@ -1,0 +1,96 @@
+<Window x:Class="VrcTwitchOscBridge.UniversalTriggerImportPreviewWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:VrcTwitchOscBridge.ViewModels"
+        xmlns:loc="clr-namespace:VrcTwitchOscBridge.Services"
+        Title="{loc:Translate 'Universal Triggers Import Title'}"
+        Width="720" Height="600"
+        Background="{DynamicResource WindowBackgroundBrush}"
+        Foreground="{DynamicResource TextBrush}"
+        WindowStartupLocation="CenterOwner"
+        d:DataContext="{d:DesignInstance Type=vm:UniversalTriggerImportPreviewViewModel}"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" Background="{DynamicResource TitleBarBrush}" Padding="14,10" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
+            <DockPanel LastChildFill="False">
+                <TextBlock DockPanel.Dock="Left" Text="{loc:Translate 'Universal Triggers Import Title'}" Foreground="{DynamicResource TitleBarTextBrush}" FontWeight="Bold" />
+                <Button DockPanel.Dock="Right" Content="{loc:Translate 'Universal Triggers Wizard Cancel'}" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding CancelCommand}" />
+            </DockPanel>
+        </Border>
+
+        <Grid Grid.Row="1">
+            <!-- Step 1: Pick file -->
+            <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=1}">
+                <TextBlock Text="Pick a Fooma Twitch Interaction JSON file" Foreground="{DynamicResource TextBrush}" Margin="18,18,18,8" />
+                <Button Content="Choose .json file..." Margin="18,0,18,18" Padding="12,8" HorizontalAlignment="Left" Background="{DynamicResource AccentBrush}" Foreground="{DynamicResource ComboTextBrush}" FontWeight="Bold" Command="{Binding PickFileCommand}" />
+            </StackPanel>
+
+            <!-- Step 2: Preview -->
+            <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=2}">
+                <Border Background="{DynamicResource StatusChipBrush}" BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1" CornerRadius="12" Padding="12" Margin="18,18,18,12">
+                    <StackPanel>
+                        <TextBlock Text="FOOMA CONFIG DETECTED" Foreground="{DynamicResource MutedBrush}" FontWeight="Bold" FontSize="11" />
+                        <TextBlock Text="{Binding FileName}" Foreground="{DynamicResource TextBrush}" FontWeight="Bold" Margin="0,2,0,0" />
+                        <TextBlock Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,4,0,0">
+                            <Run Text="{Binding CommandCount}" /><Run Text=" commands · " />
+                            <Run Text="{Binding RewardCount}" /><Run Text=" channel rewards · " />
+                            <Run Text="{Binding SubscriptionCount}" /><Run Text=" sub rules · " />
+                            <Run Text="{Binding BitsCount}" /><Run Text=" bits rules · " />
+                            <Run Text="{Binding FollowCount}" /><Run Text=" follow rule(s)" />
+                        </TextBlock>
+                    </StackPanel>
+                </Border>
+
+                <Border Background="{DynamicResource DangerBrush}" BorderBrush="{DynamicResource DangerBorderBrush}" BorderThickness="1" CornerRadius="12" Padding="12" Margin="18,0,18,12"
+                        Visibility="{Binding HasDirectOscWarning, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <StackPanel>
+                        <TextBlock Text="⚠ Heads up" FontWeight="Bold" Foreground="{DynamicResource TextBrush}" FontSize="12" />
+                        <TextBlock Foreground="{DynamicResource TextBrush}" FontSize="11" Margin="0,4,0,0">
+                            The !<Run Text="{Binding DirectOscWarningCommandName}" /> command uses built-in /input/* paths. That won't gate reward visibility on avatar params. It'll still work, but the warning system will mark it as not avatar-bound.
+                        </TextBlock>
+                    </StackPanel>
+                </Border>
+
+                <ItemsControl ItemsSource="{Binding ParsedResult.Triggers}" Margin="18,0,18,12" MaxHeight="200">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="8" Margin="0,0,0,4">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Name}" FontWeight="Bold" Foreground="{DynamicResource TextBrush}" />
+                                    <TextBlock Text="{Binding TriggerType}" Foreground="{DynamicResource MutedBrush}" FontSize="10" />
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <TextBlock Text="{loc:Translate 'Universal Triggers Import After Note'}" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="18,0,18,0" />
+            </StackPanel>
+
+            <!-- Step 3: Done -->
+            <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=3}">
+                <TextBlock Text="Import complete." FontWeight="Bold" FontSize="16" Foreground="{DynamicResource TextBrush}" Margin="18,18,18,12" />
+            </StackPanel>
+        </Grid>
+
+        <Border Grid.Row="2" Background="{DynamicResource TitleBarBrush}" Padding="14,10" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
+            <DockPanel LastChildFill="False">
+                <Button DockPanel.Dock="Left" Style="{StaticResource SecondaryButtonStyle}" Content="« Back" Command="{Binding BackCommand}" />
+                <Button DockPanel.Dock="Right" Margin="8,0,0,0" Background="{DynamicResource AccentBrush}" Foreground="{DynamicResource ComboTextBrush}" FontWeight="Bold" Padding="12,6" Content="Import N triggers" Command="{Binding ImportCommand}" />
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>
