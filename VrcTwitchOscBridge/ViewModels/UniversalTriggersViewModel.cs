@@ -22,6 +22,9 @@ public sealed class UniversalTriggersViewModel : ObservableObject
     public ObservableCollection<UniversalTriggerRule> UniversalTriggers => settings.UniversalTriggers;
     public ICollectionView UniversalTriggersView { get; }
 
+    public ObservableCollection<UniversalTriggerCardViewModel> Cards { get; } = new();
+    public ICollectionView CardsView { get; }
+
     private UniversalTriggerRule? selectedTrigger;
     public UniversalTriggerRule? SelectedTrigger
     {
@@ -155,6 +158,10 @@ public sealed class UniversalTriggersViewModel : ObservableObject
         UniversalTriggersView = CollectionViewSource.GetDefaultView(UniversalTriggers);
         UniversalTriggersView.Filter = FilterTrigger;
 
+        CardsView = CollectionViewSource.GetDefaultView(Cards);
+        CardsView.Filter = FilterCard;
+        SyncCards();
+
         UniversalTriggers.CollectionChanged += OnUniversalTriggersCollectionChanged;
         foreach (var rule in UniversalTriggers)
             SubscribeRule(rule);
@@ -193,6 +200,19 @@ public sealed class UniversalTriggersViewModel : ObservableObject
     }
 
     private void ApplyFilter() => UniversalTriggersView.Refresh();
+
+    private void SyncCards()
+    {
+        Cards.Clear();
+        foreach (var rule in UniversalTriggers) Cards.Add(new UniversalTriggerCardViewModel(rule));
+        RaiseCountsChanged();
+    }
+
+    private bool FilterCard(object obj)
+    {
+        if (obj is not UniversalTriggerCardViewModel card) return false;
+        return FilterTrigger(card.Rule);
+    }
 
     private void RaiseCountsChanged()
     {
@@ -252,7 +272,7 @@ public sealed class UniversalTriggersViewModel : ObservableObject
             foreach (UniversalTriggerRule r in e.OldItems) UnsubscribeRule(r);
         if (e.NewItems != null)
             foreach (UniversalTriggerRule r in e.NewItems) SubscribeRule(r);
-        RaiseCountsChanged();
+        SyncCards();
     }
 
     private void SubscribeRule(UniversalTriggerRule rule)

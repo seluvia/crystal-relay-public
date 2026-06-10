@@ -105,7 +105,7 @@
         <!-- Body: card grid OR empty-state onboarding -->
         <Grid Grid.Row="2">
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Visibility="{Binding CountAll, Converter={StaticResource CountToVisibilityConverter}}">
-                <ItemsControl ItemsSource="{Binding UniversalTriggersView}" Margin="14">
+                <ItemsControl ItemsSource="{Binding CardsView}" Margin="14">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                             <WrapPanel Orientation="Horizontal" />
@@ -113,9 +113,83 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <!-- Card content goes here in Task 6 -->
-                            <Border Width="390" MinHeight="120" Margin="6" Padding="14" CornerRadius="12" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1">
-                                <TextBlock Text="{Binding Name}" Foreground="{DynamicResource TextBrush}" />
+                            <Border Width="390" MinHeight="120" Margin="6" Padding="14" CornerRadius="12" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1" Cursor="Hand">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsDanger}" Value="True">
+                                                <Setter Property="BorderBrush" Value="{DynamicResource DangerBorderBrush}" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsUnconfigured}" Value="True">
+                                                <Setter Property="Opacity" Value="0.75" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <Border.InputBindings>
+                                    <MouseBinding MouseAction="LeftClick" Command="{Binding DataContext.OpenTriggerEditorCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
+                                </Border.InputBindings>
+                                <StackPanel>
+                                    <DockPanel LastChildFill="False">
+                                        <Border DockPanel.Dock="Left" Padding="8,3" CornerRadius="10" Background="{DynamicResource AccentDimBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1">
+                                            <TextBlock Text="{Binding TypeChipText}" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource RuleCardHoverBrush}" />
+                                        </Border>
+                                        <TextBlock DockPanel.Dock="Right" Text="{Binding SecondaryChipText}" Foreground="{DynamicResource MutedBrush}" FontSize="10" VerticalAlignment="Center" />
+                                    </DockPanel>
+                                    <TextBlock Text="{Binding Name}" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource TextBrush}" Margin="0,6,0,0" />
+                                    <TextBlock Text="{Binding ActionSummary}" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0" />
+                                    <ItemsControl ItemsSource="{Binding StatusChips}" Margin="0,8,0,0">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel Orientation="Horizontal" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Margin="0,0,6,0" Padding="8,2" CornerRadius="8" BorderThickness="1">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Background" Value="{DynamicResource StatusChipBrush}" />
+                                                            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding Severity}" Value="Ready">
+                                                                    <Setter Property="Background" Value="{DynamicResource AccentDimBrush}" />
+                                                                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding Severity}" Value="Warn">
+                                                                    <Setter Property="Background" Value="{DynamicResource WarnBrush}" />
+                                                                    <Setter Property="BorderBrush" Value="{DynamicResource WarnBorderBrush}" />
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding Severity}" Value="Danger">
+                                                                    <Setter Property="Background" Value="{DynamicResource DangerBrush}" />
+                                                                    <Setter Property="BorderBrush" Value="{DynamicResource DangerBorderBrush}" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <TextBlock Text="{Binding Text}" FontSize="10">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding Severity}" Value="Ready">
+                                                                        <Setter Property="Foreground" Value="{DynamicResource RuleCardHoverBrush}" />
+                                                                    </DataTrigger>
+                                                                    <DataTrigger Binding="{Binding Severity}" Value="Warn">
+                                                                        <Setter Property="Foreground" Value="{DynamicResource WarnTextBrush}" />
+                                                                    </DataTrigger>
+                                                                    <DataTrigger Binding="{Binding Severity}" Value="Danger">
+                                                                        <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
                             </Border>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>

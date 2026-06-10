@@ -15,6 +15,10 @@ public enum UniversalTriggerCardStatus
     DangerNoActions,
 }
 
+public enum UniversalTriggerChipSeverity { Info, Ready, Warn, Danger }
+
+public sealed record UniversalTriggerStatusChip(string Text, UniversalTriggerChipSeverity Severity);
+
 public sealed class UniversalTriggerCardViewModel
 {
     public UniversalTriggerRule Rule { get; }
@@ -74,7 +78,46 @@ public sealed class UniversalTriggerCardViewModel
 
     public bool IsDanger => PrimaryStatus is UniversalTriggerCardStatus.DangerMissingParam or UniversalTriggerCardStatus.DangerNoActions;
 
+    public bool HasDanger => IsDanger;
+
     public bool IsWarn => PrimaryStatus is UniversalTriggerCardStatus.WarnDirectOsc or UniversalTriggerCardStatus.WarnNotAvatarBound;
+
+    public IReadOnlyList<UniversalTriggerStatusChip> StatusChips
+    {
+        get
+        {
+            var chips = new List<UniversalTriggerStatusChip>();
+            if (IsUnconfigured)
+            {
+                chips.Add(new UniversalTriggerStatusChip("Needs setup", UniversalTriggerChipSeverity.Info));
+            }
+            if (PrimaryStatus == UniversalTriggerCardStatus.WarnDirectOsc)
+            {
+                chips.Add(new UniversalTriggerStatusChip("⚠ Direct OSC paths", UniversalTriggerChipSeverity.Warn));
+            }
+            if (PrimaryStatus == UniversalTriggerCardStatus.WarnNotAvatarBound)
+            {
+                chips.Add(new UniversalTriggerStatusChip("⚠ Not avatar-bound", UniversalTriggerChipSeverity.Warn));
+            }
+            if (PrimaryStatus == UniversalTriggerCardStatus.DangerMissingParam)
+            {
+                chips.Add(new UniversalTriggerStatusChip("✗ param missing", UniversalTriggerChipSeverity.Danger));
+            }
+            if (PrimaryStatus == UniversalTriggerCardStatus.DangerNoActions)
+            {
+                chips.Add(new UniversalTriggerStatusChip("✗ No complete actions", UniversalTriggerChipSeverity.Danger));
+            }
+            if (PrimaryStatus == UniversalTriggerCardStatus.Ready)
+            {
+                chips.Add(new UniversalTriggerStatusChip("✓ Ready for current avatar", UniversalTriggerChipSeverity.Ready));
+            }
+            if (string.Equals(Rule.ImportSource, "Fooma Twitch Interaction", StringComparison.OrdinalIgnoreCase))
+            {
+                chips.Add(new UniversalTriggerStatusChip("from Fooma", UniversalTriggerChipSeverity.Info));
+            }
+            return chips;
+        }
+    }
 
     public UniversalTriggerCardStatus PrimaryStatus
     {
