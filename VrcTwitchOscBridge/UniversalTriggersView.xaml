@@ -1,0 +1,159 @@
+<UserControl x:Class="VrcTwitchOscBridge.UniversalTriggersView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:VrcTwitchOscBridge.ViewModels"
+             xmlns:loc="clr-namespace:VrcTwitchOscBridge.Services"
+             d:DataContext="{d:DesignInstance Type=vm:UniversalTriggersViewModel}"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             Background="{DynamicResource WindowBackgroundBrush}">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Slim toolbar -->
+        <Border Grid.Row="0" Background="{DynamicResource TitleBarBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="14,10">
+            <DockPanel LastChildFill="False">
+                <StackPanel DockPanel.Dock="Left" Orientation="Vertical">
+                    <TextBlock Text="{loc:Translate 'Universal Triggers'}" Foreground="{DynamicResource TitleBarTextBrush}" FontWeight="Bold" FontSize="14" />
+                    <TextBlock Text="{loc:Translate 'Universal Triggers Subtitle'}" Foreground="{DynamicResource TitleBarSubTextBrush}" FontSize="11" Margin="0,2,0,0" />
+                </StackPanel>
+                <Button DockPanel.Dock="Right" Style="{StaticResource SecondaryButtonStyle}" Content="{loc:Translate 'Universal Triggers Delete All'}" Margin="8,0,0,0" Command="{Binding DeleteAllCommand}" />
+                <Button DockPanel.Dock="Right" Style="{StaticResource SecondaryButtonStyle}" Content="{loc:Translate 'Universal Triggers Import Fooma'}" Margin="8,0,0,0" Command="{Binding ImportFoomaCommand}" />
+                <Button DockPanel.Dock="Right" Background="{DynamicResource AccentBrush}" Foreground="{DynamicResource ComboTextBrush}" BorderBrush="{DynamicResource AccentBrush}" FontWeight="Bold" Padding="12,6" Margin="8,0,0,0" Content="{loc:Translate 'Universal Triggers New Trigger'}" Command="{Binding AddTriggerCommand}" />
+            </DockPanel>
+        </Border>
+
+        <!-- Filter strip -->
+        <Border Grid.Row="1" Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="14,8">
+            <DockPanel LastChildFill="False">
+                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                    <Button Margin="0,0,6,0" Padding="10,3" Command="{Binding ShowAllCommand}">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ShowAll}" Value="True">
+                                        <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                        <TextBlock Foreground="{DynamicResource TextBrush}">
+                            <Run Text="{loc:Translate 'Universal Triggers Filter All'}" />
+                        </TextBlock>
+                    </Button>
+                    <Button Margin="0,0,6,0" Padding="10,3" Command="{Binding ShowReadyCommand}">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ShowReady}" Value="True">
+                                        <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                        <TextBlock Foreground="{DynamicResource TextBrush}">
+                            <Run Text="{loc:Translate 'Universal Triggers Filter Ready'}" />
+                        </TextBlock>
+                    </Button>
+                    <Button Margin="0,0,6,0" Padding="10,3" Command="{Binding ShowWarningsCommand}">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ShowWarnings}" Value="True">
+                                        <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                        <TextBlock Foreground="{DynamicResource TextBrush}">
+                            <Run Text="{loc:Translate 'Universal Triggers Filter Warnings'}" />
+                        </TextBlock>
+                    </Button>
+                    <Button Padding="10,3" Command="{Binding ShowFoomaCommand}">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ShowFooma}" Value="True">
+                                        <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                        <TextBlock Foreground="{DynamicResource TextBrush}">
+                            <Run Text="{loc:Translate 'Universal Triggers Filter Fooma'}" />
+                        </TextBlock>
+                    </Button>
+                </StackPanel>
+                <TextBox DockPanel.Dock="Right" Width="280" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Background="{DynamicResource InputBrush}" Foreground="{DynamicResource TextBrush}" BorderBrush="{DynamicResource InputBorderBrush}" />
+            </DockPanel>
+        </Border>
+
+        <!-- Body: card grid OR empty-state onboarding -->
+        <Grid Grid.Row="2">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Visibility="{Binding CountAll, Converter={StaticResource CountToVisibilityConverter}}">
+                <ItemsControl ItemsSource="{Binding UniversalTriggersView}" Margin="14">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <!-- Card content goes here in Task 6 -->
+                            <Border Width="390" MinHeight="120" Margin="6" Padding="14" CornerRadius="12" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1">
+                                <TextBlock Text="{Binding Name}" Foreground="{DynamicResource TextBrush}" />
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <!-- Empty-state onboarding (shown when no triggers) -->
+            <Border Visibility="{Binding CountAll, Converter={StaticResource CountToVisibilityConverter}, ConverterParameter=Inverted}" Background="Transparent" Padding="30">
+                <Border MaxWidth="620" Padding="36,24" CornerRadius="18" Background="{DynamicResource PanelHighlightBrush}" BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <StackPanel>
+                        <TextBlock Text="✨" FontSize="30" HorizontalAlignment="Center" />
+                        <TextBlock Text="{loc:Translate 'Universal Triggers Onboarding Title'}" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextBrush}" HorizontalAlignment="Center" Margin="0,8,0,0" />
+                        <TextBlock Text="{loc:Translate 'Universal Triggers Onboarding Body'}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,8,0,0" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,22,0,0">
+                            <Border Width="240" Margin="0,0,14,0" Padding="16" CornerRadius="14" Background="{DynamicResource AccentDimBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1">
+                                <StackPanel>
+                                    <TextBlock Text="{loc:Translate 'Universal Triggers Onboarding Import Title'}" FontWeight="Bold" Foreground="{DynamicResource TextBrush}" />
+                                    <TextBlock Text="{loc:Translate 'Universal Triggers Onboarding Import Body'}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" FontSize="11" Margin="0,4,0,0" />
+                                    <Button Margin="0,10,0,0" Padding="10,6" Background="{DynamicResource AccentBrush}" Foreground="{DynamicResource ComboTextBrush}" FontWeight="Bold" Content="{loc:Translate 'Universal Triggers Onboarding Import Action'}" Command="{Binding ImportFoomaCommand}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Width="240" Padding="16" CornerRadius="14" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1">
+                                <StackPanel>
+                                    <TextBlock Text="{loc:Translate 'Universal Triggers Onboarding Create Title'}" FontWeight="Bold" Foreground="{DynamicResource TextBrush}" />
+                                    <TextBlock Text="{loc:Translate 'Universal Triggers Onboarding Create Body'}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" FontSize="11" Margin="0,4,0,0" />
+                                    <Button Margin="0,10,0,0" Padding="10,6" Background="{DynamicResource InputBrush}" Foreground="{DynamicResource TextBrush}" FontWeight="Bold" Content="{loc:Translate 'Universal Triggers Onboarding Create Action'}" Command="{Binding AddTriggerCommand}" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                        <Expander Margin="0,20,0,0" HorizontalAlignment="Center" Foreground="{DynamicResource MutedBrush}">
+                            <Expander.Header>
+                                <TextBlock Text="{loc:Translate 'Universal Triggers Onboarding Help Question'}" Foreground="{DynamicResource TextBrush}" />
+                            </Expander.Header>
+                            <TextBlock Text="{loc:Translate 'Universal Triggers Onboarding Help Body'}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="10" />
+                        </Expander>
+                    </StackPanel>
+                </Border>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

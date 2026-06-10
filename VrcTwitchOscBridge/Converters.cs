@@ -102,24 +102,26 @@ public sealed class ScalePreviewConverter : IMultiValueConverter
                 ? string.Format(culture, "{0}Sets avatar height to {1:0.##}m.", currentPrefix, h)
                 : string.Format(culture, "{0}Sets avatar height directly.", currentPrefix),
             "RandomHeight" or "GlitchyRandomHeight" =>
-                values.Length >= 3 && TryGetDouble(values[1], out var lo) && TryGetDouble(values[2], out var hi)
+                values.Length >= 4 && TryGetDouble(values[2], out var lo) && TryGetDouble(values[3], out var hi)
                     ? string.Format(culture, mode == "GlitchyRandomHeight"
                         ? "{0}Rapidly rolls random heights between {1:0.##}m and {2:0.##}m with a {3:0.##}s transition between each jump, until Active Time ends."
                         : "{0}Each trigger rolls a random height between {1:0.##}m and {2:0.##}m.", currentPrefix, lo, hi,
-                        values.Length >= 4 ? values[3] : null)
+                        values.Length >= 5 ? values[4] : null)
                     : "\u2014",
             "RelativeHeight" =>
-                values.Length >= 6 && TryGetDouble(values[4], out var ch) && TryGetDouble(values[5], out var mcu)
-                    ? string.Format(culture, "{0}Adds {1:+0.##;-0.##;0}m, changing height to {2:0.##}m.", currentPrefix, ch, mcu + ch)
+                values.Length >= 7 && TryGetDouble(values[5], out var ch) && TryGetDouble(values[6], out var relCu)
+                    ? string.Format(culture, values.Length >= 12 && values[11] is true
+                        ? "{0}Subtracts {1:0.##}m, changing height to {2:0.##}m."
+                        : "{0}Adds {1:0.##}m, changing height to {2:0.##}m.", currentPrefix, ch, relCu + (values.Length >= 12 && values[11] is true ? -ch : ch))
                     : "\u2014",
             "Multiplier" =>
-                values.Length >= 8 && TryGetDouble(values[7], out var mul) && TryGetDouble(values[5], out var mulCu) && values[8] is bool divide
+                values.Length >= 8 && TryGetDouble(values[7], out var mul) && TryGetDouble(values[6], out var mulCu) && values[8] is bool divide
                     ? string.Format(culture, "{0}Multiplies height by {1}{2:0.##}, changing to {3:0.##}m.",
                         currentPrefix, divide ? "\u00F7" : "\u00D7", mul, divide && mul != 0 ? mulCu / mul : mulCu * mul)
                     : "\u2014",
             "Preset" =>
-                values.Length >= 10 && values[9] is string label && TryGetDouble(values[10], out var ph)
-                    ? string.Format(culture, "{0}Sets avatar height to {1} preset ({2:0.##}m).", currentPrefix, label, ph)
+                values.Length >= 11 && values[9] is AvatarScalePreset presetLabel && TryGetDouble(values[10], out var ph)
+                    ? string.Format(culture, "{0}Sets avatar height to {1} preset ({2:0.##}m).", currentPrefix, presetLabel, ph)
                     : "\u2014",
             _ => "\u2014"
         };
@@ -135,4 +137,16 @@ public sealed class ScalePreviewConverter : IMultiValueConverter
         try { result = System.Convert.ToDouble(value, CultureInfo.InvariantCulture); return true; }
         catch { return false; }
     }
+}
+
+public sealed class CountToVisibilityConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        var count = value is int i ? i : 0;
+        var inverted = parameter is string s && s.Equals("Inverted", StringComparison.OrdinalIgnoreCase);
+        var visible = inverted ? count == 0 : count > 0;
+        return visible ? Visibility.Visible : Visibility.Collapsed;
+    }
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotSupportedException();
 }
