@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq;
 using System.Windows.Data;
@@ -15,6 +16,8 @@ public sealed class UniversalTriggersViewModel : ObservableObject
     private readonly AppSettings settings;
     private readonly BridgeCoordinator coordinator;
     private readonly Action<Action> uiInvoke;
+    private readonly List<UniversalTriggerRule> _subscribedRules = new();
+    private bool _isUpdatingFilter;
 
     public ObservableCollection<UniversalTriggerRule> UniversalTriggers => settings.UniversalTriggers;
     public ICollectionView UniversalTriggersView { get; }
@@ -48,13 +51,81 @@ public sealed class UniversalTriggersViewModel : ObservableObject
     }
 
     private bool showAll = true;
-    public bool ShowAll { get => showAll; set { if (SetProperty(ref showAll, value)) { if (value) { ShowReady = ShowWarnings = ShowFooma = false; } ApplyFilter(); RaiseCountsChanged(); } } }
+    public bool ShowAll
+    {
+        get => showAll;
+        set
+        {
+            if (SetProperty(ref showAll, value))
+            {
+                if (value)
+                {
+                    if (_isUpdatingFilter) return;
+                    _isUpdatingFilter = true;
+                    try { ShowReady = false; ShowWarnings = false; ShowFooma = false; }
+                    finally { _isUpdatingFilter = false; }
+                }
+                if (!_isUpdatingFilter) { ApplyFilter(); RaiseCountsChanged(); }
+            }
+        }
+    }
     private bool showReady;
-    public bool ShowReady { get => showReady; set { if (SetProperty(ref showReady, value)) { if (value) ShowAll = false; ApplyFilter(); RaiseCountsChanged(); } } }
+    public bool ShowReady
+    {
+        get => showReady;
+        set
+        {
+            if (SetProperty(ref showReady, value))
+            {
+                if (value)
+                {
+                    if (_isUpdatingFilter) return;
+                    _isUpdatingFilter = true;
+                    try { ShowAll = false; ShowWarnings = false; ShowFooma = false; }
+                    finally { _isUpdatingFilter = false; }
+                }
+                if (!_isUpdatingFilter) { ApplyFilter(); RaiseCountsChanged(); }
+            }
+        }
+    }
     private bool showWarnings;
-    public bool ShowWarnings { get => showWarnings; set { if (SetProperty(ref showWarnings, value)) { if (value) ShowAll = false; ApplyFilter(); RaiseCountsChanged(); } } }
+    public bool ShowWarnings
+    {
+        get => showWarnings;
+        set
+        {
+            if (SetProperty(ref showWarnings, value))
+            {
+                if (value)
+                {
+                    if (_isUpdatingFilter) return;
+                    _isUpdatingFilter = true;
+                    try { ShowAll = false; ShowReady = false; ShowFooma = false; }
+                    finally { _isUpdatingFilter = false; }
+                }
+                if (!_isUpdatingFilter) { ApplyFilter(); RaiseCountsChanged(); }
+            }
+        }
+    }
     private bool showFooma;
-    public bool ShowFooma { get => showFooma; set { if (SetProperty(ref showFooma, value)) { if (value) ShowAll = false; ApplyFilter(); RaiseCountsChanged(); } } }
+    public bool ShowFooma
+    {
+        get => showFooma;
+        set
+        {
+            if (SetProperty(ref showFooma, value))
+            {
+                if (value)
+                {
+                    if (_isUpdatingFilter) return;
+                    _isUpdatingFilter = true;
+                    try { ShowAll = false; ShowReady = false; ShowWarnings = false; }
+                    finally { _isUpdatingFilter = false; }
+                }
+                if (!_isUpdatingFilter) { ApplyFilter(); RaiseCountsChanged(); }
+            }
+        }
+    }
 
     public int CountAll => settings.UniversalTriggers.Count;
     public int CountReady => settings.UniversalTriggers.Count(IsCardReady);
@@ -84,7 +155,9 @@ public sealed class UniversalTriggersViewModel : ObservableObject
         UniversalTriggersView = CollectionViewSource.GetDefaultView(UniversalTriggers);
         UniversalTriggersView.Filter = FilterTrigger;
 
-        UniversalTriggers.CollectionChanged += (_, _) => RaiseCountsChanged();
+        UniversalTriggers.CollectionChanged += OnUniversalTriggersCollectionChanged;
+        foreach (var rule in UniversalTriggers)
+            SubscribeRule(rule);
 
         AddTriggerCommand = new AsyncRelayCommand(async () => await OpenCreateWizardAsync());
         ImportFoomaCommand = new AsyncRelayCommand(async () => await OpenImportPreviewAsync());
@@ -171,5 +244,33 @@ public sealed class UniversalTriggersViewModel : ObservableObject
         IsEditorOpen = false;
         UniversalTriggers.Remove(snapshot);
         await Task.CompletedTask;
+    }
+
+    private void OnUniversalTriggersCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.OldItems != null)
+            foreach (UniversalTriggerRule r in e.OldItems) UnsubscribeRule(r);
+        if (e.NewItems != null)
+            foreach (UniversalTriggerRule r in e.NewItems) SubscribeRule(r);
+        RaiseCountsChanged();
+    }
+
+    private void SubscribeRule(UniversalTriggerRule rule)
+    {
+        if (_subscribedRules.Contains(rule)) return;
+        rule.PropertyChanged += OnRulePropertyChanged;
+        _subscribedRules.Add(rule);
+    }
+
+    private void UnsubscribeRule(UniversalTriggerRule rule)
+    {
+        rule.PropertyChanged -= OnRulePropertyChanged;
+        _subscribedRules.Remove(rule);
+    }
+
+    private void OnRulePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        // Refresh counts whenever a status-relevant property changes on any rule
+        RaiseCountsChanged();
     }
 }
