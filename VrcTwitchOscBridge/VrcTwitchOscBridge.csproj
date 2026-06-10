@@ -181,6 +181,7 @@
     <Compile Include="ViewModels\AvatarPickerViewModel.cs" />
     <Compile Include="ViewModels\AvatarLibraryManagerViewModel.cs" />
     <Compile Include="ViewModels\UniversalTriggerCardViewModel.cs" />
+    <Compile Include="ViewModels\UniversalTriggersViewModel.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\oscquery-lib\vrc-oscquery-lib\vrc-oscquery-lib.csproj" SetTargetFramework="TargetFramework=net6.0" />
