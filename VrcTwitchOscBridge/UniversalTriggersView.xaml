@@ -229,5 +229,97 @@
                 </Border>
             </Border>
         </Grid>
+
+        <!-- Slide-out editor overlay -->
+        <Grid Grid.Row="0" Grid.RowSpan="3" Visibility="{Binding IsEditorOpen, Converter={StaticResource BoolToVisibilityConverter}}">
+            <Border Background="#80000000" />
+            <Border Width="520" HorizontalAlignment="Right" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1,0,0,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Editor title bar -->
+                    <Border Grid.Row="0" Background="{DynamicResource TitleBarBrush}" Padding="12,10" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
+                        <DockPanel LastChildFill="False">
+                            <TextBlock DockPanel.Dock="Left" Text="{Binding SelectedTrigger.Name}" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource TitleBarTextBrush}" VerticalAlignment="Center" />
+                            <Button DockPanel.Dock="Right" Content="✕" Background="Transparent" BorderBrush="{DynamicResource BorderBrush}" Padding="6,2" Command="{Binding CloseEditorCommand}" />
+                        </DockPanel>
+                    </Border>
+
+                    <!-- Editor body -->
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                        <StackPanel Margin="14">
+                            <!-- Avatar Readiness panel -->
+                            <Border Background="{DynamicResource StatusChipBrush}" BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1" CornerRadius="12" Padding="12" Margin="0,0,0,14">
+                                <StackPanel>
+                                    <TextBlock Text="Avatar Readiness" Foreground="{DynamicResource MutedBrush}" FontWeight="Bold" FontSize="11" />
+                                    <TextBlock Text="For the current avatar:" Foreground="{DynamicResource TextBrush}" FontSize="12" Margin="0,4,0,0" />
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Trigger Settings card -->
+                            <Border Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1" CornerRadius="12" Padding="12" Margin="0,0,0,14">
+                                <StackPanel>
+                                    <TextBlock Text="Trigger settings" FontWeight="Bold" Foreground="{DynamicResource TextBrush}" FontSize="12" Margin="0,0,0,8" />
+                                    <CheckBox Content="Enabled" IsChecked="{Binding SelectedTrigger.IsEnabled}" Margin="0,0,0,8" />
+                                    <UniformGrid Columns="2">
+                                        <StackPanel Margin="0,0,8,0">
+                                            <TextBlock Text="Display Name" Foreground="{DynamicResource MutedBrush}" FontSize="10" />
+                                            <TextBox Text="{Binding SelectedTrigger.Name, UpdateSourceTrigger=PropertyChanged}" />
+                                        </StackPanel>
+                                        <StackPanel Margin="8,0,0,0">
+                                            <TextBlock Text="Trigger Type" Foreground="{DynamicResource MutedBrush}" FontSize="10" />
+                                            <ComboBox SelectedItem="{Binding SelectedTrigger.TriggerType, UpdateSourceTrigger=PropertyChanged}" />
+                                        </StackPanel>
+                                    </UniformGrid>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Twitch Reward card (only visible for channel point) -->
+                            <Border Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1" CornerRadius="12" Padding="12" Margin="0,0,0,14"
+                                    Visibility="{Binding SelectedTrigger.UsesChannelPointReward, Converter={StaticResource BoolToVisibilityConverter}}">
+                                <StackPanel>
+                                    <TextBlock Text="Twitch reward" FontWeight="Bold" Foreground="{DynamicResource TextBrush}" FontSize="12" Margin="0,0,0,8" />
+                                    <UniformGrid Columns="2">
+                                        <StackPanel Margin="0,0,8,0">
+                                            <TextBlock Text="Cost" Foreground="{DynamicResource MutedBrush}" FontSize="10" />
+                                            <TextBox Text="{Binding SelectedTrigger.RewardCost, UpdateSourceTrigger=PropertyChanged}" />
+                                        </StackPanel>
+                                        <StackPanel Margin="8,0,0,0">
+                                            <TextBlock Text="Reward Name" Foreground="{DynamicResource MutedBrush}" FontSize="10" />
+                                            <TextBox Text="{Binding SelectedTrigger.RewardTitle, UpdateSourceTrigger=PropertyChanged}" />
+                                        </StackPanel>
+                                    </UniformGrid>
+                                    <CheckBox Content="Delete the Twitch reward when no avatar has the required param" IsChecked="{Binding SelectedTrigger.DeleteManagedRewardWhenInactive}" Margin="0,8,0,0" />
+                                </StackPanel>
+                            </Border>
+
+                            <!-- OSC Actions card -->
+                            <Border Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1" CornerRadius="12" Padding="12">
+                                <StackPanel>
+                                    <DockPanel LastChildFill="False" Margin="0,0,0,8">
+                                        <TextBlock DockPanel.Dock="Left" Text="OSC actions" FontWeight="Bold" Foreground="{DynamicResource TextBrush}" FontSize="12" />
+                                        <Button DockPanel.Dock="Right" Style="{StaticResource SecondaryButtonStyle}" Content="+ Add action" />
+                                    </DockPanel>
+                                    <ItemsControl ItemsSource="{Binding SelectedTrigger.Actions}" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <!-- Editor footer -->
+                    <Border Grid.Row="2" Background="{DynamicResource TitleBarBrush}" Padding="10,8" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
+                        <DockPanel LastChildFill="False">
+                            <Button DockPanel.Dock="Left" Style="{StaticResource SecondaryButtonStyle}" Content="Test now" Command="{Binding TestSelectedTriggerCommand}" />
+                            <Button DockPanel.Dock="Right" Margin="8,0,0,0" Style="{StaticResource SecondaryButtonStyle}" Content="Delete" Command="{Binding DeleteSelectedTriggerCommand}" />
+                            <Button DockPanel.Dock="Right" Background="{DynamicResource AccentBrush}" Foreground="{DynamicResource ComboTextBrush}" FontWeight="Bold" Padding="10,5" Content="Save" />
+                        </DockPanel>
+                    </Border>
+                </Grid>
+            </Border>
+        </Grid>
     </Grid>
 </UserControl>
