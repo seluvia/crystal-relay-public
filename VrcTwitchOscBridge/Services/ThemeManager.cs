@@ -1066,6 +1066,7 @@ internal static class ThemePaletteFactory
             ["SectionActiveBrush"] = accent,
             ["RuleCardBrush"] = panelSecondary,
             ["RuleCardSelectedBrush"] = Blend(windowBackground, accent, 0.32d),
+            ["AccentDimBrush"] = Blend(panelBackground, accent, 0.18d),
             ["RuleCardHoverBrush"] = Lighten(accent, 0.10d),
             ["StatusChipBrush"] = Blend(panelBackground, danger, 0.45d),
             ["NestedPanelBrush"] = panelSecondary,
