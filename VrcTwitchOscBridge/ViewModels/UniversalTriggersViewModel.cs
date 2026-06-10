@@ -171,7 +171,20 @@ public sealed class UniversalTriggersViewModel : ObservableObject
         DeleteAllCommand = new AsyncRelayCommand(async () => await DeleteAllAsync());
         EnableAllCommand = new AsyncRelayCommand(async () => { foreach (var t in UniversalTriggers) t.IsEnabled = true; });
         DisableAllCommand = new AsyncRelayCommand(async () => { foreach (var t in UniversalTriggers) t.IsEnabled = false; });
-        OpenTriggerEditorCommand = new RelayCommand(p => { if (p is UniversalTriggerRule rule) { SelectedTrigger = rule; IsEditorOpen = true; } });
+        OpenTriggerEditorCommand = new RelayCommand(p =>
+        {
+            UniversalTriggerRule? rule = p switch
+            {
+                UniversalTriggerRule r => r,
+                UniversalTriggerCardViewModel c => c.Rule,
+                _ => null
+            };
+            if (rule is not null)
+            {
+                SelectedTrigger = rule;
+                IsEditorOpen = true;
+            }
+        });
         CloseEditorCommand = new RelayCommand(_ => IsEditorOpen = false);
         TestSelectedTriggerCommand = new AsyncRelayCommand(async () => await TestSelectedAsync());
         DeleteSelectedTriggerCommand = new AsyncRelayCommand(async () => await DeleteSelectedAsync());

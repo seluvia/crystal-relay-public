@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Linq;
+using VrcTwitchOscBridge.Infrastructure;
 using VrcTwitchOscBridge.Models;
 
 namespace VrcTwitchOscBridge.ViewModels;
@@ -19,13 +22,15 @@ public enum UniversalTriggerChipSeverity { Info, Ready, Warn, Danger }
 
 public sealed record UniversalTriggerStatusChip(string Text, UniversalTriggerChipSeverity Severity);
 
-public sealed class UniversalTriggerCardViewModel
+public sealed class UniversalTriggerCardViewModel : ObservableObject
 {
     public UniversalTriggerRule Rule { get; }
 
     public UniversalTriggerCardViewModel(UniversalTriggerRule rule)
     {
         Rule = rule;
+        rule.PropertyChanged += OnRulePropertyChanged;
+        rule.Actions.CollectionChanged += OnActionsCollectionChanged;
     }
 
     public string TypeChipText => Rule.TriggerType switch
@@ -166,5 +171,31 @@ public sealed class UniversalTriggerCardViewModel
         // for "missing param"; the view-model defers to that for now. The simpler heuristic
         // is: if the trigger is configured but no avatar JSON has been loaded, treat as missing.
         return false;
+    }
+
+    private void OnRulePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        // Re-evaluate every computed card property when the underlying rule changes
+        RaisePropertyChanged(nameof(TypeChipText));
+        RaisePropertyChanged(nameof(SecondaryChipText));
+        RaisePropertyChanged(nameof(ActionSummary));
+        RaisePropertyChanged(nameof(IsUnconfigured));
+        RaisePropertyChanged(nameof(IsDanger));
+        RaisePropertyChanged(nameof(IsWarn));
+        RaisePropertyChanged(nameof(PrimaryStatus));
+        RaisePropertyChanged(nameof(AvatarParamPaths));
+        RaisePropertyChanged(nameof(HasDanger));
+        RaisePropertyChanged(nameof(StatusChips));
+    }
+
+    private void OnActionsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        RaisePropertyChanged(nameof(ActionSummary));
+        RaisePropertyChanged(nameof(IsDanger));
+        RaisePropertyChanged(nameof(IsWarn));
+        RaisePropertyChanged(nameof(PrimaryStatus));
+        RaisePropertyChanged(nameof(AvatarParamPaths));
+        RaisePropertyChanged(nameof(HasDanger));
+        RaisePropertyChanged(nameof(StatusChips));
     }
 }
