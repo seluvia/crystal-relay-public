@@ -173,4 +173,21 @@ public sealed class ActivityResumeService : IActivityResumeService
         {
         }
     }
+
+    public Task DeleteStaleFileIfPresentAsync()
+    {
+        try
+        {
+            if (File.Exists(SnapshotPath))
+            {
+                File.Delete(SnapshotPath);
+                DebugLogService.Write("Deleted stale activity resume file from previous clean shutdown.");
+            }
+        }
+        catch
+        {
+        }
+
+        return Task.CompletedTask;
+    }
 }

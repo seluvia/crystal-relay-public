@@ -98,8 +98,8 @@ public sealed class TriggerRule : ObservableObject
     private ObservableCollection<string> avatarRouletAvatarNames = [];
     private int rangeMinimum;
     private int rangeMaximum = 5;
-    private int durationSeconds = 10;
-    private int cooldownSeconds = 30;
+    private int durationSeconds = 0;
+    private int cooldownSeconds = 0;
     private string botMessageTemplate = "{user} triggered {rule}. Active for {duration}. Cooldown {cooldown}.";
     private Guid supporterAvatarProfileId = Guid.Empty;
     private string supporterAvatarId = string.Empty;

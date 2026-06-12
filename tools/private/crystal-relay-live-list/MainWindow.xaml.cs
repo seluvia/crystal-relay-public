@@ -60,6 +60,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string streamViewerStatusText = "Choose a live user to view their stream here.";
     private string currentStreamTwitchUrl = string.Empty;
     private string currentStreamChannelSlug = string.Empty;
+    private string streamViewerVersionBadgeText = string.Empty;
+    private string streamViewerChannelBadgeText = string.Empty;
+    private bool streamViewerHasVersionBadge;
+    private bool streamViewerHasChannelBadge;
     private bool canRefresh = true;
     private bool soundAlertsEnabled = true;
     private bool isShowingHistory;
@@ -185,6 +189,30 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 RaisePropertyChanged(nameof(ViewSecondaryStatusText));
             }
         }
+    }
+
+    public string StreamViewerVersionBadgeText
+    {
+        get => streamViewerVersionBadgeText;
+        private set => SetProperty(ref streamViewerVersionBadgeText, value);
+    }
+
+    public string StreamViewerChannelBadgeText
+    {
+        get => streamViewerChannelBadgeText;
+        private set => SetProperty(ref streamViewerChannelBadgeText, value);
+    }
+
+    public bool StreamViewerHasVersionBadge
+    {
+        get => streamViewerHasVersionBadge;
+        private set => SetProperty(ref streamViewerHasVersionBadge, value);
+    }
+
+    public bool StreamViewerHasChannelBadge
+    {
+        get => streamViewerHasChannelBadge;
+        private set => SetProperty(ref streamViewerHasChannelBadge, value);
     }
 
     public bool CanRefresh
@@ -900,6 +928,24 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         currentStreamChannelSlug = channelSlug;
         StreamViewerTitleText = $"Viewing {channelSlug}";
         StreamViewerStatusText = "Loading Twitch video and chat...";
+
+        var user = Users.FirstOrDefault(u =>
+            string.Equals(u.TwitchUrl, twitchUrl, StringComparison.OrdinalIgnoreCase));
+        if (user is not null)
+        {
+            StreamViewerVersionBadgeText = user.VersionBadgeText;
+            StreamViewerChannelBadgeText = user.ChannelBadgeText;
+            StreamViewerHasVersionBadge = user.HasVersionBadge;
+            StreamViewerHasChannelBadge = user.HasChannelBadge;
+        }
+        else
+        {
+            StreamViewerVersionBadgeText = string.Empty;
+            StreamViewerChannelBadgeText = string.Empty;
+            StreamViewerHasVersionBadge = false;
+            StreamViewerHasChannelBadge = false;
+        }
+
         isShowingHistory = false;
         isShowingStream = true;
         RaiseViewModePropertiesChanged();
@@ -1010,6 +1056,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         CurrentStreamTwitchUrl = string.Empty;
         currentStreamChannelSlug = string.Empty;
         StreamViewerStatusText = "Choose a live user to view their stream here.";
+        StreamViewerVersionBadgeText = string.Empty;
+        StreamViewerChannelBadgeText = string.Empty;
+        StreamViewerHasVersionBadge = false;
+        StreamViewerHasChannelBadge = false;
     }
 
     private void CloseStreamWebView()
@@ -1390,24 +1440,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             RelayVersion = relayVersion.Trim();
             BuildChannel = buildChannel.Trim();
             LastPingAt = lastPingAt?.ToUniversalTime();
+            VersionBadgeText = RelayVersion;
+            ChannelBadgeText = BuildChannel;
+            HasVersionBadge = !string.IsNullOrWhiteSpace(RelayVersion);
+            HasChannelBadge = !string.IsNullOrWhiteSpace(BuildChannel);
 
-            var details = new List<string>();
-            if (!string.IsNullOrWhiteSpace(RelayVersion))
-            {
-                details.Add($"Crystal Relay {RelayVersion}");
-            }
-
-            if (!string.IsNullOrWhiteSpace(BuildChannel))
-            {
-                details.Add(BuildChannel);
-            }
-
-            if (LastPingAt is { } lastPing)
-            {
-                details.Add($"Last heartbeat {lastPing.ToLocalTime():g}");
-            }
-
-            DetailText = details.Count > 0 ? string.Join(" | ", details) : "Live heartbeat active.";
+            DetailText = LastPingAt is { } lastPing
+                ? $"Last heartbeat {lastPing.ToLocalTime():g}"
+                : "Live heartbeat active.";
         }
 
         public string DisplayName { get; }
@@ -1421,6 +1461,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         public DateTimeOffset? LastPingAt { get; }
 
         public string DetailText { get; }
+
+        public string VersionBadgeText { get; }
+
+        public string ChannelBadgeText { get; }
+
+        public bool HasVersionBadge { get; }
+
+        public bool HasChannelBadge { get; }
     }
 
     public sealed class LiveHistoryEntryViewModel

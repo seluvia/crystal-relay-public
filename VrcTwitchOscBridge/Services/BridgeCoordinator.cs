@@ -5408,7 +5408,7 @@ internal BridgeCoordinator(
                 if (!await SendAvatarHeightForOperationAsync(
                         operation,
                         testTargetHeight,
-                        rule.SmoothTransitionSeconds,
+                        rule.SupporterGrowthTransitionSeconds,
                         cancellationToken))
                 {
                     return;
@@ -5424,7 +5424,7 @@ internal BridgeCoordinator(
                 await SendAvatarHeightForOperationAsync(
                     operation,
                     normalHeight,
-                    rule.SmoothTransitionSeconds,
+                    rule.SupporterGrowthTransitionSeconds,
                     cancellationToken);
 
                 WriteLog($"Sent supporter growth test/simulated effect for '{rule.Name}' to {testTargetHeight:0.###}m (+{addedHeight:0.###}m) for {DescribeDuration(addedPaidSeconds)}.");
@@ -5485,7 +5485,7 @@ internal BridgeCoordinator(
                     rule.Name,
                     targetHeight,
                     normalHeight,
-                    rule.SmoothTransitionSeconds,
+                    rule.SupporterGrowthTransitionSeconds,
                     paidActiveUntil,
                     rule.SupporterGrowthAllowRewardScaleOverlay,
                     sessionCancellation),
@@ -5949,7 +5949,9 @@ internal BridgeCoordinator(
             AvatarScaleMode.GlitchyRandomHeight => Random.Shared.NextDouble()
                 * (Math.Max(rule.MinimumHeightMeters, rule.MaximumHeightMeters) - Math.Min(rule.MinimumHeightMeters, rule.MaximumHeightMeters))
                 + Math.Min(rule.MinimumHeightMeters, rule.MaximumHeightMeters),
-            AvatarScaleMode.RelativeHeight => ClampRelativeScaleTarget(rule, currentHeight, current + rule.RelativeHeightMeters),
+            AvatarScaleMode.RelativeHeight => rule.RelativeHeightDirectionId == (int)AvatarScaleRelativeHeightDirection.Subtract
+                ? ClampRelativeScaleTarget(rule, currentHeight, current - rule.RelativeHeightMeters)
+                : ClampRelativeScaleTarget(rule, currentHeight, current + rule.RelativeHeightMeters),
             AvatarScaleMode.Multiplier => rule.MultiplierDirectionId == (int)AvatarScaleMultiplierDirection.Divide
                 ? current / Math.Max(0.01, rule.HeightMultiplier)
                 : current * Math.Max(0.01, rule.HeightMultiplier),
@@ -5984,14 +5986,14 @@ internal BridgeCoordinator(
             return false;
         }
 
-        if (rule.RelativeHeightMeters < 0
+        if (rule.RelativeHeightDirectionId == (int)AvatarScaleRelativeHeightDirection.Subtract
             && currentHeight.Value <= rule.RelativeMinimumHeightMeters)
         {
             limitMessage = $"the current height is already at or below the relative minimum of {rule.RelativeMinimumHeightMeters:0.###}m.";
             return true;
         }
 
-        if (rule.RelativeHeightMeters > 0
+        if (rule.RelativeHeightDirectionId != (int)AvatarScaleRelativeHeightDirection.Subtract
             && currentHeight.Value >= rule.RelativeMaximumHeightMeters)
         {
             limitMessage = $"the current height is already at or above the relative maximum of {rule.RelativeMaximumHeightMeters:0.###}m.";
@@ -6011,12 +6013,12 @@ internal BridgeCoordinator(
             return targetHeight;
         }
 
-        if (rule.RelativeHeightMeters < 0)
+        if (rule.RelativeHeightDirectionId == (int)AvatarScaleRelativeHeightDirection.Subtract)
         {
             return Math.Max(targetHeight, rule.RelativeMinimumHeightMeters);
         }
 
-        if (rule.RelativeHeightMeters > 0)
+        if (rule.RelativeHeightDirectionId != (int)AvatarScaleRelativeHeightDirection.Subtract)
         {
             return Math.Min(targetHeight, rule.RelativeMaximumHeightMeters);
         }
@@ -11874,7 +11876,7 @@ internal BridgeCoordinator(
     private static int GetAvatarScaleEffectDurationSeconds(AvatarScaleRuleSnapshot rule)
     {
         var transitionSeconds = rule.ScaleMode == AvatarScaleMode.GlitchyRandomHeight
-            ? Math.Clamp(rule.GlitchyTransitionSeconds, 0, 5)
+            ? Math.Clamp(rule.GlitchyRandomHeightTransitionSeconds, 0, 30)
             : Math.Max(0, rule.SmoothTransitionSeconds);
         var activeSeconds = Math.Max(0, rule.ActiveTimeSeconds);
         var restoreTransitionSeconds = activeSeconds > 0 && rule.RestoreMode != AvatarScaleRestoreMode.None
@@ -13557,7 +13559,6 @@ internal BridgeCoordinator(
             }
         }
 
-        await activityResumeService.ClearAllAsync();
         WriteLog("Saved activities resumed.");
     }
 
@@ -13580,14 +13581,44 @@ internal BridgeCoordinator(
                         return;
                     }
 
-                    var incomingEvent = UniversalIncomingEvent.Test;
+                    var currentHeight = await TryGetCurrentAvatarHeightAsync(cancellationToken);
+                    var savedHeight = activity.CurrentValue ?? 0;
+                    var heightMatches = currentHeight.HasValue
+                        && Math.Abs(currentHeight.Value - savedHeight) < 0.01;
 
-                    await ExecuteAvatarScaleRuleAsync(
-                        rule,
-                        incomingEvent,
-                        isTest: false,
-                        cancellationToken,
-                        isResuming: true);
+                    if (heightMatches)
+                    {
+                        var effectDurationSeconds = GetAvatarScaleEffectDurationSeconds(rule);
+                        var activeWindowSeconds = effectDurationSeconds;
+                        var heightSessionId = StartAvatarScaleHeightSession(
+                            rule.Id,
+                            rule.Name,
+                            rule.RestoreHeightMeters,
+                            savedHeight,
+                            activeWindowSeconds);
+                        if (heightSessionId != Guid.Empty)
+                        {
+                            ScheduleAvatarScaleHeightSessionEnd(
+                                rule.Id,
+                                heightSessionId,
+                                TimeSpan.FromSeconds(Math.Max(0.5, activeWindowSeconds)),
+                                cancellationToken);
+                        }
+
+                        ScheduleAvatarScaleRestoreSequence(rule, isTest: false, savedHeight);
+                        WriteLog($"Skipped OSC send for '{rule.Name}' during resume ΓÇö avatar is already at {savedHeight:0.###}m. Carryover timer rearmed for {rule.ActiveTimeSeconds}s.");
+                    }
+                    else
+                    {
+                        var incomingEvent = UniversalIncomingEvent.Test;
+                        await ExecuteAvatarScaleRuleAsync(
+                            rule,
+                            incomingEvent,
+                            isTest: false,
+                            cancellationToken,
+                            isResuming: true);
+                    }
+
                     break;
                 }
 

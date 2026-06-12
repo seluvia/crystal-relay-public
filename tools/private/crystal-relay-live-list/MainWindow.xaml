@@ -797,6 +797,7 @@
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*" />
                                                     <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="Auto" />
                                                 </Grid.ColumnDefinitions>
                                                 <TextBlock Grid.Column="0"
                                                            Text="{Binding DisplayName}"
@@ -804,7 +805,30 @@
                                                            FontSize="19"
                                                            FontWeight="Black"
                                                            TextWrapping="Wrap" />
-                                                <Border Grid.Column="1"
+                                                <WrapPanel Grid.Column="1"
+                                                           Margin="10,0,0,0"
+                                                           VerticalAlignment="Top">
+                                                    <Border Padding="6,3"
+                                                            Margin="0,0,6,0"
+                                                            Background="{StaticResource LivePillBrush}"
+                                                            CornerRadius="999"
+                                                            Visibility="{Binding HasVersionBadge, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                        <TextBlock Text="{Binding VersionBadgeText}"
+                                                                   Foreground="{StaticResource ButtonTextBrush}"
+                                                                   FontSize="10"
+                                                                   FontWeight="Bold" />
+                                                    </Border>
+                                                    <Border Padding="6,3"
+                                                            Background="{StaticResource LivePillBrush}"
+                                                            CornerRadius="999"
+                                                            Visibility="{Binding HasChannelBadge, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                        <TextBlock Text="{Binding ChannelBadgeText}"
+                                                                   Foreground="{StaticResource ButtonTextBrush}"
+                                                                   FontSize="10"
+                                                                   FontWeight="Bold" />
+                                                    </Border>
+                                                </WrapPanel>
+                                                <Border Grid.Column="2"
                                                         Margin="10,0,0,0"
                                                         Padding="8,4"
                                                         VerticalAlignment="Top"
@@ -1024,6 +1048,27 @@
                                                FontSize="20"
                                                FontWeight="Black"
                                                TextWrapping="Wrap" />
+                                    <WrapPanel Margin="0,4,0,0">
+                                        <Border Padding="6,3"
+                                                Margin="0,0,6,0"
+                                                Background="{StaticResource LivePillBrush}"
+                                                CornerRadius="999"
+                                                Visibility="{Binding StreamViewerHasVersionBadge, Converter={StaticResource BoolToVisibilityConverter}}">
+                                            <TextBlock Text="{Binding StreamViewerVersionBadgeText}"
+                                                       Foreground="{StaticResource ButtonTextBrush}"
+                                                       FontSize="10"
+                                                       FontWeight="Bold" />
+                                        </Border>
+                                        <Border Padding="6,3"
+                                                Background="{StaticResource LivePillBrush}"
+                                                CornerRadius="999"
+                                                Visibility="{Binding StreamViewerHasChannelBadge, Converter={StaticResource BoolToVisibilityConverter}}">
+                                            <TextBlock Text="{Binding StreamViewerChannelBadgeText}"
+                                                       Foreground="{StaticResource ButtonTextBrush}"
+                                                       FontSize="10"
+                                                       FontWeight="Bold" />
+                                        </Border>
+                                    </WrapPanel>
                                     <TextBlock Margin="0,4,0,0"
                                                Text="{Binding StreamViewerStatusText}"
                                                Foreground="{StaticResource MutedBrush}"

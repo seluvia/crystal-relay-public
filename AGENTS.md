@@ -7,7 +7,7 @@
 - Current source version: `v3.1.9`
 - Next post-release development version: `v3.1.10`
 - Active development build: `v3.1.9`
-- Active build lane: `beta`
+- Active build lane: `beta2`
 - Platform: Windows desktop app
 - Primary purpose: Twitch-to-OSC / OSCQuery control for VRChat
 - Public GitHub repo: `seluvia/crystal-relay-public`
@@ -104,6 +104,10 @@ Use these locations only unless a change is explicitly required.
   `E:\!!!Program to work on\Proper Crystal Relay\Run-Crystal-Relay-Source.ps1`
 - Release launcher:
   `E:\!!!Program to work on\Proper Crystal Relay\Launch-Crystal-Relay.bat`
+- Debug launcher (launches the compiled Debug .exe directly):
+  `E:\!!!Program to work on\Proper Crystal Relay\Launch-Crystal-Relay-Debug.bat`
+- Debug shortcut creator (generates a `.lnk` shortcut to the Debug .exe):
+  `E:\!!!Program to work on\Proper Crystal Relay\Create-Crystal-Relay-Debug-Shortcut.ps1`
 - Root docs:
   `E:\!!!Program to work on\Proper Crystal Relay\README.md`
   `E:\!!!Program to work on\Proper Crystal Relay\CHANGELOG.txt`
@@ -543,6 +547,9 @@ Two files drive release notes:
 - Do not revert unrelated user changes.
 - Build after code changes that affect runtime behavior or XAML:
   `dotnet build "E:\!!!Program to work on\Proper Crystal Relay\VrcTwitchOscBridge\VrcTwitchOscBridge.csproj" --no-restore`
+- After a successful Debug build, the debug .exe auto-identifies itself in the title bar with a ` - DEBUG` suffix so it is never confused with a stable/test/beta release.
+- When the user asks to launch or test the app after a debug build, use the debug launcher:
+  `E:\!!!Program to work on\Proper Crystal Relay\Launch-Crystal-Relay-Debug.bat`
 - Refresh a test package after test-build changes, using the active development build discovered from the Versioning Rules:
   `powershell -ExecutionPolicy Bypass -File "E:\!!!Program to work on\Proper Crystal Relay\Build-Crystal-Relay-Test.ps1" -Version <active-version>`
 - Before running a test or beta build script, update `AGENTS.md` first so the active build version and lane are recorded.

@@ -153,6 +153,16 @@ public sealed class AppSettings : ObservableObject
         set => SetProperty(ref universalTriggers, value ?? []);
     }
 
+    public bool UniversalTriggersChatCollapsed { get; set; }
+
+    public bool UniversalTriggersRewardCollapsed { get; set; }
+
+    public bool UniversalTriggersBitsCollapsed { get; set; }
+
+    public bool UniversalTriggersSubsCollapsed { get; set; }
+
+    public bool UniversalTriggersFollowsCollapsed { get; set; }
+
     public ObservableCollection<AvatarScaleSet> AvatarScaleSets
     {
         get => avatarScaleSets;

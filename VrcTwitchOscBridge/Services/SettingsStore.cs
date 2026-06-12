@@ -431,6 +431,11 @@ public sealed class SettingsStore
             settings.GlobalMovementRules = new ObservableCollection<TriggerRule>(settings.MovementRedeemSets.SelectMany(set => set.MovementRules));
             settings.GlobalOverrideRules = new ObservableCollection<TriggerRule>((profile.GlobalOverrideRules ?? []).Select(ToRule));
             settings.UniversalTriggers = new ObservableCollection<UniversalTriggerRule>((profile.UniversalTriggers ?? []).Select(ToUniversalTriggerRule));
+            settings.UniversalTriggersChatCollapsed = profile.UniversalTriggersChatCollapsed ?? settings.UniversalTriggersChatCollapsed;
+            settings.UniversalTriggersRewardCollapsed = profile.UniversalTriggersRewardCollapsed ?? settings.UniversalTriggersRewardCollapsed;
+            settings.UniversalTriggersBitsCollapsed = profile.UniversalTriggersBitsCollapsed ?? settings.UniversalTriggersBitsCollapsed;
+            settings.UniversalTriggersSubsCollapsed = profile.UniversalTriggersSubsCollapsed ?? settings.UniversalTriggersSubsCollapsed;
+            settings.UniversalTriggersFollowsCollapsed = profile.UniversalTriggersFollowsCollapsed ?? settings.UniversalTriggersFollowsCollapsed;
             settings.AvatarScaleSets = BuildAvatarScaleSets(profile);
             settings.AvatarScaleRules = [];
             settings.AvatarScaleMasterReward = profile.AvatarScaleMasterReward is null
@@ -585,6 +590,11 @@ public sealed class SettingsStore
             GlobalMovementRules = [.. settings.MovementRedeemSets.SelectMany(set => set.MovementRules).Select(ToPersistedRule)],
             GlobalOverrideRules = [.. settings.GlobalOverrideRules.Select(ToPersistedRule)],
             UniversalTriggers = [.. settings.UniversalTriggers.Select(ToPersistedUniversalTriggerRule)],
+            UniversalTriggersChatCollapsed = settings.UniversalTriggersChatCollapsed,
+            UniversalTriggersRewardCollapsed = settings.UniversalTriggersRewardCollapsed,
+            UniversalTriggersBitsCollapsed = settings.UniversalTriggersBitsCollapsed,
+            UniversalTriggersSubsCollapsed = settings.UniversalTriggersSubsCollapsed,
+            UniversalTriggersFollowsCollapsed = settings.UniversalTriggersFollowsCollapsed,
             AvatarScaleSets = [.. settings.AvatarScaleSets.Select(ToPersistedAvatarScaleSet)],
             AvatarScaleMasterReward = ToPersistedAvatarScaleMasterReward(settings.AvatarScaleMasterReward),
             PowerUpRules = [.. settings.PowerUpRules.Select(ToPersistedPowerUpRule)],
@@ -1725,12 +1735,20 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             HideRewardWhenMaximumHeightReached = rule.HideRewardWhenMaximumHeightReached,
             HeightMultiplier = rule.HeightMultiplier,
             MultiplierDirectionId = (int)rule.MultiplierDirection,
-            GlitchyTransitionSeconds = rule.GlitchyTransitionSeconds,
+            RelativeHeightDirectionId = (int)rule.RelativeHeightDirection,
+            GlitchyTransitionSeconds = rule.GlitchyRandomHeightTransitionSeconds,
+            SetHeightTransitionSeconds = rule.SetHeightTransitionSeconds,
+            RandomHeightTransitionSeconds = rule.RandomHeightTransitionSeconds,
+            RelativeHeightTransitionSeconds = rule.RelativeHeightTransitionSeconds,
+            MultiplierTransitionSeconds = rule.MultiplierTransitionSeconds,
+            PresetTransitionSeconds = rule.PresetTransitionSeconds,
+            GlitchyRandomHeightTransitionSeconds = rule.GlitchyRandomHeightTransitionSeconds,
+            SupporterGrowthTransitionSeconds = rule.SupporterGrowthTransitionSeconds,
+            SmoothTransitionSeconds = 0,
             Preset = rule.Preset,
             ActiveTimeSeconds = rule.ActiveTimeSeconds,
             RestoreMode = rule.RestoreMode,
             RestoreHeightMeters = rule.RestoreHeightMeters,
-            SmoothTransitionSeconds = rule.SmoothTransitionSeconds,
             AdvancedRangeEnabled = rule.AdvancedRangeEnabled,
             BypassVrChatScaleLimits = rule.BypassVrChatScaleLimits,
             SupporterGrowthNormalHeightMeters = rule.SupporterGrowthNormalHeightMeters,
@@ -1802,7 +1820,7 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             TargetHeightMeters = rule.TargetHeightMeters <= 0 ? 1.6 : rule.TargetHeightMeters,
             MinimumHeightMeters = rule.MinimumHeightMeters <= 0 ? 0.5 : rule.MinimumHeightMeters,
             MaximumHeightMeters = rule.MaximumHeightMeters <= 0 ? 2.5 : rule.MaximumHeightMeters,
-            RelativeHeightMeters = rule.RelativeHeightMeters == 0 ? 0.25 : rule.RelativeHeightMeters,
+            RelativeHeightMeters = rule.RelativeHeightMeters == 0 ? 0.25 : Math.Abs(rule.RelativeHeightMeters),
             RelativeMinimumHeightMeters = rule.RelativeMinimumHeightMeters <= 0
                 ? AvatarScaleRule.SafeMinimumHeightMeters
                 : rule.RelativeMinimumHeightMeters,
@@ -1813,12 +1831,26 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             HideRewardWhenMaximumHeightReached = rule.HideRewardWhenMaximumHeightReached,
             HeightMultiplier = rule.HeightMultiplier <= 0 ? 1.25 : rule.HeightMultiplier,
             MultiplierDirectionId = rule.MultiplierDirectionId,
-            GlitchyTransitionSeconds = rule.GlitchyTransitionSeconds <= 0 ? 0.4 : rule.GlitchyTransitionSeconds,
+            RelativeHeightDirectionId = rule.RelativeHeightDirectionId != 0
+                ? rule.RelativeHeightDirectionId
+                : (rule.RelativeHeightMeters < 0 ? (int)AvatarScaleRelativeHeightDirection.Subtract : (int)AvatarScaleRelativeHeightDirection.Add),
+            SetHeightTransitionSeconds = Math.Max(0, rule.SetHeightTransitionSeconds),
+            RandomHeightTransitionSeconds = Math.Max(0, rule.RandomHeightTransitionSeconds),
+            RelativeHeightTransitionSeconds = Math.Max(0, rule.RelativeHeightTransitionSeconds > 0
+                ? rule.RelativeHeightTransitionSeconds
+                : rule.SmoothTransitionSeconds),
+            MultiplierTransitionSeconds = Math.Max(0, rule.MultiplierTransitionSeconds),
+            PresetTransitionSeconds = Math.Max(0, rule.PresetTransitionSeconds),
+            GlitchyRandomHeightTransitionSeconds = Math.Max(0, rule.GlitchyRandomHeightTransitionSeconds > 0
+                ? rule.GlitchyRandomHeightTransitionSeconds
+                : rule.GlitchyTransitionSeconds),
+            SupporterGrowthTransitionSeconds = Math.Max(0, rule.SupporterGrowthTransitionSeconds > 0
+                ? rule.SupporterGrowthTransitionSeconds
+                : rule.SmoothTransitionSeconds),
             Preset = Enum.IsDefined(rule.Preset) ? rule.Preset : AvatarScalePreset.Normal,
             ActiveTimeSeconds = Math.Max(0, rule.ActiveTimeSeconds),
             RestoreMode = AvatarScaleRestoreMode.ConfiguredHeight,
             RestoreHeightMeters = rule.RestoreHeightMeters <= 0 ? 1.6 : rule.RestoreHeightMeters,
-            SmoothTransitionSeconds = Math.Max(0, rule.SmoothTransitionSeconds),
             SupporterGrowthNormalHeightMeters = rule.SupporterGrowthNormalHeightMeters <= 0
                 ? 1.6
                 : rule.SupporterGrowthNormalHeightMeters,
@@ -2542,6 +2574,16 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
         public List<PersistedTriggerRule>? GlobalOverrideRules { get; set; }
 
         public List<PersistedUniversalTriggerRule>? UniversalTriggers { get; set; }
+
+        public bool? UniversalTriggersChatCollapsed { get; set; }
+
+        public bool? UniversalTriggersRewardCollapsed { get; set; }
+
+        public bool? UniversalTriggersBitsCollapsed { get; set; }
+
+        public bool? UniversalTriggersSubsCollapsed { get; set; }
+
+        public bool? UniversalTriggersFollowsCollapsed { get; set; }
 
         public List<PersistedAvatarScaleSet>? AvatarScaleSets { get; set; }
 
@@ -3334,6 +3376,8 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
 
         public int MultiplierDirectionId { get; set; }
 
+        public int RelativeHeightDirectionId { get; set; }
+
         public double GlitchyTransitionSeconds { get; set; } = 0.4;
 
         public AvatarScalePreset Preset { get; set; }
@@ -3345,6 +3389,14 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
         public double RestoreHeightMeters { get; set; }
 
         public double SmoothTransitionSeconds { get; set; }
+
+        public double SetHeightTransitionSeconds { get; set; }
+        public double RandomHeightTransitionSeconds { get; set; }
+        public double RelativeHeightTransitionSeconds { get; set; }
+        public double MultiplierTransitionSeconds { get; set; }
+        public double PresetTransitionSeconds { get; set; }
+        public double GlitchyRandomHeightTransitionSeconds { get; set; }
+        public double SupporterGrowthTransitionSeconds { get; set; }
 
         public bool AdvancedRangeEnabled { get; set; }
 

@@ -87,38 +87,67 @@ internal sealed class VrChatLocalOscCacheService
             return [];
         }
 
-        await using var stream = File.OpenRead(filePath);
-        var payload = await JsonSerializer.DeserializeAsync<LocalOscAvatarFile>(
-            stream,
-            LocalOscJsonOptions,
-            cancellationToken);
-        if (payload?.Parameters is null || payload.Parameters.Count == 0)
+        return await LoadAvatarParametersFromFileAsync(filePath, cancellationToken);
+    }
+
+    // Loads avatar parameters by scanning all user folders in the OSC directory.
+    // This is a fallback when the VRChat user ID is not known.
+    public async Task<IReadOnlyList<VrChatOscParameterSummary>> LoadAvatarParametersByAvatarIdAsync(
+        string avatarId,
+        CancellationToken cancellationToken = default)
+    {
+        var filePath = FindAvatarOscFilePathByAvatarId(avatarId);
+        if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
         {
             return [];
         }
 
-        var parameters = payload.Parameters
-            .Select(SelectBestEndpoint)
-            .Where(endpoint => endpoint is not null)
-            .Select(endpoint => endpoint!)
-            .Where(endpoint => !string.IsNullOrWhiteSpace(endpoint.Address) && TryMapParameterType(endpoint.Type, out _))
-            .Select(endpoint =>
+        return await LoadAvatarParametersFromFileAsync(filePath, cancellationToken);
+    }
+
+    private async Task<IReadOnlyList<VrChatOscParameterSummary>> LoadAvatarParametersFromFileAsync(
+        string filePath,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await using var stream = File.OpenRead(filePath);
+            var payload = await JsonSerializer.DeserializeAsync<LocalOscAvatarFile>(
+                stream,
+                LocalOscJsonOptions,
+                cancellationToken);
+            if (payload?.Parameters is null || payload.Parameters.Count == 0)
             {
-                TryMapParameterType(endpoint.Type, out var parameterType);
-                var normalizedAddress = VrChatOscClient.NormalizeAvatarParameterAddress(endpoint.Address!);
-                var displayName = string.IsNullOrWhiteSpace(endpoint.Name)
-                    ? normalizedAddress.Split('/', StringSplitOptions.RemoveEmptyEntries).LastOrDefault() ?? normalizedAddress
-                    : endpoint.Name.Trim();
+                return [];
+            }
 
-                return new VrChatOscParameterSummary(normalizedAddress, displayName, parameterType);
-            })
-            .GroupBy(parameter => parameter.Address, StringComparer.OrdinalIgnoreCase)
-            .Select(group => group.First())
-            .OrderBy(parameter => parameter.Name, StringComparer.OrdinalIgnoreCase)
-            .ThenBy(parameter => parameter.Address, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+            var parameters = payload.Parameters
+                .Select(SelectBestEndpoint)
+                .Where(endpoint => endpoint is not null)
+                .Select(endpoint => endpoint!)
+                .Where(endpoint => !string.IsNullOrWhiteSpace(endpoint.Address) && TryMapParameterType(endpoint.Type, out _))
+                .Select(endpoint =>
+                {
+                    TryMapParameterType(endpoint.Type, out var parameterType);
+                    var normalizedAddress = VrChatOscClient.NormalizeAvatarParameterAddress(endpoint.Address!);
+                    var displayName = string.IsNullOrWhiteSpace(endpoint.Name)
+                        ? normalizedAddress.Split('/', StringSplitOptions.RemoveEmptyEntries).LastOrDefault() ?? normalizedAddress
+                        : endpoint.Name.Trim();
 
-        return parameters;
+                    return new VrChatOscParameterSummary(normalizedAddress, displayName, parameterType);
+                })
+                .GroupBy(parameter => parameter.Address, StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.First())
+                .OrderBy(parameter => parameter.Name, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(parameter => parameter.Address, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            return parameters;
+        }
+        catch
+        {
+            return [];
+        }
     }
 
     // Resolves the LocalLow OSC avatar folder for one VRChat user ID.
@@ -158,6 +187,53 @@ internal sealed class VrChatLocalOscCacheService
         }
 
         return Path.Combine(avatarFolderPath, $"{normalizedAvatarId}.json");
+    }
+
+    // Finds the avatar OSC file by scanning all user folders in the OSC directory.
+    // This is a fallback when the VRChat user ID is not known.
+    public static string? FindAvatarOscFilePathByAvatarId(string avatarId)
+    {
+        var normalizedAvatarId = avatarId?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(normalizedAvatarId))
+        {
+            return null;
+        }
+
+        var rootPath = VrChatLocalClientStateService.GetVrChatRootPath();
+        if (string.IsNullOrWhiteSpace(rootPath))
+        {
+            return null;
+        }
+
+        var oscRoot = Path.Combine(rootPath, "OSC");
+        if (!Directory.Exists(oscRoot))
+        {
+            return null;
+        }
+
+        try
+        {
+            foreach (var userDir in Directory.GetDirectories(oscRoot, "*", SearchOption.TopDirectoryOnly))
+            {
+                var avatarsDir = Path.Combine(userDir, "Avatars");
+                if (!Directory.Exists(avatarsDir))
+                {
+                    continue;
+                }
+
+                var avatarFilePath = Path.Combine(avatarsDir, $"{normalizedAvatarId}.json");
+                if (File.Exists(avatarFilePath))
+                {
+                    return avatarFilePath;
+                }
+            }
+        }
+        catch
+        {
+            // Ignore directory access errors during scan
+        }
+
+        return null;
     }
 
     // VRChat parameter files can contain separate input/output endpoints.

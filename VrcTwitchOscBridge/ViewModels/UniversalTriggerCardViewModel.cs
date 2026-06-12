@@ -1,201 +1,142 @@
 using System;
-using System.Collections.Generic;
-using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq;
+using System.Windows.Media;
 using VrcTwitchOscBridge.Infrastructure;
 using VrcTwitchOscBridge.Models;
+using VrcTwitchOscBridge.Services;
 
 namespace VrcTwitchOscBridge.ViewModels;
 
 public enum UniversalTriggerCardStatus
 {
-    Unconfigured,
     Ready,
-    WarnDirectOsc,
-    WarnNotAvatarBound,
-    DangerMissingParam,
-    DangerNoActions,
+    Warn,
+    Disabled,
 }
-
-public enum UniversalTriggerChipSeverity { Info, Ready, Warn, Danger }
-
-public sealed record UniversalTriggerStatusChip(string Text, UniversalTriggerChipSeverity Severity);
 
 public sealed class UniversalTriggerCardViewModel : ObservableObject
 {
-    public UniversalTriggerRule Rule { get; }
+    private readonly Func<UniversalTriggerRule, bool> _isWarnFn;
 
-    public UniversalTriggerCardViewModel(UniversalTriggerRule rule)
+    public UniversalTriggerCardViewModel(UniversalTriggerRule rule, Func<UniversalTriggerRule, bool> isWarnFn)
     {
-        Rule = rule;
+        Rule = rule ?? throw new ArgumentNullException(nameof(rule));
+        _isWarnFn = isWarnFn ?? throw new ArgumentNullException(nameof(isWarnFn));
         rule.PropertyChanged += OnRulePropertyChanged;
-        rule.Actions.CollectionChanged += OnActionsCollectionChanged;
     }
 
-    public string TypeChipText => Rule.TriggerType switch
+    public UniversalTriggerRule Rule { get; }
+
+    public UniversalTriggerCardStatus Status =>
+        !Rule.IsEnabled ? UniversalTriggerCardStatus.Disabled
+        : _isWarnFn(Rule) ? UniversalTriggerCardStatus.Warn
+        : UniversalTriggerCardStatus.Ready;
+
+    public string TypePill => Rule.TriggerType switch
     {
-        UniversalTriggerType.ChatCommand => "CHAT COMMAND",
-        UniversalTriggerType.ChannelPointReward => "CHANNEL POINT",
-        UniversalTriggerType.Bits => "BITS",
-        UniversalTriggerType.Subscription => "SUBSCRIPTION",
-        UniversalTriggerType.GiftSubscription => "GIFT SUBSCRIPTION",
-        UniversalTriggerType.Follow => "FOLLOW",
-        _ => "UNCONFIGURED",
+        UniversalTriggerType.ChatCommand => LocalizationService.Translate("Universal Triggers Type Pill Chat"),
+        UniversalTriggerType.ChannelPointReward => LocalizationService.Translate("Universal Triggers Type Pill Reward"),
+        UniversalTriggerType.Bits => LocalizationService.Translate("Universal Triggers Type Pill Bits"),
+        UniversalTriggerType.Subscription => LocalizationService.Translate("Universal Triggers Type Pill Sub"),
+        UniversalTriggerType.GiftSubscription => LocalizationService.Translate("Universal Triggers Type Pill Gift Sub"),
+        UniversalTriggerType.Follow => LocalizationService.Translate("Universal Triggers Type Pill Follow"),
+        _ => string.Empty,
     };
 
-    public string SecondaryChipText
+    public string EmojiIcon => Rule.TriggerType switch
+    {
+        UniversalTriggerType.ChatCommand => "💬",
+        UniversalTriggerType.ChannelPointReward => "🎁",
+        UniversalTriggerType.Bits => "💎",
+        UniversalTriggerType.Subscription => "⭐",
+        UniversalTriggerType.GiftSubscription => "🎀",
+        UniversalTriggerType.Follow => "❤️",
+        _ => "❓",
+    };
+
+    public string StatusPill => Status switch
+    {
+        UniversalTriggerCardStatus.Ready => LocalizationService.Translate("Universal Triggers Status Ready"),
+        UniversalTriggerCardStatus.Warn => LocalizationService.Translate("Universal Triggers Status Avatar Missing"),
+        UniversalTriggerCardStatus.Disabled => LocalizationService.Translate("Universal Triggers Status Disabled"),
+        _ => string.Empty,
+    };
+
+    public Brush StatusStripeBrush
     {
         get
         {
-            if (string.Equals(Rule.ImportSource, "Fooma Twitch Interaction", StringComparison.OrdinalIgnoreCase))
-                return "from Fooma";
+            var app = System.Windows.Application.Current;
+            if (app is null)
+            {
+                return Status == UniversalTriggerCardStatus.Warn ? Brushes.Goldenrod
+                    : Status == UniversalTriggerCardStatus.Disabled ? Brushes.Gray
+                    : Brushes.Green;
+            }
+            var key = Status switch
+            {
+                UniversalTriggerCardStatus.Ready => "StatusStripeReadyBrush",
+                UniversalTriggerCardStatus.Warn => "StatusStripeWarnBrush",
+                _ => "StatusStripeOffBrush",
+            };
+            return app.TryFindResource(key) as Brush
+                ?? (Status == UniversalTriggerCardStatus.Warn ? Brushes.Goldenrod
+                : Status == UniversalTriggerCardStatus.Disabled ? Brushes.Gray
+                : Brushes.Green);
+        }
+    }
+
+    public bool IsFromFooma => FoomaInteractionConfigImporter.IsFoomaImport(Rule);
+
+    public string Description
+    {
+        get
+        {
+            var actionSummary = BuildActionSummary();
             return Rule.TriggerType switch
             {
-                UniversalTriggerType.ChannelPointReward when Rule.RewardCost > 0 => $"{Rule.RewardCost} pts",
-                UniversalTriggerType.Bits => $"Bits {Rule.MinimumBits}-{Rule.MaximumBits}",
+                UniversalTriggerType.ChatCommand => LocalizationService.Format("Universal Triggers Description Chat", Rule.CommandText ?? string.Empty, actionSummary),
+                UniversalTriggerType.ChannelPointReward when Rule.RewardSyncMode == TwitchRewardSyncMode.CreateOrManage
+                    => LocalizationService.Format("Universal Triggers Description Reward Managed", Rule.RewardTitle ?? string.Empty, Rule.RewardCost, Rule.RewardCooldownSeconds, actionSummary),
+                UniversalTriggerType.ChannelPointReward
+                    => LocalizationService.Format("Universal Triggers Description Reward Linked", Rule.RewardTitle ?? string.Empty),
+                UniversalTriggerType.Bits when Rule.MaximumBits > 0
+                    => LocalizationService.Format("Universal Triggers Description Bits Range", Rule.MinimumBits, Rule.MaximumBits, actionSummary),
+                UniversalTriggerType.Bits
+                    => LocalizationService.Format("Universal Triggers Description Bits Open", Rule.MinimumBits, actionSummary),
+                UniversalTriggerType.Subscription => LocalizationService.Format("Universal Triggers Description Subs", Rule.SubscriptionTier.ToString(), actionSummary),
+                UniversalTriggerType.GiftSubscription => LocalizationService.Format("Universal Triggers Description Gift Subs", actionSummary),
+                UniversalTriggerType.Follow => LocalizationService.Format("Universal Triggers Description Follow", actionSummary),
                 _ => string.Empty,
             };
         }
     }
 
-    public string ActionSummary
+    private string BuildActionSummary()
     {
-        get
+        var actions = Rule.Actions;
+        if (actions.Count == 0)
         {
-            var count = Rule.Actions.Count;
-            if (count == 0) return "No actions yet";
-            var totalSeconds = Rule.Actions.Sum(a => a.DurationSeconds);
-            var paths = Rule.Actions
-                .Select(a => a.OscAddress)
-                .Where(p => !string.IsNullOrWhiteSpace(p))
-                .Distinct()
-                .Take(2)
-                .ToList();
-            var pathText = paths.Count == 0 ? string.Empty : string.Join(", ", paths) + (count > paths.Count ? ", ..." : string.Empty);
-            return totalSeconds > 0
-                ? $"{count} action(s), {totalSeconds:0.#}s total · {pathText}"
-                : $"{count} action(s) · {pathText}";
+            return "(no actions)";
         }
-    }
-
-    public bool IsUnconfigured => !Rule.IsConfigured;
-
-    public bool IsDanger => PrimaryStatus is UniversalTriggerCardStatus.DangerMissingParam or UniversalTriggerCardStatus.DangerNoActions;
-
-    public bool HasDanger => IsDanger;
-
-    public bool IsWarn => PrimaryStatus is UniversalTriggerCardStatus.WarnDirectOsc or UniversalTriggerCardStatus.WarnNotAvatarBound;
-
-    public IReadOnlyList<UniversalTriggerStatusChip> StatusChips
-    {
-        get
+        if (actions.Count == 1)
         {
-            var chips = new List<UniversalTriggerStatusChip>();
-            if (IsUnconfigured)
-            {
-                chips.Add(new UniversalTriggerStatusChip("Needs setup", UniversalTriggerChipSeverity.Info));
-            }
-            if (PrimaryStatus == UniversalTriggerCardStatus.WarnDirectOsc)
-            {
-                chips.Add(new UniversalTriggerStatusChip("⚠ Direct OSC paths", UniversalTriggerChipSeverity.Warn));
-            }
-            if (PrimaryStatus == UniversalTriggerCardStatus.WarnNotAvatarBound)
-            {
-                chips.Add(new UniversalTriggerStatusChip("⚠ Not avatar-bound", UniversalTriggerChipSeverity.Warn));
-            }
-            if (PrimaryStatus == UniversalTriggerCardStatus.DangerMissingParam)
-            {
-                chips.Add(new UniversalTriggerStatusChip("✗ param missing", UniversalTriggerChipSeverity.Danger));
-            }
-            if (PrimaryStatus == UniversalTriggerCardStatus.DangerNoActions)
-            {
-                chips.Add(new UniversalTriggerStatusChip("✗ No complete actions", UniversalTriggerChipSeverity.Danger));
-            }
-            if (PrimaryStatus == UniversalTriggerCardStatus.Ready)
-            {
-                chips.Add(new UniversalTriggerStatusChip("✓ Ready for current avatar", UniversalTriggerChipSeverity.Ready));
-            }
-            if (string.Equals(Rule.ImportSource, "Fooma Twitch Interaction", StringComparison.OrdinalIgnoreCase))
-            {
-                chips.Add(new UniversalTriggerStatusChip("from Fooma", UniversalTriggerChipSeverity.Info));
-            }
-            return chips;
+            var a = actions[0];
+            return $"{a.OscAddress} {a.TargetValue} for {a.DurationSeconds}s";
         }
-    }
-
-    public UniversalTriggerCardStatus PrimaryStatus
-    {
-        get
-        {
-            if (IsUnconfigured) return UniversalTriggerCardStatus.Unconfigured;
-            if (!Rule.HasCompleteAction) return UniversalTriggerCardStatus.DangerNoActions;
-            if (HasAnyDirectOscAction() && !HasAnyAvatarParamAction())
-                return UniversalTriggerCardStatus.WarnDirectOsc;
-            if (HasAnyDirectOscAction())
-                return UniversalTriggerCardStatus.WarnNotAvatarBound;
-            if (HasMissingAvatarParams())
-                return UniversalTriggerCardStatus.DangerMissingParam;
-            return UniversalTriggerCardStatus.Ready;
-        }
-    }
-
-    public IReadOnlyList<string> AvatarParamPaths => Rule.Actions
-        .Select(a => a.OscAddress)
-        .Where(p => !string.IsNullOrWhiteSpace(p) && (p.StartsWith("avatar/parameters/") || p.StartsWith("/avatar/parameters/")))
-        .Select(p => p.StartsWith("/") ? p : "/" + p)
-        .Distinct()
-        .ToList();
-
-    public IReadOnlyList<string> MissingAvatarParamNames(IReadOnlyCollection<string> currentAvatarParams)
-    {
-        return AvatarParamPaths
-            .Where(p => !currentAvatarParams.Contains(p))
-            .Select(p => p.Substring("/avatar/parameters/".Length))
-            .ToList();
-    }
-
-    private bool HasAnyAvatarParamAction() => Rule.Actions.Any(a =>
-        !string.IsNullOrWhiteSpace(a.OscAddress) &&
-        (a.OscAddress.StartsWith("avatar/parameters/") || a.OscAddress.StartsWith("/avatar/parameters/")));
-
-    private bool HasAnyDirectOscAction() => Rule.Actions.Any(a =>
-        !string.IsNullOrWhiteSpace(a.OscAddress) &&
-        a.OscAddress.StartsWith("/") &&
-        !a.OscAddress.StartsWith("/avatar/parameters/"));
-
-    private bool HasMissingAvatarParams()
-    {
-        if (!HasAnyAvatarParamAction()) return false;
-        // The runtime check (IsUniversalTriggerReadyForCurrentAvatarJson) is the authority
-        // for "missing param"; the view-model defers to that for now. The simpler heuristic
-        // is: if the trigger is configured but no avatar JSON has been loaded, treat as missing.
-        return false;
+        var key = Rule.ExecuteRandomAction ? "Universal Triggers Action Summary Random" : "Universal Triggers Action Summary All";
+        return LocalizationService.Format(key, actions.Count);
     }
 
     private void OnRulePropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        // Re-evaluate every computed card property when the underlying rule changes
-        RaisePropertyChanged(nameof(TypeChipText));
-        RaisePropertyChanged(nameof(SecondaryChipText));
-        RaisePropertyChanged(nameof(ActionSummary));
-        RaisePropertyChanged(nameof(IsUnconfigured));
-        RaisePropertyChanged(nameof(IsDanger));
-        RaisePropertyChanged(nameof(IsWarn));
-        RaisePropertyChanged(nameof(PrimaryStatus));
-        RaisePropertyChanged(nameof(AvatarParamPaths));
-        RaisePropertyChanged(nameof(HasDanger));
-        RaisePropertyChanged(nameof(StatusChips));
-    }
-
-    private void OnActionsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        RaisePropertyChanged(nameof(ActionSummary));
-        RaisePropertyChanged(nameof(IsDanger));
-        RaisePropertyChanged(nameof(IsWarn));
-        RaisePropertyChanged(nameof(PrimaryStatus));
-        RaisePropertyChanged(nameof(AvatarParamPaths));
-        RaisePropertyChanged(nameof(HasDanger));
-        RaisePropertyChanged(nameof(StatusChips));
+        RaisePropertyChanged(nameof(Status));
+        RaisePropertyChanged(nameof(StatusPill));
+        RaisePropertyChanged(nameof(StatusStripeBrush));
+        RaisePropertyChanged(nameof(TypePill));
+        RaisePropertyChanged(nameof(EmojiIcon));
+        RaisePropertyChanged(nameof(Description));
+        RaisePropertyChanged(nameof(IsFromFooma));
     }
 }

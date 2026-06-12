@@ -12,4 +12,5 @@ public interface IActivityResumeService
     Task RecordActivityEndedAsync(Guid ruleId);
     Task ClearAllAsync();
     Task CommitAsync();
+    Task DeleteStaleFileIfPresentAsync();
 }

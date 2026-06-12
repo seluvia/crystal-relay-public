@@ -3,6 +3,27 @@ Crystal Relay Changelog
 
 Newest updates appear first. This changelog focuses on the changes users will notice most.
 
+v3.1.9 beta 3
+- Rebuilt the Universal Triggers manager as its own themed window with a search bar, type/status/source filters, and per-section collapse controls.
+- Added a slide-out editor panel for editing triggers without leaving the manager, including trigger type, Twitch reward, avatar readiness check, and OSC action list.
+- Added Ready / Needs attention / Disabled status pills, type pills for each trigger type, and Source pills (Fooma / Manual) on every Universal Triggers card.
+- Added a one-click Test button on every Universal Triggers card.
+- Added a help button on the Fooma importer to explain command-fusion and reward pairing in plain language.
+- Added per-rule toggles for Run random action, Queue, and Active Duration in the editor.
+- Added an Avatar Readiness section in the editor that lists which OSC parameters are available on the current VRChat avatar.
+- Improved restore from manual test so trigger type, reward, bits range, sub tier, and action list all come back.
+- Routed managed reward saves and updates for Universal Triggers through Crystal Relay's standard channel-point reward sync.
+
+v3.1.9 beta 2
+- Added Activity Resume so Crystal Relay remembers active redeems and picks up where it left off after a restart. Avatar changes, movement redeems, and scaling actions now survive app restarts instead of being lost.
+- Redesigned the Avatar Scaling action setup with a cleaner, compact layout. Each scale mode (Set Height, Random, Relative, Multiplier, Preset, Glitchy) now shows only the options that matter for that mode.
+- Added a Multiplier direction option so multiplier scaling can push height up, down, or both.
+- Added a configurable transition speed for Glitchy Random Height so you can control how fast the height jumps around.
+- Avatar Scaling now bypasses VRChat's built-in world height limits when custom Min/Max values are set, giving more precise control.
+- Redesigned the Streaming Status illustration with a refreshed look.
+- Compacted the Home page support section with popup explanations for Ko-fi and Discord.
+- Fixed scale preview so all modes correctly show the current avatar height.
+
 v3.1.9 beta 1
 - Optimized startup speed by deferring heavy initialization out of the main constructor. The window now appears faster with a loading overlay while settings, currency codes, and font lists load in the background.
 - Added a lightweight settings read path during startup that only loads language and theme preferences, so the correct theme is applied immediately without a flash.

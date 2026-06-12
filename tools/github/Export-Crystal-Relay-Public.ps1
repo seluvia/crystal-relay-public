@@ -22,6 +22,7 @@ function Write-SharedGitIgnore {
 .vscode/
 .idea/
 .opencode/
+.superpowers/
 
 .appdata/
 .dotnet/
@@ -76,6 +77,7 @@ function Assert-PublicExportClean {
         'temp-build',
         'docs/superpowers',
         'superpowers',
+        '.superpowers',
         'tools/private',
         'tools/private/crystal-relay-live-list',
         'crystal-relay-live-list',
@@ -94,6 +96,8 @@ function Assert-PublicExportClean {
         'Open-Crystal-Relay-GitHub-Desktop-Workflow.ps1',
         'Prepare-Crystal-Relay-GitHub-Uploads.ps1',
         'Sync-Crystal-Relay-GitHub-Repos.ps1',
+        'Create-Crystal-Relay-Debug-Shortcut.ps1',
+        'Launch-Crystal-Relay-Dev Build.bat',
         'GITHUB-UPLOAD-NOTES.txt',
         'RELEASE-CHANGE-RECORD.txt'
     )
@@ -198,6 +202,7 @@ $excludedDirs = @(
     'temp-build',
     'docs\superpowers',
     'superpowers',
+    '.superpowers',
     'tools/private',
     'tools/private/crystal-relay-live-list',
     'crystal-relay-live-list',
@@ -217,6 +222,8 @@ $excludedFiles = @(
     'Open-Crystal-Relay-GitHub-Desktop-Workflow.ps1',
     'Prepare-Crystal-Relay-GitHub-Uploads.ps1',
     'Sync-Crystal-Relay-GitHub-Repos.ps1',
+    'Create-Crystal-Relay-Debug-Shortcut.ps1',
+    'Launch-Crystal-Relay-Dev Build.bat',
     '*.user',
     '*.suo',
     '*.tmp',

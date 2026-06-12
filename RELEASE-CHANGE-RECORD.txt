@@ -23,13 +23,28 @@ Pending Release Draft
 - Source files reflect v3.1.9; csproj and updater project will be updated when new work begins.
 
 Added:
+- Added Activity Resume so Crystal Relay remembers active redeems and picks up where it left off after a restart.
+- Added a Multiplier direction option for Avatar Scaling multiplier mode.
+- Added a configurable transition speed for Glitchy Random Height.
 - Added a richer loading overlay animation with a pulsing crystal glow, orbiting accents, shimmer, and calm loading text that stops when initialization completes.
 - Added OSC Status restart controls for restarting Crystal Relay or restarting VRChat and Crystal Relay while restoring open Crystal Relay windows.
 - Added a restart-only desktop mode option so the VRChat + Crystal Relay restart can relaunch VRChat with Desktop mode for testing.
 - Added a Twitch Chatbox XSOverlay compatibility mode and remembered chatbox placement so overlay capture can keep a stable target between launches and restarts.
 - Added Wardrobe copy/paste tools for outfits and snapshot parameters to speed up reward setup.
+- Rebuilt the Universal Triggers manager as its own themed window with a search bar, type/status/source filters, and per-section collapse controls.
+- Added a slide-out editor panel for editing triggers without leaving the manager, including trigger type, Twitch reward, avatar readiness check, and OSC action list.
+- Added Ready / Needs attention / Disabled status pills, type pills for each trigger type, and Source pills (Fooma / Manual) on every Universal Triggers card.
+- Added a one-click Test button on every Universal Triggers card.
+- Added a help button on the Fooma importer to explain command-fusion and reward pairing in plain language.
+- Added per-rule toggles for Run random action, Queue, and Active Duration in the editor.
+- Added an Avatar Readiness section in the editor that lists which OSC parameters are available on the current VRChat avatar.
 
 Changed:
+- Redesigned the Avatar Scaling action setup with a cleaner, compact mode-driven layout.
+- Avatar Scaling now bypasses VRChat's built-in world height limits when custom Min/Max values are set.
+- Redesigned the Streaming Status illustration with a refreshed look.
+- Compacted the Home page support section with popup explanations for Ko-fi and Discord.
+- Fixed scale preview so all modes correctly show the current avatar height.
 - Improved Avatar Change and Avatar Roulette timing so queued channel-point avatar swaps can run one after another without bouncing through the return avatar between redeems.
 - Fixed Wardrobe return restore so saved VRChat LocalAvatarData values match the current avatar's typed OSC parameter names and path suffixes, including nested paths and space/underscore differences.
 - Fixed Wardrobe parameter picking so type-filtered Bool/Int/Float choices save as `/avatar/parameters/...` paths immediately.
@@ -38,9 +53,12 @@ Changed:
 - Fixed Wardrobe setup so Test Outfit sends configured OSC parameters, parameter removal enables correctly, and individual outfit rewards can be created from the outfit name.
 - Improved VRChat + Crystal Relay restart rejoin so private/group/friends instance launch targets are passed back to VRChat in the raw format it expects.
 - Improved avatar-scaling height carryover around queued avatar swaps and interrupted height changes.
+- Fixed Wardrobe so the "Link existing Twitch reward" picker now shows the channel's available rewards, matching the Avatar Sets section. Already-linked wardrobe rewards also stay in the dropdown after a Twitch reward catalog refresh.
+- Improved restore from manual test so trigger type, reward, bits range, sub tier, and action list all come back.
+- Routed managed reward saves and updates for Universal Triggers through Crystal Relay's standard channel-point reward sync.
 
 Removed:
-- (none)
+- Replaced the old inline Universal Triggers settings tab with the new dedicated manager window. The old tab and its dual-pane editor are gone; everything they did is now in the new window.
 
 Release Checklist:
 - Update the app version in VrcTwitchOscBridge.csproj (and CrystalRelayUpdater.csproj).
@@ -50,4 +68,7 @@ Release Checklist:
 - Sync and verify the private repo first if the release is meant to go to GitHub.
 - Sync and verify the public repo only after the private repo is confirmed good.
 - Publish or update the matching GitHub release asset with the public release package/file.
+
+Followup / Future Work (not in this release):
+- Avatar Sets runtime toggle: when `DurationSeconds == 0` and the rule's parameter is `Bool`, the redemption path should read the live OSC value of the parameter from the avatar's OSC bridge and send the opposite value. UI is in place (label says "0 = no timer (toggle: read current OSC value and flip it)"), but the runtime branch in `BridgeCoordinator` is not implemented. Gate to `ParameterType == Bool`; Int/Float have no clear toggle meaning. Needs a `ReadLiveOscValueAsync(avatarId, parameterName)` helper or exposing the live receiver cache, then a toggle branch in the AvatarParameter redemption path. See editor sub-label in `AvatarSetsManagerWindow.xaml` for context.
 - Update AGENTS.md "Project Identity" (Last stable release, Current source version, Next post-release development version, Active build lane, Active development build) at the same time as the release is published.

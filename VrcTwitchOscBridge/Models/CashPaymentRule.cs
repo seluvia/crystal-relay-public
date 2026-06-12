@@ -530,7 +530,13 @@ public sealed class CashPaymentRule : ObservableObject
             ActiveTimeSeconds = 0,
             RestoreMode = AvatarScaleRestoreMode.ConfiguredHeight,
             RestoreHeightMeters = 1.6,
-            SmoothTransitionSeconds = 0
+            SetHeightTransitionSeconds = 0,
+            RandomHeightTransitionSeconds = 0,
+            RelativeHeightTransitionSeconds = 0,
+            MultiplierTransitionSeconds = 0,
+            PresetTransitionSeconds = 0,
+            GlitchyRandomHeightTransitionSeconds = 0,
+            SupporterGrowthTransitionSeconds = 0
         };
     }
 

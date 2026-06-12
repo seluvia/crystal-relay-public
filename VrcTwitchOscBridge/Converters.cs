@@ -172,3 +172,100 @@ public sealed class StepVisibilityConverter : IValueConverter
     }
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotSupportedException();
 }
+
+[ValueConversion(typeof(bool), typeof(Visibility))]
+public sealed class InverseBoolToVisibilityConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is true ? Visibility.Collapsed : Visibility.Visible;
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is Visibility.Visible;
+}
+
+[ValueConversion(typeof(bool), typeof(string))]
+public sealed class CollapseChevronTextConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is true ? "▾" : "▴";
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
+[ValueConversion(typeof(bool), typeof(System.Windows.Media.Brush))]
+public sealed class CollapseChevronColorConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is true
+            ? System.Windows.Application.Current?.TryFindResource("MutedBrush") as System.Windows.Media.Brush ?? System.Windows.Media.Brushes.Gray
+            : System.Windows.Application.Current?.TryFindResource("AccentBrush") as System.Windows.Media.Brush ?? System.Windows.Media.Brushes.Purple;
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
+public sealed class GuidToRuleNameConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is not Guid id) return "(unknown rule)";
+        // Simple approach: show truncated GUID for now
+        // Full rule name resolution would require access to the rule collection at convert time
+        return id.ToString()[..8];
+    }
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
+[ValueConversion(typeof(bool), typeof(System.Windows.HorizontalAlignment))]
+public sealed class BoolToHorizontalAlignmentConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is true ? System.Windows.HorizontalAlignment.Right : System.Windows.HorizontalAlignment.Left;
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
+[ValueConversion(typeof(bool), typeof(System.Windows.Thickness))]
+public sealed class BoolToThicknessConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is true ? new System.Windows.Thickness(0, 0, 3, 0) : new System.Windows.Thickness(3, 0, 0, 0);
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
+
+[ValueConversion(typeof(object), typeof(System.Windows.Media.Brush))]
+public sealed class GuidToSelectedRuleBrushConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is not Models.TriggerRule selected) return System.Windows.Media.Brushes.Transparent;
+        if (parameter is not Models.TriggerRule item) return System.Windows.Media.Brushes.Transparent;
+        return ReferenceEquals(selected, item)
+            ? System.Windows.Application.Current?.TryFindResource("AccentBrush") as System.Windows.Media.Brush ?? System.Windows.Media.Brushes.Purple
+            : System.Windows.Application.Current?.TryFindResource("BorderBrush") as System.Windows.Media.Brush ?? System.Windows.Media.Brushes.Gray;
+    }
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
+[ValueConversion(typeof(object), typeof(System.Windows.Media.Brush))]
+public sealed class GuidToSelectedOutfitBrushConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is not Models.WardrobeOutfit selected) return System.Windows.Media.Brushes.Transparent;
+        if (parameter is not Models.WardrobeOutfit item) return System.Windows.Media.Brushes.Transparent;
+        return ReferenceEquals(selected, item)
+            ? System.Windows.Application.Current?.TryFindResource("AccentBrush") as System.Windows.Media.Brush ?? System.Windows.Media.Brushes.Purple
+            : System.Windows.Application.Current?.TryFindResource("BorderBrush") as System.Windows.Media.Brush ?? System.Windows.Media.Brushes.Gray;
+    }
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+

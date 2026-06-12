@@ -31,3 +31,7 @@ secrets.json
 bridge.runtime.local.json
 *.local.json
 tools/private/**/live-list.local.json
+
+# Brainstorming visual companion sessions
+.superpowers/
+
