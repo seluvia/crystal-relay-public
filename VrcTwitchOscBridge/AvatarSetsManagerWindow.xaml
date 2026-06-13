@@ -1734,12 +1734,61 @@
                                                            Foreground="{DynamicResource TextBrush}"
                                                            FontSize="11"
                                                            Margin="0,0,0,2" />
-                                                <ComboBox IsEditable="True"
-                                                          TextSearch.TextPath="DisplayLabel"
-                                                          DisplayMemberPath="DisplayLabel"
-                                                          ItemsSource="{Binding DataContext.AvailableWardrobeParameters, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                          SelectedItem="{Binding DataContext.SelectedWardrobeParameterOption, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                          Text="{Binding DataContext.WardrobeParameterText, RelativeSource={RelativeSource AncestorType=Window}, UpdateSourceTrigger=PropertyChanged}" />
+<Grid Margin="0,0,0,4">
+    <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+    </Grid.ColumnDefinitions>
+    <TextBox Grid.Column="0"
+             x:Name="WardrobeParameterNameTextBox"
+             Text="{Binding DataContext.WardrobeParameterNameFilter, RelativeSource={RelativeSource AncestorType=Window}, UpdateSourceTrigger=PropertyChanged}"
+             TextChanged="OnWardrobeParameterNameTextChanged" />
+    <Button Grid.Column="1"
+            Content="⟳"
+            Style="{StaticResource SecondaryButtonStyle}"
+            Padding="8,4"
+            Margin="6,0,0,0"
+            Command="{Binding DataContext.RefreshWardrobeParametersCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+            ToolTip="Refresh parameters from avatar OSC file" />
+</Grid>
+<Border Background="{DynamicResource InputBrush}"
+        BorderBrush="{DynamicResource BorderBrush}"
+        BorderThickness="1"
+        CornerRadius="4"
+        MaxHeight="140">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <ItemsControl ItemsSource="{Binding DataContext.FilteredWardrobeParameters, RelativeSource={RelativeSource AncestorType=Window}}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Button BorderBrush="{DynamicResource BorderBrush}"
+                            BorderThickness="0,0,0,1"
+                            Background="Transparent"
+                            Padding="6,4"
+                            Cursor="Hand"
+                            HorizontalContentAlignment="Stretch"
+                            HorizontalAlignment="Stretch"
+                            Click="OnWardrobeParameterItemClicked"
+                            Tag="{Binding}">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border Background="{TemplateBinding Background}"
+                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                        Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter HorizontalAlignment="Stretch" />
+                                </Border>
+                            </ControlTemplate>
+                        </Button.Template>
+                        <StackPanel HorizontalAlignment="Stretch">
+                            <TextBlock Text="{Binding Name}" Foreground="{DynamicResource TextBrush}" FontSize="11" />
+                            <TextBlock Text="{Binding ParameterType}" Foreground="{DynamicResource MutedBrush}" FontSize="9" />
+                        </StackPanel>
+                    </Button>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </ScrollViewer>
+</Border>
                                                 <TextBlock Text="Pick from list or type a custom path. Auto-detects Bool/Int/Float type."
                                                            Foreground="{DynamicResource MutedBrush}"
                                                            FontSize="9"
