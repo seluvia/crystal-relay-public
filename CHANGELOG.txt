@@ -23,6 +23,7 @@ v3.1.9 beta 2
 - Redesigned the Streaming Status illustration with a refreshed look.
 - Compacted the Home page support section with popup explanations for Ko-fi and Discord.
 - Fixed scale preview so all modes correctly show the current avatar height.
+- Moved the Wardrobe editor into the Avatar Sets manager. Outfits now have per-reward ready/cooldown color pickers (green/red by default, like Avatar Set rules) and a full Create/Manage vs Link existing reward branch.
 
 v3.1.9 beta 1
 - Optimized startup speed by deferring heavy initialization out of the main constructor. The window now appears faster with a loading overlay while settings, currency codes, and font lists load in the background.

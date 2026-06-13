@@ -56,6 +56,7 @@ Changed:
 - Fixed Wardrobe so the "Link existing Twitch reward" picker now shows the channel's available rewards, matching the Avatar Sets section. Already-linked wardrobe rewards also stay in the dropdown after a Twitch reward catalog refresh.
 - Improved restore from manual test so trigger type, reward, bits range, sub tier, and action list all come back.
 - Routed managed reward saves and updates for Universal Triggers through Crystal Relay's standard channel-point reward sync.
+- Moved Wardrobe editor from main window into the Avatar Sets manager (Step 4) with per-outfit managed reward ready/cooldown color pickers and a full Create vs Link existing reward branch.
 
 Removed:
 - Replaced the old inline Universal Triggers settings tab with the new dedicated manager window. The old tab and its dual-pane editor are gone; everything they did is now in the new window.
