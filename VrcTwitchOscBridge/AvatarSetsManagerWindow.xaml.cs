@@ -111,6 +111,15 @@ public partial class AvatarSetsManagerWindow : Window
         }
     }
 
+    private void OnWardrobeParameterNameTextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+    {
+        if (Vm == null) return;
+        if (sender is System.Windows.Controls.TextBox tb && tb.Text is string text)
+        {
+            Vm.WardrobeParameterNameFilter = text;
+        }
+    }
+
     private void OnParameterItemClicked(object sender, RoutedEventArgs e)
     {
         if (Vm?.SelectedAvatarRule is Models.TriggerRule rule &&
@@ -123,6 +132,20 @@ public partial class AvatarSetsManagerWindow : Window
             // Clear the search filter so the user sees the change
             Vm.ParameterNameFilter = string.Empty;
         }
+    }
+
+    private void OnWardrobeParameterItemClicked(object sender, RoutedEventArgs e)
+    {
+        if (Vm?.SelectedWardrobeSnapshotParam is not { } param ||
+            sender is not System.Windows.Controls.Button btn ||
+            btn.Tag is not Models.VrChatOscParameterSummary p)
+        {
+            return;
+        }
+
+        param.ParameterName = p.Name;
+        param.ParameterType = p.ParameterType;
+        Vm.WardrobeParameterNameFilter = string.Empty;
     }
 
     private void OnParameterValueTrueClicked(object sender, RoutedEventArgs e)
