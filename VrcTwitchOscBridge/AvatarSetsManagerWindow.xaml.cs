@@ -199,26 +199,38 @@ public partial class AvatarSetsManagerWindow : Window
 
     private void OnPickWardrobeReadyColorClicked(object sender, RoutedEventArgs e)
     {
-        // TODO: Task 10 - implement wardrobe ready color picker
-        e.Handled = true;
+        if (sender is System.Windows.Controls.Button btn && btn.Tag is Models.WardrobeOutfit outfit)
+        {
+            PickColorAndApply(outfit.ManagedRewardReadyColor, color => outfit.ManagedRewardReadyColor = color);
+            e.Handled = true;
+        }
     }
 
     private void OnResetWardrobeReadyColorClicked(object sender, RoutedEventArgs e)
     {
-        // TODO: Task 10 - implement wardrobe ready color reset
-        e.Handled = true;
+        if (sender is System.Windows.Controls.Button btn && btn.Tag is Models.WardrobeOutfit outfit)
+        {
+            outfit.ManagedRewardReadyColor = Services.ManagedRewardPresentation.ReadyBackgroundColor;
+            e.Handled = true;
+        }
     }
 
     private void OnPickWardrobeCooldownColorClicked(object sender, RoutedEventArgs e)
     {
-        // TODO: Task 10 - implement wardrobe cooldown color picker
-        e.Handled = true;
+        if (sender is System.Windows.Controls.Button btn && btn.Tag is Models.WardrobeOutfit outfit)
+        {
+            PickColorAndApply(outfit.ManagedRewardCooldownColor, color => outfit.ManagedRewardCooldownColor = color);
+            e.Handled = true;
+        }
     }
 
     private void OnResetWardrobeCooldownColorClicked(object sender, RoutedEventArgs e)
     {
-        // TODO: Task 10 - implement wardrobe cooldown color reset
-        e.Handled = true;
+        if (sender is System.Windows.Controls.Button btn && btn.Tag is Models.WardrobeOutfit outfit)
+        {
+            outfit.ManagedRewardCooldownColor = Services.ManagedRewardPresentation.InUseBackgroundColor;
+            e.Handled = true;
+        }
     }
 
     private void PickColorAndApply(string currentHex, Action<string> apply)
