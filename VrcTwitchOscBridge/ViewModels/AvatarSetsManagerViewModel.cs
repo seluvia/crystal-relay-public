@@ -255,6 +255,7 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
     private Models.WardrobeSnapshotParam? _copiedWardrobeSnapshotParam;
     private bool _isRestoringWardrobeParameterSelection;
     private bool _isRestoringWardrobeParameterText;
+    private string _wardrobeParameterNameFilter = string.Empty;
 
     public Models.WardrobeOutfit? SelectedWardrobeOutfit
     {
@@ -342,6 +343,20 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
         get => _availableWardrobeParameters;
         private set => SetProperty(ref _availableWardrobeParameters, value);
     }
+
+    public string WardrobeParameterNameFilter
+    {
+        get => _wardrobeParameterNameFilter;
+        set
+        {
+            if (SetProperty(ref _wardrobeParameterNameFilter, value ?? string.Empty))
+            {
+                ApplyWardrobeParameterFilter();
+            }
+        }
+    }
+
+    public IReadOnlyList<Models.VrChatOscParameterSummary> FilteredWardrobeParameters { get; private set; } = [];
 
     private void AddRuleTo(AvatarTriggerProfile? profile)
     {
@@ -1043,6 +1058,7 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
             if (_selectedWardrobeSnapshotParam is null)
             {
                 AvailableWardrobeParameters = [];
+                ApplyWardrobeParameterFilter();
                 _selectedWardrobeParameterOption = null;
                 RaisePropertyChanged(nameof(SelectedWardrobeParameterOption));
                 SetWardrobeParameterText(string.Empty);
@@ -1054,6 +1070,7 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
             AvailableWardrobeParameters = BuildWardrobeParameterOptionsForType(
                 _selectedWardrobeSnapshotParam.ParameterType,
                 _selectedWardrobeSnapshotParam.ParameterName ?? string.Empty);
+            ApplyWardrobeParameterFilter();
             var match = AvailableWardrobeParameters.FirstOrDefault(p =>
                 string.Equals(p.Address, address, StringComparison.Ordinal));
             _selectedWardrobeParameterOption = match;
@@ -1211,6 +1228,23 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
         }
 
         return nextOptions;
+    }
+
+    private void ApplyWardrobeParameterFilter()
+    {
+        // Filter the type-filtered list (which is in _availableWardrobeParameters, set
+        // by RefreshWardrobeParameterOptions) by the name search text. The typed-text
+        // resolution path in RefreshWardrobeParameterOptions still uses
+        // _availableWardrobeParameters directly so the match is computed against the
+        // full same-type set, not just the filtered subset.
+        var query = (_wardrobeParameterNameFilter ?? string.Empty).Trim();
+        var nameFiltered = string.IsNullOrEmpty(query)
+            ? _availableWardrobeParameters.ToList()
+            : _availableWardrobeParameters.Where(p =>
+                p.Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                p.Address.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                p.DisplayLabel.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
+        FilteredWardrobeParameters = nameFiltered;
     }
 
     private bool TryResolveWardrobeParameterInput(
