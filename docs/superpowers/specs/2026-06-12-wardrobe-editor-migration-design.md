@@ -235,7 +235,8 @@ the `SelectedAvatarProfile` reference with `SelectedProfile`:
   instead of the inline cache call
 - `TestWardrobeOutfitAsync` — call
   `_mainVm.TestWardrobeOutfitPublicAsync(SelectedWardrobeOutfit,
-  SelectedProfile, CancellationToken.None)` (see Section 3.7)
+  SelectedProfile, CancellationToken.None)` (see "Required addition to
+  `MainWindowViewModel`" below in this section)
 - `CloneWardrobeOutfit(outfit, clearRewardId, copyName)` /
   `CloneWardrobeSnapshotParam(param)` / `GetUniqueWardrobeCopyName`
 - `StripWardrobeParameterDisplayTypeSuffix`
@@ -409,6 +410,12 @@ the manager's `AvailableWardrobeParameters`):
     </StackPanel>
 </Grid>
 ```
+
+This footer goes inside the outer `StackPanel` at the top of Step 4 (the
+one gated by `UseWardrobeMode`). Its `DataContext` is the parent
+`AvatarTriggerProfile` (inherited from the `AvatarSetEditorTemplate`
+`DataType="models:AvatarTriggerProfile"`), so `WardrobeCooldownSeconds`
+binds directly without a `RelativeSource` walk.
 
 **Outfit list (lines 1421-1454)** is kept exactly as-is — the
 `OnOutfitItemClicked` selection, `GuidToSelectedOutfitBrushConverter` highlight,
