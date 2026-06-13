@@ -71,6 +71,13 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
         }
     }
 
+    public IReadOnlyList<Models.OscParameterType> ParameterTypes { get; } =
+        [Models.OscParameterType.Bool, Models.OscParameterType.Int, Models.OscParameterType.Float];
+
+    public IReadOnlyList<string> BoolValueOptions { get; } = ["True", "False"];
+
+    public IReadOnlyList<TwitchRewardSyncModeOption> RewardSyncModeOptions => _mainVm.RewardSyncModeOptions;
+
     private string _parameterNameFilter = string.Empty;
     public string ParameterNameFilter
     {
@@ -146,6 +153,14 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
         DeleteWardrobeOutfitCommand = new RelayCommand(p => DeleteOutfitFrom(SelectedProfile, p as Models.WardrobeOutfit));
         SelectAvatarRuleCommand = new RelayCommand(p => SelectedAvatarRule = p as Models.TriggerRule);
         SelectWardrobeOutfitCommand = new RelayCommand(p => SelectedWardrobeOutfit = p as Models.WardrobeOutfit);
+        AddWardrobeSnapshotParamCommand = new RelayCommand(AddWardrobeSnapshotParam, () => SelectedWardrobeOutfit is not null);
+        RemoveWardrobeSnapshotParamCommand = new RelayCommand(RemoveWardrobeSnapshotParam, () => SelectedWardrobeSnapshotParam is not null);
+        CopyWardrobeOutfitCommand = new RelayCommand(CopyWardrobeOutfit, () => SelectedWardrobeOutfit is not null);
+        PasteWardrobeOutfitCommand = new RelayCommand(PasteWardrobeOutfit, () => SelectedProfile is not null && _copiedWardrobeOutfit is not null);
+        CopyWardrobeSnapshotParamCommand = new RelayCommand(CopyWardrobeSnapshotParam, () => SelectedWardrobeSnapshotParam is not null);
+        PasteWardrobeSnapshotParamCommand = new RelayCommand(PasteWardrobeSnapshotParam, () => SelectedWardrobeOutfit is not null && _copiedWardrobeSnapshotParam is not null);
+        RefreshWardrobeParametersCommand = new AsyncRelayCommand(RefreshWardrobeParametersAsync);
+        TestWardrobeOutfitCommand = new AsyncRelayCommand(TestWardrobeOutfitAsync, () => SelectedWardrobeOutfit is not null && SelectedProfile is not null);
         AddPairedRuleCommand = new RelayCommand(_ => ExecuteAddPairedRule(), _ => SelectedAvatarRule is not null);
         RemovePairedRuleCommand = new RelayCommand(p => ExecuteRemovePairedRule(p as Guid?), _ => SelectedAvatarRule is not null);
         LoadParametersCommand = new RelayCommand(async () => await LoadAvailableParametersAsync());
@@ -231,6 +246,16 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
     }
 
     private Models.WardrobeOutfit? _selectedWardrobeOutfit;
+    private Models.WardrobeSnapshotParam? _selectedWardrobeSnapshotParam;
+    private Models.VrChatOscParameterSummary? _selectedWardrobeParameterOption;
+    private string _wardrobeParameterText = string.Empty;
+    private IReadOnlyList<Models.VrChatOscParameterSummary> _wardrobeParameterSourceParameters = [];
+    private IReadOnlyList<Models.VrChatOscParameterSummary> _availableWardrobeParameters = [];
+    private Models.WardrobeOutfit? _copiedWardrobeOutfit;
+    private Models.WardrobeSnapshotParam? _copiedWardrobeSnapshotParam;
+    private bool _isRestoringWardrobeParameterSelection;
+    private bool _isRestoringWardrobeParameterText;
+
     public Models.WardrobeOutfit? SelectedWardrobeOutfit
     {
         get => _selectedWardrobeOutfit;
@@ -240,8 +265,82 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
             {
                 if (value != null) _selectedAvatarRule = null;
                 RaisePropertyChanged(nameof(SelectedAvatarRule));
+
+                SelectedWardrobeSnapshotParam = value?.SnapshotParams.FirstOrDefault();
+                AddWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
+                RemoveWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
+                CopyWardrobeOutfitCommand.NotifyCanExecuteChanged();
+                PasteWardrobeOutfitCommand.NotifyCanExecuteChanged();
+                CopyWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
+                PasteWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
+                AddWardrobeOutfitCommand.NotifyCanExecuteChanged();
+                DeleteWardrobeOutfitCommand.NotifyCanExecuteChanged();
+                TestWardrobeOutfitCommand.NotifyCanExecuteChanged();
             }
         }
+    }
+
+    public Models.WardrobeSnapshotParam? SelectedWardrobeSnapshotParam
+    {
+        get => _selectedWardrobeSnapshotParam;
+        set
+        {
+            var previous = _selectedWardrobeSnapshotParam;
+            if (SetProperty(ref _selectedWardrobeSnapshotParam, value))
+            {
+                if (previous is not null)
+                {
+                    previous.PropertyChanged -= SelectedWardrobeSnapshotParamChanged;
+                }
+
+                if (_selectedWardrobeSnapshotParam is not null)
+                {
+                    _selectedWardrobeSnapshotParam.PropertyChanged += SelectedWardrobeSnapshotParamChanged;
+                }
+
+                RefreshWardrobeParameterOptions();
+                RemoveWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
+                CopyWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
+                PasteWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
+            }
+        }
+    }
+
+    public Models.VrChatOscParameterSummary? SelectedWardrobeParameterOption
+    {
+        get => _selectedWardrobeParameterOption;
+        set
+        {
+            if (SetProperty(ref _selectedWardrobeParameterOption, value)
+                && !_isRestoringWardrobeParameterSelection
+                && SelectedWardrobeSnapshotParam is not null
+                && value is not null)
+            {
+                if (SelectedWardrobeSnapshotParam.ParameterType != value.ParameterType)
+                    SelectedWardrobeSnapshotParam.ParameterType = value.ParameterType;
+                SelectedWardrobeSnapshotParam.ParameterName = value.Address;
+                SetWardrobeParameterText(value.DisplayLabel);
+            }
+        }
+    }
+
+    public string WardrobeParameterText
+    {
+        get => _wardrobeParameterText;
+        set
+        {
+            if (SetProperty(ref _wardrobeParameterText, value ?? string.Empty)
+                && !_isRestoringWardrobeParameterText)
+            {
+                CommitWardrobeParameterText(value);
+            }
+        }
+    }
+
+    public IReadOnlyList<Models.VrChatOscParameterSummary> AvailableWardrobeParameters
+    {
+        get => _availableWardrobeParameters;
+        private set => SetProperty(ref _availableWardrobeParameters, value);
     }
 
     private void AddRuleTo(AvatarTriggerProfile? profile)
@@ -529,6 +628,14 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
     public RelayCommand DeleteWardrobeOutfitCommand { get; }
     public RelayCommand SelectAvatarRuleCommand { get; }
     public RelayCommand SelectWardrobeOutfitCommand { get; }
+    public RelayCommand AddWardrobeSnapshotParamCommand { get; }
+    public RelayCommand RemoveWardrobeSnapshotParamCommand { get; }
+    public RelayCommand CopyWardrobeOutfitCommand { get; }
+    public RelayCommand PasteWardrobeOutfitCommand { get; }
+    public RelayCommand CopyWardrobeSnapshotParamCommand { get; }
+    public RelayCommand PasteWardrobeSnapshotParamCommand { get; }
+    public AsyncRelayCommand RefreshWardrobeParametersCommand { get; }
+    public AsyncRelayCommand TestWardrobeOutfitCommand { get; }
     public RelayCommand AddPairedRuleCommand { get; }
     public RelayCommand RemovePairedRuleCommand { get; }
     public RelayCommand LoadParametersCommand { get; }
@@ -811,7 +918,9 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
         nameof(Models.WardrobeOutfit.TwitchRewardId),
         nameof(Models.WardrobeOutfit.TwitchRewardTitle),
         nameof(Models.WardrobeOutfit.TwitchRewardCost),
-        nameof(Models.WardrobeOutfit.TwitchRewardSyncMode)
+        nameof(Models.WardrobeOutfit.TwitchRewardSyncMode),
+        nameof(Models.WardrobeOutfit.ManagedRewardReadyColor),
+        nameof(Models.WardrobeOutfit.ManagedRewardCooldownColor)
     };
 
     private void SubscribeRulePropertyChanged(Models.TriggerRule rule)
@@ -909,5 +1018,435 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
             card.Dispose();
         }
         _cardsBacking.Clear();
+    }
+
+    private void SelectedWardrobeSnapshotParamChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (_isRestoringWardrobeParameterSelection)
+        {
+            return;
+        }
+
+        if (ReferenceEquals(sender, SelectedWardrobeSnapshotParam)
+            && (e.PropertyName == nameof(Models.WardrobeSnapshotParam.ParameterType)
+                || e.PropertyName == nameof(Models.WardrobeSnapshotParam.ParameterName)))
+        {
+            RefreshWardrobeParameterOptions();
+        }
+    }
+
+    private void RefreshWardrobeParameterOptions()
+    {
+        _isRestoringWardrobeParameterSelection = true;
+        try
+        {
+            if (_selectedWardrobeSnapshotParam is null)
+            {
+                AvailableWardrobeParameters = [];
+                _selectedWardrobeParameterOption = null;
+                RaisePropertyChanged(nameof(SelectedWardrobeParameterOption));
+                SetWardrobeParameterText(string.Empty);
+                return;
+            }
+
+            TryRepairSelectedWardrobeParameter();
+            var address = NormalizeAvatarParameterAddressOrEmpty(_selectedWardrobeSnapshotParam.ParameterName ?? string.Empty);
+            AvailableWardrobeParameters = BuildWardrobeParameterOptionsForType(
+                _selectedWardrobeSnapshotParam.ParameterType,
+                _selectedWardrobeSnapshotParam.ParameterName ?? string.Empty);
+            var match = AvailableWardrobeParameters.FirstOrDefault(p =>
+                string.Equals(p.Address, address, StringComparison.Ordinal));
+            _selectedWardrobeParameterOption = match;
+            RaisePropertyChanged(nameof(SelectedWardrobeParameterOption));
+            SetWardrobeParameterText(match?.DisplayLabel ?? _selectedWardrobeSnapshotParam.ParameterName ?? string.Empty);
+        }
+        finally
+        {
+            _isRestoringWardrobeParameterSelection = false;
+        }
+    }
+
+    private void CommitWardrobeParameterText(string? rawText)
+    {
+        if (SelectedWardrobeSnapshotParam is not { } selectedParam)
+        {
+            return;
+        }
+
+        var text = rawText?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            if (!string.IsNullOrWhiteSpace(selectedParam.ParameterName))
+            {
+                selectedParam.ParameterName = string.Empty;
+            }
+
+            RefreshWardrobeParameterOptions();
+            return;
+        }
+
+        var changed = false;
+        if (TryResolveWardrobeParameterInput(
+                text,
+                selectedParam.ParameterType,
+                out var resolvedAddress,
+                out var resolvedType,
+                out var matchedOption))
+        {
+            if (selectedParam.ParameterType != resolvedType)
+            {
+                selectedParam.ParameterType = resolvedType;
+                changed = true;
+            }
+
+            if (!string.Equals(selectedParam.ParameterName?.Trim(), resolvedAddress, StringComparison.Ordinal))
+            {
+                selectedParam.ParameterName = resolvedAddress;
+                changed = true;
+            }
+
+            if (matchedOption is not null)
+            {
+                _selectedWardrobeParameterOption = matchedOption;
+                RaisePropertyChanged(nameof(SelectedWardrobeParameterOption));
+            }
+        }
+        else
+        {
+            var cleanedText = StripWardrobeParameterDisplayTypeSuffix(text, out var parsedType);
+            if (parsedType is Models.OscParameterType supportedType && selectedParam.ParameterType != supportedType)
+            {
+                selectedParam.ParameterType = supportedType;
+                changed = true;
+            }
+
+            var normalizedAddress = NormalizeAvatarParameterAddressOrEmpty(cleanedText);
+            if (!string.Equals(selectedParam.ParameterName?.Trim(), normalizedAddress, StringComparison.Ordinal))
+            {
+                selectedParam.ParameterName = normalizedAddress;
+                changed = true;
+            }
+        }
+
+        if (!changed)
+        {
+            RefreshWardrobeParameterOptions();
+        }
+    }
+
+    private void SetWardrobeParameterText(string text)
+    {
+        _isRestoringWardrobeParameterText = true;
+        try
+        {
+            WardrobeParameterText = text ?? string.Empty;
+        }
+        finally
+        {
+            _isRestoringWardrobeParameterText = false;
+        }
+    }
+
+    private void TryRepairSelectedWardrobeParameter()
+    {
+        if (_selectedWardrobeSnapshotParam is null)
+        {
+            return;
+        }
+
+        var rawName = _selectedWardrobeSnapshotParam.ParameterName?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(rawName))
+        {
+            return;
+        }
+
+        if (TryResolveWardrobeParameterInput(
+                rawName,
+                _selectedWardrobeSnapshotParam.ParameterType,
+                out var resolvedAddress,
+                out var resolvedType,
+                out _))
+        {
+            if (_selectedWardrobeSnapshotParam.ParameterType != resolvedType)
+            {
+                _selectedWardrobeSnapshotParam.ParameterType = resolvedType;
+            }
+
+            if (!string.Equals(_selectedWardrobeSnapshotParam.ParameterName?.Trim(), resolvedAddress, StringComparison.Ordinal))
+            {
+                _selectedWardrobeSnapshotParam.ParameterName = resolvedAddress;
+            }
+
+            return;
+        }
+
+        var cleanedName = StripWardrobeParameterDisplayTypeSuffix(rawName, out var parsedType);
+        if (parsedType is Models.OscParameterType supportedType && _selectedWardrobeSnapshotParam.ParameterType != supportedType)
+        {
+            _selectedWardrobeSnapshotParam.ParameterType = supportedType;
+        }
+
+        var normalizedAddress = NormalizeAvatarParameterAddressOrEmpty(cleanedName);
+        if (!string.Equals(_selectedWardrobeSnapshotParam.ParameterName?.Trim(), normalizedAddress, StringComparison.Ordinal))
+        {
+            _selectedWardrobeSnapshotParam.ParameterName = normalizedAddress;
+        }
+    }
+
+    private List<Models.VrChatOscParameterSummary> BuildWardrobeParameterOptionsForType(
+        Models.OscParameterType parameterType,
+        string selectedParameterName)
+    {
+        var nextOptions = _wardrobeParameterSourceParameters
+            .Where(parameter => parameter.ParameterType == parameterType)
+            .OrderBy(parameter => parameter.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var cleanedName = StripWardrobeParameterDisplayTypeSuffix(selectedParameterName ?? string.Empty, out _);
+        var selectedParameterAddress = NormalizeAvatarParameterAddressOrEmpty(cleanedName);
+        if (!string.IsNullOrWhiteSpace(selectedParameterAddress)
+            && !nextOptions.Any(option => string.Equals(option.Address, selectedParameterAddress, StringComparison.Ordinal)))
+        {
+            nextOptions.Insert(0, CreateCustomAvatarParameterOption(selectedParameterAddress, parameterType));
+        }
+
+        return nextOptions;
+    }
+
+    private bool TryResolveWardrobeParameterInput(
+        string rawText,
+        Models.OscParameterType preferredType,
+        out string address,
+        out Models.OscParameterType parameterType,
+        out Models.VrChatOscParameterSummary? matchedOption)
+    {
+        address = string.Empty;
+        parameterType = preferredType;
+        matchedOption = null;
+
+        var trimmedText = rawText?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(trimmedText))
+        {
+            return false;
+        }
+
+        var cleanedText = StripWardrobeParameterDisplayTypeSuffix(trimmedText, out var parsedType);
+        var normalizedAddress = NormalizeAvatarParameterAddressOrEmpty(cleanedText);
+        var sourceParameters = _wardrobeParameterSourceParameters.Count > 0
+            ? _wardrobeParameterSourceParameters
+            : _availableWardrobeParameters;
+        var candidates = parsedType is Models.OscParameterType parsed
+            ? sourceParameters.Where(parameter => parameter.ParameterType == parsed)
+            : sourceParameters
+                .Where(parameter => parameter.ParameterType == preferredType)
+                .Concat(sourceParameters.Where(parameter => parameter.ParameterType != preferredType));
+
+        matchedOption = candidates.FirstOrDefault(parameter =>
+            string.Equals(parameter.Address, trimmedText, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(parameter.Address, normalizedAddress, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(parameter.Name, trimmedText, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(parameter.Name, cleanedText, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(parameter.DisplayLabel, trimmedText, StringComparison.OrdinalIgnoreCase));
+
+        if (matchedOption is null)
+        {
+            return false;
+        }
+
+        address = matchedOption.Address;
+        parameterType = matchedOption.ParameterType;
+        return true;
+    }
+
+    private static string StripWardrobeParameterDisplayTypeSuffix(string rawText, out Models.OscParameterType? parsedType)
+    {
+        parsedType = null;
+        var text = rawText?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return string.Empty;
+        }
+
+        foreach (var parameterType in new[] { Models.OscParameterType.Bool, Models.OscParameterType.Int, Models.OscParameterType.Float })
+        {
+            var suffix = $" [{parameterType}]";
+            if (text.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+            {
+                parsedType = parameterType;
+                return text[..^suffix.Length].Trim();
+            }
+        }
+
+        return text;
+    }
+
+    private void AddWardrobeSnapshotParam()
+    {
+        if (SelectedWardrobeOutfit is null) return;
+        var param = new Models.WardrobeSnapshotParam();
+        SelectedWardrobeOutfit.SnapshotParams.Add(param);
+        SelectedWardrobeSnapshotParam = param;
+    }
+
+    private void RemoveWardrobeSnapshotParam()
+    {
+        if (SelectedWardrobeOutfit is null || SelectedWardrobeSnapshotParam is null) return;
+        var param = SelectedWardrobeSnapshotParam;
+        var index = SelectedWardrobeOutfit.SnapshotParams.IndexOf(param);
+        SelectedWardrobeOutfit.SnapshotParams.Remove(param);
+        SelectedWardrobeSnapshotParam = index < SelectedWardrobeOutfit.SnapshotParams.Count
+            ? SelectedWardrobeOutfit.SnapshotParams[index]
+            : SelectedWardrobeOutfit.SnapshotParams.FirstOrDefault();
+    }
+
+    private void CopyWardrobeOutfit()
+    {
+        if (SelectedWardrobeOutfit is null) return;
+        _copiedWardrobeOutfit = CloneWardrobeOutfit(SelectedWardrobeOutfit, clearRewardId: false, copyName: SelectedWardrobeOutfit.Name);
+        PasteWardrobeOutfitCommand.NotifyCanExecuteChanged();
+    }
+
+    private void PasteWardrobeOutfit()
+    {
+        if (SelectedProfile is null || _copiedWardrobeOutfit is null) return;
+
+        var pastedName = GetUniqueWardrobeCopyName(_copiedWardrobeOutfit.Name, SelectedProfile.WardrobeOutfits.Select(outfit => outfit.Name));
+        var outfit = CloneWardrobeOutfit(_copiedWardrobeOutfit, clearRewardId: true, copyName: pastedName);
+        if (!string.IsNullOrWhiteSpace(outfit.TwitchRewardTitle))
+        {
+            outfit.TwitchRewardTitle = GetUniqueWardrobeCopyName(
+                outfit.TwitchRewardTitle,
+                SelectedProfile.WardrobeOutfits.Select(existing => existing.TwitchRewardTitle));
+        }
+
+        SelectedProfile.WardrobeOutfits.Add(outfit);
+        SelectedWardrobeOutfit = outfit;
+        SelectedWardrobeSnapshotParam = outfit.SnapshotParams.FirstOrDefault();
+    }
+
+    private void CopyWardrobeSnapshotParam()
+    {
+        if (SelectedWardrobeSnapshotParam is null) return;
+        _copiedWardrobeSnapshotParam = CloneWardrobeSnapshotParam(SelectedWardrobeSnapshotParam);
+        PasteWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
+    }
+
+    private void PasteWardrobeSnapshotParam()
+    {
+        if (SelectedWardrobeOutfit is null || _copiedWardrobeSnapshotParam is null) return;
+
+        var param = CloneWardrobeSnapshotParam(_copiedWardrobeSnapshotParam);
+        var insertIndex = SelectedWardrobeSnapshotParam is not null
+            ? SelectedWardrobeOutfit.SnapshotParams.IndexOf(SelectedWardrobeSnapshotParam) + 1
+            : SelectedWardrobeOutfit.SnapshotParams.Count;
+        if (insertIndex < 0 || insertIndex > SelectedWardrobeOutfit.SnapshotParams.Count)
+        {
+            insertIndex = SelectedWardrobeOutfit.SnapshotParams.Count;
+        }
+
+        SelectedWardrobeOutfit.SnapshotParams.Insert(insertIndex, param);
+        SelectedWardrobeSnapshotParam = param;
+    }
+
+    private async Task RefreshWardrobeParametersAsync()
+    {
+        if (SelectedProfile is null || string.IsNullOrWhiteSpace(SelectedProfile.AvatarId))
+        {
+            _wardrobeParameterSourceParameters = [];
+            AvailableWardrobeParameters = [];
+            RefreshWardrobeParameterOptions();
+            return;
+        }
+
+        try
+        {
+            var parameters = await _mainVm.LoadAvatarParameterSummariesAsync(SelectedProfile.AvatarId);
+            _wardrobeParameterSourceParameters = parameters;
+            RefreshWardrobeParameterOptions();
+        }
+        catch
+        {
+            _wardrobeParameterSourceParameters = [];
+            AvailableWardrobeParameters = [];
+            RefreshWardrobeParameterOptions();
+        }
+    }
+
+    private async Task TestWardrobeOutfitAsync()
+    {
+        if (SelectedWardrobeOutfit is null || SelectedProfile is null) return;
+        await _mainVm.TestWardrobeOutfitPublicAsync(SelectedWardrobeOutfit, SelectedProfile, CancellationToken.None);
+    }
+
+    private static Models.WardrobeOutfit CloneWardrobeOutfit(Models.WardrobeOutfit source, bool clearRewardId, string copyName)
+    {
+        return new Models.WardrobeOutfit
+        {
+            Id = Guid.NewGuid(),
+            IsEnabled = source.IsEnabled,
+            Name = string.IsNullOrWhiteSpace(copyName) ? "New Outfit Copy" : copyName.Trim(),
+            ActiveTimeSeconds = source.ActiveTimeSeconds,
+            TwitchRewardId = clearRewardId ? string.Empty : source.TwitchRewardId,
+            TwitchRewardTitle = source.TwitchRewardTitle,
+            TwitchRewardDescription = source.TwitchRewardDescription,
+            TwitchRewardCost = source.TwitchRewardCost,
+            TwitchRewardSyncMode = source.TwitchRewardSyncMode,
+            ChatCommandText = source.ChatCommandText,
+            ManagedRewardReadyColor = source.ManagedRewardReadyColor,
+            ManagedRewardCooldownColor = source.ManagedRewardCooldownColor,
+            SnapshotParams = new ObservableCollection<Models.WardrobeSnapshotParam>(
+                source.SnapshotParams.Select(CloneWardrobeSnapshotParam))
+        };
+    }
+
+    private static Models.WardrobeSnapshotParam CloneWardrobeSnapshotParam(Models.WardrobeSnapshotParam source)
+    {
+        return new Models.WardrobeSnapshotParam
+        {
+            Id = Guid.NewGuid(),
+            ParameterName = source.ParameterName,
+            ParameterType = source.ParameterType,
+            SetValue = source.SetValue
+        };
+    }
+
+    private static string GetUniqueWardrobeCopyName(string sourceName, IEnumerable<string> existingNames)
+    {
+        var baseName = string.IsNullOrWhiteSpace(sourceName) ? "New Outfit" : sourceName.Trim();
+        if (!baseName.EndsWith(" Copy", StringComparison.OrdinalIgnoreCase))
+        {
+            baseName += " Copy";
+        }
+
+        var usedNames = existingNames
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => name.Trim())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (!usedNames.Contains(baseName))
+        {
+            return baseName;
+        }
+
+        var index = 2;
+        while (usedNames.Contains($"{baseName} {index}"))
+        {
+            index++;
+        }
+
+        return $"{baseName} {index}";
+    }
+
+    private static string NormalizeAvatarParameterAddressOrEmpty(string parameterName)
+    {
+        return string.IsNullOrWhiteSpace(parameterName)
+            ? string.Empty
+            : Services.VrChatOscClient.NormalizeAvatarParameterAddress(parameterName);
+    }
+
+    private static Models.VrChatOscParameterSummary CreateCustomAvatarParameterOption(string parameterName, Models.OscParameterType parameterType)
+    {
+        var normalizedAddress = Services.VrChatOscClient.NormalizeAvatarParameterAddress(parameterName);
+        var displayName = normalizedAddress.Split('/', StringSplitOptions.RemoveEmptyEntries).LastOrDefault() ?? normalizedAddress;
+        return new Models.VrChatOscParameterSummary(normalizedAddress, displayName, parameterType);
     }
 }
