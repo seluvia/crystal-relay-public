@@ -197,6 +197,30 @@ public partial class AvatarSetsManagerWindow : Window
         }
     }
 
+    private void OnPickWardrobeReadyColorClicked(object sender, RoutedEventArgs e)
+    {
+        // TODO: Task 10 - implement wardrobe ready color picker
+        e.Handled = true;
+    }
+
+    private void OnResetWardrobeReadyColorClicked(object sender, RoutedEventArgs e)
+    {
+        // TODO: Task 10 - implement wardrobe ready color reset
+        e.Handled = true;
+    }
+
+    private void OnPickWardrobeCooldownColorClicked(object sender, RoutedEventArgs e)
+    {
+        // TODO: Task 10 - implement wardrobe cooldown color picker
+        e.Handled = true;
+    }
+
+    private void OnResetWardrobeCooldownColorClicked(object sender, RoutedEventArgs e)
+    {
+        // TODO: Task 10 - implement wardrobe cooldown color reset
+        e.Handled = true;
+    }
+
     private void PickColorAndApply(string currentHex, Action<string> apply)
     {
         using var dialog = new System.Windows.Forms.ColorDialog

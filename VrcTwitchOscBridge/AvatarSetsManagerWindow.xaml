@@ -1467,36 +1467,321 @@
                                                    FontWeight="Bold"
                                                    FontSize="13"
                                                    Margin="0,0,0,10" />
+                                        <TextBlock Text="Active time is clamped to 70s at runtime so the LocalAvatarData snapshot can refresh. Set a value at or above 70s."
+                                                   Foreground="{DynamicResource WarnTextBrush}"
+                                                   FontSize="10"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,0,0,8" />
+                                        <CheckBox IsChecked="{Binding IsEnabled, UpdateSourceTrigger=PropertyChanged}"
+                                                  Content="Enabled"
+                                                  Foreground="{DynamicResource TextBrush}"
+                                                  Margin="0,0,0,8" />
                                         <TextBlock Text="Name"
                                                    Foreground="{DynamicResource TextBrush}"
                                                    FontSize="11"
                                                    Margin="0,0,0,4" />
                                         <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
                                                  Margin="0,0,0,8" />
-                                        <CheckBox IsChecked="{Binding IsEnabled, UpdateSourceTrigger=PropertyChanged}"
-                                                  Content="Enabled"
-                                                  Foreground="{DynamicResource TextBrush}"
-                                                  Margin="0,0,0,8" />
                                         <TextBlock Text="Active Time (seconds)"
                                                    Foreground="{DynamicResource TextBrush}"
                                                    FontSize="11"
-                                                   Margin="0,0,0,4" />
+                                                   Margin="0,0,0,2" />
                                         <TextBox Text="{Binding ActiveTimeSeconds, UpdateSourceTrigger=PropertyChanged}"
-                                                 Margin="0,0,0,8" />
-                                        <TextBlock Text="Reward ID"
+                                                 Margin="0,0,0,4" />
+                                        <TextBlock Text="Below 70s the runtime will clamp and extend the active window."
+                                                   Foreground="{DynamicResource WarnTextBrush}"
+                                                   FontSize="9"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,0,0,8"
+                                                   Visibility="{Binding UsesShortActiveTime, Converter={StaticResource BoolToVisibilityConverter}}" />
+
+                                        <TextBlock Text="Reward Sync Mode"
                                                    Foreground="{DynamicResource TextBrush}"
+                                                   FontWeight="SemiBold"
                                                    FontSize="11"
-                                                   Margin="0,0,0,4" />
-                                        <TextBox Text="{Binding TwitchRewardId, UpdateSourceTrigger=PropertyChanged}"
-                                                 Margin="0,0,0,8" />
-                                        <TextBlock Text="Reward Title"
+                                                   Margin="0,4,0,4" />
+                                        <TextBlock Text="Manage and Create: Crystal Relay creates the reward, hides/deletes it when not in use. Link to listen only: use an existing reward, listen-only."
+                                                   Foreground="{DynamicResource MutedBrush}"
+                                                   FontSize="10"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,0,0,6" />
+                                        <ComboBox SelectedValue="{Binding TwitchRewardSyncMode, UpdateSourceTrigger=PropertyChanged}"
+                                                  SelectedValuePath="Tag" Margin="0,0,0,8">
+                                            <ComboBoxItem Content="Manage and Create" Tag="{x:Static models:TwitchRewardSyncMode.CreateOrManage}" />
+                                            <ComboBoxItem Content="Link to listen only" Tag="{x:Static models:TwitchRewardSyncMode.LinkExisting}" />
+                                        </ComboBox>
+
+                                        <!-- LinkExisting mode -->
+                                        <StackPanel Margin="0,0,0,8">
+                                            <StackPanel.Style>
+                                                <Style TargetType="StackPanel">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding UsesLinkedExistingReward}" Value="True">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </StackPanel.Style>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="Existing Twitch Reward"
+                                                           Foreground="{DynamicResource TextBrush}"
+                                                           FontSize="11"
+                                                           Margin="0,0,0,4" />
+                                                <Button Grid.Column="1"
+                                                        Content="↻"
+                                                        ToolTip="Reload Twitch rewards"
+                                                        Padding="6,2"
+                                                        Margin="0,0,0,4"
+                                                        Command="{Binding DataContext.LoadTwitchRewardsCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        Style="{StaticResource SecondaryButtonStyle}" />
+                                            </Grid>
+                                            <ComboBox ItemsSource="{Binding DataContext.AvailableTwitchRewards, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                      SelectedValue="{Binding TwitchRewardId, UpdateSourceTrigger=PropertyChanged}"
+                                                      SelectedValuePath="Id"
+                                                      DisplayMemberPath="Title"
+                                                      IsEditable="False"
+                                                      Margin="0,0,0,4" />
+                                            <TextBlock Text="{Binding DataContext.TwitchRewardsLoadStatus, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                       Foreground="{DynamicResource MutedBrush}"
+                                                       FontSize="10"
+                                                       Margin="0,0,0,4" />
+                                            <TextBlock Text="Reward ID (auto-filled when selected)"
+                                                       Foreground="{DynamicResource MutedBrush}"
+                                                       FontSize="10"
+                                                       Margin="0,0,0,2" />
+                                            <TextBox Text="{Binding TwitchRewardId, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="True" Background="{DynamicResource NestedPanelBrush}" />
+                                        </StackPanel>
+
+                                        <!-- CreateOrManage mode -->
+                                        <StackPanel Margin="0,0,0,8">
+                                            <StackPanel.Style>
+                                                <Style TargetType="StackPanel">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding UsesCreateOrManageReward}" Value="True">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </StackPanel.Style>
+                                            <UniformGrid Columns="2" Margin="0,0,0,8">
+                                                <StackPanel Margin="0,0,4,0">
+                                                    <TextBlock Text="Reward Title"
+                                                               Foreground="{DynamicResource TextBrush}"
+                                                               FontSize="11"
+                                                               Margin="0,0,0,2" />
+                                                    <TextBox Text="{Binding TwitchRewardTitle, UpdateSourceTrigger=PropertyChanged}" />
+                                                </StackPanel>
+                                                <StackPanel Margin="4,0,0,0">
+                                                    <TextBlock Text="Reward Cost"
+                                                               Foreground="{DynamicResource TextBrush}"
+                                                               FontSize="11"
+                                                               Margin="0,0,0,2" />
+                                                    <TextBox Text="{Binding TwitchRewardCost, UpdateSourceTrigger=PropertyChanged}" />
+                                                </StackPanel>
+                                            </UniformGrid>
+                                            <TextBlock Text="Reward Description"
+                                                       Foreground="{DynamicResource TextBrush}"
+                                                       FontSize="11"
+                                                       Margin="0,0,0,2" />
+                                            <TextBox Text="{Binding TwitchRewardDescription, UpdateSourceTrigger=PropertyChanged}"
+                                                     AcceptsReturn="True" TextWrapping="Wrap" Height="48"
+                                                     Margin="0,0,0,8" />
+                                            <TextBlock Text="Chat Command"
+                                                       Foreground="{DynamicResource TextBrush}"
+                                                       FontSize="11"
+                                                       Margin="0,0,0,2" />
+                                            <TextBox Text="{Binding ChatCommandText, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" />
+
+                                            <!-- Reward Background Colors (Ready / Cooldown) -->
+                                            <TextBlock Text="Reward Colors"
+                                                       Foreground="{DynamicResource TextBrush}"
+                                                       FontSize="11"
+                                                       FontWeight="SemiBold"
+                                                       Margin="0,4,0,4" />
+                                            <TextBlock Text="Ready color = the reward's background when available. Cooldown color = the reward's background while the timer is running or it's been redeemed. Twitch shows these on the channel points page."
+                                                       Foreground="{DynamicResource MutedBrush}"
+                                                       FontSize="10"
+                                                       TextWrapping="Wrap"
+                                                       Margin="0,0,0,8" />
+
+                                            <!-- Ready Color row -->
+                                            <Grid Margin="0,0,0,6">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <Border Grid.Column="0"
+                                                        Width="24" Height="24"
+                                                        CornerRadius="4"
+                                                        BorderBrush="{DynamicResource BorderBrush}"
+                                                        BorderThickness="1"
+                                                        Background="{Binding ManagedRewardReadyColorBrush}"
+                                                        VerticalAlignment="Center"
+                                                        Margin="0,0,8,0" />
+                                                <TextBox Grid.Column="1"
+                                                         Text="{Binding ManagedRewardReadyColor, UpdateSourceTrigger=PropertyChanged}"
+                                                         VerticalContentAlignment="Center"
+                                                         ToolTip="Hex color in #RRGGBB format" />
+                                                <Button Grid.Column="2"
+                                                        Content="Pick..."
+                                                        Style="{StaticResource SecondaryButtonStyle}"
+                                                        Margin="6,0,0,0"
+                                                        Padding="8,4"
+                                                        Click="OnPickWardrobeReadyColorClicked"
+                                                        Tag="{Binding}" />
+                                                <Button Grid.Column="3"
+                                                        Content="Reset"
+                                                        Style="{StaticResource SecondaryButtonStyle}"
+                                                        Margin="4,0,0,0"
+                                                        Padding="8,4"
+                                                        Click="OnResetWardrobeReadyColorClicked"
+                                                        Tag="{Binding}"
+                                                        ToolTip="Reset to default ready color" />
+                                            </Grid>
+
+                                            <!-- Cooldown Color row -->
+                                            <Grid Margin="0,0,0,4">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <Border Grid.Column="0"
+                                                        Width="24" Height="24"
+                                                        CornerRadius="4"
+                                                        BorderBrush="{DynamicResource BorderBrush}"
+                                                        BorderThickness="1"
+                                                        Background="{Binding ManagedRewardCooldownColorBrush}"
+                                                        VerticalAlignment="Center"
+                                                        Margin="0,0,8,0" />
+                                                <TextBox Grid.Column="1"
+                                                         Text="{Binding ManagedRewardCooldownColor, UpdateSourceTrigger=PropertyChanged}"
+                                                         VerticalContentAlignment="Center"
+                                                         ToolTip="Hex color in #RRGGBB format" />
+                                                <Button Grid.Column="2"
+                                                        Content="Pick..."
+                                                        Style="{StaticResource SecondaryButtonStyle}"
+                                                        Margin="6,0,0,0"
+                                                        Padding="8,4"
+                                                        Click="OnPickWardrobeCooldownColorClicked"
+                                                        Tag="{Binding}" />
+                                                <Button Grid.Column="3"
+                                                        Content="Reset"
+                                                        Style="{StaticResource SecondaryButtonStyle}"
+                                                        Margin="4,0,0,0"
+                                                        Padding="8,4"
+                                                        Click="OnResetWardrobeCooldownColorClicked"
+                                                        Tag="{Binding}"
+                                                        ToolTip="Reset to default cooldown color" />
+                                            </Grid>
+                                        </StackPanel>
+
+                                        <!-- Param sub-toolbar -->
+                                        <TextBlock Text="Outfit Parameters"
                                                    Foreground="{DynamicResource TextBrush}"
+                                                   FontWeight="SemiBold"
                                                    FontSize="11"
-                                                   Margin="0,0,0,4" />
-                                        <TextBox Text="{Binding TwitchRewardTitle, UpdateSourceTrigger=PropertyChanged}"
-                                                 Margin="0,0,0,8" />
+                                                   Margin="0,8,0,4" />
+                                        <WrapPanel Margin="0,0,0,6">
+                                            <Button Content="+ Add Param" Style="{StaticResource AccentButtonStyle}" Padding="6,3" FontSize="10" Margin="0,0,4,0"
+                                                    Command="{Binding DataContext.AddWardrobeSnapshotParamCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                            <Button Content="Remove" Style="{StaticResource SecondaryButtonStyle}" Padding="6,3" FontSize="10" Margin="0,0,4,0"
+                                                    Command="{Binding DataContext.RemoveWardrobeSnapshotParamCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                            <Button Content="Copy" Style="{StaticResource SecondaryButtonStyle}" Padding="6,3" FontSize="10" Margin="0,0,4,0"
+                                                    Command="{Binding DataContext.CopyWardrobeSnapshotParamCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                            <Button Content="Paste" Style="{StaticResource SecondaryButtonStyle}" Padding="6,3" FontSize="10" Margin="0,0,4,0"
+                                                    Command="{Binding DataContext.PasteWardrobeSnapshotParamCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                            <Button Content="Refresh" Style="{StaticResource SecondaryButtonStyle}" Padding="6,3" FontSize="10" Margin="0,0,4,0"
+                                                    Command="{Binding DataContext.RefreshWardrobeParametersCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                            <Button Content="Test Outfit" Style="{StaticResource SecondaryButtonStyle}" Padding="6,3" FontSize="10"
+                                                    Command="{Binding DataContext.TestWardrobeOutfitCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                        </WrapPanel>
+
+                                        <!-- Param list -->
+                                        <ListBox ItemsSource="{Binding SnapshotParams}"
+                                                 SelectedItem="{Binding DataContext.SelectedWardrobeSnapshotParam, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                 Background="{DynamicResource PanelBrush}"
+                                                 Foreground="{DynamicResource TextBrush}"
+                                                 MaxHeight="160"
+                                                 Margin="0,0,0,6"
+                                                 BorderBrush="{DynamicResource BorderBrush}">
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding DisplaySummary}" Foreground="{DynamicResource TextBrush}" FontSize="11" Padding="4,2" />
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                        </ListBox>
+
+                                        <!-- Param editor (visible when a param is selected) -->
+                                        <Border Visibility="{Binding DataContext.SelectedWardrobeSnapshotParam, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource NullToVisibilityConverter}}"
+                                                Background="{DynamicResource PanelBrush}"
+                                                BorderBrush="{DynamicResource BorderBrush}"
+                                                BorderThickness="1"
+                                                CornerRadius="8"
+                                                Padding="10"
+                                                Margin="0,4,0,0">
+                                            <StackPanel DataContext="{Binding DataContext.SelectedWardrobeSnapshotParam, RelativeSource={RelativeSource AncestorType=Window}}">
+                                                <TextBlock Text="Parameter Path"
+                                                           Foreground="{DynamicResource TextBrush}"
+                                                           FontSize="11"
+                                                           Margin="0,0,0,2" />
+                                                <ComboBox IsEditable="True"
+                                                          TextSearch.TextPath="DisplayLabel"
+                                                          DisplayMemberPath="DisplayLabel"
+                                                          ItemsSource="{Binding DataContext.AvailableWardrobeParameters, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                          SelectedItem="{Binding DataContext.SelectedWardrobeParameterOption, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                          Text="{Binding DataContext.WardrobeParameterText, RelativeSource={RelativeSource AncestorType=Window}, UpdateSourceTrigger=PropertyChanged}" />
+                                                <TextBlock Text="Pick from list or type a custom path. Auto-detects Bool/Int/Float type."
+                                                           Foreground="{DynamicResource MutedBrush}"
+                                                           FontSize="9"
+                                                           TextWrapping="Wrap"
+                                                           Margin="0,2,0,6" />
+                                                <UniformGrid Columns="2" Margin="0,0,0,4">
+                                                    <StackPanel>
+                                                        <TextBlock Text="Type" Foreground="{DynamicResource TextBrush}" FontSize="11" Margin="0,0,0,2" />
+                                                        <ComboBox ItemsSource="{Binding DataContext.ParameterTypes, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                  SelectedItem="{Binding ParameterType, UpdateSourceTrigger=PropertyChanged}" />
+                                                    </StackPanel>
+                                                    <StackPanel Margin="6,0,0,0">
+                                                        <TextBlock Text="Value" Foreground="{DynamicResource TextBrush}" FontSize="11" Margin="0,0,0,2" />
+                                                        <ComboBox ItemsSource="{Binding DataContext.BoolValueOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                  SelectedItem="{Binding SetValue}"
+                                                                  Visibility="{Binding UsesBoolParameter, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                                        <TextBox Text="{Binding SetValue, UpdateSourceTrigger=PropertyChanged}"
+                                                                 Visibility="{Binding UsesIntParameter, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                                        <TextBox Text="{Binding SetValue, UpdateSourceTrigger=PropertyChanged}"
+                                                                 Visibility="{Binding UsesFloatParameter, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                                    </StackPanel>
+                                                </UniformGrid>
+                                            </StackPanel>
+                                        </Border>
                                     </StackPanel>
                                 </Border>
+
+                                <!-- Global wardrobe cooldown (per profile) -->
+                                <Grid Margin="0,12,0,0">
+                                    <StackPanel>
+                                        <TextBlock Text="Global Wardrobe Cooldown (seconds)"
+                                                   Foreground="{DynamicResource TextBrush}"
+                                                   FontSize="11"
+                                                   Margin="0,0,0,2" />
+                                        <TextBlock Text="All outfits share this cooldown. 0 = no cooldown."
+                                                   Foreground="{DynamicResource MutedBrush}"
+                                                   FontSize="9"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,0,0,4" />
+                                        <TextBox Text="{Binding WardrobeCooldownSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                                    </StackPanel>
+                                </Grid>
                             </StackPanel>
                         </Grid>
                     </Border>
