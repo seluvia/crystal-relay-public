@@ -1074,6 +1074,8 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             TwitchRewardCost = outfit.TwitchRewardCost,
             TwitchRewardDescription = outfit.TwitchRewardDescription,
             TwitchRewardSyncMode = outfit.TwitchRewardSyncMode,
+            ManagedRewardReadyColor = outfit.ManagedRewardReadyColor,
+            ManagedRewardCooldownColor = outfit.ManagedRewardCooldownColor,
             ChatCommandText = outfit.ChatCommandText,
             SnapshotParams = [.. outfit.SnapshotParams.Select(ToPersistedWardrobeSnapshotParam)]
         };
@@ -1263,6 +1265,8 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             TwitchRewardSyncMode = Enum.IsDefined(persisted.TwitchRewardSyncMode)
                 ? persisted.TwitchRewardSyncMode
                 : TwitchRewardSyncMode.CreateOrManage,
+            ManagedRewardReadyColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(persisted.ManagedRewardReadyColor),
+            ManagedRewardCooldownColor = ManagedRewardPresentation.NormalizeCooldownBackgroundColor(persisted.ManagedRewardCooldownColor),
             ChatCommandText = persisted.ChatCommandText ?? string.Empty,
             SnapshotParams = new ObservableCollection<WardrobeSnapshotParam>((persisted.SnapshotParams ?? []).Select(ToWardrobeSnapshotParam))
         };
@@ -2962,6 +2966,10 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
         public string? TwitchRewardDescription { get; set; }
 
         public TwitchRewardSyncMode TwitchRewardSyncMode { get; set; }
+
+        public string? ManagedRewardReadyColor { get; set; }
+
+        public string? ManagedRewardCooldownColor { get; set; }
 
         public string? ChatCommandText { get; set; }
 
