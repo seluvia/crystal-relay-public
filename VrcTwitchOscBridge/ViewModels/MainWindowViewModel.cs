@@ -6753,9 +6753,25 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         QueueSave();
     }
 
-    private async Task TestWardrobeOutfitAsync()
+    private Task TestWardrobeOutfitAsync()
     {
-        if (SelectedWardrobeOutfit is null || SelectedAvatarProfile is null)
+        return ExecuteTestWardrobeOutfitAsync(SelectedWardrobeOutfit!, SelectedAvatarProfile!, CancellationToken.None);
+    }
+
+    public Task TestWardrobeOutfitPublicAsync(
+        WardrobeOutfit outfit,
+        AvatarTriggerProfile profile,
+        CancellationToken cancellationToken)
+    {
+        return ExecuteTestWardrobeOutfitAsync(outfit, profile, cancellationToken);
+    }
+
+    private async Task ExecuteTestWardrobeOutfitAsync(
+        WardrobeOutfit outfit,
+        AvatarTriggerProfile profile,
+        CancellationToken cancellationToken)
+    {
+        if (outfit is null || profile is null)
         {
             return;
         }
@@ -6765,17 +6781,16 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         await bridgeRefreshGate.WaitAsync();
         try
         {
-            await EnsureBridgeStateAsync(CancellationToken.None, allowOscOnly: true);
+            await EnsureBridgeStateAsync(cancellationToken, allowOscOnly: true);
 
-            if (!BridgeRuntimeConfiguration.TryToWardrobeSnapshot(
-                    SelectedWardrobeOutfit, SelectedAvatarProfile, out var snapshot))
+            if (!BridgeRuntimeConfiguration.TryToWardrobeSnapshot(outfit, profile, out var snapshot))
             {
                 BridgeStatus = "Wardrobe outfit test did not run: outfit has no valid parameters.";
                 AppendLog("Could not test wardrobe outfit: outfit is missing valid parameter snapshots.");
                 return;
             }
 
-            var applied = await bridgeCoordinator.ExecuteWardrobeOutfitAsync(snapshot, CancellationToken.None);
+            var applied = await bridgeCoordinator.ExecuteWardrobeOutfitAsync(snapshot, cancellationToken);
             if (applied)
             {
                 BridgeStatus = $"Sent test for wardrobe outfit '{snapshot.Name}'.";
