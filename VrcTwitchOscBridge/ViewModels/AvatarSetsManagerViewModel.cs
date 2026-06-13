@@ -277,6 +277,15 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
                 AddWardrobeOutfitCommand.NotifyCanExecuteChanged();
                 DeleteWardrobeOutfitCommand.NotifyCanExecuteChanged();
                 TestWardrobeOutfitCommand.NotifyCanExecuteChanged();
+
+                // Auto-load avatar OSC parameters when an outfit is selected,
+                // mirroring the rule picker's behavior. Without this, the param
+                // picker list is empty until the user manually clicks the refresh
+                // button, which is easy to miss.
+                if (value is not null)
+                {
+                    _ = RefreshWardrobeParametersAsync();
+                }
             }
         }
     }
