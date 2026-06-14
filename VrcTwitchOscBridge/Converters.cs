@@ -240,21 +240,6 @@ public sealed class BoolToThicknessConverter : IValueConverter
 
 
 [ValueConversion(typeof(object), typeof(System.Windows.Media.Brush))]
-public sealed class GuidToSelectedRuleBrushConverter : IValueConverter
-{
-    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-    {
-        if (value is not Models.TriggerRule selected) return System.Windows.Media.Brushes.Transparent;
-        if (parameter is not Models.TriggerRule item) return System.Windows.Media.Brushes.Transparent;
-        return ReferenceEquals(selected, item)
-            ? System.Windows.Application.Current?.TryFindResource("AccentBrush") as System.Windows.Media.Brush ?? System.Windows.Media.Brushes.Purple
-            : System.Windows.Application.Current?.TryFindResource("BorderBrush") as System.Windows.Media.Brush ?? System.Windows.Media.Brushes.Gray;
-    }
-    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-        => throw new NotSupportedException();
-}
-
-[ValueConversion(typeof(object), typeof(System.Windows.Media.Brush))]
 public sealed class GuidToSelectedOutfitBrushConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
@@ -266,6 +251,81 @@ public sealed class GuidToSelectedOutfitBrushConverter : IValueConverter
             : System.Windows.Application.Current?.TryFindResource("BorderBrush") as System.Windows.Media.Brush ?? System.Windows.Media.Brushes.Gray;
     }
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
+[ValueConversion(typeof(object[]), typeof(System.Windows.Media.Brush))]
+public sealed class IsSelectedOutfitBrushMultiConverter : IMultiValueConverter
+{
+    public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (values.Length < 2) return System.Windows.Application.Current?.TryFindResource("BorderBrush") as System.Windows.Media.Brush ?? System.Windows.Media.Brushes.Gray;
+        if (values[0] is not Models.WardrobeOutfit selected) return System.Windows.Application.Current?.TryFindResource("BorderBrush") as System.Windows.Media.Brush ?? System.Windows.Media.Brushes.Gray;
+        if (values[1] is not Models.WardrobeOutfit item) return System.Windows.Application.Current?.TryFindResource("BorderBrush") as System.Windows.Media.Brush ?? System.Windows.Media.Brushes.Gray;
+        return ReferenceEquals(selected, item)
+            ? System.Windows.Application.Current?.TryFindResource("AccentBrush") as System.Windows.Media.Brush ?? System.Windows.Media.Brushes.Purple
+            : System.Windows.Application.Current?.TryFindResource("BorderBrush") as System.Windows.Media.Brush ?? System.Windows.Media.Brushes.Gray;
+    }
+    public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
+public sealed class IsSelectedOutfitThicknessMultiConverter : IMultiValueConverter
+{
+    public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (values.Length < 2) return new System.Windows.Thickness(1);
+        if (values[0] is not Models.WardrobeOutfit selected) return new System.Windows.Thickness(1);
+        if (values[1] is not Models.WardrobeOutfit item) return new System.Windows.Thickness(1);
+        return ReferenceEquals(selected, item)
+            ? new System.Windows.Thickness(2)
+            : new System.Windows.Thickness(1);
+    }
+    public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
+public sealed class IsSelectedOutfitBoolMultiConverter : IMultiValueConverter
+{
+    public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (values.Length < 2) return false;
+        if (values[0] is not Models.WardrobeOutfit selected) return false;
+        if (values[1] is not Models.WardrobeOutfit item) return false;
+        return ReferenceEquals(selected, item);
+    }
+    public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
+[ValueConversion(typeof(object[]), typeof(System.Windows.Media.Brush))]
+public sealed class IsSelectedRuleBrushMultiConverter : IMultiValueConverter
+{
+    public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (values.Length < 2) return System.Windows.Application.Current?.TryFindResource("BorderBrush") as System.Windows.Media.Brush ?? System.Windows.Media.Brushes.Gray;
+        if (values[0] is not Models.TriggerRule selected) return System.Windows.Application.Current?.TryFindResource("BorderBrush") as System.Windows.Media.Brush ?? System.Windows.Media.Brushes.Gray;
+        if (values[1] is not Models.TriggerRule item) return System.Windows.Application.Current?.TryFindResource("BorderBrush") as System.Windows.Media.Brush ?? System.Windows.Media.Brushes.Gray;
+        return ReferenceEquals(selected, item)
+            ? System.Windows.Application.Current?.TryFindResource("AccentBrush") as System.Windows.Media.Brush ?? System.Windows.Media.Brushes.Purple
+            : System.Windows.Application.Current?.TryFindResource("BorderBrush") as System.Windows.Media.Brush ?? System.Windows.Media.Brushes.Gray;
+    }
+    public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
+public sealed class IsSelectedRuleThicknessMultiConverter : IMultiValueConverter
+{
+    public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (values.Length < 2) return new System.Windows.Thickness(1);
+        if (values[0] is not Models.TriggerRule selected) return new System.Windows.Thickness(1);
+        if (values[1] is not Models.TriggerRule item) return new System.Windows.Thickness(1);
+        return ReferenceEquals(selected, item)
+            ? new System.Windows.Thickness(2)
+            : new System.Windows.Thickness(1);
+    }
+    public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
         => throw new NotSupportedException();
 }
 

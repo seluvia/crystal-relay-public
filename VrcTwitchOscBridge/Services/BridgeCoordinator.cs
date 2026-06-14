@@ -1428,7 +1428,7 @@ internal BridgeCoordinator(
             TriggerType = TwitchTriggerType.ChannelPoints,
             ActionType = OscActionType.PlayerMovement,
             MovementDirection = movementDirection,
-            DurationSeconds = Math.Max(1, (int)Math.Ceiling(devDuration.TotalSeconds))
+            DurationSeconds = Math.Max(1d, Math.Ceiling(devDuration.TotalSeconds))
         };
         var snapshot = BridgeRuntimeConfiguration.CreateManualTestSnapshot(
             rule,
@@ -6769,7 +6769,7 @@ internal BridgeCoordinator(
         int cooldownSeconds) =>
         rule with
         {
-            DurationSeconds = Math.Max(1, (int)Math.Ceiling(duration.TotalSeconds)),
+            DurationSeconds = Math.Max(1d, Math.Ceiling(duration.TotalSeconds)),
             CooldownSeconds = cooldownSeconds
         };
 
@@ -7344,11 +7344,11 @@ internal BridgeCoordinator(
             if (executionRule.ActionType == OscActionType.PlayerMovement
                 && executionRule.MovementDirection == PlayerMovementDirection.Jump)
             {
-                ScheduleJumpPulseReset(executionRule, action, resetDelaySeconds, laneKeys.FirstOrDefault(), laneLeaseId, notifyManagedRewardState: false);
+                ScheduleJumpPulseReset(executionRule, action, resetDelaySeconds, laneKeys.FirstOrDefault(), laneLeaseId, notifyManagedRewardState: false, isTest: isTest);
             }
             else
             {
-                ScheduleReset(executionRule, action, resetDelaySeconds, laneKeys, laneLeaseId, notifyManagedRewardState: false);
+                ScheduleReset(executionRule, action, resetDelaySeconds, laneKeys, laneLeaseId, notifyManagedRewardState: false, isTest: isTest);
             }
         }
 
@@ -10356,7 +10356,8 @@ internal BridgeCoordinator(
         double delaySeconds,
         IReadOnlyList<string>? laneKeys = null,
         Guid laneLeaseId = default,
-        bool notifyManagedRewardState = true)
+        bool notifyManagedRewardState = true,
+        bool isTest = false)
     {
         if (runtimeCancellation is null)
         {
@@ -10458,7 +10459,8 @@ internal BridgeCoordinator(
 
                 // If the avatar recently changed, defer the reset until the grace period ends.
                 // This prevents reset packets from being lost during world transitions.
-                if (IsInAvatarChangeGracePeriod())
+                // Tests skip this check so the active-time reset always fires on schedule.
+                if (!isTest && IsInAvatarChangeGracePeriod())
                 {
                     var graceRemaining = AvatarChangeGracePeriod - (DateTimeOffset.UtcNow - lastAvatarChangeAt);
                     keepPendingReset = MarkPendingResetWaitingForSourceAvatarReturn(pendingReset);
@@ -10470,7 +10472,8 @@ internal BridgeCoordinator(
                     }
                 }
 
-                if (pendingReset.HasPackets
+                if (!isTest
+                    && pendingReset.HasPackets
                     && !string.IsNullOrWhiteSpace(pendingReset.SourceAvatarId)
                     && !string.Equals(GetCurrentVrChatAvatarId(), pendingReset.SourceAvatarId, StringComparison.Ordinal))
                 {
@@ -10687,7 +10690,8 @@ internal BridgeCoordinator(
         double durationSeconds,
         string? laneKey = null,
         Guid laneLeaseId = default,
-        bool notifyManagedRewardState = true)
+        bool notifyManagedRewardState = true,
+        bool isTest = false)
     {
         if (runtimeCancellation is null || action.ResetPacket is null)
         {
@@ -11846,15 +11850,15 @@ internal BridgeCoordinator(
         }
     }
 
-    private static int GetLockoutDurationSeconds(TriggerRuleSnapshot rule)
+    private static double GetLockoutDurationSeconds(TriggerRuleSnapshot rule)
     {
         if (rule.TemporarilyDisabledRuleIds.Count == 0)
         {
-            return 0;
+            return 0d;
         }
 
-        var activeDurationSeconds = Math.Max(0, rule.DurationSeconds);
-        var cooldownSeconds = GetCooldownSeconds(rule);
+        var activeDurationSeconds = Math.Max(0d, rule.DurationSeconds);
+        var cooldownSeconds = (double)GetCooldownSeconds(rule);
         return Math.Max(activeDurationSeconds, cooldownSeconds);
     }
 

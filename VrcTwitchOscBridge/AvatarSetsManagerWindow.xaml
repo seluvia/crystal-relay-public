@@ -32,6 +32,7 @@
         <SolidColorBrush x:Key="NestedPanelBrush" Color="#B8241739" />
         <SolidColorBrush x:Key="BorderBrush" Color="#4B2B78" />
         <SolidColorBrush x:Key="AccentBrush" Color="#A855F7" />
+        <SolidColorBrush x:Key="RuleCardHoverBrush" Color="#8D56E8" />
         <SolidColorBrush x:Key="AccentDimBrush" Color="#552D1B47" />
         <SolidColorBrush x:Key="TextBrush" Color="#F5EEFF" />
         <SolidColorBrush x:Key="MutedBrush" Color="#C9B8E3" />
@@ -74,11 +75,15 @@
         <local:EnumBooleanConverter x:Key="EnumBooleanConverter" />
         <local:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter" />
         <local:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
-        <local:GuidToSelectedRuleBrushConverter x:Key="GuidToSelectedRuleBrushConverter" />
         <local:GuidToSelectedOutfitBrushConverter x:Key="GuidToSelectedOutfitBrushConverter" />
         <local:GuidToRuleNameConverter x:Key="GuidToRuleNameConverter" />
         <local:BoolToHorizontalAlignmentConverter x:Key="BoolToHorizontalAlignmentConverter" />
         <local:BoolToThicknessConverter x:Key="BoolToThicknessConverter" />
+        <local:CountToVisibilityConverter x:Key="CountToVisibilityConverter" />
+        <local:IsSelectedOutfitBrushMultiConverter x:Key="IsSelectedOutfitBrushMultiConverter" />
+        <local:IsSelectedOutfitThicknessMultiConverter x:Key="IsSelectedOutfitThicknessMultiConverter" />
+        <local:IsSelectedRuleBrushMultiConverter x:Key="IsSelectedRuleBrushMultiConverter" />
+        <local:IsSelectedRuleThicknessMultiConverter x:Key="IsSelectedRuleThicknessMultiConverter" />
 
         <Style TargetType="TextBlock">
             <Setter Property="FontFamily" Value="{DynamicResource BodyFontFamily}" />
@@ -327,6 +332,107 @@
             </Setter>
         </Style>
 
+        <Style TargetType="CheckBox">
+            <Setter Property="FontFamily" Value="{DynamicResource BodyFontFamily}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="Margin" Value="0,6,0,0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Grid SnapsToDevicePixels="True">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Width="24"
+                                    Height="24"
+                                    VerticalAlignment="Center"
+                                    Background="Transparent">
+                                <Grid>
+                                    <Border x:Name="CheckChrome"
+                                            Background="{TemplateBinding Background}"
+                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="{TemplateBinding BorderThickness}"
+                                            CornerRadius="8" />
+                                    <Path x:Name="CheckMark"
+                                          Width="12"
+                                          Height="9"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          Data="M 1 5 L 4.5 8 L 11 1"
+                                          Stroke="White"
+                                          StrokeThickness="2.2"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"
+                                          StrokeLineJoin="Round"
+                                          Visibility="Collapsed" />
+                                </Grid>
+                            </Border>
+                            <ContentPresenter Grid.Column="1"
+                                              Margin="12,0,0,0"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True"
+                                              ContentSource="Content" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="CheckChrome" Property="BorderBrush" Value="{DynamicResource RuleCardHoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="CheckChrome" Property="Background" Value="{DynamicResource AccentBrush}" />
+                                <Setter TargetName="CheckChrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                <Setter TargetName="CheckMark" Property="Visibility" Value="Visible" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="CheckChrome" Property="Opacity" Value="0.45" />
+                                <Setter Property="Opacity" Value="0.55" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="ListBox">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+        </Style>
+        <Style TargetType="ListBoxItem">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,0,0,2" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="ItemBorder"
+                                Background="{DynamicResource InputBrush}"
+                                BorderBrush="{DynamicResource InputBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="6,4">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource AccentDimBrush}" />
+                                <Setter TargetName="ItemBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ItemBorder" Property="BorderBrush" Value="{DynamicResource RuleCardHoverBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="ComboBoxToggleButtonStyle" TargetType="ToggleButton">
             <Setter Property="Focusable" Value="False" />
             <Setter Property="Background" Value="{DynamicResource ComboDropButtonBrush}" />
@@ -455,10 +561,14 @@
                                 </Border.Style>
                                 <Grid>
                                     <ToggleButton IsChecked="{Binding IsEnabled, Mode=TwoWay}"
-                                                  Background="Transparent"
-                                                  BorderThickness="0"
                                                   Cursor="Hand"
-                                                  ToolTip="Enable/disable this avatar set" />
+                                                  ToolTip="Enable/disable this avatar set">
+                                        <ToggleButton.Template>
+                                            <ControlTemplate TargetType="ToggleButton">
+                                                <Border Background="Transparent" />
+                                            </ControlTemplate>
+                                        </ToggleButton.Template>
+                                    </ToggleButton>
                                     <Ellipse Width="16"
                                              Height="16"
                                              Fill="White"
@@ -547,13 +657,6 @@
                                        VerticalAlignment="Center" />
                             <StackPanel DockPanel.Dock="Right"
                                         Orientation="Horizontal">
-                                <Button Style="{StaticResource SecondaryButtonStyle}"
-                                        Padding="6,3"
-                                        FontSize="10"
-                                        Margin="0,0,4,0"
-                                        Content="{loc:Translate 'Avatar Sets Card Test'}"
-                                        Command="{Binding TestCommand}"
-                                        IsEnabled="{Binding IsTestDisabled, Converter={StaticResource InverseBoolToVisibilityConverter}}" />
                                 <Button Style="{StaticResource SecondaryButtonStyle}"
                                         Padding="6,3"
                                         FontSize="10"
@@ -727,17 +830,28 @@
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <Border Background="{DynamicResource PanelBrush}"
-                                                    BorderBrush="{Binding DataContext.SelectedAvatarRule, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource GuidToSelectedRuleBrushConverter}, FallbackValue=#4B2B78}"
-                                                    BorderThickness="1"
                                                     CornerRadius="8"
                                                     Padding="10,6"
                                                     Margin="0,0,0,4"
                                                     Cursor="Hand"
                                                     MouseLeftButtonUp="OnRuleItemClicked"
                                                     Tag="{Binding}">
+                                                <Border.BorderBrush>
+                                                    <MultiBinding Converter="{StaticResource IsSelectedRuleBrushMultiConverter}">
+                                                        <Binding Path="DataContext.SelectedAvatarRule" RelativeSource="{RelativeSource AncestorType=Window}" />
+                                                        <Binding Path="." />
+                                                    </MultiBinding>
+                                                </Border.BorderBrush>
+                                                <Border.BorderThickness>
+                                                    <MultiBinding Converter="{StaticResource IsSelectedRuleThicknessMultiConverter}">
+                                                        <Binding Path="DataContext.SelectedAvatarRule" RelativeSource="{RelativeSource AncestorType=Window}" />
+                                                        <Binding Path="." />
+                                                    </MultiBinding>
+                                                </Border.BorderThickness>
                                                 <Grid>
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
                                                         <ColumnDefinition Width="Auto" />
                                                     </Grid.ColumnDefinitions>
                                                     <TextBlock Grid.Column="0"
@@ -745,11 +859,35 @@
                                                                Foreground="{DynamicResource TextBrush}"
                                                                FontSize="11"
                                                                VerticalAlignment="Center" />
-                                                    <Button Grid.Column="1"
+                                                    <Border Grid.Column="1"
+                                                            Margin="8,0,0,0"
+                                                            Padding="6,1"
+                                                            VerticalAlignment="Center"
+                                                            Background="{DynamicResource StatusChipBrush}"
+                                                            CornerRadius="8"
+                                                            ToolTip="{loc:Translate 'Rule has paired rules that will be hidden while this one is active.'}"
+                                                            Visibility="Collapsed">
+                                                        <Border.Style>
+                                                            <Style TargetType="Border">
+                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding HasSpecialRuleLockouts}" Value="True">
+                                                                        <Setter Property="Visibility" Value="Visible" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Border.Style>
+                                                        <TextBlock Text="{loc:Translate 'paired'}"
+                                                                   Foreground="{DynamicResource MutedBrush}"
+                                                                   FontSize="9"
+                                                                   FontStyle="Italic" />
+                                                    </Border>
+                                                    <Button Grid.Column="2"
                                                             Content="✕"
                                                             Style="{StaticResource SecondaryButtonStyle}"
                                                             Padding="6,2"
                                                             FontSize="10"
+                                                            Margin="6,0,0,0"
                                                             Click="OnDeleteRuleClicked"
                                                             Tag="{Binding}" />
                                                 </Grid>
@@ -767,11 +905,20 @@
                                         Padding="14"
                                         Margin="0,14,0,0">
                                     <StackPanel DataContext="{Binding DataContext.SelectedAvatarRule, RelativeSource={RelativeSource AncestorType=Window}}">
-                                        <TextBlock Text="Edit Rule"
-                                                   Foreground="{DynamicResource AccentBrush}"
-                                                   FontWeight="Bold"
-                                                   FontSize="13"
-                                                   Margin="0,0,0,10" />
+                                        <DockPanel LastChildFill="True" Margin="0,0,0,10">
+                                            <Button DockPanel.Dock="Right"
+                                                    Content="Test"
+                                                    Style="{StaticResource SecondaryButtonStyle}"
+                                                    Padding="10,4"
+                                                    FontSize="10"
+                                                    Command="{Binding DataContext.TestSelectedAvatarRuleCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    ToolTip="Send a test trigger for the selected rule" />
+                                            <TextBlock Text="Edit Rule"
+                                                       Foreground="{DynamicResource AccentBrush}"
+                                                       FontWeight="Bold"
+                                                       FontSize="13"
+                                                       VerticalAlignment="Center" />
+                                        </DockPanel>
                                         <TextBlock Text="Name"
                                                    Foreground="{DynamicResource TextBrush}"
                                                    FontSize="11"
@@ -1422,17 +1569,24 @@
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <Border Background="{DynamicResource PanelBrush}"
-                                                    BorderBrush="{Binding DataContext.SelectedWardrobeOutfit, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource GuidToSelectedOutfitBrushConverter}, FallbackValue=#4B2B78}"
-                                                    BorderThickness="1"
-                                                    CornerRadius="8"
-                                                    Padding="10,6"
-                                                    Margin="0,0,0,4"
-                                                    Cursor="Hand"
                                                     MouseLeftButtonUp="OnOutfitItemClicked"
                                                     Tag="{Binding}">
+                                                <Border.BorderBrush>
+                                                    <MultiBinding Converter="{StaticResource IsSelectedOutfitBrushMultiConverter}">
+                                                        <Binding Path="DataContext.SelectedWardrobeOutfit" RelativeSource="{RelativeSource AncestorType=Window}" />
+                                                        <Binding Path="." />
+                                                    </MultiBinding>
+                                                </Border.BorderBrush>
+                                                <Border.BorderThickness>
+                                                    <MultiBinding Converter="{StaticResource IsSelectedOutfitThicknessMultiConverter}">
+                                                        <Binding Path="DataContext.SelectedWardrobeOutfit" RelativeSource="{RelativeSource AncestorType=Window}" />
+                                                        <Binding Path="." />
+                                                    </MultiBinding>
+                                                </Border.BorderThickness>
                                                 <Grid>
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
                                                         <ColumnDefinition Width="Auto" />
                                                     </Grid.ColumnDefinitions>
                                                     <TextBlock Grid.Column="0"
@@ -1440,7 +1594,48 @@
                                                                Foreground="{DynamicResource TextBrush}"
                                                                FontSize="11"
                                                                VerticalAlignment="Center" />
-                                                    <Button Grid.Column="1"
+                                                    <Border Grid.Column="1"
+                                                            HorizontalAlignment="Right"
+                                                            VerticalAlignment="Center"
+                                                            Margin="0,0,6,0"
+                                                            Width="36"
+                                                            Height="18"
+                                                            CornerRadius="9"
+                                                            BorderBrush="{DynamicResource BorderBrush}"
+                                                            BorderThickness="1">
+                                                        <Border.Style>
+                                                            <Style TargetType="Border">
+                                                                <Setter Property="Background" Value="#6B7280" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsEnabled}" Value="True">
+                                                                        <Setter Property="Background" Value="#22C55E" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Border.Style>
+                                                        <Grid>
+                                                            <ToggleButton IsChecked="{Binding IsEnabled, Mode=TwoWay}"
+                                                                          Cursor="Hand">
+                                                                <ToggleButton.Template>
+                                                                    <ControlTemplate TargetType="ToggleButton">
+                                                                        <Border Background="Transparent" />
+                                                                    </ControlTemplate>
+                                                                </ToggleButton.Template>
+                                                            </ToggleButton>
+                                                            <Ellipse Width="12"
+                                                                     Height="12"
+                                                                     Fill="White"
+                                                                     VerticalAlignment="Center">
+                                                                <Ellipse.HorizontalAlignment>
+                                                                    <Binding Path="IsEnabled" Converter="{StaticResource BoolToHorizontalAlignmentConverter}" />
+                                                                </Ellipse.HorizontalAlignment>
+                                                                <Ellipse.Margin>
+                                                                    <Binding Path="IsEnabled" Converter="{StaticResource BoolToThicknessConverter}" />
+                                                                </Ellipse.Margin>
+                                                            </Ellipse>
+                                                        </Grid>
+                                                    </Border>
+                                                    <Button Grid.Column="2"
                                                             Content="✕"
                                                             Style="{StaticResource SecondaryButtonStyle}"
                                                             Padding="6,2"
@@ -1467,16 +1662,12 @@
                                                    FontWeight="Bold"
                                                    FontSize="13"
                                                    Margin="0,0,0,10" />
-                                        <TextBlock Text="Active time is clamped to 70s at runtime so the LocalAvatarData snapshot can refresh. Set a value at or above 70s."
-                                                   Foreground="{DynamicResource WarnTextBrush}"
-                                                   FontSize="10"
-                                                   TextWrapping="Wrap"
-                                                   Margin="0,0,0,8" />
-                                        <CheckBox IsChecked="{Binding IsEnabled, UpdateSourceTrigger=PropertyChanged}"
-                                                  Content="Enabled"
-                                                  Foreground="{DynamicResource TextBrush}"
-                                                  Margin="0,0,0,8" />
-                                        <TextBlock Text="Name"
+                                         <TextBlock Text="Active time is clamped to 70s at runtime so the LocalAvatarData snapshot can refresh. Set a value at or above 70s."
+                                                    Foreground="{DynamicResource WarnTextBrush}"
+                                                    FontSize="10"
+                                                    TextWrapping="Wrap"
+                                                    Margin="0,0,0,8" />
+                                         <TextBlock Text="Name"
                                                    Foreground="{DynamicResource TextBrush}"
                                                    FontSize="11"
                                                    Margin="0,0,0,4" />
@@ -1597,6 +1788,12 @@
                                                        FontSize="11"
                                                        Margin="0,0,0,2" />
                                             <TextBox Text="{Binding ChatCommandText, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" />
+
+                                            <CheckBox IsChecked="{Binding DeleteManagedRewardWhenInactive, UpdateSourceTrigger=PropertyChanged}"
+                                                      Content="Delete when inactive (cleanup on outfit disable/delete, recycle if hitting 50-reward limit)"
+                                                      Foreground="{DynamicResource TextBrush}"
+                                                      FontSize="11"
+                                                      Margin="0,0,0,8" />
 
                                             <!-- Reward Background Colors (Ready / Cooldown) -->
                                             <TextBlock Text="Reward Colors"
@@ -1734,23 +1931,67 @@
                                                            Foreground="{DynamicResource TextBrush}"
                                                            FontSize="11"
                                                            Margin="0,0,0,2" />
-<Grid Margin="0,0,0,4">
-    <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="*" />
-        <ColumnDefinition Width="Auto" />
-    </Grid.ColumnDefinitions>
-    <TextBox Grid.Column="0"
-             x:Name="WardrobeParameterNameTextBox"
-             Text="{Binding DataContext.WardrobeParameterNameFilter, RelativeSource={RelativeSource AncestorType=Window}, UpdateSourceTrigger=PropertyChanged}"
-             TextChanged="OnWardrobeParameterNameTextChanged" />
-    <Button Grid.Column="1"
-            Content="⟳"
-            Style="{StaticResource SecondaryButtonStyle}"
-            Padding="8,4"
-            Margin="6,0,0,0"
-            Command="{Binding DataContext.RefreshWardrobeParametersCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-            ToolTip="Refresh parameters from avatar OSC file" />
-</Grid>
+                                                <Grid Margin="0,0,0,4">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBox Grid.Column="0"
+                                                             x:Name="WardrobeParameterNameTextBox"
+                                                             Text="{Binding DataContext.WardrobeParameterNameFilter, RelativeSource={RelativeSource AncestorType=Window}, UpdateSourceTrigger=PropertyChanged}"
+                                                             TextChanged="OnWardrobeParameterNameTextChanged" />
+                                                    <Button Grid.Column="1"
+                                                            Content="⟳"
+                                                            Style="{StaticResource SecondaryButtonStyle}"
+                                                            Padding="8,4"
+                                                            Margin="6,0,0,0"
+                                                            Command="{Binding DataContext.RefreshWardrobeParametersCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                            ToolTip="Refresh parameters from avatar OSC file" />
+                                                </Grid>
+                                                <UniformGrid Columns="3" Margin="0,0,0,4" Rows="1">
+                                                    <Button Content="Bool" Margin="0,0,2,0"
+                                                            Command="{Binding DataContext.WardrobeFilterBoolCommand, RelativeSource={RelativeSource AncestorType=Window}}">
+                                                        <Button.Style>
+                                                            <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding DataContext.WardrobeParameterTypeFilter, RelativeSource={RelativeSource AncestorType=Window}}" Value="Bool">
+                                                                        <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                                                        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                                                        <Setter Property="Foreground" Value="{DynamicResource ComboTextBrush}" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Button.Style>
+                                                    </Button>
+                                                    <Button Content="Int" Margin="2,0,2,0"
+                                                            Command="{Binding DataContext.WardrobeFilterIntCommand, RelativeSource={RelativeSource AncestorType=Window}}">
+                                                        <Button.Style>
+                                                            <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding DataContext.WardrobeParameterTypeFilter, RelativeSource={RelativeSource AncestorType=Window}}" Value="Int">
+                                                                        <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                                                        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                                                        <Setter Property="Foreground" Value="{DynamicResource ComboTextBrush}" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Button.Style>
+                                                    </Button>
+                                                    <Button Content="Float" Margin="2,0,0,0"
+                                                            Command="{Binding DataContext.WardrobeFilterFloatCommand, RelativeSource={RelativeSource AncestorType=Window}}">
+                                                        <Button.Style>
+                                                            <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding DataContext.WardrobeParameterTypeFilter, RelativeSource={RelativeSource AncestorType=Window}}" Value="Float">
+                                                                        <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                                                        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                                                        <Setter Property="Foreground" Value="{DynamicResource ComboTextBrush}" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Button.Style>
+                                                    </Button>
+                                                </UniformGrid>
 <Border Background="{DynamicResource InputBrush}"
         BorderBrush="{DynamicResource BorderBrush}"
         BorderThickness="1"
@@ -1796,7 +2037,8 @@
                    VerticalAlignment="Center"
                    Foreground="{DynamicResource MutedBrush}"
                    FontSize="11"
-                   Padding="0,12,0,0" />
+                   Padding="0,12,0,0"
+                   Visibility="{Binding DataContext.FilteredWardrobeParameters.Count, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource CountToVisibilityConverter}, ConverterParameter=Inverted}" />
     </Grid>
 </Border>
                                                 <TextBlock Text="Pick from list or type a custom path. Auto-detects Bool/Int/Float type."
@@ -1804,23 +2046,24 @@
                                                            FontSize="9"
                                                            TextWrapping="Wrap"
                                                            Margin="0,2,0,6" />
-                                                <UniformGrid Columns="2" Margin="0,0,0,4">
-                                                    <StackPanel>
-                                                        <TextBlock Text="Type" Foreground="{DynamicResource TextBrush}" FontSize="11" Margin="0,0,0,2" />
-                                                        <ComboBox ItemsSource="{Binding DataContext.ParameterTypes, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                  SelectedItem="{Binding ParameterType, UpdateSourceTrigger=PropertyChanged}" />
-                                                    </StackPanel>
-                                                    <StackPanel Margin="6,0,0,0">
-                                                        <TextBlock Text="Value" Foreground="{DynamicResource TextBrush}" FontSize="11" Margin="0,0,0,2" />
-                                                        <ComboBox ItemsSource="{Binding DataContext.BoolValueOptions, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                  SelectedItem="{Binding SetValue}"
-                                                                  Visibility="{Binding UsesBoolParameter, Converter={StaticResource BoolToVisibilityConverter}}" />
-                                                        <TextBox Text="{Binding SetValue, UpdateSourceTrigger=PropertyChanged}"
-                                                                 Visibility="{Binding UsesIntParameter, Converter={StaticResource BoolToVisibilityConverter}}" />
-                                                        <TextBox Text="{Binding SetValue, UpdateSourceTrigger=PropertyChanged}"
-                                                                 Visibility="{Binding UsesFloatParameter, Converter={StaticResource BoolToVisibilityConverter}}" />
-                                                    </StackPanel>
-                                                </UniformGrid>
+                                                <StackPanel Margin="0,0,0,4">
+                                                    <TextBlock Text="Value" Foreground="{DynamicResource TextBrush}" FontSize="11" Margin="0,0,0,2" />
+                                                    <ComboBox ItemsSource="{Binding DataContext.BoolValueOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                              SelectedItem="{Binding SetValue}"
+                                                              Visibility="{Binding UsesBoolParameter, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                                    <TextBox x:Name="WardrobeIntValueTextBox"
+                                                             Text="{Binding SetValue, UpdateSourceTrigger=PropertyChanged}"
+                                                             Visibility="{Binding UsesIntParameter, Converter={StaticResource BoolToVisibilityConverter}}"
+                                                             PreviewTextInput="OnWardrobeIntValuePreviewTextInput"
+                                                             DataObject.Pasting="OnWardrobeIntValuePasting"
+                                                             LostFocus="OnWardrobeIntValueLostFocus" />
+                                                    <TextBox x:Name="WardrobeFloatValueTextBox"
+                                                             Text="{Binding SetValue, UpdateSourceTrigger=PropertyChanged}"
+                                                             Visibility="{Binding UsesFloatParameter, Converter={StaticResource BoolToVisibilityConverter}}"
+                                                             PreviewTextInput="OnWardrobeFloatValuePreviewTextInput"
+                                                             DataObject.Pasting="OnWardrobeFloatValuePasting"
+                                                             LostFocus="OnWardrobeFloatValueLostFocus" />
+                                                </StackPanel>
                                             </StackPanel>
                                         </Border>
                                     </StackPanel>
@@ -1843,18 +2086,6 @@
                                 </Grid>
                             </StackPanel>
                         </Grid>
-                    </Border>
-
-                    <!-- Enabled toggle -->
-                    <Border Background="{DynamicResource NestedPanelBrush}"
-                            BorderBrush="{DynamicResource HighlightBorderBrush}"
-                            BorderThickness="1"
-                            CornerRadius="12"
-                            Padding="14"
-                            Margin="0,0,0,14">
-                        <CheckBox IsChecked="{Binding IsEnabled, UpdateSourceTrigger=PropertyChanged}"
-                                  Content="{loc:Translate 'Enabled'}"
-                                  Foreground="{DynamicResource TextBrush}" />
                     </Border>
 
                     <!-- Save & Close / Cancel / Delete buttons -->

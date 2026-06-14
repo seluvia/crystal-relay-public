@@ -804,6 +804,8 @@
   "Reveal pairing set": "Reveal pairing set",
   "Reveal pairing: {0}": "Reveal pairing: {0}",
   "Reveal pairings: {0}": "Reveal pairings: {0}",
+  "paired": "paired",
+  "Rule has paired rules that will be hidden while this one is active.": "Rule has paired rules that will be hidden while this one is active.",
   "Show paired redeems only while this redeem is active": "Show paired redeems only while this redeem is active",
   "Shown Only After This Redeem Triggers": "Shown Only After This Redeem Triggers",
   "No reveal pairings set.": "No reveal pairings set.",

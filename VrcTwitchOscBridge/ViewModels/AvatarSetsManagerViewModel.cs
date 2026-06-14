@@ -163,6 +163,7 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
         TestWardrobeOutfitCommand = new AsyncRelayCommand(TestWardrobeOutfitAsync, () => SelectedWardrobeOutfit is not null && SelectedProfile is not null);
         AddPairedRuleCommand = new RelayCommand(_ => ExecuteAddPairedRule(), _ => SelectedAvatarRule is not null);
         RemovePairedRuleCommand = new RelayCommand(p => ExecuteRemovePairedRule(p as Guid?), _ => SelectedAvatarRule is not null);
+        TestSelectedAvatarRuleCommand = new AsyncRelayCommand(TestSelectedAvatarRuleAsync, () => SelectedAvatarRule is not null);
         LoadParametersCommand = new RelayCommand(async () => await LoadAvailableParametersAsync());
         LoadTwitchRewardsCommand = new RelayCommand(async () => await LoadTwitchRewardsAsync());
         OpenAvatarPickerCommand = new RelayCommand(p => BridgeOpenAvatarPicker(p as string), p => SelectedProfile is not null);
@@ -171,6 +172,12 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
         FilterIntCommand = new RelayCommand(() => ParameterTypeFilter = ParameterTypeFilterMode.Int);
         FilterFloatCommand = new RelayCommand(() => ParameterTypeFilter = ParameterTypeFilterMode.Float);
         FilterAllCommand = new RelayCommand(() => ParameterTypeFilter = ParameterTypeFilterMode.All);
+        WardrobeFilterBoolCommand = new RelayCommand(() => WardrobeParameterTypeFilter =
+            WardrobeParameterTypeFilter == WardrobeParameterTypeFilterMode.Bool ? null : WardrobeParameterTypeFilterMode.Bool);
+        WardrobeFilterIntCommand = new RelayCommand(() => WardrobeParameterTypeFilter =
+            WardrobeParameterTypeFilter == WardrobeParameterTypeFilterMode.Int ? null : WardrobeParameterTypeFilterMode.Int);
+        WardrobeFilterFloatCommand = new RelayCommand(() => WardrobeParameterTypeFilter =
+            WardrobeParameterTypeFilter == WardrobeParameterTypeFilterMode.Float ? null : WardrobeParameterTypeFilterMode.Float);
         InitializeOscWatcher();
     }
 
@@ -230,10 +237,23 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
             if (SetProperty(ref _selectedAvatarRule, value))
             {
                 if (value != null) _selectedWardrobeOutfit = null;
+                // Clear pairing target so the "Add another rule to pair" dropdown
+                // does not keep a stale selection from the previously edited rule
+                // (which may no longer be in the new rule's OtherRulesInSet).
+                _selectedPairingTarget = null;
+                _selectedPairingRuleId = null;
                 RaisePropertyChanged(nameof(SelectedWardrobeOutfit));
+                RaisePropertyChanged(nameof(SelectedPairingTarget));
+                RaisePropertyChanged(nameof(SelectedPairingRuleId));
                 RaisePropertyChanged(nameof(OtherRulesInSet));
+                // The PairedRules getter depends on SelectedAvatarRule, so the
+                // previously displayed pair list would otherwise stick to the
+                // newly selected rule and clicking ✕ would mutate the wrong
+                // rule's TemporarilyDisabledRuleIds.
+                RaisePropertyChanged(nameof(PairedRules));
                 AddPairedRuleCommand?.NotifyCanExecuteChanged();
                 RemovePairedRuleCommand?.NotifyCanExecuteChanged();
+                TestSelectedAvatarRuleCommand?.NotifyCanExecuteChanged();
                 // Load parameters when a rule is selected
                 _ = LoadAvailableParametersAsync();
                 // Load Twitch custom rewards for the Link-to-listen dropdown
@@ -256,6 +276,30 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
     private bool _isRestoringWardrobeParameterSelection;
     private bool _isRestoringWardrobeParameterText;
     private string _wardrobeParameterNameFilter = string.Empty;
+
+    public enum WardrobeParameterTypeFilterMode
+    {
+        Bool,
+        Int,
+        Float
+    }
+
+    private WardrobeParameterTypeFilterMode? _wardrobeParameterTypeFilter;
+    public WardrobeParameterTypeFilterMode? WardrobeParameterTypeFilter
+    {
+        get => _wardrobeParameterTypeFilter;
+        set
+        {
+            if (SetProperty(ref _wardrobeParameterTypeFilter, value))
+            {
+                RefreshWardrobeParameterOptions();
+            }
+        }
+    }
+
+    public RelayCommand WardrobeFilterBoolCommand { get; }
+    public RelayCommand WardrobeFilterIntCommand { get; }
+    public RelayCommand WardrobeFilterFloatCommand { get; }
 
     public Models.WardrobeOutfit? SelectedWardrobeOutfit
     {
@@ -365,7 +409,12 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
         }
     }
 
-    public IReadOnlyList<Models.VrChatOscParameterSummary> FilteredWardrobeParameters { get; private set; } = [];
+    private IReadOnlyList<Models.VrChatOscParameterSummary> _filteredWardrobeParameters = [];
+    public IReadOnlyList<Models.VrChatOscParameterSummary> FilteredWardrobeParameters
+    {
+        get => _filteredWardrobeParameters;
+        private set => SetProperty(ref _filteredWardrobeParameters, value);
+    }
 
     private void AddRuleTo(AvatarTriggerProfile? profile)
     {
@@ -660,6 +709,7 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
     public RelayCommand PasteWardrobeSnapshotParamCommand { get; }
     public AsyncRelayCommand RefreshWardrobeParametersCommand { get; }
     public AsyncRelayCommand TestWardrobeOutfitCommand { get; }
+    public AsyncRelayCommand TestSelectedAvatarRuleCommand { get; }
     public RelayCommand AddPairedRuleCommand { get; }
     public RelayCommand RemovePairedRuleCommand { get; }
     public RelayCommand LoadParametersCommand { get; }
@@ -683,6 +733,8 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
     {
         if (profile is null) return;
         SelectedProfile = profile;
+        profile.UseWardrobeMode = false;
+        RaisePropertyChanged(nameof(SelectedProfile));
         IsEditorOpen = true;
     }
 
@@ -750,8 +802,7 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
 
             card.OpenEditorCommand = new RelayCommand(() =>
             {
-                SelectedProfile = profile;
-                IsEditorOpen = true;
+                OpenEditor(profile);
             });
 
             card.TestCommand = new RelayCommand(() =>
@@ -808,8 +859,7 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
 
                 card.OpenEditorCommand = new RelayCommand(() =>
                 {
-                    SelectedProfile = profile;
-                    IsEditorOpen = true;
+                    OpenEditor(profile);
                 });
 
                 card.TestCommand = new RelayCommand(() =>
@@ -944,7 +994,8 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
         nameof(Models.WardrobeOutfit.TwitchRewardCost),
         nameof(Models.WardrobeOutfit.TwitchRewardSyncMode),
         nameof(Models.WardrobeOutfit.ManagedRewardReadyColor),
-        nameof(Models.WardrobeOutfit.ManagedRewardCooldownColor)
+        nameof(Models.WardrobeOutfit.ManagedRewardCooldownColor),
+        nameof(Models.WardrobeOutfit.DeleteManagedRewardWhenInactive)
     };
 
     private void SubscribeRulePropertyChanged(Models.TriggerRule rule)
@@ -1076,8 +1127,11 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
 
             TryRepairSelectedWardrobeParameter();
             var address = NormalizeAvatarParameterAddressOrEmpty(_selectedWardrobeSnapshotParam.ParameterName ?? string.Empty);
+            var effectiveType = _wardrobeParameterTypeFilter.HasValue
+                ? (Models.OscParameterType)_wardrobeParameterTypeFilter.Value
+                : _selectedWardrobeSnapshotParam.ParameterType;
             AvailableWardrobeParameters = BuildWardrobeParameterOptionsForType(
-                _selectedWardrobeSnapshotParam.ParameterType,
+                effectiveType,
                 _selectedWardrobeSnapshotParam.ParameterName ?? string.Empty);
             ApplyWardrobeParameterFilter();
             var match = AvailableWardrobeParameters.FirstOrDefault(p =>
@@ -1421,6 +1475,12 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
         await _mainVm.TestWardrobeOutfitPublicAsync(SelectedWardrobeOutfit, SelectedProfile, CancellationToken.None);
     }
 
+    private async Task TestSelectedAvatarRuleAsync()
+    {
+        if (SelectedAvatarRule is null) return;
+        await _mainVm.TestRuleAsync(SelectedAvatarRule);
+    }
+
     private static Models.WardrobeOutfit CloneWardrobeOutfit(Models.WardrobeOutfit source, bool clearRewardId, string copyName)
     {
         return new Models.WardrobeOutfit
@@ -1437,6 +1497,7 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
             ChatCommandText = source.ChatCommandText,
             ManagedRewardReadyColor = source.ManagedRewardReadyColor,
             ManagedRewardCooldownColor = source.ManagedRewardCooldownColor,
+            DeleteManagedRewardWhenInactive = source.DeleteManagedRewardWhenInactive,
             SnapshotParams = new ObservableCollection<Models.WardrobeSnapshotParam>(
                 source.SnapshotParams.Select(CloneWardrobeSnapshotParam))
         };

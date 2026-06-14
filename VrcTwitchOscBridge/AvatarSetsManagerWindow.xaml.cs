@@ -256,6 +256,74 @@ public partial class AvatarSetsManagerWindow : Window
         }
     }
 
+    private void OnWardrobeIntValuePreviewTextInput(object sender, System.Windows.Input.TextCompositionEventArgs e)
+    {
+        e.Handled = !IsValidIntegerText(e.Text);
+    }
+
+    private void OnWardrobeIntValueLostFocus(object sender, RoutedEventArgs e)
+    {
+        if (sender is not System.Windows.Controls.TextBox textBox) return;
+        if (string.IsNullOrWhiteSpace(textBox.Text) || !int.TryParse(textBox.Text, out _))
+        {
+            textBox.Text = "0";
+        }
+    }
+
+    private void OnWardrobeFloatValuePreviewTextInput(object sender, System.Windows.Input.TextCompositionEventArgs e)
+    {
+        e.Handled = !IsValidFloatText(e.Text);
+    }
+
+    private void OnWardrobeFloatValueLostFocus(object sender, RoutedEventArgs e)
+    {
+        if (sender is not System.Windows.Controls.TextBox textBox) return;
+        if (string.IsNullOrWhiteSpace(textBox.Text) || !double.TryParse(textBox.Text, out _))
+        {
+            textBox.Text = "0.0";
+        }
+    }
+
+    private void OnWardrobeIntValuePasting(object sender, DataObjectPastingEventArgs e)
+    {
+        if (e.DataObject.GetDataPresent(typeof(string)) &&
+            e.DataObject.GetData(typeof(string)) is string text &&
+            !IsValidIntegerText(text))
+        {
+            e.CancelCommand();
+        }
+    }
+
+    private void OnWardrobeFloatValuePasting(object sender, DataObjectPastingEventArgs e)
+    {
+        if (e.DataObject.GetDataPresent(typeof(string)) &&
+            e.DataObject.GetData(typeof(string)) is string text &&
+            !IsValidFloatText(text))
+        {
+            e.CancelCommand();
+        }
+    }
+
+    private static bool IsValidIntegerText(string text)
+    {
+        foreach (var c in text)
+        {
+            if (c is >= '0' and <= '9' or '-' or '+') continue;
+            return false;
+        }
+        return true;
+    }
+
+    private static bool IsValidFloatText(string text)
+    {
+        foreach (var c in text)
+        {
+            if (c is >= '0' and <= '9' or '-' or '+' or '.') continue;
+            return false;
+        }
+        return true;
+    }
+
     private void PickColorAndApply(string currentHex, Action<string> apply)
     {
         using var dialog = new System.Windows.Forms.ColorDialog

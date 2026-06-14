@@ -25,6 +25,7 @@ public sealed class WardrobeOutfit : ObservableObject
     private ObservableCollection<WardrobeSnapshotParam> snapshotParams = [];
     private string managedRewardReadyColor = ManagedRewardPresentation.ReadyBackgroundColor;
     private string managedRewardCooldownColor = ManagedRewardPresentation.InUseBackgroundColor;
+    private bool deleteManagedRewardWhenInactive;
 
     private static string T(string sourceText) => LocalizationService.Translate(sourceText);
     private static string TF(string sourceFormat, params object[] args) => LocalizationService.Format(sourceFormat, args);
@@ -150,6 +151,12 @@ public sealed class WardrobeOutfit : ObservableObject
                 RaisePropertyChanged(nameof(ManagedRewardCooldownColorBrush));
             }
         }
+    }
+
+    public bool DeleteManagedRewardWhenInactive
+    {
+        get => deleteManagedRewardWhenInactive;
+        set => SetProperty(ref deleteManagedRewardWhenInactive, value);
     }
 
     public Brush ManagedRewardReadyColorBrush => CreateColorBrush(ManagedRewardReadyColor);

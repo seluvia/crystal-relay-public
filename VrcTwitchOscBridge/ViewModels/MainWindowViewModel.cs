@@ -9891,6 +9891,13 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             return;
         }
 
+        await TestRuleAsync(SelectedRule);
+    }
+
+    public async Task TestRuleAsync(TriggerRule rule)
+    {
+        if (rule is null) return;
+
         await ReloadRuntimeConfigAsync();
 
         await bridgeRefreshGate.WaitAsync();
@@ -9898,9 +9905,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         {
             await EnsureBridgeStateAsync(CancellationToken.None, allowOscOnly: true);
 
-            var selectedRule = SelectedRule;
-            var (isGlobalOverride, profile) = ResolveRuleRuntimeContext(selectedRule);
-            var ruleSnapshot = BridgeRuntimeConfiguration.CreateManualTestSnapshot(selectedRule, isGlobalOverride, profile);
+            var (isGlobalOverride, profile) = ResolveRuleRuntimeContext(rule);
+            var ruleSnapshot = BridgeRuntimeConfiguration.CreateManualTestSnapshot(rule, isGlobalOverride, profile);
             await bridgeCoordinator.SendTestRuleAsync(ruleSnapshot, CancellationToken.None);
 
             BridgeStatus = $"Sent test for '{ruleSnapshot.Name}'.";
@@ -11828,12 +11834,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             parsedCost,
             outfit.TwitchRewardSyncMode,
             cooldownSeconds: 0,
-            backgroundColor: ManagedRewardPresentation.NormalizeReadyBackgroundColor(string.Empty),
+            backgroundColor: ManagedRewardPresentation.NormalizeReadyBackgroundColor(outfit.ManagedRewardReadyColor),
             prompt: outfit.TwitchRewardDescription,
             requireUserInput: false,
             desiredEnabled: desiredEnabled,
             isCooldownActive: false,
-            deleteWhenInactive: false,
+            deleteWhenInactive: outfit.DeleteManagedRewardWhenInactive,
             protectFromCapReclaim: desiredEnabled,
             applyRewardId: rewardId => outfit.TwitchRewardId = rewardId);
     }
@@ -20326,6 +20332,7 @@ public enum TwitchChatRoleCardKind
     KaiBloodwolf,
     Hypercraftiing,
     KyouZakira,
+    Phil13938,
     Staff,
     LeadModerator,
     Moderator,
@@ -20343,12 +20350,14 @@ public sealed class TwitchChatMessageEntry : ObservableObject
     private const string KaiBloodwolfLogin = "kai_bloodwolf";
     private const string HypercraftiingLogin = "hypercraftiing";
     private const string KyouZakiraLogin = "kyou_zakira";
+    private const string Phil13938Login = "phil13938";
     private static readonly SolidColorBrush DefaultNameBrush = CreateFrozenBrush("#F5EEFF");
     private static readonly SolidColorBrush BubblegumNameBrush = CreateFrozenBrush("#5A426B");
     private static readonly LinearGradientBrush CrystalRelayDeveloperNameBrush = CreateFrozenDeveloperNameBrush();
     private static readonly LinearGradientBrush KaiBloodwolfNameBrush = CreateFrozenKaiBloodwolfNameBrush();
     private static readonly LinearGradientBrush HypercraftiingNameBrush = CreateFrozenHypercraftiingNameBrush();
     private static readonly LinearGradientBrush KyouZakiraNameBrush = CreateFrozenKyouZakiraNameBrush();
+    private static readonly LinearGradientBrush Phil13938NameBrush = CreateFrozenPhil13938NameBrush();
     private static readonly Color DarkCardReferenceColor = Color.FromRgb(40, 23, 60);
     private ChatTimestampFormat timestampFormat;
     private string suspiciousStatus = string.Empty;
@@ -20392,6 +20401,7 @@ public sealed class TwitchChatMessageEntry : ObservableObject
         IsKaiBloodwolf = IsKaiBloodwolfAccount(UserDisplayName, UserLogin);
         IsHypercraftiing = IsHypercraftiingAccount(UserDisplayName, UserLogin);
         IsKyouZakira = IsKyouZakiraAccount(UserDisplayName, UserLogin);
+        IsPhil13938 = IsPhil13938Account(UserDisplayName, UserLogin);
         MessageText = messageText;
         BadgeImageUrls = badgeImageUrls;
         BadgeSetIds = badgeSetIds;
@@ -20403,6 +20413,8 @@ public sealed class TwitchChatMessageEntry : ObservableObject
             ? TwitchChatRoleCardKind.Hypercraftiing
             : IsKyouZakira
             ? TwitchChatRoleCardKind.KyouZakira
+            : IsPhil13938
+            ? TwitchChatRoleCardKind.Phil13938
             : ResolveRoleCardKind(Kind, normalizedSupportTier, BadgeSetIds);
         InlineFragments = inlineFragments.Count == 0
             ? [new TwitchChatInlineFragment(TwitchChatInlineFragmentKind.Text, messageText, string.Empty)]
@@ -20418,6 +20430,8 @@ public sealed class TwitchChatMessageEntry : ObservableObject
             ? HypercraftiingNameBrush
             : IsKyouZakira
             ? KyouZakiraNameBrush
+            : IsPhil13938
+            ? Phil13938NameBrush
             : ParseNameBrush(userColor, theme);
         RewardTitle = string.IsNullOrWhiteSpace(rewardTitle) ? MessageText.Trim() : rewardTitle.Trim();
         RewardCost = Math.Max(0, rewardCost);
@@ -20462,6 +20476,8 @@ public sealed class TwitchChatMessageEntry : ObservableObject
 
     public bool IsKyouZakira { get; }
 
+    public bool IsPhil13938 { get; }
+
     public string MessageText { get; }
 
     public IReadOnlyList<string> BadgeImageUrls { get; }
@@ -20477,6 +20493,8 @@ public sealed class TwitchChatMessageEntry : ObservableObject
     public bool IsHypercraftiingRoleCard => RoleCardKind == TwitchChatRoleCardKind.Hypercraftiing;
 
     public bool IsKyouZakiraRoleCard => RoleCardKind == TwitchChatRoleCardKind.KyouZakira;
+
+    public bool IsPhil13938RoleCard => RoleCardKind == TwitchChatRoleCardKind.Phil13938;
 
     public bool IsTwitchStaffRoleCard => RoleCardKind == TwitchChatRoleCardKind.Staff;
 
@@ -20501,6 +20519,7 @@ public sealed class TwitchChatMessageEntry : ObservableObject
         TwitchChatRoleCardKind.KaiBloodwolf => "KFC/popeyes chugger",
         TwitchChatRoleCardKind.Hypercraftiing => "The Great Cuddly Synth",
         TwitchChatRoleCardKind.KyouZakira => "Chatoic Umbreon",
+        TwitchChatRoleCardKind.Phil13938 => "The Canadian Bnuy",
         TwitchChatRoleCardKind.Staff => "TWITCH STAFF",
         TwitchChatRoleCardKind.LeadModerator => "LEAD MOD",
         TwitchChatRoleCardKind.Moderator => "MOD",
@@ -20867,6 +20886,20 @@ public sealed class TwitchChatMessageEntry : ObservableObject
         return brush;
     }
 
+    private static LinearGradientBrush CreateFrozenPhil13938NameBrush()
+    {
+        var brush = new LinearGradientBrush
+        {
+            StartPoint = new Point(0, 0.5),
+            EndPoint = new Point(1, 0.5)
+        };
+        brush.GradientStops.Add(new GradientStop(Color.FromRgb(255, 245, 230), 0d));
+        brush.GradientStops.Add(new GradientStop(Color.FromRgb(255, 140, 50), 0.48d));
+        brush.GradientStops.Add(new GradientStop(Color.FromRgb(214, 0, 0), 1d));
+        brush.Freeze();
+        return brush;
+    }
+
     private static bool IsCrystalRelayDeveloperAccount(string displayName, string login) =>
         IsCrystalRelayDeveloperName(displayName) || IsCrystalRelayDeveloperName(login);
 
@@ -20901,6 +20934,15 @@ public sealed class TwitchChatMessageEntry : ObservableObject
     {
         var normalized = NormalizeTwitchName(value);
         return string.Equals(normalized, KyouZakiraLogin, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsPhil13938Account(string displayName, string login) =>
+        IsPhil13938Name(displayName) || IsPhil13938Name(login);
+
+    private static bool IsPhil13938Name(string value)
+    {
+        var normalized = NormalizeTwitchName(value);
+        return string.Equals(normalized, Phil13938Login, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string NormalizeTwitchName(string value) =>

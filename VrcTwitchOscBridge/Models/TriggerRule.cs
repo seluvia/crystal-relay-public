@@ -98,7 +98,7 @@ public sealed class TriggerRule : ObservableObject
     private ObservableCollection<string> avatarRouletAvatarNames = [];
     private int rangeMinimum;
     private int rangeMaximum = 5;
-    private int durationSeconds = 0;
+    private double durationSeconds = 0;
     private int cooldownSeconds = 0;
     private string botMessageTemplate = "{user} triggered {rule}. Active for {duration}. Cooldown {cooldown}.";
     private Guid supporterAvatarProfileId = Guid.Empty;
@@ -825,15 +825,15 @@ public sealed class TriggerRule : ObservableObject
         }
     }
 
-    public int DurationSeconds
+    public double DurationSeconds
     {
         get => durationSeconds;
         set
         {
             var normalizedValue = ActionType switch
             {
-                OscActionType.PlayerMovement => Math.Max(1, value),
-                OscActionType.SetTrigger => value <= 0 ? 3 : value,
+                OscActionType.PlayerMovement => Math.Max(1d, value),
+                OscActionType.SetTrigger => value <= 0 ? 3d : value,
                 _ => value
             };
             if (SetProperty(ref durationSeconds, normalizedValue))
@@ -1670,7 +1670,7 @@ public sealed class TriggerRule : ObservableObject
         _ => T("Move")
     };
 
-    private static string DescribeDuration(int seconds) => $"{Math.Max(1, seconds)}s";
+    private static string DescribeDuration(double seconds) => $"{Math.Max(1d, seconds):0.##}s";
 
     private static bool IsSupporterFloatAddRangeConfigured(SupporterFloatAddRange range) =>
         !string.IsNullOrWhiteSpace(range.AddValue);

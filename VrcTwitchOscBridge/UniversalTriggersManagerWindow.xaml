@@ -73,6 +73,8 @@
         <local:CollapseChevronTextConverter x:Key="CollapseChevronTextConverter" />
         <local:CollapseChevronColorConverter x:Key="CollapseChevronColorConverter" />
         <local:CountToVisibilityConverter x:Key="CountToVisibilityConverter" />
+        <local:BoolToHorizontalAlignmentConverter x:Key="BoolToHorizontalAlignmentConverter" />
+        <local:BoolToThicknessConverter x:Key="BoolToThicknessConverter" />
 
         <Style TargetType="TextBlock">
             <Setter Property="FontFamily" Value="{DynamicResource BodyFontFamily}" />
@@ -461,8 +463,47 @@
                                        HorizontalAlignment="Center"
                                        VerticalAlignment="Center" />
                         </Border>
-                        <ToggleButton DockPanel.Dock="Right" Width="32" Height="18" Margin="6,0,0,0"
-                                      IsChecked="{Binding Rule.IsEnabled, Mode=TwoWay}" />
+                        <Border DockPanel.Dock="Right"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Center"
+                                Margin="6,0,0,0"
+                                Width="44"
+                                Height="22"
+                                CornerRadius="11"
+                                BorderBrush="{DynamicResource BorderBrush}"
+                                BorderThickness="1">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Background" Value="#6B7280" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Rule.IsEnabled}" Value="True">
+                                            <Setter Property="Background" Value="#22C55E" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <Grid>
+                                <ToggleButton IsChecked="{Binding Rule.IsEnabled, Mode=TwoWay}"
+                                              Cursor="Hand">
+                                    <ToggleButton.Template>
+                                        <ControlTemplate TargetType="ToggleButton">
+                                            <Border Background="Transparent" />
+                                        </ControlTemplate>
+                                    </ToggleButton.Template>
+                                </ToggleButton>
+                                <Ellipse Width="16"
+                                         Height="16"
+                                         Fill="White"
+                                         VerticalAlignment="Center">
+                                    <Ellipse.HorizontalAlignment>
+                                        <Binding Path="Rule.IsEnabled" Converter="{StaticResource BoolToHorizontalAlignmentConverter}" />
+                                    </Ellipse.HorizontalAlignment>
+                                    <Ellipse.Margin>
+                                        <Binding Path="Rule.IsEnabled" Converter="{StaticResource BoolToThicknessConverter}" />
+                                    </Ellipse.Margin>
+                                </Ellipse>
+                            </Grid>
+                        </Border>
                         <StackPanel Margin="8,0,6,0">
                             <TextBlock Text="{Binding Rule.Name}"
                                        FontWeight="Bold"

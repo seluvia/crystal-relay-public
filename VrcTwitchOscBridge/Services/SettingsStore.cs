@@ -921,7 +921,7 @@ public sealed class SettingsStore
             UseSharedNumberedOutfitReward = profile.UseSharedNumberedOutfitReward,
             PostOutfitChoiceListToTwitchChat = profile.PostOutfitChoiceListToTwitchChat,
 ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
-            UseWardrobeMode = true,
+            UseWardrobeMode = profile.UseWardrobeMode,
             WardrobeCooldownSeconds = profile.WardrobeCooldownSeconds,
             WardrobeOutfits = [.. profile.WardrobeOutfits.Select(ToPersistedWardrobeOutfit)],
             UseWardrobeMasterReward = profile.UseWardrobeMasterReward,
@@ -966,7 +966,7 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
                     rule.TriggerType = TwitchTriggerType.ChannelPoints;
                     return rule;
                 })),
-            UseWardrobeMode = true,
+            UseWardrobeMode = profile.UseWardrobeMode,
             WardrobeCooldownSeconds = Math.Max(0, profile.WardrobeCooldownSeconds),
             WardrobeOutfits = new ObservableCollection<WardrobeOutfit>((profile.WardrobeOutfits ?? []).Select(ToWardrobeOutfit)),
             UseWardrobeMasterReward = profile.UseWardrobeMasterReward,
@@ -1076,6 +1076,7 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             TwitchRewardSyncMode = outfit.TwitchRewardSyncMode,
             ManagedRewardReadyColor = outfit.ManagedRewardReadyColor,
             ManagedRewardCooldownColor = outfit.ManagedRewardCooldownColor,
+            DeleteManagedRewardWhenInactive = outfit.DeleteManagedRewardWhenInactive,
             ChatCommandText = outfit.ChatCommandText,
             SnapshotParams = [.. outfit.SnapshotParams.Select(ToPersistedWardrobeSnapshotParam)]
         };
@@ -1267,6 +1268,7 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
                 : TwitchRewardSyncMode.CreateOrManage,
             ManagedRewardReadyColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(persisted.ManagedRewardReadyColor),
             ManagedRewardCooldownColor = ManagedRewardPresentation.NormalizeCooldownBackgroundColor(persisted.ManagedRewardCooldownColor),
+            DeleteManagedRewardWhenInactive = persisted.DeleteManagedRewardWhenInactive,
             ChatCommandText = persisted.ChatCommandText ?? string.Empty,
             SnapshotParams = new ObservableCollection<WardrobeSnapshotParam>((persisted.SnapshotParams ?? []).Select(ToWardrobeSnapshotParam))
         };
@@ -2971,6 +2973,8 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
 
         public string? ManagedRewardCooldownColor { get; set; }
 
+        public bool DeleteManagedRewardWhenInactive { get; set; }
+
         public string? ChatCommandText { get; set; }
 
         public List<PersistedWardrobeSnapshotParam>? SnapshotParams { get; set; }
@@ -3081,7 +3085,7 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
 
         public int RangeMaximum { get; set; }
 
-        public int DurationSeconds { get; set; }
+        public double DurationSeconds { get; set; }
 
         public int CooldownSeconds { get; set; }
 
