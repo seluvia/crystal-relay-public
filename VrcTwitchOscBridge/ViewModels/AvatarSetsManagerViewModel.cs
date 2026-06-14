@@ -329,7 +329,6 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
 
                 SelectedWardrobeSnapshotParam = value?.SnapshotParams.FirstOrDefault();
                 SelectedWardrobeSnapshotParams.Clear();
-                foreach (var p in value?.SnapshotParams ?? []) SelectedWardrobeSnapshotParams.Add(p);
                 RefreshWardrobeParamSelectionDerived();
                 AddWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
                 RemoveWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
@@ -664,6 +663,8 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
             DeleteSetCommand.NotifyCanExecuteChanged();
             OpenAvatarPickerCommand.NotifyCanExecuteChanged();
             UseCurrentVrChatAvatarForProfileCommand.NotifyCanExecuteChanged();
+            SelectedWardrobeSnapshotParams.Clear();
+            RefreshWardrobeParamSelectionDerived();
         }
     }
 
