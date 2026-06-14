@@ -916,7 +916,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ShowAvatarScalingCommand = new RelayCommand(ShowAvatarScaling);
         ShowCashPaymentsCommand = new RelayCommand(ShowCashPayments);
         ShowRewardFireSaleCommand = new RelayCommand(ShowRewardFireSale);
-        
+
         AddAvatarProfileCommand = new RelayCommand(AddAvatarProfile);
         DeleteSelectedAvatarProfileCommand = new RelayCommand(DeleteSelectedAvatarProfile, () => SelectedAvatarProfile is not null);
         DeleteAllAvatarProfilesCommand = new RelayCommand(DeleteAllAvatarProfiles, () => AvatarRuleProfiles.Count > 0);
@@ -939,7 +939,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RemoveSelectedOutfitChoiceCommand = new RelayCommand(
             RemoveSelectedOutfitChoice,
             () => IsViewingAvatarTriggers && SelectedAvatarProfile is not null && SelectedRule?.ActionType == OscActionType.SetTrigger);
-        
+
         SelectRuleCommand = new RelayCommand(SelectRule, target => target is TriggerRule);
         AddAvatarSupporterTriggerCommand = new RelayCommand(AddAvatarSupporterTrigger);
         AddAvatarChangeOverrideCommand = new RelayCommand(AddAvatarChangeOverride);

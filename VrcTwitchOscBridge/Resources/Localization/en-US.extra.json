@@ -1050,7 +1050,7 @@
     "Universal Triggers Welcome Import Title": "Import from Fooma",
     "Universal Triggers Welcome Title": "No triggers yet",
     "User Delay (s)": "User Delay (s)",
-  
+
     "Universal Triggers Subtitle Summary": "{0} saved | {1} active | {2} need a quick fix",
     "Universal Triggers Filter All": "All",
     "Universal Triggers Filter Active": "Active",
@@ -1061,7 +1061,7 @@
     "Universal Triggers Section Active Hidden Suffix": "· {0} active, {1} need attention",
     "Universal Triggers Section Off Suffix": "· {0} active, {1} disabled",
     "Universal Triggers Section Mixed Suffix": "· {0} active, {1} need attention, {2} disabled",
-  
+
     "Universal Triggers Type Pill Chat": "\"Chat\"",
     "Universal Triggers Type Pill Reward": "\"Reward\"",
     "Universal Triggers Type Pill Bits": "\"Bits\"",
@@ -1081,7 +1081,7 @@
     "Universal Triggers Description Follow": "Triggers for new followers. {0}",
     "Universal Triggers Action Summary Random": "Sends one of {0:N0} random actions while active.",
     "Universal Triggers Action Summary All": "Sends {0:N0} actions in sequence.",
-  
+
     "Universal Triggers Delete Confirm Title": "Delete this trigger?",
     "Universal Triggers Delete Confirm Body": "Are you sure you want to delete this trigger? This cannot be undone.",
     "Universal Triggers Delete All Confirm Title": "Delete all triggers?",
@@ -1090,9 +1090,9 @@
     "Universal Triggers Editor Avatar Param Unknown": "No avatar detected",
     "Universal Triggers Editor Avatar Param Found": "Avatar parameter found",
     "Universal Triggers Editor Avatar Param Missing": "Avatar parameter not on current avatar",
-  
+
     "Universal Triggers Fooma Help Yes": "Open Gumroad",
     "Universal Triggers Fooma Help No": "Not now",
-  
+
     "Universal Triggers New Trigger Default Name": "New trigger"
   }

@@ -4312,7 +4312,7 @@
                             </StackPanel>
                         </StackPanel>
 
-                        
+
 
                         <ListBox ItemsSource="{Binding AvatarScaleSets}"
                                  SelectedItem="{Binding SelectedAvatarScaleSet}"
