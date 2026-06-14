@@ -572,6 +572,7 @@
                                     <Ellipse Width="16"
                                              Height="16"
                                              Fill="White"
+                                             IsHitTestVisible="False"
                                              VerticalAlignment="Center">
                                         <Ellipse.HorizontalAlignment>
                                             <Binding Path="IsEnabled" Converter="{StaticResource BoolToHorizontalAlignmentConverter}" />
@@ -865,7 +866,7 @@
                                                             VerticalAlignment="Center"
                                                             Background="{DynamicResource StatusChipBrush}"
                                                             CornerRadius="8"
-                                                            ToolTip="{loc:Translate 'Rule has paired rules that will be hidden while this one is active.'}"
+                                                            ToolTip="{loc:Translate 'Rule has paired rules that will be hidden while this one is on cooldown.'}"
                                                             Visibility="Collapsed">
                                                         <Border.Style>
                                                             <Style TargetType="Border">
@@ -1442,11 +1443,11 @@
                                                  </Style>
                                              </Border.Style>
                                              <StackPanel>
-                                                 <TextBlock Text="● Hide Paired While Active"
+                                                  <TextBlock Text="● Hide Paired While On Cooldown"
                                                             Foreground="{DynamicResource TextBrush}"
                                                             FontWeight="SemiBold"
                                                             FontSize="12" />
-                                                 <TextBlock Text="Default. Paired rules stay visible by default, but get hidden while this rule is active. Good when you want this rule to be the only one of its kind visible at a time."
+                                                  <TextBlock Text="Default. Paired rules stay visible by default, but get hidden while this rule is on cooldown. Good when you want this rule to be the only one of its kind visible at a time."
                                                             Foreground="{DynamicResource MutedBrush}"
                                                             FontSize="10"
                                                             TextWrapping="Wrap"
@@ -1470,11 +1471,11 @@
                                                  </Style>
                                              </Border.Style>
                                              <StackPanel>
-                                                 <TextBlock Text="● Show Paired Only While Active"
+                                                  <TextBlock Text="● Show Paired Only While On Cooldown"
                                                             Foreground="{DynamicResource TextBrush}"
                                                             FontWeight="SemiBold"
                                                             FontSize="12" />
-                                                 <TextBlock Text="Paired rules are hidden by default, only appearing when this rule is active. Good for 'reveal a secret option' patterns."
+                                                  <TextBlock Text="Paired rules are hidden by default, only appearing while this rule is on cooldown. Good for 'reveal a secret option' patterns."
                                                             Foreground="{DynamicResource MutedBrush}"
                                                             FontSize="10"
                                                             TextWrapping="Wrap"
@@ -1625,6 +1626,7 @@
                                                             <Ellipse Width="12"
                                                                      Height="12"
                                                                      Fill="White"
+                                                                     IsHitTestVisible="False"
                                                                      VerticalAlignment="Center">
                                                                 <Ellipse.HorizontalAlignment>
                                                                     <Binding Path="IsEnabled" Converter="{StaticResource BoolToHorizontalAlignmentConverter}" />

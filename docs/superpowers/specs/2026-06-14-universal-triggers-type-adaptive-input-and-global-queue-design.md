@@ -41,9 +41,9 @@ Three changes, three files (plus one new test project):
 
 | File | Change |
 |---|---|
-| `VrcTwitchOscBridge/Converters/UniversalTriggerValueConverters.cs` (new) | Three pure `IValueConverter`s: `UniversalTriggerBoolConverter`, `UniversalTriggerIntConverter`, `UniversalTriggerFloatConverter`. The `String` case uses the built-in direct binding (no converter). |
+| `VrcTwitchOscBridge/Converters/UniversalTriggerValueConverters.cs` (new) | Three pure `IValueConverter`s: `UniversalTriggerBoolConverter`, `UniversalTriggerIntConverter`, `UniversalTriggerFloatConverter`. The `String` case uses the built-in direct binding (no converter). The visibility swap reuses the existing `EnumToVisibilityConverter` in `Converters.cs` (the converter already compares `value.ToString()` to `parameter.ToString()` and returns `Visible`/`Collapsed`, which is exactly what we need). |
 | `VrcTwitchOscBridge/UniversalTriggersManagerWindow.xaml` | Swap the single freeform `TargetValue` / `DefaultValue` `TextBox` pair for a 4-control `Grid` whose `Visibility` is data-triggered on `ValueKind`. Add the three converters as `Window.Resources` so the existing `DataTemplate` can resolve them. |
-| `VrcTwitchOscBridge/Services/BridgeCoordinator.cs` | Add a single `SemaphoreSlim(1,1)` field `universalTriggerGlobalGate`. In `ExecuteUniversalTriggerAsync`, when `shouldQueue` is true, acquire the global gate *outside* the per-trigger gate. Reset / clear both gates in the existing stop/dispose path. |
+| `VrcTwitchOscBridge/Services/BridgeCoordinator.cs` | Add a single `SemaphoreSlim(1, 1)` field `universalTriggerGlobalGate`. In `ExecuteUniversalTriggerAsync`, when `shouldQueue` is true, acquire the global gate *outside* the per-trigger gate. Reset / clear both gates in the existing stop/dispose path. |
 | `VrcTwitchOscBridge.Tests/VrcTwitchOscBridge.Tests.csproj` (new) + `Converters/UniversalTriggerValueConvertersTests.cs` (new) | Lightweight `Microsoft.NET.Sdk` test project targeting `net10.0-windows`. xUnit. Tests only the three converters — they are the only piece of this change with non-trivial logic. |
 
 The new tests project is allowed because: (a) `AGENTS.md` does not forbid test projects; (b) the three converters are pure and self-contained; (c) without tests we would be guessing about the invariant-culture parsing, the empty-input behavior, and the bool normalization rules.
@@ -137,7 +137,7 @@ Inside the OSC action row `DataTemplate` in `UniversalTriggersManagerWindow.xaml
 </Grid>
 ```
 
-A new `ValueKindToVisibilityConverter` (one-liner: returns `Visible` when `ValueKind.ToString() == parameter`, else `Collapsed`) lives in the same converter file.
+A new `ValueKindToVisibilityConverter` is *not* needed — the existing `EnumToVisibilityConverter` in `VrcTwitchOscBridge/Converters.cs` (line 33) already does exactly the right thing: it returns `Visible` when `value.ToString() == parameter.ToString()` (case-insensitive), else `Collapsed`. We bind `Visibility="{Binding ValueKind, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter=Bool}"` (and `Int`, `Float`, `String` for the other three).
 
 The `DefaultValue` field gets the exact same treatment, with the same four controls and a parallel `Visibility` binding on `ValueKind`. The column ordering of the action row becomes: `[OscAddress] [ValueKind] [Value] [Reset to] [Queue/Duration row]`.
 
@@ -235,7 +235,7 @@ A new `VrcTwitchOscBridge.Tests` project is added at the solution root next to `
 
 | File | Purpose |
 |---|---|
-| `VrcTwitchOscBridge/Converters/UniversalTriggerValueConverters.cs` | Three `IValueConverter`s + the `ValueKindToVisibilityConverter`. Pure, no UI dependencies. |
+| `VrcTwitchOscBridge/Converters/UniversalTriggerValueConverters.cs` | Three `IValueConverter`s: `UniversalTriggerBoolConverter`, `UniversalTriggerIntConverter`, `UniversalTriggerFloatConverter`. Pure, no UI dependencies. The visibility swap reuses the existing `EnumToVisibilityConverter` from `VrcTwitchOscBridge/Converters.cs`. |
 | `VrcTwitchOscBridge.Tests/VrcTwitchOscBridge.Tests.csproj` | xUnit test project. |
 | `VrcTwitchOscBridge.Tests/Converters/UniversalTriggerValueConvertersTests.cs` | xUnit tests for the three converters. |
 
@@ -287,7 +287,7 @@ The label appears next to the `CheckBox` for `Bool` actions, e.g. `☐ On` / `�
 - Any change to the Twitch reward sync code.
 - Any change to the chatbox, Avatar Sets, Avatar Scaling, Movement, Power-Ups, Cash Payments, Bits + Subs overrides, or the about page.
 - Any new top-level tab or nav change.
-- Any new converter outside the four listed in §5.
+- Any new converter outside the three listed in §5.
 - Any new theme brush, theme style, or persisted property.
 - Any "Heal from current avatar" feature.
 - Any tunable max-parallel knob on the global gate.

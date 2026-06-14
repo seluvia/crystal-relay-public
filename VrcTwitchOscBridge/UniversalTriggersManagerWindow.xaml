@@ -494,6 +494,7 @@
                                 <Ellipse Width="16"
                                          Height="16"
                                          Fill="White"
+                                         IsHitTestVisible="False"
                                          VerticalAlignment="Center">
                                     <Ellipse.HorizontalAlignment>
                                         <Binding Path="Rule.IsEnabled" Converter="{StaticResource BoolToHorizontalAlignmentConverter}" />

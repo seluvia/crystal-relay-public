@@ -215,43 +215,43 @@
                           ShadowDepth="0"
                           Opacity="0.37"
                           Color="#B64CFF" />
-        <SolidColorBrush x:Key="Phil13938TextBrush" Color="#FFF7F0" />
-        <SolidColorBrush x:Key="Phil13938MutedBrush" Color="#FFD8B5" />
-        <SolidColorBrush x:Key="Phil13938InsetBrush" Color="#78440000" />
-        <SolidColorBrush x:Key="Phil13938InsetBorderBrush" Color="#A5E96100" />
+        <SolidColorBrush x:Key="Phil13938TextBrush" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="Phil13938MutedBrush" Color="#FFE4B5" />
+        <SolidColorBrush x:Key="Phil13938InsetBrush" Color="#88440000" />
+        <SolidColorBrush x:Key="Phil13938InsetBorderBrush" Color="#99E96100" />
         <LinearGradientBrush x:Key="Phil13938CardBrush"
                              StartPoint="0,0"
                              EndPoint="1,1">
-            <GradientStop Color="#F0140000" Offset="0" />
-            <GradientStop Color="#EC3A0A00" Offset="0.42" />
-            <GradientStop Color="#E9280A00" Offset="0.68" />
+            <GradientStop Color="#F0440000" Offset="0" />
+            <GradientStop Color="#E6440000" Offset="0.42" />
+            <GradientStop Color="#B0440000" Offset="0.68" />
             <GradientStop Color="#ED440000" Offset="1" />
         </LinearGradientBrush>
         <LinearGradientBrush x:Key="Phil13938BorderBrush"
                              StartPoint="0,0"
                              EndPoint="1,1">
-            <GradientStop Color="#EFFFF7E5" Offset="0" />
+            <GradientStop Color="#EFD60000" Offset="0" />
             <GradientStop Color="#EFE96100" Offset="0.5" />
             <GradientStop Color="#D8D60000" Offset="1" />
         </LinearGradientBrush>
         <LinearGradientBrush x:Key="Phil13938RailBrush"
                              StartPoint="0,0"
                              EndPoint="0,1">
-            <GradientStop Color="#FFF7F0" Offset="0" />
-            <GradientStop Color="#FFD60000" Offset="0.5" />
-            <GradientStop Color="#8C440000" Offset="1" />
+            <GradientStop Color="#D60000" Offset="0" />
+            <GradientStop Color="#E96100" Offset="0.5" />
+            <GradientStop Color="#440000" Offset="1" />
         </LinearGradientBrush>
         <LinearGradientBrush x:Key="Phil13938BadgeBrush"
                              StartPoint="0,0"
                              EndPoint="1,1">
-            <GradientStop Color="#FFF7E5" Offset="0" />
-            <GradientStop Color="#FFE96100" Offset="0.5" />
-            <GradientStop Color="#FFD60000" Offset="1" />
+            <GradientStop Color="#E96100" Offset="0" />
+            <GradientStop Color="#D60000" Offset="0.5" />
+            <GradientStop Color="#440000" Offset="1" />
         </LinearGradientBrush>
         <DropShadowEffect x:Key="Phil13938GlowEffect"
                           BlurRadius="14"
                           ShadowDepth="0"
-                          Opacity="0.38"
+                          Opacity="0.42"
                           Color="#E96100" />
         <SolidColorBrush x:Key="ChatboxRoleCardTextBrush" Color="#FFFDF7" />
         <SolidColorBrush x:Key="ChatboxRoleCardMutedBrush" Color="#F0E8FF" />
@@ -1627,7 +1627,21 @@
                                            FontFamily="{Binding DataContext.Settings.ChatFontFamily, RelativeSource={RelativeSource AncestorType=Window}}"
                                            FontSize="{Binding DataContext.Settings.ChatTextSize, RelativeSource={RelativeSource AncestorType=Window}}"
                                            Foreground="{Binding NameBrush}"
-                                           Text="{Binding UserDisplayName}" />
+                                           Text="{Binding UserDisplayName}">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsPhil13938RoleCard}" Value="True">
+                                                    <Setter Property="Effect">
+                                                        <Setter.Value>
+                                                            <DropShadowEffect ShadowDepth="0" BlurRadius="3" Color="White" Opacity="0.95" />
+                                                        </Setter.Value>
+                                                    </Setter>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
 
                                 <Border Margin="8,0,0,0"
                                         Padding="7,2"

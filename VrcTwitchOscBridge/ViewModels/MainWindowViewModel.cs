@@ -534,6 +534,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private readonly Dictionary<string, DateTimeOffset> throttledLogExpiryByKey = new(StringComparer.Ordinal);
     private readonly List<ActionTypeOption> allActionTypes;
     private string lastSuccessfulManagedRewardDesiredFingerprint = string.Empty;
+    private string lastObservedBroadcasterIdentityFingerprint = string.Empty;
+    private string lastObservedBotIdentityFingerprint = string.Empty;
     private int pendingSkippedDeleteSuppressedCount;
     private DateTimeOffset? managedRewardApiBackoffUntil;
     private DateTimeOffset aboutProfilesLastRefreshedAt = DateTimeOffset.MinValue;
@@ -1002,11 +1004,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         });
         bridgeCoordinator.AccountUpdated += (role, snapshot) => RunOnUi(() =>
         {
+            var previousIdentityFingerprint = BuildAccountIdentityFingerprint(role);
             ApplyAccountSnapshot(role, snapshot);
             UpdateAccountStatuses();
             QueueSave();
             _ = QueueRewardRefreshAsync();
-            QueueManagedRewardSync(0, ManagedRewardSyncReason.AccountReconnect);
+            if (HasAccountIdentityChanged(role, previousIdentityFingerprint))
+            {
+                QueueManagedRewardSync(0, ManagedRewardSyncReason.AccountReconnect);
+            }
             _ = RefreshAboutProfilesAsync();
         });
         bridgeCoordinator.ChatMessageReceived += message => RunOnUi(() => AppendChatMessage(message));
@@ -1017,10 +1023,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         bridgeCoordinator.ManagedRewardAvailabilityChanged += () => RunOnUi(() =>
         {
             RaisePropertyChanged(nameof(AvatarScaleMasterRewardStatusText));
-            QueueManagedRewardSync(
-                (int)AvatarScaleLimitRewardSyncDebounce.TotalMilliseconds,
-                ManagedRewardSyncReason.RuntimeAvailability);
         });
+        bridgeCoordinator.RewardCooldownColorChanged += ruleId => _ = HandleRewardCooldownColorChangedAsync(ruleId);
         bridgeCoordinator.AvatarScaleStatusChanged += () => RunOnUi(HandleAvatarScaleStatusChanged);
         bridgeCoordinator.RewardFireSaleContributionReceived += contribution => RunOnUi(() => HandleRewardFireSaleContribution(contribution));
         bridgeCoordinator.DevFireSaleRequested += request => RunOnUi(() => HandleDevFireSaleRequest(request));
@@ -2031,7 +2035,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public bool IsSpecialRuleLockoutEditorVisible => IsViewingAvatarTriggers && SelectedRule is not null;
 
-    public string SpecialRuleLockoutHelpText => T("Pairing can either hide sibling redeems while this redeem is active, or keep sibling redeems hidden until this redeem triggers.");
+    public string SpecialRuleLockoutHelpText => T("Pairing can either hide sibling redeems while this redeem is on cooldown, or keep sibling redeems hidden until this redeem triggers.");
 
     public string SpecialRuleLockoutSummaryText
     {
@@ -11778,9 +11782,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             && !temporarilyDisabledRuleIds.Contains(rule.Id)
             && ruleIsVisibleForCurrentAvatar
             && !isActiveFloatBoostParent;
-        var backgroundColor = isOnLocalCooldown
-            ? ManagedRewardPresentation.NormalizeCooldownBackgroundColor(rule.ManagedRewardCooldownColor)
-            : ManagedRewardPresentation.NormalizeReadyBackgroundColor(rule.ManagedRewardReadyColor);
+        var backgroundColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(rule.ManagedRewardReadyColor);
 
         return new ManagedRewardSyncTarget(
             rule.Id,
@@ -11980,12 +11982,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         var readyColor = group.UsesSetTriggerMasterReward
             ? profile.SetTriggerMasterRewardReadyColor
             : owner.ManagedRewardReadyColor;
-        var cooldownColor = group.UsesSetTriggerMasterReward
-            ? profile.SetTriggerMasterRewardCooldownColor
-            : owner.ManagedRewardCooldownColor;
-        var backgroundColor = anyChoiceInCooldown
-            ? ManagedRewardPresentation.NormalizeCooldownBackgroundColor(cooldownColor)
-            : ManagedRewardPresentation.NormalizeReadyBackgroundColor(readyColor);
+        var backgroundColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(readyColor);
         var rewardId = group.UsesSetTriggerMasterReward
             ? GetSetTriggerMasterRewardId(profile, group)
             : GetSharedAvatarSetRewardGroupRewardId(group);
@@ -12251,9 +12248,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         var desiredEnabled = allowManagedRewardActivation
             && masterReward.IsEnabled
             && hasRewardIdentity;
-        var backgroundColor = useCooldownPresentation
-            ? ManagedRewardPresentation.NormalizeCooldownBackgroundColor(masterReward.ManagedRewardCooldownColor)
-            : ManagedRewardPresentation.NormalizeReadyBackgroundColor(masterReward.ManagedRewardReadyColor);
+        var backgroundColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(masterReward.ManagedRewardReadyColor);
 
         return new ManagedRewardSyncTarget(
             AvatarScaleMasterRewardOwnerId,
@@ -12303,9 +12298,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             && !isHiddenAtRelativeLimit
             && !isTemporarilyDisabledByPairing
             && masterGateAllowsReward;
-        var backgroundColor = isOnLocalCooldown
-            ? ManagedRewardPresentation.NormalizeCooldownBackgroundColor(rule.ManagedRewardCooldownColor)
-            : ManagedRewardPresentation.NormalizeReadyBackgroundColor(rule.ManagedRewardReadyColor);
+        var backgroundColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(rule.ManagedRewardReadyColor);
         var shouldDeleteWhenInactive = isHiddenByMasterLock
             ? freeChildRewardSlotsWhenLocked
             : rule.DeleteManagedRewardWhenInactive;
@@ -12352,9 +12345,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             && fireSale.FundingRewardEnabled
             && (!IsRewardFireSaleActiveNow() || CanRewardFireSaleAdvanceToLaterTier());
         var isFundingRewardOnCooldown = IsRewardFireSaleFundingRewardOnCooldown();
-        var backgroundColor = isFundingRewardOnCooldown
-            ? ManagedRewardPresentation.NormalizeCooldownBackgroundColor(fireSale.FundingRewardCooldownColor)
-            : ManagedRewardPresentation.NormalizeReadyBackgroundColor(fireSale.FundingRewardReadyColor);
+        var backgroundColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(fireSale.FundingRewardReadyColor);
 
         return new ManagedRewardSyncTarget(
             RewardFireSaleFundingRewardOwnerId,
@@ -14430,7 +14421,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             AppendFingerprintValue(builder, target.Prompt);
             builder.Append(':').Append(target.RequireUserInput ? "1" : "0");
             builder.Append(':').Append(target.DesiredEnabled ? "1" : "0");
-            builder.Append(':').Append(target.IsCooldownActive ? "1" : "0");
             builder.Append(':').Append(target.DeleteWhenInactive ? "1" : "0");
         }
 
@@ -19051,6 +19041,313 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ApplySharedReturnAvatarSelection(avatarId, avatarName, saveImmediately: true);
     }
 
+    // Per-rule PATCH path. When a single rule's cooldown state flips (start or expire)
+    // the bridge fires RewardCooldownColorChanged(ruleId). We look up the rule's
+    // reward id, find it in the cached Twitch catalog, and PATCH just that reward's
+    // background color. Skips when the cached color already matches, so no PATCH
+    // and no "modified" timestamp bump when there's nothing to change. No catalog
+    // GET, no per-target loop, no mass sync.
+    private async Task HandleRewardCooldownColorChangedAsync(Guid ruleId)
+    {
+        try
+        {
+            if (!isInitialized || isShuttingDown)
+            {
+                return;
+            }
+            if (!HasRecoverableBroadcasterSession)
+            {
+                return;
+            }
+            if (broadcasterManagedRewardsUnavailableForSession
+                || BroadcasterRewardManagementScopeKnownMissing)
+            {
+                return;
+            }
+
+            var rewardId = ResolveManagedRewardIdForRule(ruleId);
+            if (string.IsNullOrWhiteSpace(rewardId))
+            {
+                return;
+            }
+
+            var isOnCooldown = bridgeCoordinator.GetRulesOnCooldownIds().Contains(ruleId);
+            var configuredColor = ResolveConfiguredRewardColor(ruleId, isOnCooldown);
+            if (string.IsNullOrWhiteSpace(configuredColor))
+            {
+                return;
+            }
+
+            var cachedOption = RewardOptions.FirstOrDefault(option =>
+                !string.IsNullOrEmpty(option.Id) && string.Equals(option.Id, rewardId, StringComparison.Ordinal));
+            if (cachedOption is null || cachedOption.IsCatalogMissing)
+            {
+                return;
+            }
+
+            if (string.Equals(cachedOption.BackgroundColor, configuredColor, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            await ReloadRuntimeConfigAsync();
+            var accessToken = Settings.Broadcaster.AccessToken;
+            var clientId = runtimeConfig.TwitchClientId;
+            var broadcasterId = Settings.Broadcaster.UserId;
+            if (string.IsNullOrWhiteSpace(accessToken)
+                || string.IsNullOrWhiteSpace(clientId)
+                || string.IsNullOrWhiteSpace(broadcasterId))
+            {
+                return;
+            }
+
+            var updatedReward = await twitchApiClient.UpdateCustomRewardAsync(
+                accessToken,
+                clientId,
+                broadcasterId,
+                cachedOption.Id,
+                cachedOption.Title,
+                cachedOption.Cost,
+                cachedOption.IsEnabled,
+                cachedOption.CooldownSeconds,
+                configuredColor,
+                CancellationToken.None,
+                cachedOption.Prompt,
+                cachedOption.IsUserInputRequired);
+
+            ApplySingleRewardCatalogUpdate(updatedReward);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            DebugLogService.Write($"Per-reward color PATCH for rule {ruleId} failed: {ex.Message}");
+        }
+    }
+
+    private string? ResolveManagedRewardIdForRule(Guid ruleId)
+    {
+        foreach (var profile in Settings.AvatarProfiles)
+        {
+            foreach (var rule in profile.ChannelPointRules)
+            {
+                if (rule.Id == ruleId && !string.IsNullOrWhiteSpace(rule.ChannelPointRewardId))
+                {
+                    return rule.ChannelPointRewardId.Trim();
+                }
+            }
+        }
+        foreach (var set in Settings.MovementRedeemSets)
+        {
+            foreach (var rule in set.MovementRules)
+            {
+                if (rule.Id == ruleId && !string.IsNullOrWhiteSpace(rule.ChannelPointRewardId))
+                {
+                    return rule.ChannelPointRewardId.Trim();
+                }
+            }
+        }
+        foreach (var rule in Settings.Rules)
+        {
+            if (rule.Id == ruleId && !string.IsNullOrWhiteSpace(rule.ChannelPointRewardId))
+            {
+                return rule.ChannelPointRewardId.Trim();
+            }
+        }
+        foreach (var rule in Settings.GlobalOverrideRules)
+        {
+            if (rule.Id == ruleId && !string.IsNullOrWhiteSpace(rule.ChannelPointRewardId))
+            {
+                return rule.ChannelPointRewardId.Trim();
+            }
+        }
+        foreach (var rule in Settings.GlobalMovementRules)
+        {
+            if (rule.Id == ruleId && !string.IsNullOrWhiteSpace(rule.ChannelPointRewardId))
+            {
+                return rule.ChannelPointRewardId.Trim();
+            }
+        }
+        foreach (var trigger in Settings.UniversalTriggers)
+        {
+            if (trigger.Id == ruleId && !string.IsNullOrWhiteSpace(trigger.RewardId))
+            {
+                return trigger.RewardId.Trim();
+            }
+        }
+        foreach (var set in Settings.AvatarScaleSets)
+        {
+            foreach (var rule in set.ScaleRules)
+            {
+                if (rule.Id == ruleId && !string.IsNullOrWhiteSpace(rule.RewardId))
+                {
+                    return rule.RewardId.Trim();
+                }
+            }
+        }
+        if (ruleId == AvatarScaleMasterRewardOwnerId)
+        {
+            var masterReward = Settings.AvatarScaleMasterReward;
+            if (masterReward is not null
+                && !string.IsNullOrWhiteSpace(masterReward.RewardId)
+                && !string.IsNullOrWhiteSpace(masterReward.RewardTitle))
+            {
+                return masterReward.RewardId.Trim();
+            }
+        }
+        return null;
+    }
+
+    private string? ResolveConfiguredRewardColor(Guid ruleId, bool isOnCooldown)
+    {
+        foreach (var profile in Settings.AvatarProfiles)
+        {
+            foreach (var rule in profile.ChannelPointRules)
+            {
+                if (rule.Id == ruleId)
+                {
+                    return ManagedRewardPresentation.NormalizeReadyBackgroundColor(
+                        isOnCooldown ? rule.ManagedRewardCooldownColor : rule.ManagedRewardReadyColor);
+                }
+            }
+        }
+        foreach (var set in Settings.MovementRedeemSets)
+        {
+            foreach (var rule in set.MovementRules)
+            {
+                if (rule.Id == ruleId)
+                {
+                    return ManagedRewardPresentation.NormalizeReadyBackgroundColor(
+                        isOnCooldown ? rule.ManagedRewardCooldownColor : rule.ManagedRewardReadyColor);
+                }
+            }
+        }
+        foreach (var rule in Settings.Rules)
+        {
+            if (rule.Id == ruleId)
+            {
+                return ManagedRewardPresentation.NormalizeReadyBackgroundColor(
+                    isOnCooldown ? rule.ManagedRewardCooldownColor : rule.ManagedRewardReadyColor);
+            }
+        }
+        foreach (var rule in Settings.GlobalOverrideRules)
+        {
+            if (rule.Id == ruleId)
+            {
+                return ManagedRewardPresentation.NormalizeReadyBackgroundColor(
+                    isOnCooldown ? rule.ManagedRewardCooldownColor : rule.ManagedRewardReadyColor);
+            }
+        }
+        foreach (var rule in Settings.GlobalMovementRules)
+        {
+            if (rule.Id == ruleId)
+            {
+                return ManagedRewardPresentation.NormalizeReadyBackgroundColor(
+                    isOnCooldown ? rule.ManagedRewardCooldownColor : rule.ManagedRewardReadyColor);
+            }
+        }
+        foreach (var set in Settings.AvatarScaleSets)
+        {
+            foreach (var rule in set.ScaleRules)
+            {
+                if (rule.Id == ruleId)
+                {
+                    return ManagedRewardPresentation.NormalizeReadyBackgroundColor(
+                        isOnCooldown ? rule.ManagedRewardCooldownColor : rule.ManagedRewardReadyColor);
+                }
+            }
+        }
+        if (ruleId == AvatarScaleMasterRewardOwnerId)
+        {
+            var masterReward = Settings.AvatarScaleMasterReward;
+            if (masterReward is not null && !string.IsNullOrWhiteSpace(masterReward.RewardTitle))
+            {
+                return ManagedRewardPresentation.NormalizeReadyBackgroundColor(
+                    isOnCooldown ? masterReward.ManagedRewardCooldownColor : masterReward.ManagedRewardReadyColor);
+            }
+        }
+        return null;
+    }
+
+    private void ApplySingleRewardCatalogUpdate(TwitchApiClient.CustomRewardResponse updatedReward)
+    {
+        RunOnUi(() =>
+        {
+            for (var i = 0; i < RewardOptions.Count; i++)
+            {
+                if (string.Equals(RewardOptions[i].Id, updatedReward.Id, StringComparison.Ordinal))
+                {
+                    RewardOptions[i] = TwitchRewardOption.FromReward(updatedReward);
+                    return;
+                }
+            }
+        });
+    }
+
+    // The ManagedRewardAvailabilityChanged event fires for local-only state flips
+    // (per-rule cooldowns starting/ending, timed effect windows opening/closing,
+    // reset notifications, avatar-change transitions) plus the rare Twitch-visible
+    // changes like a manual toggle. Twitch does not see local cooldowns, timed
+    // effects, or reset notifications, and any "change" the per-target check would
+    // detect from this path (e.g. avatar detection flicker in test mode flipping
+    // DesiredEnabled) is a churn PATCH that just bumps the per-reward "modified"
+    // timestamp on Twitch for nothing. Real Twitch-visible changes have their own
+    // dedicated sync triggers (settings-edit, stream-state-changed, avatar-changed,
+    // fire-sale-changed, account-reconnect, emergency-stop, test-mode, manual-refresh),
+    // so this handler intentionally does NOT queue a sync.
+    private void HandleManagedRewardAvailabilityChanged()
+    {
+    }
+
+    // BuildAccountIdentityFingerprint captures the Twitch-visible identity fields
+    // (UserId, Login, Scopes) of an account. Access tokens, refresh tokens, and
+    // expiry timestamps are intentionally excluded: a bare token refresh on the
+    // same broadcaster login does not change the Twitch-side reward ownership,
+    // and firing a full reward sync on every refresh causes a mass PATCH storm
+    // that bumps every reward's "modified" timestamp.
+    private string BuildAccountIdentityFingerprint(BridgeAccountRole role)
+    {
+        var account = role == BridgeAccountRole.Broadcaster
+            ? Settings.Broadcaster
+            : Settings.Bot;
+        if (account is null)
+        {
+            return string.Empty;
+        }
+
+        var builder = new StringBuilder();
+        AppendFingerprintValue(builder, account.UserId);
+        AppendFingerprintValue(builder, account.Login);
+        AppendFingerprintValue(builder, account.DisplayName);
+        AppendFingerprintValue(builder, account.ProfileImageUrl);
+        if (account.Scopes is not null)
+        {
+            foreach (var scope in account.Scopes.OrderBy(s => s, StringComparer.Ordinal))
+            {
+                builder.Append('|').Append(scope).Append(',');
+            }
+        }
+        return builder.ToString();
+    }
+
+    private bool HasAccountIdentityChanged(BridgeAccountRole role, string previousIdentityFingerprint)
+    {
+        var currentFingerprint = BuildAccountIdentityFingerprint(role);
+        var lastObservedField = role == BridgeAccountRole.Broadcaster
+            ? ref lastObservedBroadcasterIdentityFingerprint
+            : ref lastObservedBotIdentityFingerprint;
+
+        if (string.Equals(currentFingerprint, lastObservedField, StringComparison.Ordinal))
+        {
+            return false;
+        }
+        if (string.Equals(currentFingerprint, previousIdentityFingerprint, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        lastObservedField = currentFingerprint;
+        return true;
+    }
+
     private async Task<List<VrChatOscParameterSummary>> LoadLiveVrChatOscParametersAsync(CancellationToken cancellationToken)
     {
         await EnsureBridgeStateAsync(cancellationToken, allowOscOnly: true);
@@ -20893,9 +21190,9 @@ public sealed class TwitchChatMessageEntry : ObservableObject
             StartPoint = new Point(0, 0.5),
             EndPoint = new Point(1, 0.5)
         };
-        brush.GradientStops.Add(new GradientStop(Color.FromRgb(255, 245, 230), 0d));
-        brush.GradientStops.Add(new GradientStop(Color.FromRgb(255, 140, 50), 0.48d));
-        brush.GradientStops.Add(new GradientStop(Color.FromRgb(214, 0, 0), 1d));
+        brush.GradientStops.Add(new GradientStop(Color.FromRgb(214, 0, 0), 0d));
+        brush.GradientStops.Add(new GradientStop(Color.FromRgb(233, 97, 0), 0.5d));
+        brush.GradientStops.Add(new GradientStop(Color.FromRgb(68, 0, 0), 1d));
         brush.Freeze();
         return brush;
     }

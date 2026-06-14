@@ -294,6 +294,17 @@ internal BridgeCoordinator(
 
     public event Action? ManagedRewardAvailabilityChanged;
 
+    // Fires when a single rule's cooldown state flips (start or expire) so the
+    // view model can PATCH just that one reward's color on Twitch. Carries only
+    // the rule id; the view model decides ready-vs-cooldown color from the rule
+    // configuration and the current cooldown set.
+    public event Action<Guid>? RewardCooldownColorChanged;
+
+    // Mirrors MainWindowViewModel.AvatarScaleMasterRewardOwnerId. The avatar-scaling
+    // master reward is identified by a fixed Guid (no TriggerRule behind it), so the
+    // per-reward color PATCH path uses this to route events to the master reward.
+    private static readonly Guid AvatarScaleMasterRewardOwnerGuid = new("c69a2537-6c74-450f-9c5a-b6d9f04a7d95");
+
     public event Action? AvatarScaleStatusChanged;
 
     public event Func<RewardFireSaleContribution, bool>? RewardFireSaleContributionReceived;
@@ -4643,6 +4654,7 @@ internal BridgeCoordinator(
                     {
                         ScheduleCooldownStateNotification(rule.Id, TimeSpan.FromSeconds(cooldownSeconds));
                         ManagedRewardAvailabilityChanged?.Invoke();
+                        NotifyRewardCooldownColorChanged(rule.Id);
                     }
                     else
                     {
@@ -4811,6 +4823,7 @@ internal BridgeCoordinator(
             {
                 ScheduleCooldownStateNotification(rule.Id, TimeSpan.FromSeconds(cooldownSeconds));
                 ManagedRewardAvailabilityChanged?.Invoke();
+                NotifyRewardCooldownColorChanged(rule.Id);
             }
             else
             {
@@ -7370,6 +7383,7 @@ internal BridgeCoordinator(
         if (shouldNotifyManagedRewardState)
         {
             ManagedRewardAvailabilityChanged?.Invoke();
+            NotifyRewardCooldownColorChanged(executionRule.Id);
         }
 
         if (!isTest && !isResuming && bridgeEvent is not null)
@@ -7426,6 +7440,7 @@ internal BridgeCoordinator(
             {
                 ScheduleCooldownStateNotification(rule.Id, TimeSpan.FromSeconds(cooldownSeconds));
                 ManagedRewardAvailabilityChanged?.Invoke();
+                NotifyRewardCooldownColorChanged(rule.Id);
             }
             else
             {
@@ -11156,6 +11171,18 @@ internal BridgeCoordinator(
         }
     }
 
+    private void NotifyRewardCooldownColorChanged(Guid ruleId)
+    {
+        try
+        {
+            RewardCooldownColorChanged?.Invoke(ruleId);
+        }
+        catch (Exception ex)
+        {
+            DebugLogService.Write($"Failed to notify reward cooldown color change for rule {ruleId}: {ex.Message}");
+        }
+    }
+
     private void ScheduleCooldownStateNotification(Guid ruleId, TimeSpan delay)
     {
         CancellationTokenSource cancellation;
@@ -11201,6 +11228,7 @@ internal BridgeCoordinator(
                 if (shouldNotify)
                 {
                     ManagedRewardAvailabilityChanged?.Invoke();
+                    NotifyRewardCooldownColorChanged(ruleId);
                 }
             }
             catch (OperationCanceledException)
@@ -11271,6 +11299,7 @@ internal BridgeCoordinator(
                 if (shouldNotify)
                 {
                     ManagedRewardAvailabilityChanged?.Invoke();
+                    NotifyRewardCooldownColorChanged(ruleId);
                 }
             }
             catch (OperationCanceledException)
@@ -11335,6 +11364,7 @@ internal BridgeCoordinator(
                 }
 
                 ManagedRewardAvailabilityChanged?.Invoke();
+                NotifyRewardCooldownColorChanged(AvatarScaleMasterRewardOwnerGuid);
             }
             catch (OperationCanceledException)
             {
@@ -11395,7 +11425,7 @@ internal BridgeCoordinator(
                         .Distinct()
                         .ToArray();
                     activeRuleLockouts.Remove(sourceRuleId);
-                    if (GetLockoutDurationSeconds(currentRule) > 0
+                    if (GetPairingLockoutDurationSeconds(currentRule) > 0
                         && normalizedUnlockRuleIds.Length > 0
                         && existingLockoutState.ExpiresAt > now)
                     {
@@ -11420,7 +11450,7 @@ internal BridgeCoordinator(
                     ? currentRule!.Name
                     : currentScaleRule!.Name;
                 var lockoutDurationSeconds = isAvatarRuleLockout
-                    ? GetLockoutDurationSeconds(currentRule!)
+                    ? GetPairingLockoutDurationSeconds(currentRule!)
                     : GetAvatarScaleLockoutDurationSeconds(currentScaleRule!);
                 var normalizedRuleIds = disabledRuleIds
                     .Where(ruleId => ruleId != sourceRuleId && validRuleIds.Contains(ruleId))
@@ -11462,7 +11492,7 @@ internal BridgeCoordinator(
                     .Where(ruleId => ruleId != sourceRuleId && validRulesById.ContainsKey(ruleId))
                     .Distinct()
                     .ToArray();
-                var lockoutDurationSeconds = GetLockoutDurationSeconds(currentRule);
+                var lockoutDurationSeconds = GetPairingLockoutDurationSeconds(currentRule);
 
                 if (currentRule.SpecialRulePairingMode != SpecialRulePairingMode.ShowPairedWhileActive)
                 {
@@ -11698,7 +11728,7 @@ internal BridgeCoordinator(
             .Where(ruleId => ruleId != rule.Id)
             .Distinct()
             .ToArray();
-        var lockoutDurationSeconds = GetLockoutDurationSeconds(rule);
+        var lockoutDurationSeconds = GetPairingLockoutDurationSeconds(rule);
 
         if (lockoutDurationSeconds <= 0 || normalizedRuleIds.Length == 0)
         {
@@ -11724,7 +11754,7 @@ internal BridgeCoordinator(
 
         if (changed)
         {
-            WriteLog($"'{rule.Name}' temporarily disabled {normalizedRuleIds.Length} linked redeem{(normalizedRuleIds.Length == 1 ? string.Empty : "s")} while it stays active.");
+            WriteLog($"'{rule.Name}' temporarily disabled {normalizedRuleIds.Length} linked redeem{(normalizedRuleIds.Length == 1 ? string.Empty : "s")} while it cools down.");
             ManagedRewardAvailabilityChanged?.Invoke();
         }
     }
@@ -11735,7 +11765,7 @@ internal BridgeCoordinator(
             .Where(ruleId => ruleId != rule.Id)
             .Distinct()
             .ToArray();
-        var lockoutDurationSeconds = GetLockoutDurationSeconds(rule);
+        var lockoutDurationSeconds = GetPairingLockoutDurationSeconds(rule);
 
         if (lockoutDurationSeconds <= 0 || normalizedRuleIds.Length == 0)
         {
@@ -11761,7 +11791,7 @@ internal BridgeCoordinator(
 
         if (changed)
         {
-            WriteLog($"'{rule.Name}' temporarily revealed {normalizedRuleIds.Length} paired redeem{(normalizedRuleIds.Length == 1 ? string.Empty : "s")}.");
+            WriteLog($"'{rule.Name}' temporarily revealed {normalizedRuleIds.Length} paired redeem{(normalizedRuleIds.Length == 1 ? string.Empty : "s")} for its cooldown.");
             ManagedRewardAvailabilityChanged?.Invoke();
         }
     }
@@ -11860,6 +11890,16 @@ internal BridgeCoordinator(
         var activeDurationSeconds = Math.Max(0d, rule.DurationSeconds);
         var cooldownSeconds = (double)GetCooldownSeconds(rule);
         return Math.Max(activeDurationSeconds, cooldownSeconds);
+    }
+
+    private static double GetPairingLockoutDurationSeconds(TriggerRuleSnapshot rule)
+    {
+        if (rule.TemporarilyDisabledRuleIds.Count == 0)
+        {
+            return 0d;
+        }
+
+        return (double)GetCooldownSeconds(rule);
     }
 
     private static int GetAvatarScaleLockoutDurationSeconds(AvatarScaleRuleSnapshot rule)

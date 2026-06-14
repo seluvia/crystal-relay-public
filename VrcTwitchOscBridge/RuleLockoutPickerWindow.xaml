@@ -309,10 +309,10 @@
                                            Foreground="{DynamicResource TextBrush}"
                                            FontWeight="SemiBold" />
                                 <RadioButton x:Name="HidePairedRadioButton"
-                                             Content="{loc:Translate 'Hide paired redeems while this redeem is active'}"
+                                              Content="{loc:Translate 'Hide paired redeems while this redeem is on cooldown'}"
                                              Checked="OnPairingModeChanged" />
                                 <RadioButton x:Name="ShowPairedRadioButton"
-                                             Content="{loc:Translate 'Show paired redeems only while this redeem is active'}"
+                                              Content="{loc:Translate 'Show paired redeems only while this redeem is on cooldown'}"
                                              Checked="OnPairingModeChanged" />
                             </StackPanel>
                         </Border>
