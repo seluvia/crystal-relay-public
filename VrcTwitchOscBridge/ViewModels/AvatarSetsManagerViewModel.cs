@@ -157,8 +157,14 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
         RemoveWardrobeSnapshotParamCommand = new RelayCommand(RemoveWardrobeSnapshotParam, () => SelectedWardrobeSnapshotParam is not null);
         CopyWardrobeOutfitCommand = new RelayCommand(CopyWardrobeOutfit, () => SelectedWardrobeOutfit is not null);
         PasteWardrobeOutfitCommand = new RelayCommand(PasteWardrobeOutfit, () => SelectedProfile is not null && _copiedWardrobeOutfit is not null);
-        CopyWardrobeSnapshotParamCommand = new RelayCommand(CopyWardrobeSnapshotParam, () => SelectedWardrobeSnapshotParam is not null);
-        PasteWardrobeSnapshotParamCommand = new RelayCommand(PasteWardrobeSnapshotParam, () => SelectedWardrobeOutfit is not null && _copiedWardrobeSnapshotParam is not null);
+        CopySelectedWardrobeSnapshotParamsCommand = new RelayCommand(CopySelectedWardrobeSnapshotParams,
+            () => SelectedWardrobeSnapshotParams.Count > 0);
+        PasteWardrobeSnapshotParamsCommand = new RelayCommand(PasteWardrobeSnapshotParams,
+            () => SelectedWardrobeOutfit is not null && _copiedWardrobeSnapshotParams.Count > 0);
+        SelectAllWardrobeSnapshotParamsCommand = new RelayCommand(SelectAllWardrobeSnapshotParams,
+            () => SelectedWardrobeOutfit is not null);
+        ClearWardrobeSnapshotParamSelectionCommand = new RelayCommand(ClearWardrobeSnapshotParamSelection,
+            () => SelectedWardrobeSnapshotParams.Count > 0);
         RefreshWardrobeParametersCommand = new AsyncRelayCommand(RefreshWardrobeParametersAsync);
         TestWardrobeOutfitCommand = new AsyncRelayCommand(TestWardrobeOutfitAsync, () => SelectedWardrobeOutfit is not null && SelectedProfile is not null);
         AddPairedRuleCommand = new RelayCommand(_ => ExecuteAddPairedRule(), _ => SelectedAvatarRule is not null);
@@ -272,7 +278,6 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
     private IReadOnlyList<Models.VrChatOscParameterSummary> _wardrobeParameterSourceParameters = [];
     private IReadOnlyList<Models.VrChatOscParameterSummary> _availableWardrobeParameters = [];
     private Models.WardrobeOutfit? _copiedWardrobeOutfit;
-    private Models.WardrobeSnapshotParam? _copiedWardrobeSnapshotParam;  // kept for Task 2 cleanup
     private readonly ObservableCollection<Models.WardrobeSnapshotParam> _copiedWardrobeSnapshotParams = [];
     public ObservableCollection<Models.WardrobeSnapshotParam> CopiedWardrobeSnapshotParams => _copiedWardrobeSnapshotParams;
     public int CopiedWardrobeSnapshotParamCount => _copiedWardrobeSnapshotParams.Count;
@@ -323,12 +328,13 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
                 RaisePropertyChanged(nameof(SelectedAvatarRule));
 
                 SelectedWardrobeSnapshotParam = value?.SnapshotParams.FirstOrDefault();
+                SelectedWardrobeSnapshotParams.Clear();
+                foreach (var p in value?.SnapshotParams ?? []) SelectedWardrobeSnapshotParams.Add(p);
+                RefreshWardrobeParamSelectionDerived();
                 AddWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
                 RemoveWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
                 CopyWardrobeOutfitCommand.NotifyCanExecuteChanged();
                 PasteWardrobeOutfitCommand.NotifyCanExecuteChanged();
-                CopyWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
-                PasteWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
                 AddWardrobeOutfitCommand.NotifyCanExecuteChanged();
                 DeleteWardrobeOutfitCommand.NotifyCanExecuteChanged();
                 TestWardrobeOutfitCommand.NotifyCanExecuteChanged();
@@ -364,9 +370,7 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
                 }
 
                 RefreshWardrobeParameterOptions();
-                RemoveWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
-                CopyWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
-                PasteWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
+                RefreshWardrobeParamSelectionDerived();
             }
         }
     }
@@ -716,8 +720,10 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
     public RelayCommand RemoveWardrobeSnapshotParamCommand { get; }
     public RelayCommand CopyWardrobeOutfitCommand { get; }
     public RelayCommand PasteWardrobeOutfitCommand { get; }
-    public RelayCommand CopyWardrobeSnapshotParamCommand { get; }
-    public RelayCommand PasteWardrobeSnapshotParamCommand { get; }
+    public RelayCommand CopySelectedWardrobeSnapshotParamsCommand { get; }
+    public RelayCommand PasteWardrobeSnapshotParamsCommand { get; }
+    public RelayCommand SelectAllWardrobeSnapshotParamsCommand { get; }
+    public RelayCommand ClearWardrobeSnapshotParamSelectionCommand { get; }
     public AsyncRelayCommand RefreshWardrobeParametersCommand { get; }
     public AsyncRelayCommand TestWardrobeOutfitCommand { get; }
     public AsyncRelayCommand TestSelectedAvatarRuleCommand { get; }
@@ -1398,13 +1404,14 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
 
     private void RemoveWardrobeSnapshotParam()
     {
-        if (SelectedWardrobeOutfit is null || SelectedWardrobeSnapshotParam is null) return;
-        var param = SelectedWardrobeSnapshotParam;
-        var index = SelectedWardrobeOutfit.SnapshotParams.IndexOf(param);
-        SelectedWardrobeOutfit.SnapshotParams.Remove(param);
-        SelectedWardrobeSnapshotParam = index < SelectedWardrobeOutfit.SnapshotParams.Count
-            ? SelectedWardrobeOutfit.SnapshotParams[index]
-            : SelectedWardrobeOutfit.SnapshotParams.FirstOrDefault();
+        var outfit = SelectedWardrobeOutfit;
+        if (outfit is null) return;
+        var toRemove = SelectedWardrobeSnapshotParams
+            .OrderByDescending(p => outfit.SnapshotParams.IndexOf(p))
+            .ToList();
+        foreach (var p in toRemove) outfit.SnapshotParams.Remove(p);
+        SelectedWardrobeSnapshotParams.Clear();
+        RefreshWardrobeParamSelectionDerived();
     }
 
     private void CopyWardrobeOutfit()
@@ -1432,11 +1439,49 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
         SelectedWardrobeSnapshotParam = outfit.SnapshotParams.FirstOrDefault();
     }
 
-    private void CopyWardrobeSnapshotParam()
+    private void CopySelectedWardrobeSnapshotParams()
     {
-        if (SelectedWardrobeSnapshotParam is null) return;
-        _copiedWardrobeSnapshotParam = CloneWardrobeSnapshotParam(SelectedWardrobeSnapshotParam);
-        PasteWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
+        _copiedWardrobeSnapshotParams.Clear();
+        foreach (var p in SelectedWardrobeSnapshotParams.ToList())
+            _copiedWardrobeSnapshotParams.Add(CloneWardrobeSnapshotParam(p));
+        RaisePropertyChanged(nameof(CopiedWardrobeSnapshotParamCount));
+        RaisePropertyChanged(nameof(HasCopiedWardrobeSnapshotParams));
+        PasteWardrobeSnapshotParamsCommand.NotifyCanExecuteChanged();
+    }
+
+    private void PasteWardrobeSnapshotParams()
+    {
+        var outfit = SelectedWardrobeOutfit;
+        if (outfit is null || _copiedWardrobeSnapshotParams.Count == 0) return;
+
+        var existingNames = new HashSet<string>(
+            outfit.SnapshotParams.Select(p => p.ParameterName),
+            StringComparer.Ordinal);
+        int added = 0, skipped = 0;
+        foreach (var src in _copiedWardrobeSnapshotParams.ToList())
+        {
+            if (string.IsNullOrWhiteSpace(src.ParameterName)) { skipped++; continue; }
+            if (existingNames.Contains(src.ParameterName)) { skipped++; continue; }
+            var clone = CloneWardrobeSnapshotParam(src);
+            outfit.SnapshotParams.Add(clone);
+            existingNames.Add(clone.ParameterName);
+            added++;
+        }
+    }
+
+    private void SelectAllWardrobeSnapshotParams()
+    {
+        if (SelectedWardrobeOutfit is null) return;
+        SelectedWardrobeSnapshotParams.Clear();
+        foreach (var p in SelectedWardrobeOutfit.SnapshotParams)
+            SelectedWardrobeSnapshotParams.Add(p);
+        RefreshWardrobeParamSelectionDerived();
+    }
+
+    private void ClearWardrobeSnapshotParamSelection()
+    {
+        SelectedWardrobeSnapshotParams.Clear();
+        RefreshWardrobeParamSelectionDerived();
     }
 
     private void RefreshWardrobeParamSelectionDerived()
@@ -1451,21 +1496,11 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
         SelectAllWardrobeSnapshotParamsCommand.NotifyCanExecuteChanged();
     }
 
-    private void PasteWardrobeSnapshotParam()
+    public void SyncWardrobeParamSelectionFromList(IEnumerable<Models.WardrobeSnapshotParam> newSelection)
     {
-        if (SelectedWardrobeOutfit is null || _copiedWardrobeSnapshotParam is null) return;
-
-        var param = CloneWardrobeSnapshotParam(_copiedWardrobeSnapshotParam);
-        var insertIndex = SelectedWardrobeSnapshotParam is not null
-            ? SelectedWardrobeOutfit.SnapshotParams.IndexOf(SelectedWardrobeSnapshotParam) + 1
-            : SelectedWardrobeOutfit.SnapshotParams.Count;
-        if (insertIndex < 0 || insertIndex > SelectedWardrobeOutfit.SnapshotParams.Count)
-        {
-            insertIndex = SelectedWardrobeOutfit.SnapshotParams.Count;
-        }
-
-        SelectedWardrobeOutfit.SnapshotParams.Insert(insertIndex, param);
-        SelectedWardrobeSnapshotParam = param;
+        SelectedWardrobeSnapshotParams.Clear();
+        foreach (var p in newSelection) SelectedWardrobeSnapshotParams.Add(p);
+        RefreshWardrobeParamSelectionDerived();
     }
 
     private async Task RefreshWardrobeParametersAsync()
