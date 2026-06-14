@@ -75,6 +75,18 @@ public partial class AvatarSetsManagerWindow : Window
         }
     }
 
+    private void OnWardrobeParamListSelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (sender is not System.Windows.Controls.ListBox lb || Vm is null) return;
+        Vm.SyncWardrobeParamSelectionFromList(lb.SelectedItems.Cast<Models.WardrobeSnapshotParam>());
+    }
+
+    private void OnWardrobeParamListKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        // Reserved for future custom shortcuts. Intentionally empty so the
+        // ListBox.InputBindings (Ctrl+C/V/A, Delete, Esc) get first crack.
+    }
+
     private void OnHideModeClicked(object sender, MouseButtonEventArgs e)
     {
         if (Vm?.SelectedAvatarRule is Models.TriggerRule rule)
