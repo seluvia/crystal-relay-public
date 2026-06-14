@@ -177,6 +177,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private readonly Dictionary<Guid, DateTimeOffset> universalTriggerGlobalDelays = [];
     private readonly Dictionary<string, DateTimeOffset> universalTriggerUserDelays = new(StringComparer.Ordinal);
     private readonly Dictionary<Guid, SemaphoreSlim> universalTriggerQueueGates = [];
+    private readonly SemaphoreSlim universalTriggerGlobalGate = new(1, 1);
     private readonly Dictionary<string, DateTimeOffset> triggerInfoCommandCooldowns = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<Guid, DateTimeOffset> powerUpInactiveAvatarLogTimes = [];
     private readonly SemaphoreSlim worldCommandLookupGate = new(1, 1);
@@ -3924,15 +3925,23 @@ internal BridgeCoordinator(
         var shouldQueue = actions.Any(action => action.AddToQueue);
         if (shouldQueue)
         {
-            var gate = GetUniversalTriggerQueueGate(trigger.Id);
-            await gate.WaitAsync(cancellationToken);
+            await universalTriggerGlobalGate.WaitAsync(cancellationToken);
             try
             {
-                await ExecuteUniversalActionsAsync(trigger, actions, cancellationToken);
+                var gate = GetUniversalTriggerQueueGate(trigger.Id);
+                await gate.WaitAsync(cancellationToken);
+                try
+                {
+                    await ExecuteUniversalActionsAsync(trigger, actions, cancellationToken);
+                }
+                finally
+                {
+                    gate.Release();
+                }
             }
             finally
             {
-                gate.Release();
+                universalTriggerGlobalGate.Release();
             }
         }
         else
@@ -17345,6 +17354,7 @@ internal BridgeCoordinator(
         {
             universalQueueGate.Dispose();
         }
+        universalTriggerGlobalGate.Dispose();
 
         foreach (var supporterGrowthCancellation in supporterGrowthCancellations)
         {
