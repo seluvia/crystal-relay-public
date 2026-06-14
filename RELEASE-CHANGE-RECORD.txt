@@ -20,17 +20,11 @@ How To Use:
 Pending Release Draft
 - Target version: v3.1.9
 - Release lane: beta
+- Next build: v3.1.9 beta 3
 - Source files reflect v3.1.9; csproj and updater project will be updated when new work begins.
 
+v3.1.9 beta 3 (this build)
 Added:
-- Added Activity Resume so Crystal Relay remembers active redeems and picks up where it left off after a restart.
-- Added a Multiplier direction option for Avatar Scaling multiplier mode.
-- Added a configurable transition speed for Glitchy Random Height.
-- Added a richer loading overlay animation with a pulsing crystal glow, orbiting accents, shimmer, and calm loading text that stops when initialization completes.
-- Added OSC Status restart controls for restarting Crystal Relay or restarting VRChat and Crystal Relay while restoring open Crystal Relay windows.
-- Added a restart-only desktop mode option so the VRChat + Crystal Relay restart can relaunch VRChat with Desktop mode for testing.
-- Added a Twitch Chatbox XSOverlay compatibility mode and remembered chatbox placement so overlay capture can keep a stable target between launches and restarts.
-- Added Wardrobe copy/paste tools for outfits and snapshot parameters to speed up reward setup.
 - Rebuilt the Universal Triggers manager as its own themed window with a search bar, type/status/source filters, and per-section collapse controls.
 - Added a slide-out editor panel for editing triggers without leaving the manager, including trigger type, Twitch reward, avatar readiness check, and OSC action list.
 - Added Ready / Needs attention / Disabled status pills, type pills for each trigger type, and Source pills (Fooma / Manual) on every Universal Triggers card.
@@ -38,7 +32,21 @@ Added:
 - Added a help button on the Fooma importer to explain command-fusion and reward pairing in plain language.
 - Added per-rule toggles for Run random action, Queue, and Active Duration in the editor.
 - Added an Avatar Readiness section in the editor that lists which OSC parameters are available on the current VRChat avatar.
+Changed:
+- Improved restore from manual test so trigger type, reward, bits range, sub tier, and action list all come back.
+- Routed managed reward saves and updates for Universal Triggers through Crystal Relay's standard channel-point reward sync.
+Removed:
+- Replaced the old inline Universal Triggers settings tab with the new dedicated manager window. The old tab and its dual-pane editor are gone; everything they did is now in the new window.
 
+v3.1.9 beta 2 (already shipped)
+Added:
+- Added Activity Resume so Crystal Relay remembers active redeems and picks up where it left off after a restart.
+- Added a Multiplier direction option for Avatar Scaling multiplier mode.
+- Added a configurable transition speed for Glitchy Random Height.
+- Added OSC Status restart controls for restarting Crystal Relay or restarting VRChat and Crystal Relay while restoring open Crystal Relay windows.
+- Added a restart-only desktop mode option so the VRChat + Crystal Relay restart can relaunch VRChat with Desktop mode for testing.
+- Added a Twitch Chatbox XSOverlay compatibility mode and remembered chatbox placement so overlay capture can keep a stable target between launches and restarts.
+- Added Wardrobe copy/paste tools for outfits and snapshot parameters to speed up reward setup.
 Changed:
 - Redesigned the Avatar Scaling action setup with a cleaner, compact mode-driven layout.
 - Avatar Scaling now bypasses VRChat's built-in world height limits when custom Min/Max values are set.
@@ -54,12 +62,20 @@ Changed:
 - Improved VRChat + Crystal Relay restart rejoin so private/group/friends instance launch targets are passed back to VRChat in the raw format it expects.
 - Improved avatar-scaling height carryover around queued avatar swaps and interrupted height changes.
 - Fixed Wardrobe so the "Link existing Twitch reward" picker now shows the channel's available rewards, matching the Avatar Sets section. Already-linked wardrobe rewards also stay in the dropdown after a Twitch reward catalog refresh.
-- Improved restore from manual test so trigger type, reward, bits range, sub tier, and action list all come back.
-- Routed managed reward saves and updates for Universal Triggers through Crystal Relay's standard channel-point reward sync.
 - Moved Wardrobe editor from main window into the Avatar Sets manager (Step 4) with per-outfit managed reward ready/cooldown color pickers and a full Create vs Link existing reward branch.
 
-Removed:
-- Replaced the old inline Universal Triggers settings tab with the new dedicated manager window. The old tab and its dual-pane editor are gone; everything they did is now in the new window.
+v3.1.9 beta 1 (already shipped)
+Added:
+- Added a richer loading overlay animation with a pulsing crystal glow, orbiting accents, shimmer, and calm loading text that stops when initialization completes.
+- Added a lightweight settings read path during startup that only loads language and theme preferences, so the correct theme is applied immediately without a flash.
+Changed:
+- Optimized startup speed by deferring heavy initialization out of the main constructor.
+- Improved Avatar Change and Avatar Roulette timing so queued channel-point avatar swaps can run one after another.
+- Fixed Wardrobe return restore so saved VRChat LocalAvatarData values match the current avatar's typed OSC parameter names and path suffixes.
+- Fixed Wardrobe parameter picking so type-filtered Bool/Int/Float choices save as `/avatar/parameters/...` paths immediately.
+- Fixed avatar picker thumbnails so VRChat image URLs are preserved through cached avatar lists.
+- Added OSC Status restart controls for restarting Crystal Relay or restarting VRChat and Crystal Relay.
+- Improved VRChat + Crystal Relay restart rejoin behavior.
 
 Release Checklist:
 - Update the app version in VrcTwitchOscBridge.csproj (and CrystalRelayUpdater.csproj).
