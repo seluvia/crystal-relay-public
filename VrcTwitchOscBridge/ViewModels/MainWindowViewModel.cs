@@ -433,21 +433,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private AppSettings settings = new();
     private RuntimeConfig runtimeConfig = RuntimeConfig.CreateDefault();
     private TriggerRule? selectedRule;
-    private UniversalTriggerRule? selectedUniversalTrigger;
-    private UniversalTriggerAction? selectedUniversalTriggerAction;
     private MovementRedeemSet? selectedMovementRedeemSet;
     private AvatarScaleSet? selectedAvatarScaleSet;
     private AvatarScaleRule? selectedAvatarScaleRule;
     private CashPaymentRule? selectedCashPaymentRule;
     private PowerUpRule? selectedPowerUpRule;
-    private WardrobeOutfit? selectedWardrobeOutfit;
-    private WardrobeSnapshotParam? selectedWardrobeSnapshotParam;
-    private VrChatOscParameterSummary? selectedWardrobeParameterOption;
-    private string wardrobeParameterText = string.Empty;
-    private IReadOnlyList<VrChatOscParameterSummary> wardrobeParameterSourceParameters = [];
-    private IReadOnlyList<VrChatOscParameterSummary> availableWardrobeParameters = [];
-    private WardrobeOutfit? copiedWardrobeOutfit;
-    private WardrobeSnapshotParam? copiedWardrobeSnapshotParam;
+    private TriggerRule? selectedAvatarRule;
     private AvatarTriggerProfile? selectedAvatarProfile;
     private VrChatOscParameterSummary? selectedAvatarParameterOption;
     private VrChatOscParameterSummary? selectedSetTriggerParameterOption;
@@ -490,8 +481,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private bool isInitialized;
     private bool isRestoringAvatarParameterSelection;
     private bool isRestoringSetTriggerParameterSelection;
-    private bool isRestoringWardrobeParameterSelection;
-    private bool isRestoringWardrobeParameterText;
     private bool isApplyingMasterAvatarDefaults;
     private bool isRefreshingVrChatAvatarSelectionOptions;
     private bool isSynchronizingManagedRewards;
@@ -545,6 +534,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private readonly Dictionary<string, DateTimeOffset> throttledLogExpiryByKey = new(StringComparer.Ordinal);
     private readonly List<ActionTypeOption> allActionTypes;
     private string lastSuccessfulManagedRewardDesiredFingerprint = string.Empty;
+    private string lastObservedBroadcasterIdentityFingerprint = string.Empty;
+    private string lastObservedBotIdentityFingerprint = string.Empty;
     private int pendingSkippedDeleteSuppressedCount;
     private DateTimeOffset? managedRewardApiBackoffUntil;
     private DateTimeOffset aboutProfilesLastRefreshedAt = DateTimeOffset.MinValue;
@@ -558,7 +549,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private Guid lastSelectedMovementSetId = Guid.Empty;
     private Guid lastSelectedMovementRuleId = Guid.Empty;
     private Guid lastSelectedSupporterRuleId = Guid.Empty;
-    private Guid lastSelectedUniversalTriggerId = Guid.Empty;
     private Guid lastSelectedAvatarScaleSetId = Guid.Empty;
     private Guid lastSelectedAvatarScaleRuleId = Guid.Empty;
     private Guid lastSelectedCashPaymentRuleId = Guid.Empty;
@@ -643,6 +633,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             new TwitchRewardSyncModeOption(TwitchRewardSyncMode.LinkExisting, T("Link existing Twitch reward"))
         ];
         AvatarRuleProfiles = [];
+        AvatarRuleProfiles.CollectionChanged += (_, _) => RaisePropertyChanged(nameof(AvatarSetSummaryText));
         SupporterAvatarScopeOptions = [];
         SupporterRuleAvatarScopeOptions = [];
         ProfileAvatarOptions = [];
@@ -687,7 +678,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         [
             new ActionTypeOption(OscActionType.AvatarParameter, T("Avatar Parameter")),
             new ActionTypeOption(OscActionType.SetTrigger, T("Set Trigger")),
-            new ActionTypeOption(OscActionType.AvatarChange, T("Avatar Change")),
+            new ActionTypeOption(OscActionType.AvatarChange, T("Avatar Swap")),
             new ActionTypeOption(OscActionType.AvatarRoulet, T("Avatar Roulette")),
             new ActionTypeOption(OscActionType.PlayerMovement, T("Player Movement"))
         ];
@@ -697,7 +688,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             TwitchTriggerType.Bits,
             TwitchTriggerType.Subscriptions
         ];
-        UniversalTriggerTypes = Enum.GetValues<UniversalTriggerType>();
         AvatarScaleTriggerTypes = Enum.GetValues<AvatarScaleTriggerType>();
         AvatarScaleModes =
         [
@@ -806,11 +796,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             new ChatCommandPermissionOption(ChatCommandPermission.Moderators, T("Moderators + Broadcaster")),
             new ChatCommandPermissionOption(ChatCommandPermission.Broadcaster, T("Broadcaster Only"))
         ];
-        ParameterTypes = [OscParameterType.Bool, OscParameterType.Int, OscParameterType.Float];
         FloatValueModes = Enum.GetValues<FloatValueMode>();
-        UniversalTriggerValueKinds = Enum.GetValues<UniversalTriggerValueKind>();
         IntZeroDurationModes = Enum.GetValues<IntZeroDurationMode>();
-        BoolValueOptions = ["True", "False"];
         sessionStatusTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromSeconds(30)
@@ -887,6 +874,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         OpenBugReportCommand = new AsyncRelayCommand(OpenBugReportAsync);
         RefreshTwitchRewardsCommand = new AsyncRelayCommand(RefreshTwitchRewardsAsync);
         UnlinkTwitchRewardCommand = new RelayCommand(UnlinkTwitchReward);
+        UnlinkWardrobeMasterRewardCommand = new RelayCommand(UnlinkWardrobeMasterReward);
         TestSelectedRuleCommand = new AsyncRelayCommand(TestSelectedRuleAsync, () => SelectedRule is not null);
         SimulateTestModeBitsCommand = new AsyncRelayCommand(SimulateTestModeBitsAsync);
         SimulateTestModeSubscriptionCommand = new AsyncRelayCommand(SimulateTestModeSubscriptionAsync);
@@ -923,11 +911,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ShowMovementRedeemsCommand = new RelayCommand(ShowMovementRedeems);
         ShowSupporterOverridesCommand = new RelayCommand(ShowSupporterOverrides);
         ShowPowerUpsCommand = new RelayCommand(ShowPowerUps);
-        ShowUniversalTriggersCommand = new RelayCommand(ShowUniversalTriggers);
+        OpenUniversalTriggersManagerCommand = new RelayCommand(OpenUniversalTriggersManager);
+        OpenAvatarSetsManagerCommand = new RelayCommand(OpenAvatarSetsManager);
         ShowAvatarScalingCommand = new RelayCommand(ShowAvatarScaling);
         ShowCashPaymentsCommand = new RelayCommand(ShowCashPayments);
         ShowRewardFireSaleCommand = new RelayCommand(ShowRewardFireSale);
-        ShowWardrobeCommand = new RelayCommand(ShowWardrobe);
+
         AddAvatarProfileCommand = new RelayCommand(AddAvatarProfile);
         DeleteSelectedAvatarProfileCommand = new RelayCommand(DeleteSelectedAvatarProfile, () => SelectedAvatarProfile is not null);
         DeleteAllAvatarProfilesCommand = new RelayCommand(DeleteAllAvatarProfiles, () => AvatarRuleProfiles.Count > 0);
@@ -950,16 +939,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RemoveSelectedOutfitChoiceCommand = new RelayCommand(
             RemoveSelectedOutfitChoice,
             () => IsViewingAvatarTriggers && SelectedAvatarProfile is not null && SelectedRule?.ActionType == OscActionType.SetTrigger);
-        AddWardrobeOutfitCommand = new RelayCommand(AddWardrobeOutfit, () => (IsViewingAvatarTriggers || IsViewingWardrobe) && SelectedAvatarProfile is not null);
-        RemoveWardrobeOutfitCommand = new RelayCommand(RemoveWardrobeOutfit, () => (IsViewingAvatarTriggers || IsViewingWardrobe) && SelectedWardrobeOutfit is not null);
-        AddWardrobeSnapshotParamCommand = new RelayCommand(AddWardrobeSnapshotParam, () => SelectedWardrobeOutfit is not null);
-        RemoveWardrobeSnapshotParamCommand = new RelayCommand(RemoveWardrobeSnapshotParam, () => SelectedWardrobeSnapshotParam is not null);
-        CopyWardrobeOutfitCommand = new RelayCommand(CopyWardrobeOutfit, () => SelectedWardrobeOutfit is not null);
-        PasteWardrobeOutfitCommand = new RelayCommand(PasteWardrobeOutfit, () => SelectedAvatarProfile is not null && copiedWardrobeOutfit is not null);
-        CopyWardrobeSnapshotParamCommand = new RelayCommand(CopyWardrobeSnapshotParam, () => SelectedWardrobeSnapshotParam is not null);
-        PasteWardrobeSnapshotParamCommand = new RelayCommand(PasteWardrobeSnapshotParam, () => SelectedWardrobeOutfit is not null && copiedWardrobeSnapshotParam is not null);
-        RefreshWardrobeParametersCommand = new RelayCommand(async () => await RefreshWardrobeParametersAsync());
-        TestWardrobeOutfitCommand = new AsyncRelayCommand(TestWardrobeOutfitAsync, () => SelectedWardrobeOutfit is not null && SelectedAvatarProfile is not null);
+
         SelectRuleCommand = new RelayCommand(SelectRule, target => target is TriggerRule);
         AddAvatarSupporterTriggerCommand = new RelayCommand(AddAvatarSupporterTrigger);
         AddAvatarChangeOverrideCommand = new RelayCommand(AddAvatarChangeOverride);
@@ -968,15 +948,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         EnableAllRulesCommand = new RelayCommand(EnableAllRules, () => GetCurrentEditableRuleCollection().Count > 0);
         DisableAllRulesCommand = new RelayCommand(DisableAllRules, () => GetCurrentEditableRuleCollection().Count > 0);
         DeleteAllRulesCommand = new RelayCommand(DeleteAllRules, () => GetCurrentEditableRuleCollection().Count > 0);
-        AddUniversalTriggerCommand = new RelayCommand(AddUniversalTrigger);
-        RemoveSelectedUniversalTriggerCommand = new RelayCommand(RemoveSelectedUniversalTrigger, () => SelectedUniversalTrigger is not null);
-        EnableAllUniversalTriggersCommand = new RelayCommand(EnableAllUniversalTriggers, () => Settings.UniversalTriggers.Count > 0);
-        DisableAllUniversalTriggersCommand = new RelayCommand(DisableAllUniversalTriggers, () => Settings.UniversalTriggers.Count > 0);
-        DeleteAllUniversalTriggersCommand = new RelayCommand(DeleteAllUniversalTriggers, () => Settings.UniversalTriggers.Count > 0);
-        TestSelectedUniversalTriggerCommand = new AsyncRelayCommand(TestSelectedUniversalTriggerAsync, () => SelectedUniversalTrigger is not null);
-        ImportFoomaInteractionConfigCommand = new AsyncRelayCommand(ImportFoomaInteractionConfigAsync);
-        AddUniversalTriggerActionCommand = new RelayCommand(AddUniversalTriggerAction, () => SelectedUniversalTrigger is not null);
-        RemoveSelectedUniversalTriggerActionCommand = new RelayCommand(RemoveSelectedUniversalTriggerAction, () => SelectedUniversalTriggerAction is not null);
         AddMovementRedeemSetCommand = new RelayCommand(AddMovementRedeemSet);
         RemoveSelectedMovementRedeemSetCommand = new RelayCommand(RemoveSelectedMovementRedeemSet, () => SelectedMovementRedeemSet is not null);
         DeleteAllMovementRedeemSetsCommand = new RelayCommand(DeleteAllMovementRedeemSets, () => Settings.MovementRedeemSets.Count > 0);
@@ -1033,11 +1004,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         });
         bridgeCoordinator.AccountUpdated += (role, snapshot) => RunOnUi(() =>
         {
+            var previousIdentityFingerprint = BuildAccountIdentityFingerprint(role);
             ApplyAccountSnapshot(role, snapshot);
             UpdateAccountStatuses();
             QueueSave();
             _ = QueueRewardRefreshAsync();
-            QueueManagedRewardSync(0, ManagedRewardSyncReason.AccountReconnect);
+            if (HasAccountIdentityChanged(role, previousIdentityFingerprint))
+            {
+                QueueManagedRewardSync(0, ManagedRewardSyncReason.AccountReconnect);
+            }
             _ = RefreshAboutProfilesAsync();
         });
         bridgeCoordinator.ChatMessageReceived += message => RunOnUi(() => AppendChatMessage(message));
@@ -1048,10 +1023,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         bridgeCoordinator.ManagedRewardAvailabilityChanged += () => RunOnUi(() =>
         {
             RaisePropertyChanged(nameof(AvatarScaleMasterRewardStatusText));
-            QueueManagedRewardSync(
-                (int)AvatarScaleLimitRewardSyncDebounce.TotalMilliseconds,
-                ManagedRewardSyncReason.RuntimeAvailability);
         });
+        bridgeCoordinator.RewardCooldownColorChanged += ruleId => _ = HandleRewardCooldownColorChangedAsync(ruleId);
         bridgeCoordinator.AvatarScaleStatusChanged += () => RunOnUi(HandleAvatarScaleStatusChanged);
         bridgeCoordinator.RewardFireSaleContributionReceived += contribution => RunOnUi(() => HandleRewardFireSaleContribution(contribution));
         bridgeCoordinator.DevFireSaleRequested += request => RunOnUi(() => HandleDevFireSaleRequest(request));
@@ -1150,15 +1123,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 RaiseRuleSelectionStateProperties();
                 AddOutfitChoiceCommand.NotifyCanExecuteChanged();
                 RemoveSelectedOutfitChoiceCommand.NotifyCanExecuteChanged();
-                AddWardrobeOutfitCommand.NotifyCanExecuteChanged();
-                RemoveWardrobeOutfitCommand.NotifyCanExecuteChanged();
                 RefreshSpecialRuleLockoutOptions();
                 RefreshVrChatAvatarSelectionOptions();
                 _ = EnsureSelectedAvatarParameterCacheLoadedAsync();
-                if (IsViewingWardrobe)
-                {
-                    _ = RefreshWardrobeParametersAsync();
-                }
                 SelectedRule = value is null ? null : GetRememberedRuleForProfile(value);
 
                 if (Settings.ChannelPointRewardTestModeEnabled && !IsBroadcasterLive)
@@ -1229,8 +1196,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         IsViewingSupporterOverrides && SelectedRule?.ActionType == OscActionType.PlayerMovement
             ? [TwitchTriggerType.Bits]
             : OverrideTriggerTypes;
-
-    public IReadOnlyList<UniversalTriggerType> UniversalTriggerTypes { get; }
 
     public IReadOnlyList<AvatarScaleTriggerType> AvatarScaleTriggerTypes { get; }
 
@@ -1357,15 +1322,13 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public IReadOnlyList<ChatCommandPermissionOption> ChatCommandPermissionOptions { get; }
 
-    public IReadOnlyList<OscParameterType> ParameterTypes { get; }
+    public IReadOnlyList<OscParameterType>? ParameterTypes { get; }
 
     public IReadOnlyList<FloatValueMode> FloatValueModes { get; }
 
-    public IReadOnlyList<UniversalTriggerValueKind> UniversalTriggerValueKinds { get; }
-
     public IReadOnlyList<IntZeroDurationMode> IntZeroDurationModes { get; }
 
-    public IReadOnlyList<string> BoolValueOptions { get; }
+    public IReadOnlyList<string>? BoolValueOptions { get; }
 
     public AppLanguageOption SelectedLanguageOption
     {
@@ -1452,15 +1415,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public bool IsViewingPowerUps => activeRuleListView == RuleListView.PowerUps;
 
-    public bool IsViewingUniversalTriggers => activeRuleListView == RuleListView.UniversalTriggers;
-
     public bool IsViewingAvatarScaling => activeRuleListView == RuleListView.AvatarScaling;
 
     public bool IsViewingCashPayments => activeRuleListView == RuleListView.CashPayments;
 
     public bool IsViewingRewardFireSale => activeRuleListView == RuleListView.RewardFireSale;
-
-    public bool IsViewingWardrobe => activeRuleListView == RuleListView.Wardrobe;
 
     public bool IsRewardFireSaleTemporary => Settings.RewardFireSale.SaleMode == RewardFireSaleMode.Temporary;
 
@@ -1736,8 +1695,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ? T("Power Up")
         : IsViewingAvatarScaling
         ? T("Avatar Scaling")
-        : IsViewingUniversalTriggers
-        ? T("Universal Triggers")
         : IsViewingSupporterOverrides
         ? T("Bits + Subs Overrides")
         : IsViewingMovementRedeems
@@ -1754,8 +1711,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ? T("Link Twitch Custom Power-ups paid with Bits, then choose the Crystal Relay action each Power Up should run. Linked Power Ups are listen-only in this beta build.")
         : IsViewingAvatarScaling
         ? T("Use Scale Sets to organize VRChat OSC avatar height scaling. Scale redeems send /avatar/eyeheight and stay separate from avatar sets, movement, universal triggers, and paid overrides.")
-        : IsViewingUniversalTriggers
-        ? T("Use this list for imported or universal Twitch interactions. These triggers can listen for chat commands, channel point rewards, bits, subscriptions, gift subs, and follows without mixing into avatar sets or paid override rules.")
         : IsViewingSupporterOverrides
         ? T("Use this list for paid Twitch triggers like bits and subscriptions. Avatar Supporter Triggers are tied directly to one VRChat avatar, while Avatar Change Overrides stay global so outfit-name Bits triggers do not fight avatar swaps.")
         : IsViewingMovementRedeems
@@ -1774,8 +1729,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             ? T("This tab is for Twitch Custom Power-ups. Power Ups use Bits, stay separate from normal cheers, and can run OSC, avatar, movement, Set Trigger, or Avatar Scaling actions.")
         : IsViewingAvatarScaling
         ? T("This tab is for avatar height scale redeems using VRChat OSC Avatar Scaling. Use Scale Sets to keep different height reward ideas organized without changing how the triggers run.")
-        : IsViewingUniversalTriggers
-        ? T("This tab is for universal Twitch interaction triggers. Import a Fooma Twitch Interaction config here, then test and adjust the OSC actions without changing the existing Avatar Sets, Movement Redeems, Avatar Change, or Bits + Subs override sections.")
         : IsViewingSupporterOverrides
         ? T("This tab is for paid Twitch triggers. Use Avatar Supporter Triggers for current-avatar bits/subs actions and Bits outfit Set Triggers, and keep avatar-change paid overrides in their own group.")
         : IsViewingMovementRedeems
@@ -1792,8 +1745,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ? T("Add Power Up")
         : IsViewingAvatarScaling
         ? T("Add Scale Redeem")
-        : IsViewingUniversalTriggers
-        ? T("Add Universal Trigger")
         : IsViewingSupporterOverrides
         ? T("Add Avatar Supporter Trigger")
         : IsViewingMovementRedeems
@@ -1810,8 +1761,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ? T("Delete Power Up")
         : IsViewingAvatarScaling
         ? T("Delete Scale Redeem")
-        : IsViewingUniversalTriggers
-        ? T("Delete Universal Trigger")
         : IsViewingSupporterOverrides
         ? T("Delete Override")
         : IsViewingMovementRedeems
@@ -1828,8 +1777,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ? T("Delete All Power Ups")
         : IsViewingAvatarScaling
         ? T("Delete All Scale Sets")
-        : IsViewingUniversalTriggers
-        ? T("Delete All Universal Triggers")
         : IsViewingSupporterOverrides
         ? T("Delete All Overrides")
         : IsViewingMovementRedeems
@@ -1846,8 +1793,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ? T("Add or select a Power Up rule to edit it.")
         : IsViewingAvatarScaling
         ? T("Select or add a scale set, then add a scale redeem to edit it.")
-        : IsViewingUniversalTriggers
-        ? T("Import a Fooma config or add a universal trigger to edit it.")
         : IsViewingSupporterOverrides
         ? T("Add or select a bits/subs trigger to edit it.")
         : IsViewingMovementRedeems
@@ -1931,60 +1876,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             }
 
             return T("Crystal Relay will create or link this Twitch redeem and keep it available in Test Mode or while live when the current avatar local OSC file has at least one matching avatar parameter action.");
-        }
-    }
-
-    public string UniversalManagedRewardStatusText
-    {
-        get
-        {
-            var trigger = SelectedUniversalTrigger;
-            if (trigger is null || trigger.TriggerType != UniversalTriggerType.ChannelPointReward)
-            {
-                return string.Empty;
-            }
-
-            if (string.IsNullOrWhiteSpace(trigger.RewardTitle))
-            {
-                return WithUniversalManagedRewardSyncStatus("Set a reward name so Crystal Relay can create or link the Twitch redeem.");
-            }
-
-            if (!HasRuntimeReadyUniversalTriggerAction(trigger))
-            {
-                return WithUniversalManagedRewardSyncStatus("Add at least one complete OSC action before this reward can be managed on Twitch.");
-            }
-
-            var requiredParameters = GetUniversalTriggerRequiredAvatarParameterAddresses(trigger);
-            if (requiredParameters.Count == 0)
-            {
-                return WithUniversalManagedRewardSyncStatus("No avatar-parameter gate is needed. This reward can show whenever Twitch redeems are active.");
-            }
-
-            var currentAvatarId = Settings.VrChat.CurrentAvatarId?.Trim() ?? string.Empty;
-            if (string.IsNullOrWhiteSpace(currentAvatarId))
-            {
-                return WithUniversalManagedRewardSyncStatus("Current avatar unknown. Universal rewards that need avatar parameters stay hidden until Crystal Relay detects the current avatar.");
-            }
-
-            if (!CurrentAvatarLocalOscJsonExists(currentAvatarId)
-                || !cachedVrChatParametersByAvatarId.ContainsKey(currentAvatarId))
-            {
-                return WithUniversalManagedRewardSyncStatus("Waiting for current avatar JSON. Universal rewards that need avatar parameters stay hidden until VRChat writes the current avatar's OSC file.");
-            }
-
-            var missingParameters = GetMissingCurrentAvatarParameters(requiredParameters);
-            var foundParameterCount = requiredParameters.Count - missingParameters.Count;
-            if (missingParameters.Count == requiredParameters.Count)
-            {
-                return WithUniversalManagedRewardSyncStatus($"Hidden on Twitch: current avatar is missing required parameters. Missing: {string.Join(", ", missingParameters.Take(4))}{(missingParameters.Count > 4 ? ", ..." : string.Empty)}.");
-            }
-
-            if (missingParameters.Count > 0)
-            {
-                return WithUniversalManagedRewardSyncStatus($"Partially ready for current avatar. Found {foundParameterCount} of {requiredParameters.Count} required OSC parameter(s). Missing: {string.Join(", ", missingParameters.Take(4))}{(missingParameters.Count > 4 ? ", ..." : string.Empty)}.");
-            }
-
-            return WithUniversalManagedRewardSyncStatus($"Ready for current avatar. Found {requiredParameters.Count} required OSC parameter(s).");
         }
     }
 
@@ -2144,7 +2035,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public bool IsSpecialRuleLockoutEditorVisible => IsViewingAvatarTriggers && SelectedRule is not null;
 
-    public string SpecialRuleLockoutHelpText => T("Pairing can either hide sibling redeems while this redeem is active, or keep sibling redeems hidden until this redeem triggers.");
+    public string SpecialRuleLockoutHelpText => T("Pairing can either hide sibling redeems while this redeem is on cooldown, or keep sibling redeems hidden until this redeem triggers.");
 
     public string SpecialRuleLockoutSummaryText
     {
@@ -2317,11 +2208,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                     return T("Avatar Scaling redeems send VRChat's /avatar/eyeheight OSC value and are not tied to one avatar set.");
                 }
 
-                if (IsViewingUniversalTriggers)
-                {
-                    return T("Universal triggers run globally from Twitch events and send direct OSC actions.");
-                }
-
                 if (IsViewingMovementRedeems)
                 {
                     return T("Build global movement redeems here. They work the same on every avatar.");
@@ -2393,6 +2279,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     public string MasterAvatarDisplayName => MasterAvatarProfile?.AvatarDisplayName ?? T("Pick return avatar");
 
     public string SelectedAvatarSetupTitle => IsViewingMasterAvatar ? T("Avatar Change Setup") : T("Avatar Set Setup");
+
+    public string AvatarSetSummaryText => TF("Avatar Sets Summary Format", AvatarRuleProfiles?.Count ?? 0, AvatarRuleProfiles?.Count(p => p.IsEnabled) ?? 0);
 
     public string SelectedAvatarNameFieldLabel => T("Display Name");
 
@@ -2495,42 +2383,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 RefreshAvailableActionTypes();
                 RefreshAvatarParameterOptions();
                 _ = EnsureSelectedAvatarParameterCacheLoadedAsync();
-            }
-        }
-    }
-
-    public UniversalTriggerRule? SelectedUniversalTrigger
-    {
-        get => selectedUniversalTrigger;
-        set
-        {
-            if (SetProperty(ref selectedUniversalTrigger, value))
-            {
-                lastSelectedUniversalTriggerId = value?.Id ?? Guid.Empty;
-                SelectedUniversalTriggerAction = value?.Actions.FirstOrDefault();
-                RemoveSelectedUniversalTriggerCommand.NotifyCanExecuteChanged();
-                AddUniversalTriggerActionCommand.NotifyCanExecuteChanged();
-                TestSelectedUniversalTriggerCommand.NotifyCanExecuteChanged();
-                RaisePropertyChanged(nameof(SelectedUniversalTrigger));
-                RaisePropertyChanged(nameof(UniversalManagedRewardStatusText));
-
-                if (IsViewingUniversalTriggers)
-                {
-                    _ = EnsureSelectedAvatarParameterCacheLoadedAsync();
-                }
-            }
-        }
-    }
-
-    public UniversalTriggerAction? SelectedUniversalTriggerAction
-    {
-        get => selectedUniversalTriggerAction;
-        set
-        {
-            if (SetProperty(ref selectedUniversalTriggerAction, value))
-            {
-                RemoveSelectedUniversalTriggerActionCommand.NotifyCanExecuteChanged();
-                RaisePropertyChanged(nameof(UniversalManagedRewardStatusText));
             }
         }
     }
@@ -2665,348 +2517,13 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
     }
 
-    public WardrobeOutfit? SelectedWardrobeOutfit
+    public TriggerRule? SelectedAvatarRule
     {
-        get => selectedWardrobeOutfit;
+        get => selectedAvatarRule;
         set
         {
-            if (SetProperty(ref selectedWardrobeOutfit, value))
-            {
-                SelectedWardrobeSnapshotParam = value?.SnapshotParams.FirstOrDefault();
-                AddWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
-                RemoveWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
-                CopyWardrobeOutfitCommand.NotifyCanExecuteChanged();
-                PasteWardrobeOutfitCommand.NotifyCanExecuteChanged();
-                CopyWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
-                PasteWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
-                AddWardrobeOutfitCommand.NotifyCanExecuteChanged();
-                RemoveWardrobeOutfitCommand.NotifyCanExecuteChanged();
-                TestWardrobeOutfitCommand.NotifyCanExecuteChanged();
-            }
+            SetProperty(ref selectedAvatarRule, value);
         }
-    }
-
-    public WardrobeSnapshotParam? SelectedWardrobeSnapshotParam
-    {
-        get => selectedWardrobeSnapshotParam;
-        set
-        {
-            var previous = selectedWardrobeSnapshotParam;
-            if (SetProperty(ref selectedWardrobeSnapshotParam, value))
-            {
-                if (previous is not null)
-                {
-                    previous.PropertyChanged -= SelectedWardrobeSnapshotParamChanged;
-                }
-
-                if (selectedWardrobeSnapshotParam is not null)
-                {
-                    selectedWardrobeSnapshotParam.PropertyChanged += SelectedWardrobeSnapshotParamChanged;
-                }
-
-                RefreshWardrobeParameterOptions();
-                RemoveWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
-                CopyWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
-                PasteWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
-            }
-        }
-    }
-
-    public VrChatOscParameterSummary? SelectedWardrobeParameterOption
-    {
-        get => selectedWardrobeParameterOption;
-        set
-        {
-            if (SetProperty(ref selectedWardrobeParameterOption, value)
-                && !isRestoringWardrobeParameterSelection
-                && SelectedWardrobeSnapshotParam is not null
-                && value is not null)
-            {
-                if (SelectedWardrobeSnapshotParam.ParameterType != value.ParameterType)
-                    SelectedWardrobeSnapshotParam.ParameterType = value.ParameterType;
-                SelectedWardrobeSnapshotParam.ParameterName = value.Address;
-                SetWardrobeParameterText(value.DisplayLabel);
-            }
-        }
-    }
-
-    public string WardrobeParameterText
-    {
-        get => wardrobeParameterText;
-        set
-        {
-            if (SetProperty(ref wardrobeParameterText, value ?? string.Empty)
-                && !isRestoringWardrobeParameterText)
-            {
-                CommitWardrobeParameterText(value);
-            }
-        }
-    }
-
-    private void SelectedWardrobeSnapshotParamChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (isRestoringWardrobeParameterSelection)
-        {
-            return;
-        }
-
-        if (ReferenceEquals(sender, SelectedWardrobeSnapshotParam)
-            && (e.PropertyName == nameof(WardrobeSnapshotParam.ParameterType)
-                || e.PropertyName == nameof(WardrobeSnapshotParam.ParameterName)))
-        {
-            RefreshWardrobeParameterOptions();
-        }
-    }
-
-    private void CommitWardrobeParameterText(string? rawText)
-    {
-        if (SelectedWardrobeSnapshotParam is not { } selectedParam)
-        {
-            return;
-        }
-
-        var text = rawText?.Trim() ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(text))
-        {
-            if (!string.IsNullOrWhiteSpace(selectedParam.ParameterName))
-            {
-                selectedParam.ParameterName = string.Empty;
-            }
-
-            RefreshWardrobeParameterOptions();
-            return;
-        }
-
-        var changed = false;
-        if (TryResolveWardrobeParameterInput(
-                text,
-                selectedParam.ParameterType,
-                out var resolvedAddress,
-                out var resolvedType,
-                out var matchedOption))
-        {
-            if (selectedParam.ParameterType != resolvedType)
-            {
-                selectedParam.ParameterType = resolvedType;
-                changed = true;
-            }
-
-            if (!string.Equals(selectedParam.ParameterName?.Trim(), resolvedAddress, StringComparison.Ordinal))
-            {
-                selectedParam.ParameterName = resolvedAddress;
-                changed = true;
-            }
-
-            if (matchedOption is not null)
-            {
-                selectedWardrobeParameterOption = matchedOption;
-                RaisePropertyChanged(nameof(SelectedWardrobeParameterOption));
-            }
-        }
-        else
-        {
-            var cleanedText = StripWardrobeParameterDisplayTypeSuffix(text, out var parsedType);
-            if (parsedType is OscParameterType supportedType && selectedParam.ParameterType != supportedType)
-            {
-                selectedParam.ParameterType = supportedType;
-                changed = true;
-            }
-
-            var normalizedAddress = NormalizeAvatarParameterAddressOrEmpty(cleanedText);
-            if (!string.Equals(selectedParam.ParameterName?.Trim(), normalizedAddress, StringComparison.Ordinal))
-            {
-                selectedParam.ParameterName = normalizedAddress;
-                changed = true;
-            }
-        }
-
-        if (!changed)
-        {
-            RefreshWardrobeParameterOptions();
-        }
-    }
-
-    private void RefreshWardrobeParameterOptions()
-    {
-        isRestoringWardrobeParameterSelection = true;
-        try
-        {
-            if (selectedWardrobeSnapshotParam is null)
-            {
-                AvailableWardrobeParameters = [];
-                selectedWardrobeParameterOption = null;
-                RaisePropertyChanged(nameof(SelectedWardrobeParameterOption));
-                SetWardrobeParameterText(string.Empty);
-                return;
-            }
-
-            TryRepairSelectedWardrobeParameter();
-            var address = NormalizeAvatarParameterAddressOrEmpty(selectedWardrobeSnapshotParam.ParameterName ?? string.Empty);
-            AvailableWardrobeParameters = BuildWardrobeParameterOptionsForType(
-                selectedWardrobeSnapshotParam.ParameterType,
-                selectedWardrobeSnapshotParam.ParameterName ?? string.Empty);
-            var match = AvailableWardrobeParameters.FirstOrDefault(p =>
-                string.Equals(p.Address, address, StringComparison.Ordinal));
-            selectedWardrobeParameterOption = match;
-            RaisePropertyChanged(nameof(SelectedWardrobeParameterOption));
-            SetWardrobeParameterText(match?.DisplayLabel ?? selectedWardrobeSnapshotParam.ParameterName ?? string.Empty);
-        }
-        finally
-        {
-            isRestoringWardrobeParameterSelection = false;
-        }
-    }
-
-    private void TryRepairSelectedWardrobeParameter()
-    {
-        if (selectedWardrobeSnapshotParam is null)
-        {
-            return;
-        }
-
-        var rawName = selectedWardrobeSnapshotParam.ParameterName?.Trim() ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(rawName))
-        {
-            return;
-        }
-
-        if (TryResolveWardrobeParameterInput(
-                rawName,
-                selectedWardrobeSnapshotParam.ParameterType,
-                out var resolvedAddress,
-                out var resolvedType,
-                out _))
-        {
-            if (selectedWardrobeSnapshotParam.ParameterType != resolvedType)
-            {
-                selectedWardrobeSnapshotParam.ParameterType = resolvedType;
-            }
-
-            if (!string.Equals(selectedWardrobeSnapshotParam.ParameterName?.Trim(), resolvedAddress, StringComparison.Ordinal))
-            {
-                selectedWardrobeSnapshotParam.ParameterName = resolvedAddress;
-            }
-
-            return;
-        }
-
-        var cleanedName = StripWardrobeParameterDisplayTypeSuffix(rawName, out var parsedType);
-        if (parsedType is OscParameterType supportedType && selectedWardrobeSnapshotParam.ParameterType != supportedType)
-        {
-            selectedWardrobeSnapshotParam.ParameterType = supportedType;
-        }
-
-        var normalizedAddress = NormalizeAvatarParameterAddressOrEmpty(cleanedName);
-        if (!string.Equals(selectedWardrobeSnapshotParam.ParameterName?.Trim(), normalizedAddress, StringComparison.Ordinal))
-        {
-            selectedWardrobeSnapshotParam.ParameterName = normalizedAddress;
-        }
-    }
-
-    private List<VrChatOscParameterSummary> BuildWardrobeParameterOptionsForType(
-        OscParameterType parameterType,
-        string selectedParameterName)
-    {
-        var nextOptions = wardrobeParameterSourceParameters
-            .Where(parameter => parameter.ParameterType == parameterType)
-            .OrderBy(parameter => parameter.Name, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        var cleanedName = StripWardrobeParameterDisplayTypeSuffix(selectedParameterName ?? string.Empty, out _);
-        var selectedParameterAddress = NormalizeAvatarParameterAddressOrEmpty(cleanedName);
-        if (!string.IsNullOrWhiteSpace(selectedParameterAddress)
-            && !nextOptions.Any(option => string.Equals(option.Address, selectedParameterAddress, StringComparison.Ordinal)))
-        {
-            nextOptions.Insert(0, CreateCustomAvatarParameterOption(selectedParameterAddress, parameterType));
-        }
-
-        return nextOptions;
-    }
-
-    private bool TryResolveWardrobeParameterInput(
-        string rawText,
-        OscParameterType preferredType,
-        out string address,
-        out OscParameterType parameterType,
-        out VrChatOscParameterSummary? matchedOption)
-    {
-        address = string.Empty;
-        parameterType = preferredType;
-        matchedOption = null;
-
-        var trimmedText = rawText?.Trim() ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(trimmedText))
-        {
-            return false;
-        }
-
-        var cleanedText = StripWardrobeParameterDisplayTypeSuffix(trimmedText, out var parsedType);
-        var normalizedAddress = NormalizeAvatarParameterAddressOrEmpty(cleanedText);
-        var sourceParameters = wardrobeParameterSourceParameters.Count > 0
-            ? wardrobeParameterSourceParameters
-            : availableWardrobeParameters;
-        var candidates = parsedType is OscParameterType parsed
-            ? sourceParameters.Where(parameter => parameter.ParameterType == parsed)
-            : sourceParameters
-                .Where(parameter => parameter.ParameterType == preferredType)
-                .Concat(sourceParameters.Where(parameter => parameter.ParameterType != preferredType));
-
-        matchedOption = candidates.FirstOrDefault(parameter =>
-            string.Equals(parameter.Address, trimmedText, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(parameter.Address, normalizedAddress, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(parameter.Name, trimmedText, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(parameter.Name, cleanedText, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(parameter.DisplayLabel, trimmedText, StringComparison.OrdinalIgnoreCase));
-
-        if (matchedOption is null)
-        {
-            return false;
-        }
-
-        address = matchedOption.Address;
-        parameterType = matchedOption.ParameterType;
-        return true;
-    }
-
-    private static string StripWardrobeParameterDisplayTypeSuffix(string rawText, out OscParameterType? parsedType)
-    {
-        parsedType = null;
-        var text = rawText?.Trim() ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(text))
-        {
-            return string.Empty;
-        }
-
-        foreach (var parameterType in new[] { OscParameterType.Bool, OscParameterType.Int, OscParameterType.Float })
-        {
-            var suffix = $" [{parameterType}]";
-            if (text.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
-            {
-                parsedType = parameterType;
-                return text[..^suffix.Length].Trim();
-            }
-        }
-
-        return text;
-    }
-
-    private void SetWardrobeParameterText(string text)
-    {
-        isRestoringWardrobeParameterText = true;
-        try
-        {
-            WardrobeParameterText = text ?? string.Empty;
-        }
-        finally
-        {
-            isRestoringWardrobeParameterText = false;
-        }
-    }
-
-    public IReadOnlyList<VrChatOscParameterSummary> AvailableWardrobeParameters
-    {
-        get => availableWardrobeParameters;
-        private set => SetProperty(ref availableWardrobeParameters, value);
     }
 
     public ObservableCollection<PowerUpRule> PowerUpRules => Settings.PowerUpRules;
@@ -3493,6 +3010,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public RelayCommand UnlinkTwitchRewardCommand { get; }
 
+    public RelayCommand UnlinkWardrobeMasterRewardCommand { get; }
+
     public AsyncRelayCommand TestSelectedRuleCommand { get; }
 
     public AsyncRelayCommand SimulateTestModeBitsCommand { get; }
@@ -3565,15 +3084,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public RelayCommand ShowPowerUpsCommand { get; }
 
-    public RelayCommand ShowUniversalTriggersCommand { get; }
+    public RelayCommand OpenUniversalTriggersManagerCommand { get; }
+
+    public RelayCommand OpenAvatarSetsManagerCommand { get; }
 
     public RelayCommand ShowAvatarScalingCommand { get; }
 
     public RelayCommand ShowCashPaymentsCommand { get; }
 
     public RelayCommand ShowRewardFireSaleCommand { get; }
-
-    public RelayCommand ShowWardrobeCommand { get; }
 
     public RelayCommand AddAvatarProfileCommand { get; }
 
@@ -3603,17 +3122,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public RelayCommand RemoveSelectedOutfitChoiceCommand { get; }
 
-    public RelayCommand AddWardrobeOutfitCommand { get; }
-    public RelayCommand RemoveWardrobeOutfitCommand { get; }
-    public RelayCommand AddWardrobeSnapshotParamCommand { get; }
-    public RelayCommand RemoveWardrobeSnapshotParamCommand { get; }
-    public RelayCommand CopyWardrobeOutfitCommand { get; }
-    public RelayCommand PasteWardrobeOutfitCommand { get; }
-    public RelayCommand CopyWardrobeSnapshotParamCommand { get; }
-    public RelayCommand PasteWardrobeSnapshotParamCommand { get; }
-    public RelayCommand RefreshWardrobeParametersCommand { get; }
-    public AsyncRelayCommand TestWardrobeOutfitCommand { get; }
-
     public RelayCommand SelectRuleCommand { get; }
 
     public RelayCommand AddAvatarSupporterTriggerCommand { get; }
@@ -3629,24 +3137,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     public RelayCommand DisableAllRulesCommand { get; }
 
     public RelayCommand DeleteAllRulesCommand { get; }
-
-    public RelayCommand AddUniversalTriggerCommand { get; }
-
-    public RelayCommand RemoveSelectedUniversalTriggerCommand { get; }
-
-    public RelayCommand EnableAllUniversalTriggersCommand { get; }
-
-    public RelayCommand DisableAllUniversalTriggersCommand { get; }
-
-    public RelayCommand DeleteAllUniversalTriggersCommand { get; }
-
-    public AsyncRelayCommand TestSelectedUniversalTriggerCommand { get; }
-
-    public AsyncRelayCommand ImportFoomaInteractionConfigCommand { get; }
-
-    public RelayCommand AddUniversalTriggerActionCommand { get; }
-
-    public RelayCommand RemoveSelectedUniversalTriggerActionCommand { get; }
 
     public RelayCommand AddMovementRedeemSetCommand { get; }
 
@@ -4408,7 +3898,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
         bridgeCoordinator.UpdateCurrentVrChatAvatar(currentAvatarId);
         UpdateAvatarProfileActivityStates();
-        RaisePropertyChanged(nameof(UniversalManagedRewardStatusText));
         QueueBridgeRefresh();
         if (queueManagedRewardSync)
         {
@@ -5174,6 +4663,34 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         return currentAvatarId;
     }
 
+    public string CurrentVrChatAvatarId => GetResolvedCurrentVrChatAvatarId();
+
+    public BridgeCoordinator Coordinator => bridgeCoordinator;
+
+    public bool IsCurrentAvatarParameterAvailable(string parameterAddress)
+    {
+        var normalizedAddress = parameterAddress?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(normalizedAddress)) return false;
+        var normalizedAvatarId = Settings.VrChat.CurrentAvatarId?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(normalizedAvatarId)) return false;
+        if (!cachedVrChatParametersByAvatarId.TryGetValue(normalizedAvatarId, out var avatarParameters) || avatarParameters.Count == 0)
+        {
+            return false;
+        }
+        return avatarParameters.Any(p => string.Equals(p.Address?.Trim() ?? string.Empty, normalizedAddress, StringComparison.Ordinal));
+    }
+
+    public Task SaveSettingsAsync(CancellationToken cancellationToken = default)
+        => settingsStore.SaveAsync(Settings, cancellationToken);
+
+    public Task SynchronizeUniversalManagedRewardsAsync()
+        => SynchronizeManagedChannelPointRewardsAsync(CancellationToken.None);
+
+    public async Task ImportFoomaAndSyncAsync()
+    {
+        await ImportFoomaInteractionConfigAsync();
+    }
+
     private static string GetSafeVrChatAvatarDisplayName(string? avatarName, string fallbackLabel = "Unknown avatar")
     {
         var normalizedName = avatarName?.Trim() ?? string.Empty;
@@ -5572,12 +5089,65 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         _ = QueuePowerUpRefreshAsync();
     }
 
-    private void ShowUniversalTriggers()
+    private UniversalTriggersManagerWindow? _universalTriggersManagerWindow;
+
+    private AvatarSetsManagerWindow? _avatarSetsManagerWindow;
+
+    private void OpenUniversalTriggersManager()
     {
-        SwitchRuleView(RuleListView.UniversalTriggers, profile: null, rule: null);
-        SelectedUniversalTrigger = GetRememberedUniversalTrigger();
-        _ = EnsureSelectedAvatarParameterCacheLoadedAsync();
-        QueueManagedRewardSync(0);
+        if (_universalTriggersManagerWindow is { IsVisible: true })
+        {
+            _universalTriggersManagerWindow.Activate();
+            return;
+        }
+
+        var managerVm = new UniversalTriggersManagerViewModel(Settings, this);
+        _universalTriggersManagerWindow = new UniversalTriggersManagerWindow(managerVm)
+        {
+            Owner = System.Windows.Application.Current?.MainWindow,
+        };
+        _universalTriggersManagerWindow.Closed += (_, _) => _universalTriggersManagerWindow = null;
+        _universalTriggersManagerWindow.Show();
+    }
+
+    private void OpenAvatarSetsManager()
+    {
+        if (_avatarSetsManagerWindow is { IsVisible: true })
+        {
+            _avatarSetsManagerWindow.Activate();
+            return;
+        }
+
+        var managerVm = new AvatarSetsManagerViewModel(this);
+        managerVm.SubscribeAllRulesAndOutfits();
+        _avatarSetsManagerWindow = new AvatarSetsManagerWindow
+        {
+            Owner = System.Windows.Application.Current?.MainWindow,
+            DataContext = managerVm
+        };
+        IsAvatarSetsManagerOpen = true;
+        _avatarSetsManagerWindow.Closed += (_, _) =>
+        {
+            _avatarSetsManagerWindow = null;
+            IsAvatarSetsManagerOpen = false;
+        };
+        _avatarSetsManagerWindow.Show();
+    }
+
+    private bool _isAvatarSetsManagerOpen;
+    public bool IsAvatarSetsManagerOpen
+    {
+        get => _isAvatarSetsManagerOpen;
+        set => SetProperty(ref _isAvatarSetsManagerOpen, value);
+    }
+
+    public void TestAvatarSet(AvatarTriggerProfile profile)
+    {
+        if (profile == null) return;
+        if (!profile.UseWardrobeMode) return;
+        var firstOutfit = profile.WardrobeOutfits?.FirstOrDefault(o => o.IsEnabled);
+        if (firstOutfit == null) return;
+        _ = TestWardrobeOutfitPublicAsync(firstOutfit, profile, CancellationToken.None);
     }
 
     private void ShowAvatarScaling()
@@ -5597,18 +5167,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private void ShowRewardFireSale()
     {
         SwitchRuleView(RuleListView.RewardFireSale, profile: null, rule: null);
-        SelectedUniversalTrigger = null;
         SelectedAvatarScaleSet = null;
         SelectedAvatarScaleRule = null;
         EnsureRewardFireSaleTierExists();
         RefreshRewardFireSaleStateProperties();
-    }
-
-    private void ShowWardrobe()
-    {
-        var profile = GetRememberedAvatarRuleProfile();
-        ApplyAvatarProfileDefaults(profile);
-        SwitchRuleView(RuleListView.Wardrobe, profile, rule: null);
     }
 
     private bool NormalizeRewardFireSaleSettings()
@@ -6771,32 +6333,20 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         return nextNumber;
     }
 
-    private void AddWardrobeOutfit()
+    public Task TestWardrobeOutfitPublicAsync(
+        WardrobeOutfit outfit,
+        AvatarTriggerProfile profile,
+        CancellationToken cancellationToken)
     {
-        if (SelectedAvatarProfile is null) return;
-        var outfit = new WardrobeOutfit();
-        SelectedAvatarProfile.WardrobeOutfits.Add(outfit);
-        SelectedWardrobeOutfit = outfit;
-        RemoveWardrobeOutfitCommand.NotifyCanExecuteChanged();
-        AppendLog($"Added Wardrobe outfit '{outfit.Name}'.");
-        QueueSave();
+        return ExecuteTestWardrobeOutfitAsync(outfit, profile, cancellationToken);
     }
 
-    private void RemoveWardrobeOutfit()
+    private async Task ExecuteTestWardrobeOutfitAsync(
+        WardrobeOutfit outfit,
+        AvatarTriggerProfile profile,
+        CancellationToken cancellationToken)
     {
-        if (SelectedAvatarProfile is null || SelectedWardrobeOutfit is null) return;
-        var outfit = SelectedWardrobeOutfit;
-        SelectedAvatarProfile.WardrobeOutfits.Remove(outfit);
-        SelectedWardrobeOutfit = SelectedAvatarProfile.WardrobeOutfits.FirstOrDefault();
-        RemoveWardrobeOutfitCommand.NotifyCanExecuteChanged();
-        AddWardrobeOutfitCommand.NotifyCanExecuteChanged();
-        AppendLog($"Removed Wardrobe outfit '{outfit.Name}'.");
-        QueueSave();
-    }
-
-    private async Task TestWardrobeOutfitAsync()
-    {
-        if (SelectedWardrobeOutfit is null || SelectedAvatarProfile is null)
+        if (outfit is null || profile is null)
         {
             return;
         }
@@ -6806,17 +6356,16 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         await bridgeRefreshGate.WaitAsync();
         try
         {
-            await EnsureBridgeStateAsync(CancellationToken.None, allowOscOnly: true);
+            await EnsureBridgeStateAsync(cancellationToken, allowOscOnly: true);
 
-            if (!BridgeRuntimeConfiguration.TryToWardrobeSnapshot(
-                    SelectedWardrobeOutfit, SelectedAvatarProfile, out var snapshot))
+            if (!BridgeRuntimeConfiguration.TryToWardrobeSnapshot(outfit, profile, out var snapshot))
             {
                 BridgeStatus = "Wardrobe outfit test did not run: outfit has no valid parameters.";
                 AppendLog("Could not test wardrobe outfit: outfit is missing valid parameter snapshots.");
                 return;
             }
 
-            var applied = await bridgeCoordinator.ExecuteWardrobeOutfitAsync(snapshot, CancellationToken.None);
+            var applied = await bridgeCoordinator.ExecuteWardrobeOutfitAsync(snapshot, cancellationToken);
             if (applied)
             {
                 BridgeStatus = $"Sent test for wardrobe outfit '{snapshot.Name}'.";
@@ -6838,166 +6387,128 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
     }
 
-    private void AddWardrobeSnapshotParam()
+    public async Task<IReadOnlyList<VrChatOscParameterSummary>> LoadAvatarParameterSummariesAsync(string? avatarId)
     {
-        if (SelectedWardrobeOutfit is null) return;
-        var param = new WardrobeSnapshotParam();
-        SelectedWardrobeOutfit.SnapshotParams.Add(param);
-        SelectedWardrobeSnapshotParam = param;
-    }
-
-    private void RemoveWardrobeSnapshotParam()
-    {
-        if (SelectedWardrobeOutfit is null || SelectedWardrobeSnapshotParam is null) return;
-        var param = SelectedWardrobeSnapshotParam;
-        var index = SelectedWardrobeOutfit.SnapshotParams.IndexOf(param);
-        SelectedWardrobeOutfit.SnapshotParams.Remove(param);
-        SelectedWardrobeSnapshotParam = index < SelectedWardrobeOutfit.SnapshotParams.Count
-            ? SelectedWardrobeOutfit.SnapshotParams[index]
-            : SelectedWardrobeOutfit.SnapshotParams.FirstOrDefault();
-    }
-
-    private void CopyWardrobeOutfit()
-    {
-        if (SelectedWardrobeOutfit is null)
+        if (string.IsNullOrWhiteSpace(avatarId))
         {
-            return;
+            // Try fallback to current VRChat avatar ID if signed in
+            var currentAvatarId = Settings?.VrChat?.CurrentAvatarId?.Trim() ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(currentAvatarId))
+            {
+                avatarId = currentAvatarId;
+            }
+            else
+            {
+                return [];
+            }
         }
 
-        copiedWardrobeOutfit = CloneWardrobeOutfit(SelectedWardrobeOutfit, clearRewardId: false, copyName: SelectedWardrobeOutfit.Name);
-        PasteWardrobeOutfitCommand.NotifyCanExecuteChanged();
-        AppendLog(TF("Copied Wardrobe outfit '{0}'.", SelectedWardrobeOutfit.DisplayTitle));
-    }
-
-    private void PasteWardrobeOutfit()
-    {
-        if (SelectedAvatarProfile is null || copiedWardrobeOutfit is null)
+        if (Settings?.VrChat?.UserId is not { } userId || string.IsNullOrWhiteSpace(userId))
         {
-            return;
+            // Fall back to scanning OSC folder by avatar ID directly
+            AppendLog("VRChat user ID is not set — signing in to VRChat via the main window's VRChat login enables parameter loading, OR Crystal Relay will scan the avatar OSC file directly.");
+            try
+            {
+                var parameters = await vrChatLocalOscCacheService.LoadAvatarParametersByAvatarIdAsync(avatarId, CancellationToken.None);
+                if (parameters.Count > 0)
+                {
+                    AppendLog($"Loaded {parameters.Count} parameters for avatar {avatarId} by scanning OSC folder.");
+                }
+                else
+                {
+                    AppendLog($"Could not find avatar OSC file for avatar ID '{avatarId}' in OSC folder. Make sure the avatar file exists in %LOCALAPPDATA%..\\..\\LocalLow\\VRChat\\VRChat\\OSC\\ or sign in to VRChat via the main window.");
+                }
+                return parameters.ToList();
+            }
+            catch (Exception ex)
+            {
+                AppendLog($"Could not load avatar parameters by avatar ID: {ex.Message}");
+                return [];
+            }
         }
-
-        var pastedName = GetUniqueWardrobeCopyName(copiedWardrobeOutfit.Name, SelectedAvatarProfile.WardrobeOutfits.Select(outfit => outfit.Name));
-        var outfit = CloneWardrobeOutfit(copiedWardrobeOutfit, clearRewardId: true, copyName: pastedName);
-        if (!string.IsNullOrWhiteSpace(outfit.TwitchRewardTitle))
-        {
-            outfit.TwitchRewardTitle = GetUniqueWardrobeCopyName(
-                outfit.TwitchRewardTitle,
-                SelectedAvatarProfile.WardrobeOutfits.Select(existing => existing.TwitchRewardTitle));
-        }
-
-        SelectedAvatarProfile.WardrobeOutfits.Add(outfit);
-        SelectedWardrobeOutfit = outfit;
-        SelectedWardrobeSnapshotParam = outfit.SnapshotParams.FirstOrDefault();
-        AppendLog(TF("Pasted Wardrobe outfit '{0}'.", outfit.DisplayTitle));
-    }
-
-    private void CopyWardrobeSnapshotParam()
-    {
-        if (SelectedWardrobeSnapshotParam is null)
-        {
-            return;
-        }
-
-        copiedWardrobeSnapshotParam = CloneWardrobeSnapshotParam(SelectedWardrobeSnapshotParam);
-        PasteWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
-        AppendLog(TF("Copied Wardrobe parameter: {0}", SelectedWardrobeSnapshotParam.DisplaySummary));
-    }
-
-    private void PasteWardrobeSnapshotParam()
-    {
-        if (SelectedWardrobeOutfit is null || copiedWardrobeSnapshotParam is null)
-        {
-            return;
-        }
-
-        var param = CloneWardrobeSnapshotParam(copiedWardrobeSnapshotParam);
-        var insertIndex = SelectedWardrobeSnapshotParam is not null
-            ? SelectedWardrobeOutfit.SnapshotParams.IndexOf(SelectedWardrobeSnapshotParam) + 1
-            : SelectedWardrobeOutfit.SnapshotParams.Count;
-        if (insertIndex < 0 || insertIndex > SelectedWardrobeOutfit.SnapshotParams.Count)
-        {
-            insertIndex = SelectedWardrobeOutfit.SnapshotParams.Count;
-        }
-
-        SelectedWardrobeOutfit.SnapshotParams.Insert(insertIndex, param);
-        SelectedWardrobeSnapshotParam = param;
-        AppendLog(TF("Pasted Wardrobe parameter: {0}", param.DisplaySummary));
-    }
-
-    private static WardrobeOutfit CloneWardrobeOutfit(WardrobeOutfit source, bool clearRewardId, string copyName)
-    {
-        return new WardrobeOutfit
-        {
-            Id = Guid.NewGuid(),
-            IsEnabled = source.IsEnabled,
-            Name = string.IsNullOrWhiteSpace(copyName) ? "New Outfit Copy" : copyName.Trim(),
-            ActiveTimeSeconds = source.ActiveTimeSeconds,
-            TwitchRewardId = clearRewardId ? string.Empty : source.TwitchRewardId,
-            TwitchRewardTitle = source.TwitchRewardTitle,
-            TwitchRewardCost = source.TwitchRewardCost,
-            TwitchRewardDescription = source.TwitchRewardDescription,
-            TwitchRewardSyncMode = source.TwitchRewardSyncMode,
-            ChatCommandText = source.ChatCommandText,
-            SnapshotParams = new ObservableCollection<WardrobeSnapshotParam>(
-                source.SnapshotParams.Select(CloneWardrobeSnapshotParam))
-        };
-    }
-
-    private static WardrobeSnapshotParam CloneWardrobeSnapshotParam(WardrobeSnapshotParam source)
-    {
-        return new WardrobeSnapshotParam
-        {
-            Id = Guid.NewGuid(),
-            ParameterName = source.ParameterName,
-            ParameterType = source.ParameterType,
-            SetValue = source.SetValue
-        };
-    }
-
-    private static string GetUniqueWardrobeCopyName(string sourceName, IEnumerable<string> existingNames)
-    {
-        var baseName = string.IsNullOrWhiteSpace(sourceName) ? "New Outfit" : sourceName.Trim();
-        if (!baseName.EndsWith(" Copy", StringComparison.OrdinalIgnoreCase))
-        {
-            baseName += " Copy";
-        }
-
-        var usedNames = existingNames
-            .Where(name => !string.IsNullOrWhiteSpace(name))
-            .Select(name => name.Trim())
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        if (!usedNames.Contains(baseName))
-        {
-            return baseName;
-        }
-
-        var index = 2;
-        while (usedNames.Contains($"{baseName} {index}"))
-        {
-            index++;
-        }
-
-        return $"{baseName} {index}";
-    }
-
-    private async Task RefreshWardrobeParametersAsync()
-    {
-        if (Settings?.VrChat?.UserId is not { } userId || string.IsNullOrWhiteSpace(userId)) return;
-        if (SelectedAvatarProfile?.AvatarId is not { } avatarId || string.IsNullOrWhiteSpace(avatarId)) return;
 
         try
         {
             var parameters = await vrChatLocalOscCacheService.LoadAvatarParametersAsync(userId, avatarId, CancellationToken.None);
-            wardrobeParameterSourceParameters = parameters;
-            RefreshWardrobeParameterOptions();
+            return parameters.ToList();
         }
         catch (Exception ex)
         {
-            AppendLog($"Could not load avatar parameters for Wardrobe: {ex.Message}");
-            wardrobeParameterSourceParameters = [];
-            AvailableWardrobeParameters = [];
-            RefreshWardrobeParameterOptions();
+            AppendLog($"Could not load avatar parameters: {ex.Message}");
+            return [];
         }
+    }
+
+    public async Task<IReadOnlyList<TwitchApiClient.CustomRewardResponse>> LoadTwitchCustomRewardsAsync(CancellationToken cancellationToken = default)
+    {
+        if (Settings?.Broadcaster?.AccessToken is not { Length: > 0 } accessToken
+            || string.IsNullOrWhiteSpace(Settings.Broadcaster.UserId))
+        {
+            return [];
+        }
+
+        var clientId = runtimeConfig?.TwitchClientId ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(clientId))
+        {
+            return [];
+        }
+
+        try
+        {
+            return await twitchApiClient.GetCustomRewardsAsync(
+                accessToken,
+                clientId,
+                Settings.Broadcaster.UserId,
+                cancellationToken,
+                onlyManageableRewards: false);
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"Could not load Twitch custom rewards: {ex.Message}");
+            return [];
+        }
+    }
+
+    public string? TryGetVrChatAvatarThumbnailUrl(string? avatarId)
+    {
+        if (string.IsNullOrWhiteSpace(avatarId)) return null;
+        var match = availableVrChatAvatars.FirstOrDefault(a =>
+            string.Equals(a.Id?.Trim(), avatarId.Trim(), StringComparison.OrdinalIgnoreCase));
+        return match?.ThumbnailUrl;
+    }
+
+    public void RetireManagedRewardsPublic(IEnumerable<TriggerRule> rules) => RetireManagedRewards(rules);
+
+    public void RetireWardrobeManagedReward(WardrobeOutfit outfit)
+    {
+        if (outfit is null) return;
+        if (outfit.TwitchRewardSyncMode != TwitchRewardSyncMode.CreateOrManage) return;
+        var rewardId = outfit.TwitchRewardId?.Trim();
+        if (string.IsNullOrWhiteSpace(rewardId)) return;
+        retiredManagedRewardIds.Add(rewardId);
+        QueueManagedRewardSync();
+    }
+
+    public void QueueManagedRewardSyncPublic(ManagedRewardSyncReasonPublic reason = ManagedRewardSyncReasonPublic.SettingsEdit)
+        => QueueManagedRewardSync(0, MapSyncReason(reason));
+
+    public enum ManagedRewardSyncReasonPublic
+    {
+        SettingsEdit,
+        ManualRefresh
+    }
+
+    private ManagedRewardSyncReason MapSyncReason(ManagedRewardSyncReasonPublic publicReason) => publicReason switch
+    {
+        ManagedRewardSyncReasonPublic.ManualRefresh => ManagedRewardSyncReason.ManualRefresh,
+        _ => ManagedRewardSyncReason.SettingsEdit
+    };
+
+    public void DeleteAvatarProfilePublic(AvatarTriggerProfile profile)
+    {
+        if (profile is null) return;
+        SelectedAvatarProfile = profile;
+        DeleteSelectedAvatarProfile();
     }
 
     private void SelectRule(object? target)
@@ -7140,17 +6651,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         AppendLog($"Deleted {removedCount} override rule{(removedCount == 1 ? string.Empty : "s")}.");
     }
 
-    private void AddUniversalTrigger()
-    {
-        var trigger = CreateDefaultUniversalTrigger();
-        Settings.UniversalTriggers.Add(trigger);
-        SelectedUniversalTrigger = trigger;
-        SelectedUniversalTriggerAction = trigger.Actions.FirstOrDefault();
-        QueueSave();
-        QueueBridgeRefresh();
-        AppendLog($"Added universal trigger '{trigger.DisplayTitle}'.");
-    }
-
     private void AddMovementRedeemSet()
     {
         var set = CreateDefaultMovementRedeemSet();
@@ -7213,89 +6713,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         QueueSave();
         QueueBridgeRefresh();
         AppendLog($"Deleted {setsToRemove.Length} movement set{(setsToRemove.Length == 1 ? string.Empty : "s")}.");
-    }
-
-    private void RemoveSelectedUniversalTrigger()
-    {
-        if (SelectedUniversalTrigger is null)
-        {
-            return;
-        }
-
-        var removedName = SelectedUniversalTrigger.DisplayTitle;
-        Settings.UniversalTriggers.Remove(SelectedUniversalTrigger);
-        SelectedUniversalTrigger = GetRememberedUniversalTrigger();
-        QueueSave();
-        QueueBridgeRefresh();
-        AppendLog($"Removed universal trigger '{removedName}'.");
-    }
-
-    private void EnableAllUniversalTriggers()
-    {
-        foreach (var trigger in Settings.UniversalTriggers.Where(trigger => !trigger.IsEnabled))
-        {
-            trigger.IsEnabled = true;
-        }
-
-        QueueSave();
-        QueueBridgeRefresh();
-        AppendLog("Enabled all universal triggers.");
-    }
-
-    private void DisableAllUniversalTriggers()
-    {
-        foreach (var trigger in Settings.UniversalTriggers.Where(trigger => trigger.IsEnabled))
-        {
-            trigger.IsEnabled = false;
-        }
-
-        QueueSave();
-        QueueBridgeRefresh();
-        AppendLog("Disabled all universal triggers.");
-    }
-
-    private void DeleteAllUniversalTriggers()
-    {
-        if (!ConfirmDeleteAll(
-            "Delete Universal Triggers",
-            "Are you sure you want to delete every universal trigger? This cannot be undone."))
-        {
-            return;
-        }
-
-        var removedCount = Settings.UniversalTriggers.Count;
-        Settings.UniversalTriggers.Clear();
-        SelectedUniversalTrigger = null;
-        QueueSave();
-        QueueBridgeRefresh();
-        AppendLog($"Deleted {removedCount} universal triggers.");
-    }
-
-    private void AddUniversalTriggerAction()
-    {
-        if (SelectedUniversalTrigger is null)
-        {
-            return;
-        }
-
-        var action = new UniversalTriggerAction();
-        SelectedUniversalTrigger.Actions.Add(action);
-        SelectedUniversalTriggerAction = action;
-        QueueSave();
-        QueueBridgeRefresh();
-    }
-
-    private void RemoveSelectedUniversalTriggerAction()
-    {
-        if (SelectedUniversalTrigger is null || SelectedUniversalTriggerAction is null)
-        {
-            return;
-        }
-
-        SelectedUniversalTrigger.Actions.Remove(SelectedUniversalTriggerAction);
-        SelectedUniversalTriggerAction = SelectedUniversalTrigger.Actions.FirstOrDefault();
-        QueueSave();
-        QueueBridgeRefresh();
     }
 
     private void AddAvatarScaleSet()
@@ -7640,11 +7057,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             var upsertResult = UpsertImportedUniversalTriggers(result.Triggers);
 
             var additionalFusedCount = UniversalTriggerFusionService.FuseMatchingCommandFallbacks(Settings.UniversalTriggers);
-            SelectedUniversalTrigger = upsertResult.FirstTouchedTrigger is not null
-                && Settings.UniversalTriggers.Contains(upsertResult.FirstTouchedTrigger)
-                    ? upsertResult.FirstTouchedTrigger
-                    : result.Triggers.FirstOrDefault(Settings.UniversalTriggers.Contains) ?? SelectedUniversalTrigger;
-            SelectedUniversalTriggerAction = SelectedUniversalTrigger?.Actions.FirstOrDefault();
             QueueSave(0);
             QueueBridgeRefresh();
             QueueManagedRewardSync(0);
@@ -7951,20 +7363,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         return Settings.GlobalOverrideRules.FirstOrDefault();
     }
 
-    private UniversalTriggerRule? GetRememberedUniversalTrigger()
-    {
-        if (lastSelectedUniversalTriggerId != Guid.Empty)
-        {
-            var rememberedTrigger = Settings.UniversalTriggers.FirstOrDefault(trigger => trigger.Id == lastSelectedUniversalTriggerId);
-            if (rememberedTrigger is not null)
-            {
-                return rememberedTrigger;
-            }
-        }
-
-        return Settings.UniversalTriggers.FirstOrDefault();
-    }
-
     private AvatarScaleRule? GetRememberedAvatarScaleRule()
     {
         IEnumerable<AvatarScaleRule> candidateRules = (IEnumerable<AvatarScaleRule>?)SelectedAvatarScaleSet?.ScaleRules
@@ -8199,17 +7597,22 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     private void SwitchRuleView(RuleListView targetView, AvatarTriggerProfile? profile, TriggerRule? rule)
     {
+        activeRuleListView = targetView;
+
+        RaisePropertyChanged(nameof(IsViewingAvatarTriggers));
+        RaisePropertyChanged(nameof(IsViewingMasterAvatar));
+        RaisePropertyChanged(nameof(IsViewingMovementRedeems));
+        RaisePropertyChanged(nameof(IsViewingSupporterOverrides));
+        RaisePropertyChanged(nameof(IsViewingPowerUps));
+        RaisePropertyChanged(nameof(IsViewingAvatarScaling));
+        RaisePropertyChanged(nameof(IsViewingCashPayments));
+        RaisePropertyChanged(nameof(IsViewingRewardFireSale));
+
         isSwitchingRuleView = true;
         try
         {
-            activeRuleListView = targetView;
             SelectedAvatarProfile = profile;
             SelectedRule = rule;
-            if (targetView != RuleListView.UniversalTriggers)
-            {
-                SelectedUniversalTrigger = null;
-            }
-
             if (targetView != RuleListView.MovementRedeems)
             {
                 SelectedMovementRedeemSet = null;
@@ -8240,18 +7643,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RefreshSpecialRuleLockoutOptions();
         RefreshAvailableActionTypes();
         RefreshVrChatAvatarSelectionOptions();
-        AddWardrobeOutfitCommand.NotifyCanExecuteChanged();
-        RemoveWardrobeOutfitCommand.NotifyCanExecuteChanged();
-        if (IsViewingUniversalTriggers)
-        {
-            RefreshAvatarParameterOptions();
-            _ = EnsureSelectedAvatarParameterCacheLoadedAsync();
-        }
-        else if (IsViewingWardrobe)
-        {
-            _ = RefreshWardrobeParametersAsync();
-        }
-        else if (SelectedRule?.ActionType == OscActionType.AvatarParameter)
+        if (SelectedRule?.ActionType == OscActionType.AvatarParameter)
         {
             RefreshAvatarParameterOptions();
             _ = EnsureSelectedAvatarParameterCacheLoadedAsync();
@@ -8634,18 +8026,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             {
                 UnwireUniversalTrigger(trigger);
                 removedTriggers.Add(trigger);
-                if (lastSelectedUniversalTriggerId == trigger.Id)
-                {
-                    lastSelectedUniversalTriggerId = Guid.Empty;
-                }
             }
 
             RetireManagedRewards(removedTriggers);
-        }
-
-        if (IsViewingUniversalTriggers && SelectedUniversalTrigger is not null && !Settings.UniversalTriggers.Contains(SelectedUniversalTrigger))
-        {
-            SelectedUniversalTrigger = GetRememberedUniversalTrigger();
         }
 
         RaiseUniversalTriggerGroupProperties();
@@ -8694,8 +8077,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             }
         }
 
-        AddUniversalTriggerActionCommand.NotifyCanExecuteChanged();
-        RemoveSelectedUniversalTriggerActionCommand.NotifyCanExecuteChanged();
         if (sender is ObservableCollection<UniversalTriggerAction> actions)
         {
             FindUniversalTriggerForActions(actions)?.RefreshActionState();
@@ -8705,7 +8086,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         QueueBridgeRefresh();
         QueueManagedRewardSync();
         RaiseUniversalTriggerGroupProperties();
-        RaisePropertyChanged(nameof(UniversalManagedRewardStatusText));
     }
 
     private void UniversalTriggerChanged(object? sender, PropertyChangedEventArgs e)
@@ -8724,7 +8104,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RaiseRuleSelectionStateProperties();
         RaiseUniversalTriggerGroupProperties();
         RaiseBuiltInCommandStateProperties();
-        RaisePropertyChanged(nameof(UniversalManagedRewardStatusText));
 
         if (!isSynchronizingManagedRewards
             && ShouldSynchronizeManagedRewardsForUniversalTriggerChange(e.PropertyName))
@@ -8743,7 +8122,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         QueueSave();
         QueueBridgeRefresh();
         RaiseUniversalTriggerGroupProperties();
-        RaisePropertyChanged(nameof(UniversalManagedRewardStatusText));
 
         if (!isSynchronizingManagedRewards
             && ShouldSynchronizeManagedRewardsForUniversalTriggerActionChange(e.PropertyName))
@@ -9528,25 +8906,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             }
         }
 
-        if (SelectedWardrobeOutfit is not null
-            && sender is ObservableCollection<WardrobeOutfit> outfits
-            && !outfits.Contains(SelectedWardrobeOutfit))
-        {
-            SelectedWardrobeOutfit = outfits.FirstOrDefault();
-        }
-
         QueueSave();
         QueueBridgeRefresh();
         QueueManagedRewardSync();
-        AddWardrobeOutfitCommand.NotifyCanExecuteChanged();
-        RemoveWardrobeOutfitCommand.NotifyCanExecuteChanged();
-        AddWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
-        RemoveWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
-        CopyWardrobeOutfitCommand.NotifyCanExecuteChanged();
-        PasteWardrobeOutfitCommand.NotifyCanExecuteChanged();
-        CopyWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
-        PasteWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
-        TestWardrobeOutfitCommand.NotifyCanExecuteChanged();
     }
 
     private void WardrobeOutfitPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -9562,20 +8924,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             && ShouldSynchronizeManagedRewardsForWardrobeOutfitChange(e.PropertyName))
         {
             QueueManagedRewardSync();
-        }
-
-        var selectedOutfit = SelectedWardrobeOutfit;
-        if (ReferenceEquals(sender, selectedOutfit)
-            && e.PropertyName == nameof(WardrobeOutfit.SnapshotParams))
-        {
-            if (SelectedWardrobeSnapshotParam is not null
-                && selectedOutfit is not null
-                && !selectedOutfit.SnapshotParams.Contains(SelectedWardrobeSnapshotParam))
-            {
-                SelectedWardrobeSnapshotParam = selectedOutfit.SnapshotParams.FirstOrDefault();
-            }
-
-            TestWardrobeOutfitCommand.NotifyCanExecuteChanged();
         }
     }
 
@@ -10547,6 +9895,13 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             return;
         }
 
+        await TestRuleAsync(SelectedRule);
+    }
+
+    public async Task TestRuleAsync(TriggerRule rule)
+    {
+        if (rule is null) return;
+
         await ReloadRuntimeConfigAsync();
 
         await bridgeRefreshGate.WaitAsync();
@@ -10554,9 +9909,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         {
             await EnsureBridgeStateAsync(CancellationToken.None, allowOscOnly: true);
 
-            var selectedRule = SelectedRule;
-            var (isGlobalOverride, profile) = ResolveRuleRuntimeContext(selectedRule);
-            var ruleSnapshot = BridgeRuntimeConfiguration.CreateManualTestSnapshot(selectedRule, isGlobalOverride, profile);
+            var (isGlobalOverride, profile) = ResolveRuleRuntimeContext(rule);
+            var ruleSnapshot = BridgeRuntimeConfiguration.CreateManualTestSnapshot(rule, isGlobalOverride, profile);
             await bridgeCoordinator.SendTestRuleAsync(ruleSnapshot, CancellationToken.None);
 
             BridgeStatus = $"Sent test for '{ruleSnapshot.Name}'.";
@@ -10628,36 +9982,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             BridgeStatus = T("Test simulation did not run.");
             TestModeSimulationStatusText = TF("{0}: {1}", failurePrefix, ex.Message);
             AppendLog($"{failurePrefix}: {ex.Message}");
-        }
-        finally
-        {
-            bridgeRefreshGate.Release();
-        }
-    }
-
-    private async Task TestSelectedUniversalTriggerAsync()
-    {
-        if (SelectedUniversalTrigger is null)
-        {
-            return;
-        }
-
-        await ReloadRuntimeConfigAsync();
-
-        await bridgeRefreshGate.WaitAsync();
-        try
-        {
-            await EnsureBridgeStateAsync(CancellationToken.None, allowOscOnly: true);
-
-            var triggerSnapshot = BridgeRuntimeConfiguration.CreateManualTestSnapshot(SelectedUniversalTrigger);
-            await bridgeCoordinator.SendTestUniversalTriggerAsync(triggerSnapshot, CancellationToken.None);
-
-            BridgeStatus = $"Sent universal test for '{triggerSnapshot.Name}'.";
-        }
-        catch (Exception ex)
-        {
-            BridgeStatus = "Universal trigger test did not run.";
-            AppendLog($"Could not test the selected universal trigger: {ex.Message}");
         }
         finally
         {
@@ -11194,9 +10518,25 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             case AvatarTriggerProfile profile:
                 profile.SetTriggerMasterRewardId = string.Empty;
                 break;
+            case WardrobeOutfit outfit:
+                outfit.TwitchRewardId = string.Empty;
+                break;
             default:
                 return;
         }
+
+        QueueManagedRewardSync(0);
+        QueueSave(0);
+    }
+
+    private void UnlinkWardrobeMasterReward(object? target)
+    {
+        if (target is not AvatarTriggerProfile profile)
+        {
+            return;
+        }
+
+        profile.WardrobeMasterRewardId = string.Empty;
 
         QueueManagedRewardSync(0);
         QueueSave(0);
@@ -11542,7 +10882,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
             RaisePropertyChanged(nameof(ManagedChannelPointRewardHelpText));
             RaisePropertyChanged(nameof(UniversalManagedChannelPointRewardHelpText));
-            RaisePropertyChanged(nameof(UniversalManagedRewardStatusText));
             AppendThrottledLog(
                 logKey,
                 "Reconnect the broadcaster account once so Crystal Relay can manage Twitch channel point rewards. The saved Twitch login is missing channel-point reward management permission.",
@@ -11620,7 +10959,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
 
         universalManagedRewardSyncStatusText = normalizedStatus;
-        RaisePropertyChanged(nameof(UniversalManagedRewardStatusText));
     }
 
     private string GetUniversalRewardActivationReason(bool? forcedManagedRewardActivation, bool allowManagedRewardActivation)
@@ -11663,7 +11001,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                     ThrottledRewardSyncLogWindow));
             }
 
-            RunOnUi(() => RaisePropertyChanged(nameof(UniversalManagedRewardStatusText)));
             return;
         }
 
@@ -11721,8 +11058,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 "Crystal Relay does not know the current VRChat avatar yet. Avatar Set and Avatar Change rewards will stay hidden until the avatar refresh succeeds.",
                 ThrottledRewardSyncLogWindow));
         }
-
-        RunOnUi(() => RaisePropertyChanged(nameof(UniversalManagedRewardStatusText)));
     }
 
     private async Task RecoverManagedRewardCurrentAvatarFromBridgeRuntimeAsync(CancellationToken cancellationToken)
@@ -12447,9 +11782,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             && !temporarilyDisabledRuleIds.Contains(rule.Id)
             && ruleIsVisibleForCurrentAvatar
             && !isActiveFloatBoostParent;
-        var backgroundColor = isOnLocalCooldown
-            ? ManagedRewardPresentation.NormalizeCooldownBackgroundColor(rule.ManagedRewardCooldownColor)
-            : ManagedRewardPresentation.NormalizeReadyBackgroundColor(rule.ManagedRewardReadyColor);
+        var backgroundColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(rule.ManagedRewardReadyColor);
 
         return new ManagedRewardSyncTarget(
             rule.Id,
@@ -12503,12 +11836,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             parsedCost,
             outfit.TwitchRewardSyncMode,
             cooldownSeconds: 0,
-            backgroundColor: ManagedRewardPresentation.NormalizeReadyBackgroundColor(string.Empty),
+            backgroundColor: ManagedRewardPresentation.NormalizeReadyBackgroundColor(outfit.ManagedRewardReadyColor),
             prompt: outfit.TwitchRewardDescription,
             requireUserInput: false,
             desiredEnabled: desiredEnabled,
             isCooldownActive: false,
-            deleteWhenInactive: false,
+            deleteWhenInactive: outfit.DeleteManagedRewardWhenInactive,
             protectFromCapReclaim: desiredEnabled,
             applyRewardId: rewardId => outfit.TwitchRewardId = rewardId);
     }
@@ -12649,12 +11982,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         var readyColor = group.UsesSetTriggerMasterReward
             ? profile.SetTriggerMasterRewardReadyColor
             : owner.ManagedRewardReadyColor;
-        var cooldownColor = group.UsesSetTriggerMasterReward
-            ? profile.SetTriggerMasterRewardCooldownColor
-            : owner.ManagedRewardCooldownColor;
-        var backgroundColor = anyChoiceInCooldown
-            ? ManagedRewardPresentation.NormalizeCooldownBackgroundColor(cooldownColor)
-            : ManagedRewardPresentation.NormalizeReadyBackgroundColor(readyColor);
+        var backgroundColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(readyColor);
         var rewardId = group.UsesSetTriggerMasterReward
             ? GetSetTriggerMasterRewardId(profile, group)
             : GetSharedAvatarSetRewardGroupRewardId(group);
@@ -12920,9 +12248,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         var desiredEnabled = allowManagedRewardActivation
             && masterReward.IsEnabled
             && hasRewardIdentity;
-        var backgroundColor = useCooldownPresentation
-            ? ManagedRewardPresentation.NormalizeCooldownBackgroundColor(masterReward.ManagedRewardCooldownColor)
-            : ManagedRewardPresentation.NormalizeReadyBackgroundColor(masterReward.ManagedRewardReadyColor);
+        var backgroundColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(masterReward.ManagedRewardReadyColor);
 
         return new ManagedRewardSyncTarget(
             AvatarScaleMasterRewardOwnerId,
@@ -12972,9 +12298,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             && !isHiddenAtRelativeLimit
             && !isTemporarilyDisabledByPairing
             && masterGateAllowsReward;
-        var backgroundColor = isOnLocalCooldown
-            ? ManagedRewardPresentation.NormalizeCooldownBackgroundColor(rule.ManagedRewardCooldownColor)
-            : ManagedRewardPresentation.NormalizeReadyBackgroundColor(rule.ManagedRewardReadyColor);
+        var backgroundColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(rule.ManagedRewardReadyColor);
         var shouldDeleteWhenInactive = isHiddenByMasterLock
             ? freeChildRewardSlotsWhenLocked
             : rule.DeleteManagedRewardWhenInactive;
@@ -13021,9 +12345,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             && fireSale.FundingRewardEnabled
             && (!IsRewardFireSaleActiveNow() || CanRewardFireSaleAdvanceToLaterTier());
         var isFundingRewardOnCooldown = IsRewardFireSaleFundingRewardOnCooldown();
-        var backgroundColor = isFundingRewardOnCooldown
-            ? ManagedRewardPresentation.NormalizeCooldownBackgroundColor(fireSale.FundingRewardCooldownColor)
-            : ManagedRewardPresentation.NormalizeReadyBackgroundColor(fireSale.FundingRewardReadyColor);
+        var backgroundColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(fireSale.FundingRewardReadyColor);
 
         return new ManagedRewardSyncTarget(
             RewardFireSaleFundingRewardOwnerId,
@@ -13090,7 +12412,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             || string.IsNullOrWhiteSpace(Settings.VrChat.UserId)
             || string.IsNullOrWhiteSpace(normalizedAvatarId))
         {
-            RunOnUi(() => RaisePropertyChanged(nameof(UniversalManagedRewardStatusText)));
             return;
         }
 
@@ -14332,7 +13653,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         return true;
     }
 
-    private static bool HasUniversalTriggerAvatarParameterGate(UniversalTriggerRule trigger) =>
+    public static bool HasUniversalTriggerAvatarParameterGate(UniversalTriggerRule trigger) =>
         GetUniversalTriggerRequiredAvatarParameterAddresses(trigger).Count > 0;
 
     private static bool HasRuntimeReadyUniversalTriggerAction(UniversalTriggerRule trigger) =>
@@ -14386,7 +13707,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         return !string.IsNullOrWhiteSpace(avatarFilePath) && File.Exists(avatarFilePath);
     }
 
-    private bool IsUniversalTriggerReadyForCurrentAvatarJson(
+    public bool IsUniversalTriggerReadyForCurrentAvatarJson(
         UniversalTriggerRule trigger,
         string currentAvatarId)
     {
@@ -15004,7 +14325,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         {
             RaisePropertyChanged(nameof(ManagedChannelPointRewardHelpText));
             RaisePropertyChanged(nameof(UniversalManagedChannelPointRewardHelpText));
-            RaisePropertyChanged(nameof(UniversalManagedRewardStatusText));
         });
     }
 
@@ -15101,7 +14421,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             AppendFingerprintValue(builder, target.Prompt);
             builder.Append(':').Append(target.RequireUserInput ? "1" : "0");
             builder.Append(':').Append(target.DesiredEnabled ? "1" : "0");
-            builder.Append(':').Append(target.IsCooldownActive ? "1" : "0");
             builder.Append(':').Append(target.DeleteWhenInactive ? "1" : "0");
         }
 
@@ -15485,6 +14804,26 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             yield return new LinkedTwitchRewardReference(
                 rule.RewardId.Trim(),
                 GetLinkedRewardFallbackTitle(rule.RewardTitle, rule.DisplayTitle));
+        }
+
+        foreach (var profile in Settings.AvatarProfiles)
+        {
+            foreach (var outfit in profile.WardrobeOutfits.Where(outfit =>
+                         outfit.TwitchRewardSyncMode == TwitchRewardSyncMode.LinkExisting
+                         && !string.IsNullOrWhiteSpace(outfit.TwitchRewardId)))
+            {
+                yield return new LinkedTwitchRewardReference(
+                    outfit.TwitchRewardId.Trim(),
+                    GetLinkedRewardFallbackTitle(outfit.TwitchRewardTitle, outfit.DisplayTitle));
+            }
+
+            if (profile.WardrobeMasterRewardSyncMode == TwitchRewardSyncMode.LinkExisting
+                && !string.IsNullOrWhiteSpace(profile.WardrobeMasterRewardId))
+            {
+                yield return new LinkedTwitchRewardReference(
+                    profile.WardrobeMasterRewardId.Trim(),
+                    GetLinkedRewardFallbackTitle(profile.WardrobeMasterRewardTitle, T("Wardrobe Master Reward")));
+            }
         }
     }
 
@@ -17584,10 +16923,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RefreshVrChatAvatarsCommand.NotifyCanExecuteChanged();
         RemoveSelectedRuleCommand.NotifyCanExecuteChanged();
         TestSelectedRuleCommand.NotifyCanExecuteChanged();
-        RemoveSelectedUniversalTriggerCommand.NotifyCanExecuteChanged();
-        TestSelectedUniversalTriggerCommand.NotifyCanExecuteChanged();
-        AddUniversalTriggerActionCommand.NotifyCanExecuteChanged();
-        RemoveSelectedUniversalTriggerActionCommand.NotifyCanExecuteChanged();
         RemoveSelectedMovementRedeemSetCommand.NotifyCanExecuteChanged();
         DeleteAllMovementRedeemSetsCommand.NotifyCanExecuteChanged();
         RemoveSelectedAvatarScaleSetCommand.NotifyCanExecuteChanged();
@@ -17629,15 +16964,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         DisableAllRulesCommand.NotifyCanExecuteChanged();
         DeleteAllRulesCommand.NotifyCanExecuteChanged();
         TestSelectedRuleCommand.NotifyCanExecuteChanged();
-        AddUniversalTriggerCommand.NotifyCanExecuteChanged();
-        RemoveSelectedUniversalTriggerCommand.NotifyCanExecuteChanged();
-        EnableAllUniversalTriggersCommand.NotifyCanExecuteChanged();
-        DisableAllUniversalTriggersCommand.NotifyCanExecuteChanged();
-        DeleteAllUniversalTriggersCommand.NotifyCanExecuteChanged();
-        TestSelectedUniversalTriggerCommand.NotifyCanExecuteChanged();
-        ImportFoomaInteractionConfigCommand.NotifyCanExecuteChanged();
-        AddUniversalTriggerActionCommand.NotifyCanExecuteChanged();
-        RemoveSelectedUniversalTriggerActionCommand.NotifyCanExecuteChanged();
         AddMovementRedeemSetCommand.NotifyCanExecuteChanged();
         RemoveSelectedMovementRedeemSetCommand.NotifyCanExecuteChanged();
         DeleteAllMovementRedeemSetsCommand.NotifyCanExecuteChanged();
@@ -18323,7 +17649,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     private ObservableCollection<TriggerRule> GetCurrentEditableRuleCollection()
     {
-        if (IsViewingUniversalTriggers || IsViewingAvatarScaling)
+        if (IsViewingAvatarScaling)
         {
             return new ObservableCollection<TriggerRule>();
         }
@@ -18893,11 +18219,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RaisePropertyChanged(nameof(IsViewingMovementRedeems));
         RaisePropertyChanged(nameof(IsViewingSupporterOverrides));
         RaisePropertyChanged(nameof(IsViewingPowerUps));
-        RaisePropertyChanged(nameof(IsViewingUniversalTriggers));
         RaisePropertyChanged(nameof(IsViewingAvatarScaling));
         RaisePropertyChanged(nameof(IsViewingCashPayments));
         RaisePropertyChanged(nameof(IsViewingRewardFireSale));
-        RaisePropertyChanged(nameof(IsViewingWardrobe));
         RaisePropertyChanged(nameof(MovementRedeemSets));
         RaisePropertyChanged(nameof(MovementRedeemRules));
         RaisePropertyChanged(nameof(AvatarScaleSets));
@@ -18921,7 +18245,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RaisePropertyChanged(nameof(MasterAvatarReturnText));
         RaisePropertyChanged(nameof(ManagedChannelPointRewardHelpText));
         RaisePropertyChanged(nameof(UniversalManagedChannelPointRewardHelpText));
-        RaisePropertyChanged(nameof(UniversalManagedRewardStatusText));
         RaisePropertyChanged(nameof(AvatarScaleRuntimeStatusText));
         RaisePropertyChanged(nameof(CashPaymentRuleStatusText));
         RaisePropertyChanged(nameof(CashPaymentActionEditorHelpText));
@@ -19205,7 +18528,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RaisePropertyChanged(nameof(MasterAvatarDisplayName));
         RaisePropertyChanged(nameof(MasterAvatarReturnText));
         RaisePropertyChanged(nameof(SelectedAvatarProfileStatusText));
-        RaisePropertyChanged(nameof(UniversalManagedRewardStatusText));
         UseCurrentVrChatAvatarForProfileCommand.NotifyCanExecuteChanged();
     }
 
@@ -19511,7 +18833,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             RefreshAvatarParameterOptionsCore(selectedAvatarId);
             RefreshSetTriggerParameterOptionsCore(selectedAvatarId);
             UpdateVrChatOscParameterStatus(selectedAvatarId);
-            RaisePropertyChanged(nameof(UniversalManagedRewardStatusText));
         });
     }
 
@@ -19522,7 +18843,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             var selectedAvatarId = GetSelectedParameterCacheAvatarId();
             RefreshSetTriggerParameterOptionsCore(selectedAvatarId);
             UpdateVrChatOscParameterStatus(selectedAvatarId);
-            RaisePropertyChanged(nameof(UniversalManagedRewardStatusText));
         });
     }
 
@@ -19655,11 +18975,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             return Settings.VrChat.CurrentAvatarId?.Trim() ?? string.Empty;
         }
 
-        if (IsViewingUniversalTriggers)
-        {
-            return Settings.VrChat.CurrentAvatarId?.Trim() ?? string.Empty;
-        }
-
         if (IsViewingCashPayments)
         {
             return Settings.VrChat.CurrentAvatarId?.Trim() ?? string.Empty;
@@ -19724,6 +19039,313 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private void HandleSharedReturnAvatarChangedByBridge(string avatarId, string avatarName)
     {
         ApplySharedReturnAvatarSelection(avatarId, avatarName, saveImmediately: true);
+    }
+
+    // Per-rule PATCH path. When a single rule's cooldown state flips (start or expire)
+    // the bridge fires RewardCooldownColorChanged(ruleId). We look up the rule's
+    // reward id, find it in the cached Twitch catalog, and PATCH just that reward's
+    // background color. Skips when the cached color already matches, so no PATCH
+    // and no "modified" timestamp bump when there's nothing to change. No catalog
+    // GET, no per-target loop, no mass sync.
+    private async Task HandleRewardCooldownColorChangedAsync(Guid ruleId)
+    {
+        try
+        {
+            if (!isInitialized || isShuttingDown)
+            {
+                return;
+            }
+            if (!HasRecoverableBroadcasterSession)
+            {
+                return;
+            }
+            if (broadcasterManagedRewardsUnavailableForSession
+                || BroadcasterRewardManagementScopeKnownMissing)
+            {
+                return;
+            }
+
+            var rewardId = ResolveManagedRewardIdForRule(ruleId);
+            if (string.IsNullOrWhiteSpace(rewardId))
+            {
+                return;
+            }
+
+            var isOnCooldown = bridgeCoordinator.GetRulesOnCooldownIds().Contains(ruleId);
+            var configuredColor = ResolveConfiguredRewardColor(ruleId, isOnCooldown);
+            if (string.IsNullOrWhiteSpace(configuredColor))
+            {
+                return;
+            }
+
+            var cachedOption = RewardOptions.FirstOrDefault(option =>
+                !string.IsNullOrEmpty(option.Id) && string.Equals(option.Id, rewardId, StringComparison.Ordinal));
+            if (cachedOption is null || cachedOption.IsCatalogMissing)
+            {
+                return;
+            }
+
+            if (string.Equals(cachedOption.BackgroundColor, configuredColor, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            await ReloadRuntimeConfigAsync();
+            var accessToken = Settings.Broadcaster.AccessToken;
+            var clientId = runtimeConfig.TwitchClientId;
+            var broadcasterId = Settings.Broadcaster.UserId;
+            if (string.IsNullOrWhiteSpace(accessToken)
+                || string.IsNullOrWhiteSpace(clientId)
+                || string.IsNullOrWhiteSpace(broadcasterId))
+            {
+                return;
+            }
+
+            var updatedReward = await twitchApiClient.UpdateCustomRewardAsync(
+                accessToken,
+                clientId,
+                broadcasterId,
+                cachedOption.Id,
+                cachedOption.Title,
+                cachedOption.Cost,
+                cachedOption.IsEnabled,
+                cachedOption.CooldownSeconds,
+                configuredColor,
+                CancellationToken.None,
+                cachedOption.Prompt,
+                cachedOption.IsUserInputRequired);
+
+            ApplySingleRewardCatalogUpdate(updatedReward);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            DebugLogService.Write($"Per-reward color PATCH for rule {ruleId} failed: {ex.Message}");
+        }
+    }
+
+    private string? ResolveManagedRewardIdForRule(Guid ruleId)
+    {
+        foreach (var profile in Settings.AvatarProfiles)
+        {
+            foreach (var rule in profile.ChannelPointRules)
+            {
+                if (rule.Id == ruleId && !string.IsNullOrWhiteSpace(rule.ChannelPointRewardId))
+                {
+                    return rule.ChannelPointRewardId.Trim();
+                }
+            }
+        }
+        foreach (var set in Settings.MovementRedeemSets)
+        {
+            foreach (var rule in set.MovementRules)
+            {
+                if (rule.Id == ruleId && !string.IsNullOrWhiteSpace(rule.ChannelPointRewardId))
+                {
+                    return rule.ChannelPointRewardId.Trim();
+                }
+            }
+        }
+        foreach (var rule in Settings.Rules)
+        {
+            if (rule.Id == ruleId && !string.IsNullOrWhiteSpace(rule.ChannelPointRewardId))
+            {
+                return rule.ChannelPointRewardId.Trim();
+            }
+        }
+        foreach (var rule in Settings.GlobalOverrideRules)
+        {
+            if (rule.Id == ruleId && !string.IsNullOrWhiteSpace(rule.ChannelPointRewardId))
+            {
+                return rule.ChannelPointRewardId.Trim();
+            }
+        }
+        foreach (var rule in Settings.GlobalMovementRules)
+        {
+            if (rule.Id == ruleId && !string.IsNullOrWhiteSpace(rule.ChannelPointRewardId))
+            {
+                return rule.ChannelPointRewardId.Trim();
+            }
+        }
+        foreach (var trigger in Settings.UniversalTriggers)
+        {
+            if (trigger.Id == ruleId && !string.IsNullOrWhiteSpace(trigger.RewardId))
+            {
+                return trigger.RewardId.Trim();
+            }
+        }
+        foreach (var set in Settings.AvatarScaleSets)
+        {
+            foreach (var rule in set.ScaleRules)
+            {
+                if (rule.Id == ruleId && !string.IsNullOrWhiteSpace(rule.RewardId))
+                {
+                    return rule.RewardId.Trim();
+                }
+            }
+        }
+        if (ruleId == AvatarScaleMasterRewardOwnerId)
+        {
+            var masterReward = Settings.AvatarScaleMasterReward;
+            if (masterReward is not null
+                && !string.IsNullOrWhiteSpace(masterReward.RewardId)
+                && !string.IsNullOrWhiteSpace(masterReward.RewardTitle))
+            {
+                return masterReward.RewardId.Trim();
+            }
+        }
+        return null;
+    }
+
+    private string? ResolveConfiguredRewardColor(Guid ruleId, bool isOnCooldown)
+    {
+        foreach (var profile in Settings.AvatarProfiles)
+        {
+            foreach (var rule in profile.ChannelPointRules)
+            {
+                if (rule.Id == ruleId)
+                {
+                    return ManagedRewardPresentation.NormalizeReadyBackgroundColor(
+                        isOnCooldown ? rule.ManagedRewardCooldownColor : rule.ManagedRewardReadyColor);
+                }
+            }
+        }
+        foreach (var set in Settings.MovementRedeemSets)
+        {
+            foreach (var rule in set.MovementRules)
+            {
+                if (rule.Id == ruleId)
+                {
+                    return ManagedRewardPresentation.NormalizeReadyBackgroundColor(
+                        isOnCooldown ? rule.ManagedRewardCooldownColor : rule.ManagedRewardReadyColor);
+                }
+            }
+        }
+        foreach (var rule in Settings.Rules)
+        {
+            if (rule.Id == ruleId)
+            {
+                return ManagedRewardPresentation.NormalizeReadyBackgroundColor(
+                    isOnCooldown ? rule.ManagedRewardCooldownColor : rule.ManagedRewardReadyColor);
+            }
+        }
+        foreach (var rule in Settings.GlobalOverrideRules)
+        {
+            if (rule.Id == ruleId)
+            {
+                return ManagedRewardPresentation.NormalizeReadyBackgroundColor(
+                    isOnCooldown ? rule.ManagedRewardCooldownColor : rule.ManagedRewardReadyColor);
+            }
+        }
+        foreach (var rule in Settings.GlobalMovementRules)
+        {
+            if (rule.Id == ruleId)
+            {
+                return ManagedRewardPresentation.NormalizeReadyBackgroundColor(
+                    isOnCooldown ? rule.ManagedRewardCooldownColor : rule.ManagedRewardReadyColor);
+            }
+        }
+        foreach (var set in Settings.AvatarScaleSets)
+        {
+            foreach (var rule in set.ScaleRules)
+            {
+                if (rule.Id == ruleId)
+                {
+                    return ManagedRewardPresentation.NormalizeReadyBackgroundColor(
+                        isOnCooldown ? rule.ManagedRewardCooldownColor : rule.ManagedRewardReadyColor);
+                }
+            }
+        }
+        if (ruleId == AvatarScaleMasterRewardOwnerId)
+        {
+            var masterReward = Settings.AvatarScaleMasterReward;
+            if (masterReward is not null && !string.IsNullOrWhiteSpace(masterReward.RewardTitle))
+            {
+                return ManagedRewardPresentation.NormalizeReadyBackgroundColor(
+                    isOnCooldown ? masterReward.ManagedRewardCooldownColor : masterReward.ManagedRewardReadyColor);
+            }
+        }
+        return null;
+    }
+
+    private void ApplySingleRewardCatalogUpdate(TwitchApiClient.CustomRewardResponse updatedReward)
+    {
+        RunOnUi(() =>
+        {
+            for (var i = 0; i < RewardOptions.Count; i++)
+            {
+                if (string.Equals(RewardOptions[i].Id, updatedReward.Id, StringComparison.Ordinal))
+                {
+                    RewardOptions[i] = TwitchRewardOption.FromReward(updatedReward);
+                    return;
+                }
+            }
+        });
+    }
+
+    // The ManagedRewardAvailabilityChanged event fires for local-only state flips
+    // (per-rule cooldowns starting/ending, timed effect windows opening/closing,
+    // reset notifications, avatar-change transitions) plus the rare Twitch-visible
+    // changes like a manual toggle. Twitch does not see local cooldowns, timed
+    // effects, or reset notifications, and any "change" the per-target check would
+    // detect from this path (e.g. avatar detection flicker in test mode flipping
+    // DesiredEnabled) is a churn PATCH that just bumps the per-reward "modified"
+    // timestamp on Twitch for nothing. Real Twitch-visible changes have their own
+    // dedicated sync triggers (settings-edit, stream-state-changed, avatar-changed,
+    // fire-sale-changed, account-reconnect, emergency-stop, test-mode, manual-refresh),
+    // so this handler intentionally does NOT queue a sync.
+    private void HandleManagedRewardAvailabilityChanged()
+    {
+    }
+
+    // BuildAccountIdentityFingerprint captures the Twitch-visible identity fields
+    // (UserId, Login, Scopes) of an account. Access tokens, refresh tokens, and
+    // expiry timestamps are intentionally excluded: a bare token refresh on the
+    // same broadcaster login does not change the Twitch-side reward ownership,
+    // and firing a full reward sync on every refresh causes a mass PATCH storm
+    // that bumps every reward's "modified" timestamp.
+    private string BuildAccountIdentityFingerprint(BridgeAccountRole role)
+    {
+        var account = role == BridgeAccountRole.Broadcaster
+            ? Settings.Broadcaster
+            : Settings.Bot;
+        if (account is null)
+        {
+            return string.Empty;
+        }
+
+        var builder = new StringBuilder();
+        AppendFingerprintValue(builder, account.UserId);
+        AppendFingerprintValue(builder, account.Login);
+        AppendFingerprintValue(builder, account.DisplayName);
+        AppendFingerprintValue(builder, account.ProfileImageUrl);
+        if (account.Scopes is not null)
+        {
+            foreach (var scope in account.Scopes.OrderBy(s => s, StringComparer.Ordinal))
+            {
+                builder.Append('|').Append(scope).Append(',');
+            }
+        }
+        return builder.ToString();
+    }
+
+    private bool HasAccountIdentityChanged(BridgeAccountRole role, string previousIdentityFingerprint)
+    {
+        var currentFingerprint = BuildAccountIdentityFingerprint(role);
+        var lastObservedField = role == BridgeAccountRole.Broadcaster
+            ? ref lastObservedBroadcasterIdentityFingerprint
+            : ref lastObservedBotIdentityFingerprint;
+
+        if (string.Equals(currentFingerprint, lastObservedField, StringComparison.Ordinal))
+        {
+            return false;
+        }
+        if (string.Equals(currentFingerprint, previousIdentityFingerprint, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        lastObservedField = currentFingerprint;
+        return true;
     }
 
     private async Task<List<VrChatOscParameterSummary>> LoadLiveVrChatOscParametersAsync(CancellationToken cancellationToken)
@@ -19825,7 +19447,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
         if (string.Equals(Settings.VrChat.CurrentAvatarId?.Trim() ?? string.Empty, normalizedAvatarId, StringComparison.Ordinal))
         {
-            RunOnUi(() => RaisePropertyChanged(nameof(UniversalManagedRewardStatusText)));
             if (queueManagedRewardSync)
             {
                 QueueManagedRewardSync(0, ManagedRewardSyncReason.RuntimeAvailability);
@@ -21008,6 +20629,7 @@ public enum TwitchChatRoleCardKind
     KaiBloodwolf,
     Hypercraftiing,
     KyouZakira,
+    Phil13938,
     Staff,
     LeadModerator,
     Moderator,
@@ -21025,12 +20647,14 @@ public sealed class TwitchChatMessageEntry : ObservableObject
     private const string KaiBloodwolfLogin = "kai_bloodwolf";
     private const string HypercraftiingLogin = "hypercraftiing";
     private const string KyouZakiraLogin = "kyou_zakira";
+    private const string Phil13938Login = "phil13938";
     private static readonly SolidColorBrush DefaultNameBrush = CreateFrozenBrush("#F5EEFF");
     private static readonly SolidColorBrush BubblegumNameBrush = CreateFrozenBrush("#5A426B");
     private static readonly LinearGradientBrush CrystalRelayDeveloperNameBrush = CreateFrozenDeveloperNameBrush();
     private static readonly LinearGradientBrush KaiBloodwolfNameBrush = CreateFrozenKaiBloodwolfNameBrush();
     private static readonly LinearGradientBrush HypercraftiingNameBrush = CreateFrozenHypercraftiingNameBrush();
     private static readonly LinearGradientBrush KyouZakiraNameBrush = CreateFrozenKyouZakiraNameBrush();
+    private static readonly LinearGradientBrush Phil13938NameBrush = CreateFrozenPhil13938NameBrush();
     private static readonly Color DarkCardReferenceColor = Color.FromRgb(40, 23, 60);
     private ChatTimestampFormat timestampFormat;
     private string suspiciousStatus = string.Empty;
@@ -21074,6 +20698,7 @@ public sealed class TwitchChatMessageEntry : ObservableObject
         IsKaiBloodwolf = IsKaiBloodwolfAccount(UserDisplayName, UserLogin);
         IsHypercraftiing = IsHypercraftiingAccount(UserDisplayName, UserLogin);
         IsKyouZakira = IsKyouZakiraAccount(UserDisplayName, UserLogin);
+        IsPhil13938 = IsPhil13938Account(UserDisplayName, UserLogin);
         MessageText = messageText;
         BadgeImageUrls = badgeImageUrls;
         BadgeSetIds = badgeSetIds;
@@ -21085,6 +20710,8 @@ public sealed class TwitchChatMessageEntry : ObservableObject
             ? TwitchChatRoleCardKind.Hypercraftiing
             : IsKyouZakira
             ? TwitchChatRoleCardKind.KyouZakira
+            : IsPhil13938
+            ? TwitchChatRoleCardKind.Phil13938
             : ResolveRoleCardKind(Kind, normalizedSupportTier, BadgeSetIds);
         InlineFragments = inlineFragments.Count == 0
             ? [new TwitchChatInlineFragment(TwitchChatInlineFragmentKind.Text, messageText, string.Empty)]
@@ -21100,6 +20727,8 @@ public sealed class TwitchChatMessageEntry : ObservableObject
             ? HypercraftiingNameBrush
             : IsKyouZakira
             ? KyouZakiraNameBrush
+            : IsPhil13938
+            ? Phil13938NameBrush
             : ParseNameBrush(userColor, theme);
         RewardTitle = string.IsNullOrWhiteSpace(rewardTitle) ? MessageText.Trim() : rewardTitle.Trim();
         RewardCost = Math.Max(0, rewardCost);
@@ -21144,6 +20773,8 @@ public sealed class TwitchChatMessageEntry : ObservableObject
 
     public bool IsKyouZakira { get; }
 
+    public bool IsPhil13938 { get; }
+
     public string MessageText { get; }
 
     public IReadOnlyList<string> BadgeImageUrls { get; }
@@ -21159,6 +20790,8 @@ public sealed class TwitchChatMessageEntry : ObservableObject
     public bool IsHypercraftiingRoleCard => RoleCardKind == TwitchChatRoleCardKind.Hypercraftiing;
 
     public bool IsKyouZakiraRoleCard => RoleCardKind == TwitchChatRoleCardKind.KyouZakira;
+
+    public bool IsPhil13938RoleCard => RoleCardKind == TwitchChatRoleCardKind.Phil13938;
 
     public bool IsTwitchStaffRoleCard => RoleCardKind == TwitchChatRoleCardKind.Staff;
 
@@ -21183,6 +20816,7 @@ public sealed class TwitchChatMessageEntry : ObservableObject
         TwitchChatRoleCardKind.KaiBloodwolf => "KFC/popeyes chugger",
         TwitchChatRoleCardKind.Hypercraftiing => "The Great Cuddly Synth",
         TwitchChatRoleCardKind.KyouZakira => "Chatoic Umbreon",
+        TwitchChatRoleCardKind.Phil13938 => "The Canadian Bnuy",
         TwitchChatRoleCardKind.Staff => "TWITCH STAFF",
         TwitchChatRoleCardKind.LeadModerator => "LEAD MOD",
         TwitchChatRoleCardKind.Moderator => "MOD",
@@ -21549,6 +21183,20 @@ public sealed class TwitchChatMessageEntry : ObservableObject
         return brush;
     }
 
+    private static LinearGradientBrush CreateFrozenPhil13938NameBrush()
+    {
+        var brush = new LinearGradientBrush
+        {
+            StartPoint = new Point(0, 0.5),
+            EndPoint = new Point(1, 0.5)
+        };
+        brush.GradientStops.Add(new GradientStop(Color.FromRgb(214, 0, 0), 0d));
+        brush.GradientStops.Add(new GradientStop(Color.FromRgb(233, 97, 0), 0.5d));
+        brush.GradientStops.Add(new GradientStop(Color.FromRgb(68, 0, 0), 1d));
+        brush.Freeze();
+        return brush;
+    }
+
     private static bool IsCrystalRelayDeveloperAccount(string displayName, string login) =>
         IsCrystalRelayDeveloperName(displayName) || IsCrystalRelayDeveloperName(login);
 
@@ -21583,6 +21231,15 @@ public sealed class TwitchChatMessageEntry : ObservableObject
     {
         var normalized = NormalizeTwitchName(value);
         return string.Equals(normalized, KyouZakiraLogin, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsPhil13938Account(string displayName, string login) =>
+        IsPhil13938Name(displayName) || IsPhil13938Name(login);
+
+    private static bool IsPhil13938Name(string value)
+    {
+        var normalized = NormalizeTwitchName(value);
+        return string.Equals(normalized, Phil13938Login, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string NormalizeTwitchName(string value) =>

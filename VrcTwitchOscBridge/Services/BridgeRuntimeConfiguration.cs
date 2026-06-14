@@ -121,7 +121,7 @@ public sealed record TriggerRuleSnapshot(
     IReadOnlyList<string> AvatarRouletAvatarNames,
     int RangeMinimum,
     int RangeMaximum,
-    int DurationSeconds,
+    double DurationSeconds,
     int CooldownSeconds,
     bool UsesLinkedChannelPointReward,
     int? BotMessageCooldownSeconds,

@@ -431,6 +431,11 @@ public sealed class SettingsStore
             settings.GlobalMovementRules = new ObservableCollection<TriggerRule>(settings.MovementRedeemSets.SelectMany(set => set.MovementRules));
             settings.GlobalOverrideRules = new ObservableCollection<TriggerRule>((profile.GlobalOverrideRules ?? []).Select(ToRule));
             settings.UniversalTriggers = new ObservableCollection<UniversalTriggerRule>((profile.UniversalTriggers ?? []).Select(ToUniversalTriggerRule));
+            settings.UniversalTriggersChatCollapsed = profile.UniversalTriggersChatCollapsed ?? settings.UniversalTriggersChatCollapsed;
+            settings.UniversalTriggersRewardCollapsed = profile.UniversalTriggersRewardCollapsed ?? settings.UniversalTriggersRewardCollapsed;
+            settings.UniversalTriggersBitsCollapsed = profile.UniversalTriggersBitsCollapsed ?? settings.UniversalTriggersBitsCollapsed;
+            settings.UniversalTriggersSubsCollapsed = profile.UniversalTriggersSubsCollapsed ?? settings.UniversalTriggersSubsCollapsed;
+            settings.UniversalTriggersFollowsCollapsed = profile.UniversalTriggersFollowsCollapsed ?? settings.UniversalTriggersFollowsCollapsed;
             settings.AvatarScaleSets = BuildAvatarScaleSets(profile);
             settings.AvatarScaleRules = [];
             settings.AvatarScaleMasterReward = profile.AvatarScaleMasterReward is null
@@ -585,6 +590,11 @@ public sealed class SettingsStore
             GlobalMovementRules = [.. settings.MovementRedeemSets.SelectMany(set => set.MovementRules).Select(ToPersistedRule)],
             GlobalOverrideRules = [.. settings.GlobalOverrideRules.Select(ToPersistedRule)],
             UniversalTriggers = [.. settings.UniversalTriggers.Select(ToPersistedUniversalTriggerRule)],
+            UniversalTriggersChatCollapsed = settings.UniversalTriggersChatCollapsed,
+            UniversalTriggersRewardCollapsed = settings.UniversalTriggersRewardCollapsed,
+            UniversalTriggersBitsCollapsed = settings.UniversalTriggersBitsCollapsed,
+            UniversalTriggersSubsCollapsed = settings.UniversalTriggersSubsCollapsed,
+            UniversalTriggersFollowsCollapsed = settings.UniversalTriggersFollowsCollapsed,
             AvatarScaleSets = [.. settings.AvatarScaleSets.Select(ToPersistedAvatarScaleSet)],
             AvatarScaleMasterReward = ToPersistedAvatarScaleMasterReward(settings.AvatarScaleMasterReward),
             PowerUpRules = [.. settings.PowerUpRules.Select(ToPersistedPowerUpRule)],
@@ -911,7 +921,7 @@ public sealed class SettingsStore
             UseSharedNumberedOutfitReward = profile.UseSharedNumberedOutfitReward,
             PostOutfitChoiceListToTwitchChat = profile.PostOutfitChoiceListToTwitchChat,
 ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
-            UseWardrobeMode = true,
+            UseWardrobeMode = profile.UseWardrobeMode,
             WardrobeCooldownSeconds = profile.WardrobeCooldownSeconds,
             WardrobeOutfits = [.. profile.WardrobeOutfits.Select(ToPersistedWardrobeOutfit)],
             UseWardrobeMasterReward = profile.UseWardrobeMasterReward,
@@ -956,7 +966,7 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
                     rule.TriggerType = TwitchTriggerType.ChannelPoints;
                     return rule;
                 })),
-            UseWardrobeMode = true,
+            UseWardrobeMode = profile.UseWardrobeMode,
             WardrobeCooldownSeconds = Math.Max(0, profile.WardrobeCooldownSeconds),
             WardrobeOutfits = new ObservableCollection<WardrobeOutfit>((profile.WardrobeOutfits ?? []).Select(ToWardrobeOutfit)),
             UseWardrobeMasterReward = profile.UseWardrobeMasterReward,
@@ -1064,6 +1074,9 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             TwitchRewardCost = outfit.TwitchRewardCost,
             TwitchRewardDescription = outfit.TwitchRewardDescription,
             TwitchRewardSyncMode = outfit.TwitchRewardSyncMode,
+            ManagedRewardReadyColor = outfit.ManagedRewardReadyColor,
+            ManagedRewardCooldownColor = outfit.ManagedRewardCooldownColor,
+            DeleteManagedRewardWhenInactive = outfit.DeleteManagedRewardWhenInactive,
             ChatCommandText = outfit.ChatCommandText,
             SnapshotParams = [.. outfit.SnapshotParams.Select(ToPersistedWardrobeSnapshotParam)]
         };
@@ -1253,6 +1266,9 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             TwitchRewardSyncMode = Enum.IsDefined(persisted.TwitchRewardSyncMode)
                 ? persisted.TwitchRewardSyncMode
                 : TwitchRewardSyncMode.CreateOrManage,
+            ManagedRewardReadyColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(persisted.ManagedRewardReadyColor),
+            ManagedRewardCooldownColor = ManagedRewardPresentation.NormalizeCooldownBackgroundColor(persisted.ManagedRewardCooldownColor),
+            DeleteManagedRewardWhenInactive = persisted.DeleteManagedRewardWhenInactive,
             ChatCommandText = persisted.ChatCommandText ?? string.Empty,
             SnapshotParams = new ObservableCollection<WardrobeSnapshotParam>((persisted.SnapshotParams ?? []).Select(ToWardrobeSnapshotParam))
         };
@@ -2565,6 +2581,16 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
 
         public List<PersistedUniversalTriggerRule>? UniversalTriggers { get; set; }
 
+        public bool? UniversalTriggersChatCollapsed { get; set; }
+
+        public bool? UniversalTriggersRewardCollapsed { get; set; }
+
+        public bool? UniversalTriggersBitsCollapsed { get; set; }
+
+        public bool? UniversalTriggersSubsCollapsed { get; set; }
+
+        public bool? UniversalTriggersFollowsCollapsed { get; set; }
+
         public List<PersistedAvatarScaleSet>? AvatarScaleSets { get; set; }
 
         public PersistedAvatarScaleMasterRewardSettings? AvatarScaleMasterReward { get; set; }
@@ -2943,6 +2969,12 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
 
         public TwitchRewardSyncMode TwitchRewardSyncMode { get; set; }
 
+        public string? ManagedRewardReadyColor { get; set; }
+
+        public string? ManagedRewardCooldownColor { get; set; }
+
+        public bool DeleteManagedRewardWhenInactive { get; set; }
+
         public string? ChatCommandText { get; set; }
 
         public List<PersistedWardrobeSnapshotParam>? SnapshotParams { get; set; }
@@ -3053,7 +3085,7 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
 
         public int RangeMaximum { get; set; }
 
-        public int DurationSeconds { get; set; }
+        public double DurationSeconds { get; set; }
 
         public int CooldownSeconds { get; set; }
 

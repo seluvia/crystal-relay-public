@@ -30,7 +30,7 @@ public sealed class AvatarTriggerProfile : ObservableObject
     private bool useSharedNumberedOutfitReward = true;
 private bool postOutfitChoiceListToTwitchChat;
     private ObservableCollection<TriggerRule> channelPointRules = [];
-    private bool useWardrobeMode = true;
+    private bool useWardrobeMode;
     private int wardrobeCooldownSeconds;
     private ObservableCollection<WardrobeOutfit> wardrobeOutfits = [];
     private bool useWardrobeMasterReward;

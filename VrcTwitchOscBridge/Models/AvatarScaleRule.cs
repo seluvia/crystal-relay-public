@@ -726,6 +726,30 @@ public sealed class AvatarScaleRule : ObservableObject
             AvatarScaleMode.GlitchyRandomHeight => GlitchyRandomHeightTransitionSeconds,
             _ => 0
         };
+        set
+        {
+            switch (ScaleMode)
+            {
+                case AvatarScaleMode.SetHeight:
+                    SetHeightTransitionSeconds = value;
+                    break;
+                case AvatarScaleMode.RandomHeight:
+                    RandomHeightTransitionSeconds = value;
+                    break;
+                case AvatarScaleMode.RelativeHeight:
+                    RelativeHeightTransitionSeconds = value;
+                    break;
+                case AvatarScaleMode.Multiplier:
+                    MultiplierTransitionSeconds = value;
+                    break;
+                case AvatarScaleMode.Preset:
+                    PresetTransitionSeconds = value;
+                    break;
+                case AvatarScaleMode.GlitchyRandomHeight:
+                    GlitchyRandomHeightTransitionSeconds = value;
+                    break;
+            }
+        }
     }
 
     public double GlitchyTransitionSeconds
@@ -1039,6 +1063,21 @@ public sealed class AvatarScaleRule : ObservableObject
     public string SupporterGrowthSummary =>
         $"Supporter growth +{SupporterGrowthTier1HeightMeters:0.##}/+{SupporterGrowthTier2HeightMeters:0.##}/+{SupporterGrowthTier3HeightMeters:0.##}m";
 
+    public string SupporterGrowthHeightBasicsSummary =>
+        $"Return/Resting: {SupporterGrowthNormalHeightMeters:0.##}m | Max Added: {(SupporterGrowthMaxAddedHeightMeters <= 0 ? "unlimited" : $"{SupporterGrowthMaxAddedHeightMeters:0.##}m")}";
+
+    public string SupporterGrowthPaidTimeSummary =>
+        $"{SupporterGrowthBitsTimerUnit} bits = {SupporterGrowthSecondsPerBitsUnit}s | Soft cap: {SupporterGrowthSoftCapSeconds}s @ {SupporterGrowthSoftCapMultiplierPercent}% | Max: {SupporterGrowthMaxPaidTimeSeconds}s";
+
+    public string SupporterGrowthSubTierSummary =>
+        $"T1: +{SupporterGrowthTier1HeightMeters:0.##}m / {SupporterGrowthTier1Seconds}s | T2: +{SupporterGrowthTier2HeightMeters:0.##}m / {SupporterGrowthTier2Seconds}s | T3: +{SupporterGrowthTier3HeightMeters:0.##}m / {SupporterGrowthTier3Seconds}s";
+
+    public string SupporterGrowthBitsRangeCountSummary =>
+        $"{SupporterGrowthBitRanges.Count} range(s) configured";
+
+    public string SupporterGrowthCheerKeywordsSummary =>
+        $"{SupporterGrowthGrowKeyword} / {SupporterGrowthShrinkKeyword}";
+
     public string ScaleRangeHelpText
     {
         get
@@ -1215,6 +1254,11 @@ public sealed class AvatarScaleRule : ObservableObject
     {
         RaisePropertyChanged(nameof(SupporterGrowthBitRanges));
         RaisePropertyChanged(nameof(SupporterGrowthSummary));
+        RaisePropertyChanged(nameof(SupporterGrowthHeightBasicsSummary));
+        RaisePropertyChanged(nameof(SupporterGrowthPaidTimeSummary));
+        RaisePropertyChanged(nameof(SupporterGrowthSubTierSummary));
+        RaisePropertyChanged(nameof(SupporterGrowthBitsRangeCountSummary));
+        RaisePropertyChanged(nameof(SupporterGrowthCheerKeywordsSummary));
         RaisePropertyChanged(nameof(TriggerSummary));
     }
 

@@ -215,6 +215,44 @@
                           ShadowDepth="0"
                           Opacity="0.37"
                           Color="#B64CFF" />
+        <SolidColorBrush x:Key="Phil13938TextBrush" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="Phil13938MutedBrush" Color="#FFE4B5" />
+        <SolidColorBrush x:Key="Phil13938InsetBrush" Color="#88440000" />
+        <SolidColorBrush x:Key="Phil13938InsetBorderBrush" Color="#99E96100" />
+        <LinearGradientBrush x:Key="Phil13938CardBrush"
+                             StartPoint="0,0"
+                             EndPoint="1,1">
+            <GradientStop Color="#F0440000" Offset="0" />
+            <GradientStop Color="#E6440000" Offset="0.42" />
+            <GradientStop Color="#B0440000" Offset="0.68" />
+            <GradientStop Color="#ED440000" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="Phil13938BorderBrush"
+                             StartPoint="0,0"
+                             EndPoint="1,1">
+            <GradientStop Color="#EFD60000" Offset="0" />
+            <GradientStop Color="#EFE96100" Offset="0.5" />
+            <GradientStop Color="#D8D60000" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="Phil13938RailBrush"
+                             StartPoint="0,0"
+                             EndPoint="0,1">
+            <GradientStop Color="#D60000" Offset="0" />
+            <GradientStop Color="#E96100" Offset="0.5" />
+            <GradientStop Color="#440000" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="Phil13938BadgeBrush"
+                             StartPoint="0,0"
+                             EndPoint="1,1">
+            <GradientStop Color="#E96100" Offset="0" />
+            <GradientStop Color="#D60000" Offset="0.5" />
+            <GradientStop Color="#440000" Offset="1" />
+        </LinearGradientBrush>
+        <DropShadowEffect x:Key="Phil13938GlowEffect"
+                          BlurRadius="14"
+                          ShadowDepth="0"
+                          Opacity="0.42"
+                          Color="#E96100" />
         <SolidColorBrush x:Key="ChatboxRoleCardTextBrush" Color="#FFFDF7" />
         <SolidColorBrush x:Key="ChatboxRoleCardMutedBrush" Color="#F0E8FF" />
         <SolidColorBrush x:Key="ChatboxRoleBadgeTextBrush" Color="#150B18" />
@@ -987,6 +1025,12 @@
                     <Setter Property="BorderThickness" Value="1.5" />
                     <Setter Property="Effect" Value="{StaticResource KyouZakiraGlowEffect}" />
                 </DataTrigger>
+                <DataTrigger Binding="{Binding IsPhil13938RoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource Phil13938CardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource Phil13938BorderBrush}" />
+                    <Setter Property="BorderThickness" Value="1.5" />
+                    <Setter Property="Effect" Value="{StaticResource Phil13938GlowEffect}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Background" Value="{StaticResource CrystalRelayDevCardBrush}" />
                     <Setter Property="BorderBrush" Value="{StaticResource CrystalRelayDevBorderBrush}" />
@@ -1062,6 +1106,12 @@
                     <Setter Property="BorderThickness" Value="1.5" />
                     <Setter Property="Effect" Value="{StaticResource KyouZakiraGlowEffect}" />
                 </DataTrigger>
+                <DataTrigger Binding="{Binding IsPhil13938RoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource Phil13938CardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource Phil13938BorderBrush}" />
+                    <Setter Property="BorderThickness" Value="1.5" />
+                    <Setter Property="Effect" Value="{StaticResource Phil13938GlowEffect}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Background" Value="{StaticResource CrystalRelayDevCardBrush}" />
                     <Setter Property="BorderBrush" Value="{StaticResource CrystalRelayDevBorderBrush}" />
@@ -1136,6 +1186,12 @@
                     <Setter Property="BorderThickness" Value="1.5" />
                     <Setter Property="Effect" Value="{StaticResource KyouZakiraGlowEffect}" />
                 </DataTrigger>
+                <DataTrigger Binding="{Binding IsPhil13938RoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource Phil13938CardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource Phil13938BorderBrush}" />
+                    <Setter Property="BorderThickness" Value="1.5" />
+                    <Setter Property="Effect" Value="{StaticResource Phil13938GlowEffect}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Background" Value="{StaticResource CrystalRelayDevCardBrush}" />
                     <Setter Property="BorderBrush" Value="{StaticResource CrystalRelayDevBorderBrush}" />
@@ -1173,6 +1229,9 @@
                 <DataTrigger Binding="{Binding IsKyouZakiraRoleCard}" Value="True">
                     <Setter Property="Foreground" Value="{StaticResource KyouZakiraMutedBrush}" />
                 </DataTrigger>
+                <DataTrigger Binding="{Binding IsPhil13938RoleCard}" Value="True">
+                    <Setter Property="Foreground" Value="{StaticResource Phil13938MutedBrush}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Foreground" Value="{StaticResource CrystalRelayDevMutedBrush}" />
                 </DataTrigger>
@@ -1193,6 +1252,9 @@
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsKyouZakiraRoleCard}" Value="True">
                     <Setter Property="Foreground" Value="{StaticResource KyouZakiraTextBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsPhil13938RoleCard}" Value="True">
+                    <Setter Property="Foreground" Value="{StaticResource Phil13938TextBrush}" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Foreground" Value="{StaticResource CrystalRelayDevTextBrush}" />
@@ -1215,6 +1277,9 @@
                 <DataTrigger Binding="{Binding IsKyouZakiraRoleCard}" Value="True">
                     <Setter Property="Foreground" Value="{StaticResource KyouZakiraTextBrush}" />
                 </DataTrigger>
+                <DataTrigger Binding="{Binding IsPhil13938RoleCard}" Value="True">
+                    <Setter Property="Foreground" Value="{StaticResource Phil13938TextBrush}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Foreground" Value="{StaticResource CrystalRelayDevTextBrush}" />
                 </DataTrigger>
@@ -1235,6 +1300,9 @@
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsKyouZakiraRoleCard}" Value="True">
                     <Setter Property="Foreground" Value="{StaticResource KyouZakiraMutedBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsPhil13938RoleCard}" Value="True">
+                    <Setter Property="Foreground" Value="{StaticResource Phil13938MutedBrush}" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Foreground" Value="{StaticResource CrystalRelayDevMutedBrush}" />
@@ -1262,6 +1330,10 @@
                     <Setter Property="Background" Value="{StaticResource KyouZakiraInsetBrush}" />
                     <Setter Property="BorderBrush" Value="{StaticResource KyouZakiraInsetBorderBrush}" />
                 </DataTrigger>
+                <DataTrigger Binding="{Binding IsPhil13938RoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource Phil13938InsetBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource Phil13938InsetBorderBrush}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Background" Value="{StaticResource CrystalRelayDevInsetBrush}" />
                     <Setter Property="BorderBrush" Value="{StaticResource CrystalRelayDevInsetBorderBrush}" />
@@ -1288,6 +1360,10 @@
                 <DataTrigger Binding="{Binding IsKyouZakiraRoleCard}" Value="True">
                     <Setter Property="Background" Value="{StaticResource KyouZakiraInsetBrush}" />
                     <Setter Property="BorderBrush" Value="{StaticResource KyouZakiraInsetBorderBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsPhil13938RoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource Phil13938InsetBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource Phil13938InsetBorderBrush}" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Background" Value="{StaticResource CrystalRelayDevInsetBrush}" />
@@ -1334,6 +1410,9 @@
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsKyouZakiraRoleCard}" Value="True">
                     <Setter Property="Background" Value="{StaticResource KyouZakiraRailBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsPhil13938RoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource Phil13938RailBrush}" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Background" Value="{StaticResource CrystalRelayDevRailBrush}" />
@@ -1392,6 +1471,10 @@
                 <DataTrigger Binding="{Binding IsKyouZakiraRoleCard}" Value="True">
                     <Setter Property="Visibility" Value="Visible" />
                     <Setter Property="Background" Value="{StaticResource KyouZakiraRailBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsPhil13938RoleCard}" Value="True">
+                    <Setter Property="Visibility" Value="Visible" />
+                    <Setter Property="Background" Value="{StaticResource Phil13938RailBrush}" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Visibility" Value="Visible" />
@@ -1452,6 +1535,10 @@
                 <DataTrigger Binding="{Binding IsKyouZakiraRoleCard}" Value="True">
                     <Setter Property="Background" Value="{StaticResource KyouZakiraBadgeBrush}" />
                     <Setter Property="BorderBrush" Value="{StaticResource KyouZakiraBorderBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsPhil13938RoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource Phil13938BadgeBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource Phil13938BorderBrush}" />
                 </DataTrigger>
             </Style.Triggers>
         </Style>
@@ -1540,7 +1627,21 @@
                                            FontFamily="{Binding DataContext.Settings.ChatFontFamily, RelativeSource={RelativeSource AncestorType=Window}}"
                                            FontSize="{Binding DataContext.Settings.ChatTextSize, RelativeSource={RelativeSource AncestorType=Window}}"
                                            Foreground="{Binding NameBrush}"
-                                           Text="{Binding UserDisplayName}" />
+                                           Text="{Binding UserDisplayName}">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsPhil13938RoleCard}" Value="True">
+                                                    <Setter Property="Effect">
+                                                        <Setter.Value>
+                                                            <DropShadowEffect ShadowDepth="0" BlurRadius="3" Color="White" Opacity="0.95" />
+                                                        </Setter.Value>
+                                                    </Setter>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
 
                                 <Border Margin="8,0,0,0"
                                         Padding="7,2"

@@ -575,7 +575,6 @@
   "Smooth Transition Seconds": "スムーズトランジション秒数",
   "Subscription Filter": "サブスクリプションフィルター",
   "Target Height Meters": "ターゲット高さ（メートル）",
-  "Transition Seconds": "遷移秒数",
   "Test Scale": "スケールをテスト",
   "This tab is for avatar height scale redeems using VRChat OSC Avatar Scaling. Build fixed, random, relative, multiplier, or preset height changes here without mixing them into other redeem systems.": "このタブはVRChat OSCアバタースケーリングを使用したアバター高さスケール特典用です。固定、ランダム、相対、乗数、プリセットの高さ変更をここに構築し、他の特典システムと混合しません。",
   "This tab is for avatar height scale redeems using VRChat OSC Avatar Scaling. Use Scale Sets to keep different height reward ideas organized without changing how the triggers run.": "このタブはVRChat OSCアバタースケーリングを使用したアバター高さスケール特典用です。スケールセットを使用して異なる高さ報酬アイデアを整理し、トリガーの実行方法は変更しません。",

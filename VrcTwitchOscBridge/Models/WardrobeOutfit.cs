@@ -3,6 +3,8 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using VrcTwitchOscBridge.Infrastructure;
 using VrcTwitchOscBridge.Services;
+using System.Windows.Media;
+using Brush = System.Windows.Media.Brush;
 
 namespace VrcTwitchOscBridge.Models;
 
@@ -21,6 +23,9 @@ public sealed class WardrobeOutfit : ObservableObject
     private TwitchRewardSyncMode twitchRewardSyncMode = TwitchRewardSyncMode.CreateOrManage;
     private string chatCommandText = string.Empty;
     private ObservableCollection<WardrobeSnapshotParam> snapshotParams = [];
+    private string managedRewardReadyColor = ManagedRewardPresentation.ReadyBackgroundColor;
+    private string managedRewardCooldownColor = ManagedRewardPresentation.InUseBackgroundColor;
+    private bool deleteManagedRewardWhenInactive;
 
     private static string T(string sourceText) => LocalizationService.Translate(sourceText);
     private static string TF(string sourceFormat, params object[] args) => LocalizationService.Format(sourceFormat, args);
@@ -122,6 +127,41 @@ public sealed class WardrobeOutfit : ObservableObject
         set => SetProperty(ref chatCommandText, value ?? string.Empty);
     }
 
+    public string ManagedRewardReadyColor
+    {
+        get => managedRewardReadyColor;
+        set
+        {
+            var normalizedValue = ManagedRewardPresentation.NormalizeReadyBackgroundColor(value);
+            if (SetProperty(ref managedRewardReadyColor, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(ManagedRewardReadyColorBrush));
+            }
+        }
+    }
+
+    public string ManagedRewardCooldownColor
+    {
+        get => managedRewardCooldownColor;
+        set
+        {
+            var normalizedValue = ManagedRewardPresentation.NormalizeCooldownBackgroundColor(value);
+            if (SetProperty(ref managedRewardCooldownColor, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(ManagedRewardCooldownColorBrush));
+            }
+        }
+    }
+
+    public bool DeleteManagedRewardWhenInactive
+    {
+        get => deleteManagedRewardWhenInactive;
+        set => SetProperty(ref deleteManagedRewardWhenInactive, value);
+    }
+
+    public Brush ManagedRewardReadyColorBrush => CreateColorBrush(ManagedRewardReadyColor);
+    public Brush ManagedRewardCooldownColorBrush => CreateColorBrush(ManagedRewardCooldownColor);
+
     public ObservableCollection<WardrobeSnapshotParam> SnapshotParams
     {
         get => snapshotParams;
@@ -189,5 +229,12 @@ public sealed class WardrobeOutfit : ObservableObject
         {
             parameter.PropertyChanged -= SnapshotParamChanged;
         }
+    }
+
+    private static Brush CreateColorBrush(string colorText)
+    {
+        var brush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(colorText));
+        brush.Freeze();
+        return brush;
     }
 }
