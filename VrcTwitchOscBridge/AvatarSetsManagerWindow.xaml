@@ -1894,9 +1894,9 @@
                                             <Button Content="Remove" Style="{StaticResource SecondaryButtonStyle}" Padding="6,3" FontSize="10" Margin="0,0,4,0"
                                                     Command="{Binding DataContext.RemoveWardrobeSnapshotParamCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
                                             <Button Content="Copy" Style="{StaticResource SecondaryButtonStyle}" Padding="6,3" FontSize="10" Margin="0,0,4,0"
-                                                    Command="{Binding DataContext.CopyWardrobeSnapshotParamCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                                    Command="{Binding DataContext.CopySelectedWardrobeSnapshotParamsCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
                                             <Button Content="Paste" Style="{StaticResource SecondaryButtonStyle}" Padding="6,3" FontSize="10" Margin="0,0,4,0"
-                                                    Command="{Binding DataContext.PasteWardrobeSnapshotParamCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                                    Command="{Binding DataContext.PasteWardrobeSnapshotParamsCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
                                             <Button Content="Refresh" Style="{StaticResource SecondaryButtonStyle}" Padding="6,3" FontSize="10" Margin="0,0,4,0"
                                                     Command="{Binding DataContext.RefreshWardrobeParametersCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
                                             <Button Content="Test Outfit" Style="{StaticResource SecondaryButtonStyle}" Padding="6,3" FontSize="10"
@@ -1904,13 +1904,41 @@
                                         </WrapPanel>
 
                                         <!-- Param list -->
-                                        <ListBox ItemsSource="{Binding SnapshotParams}"
+                                        <ListBox x:Name="WardrobeParamListBox"
+                                                 ItemsSource="{Binding SnapshotParams}"
+                                                 SelectionMode="Extended"
+                                                 ToolTip="{loc:Translate 'Wardrobe Multi-Select Tooltip'}"
                                                  SelectedItem="{Binding DataContext.SelectedWardrobeSnapshotParam, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                 SelectionChanged="OnWardrobeParamListSelectionChanged"
+                                                 KeyDown="OnWardrobeParamListKeyDown"
                                                  Background="{DynamicResource PanelBrush}"
                                                  Foreground="{DynamicResource TextBrush}"
                                                  MaxHeight="160"
                                                  Margin="0,0,0,6"
                                                  BorderBrush="{DynamicResource BorderBrush}">
+                                            <ListBox.InputBindings>
+                                                <KeyBinding Key="C" Modifiers="Ctrl"
+                                                            Command="{Binding DataContext.CopySelectedWardrobeSnapshotParamsCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                                <KeyBinding Key="V" Modifiers="Ctrl"
+                                                            Command="{Binding DataContext.PasteWardrobeSnapshotParamsCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                                <KeyBinding Key="A" Modifiers="Ctrl"
+                                                            Command="{Binding DataContext.SelectAllWardrobeSnapshotParamsCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                                <KeyBinding Key="Delete"
+                                                            Command="{Binding DataContext.RemoveWardrobeSnapshotParamCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                                <KeyBinding Key="Escape"
+                                                            Command="{Binding DataContext.ClearWardrobeSnapshotParamSelectionCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                            </ListBox.InputBindings>
+                                            <ListBox.ContextMenu>
+                                                <ContextMenu>
+                                                    <MenuItem Header="Copy"
+                                                              Command="{Binding DataContext.CopySelectedWardrobeSnapshotParamsCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                                    <MenuItem Header="Paste"
+                                                              Command="{Binding DataContext.PasteWardrobeSnapshotParamsCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                                    <Separator />
+                                                    <MenuItem Header="{loc:Translate 'Select All'}"
+                                                              Command="{Binding DataContext.SelectAllWardrobeSnapshotParamsCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                                </ContextMenu>
+                                            </ListBox.ContextMenu>
                                             <ListBox.ItemTemplate>
                                                 <DataTemplate>
                                                     <TextBlock Text="{Binding DisplaySummary}" Foreground="{DynamicResource TextBrush}" FontSize="11" Padding="4,2" />
