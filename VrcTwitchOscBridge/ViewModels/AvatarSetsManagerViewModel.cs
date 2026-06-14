@@ -272,7 +272,18 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
     private IReadOnlyList<Models.VrChatOscParameterSummary> _wardrobeParameterSourceParameters = [];
     private IReadOnlyList<Models.VrChatOscParameterSummary> _availableWardrobeParameters = [];
     private Models.WardrobeOutfit? _copiedWardrobeOutfit;
-    private Models.WardrobeSnapshotParam? _copiedWardrobeSnapshotParam;
+    private Models.WardrobeSnapshotParam? _copiedWardrobeSnapshotParam;  // kept for Task 2 cleanup
+    private readonly ObservableCollection<Models.WardrobeSnapshotParam> _copiedWardrobeSnapshotParams = [];
+    public ObservableCollection<Models.WardrobeSnapshotParam> CopiedWardrobeSnapshotParams => _copiedWardrobeSnapshotParams;
+    public int CopiedWardrobeSnapshotParamCount => _copiedWardrobeSnapshotParams.Count;
+    public bool HasCopiedWardrobeSnapshotParams => _copiedWardrobeSnapshotParams.Count > 0;
+
+    public ObservableCollection<Models.WardrobeSnapshotParam> SelectedWardrobeSnapshotParams { get; } = [];
+    public int SelectedWardrobeSnapshotParamCount => SelectedWardrobeSnapshotParams.Count;
+    public bool HasMultipleWardrobeSnapshotParamsSelected => SelectedWardrobeSnapshotParams.Count > 1;
+    public bool HasAnyWardrobeSnapshotParamSelected => SelectedWardrobeSnapshotParams.Count > 0;
+    public bool IsWardrobeParamEditorVisible =>
+        SelectedWardrobeOutfit is not null && !HasMultipleWardrobeSnapshotParamsSelected;
     private bool _isRestoringWardrobeParameterSelection;
     private bool _isRestoringWardrobeParameterText;
     private string _wardrobeParameterNameFilter = string.Empty;
@@ -1426,6 +1437,18 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
         if (SelectedWardrobeSnapshotParam is null) return;
         _copiedWardrobeSnapshotParam = CloneWardrobeSnapshotParam(SelectedWardrobeSnapshotParam);
         PasteWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
+    }
+
+    private void RefreshWardrobeParamSelectionDerived()
+    {
+        RaisePropertyChanged(nameof(SelectedWardrobeSnapshotParamCount));
+        RaisePropertyChanged(nameof(HasMultipleWardrobeSnapshotParamsSelected));
+        RaisePropertyChanged(nameof(HasAnyWardrobeSnapshotParamSelected));
+        RaisePropertyChanged(nameof(IsWardrobeParamEditorVisible));
+        RemoveWardrobeSnapshotParamCommand.NotifyCanExecuteChanged();
+        CopySelectedWardrobeSnapshotParamsCommand.NotifyCanExecuteChanged();
+        ClearWardrobeSnapshotParamSelectionCommand.NotifyCanExecuteChanged();
+        SelectAllWardrobeSnapshotParamsCommand.NotifyCanExecuteChanged();
     }
 
     private void PasteWardrobeSnapshotParam()
