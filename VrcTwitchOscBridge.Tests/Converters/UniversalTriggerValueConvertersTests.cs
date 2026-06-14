@@ -80,3 +80,47 @@ public sealed class UniversalTriggerIntConverterTests
         Assert.Equal(0, result);
     }
 }
+
+public sealed class UniversalTriggerFloatConverterTests
+{
+    [Theory]
+    [InlineData(null, "0")]
+    [InlineData("", "0")]
+    [InlineData("0", "0")]
+    [InlineData("1", "1")]
+    [InlineData("-1", "-1")]
+    [InlineData("1.5", "1.5")]
+    [InlineData("-1.5", "-1.5")]
+    [InlineData("0.0001", "0.0001")]
+    [InlineData("1.0", "1")]
+    [InlineData("abc", "abc")]
+    public void Convert_StringToString_FormatsFloat(string? input, string expected)
+    {
+        var converter = new UniversalTriggerFloatConverter();
+        var result = converter.Convert(input, typeof(string), parameter: null, CultureInfo.InvariantCulture);
+        Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [InlineData(null, 0.0)]
+    [InlineData("", 0.0)]
+    [InlineData("0", 0.0)]
+    [InlineData("1.5", 1.5)]
+    [InlineData("-1.5", -1.5)]
+    [InlineData("0.0001", 0.0001)]
+    [InlineData("abc", 0.0)]
+    public void ConvertBack_StringToDouble_ReturnsExpected(string? input, double expected)
+    {
+        var converter = new UniversalTriggerFloatConverter();
+        var result = converter.ConvertBack(input, typeof(double), parameter: null, CultureInfo.InvariantCulture);
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public void ConvertBack_InvalidInput_DoesNotThrow()
+    {
+        var converter = new UniversalTriggerFloatConverter();
+        var result = converter.ConvertBack("not a number", typeof(double), parameter: null, CultureInfo.InvariantCulture);
+        Assert.Equal(0.0, result);
+    }
+}
