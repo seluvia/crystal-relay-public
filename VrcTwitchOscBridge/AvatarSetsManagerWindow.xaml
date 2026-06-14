@@ -1946,8 +1946,28 @@
                                             </ListBox.ItemTemplate>
                                         </ListBox>
 
+                                        <!-- Multi-select banner (visible when 2+ params are selected) -->
+                                        <Border Margin="0,0,0,6"
+                                                Padding="10,6"
+                                                CornerRadius="6"
+                                                Background="{DynamicResource PanelHighlightBrush}"
+                                                BorderBrush="{DynamicResource AccentBrush}"
+                                                BorderThickness="1"
+                                                Visibility="{Binding DataContext.HasMultipleWardrobeSnapshotParamsSelected, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Collapsed}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding DataContext.SelectedWardrobeSnapshotParamCount, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                           Foreground="{DynamicResource AccentBrush}"
+                                                           FontWeight="SemiBold"
+                                                           FontSize="11" />
+                                                <TextBlock Margin="6,0,0,0"
+                                                           Text="{loc:Translate 'Wardrobe Multi-Select Banner'}"
+                                                           Foreground="{DynamicResource TextBrush}"
+                                                           FontSize="11" />
+                                            </StackPanel>
+                                        </Border>
+
                                         <!-- Param editor (visible when a param is selected) -->
-                                        <Border Visibility="{Binding DataContext.SelectedWardrobeSnapshotParam, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource NullToVisibilityConverter}}"
+                                        <Border Visibility="{Binding DataContext.IsWardrobeParamEditorVisible, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Collapsed}"
                                                 Background="{DynamicResource PanelBrush}"
                                                 BorderBrush="{DynamicResource BorderBrush}"
                                                 BorderThickness="1"
