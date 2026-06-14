@@ -154,7 +154,7 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
         SelectAvatarRuleCommand = new RelayCommand(p => SelectedAvatarRule = p as Models.TriggerRule);
         SelectWardrobeOutfitCommand = new RelayCommand(p => SelectedWardrobeOutfit = p as Models.WardrobeOutfit);
         AddWardrobeSnapshotParamCommand = new RelayCommand(AddWardrobeSnapshotParam, () => SelectedWardrobeOutfit is not null);
-        RemoveWardrobeSnapshotParamCommand = new RelayCommand(RemoveWardrobeSnapshotParam, () => SelectedWardrobeSnapshotParam is not null);
+        RemoveWardrobeSnapshotParamCommand = new RelayCommand(RemoveWardrobeSnapshotParam, () => SelectedWardrobeSnapshotParams.Count > 0);
         CopyWardrobeOutfitCommand = new RelayCommand(CopyWardrobeOutfit, () => SelectedWardrobeOutfit is not null);
         PasteWardrobeOutfitCommand = new RelayCommand(PasteWardrobeOutfit, () => SelectedProfile is not null && _copiedWardrobeOutfit is not null);
         CopySelectedWardrobeSnapshotParamsCommand = new RelayCommand(CopySelectedWardrobeSnapshotParams,
@@ -1457,15 +1457,13 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
         var existingNames = new HashSet<string>(
             outfit.SnapshotParams.Select(p => p.ParameterName),
             StringComparer.Ordinal);
-        int added = 0, skipped = 0;
         foreach (var src in _copiedWardrobeSnapshotParams.ToList())
         {
-            if (string.IsNullOrWhiteSpace(src.ParameterName)) { skipped++; continue; }
-            if (existingNames.Contains(src.ParameterName)) { skipped++; continue; }
+            if (string.IsNullOrWhiteSpace(src.ParameterName)) continue;
+            if (existingNames.Contains(src.ParameterName)) continue;
             var clone = CloneWardrobeSnapshotParam(src);
             outfit.SnapshotParams.Add(clone);
             existingNames.Add(clone.ParameterName);
-            added++;
         }
     }
 
