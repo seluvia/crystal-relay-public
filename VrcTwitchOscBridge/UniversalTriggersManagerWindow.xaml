@@ -6,6 +6,7 @@
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         xmlns:models="clr-namespace:VrcTwitchOscBridge.Models"
         xmlns:local="clr-namespace:VrcTwitchOscBridge"
+        xmlns:converters="clr-namespace:VrcTwitchOscBridge"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
@@ -75,6 +76,10 @@
         <local:CountToVisibilityConverter x:Key="CountToVisibilityConverter" />
         <local:BoolToHorizontalAlignmentConverter x:Key="BoolToHorizontalAlignmentConverter" />
         <local:BoolToThicknessConverter x:Key="BoolToThicknessConverter" />
+        <converters:UniversalTriggerBoolConverter x:Key="UniversalTriggerBoolConverter" />
+        <converters:UniversalTriggerIntConverter x:Key="UniversalTriggerIntConverter" />
+        <converters:UniversalTriggerFloatConverter x:Key="UniversalTriggerFloatConverter" />
+        <converters:EnumToVisibilityConverter x:Key="EnumToVisibilityConverter" />
 
         <Style TargetType="TextBlock">
             <Setter Property="FontFamily" Value="{DynamicResource BodyFontFamily}" />
@@ -1560,13 +1565,49 @@
                                                                     CommandParameter="{Binding}" />
                                                             <TextBox Text="{Binding OscAddress, UpdateSourceTrigger=PropertyChanged}" />
                                                         </DockPanel>
-                                                        <UniformGrid Grid.Row="1" Columns="3" Margin="0,4,0,0">
-                                                            <ComboBox SelectedItem="{Binding ValueKind, Mode=TwoWay}"
+                                                        <Grid Grid.Row="1" Margin="0,4,0,0">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="140" />
+                                                                <ColumnDefinition Width="*" MinWidth="80" />
+                                                                <ColumnDefinition Width="*" MinWidth="120" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <ComboBox Grid.Column="0"
+                                                                      SelectedItem="{Binding ValueKind, Mode=TwoWay}"
                                                                       ItemsSource="{Binding DataContext.UniversalTriggerValueKinds, RelativeSource={RelativeSource AncestorType=Window}}"
                                                                       Margin="0,0,4,0" />
-                                                            <TextBox Text="{Binding TargetValue, UpdateSourceTrigger=PropertyChanged}" Margin="2,0" />
-                                                            <TextBox Text="{Binding DefaultValue, UpdateSourceTrigger=PropertyChanged}" Margin="4,0,0,0" />
-                                                        </UniformGrid>
+                                                            <Grid Grid.Column="1">
+                                                                <CheckBox VerticalAlignment="Center"
+                                                                          Margin="4,0"
+                                                                          Content="{loc:Translate 'Universal Triggers Value On'}"
+                                                                          IsChecked="{Binding TargetValue, Converter={StaticResource UniversalTriggerBoolConverter}, Mode=TwoWay}"
+                                                                          Visibility="{Binding ValueKind, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter=Bool}" />
+                                                                <TextBox Margin="2,0"
+                                                                         Text="{Binding TargetValue, Converter={StaticResource UniversalTriggerIntConverter}, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                         Visibility="{Binding ValueKind, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter=Int}" />
+                                                                <TextBox Margin="2,0"
+                                                                         Text="{Binding TargetValue, Converter={StaticResource UniversalTriggerFloatConverter}, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                         Visibility="{Binding ValueKind, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter=Float}" />
+                                                                <TextBox Margin="2,0"
+                                                                         Text="{Binding TargetValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                         Visibility="{Binding ValueKind, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter=String}" />
+                                                            </Grid>
+                                                            <Grid Grid.Column="2">
+                                                                <CheckBox VerticalAlignment="Center"
+                                                                          Margin="4,0"
+                                                                          Content="{loc:Translate 'Universal Triggers Value On'}"
+                                                                          IsChecked="{Binding DefaultValue, Converter={StaticResource UniversalTriggerBoolConverter}, Mode=TwoWay}"
+                                                                          Visibility="{Binding ValueKind, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter=Bool}" />
+                                                                <TextBox Margin="4,0,0,0"
+                                                                         Text="{Binding DefaultValue, Converter={StaticResource UniversalTriggerIntConverter}, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                         Visibility="{Binding ValueKind, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter=Int}" />
+                                                                <TextBox Margin="4,0,0,0"
+                                                                         Text="{Binding DefaultValue, Converter={StaticResource UniversalTriggerFloatConverter}, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                         Visibility="{Binding ValueKind, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter=Float}" />
+                                                                <TextBox Margin="4,0,0,0"
+                                                                         Text="{Binding DefaultValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                         Visibility="{Binding ValueKind, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter=String}" />
+                                                            </Grid>
+                                                        </Grid>
                                                         <DockPanel Grid.Row="2" LastChildFill="True" Margin="0,4,0,0">
                                                             <CheckBox DockPanel.Dock="Right"
                                                                       Content="{loc:Translate 'Queue'}"
