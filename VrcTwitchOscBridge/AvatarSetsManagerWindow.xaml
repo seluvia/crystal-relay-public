@@ -768,8 +768,8 @@
                                     </Button.Style>
                                     <StackPanel>
                                         <TextBlock Text="🎁" FontSize="20" HorizontalAlignment="Center" />
-                                        <TextBlock Text="{loc:Translate 'Avatar Sets Make Set'}" 
-                                                   FontSize="11" FontWeight="Bold" 
+                                        <TextBlock Text="{loc:Translate 'Avatar Sets Make Set'}"
+                                                   FontSize="11" FontWeight="Bold"
                                                    HorizontalAlignment="Center" />
                                     </StackPanel>
                                 </Button>
@@ -789,8 +789,8 @@
                                     </Button.Style>
                                     <StackPanel>
                                         <TextBlock Text="👗" FontSize="20" HorizontalAlignment="Center" />
-                                        <TextBlock Text="{loc:Translate 'Avatar Sets Make Wardrobe'}" 
-                                                   FontSize="11" FontWeight="Bold" 
+                                        <TextBlock Text="{loc:Translate 'Avatar Sets Make Wardrobe'}"
+                                                   FontSize="11" FontWeight="Bold"
                                                    HorizontalAlignment="Center" />
                                     </StackPanel>
                                 </Button>
