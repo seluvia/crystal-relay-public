@@ -35,3 +35,48 @@ public sealed class UniversalTriggerBoolConverterTests
         Assert.Equal(expected, result);
     }
 }
+
+public sealed class UniversalTriggerIntConverterTests
+{
+    [Theory]
+    [InlineData(null, "0")]
+    [InlineData("", "0")]
+    [InlineData("0", "0")]
+    [InlineData("1", "1")]
+    [InlineData("-1", "-1")]
+    [InlineData("2147483647", "2147483647")]
+    [InlineData("-2147483648", "-2147483648")]
+    [InlineData("1.0", "1")]
+    [InlineData("abc", "abc")]
+    [InlineData("1.5", "1.5")]
+    public void Convert_StringToString_FormatsInt(string? input, string expected)
+    {
+        var converter = new UniversalTriggerIntConverter();
+        var result = converter.Convert(input, typeof(string), parameter: null, CultureInfo.InvariantCulture);
+        Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [InlineData(null, 0)]
+    [InlineData("", 0)]
+    [InlineData("0", 0)]
+    [InlineData("1", 1)]
+    [InlineData("-1", -1)]
+    [InlineData("2147483647", 2147483647)]
+    [InlineData("abc", 0)]
+    [InlineData("1.5", 0)]
+    public void ConvertBack_StringToInt_ReturnsExpected(string? input, int expected)
+    {
+        var converter = new UniversalTriggerIntConverter();
+        var result = converter.ConvertBack(input, typeof(int), parameter: null, CultureInfo.InvariantCulture);
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public void ConvertBack_InvalidInput_DoesNotThrow()
+    {
+        var converter = new UniversalTriggerIntConverter();
+        var result = converter.ConvertBack("not a number", typeof(int), parameter: null, CultureInfo.InvariantCulture);
+        Assert.Equal(0, result);
+    }
+}
