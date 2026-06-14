@@ -119,6 +119,7 @@
   "Trigger Type": "トリガータイプ",
   "Universal Trigger Editor": "ユニバーサルトリガーエディター",
   "Universal Triggers": "ユニバーサルトリガー",
+  "Universal Triggers Value On": "オン",
   "Universal Triggers run direct OSC action lists from Twitch events. Use this for imported Fooma Twitch Interaction configs or custom assist-style triggers without changing Avatar Sets, Movement Redeems, Avatar Change, or Bits + Subs overrides.": "ユニバーサルトリガーはTwitchイベントから直接OSCアクションリストを実行します。インポートされたFooma Twitch Interaction設定やカスタムアシスト型トリガーに使用し、アバターセット、移動特典、アバター変更、Bits + Subsオーバーライドを変更しません。",
   "Universal triggers run globally from Twitch events and send direct OSC actions.": "ユニバーサルトリガーはTwitchイベントからグローバルに実行され、直接OSCアクションを送信します。",
   "Use this list for imported or universal Twitch interactions. These triggers can listen for chat commands, channel point rewards, bits, subscriptions, gift subs, and follows without mixing into avatar sets or paid override rules.": "このリストはインポートされたTwitch InteractionやユニバーサルTwitch Interaction用です。これらのトリガーはチャットコマンド、チャンネルポイント報酬、Bits、サブスクリプション、ギフトSubs、フォローをリッスンできますが、アバターセットや有料オーバーライドルールと混在しません。",

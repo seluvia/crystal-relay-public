@@ -119,6 +119,7 @@
   "Trigger Type": "Tipo de gatilho",
   "Universal Trigger Editor": "Editor de gatilhos universais",
   "Universal Triggers": "Gatilhos universais",
+  "Universal Triggers Value On": "Ligado",
   "Universal Triggers run direct OSC action lists from Twitch events. Use this for imported Fooma Twitch Interaction configs or custom assist-style triggers without changing Avatar Sets, Movement Redeems, Avatar Change, or Bits + Subs overrides.": "Gatilhos universais executam listas de ações OSC diretas a partir de eventos do Twitch. Use para configurações Fooma Twitch Interaction importadas ou gatilhos personalizados de estilo assist sem alterar conjuntos de avatares, recompensas de movimento, troca de avatar ou sobrescritas de Bits + Subs.",
   "Universal triggers run globally from Twitch events and send direct OSC actions.": "Gatilhos universais rodam globalmente a partir de eventos do Twitch e enviam ações OSC diretas.",
   "Use this list for imported or universal Twitch interactions. These triggers can listen for chat commands, channel point rewards, bits, subscriptions, gift subs, and follows without mixing into avatar sets or paid override rules.": "Use esta lista para interações Twitch importadas ou universais. Esses gatilhos podem escutar comandos de chat, recompensas de canal, Bits, assinaturas, gift subs e follows sem se misturar com conjuntos de avatares ou regras de sobrescrita pagas.",

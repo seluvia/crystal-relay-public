@@ -119,6 +119,7 @@
   "Trigger Type": "Tipo de disparador",
   "Universal Trigger Editor": "Editor de disparadores universales",
   "Universal Triggers": "Disparadores universales",
+  "Universal Triggers Value On": "Activado",
   "Universal Triggers run direct OSC action lists from Twitch events. Use this for imported Fooma Twitch Interaction configs or custom assist-style triggers without changing Avatar Sets, Movement Redeems, Avatar Change, or Bits + Subs overrides.": "Los disparadores universales ejecutan listas de acciones OSC directas desde eventos de Twitch. Usa esto para configuraciones importadas de Fooma Twitch Interaction o disparadores personalizados de estilo asistido sin cambiar conjuntos de avatares, recompensas de movimiento, cambio de avatar o sobrescrituras de Bits + Subs.",
   "Universal triggers run globally from Twitch events and send direct OSC actions.": "Los disparadores universales se ejecutan globalmente desde eventos de Twitch y envían acciones OSC directas.",
   "Use this list for imported or universal Twitch interactions. These triggers can listen for chat commands, channel point rewards, bits, subscriptions, gift subs, and follows without mixing into avatar sets or paid override rules.": "Usa esta lista para interacciones de Twitch importadas o universales. Estos disparadores pueden escuchar comandos de chat, recompensas de puntos de canal, Bits, suscripciones, gift subs y follows sin mezclarse con conjuntos de avatares o reglas de sobrescritura de pago.",

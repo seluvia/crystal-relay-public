@@ -119,6 +119,7 @@
   "Trigger Type": "Utlösartyp",
   "Universal Trigger Editor": "Universell utlösarredigerare",
   "Universal Triggers": "Universella utlösare",
+  "Universal Triggers Value On": "På",
   "Universal Triggers run direct OSC action lists from Twitch events. Use this for imported Fooma Twitch Interaction configs or custom assist-style triggers without changing Avatar Sets, Movement Redeems, Avatar Change, or Bits + Subs overrides.": "Universella utlösare kör direkta OSC-åtgärdslistor från Twitch-händelser. Använd detta för importerade Fooma Twitch Interaction-konfigurationer eller anpassade assistutlösare utan att ändra avataruppsättningar, rörelsebelöningar, avatarbyte eller Bits + Subs-överskridningar.",
   "Universal triggers run globally from Twitch events and send direct OSC actions.": "Universella utlösare körs globalt från Twitch-händelser och skickar direkta OSC-åtgärder.",
   "Use this list for imported or universal Twitch interactions. These triggers can listen for chat commands, channel point rewards, bits, subscriptions, gift subs, and follows without mixing into avatar sets or paid override rules.": "Använd denna lista för importerade eller universella Twitch-interaktioner. Dessa utlösare kan lyssna efter chattkommandon, kanalpoängbelöningar, bits, prenumerationer, gåvoprenumerationer och följare utan att blandas in i avataruppsättningar eller betalade överskridningsregler.",

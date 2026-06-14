@@ -123,6 +123,7 @@
   "Trigger Type": "Type de déclencheur",
   "Universal Trigger Editor": "Éditeur de déclencheur universel",
   "Universal Triggers": "Déclencheurs universels",
+  "Universal Triggers Value On": "Activé",
   "Universal Triggers run direct OSC action lists from Twitch events. Use this for imported Fooma Twitch Interaction configs or custom assist-style triggers without changing Avatar Sets, Movement Redeems, Avatar Change, or Bits + Subs overrides.": "Les déclencheurs universels exécutent des listes d'actions OSC directes depuis les événements Twitch. Utilise ceci pour les configs d'interaction Fooma Twitch importées ou les déclencheurs de type assistance personnalisés sans modifier les ensembles d'avatars, les récompenses de mouvement, les changements d'avatar ou les remplacements Bits + Subs.",
   "Universal triggers run globally from Twitch events and send direct OSC actions.": "Les déclencheurs universels s'exécutent globalement depuis les événements Twitch et envoient des actions OSC directes.",
   "Use this list for imported or universal Twitch interactions. These triggers can listen for chat commands, channel point rewards, bits, subscriptions, gift subs, and follows without mixing into avatar sets or paid override rules.": "Utilise cette liste pour les interactions Twitch importées ou universelles. Ces déclencheurs peuvent écouter les commandes de chat, les récompenses de points de chaîne, les bits, les abonnements, les Subs offerts et les follows sans se mélanger aux ensembles d'avatars ou aux règles de remplacement payantes.",

@@ -124,6 +124,7 @@
   "Trigger Type": "触发器类型",
   "Universal Trigger Editor": "通用触发器编辑器",
   "Universal Triggers": "通用触发器",
+  "Universal Triggers Value On": "开",
   "Universal Triggers run direct OSC action lists from Twitch events. Use this for imported Fooma Twitch Interaction configs or custom assist-style triggers without changing Avatar Sets, Movement Redeems, Avatar Change, or Bits + Subs overrides.": "通用触发器从 Twitch 事件运行直接 OSC 动作列表。用于导入的 Fooma Twitch 互动配置或自定义辅助风格触发器，而不会影响头像套装、移动兑换、头像切换或 Bits + Subs 覆盖规则。",
   "Universal triggers run globally from Twitch events and send direct OSC actions.": "通用触发器从 Twitch 事件全局运行并发送直接 OSC 动作。",
   "Use this list for imported or universal Twitch interactions. These triggers can listen for chat commands, channel point rewards, bits, subscriptions, gift subs, and follows without mixing into avatar sets or paid override rules.": "此列表用于导入的或通用 Twitch 互动。这些触发器可以监听聊天命令、频道积分奖励、Bits、订阅、赠送订阅和关注，而不会混入头像套装或付费覆盖规则。",

@@ -122,6 +122,7 @@
   "Trigger Type": "Typ wyzwalacza",
   "Universal Trigger Editor": "Edytor wyzwalaczy uniwersalnych",
   "Universal Triggers": "Wyzwalacze uniwersalne",
+  "Universal Triggers Value On": "Włączone",
   "Universal Triggers run direct OSC action lists from Twitch events. Use this for imported Fooma Twitch Interaction configs or custom assist-style triggers without changing Avatar Sets, Movement Redeems, Avatar Change, or Bits + Subs overrides.": "Wyzwalacze uniwersalne uruchamiają bezpośrednie listy akcji OSC z zdarzeń Twitch. Używaj tego dla importowanych konfiguracji interakcji Fooma lub niestandardowych wyzwalaczy assist-style bez zmiany zestawów avatarów, nagród ruchu, zmian avatarów ani nadpisań Bits + Subs.",
   "Universal triggers run globally from Twitch events and send direct OSC actions.": "Wyzwalacze uniwersalne uruchamiają się globalnie z zdarzeń Twitch i wysyłają bezpośrednie akcje OSC.",
   "Use this list for imported or universal Twitch interactions. These triggers can listen for chat commands, channel point rewards, bits, subscriptions, gift subs, and follows without mixing into avatar sets or paid override rules.": "Używaj tej listy dla importowanych lub uniwersalnych interakcji Twitch. Te wyzwalacze mogą nasłuchiwać komend czatu, nagród kanałowych, Bits, subskrypcji, gift subów i followów bez mieszania z zestawami avatarów lub regułami nadpisań płatnych.",
