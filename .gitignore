@@ -12,6 +12,7 @@ node_modules/
 **/node_modules/
 
 Backups/
+Backup-Crystal-Relay-Source/
 Releases/
 TestBuilds/
 Code Review/
