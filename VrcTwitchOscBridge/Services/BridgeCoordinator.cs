@@ -3083,7 +3083,7 @@ internal BridgeCoordinator(
         }
         catch (Exception ex)
         {
-            WriteLog($"Notification handler error (keeping connection open): {ex.Message}");
+            WriteLog($"Notification handler error (keeping connection open): {SensitiveTextSanitizer.Sanitize(ex.Message)}");
         }
     }
 
