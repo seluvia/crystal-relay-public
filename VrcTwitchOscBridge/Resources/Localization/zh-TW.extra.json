@@ -18,6 +18,7 @@
   "Boost Float": "增強浮動",
   "Boost Reward Title": "增強獎勵標題",
   "Boost reward for {0}": "增強獎勵 {0}",
+  "Bot Twitch login needs reconnecting. Chat announcements are disabled until then.": "需要重新連線 Twitch 機器人登入。聊天公告在此之前已停用。",
   "Connected as {0}, but reconnect Twitch to refresh the background listener.": "已連線為 {0}，但請重新連線 Twitch 以刷新背景監聽器。",
   "Connected as {0}, but reconnect Twitch to restore bot announcements.": "已連線為 {0}，但請重新連線 Twitch 以恢復機器人公告。",
   "Decimal mode sends the value directly as a 0.00 to 1.00 OSC float.": "小數模式直接以 0.00 到 1.00 的 OSC 浮點數發送值。",

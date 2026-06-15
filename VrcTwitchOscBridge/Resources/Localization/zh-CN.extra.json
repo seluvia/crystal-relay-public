@@ -21,6 +21,7 @@
   "Boost Float": "加速浮动",
   "Boost Reward Title": "加速奖励标题",
   "Boost reward for {0}": "加速奖励持续 {0}",
+  "Bot Twitch login needs reconnecting. Chat announcements are disabled until then.": "需要重新连接 Twitch 机器人登录。聊天公告在此之前已禁用。",
   "Connected as {0}, but reconnect Twitch to refresh the background listener.": "已连接为 {0}，但需要重新连接 Twitch 以刷新后台监听器。",
   "Connected as {0}, but reconnect Twitch to restore bot announcements.": "已连接为 {0}，但需要重新连接 Twitch 以恢复机器人公告。",
   "Decimal mode sends the value directly as a 0.00 to 1.00 OSC float.": "十进制模式将值直接作为 0.00 到 1.00 的 OSC 浮点数发送。",

@@ -18,6 +18,7 @@
   "Boost Float": "ブーストフロート",
   "Boost Reward Title": "ブースト報酬タイトル",
   "Boost reward for {0}": "{0}のブースト報酬",
+  "Bot Twitch login needs reconnecting. Chat announcements are disabled until then.": "Twitchボットのログインを再接続する必要があります。チャットアナウンスはそれまで無効です。",
   "Connected as {0}, but reconnect Twitch to refresh the background listener.": "{0}として接続済みですが、バックグラウンドリスナーを更新するにはTwitchを再接続してください。",
   "Connected as {0}, but reconnect Twitch to restore bot announcements.": "{0}として接続済みですが、ボットアナウンスを復元するにはTwitchを再接続してください。",
   "Decimal mode sends the value directly as a 0.00 to 1.00 OSC float.": "10進数モードでは値を0.00から1.00のOSCフロートとして直接送信します。",

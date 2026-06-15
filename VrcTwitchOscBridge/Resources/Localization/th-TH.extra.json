@@ -18,6 +18,7 @@
   "Boost Float": "Float ของ Boost",
   "Boost Reward Title": "ชื่อรางวัล Boost",
   "Boost reward for {0}": "รางวัล boost สำหรับ {0}",
+  "Bot Twitch login needs reconnecting. Chat announcements are disabled until then.": "ต้องเชื่อมต่อล็อกอิน Twitch ของบอทใหม่ การประกาศในแชทจะปิดอยู่จนกว่าจะดำเนินการเสร็จ",
   "Connected as {0}, but reconnect Twitch to refresh the background listener.": "เชื่อมต่อเป็น {0} แล้ว แต่ต้องเชื่อมต่อ Twitch ใหม่เพื่อรีเฟรช listener ภายใน",
   "Connected as {0}, but reconnect Twitch to restore bot announcements.": "เชื่อมต่อเป็น {0} แล้ว แต่ต้องเชื่อมต่อ Twitch ใหม่เพื่อกู้คืนการประกาศจาก bot",
   "Decimal mode sends the value directly as a 0.00 to 1.00 OSC float.": "โหมดทศนิยมจะส่งค่าโดยตรงเป็น OSC float 0.00 ถึง 1.00",

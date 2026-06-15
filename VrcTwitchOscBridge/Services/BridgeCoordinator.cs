@@ -2667,7 +2667,7 @@ internal BridgeCoordinator(
                     else
                     {
                         WriteLog($"Bot Twitch validation failed: {SensitiveTextSanitizer.Sanitize(ex.Message)}");
-                        StatusChanged?.Invoke("Bot Twitch login needs reconnecting. Chat announcements are disabled until then.");
+                        StatusChanged?.Invoke(T("Bot Twitch login needs reconnecting. Chat announcements are disabled until then."));
                         bot = null;
                     }
                 }

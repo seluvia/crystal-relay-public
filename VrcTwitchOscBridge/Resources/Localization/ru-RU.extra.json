@@ -18,6 +18,7 @@
   "Boost Float": "Плавающий буст",
   "Boost Reward Title": "Название награды буста",
   "Boost reward for {0}": "Награда буста на {0}",
+  "Bot Twitch login needs reconnecting. Chat announcements are disabled until then.": "Вход в Twitch-бота нужно переподключить. Объявления в чате отключены до этого момента.",
   "Connected as {0}, but reconnect Twitch to refresh the background listener.": "Подключено как {0}, но переподключите Twitch, чтобы обновить фоновый слушатель.",
   "Connected as {0}, but reconnect Twitch to restore bot announcements.": "Подключено как {0}, но переподключите Twitch, чтобы восстановить объявления бота.",
   "Decimal mode sends the value directly as a 0.00 to 1.00 OSC float.": "Десятичный режим отправляет значение напрямую как OSC float от 0.00 до 1.00.",
