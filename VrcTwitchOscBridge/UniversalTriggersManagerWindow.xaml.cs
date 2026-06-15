@@ -1,6 +1,7 @@
 using System;
 using System.Windows;
 using System.Windows.Input;
+using VrcTwitchOscBridge.Services;
 using VrcTwitchOscBridge.ViewModels;
 
 namespace VrcTwitchOscBridge;
@@ -11,6 +12,9 @@ public partial class UniversalTriggersManagerWindow : Window
     {
         DataContext = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
         InitializeComponent();
+        ThemeManager.ApplyToResources(Resources, ThemeManager.CurrentTheme);
+        ThemeManager.ThemeChanged += OnThemeManagerThemeChanged;
+        Closed += OnWindowClosed;
     }
 
     private UniversalTriggersManagerViewModel Vm => (UniversalTriggersManagerViewModel)DataContext;
@@ -47,5 +51,16 @@ public partial class UniversalTriggersManagerWindow : Window
         {
             Vm.CloseEditorCommand.Execute(null);
         }
+    }
+
+    private void OnThemeManagerThemeChanged(object? sender, EventArgs e)
+    {
+        Dispatcher.BeginInvoke(() => ThemeManager.ApplyToResources(Resources));
+    }
+
+    private void OnWindowClosed(object? sender, EventArgs e)
+    {
+        ThemeManager.ThemeChanged -= OnThemeManagerThemeChanged;
+        Closed -= OnWindowClosed;
     }
 }

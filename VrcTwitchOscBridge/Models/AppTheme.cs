@@ -19,5 +19,6 @@ public enum AppTheme
     TreetendersArm,
     Bratwurst,
     NeonBorb,
-    StinkyOnline
+    StinkyOnline,
+    SquishyFoxPlush
 }

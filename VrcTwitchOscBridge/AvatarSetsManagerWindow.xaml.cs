@@ -11,6 +11,7 @@ public partial class AvatarSetsManagerWindow : Window
     public AvatarSetsManagerWindow()
     {
         InitializeComponent();
+        ThemeManager.ApplyToResources(Resources, ThemeManager.CurrentTheme);
         ThemeManager.ThemeChanged += OnThemeManagerThemeChanged;
         Closed += OnWindowClosed;
     }

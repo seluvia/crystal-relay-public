@@ -565,6 +565,17 @@ public partial class TwitchChatboxWindow : Window
             return;
         }
 
+        if (theme == AppTheme.SquishyFoxPlush)
+        {
+            ThemeManager.ApplyToResources(Resources, theme);
+            SetBrushColor("MessageTextBrush", "#3A2114");
+            SetBrushColor("MessageCardBrush", "#A8FFE3C2");
+            SetBrushColor("MessageBorderBrush", "#8B4F2A");
+            SetBrushColor("TimestampBrush", "#8E5F44");
+            SetBrushColor("SecondaryButtonTextBrush", "#1F3A52");
+            return;
+        }
+
         if (theme == AppTheme.Baked)
         {
             Resources["BodyFontFamily"] = new FontFamily("Cambria");

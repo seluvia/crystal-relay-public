@@ -1,0 +1,79 @@
+<Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid.Background>
+        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#FFF1DE" Offset="0" />
+            <GradientStop Color="#FFE0BE" Offset="0.42" />
+            <GradientStop Color="#F4D6BE" Offset="0.72" />
+            <GradientStop Color="#D8E6F2" Offset="1" />
+        </LinearGradientBrush>
+    </Grid.Background>
+
+    <Canvas ClipToBounds="True">
+        <Ellipse Width="780" Height="780" Canvas.Left="-260" Canvas.Top="-210" Fill="#26ED7E2C" />
+        <Ellipse Width="640" Height="640" Canvas.Left="1080" Canvas.Top="380" Fill="#24D26A1E" />
+        <Ellipse Width="500" Height="500" Canvas.Left="448" Canvas.Top="540" Fill="#1EFFF6E8" />
+        <Ellipse Width="380" Height="380" Canvas.Left="960" Canvas.Top="90" Fill="#1E8FB9D8" />
+
+        <Ellipse Width="320" Height="260" Canvas.Left="108" Canvas.Top="280" Fill="#62FFB770" Stroke="#A88B4F2A" StrokeThickness="2.4" />
+        <Ellipse Width="232" Height="184" Canvas.Left="152" Canvas.Top="262" Fill="#7CFFF1DE" Stroke="#90B07A4F" StrokeThickness="1.6" />
+        <Ellipse Width="320" Height="260" Canvas.Left="108" Canvas.Top="280" Fill="#00000000" Stroke="#B0532C16" StrokeThickness="1.4" StrokeDashArray="3 3" StrokeDashCap="Round" />
+
+        <Polygon Points="138,330 188,234 252,302" Fill="#7CED7E2C" Stroke="#A88B4F2A" StrokeThickness="2" />
+        <Polygon Points="170,310 198,262 230,300" Fill="#88FFD7B0" Stroke="#80B07A4F" StrokeThickness="1.2" />
+        <Polygon Points="138,330 188,234 252,302" Stroke="#A0532C16" StrokeThickness="1.2" StrokeDashArray="3 3" StrokeDashCap="Round" Fill="#00000000" />
+
+        <Polygon Points="368,318 318,222 280,294" Fill="#7CED7E2C" Stroke="#A88B4F2A" StrokeThickness="2" />
+        <Polygon Points="340,302 320,250 296,292" Fill="#88FFD7B0" Stroke="#80B07A4F" StrokeThickness="1.2" />
+        <Polygon Points="368,318 318,222 280,294" Stroke="#A0532C16" StrokeThickness="1.2" StrokeDashArray="3 3" StrokeDashCap="Round" Fill="#00000000" />
+
+        <Ellipse Width="22" Height="22" Canvas.Left="208" Canvas.Top="372" Fill="#1F2A38" Stroke="#FFF8EC" StrokeThickness="1.6" />
+        <Ellipse Width="22" Height="22" Canvas.Left="282" Canvas.Top="372" Fill="#1F2A38" Stroke="#FFF8EC" StrokeThickness="1.6" />
+        <Ellipse Width="7" Height="7" Canvas.Left="213" Canvas.Top="376" Fill="#FFF8EC" />
+        <Ellipse Width="7" Height="7" Canvas.Left="287" Canvas.Top="376" Fill="#FFF8EC" />
+
+        <Ellipse Width="32" Height="22" Canvas.Left="245" Canvas.Top="412" Fill="#3A2114" Stroke="#FFF1DE" StrokeThickness="1.3" />
+        <Path Stroke="#3A2114" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Fill="#00000000"
+              Data="M261,438 C254,452 248,452 244,446 M261,438 C268,452 274,452 278,446" />
+
+        <Ellipse Width="360" Height="278" Canvas.Left="1040" Canvas.Top="528" Fill="#54FFB770" Stroke="#9C8B4F2A" StrokeThickness="2.2" />
+        <Ellipse Width="248" Height="190" Canvas.Left="1126" Canvas.Top="510" Fill="#68FFF1DE" Stroke="#84B07A4F" StrokeThickness="1.5" />
+        <Ellipse Width="360" Height="278" Canvas.Left="1040" Canvas.Top="528" Fill="#00000000" Stroke="#A0532C16" StrokeThickness="1.3" StrokeDashArray="3 3" StrokeDashCap="Round" />
+
+        <Ellipse Width="200" Height="160" Canvas.Left="640" Canvas.Top="120" Fill="#48FFD7B0" Stroke="#7E8B4F2A" StrokeThickness="1.8" />
+        <Ellipse Width="200" Height="160" Canvas.Left="640" Canvas.Top="120" Stroke="#88532C16" StrokeThickness="1.2" StrokeDashArray="3 3" StrokeDashCap="Round" Fill="#00000000" />
+        <Ellipse Width="56" Height="56" Canvas.Left="712" Canvas.Top="172" Fill="#6FA8DC" Stroke="#5E8FB8" StrokeThickness="2" />
+        <Ellipse Width="56" Height="56" Canvas.Left="712" Canvas.Top="172" Stroke="#FFF8EC" StrokeThickness="1.4" StrokeDashArray="2 2.5" Fill="#00000000" />
+        <Line X1="722" Y1="200" X2="758" Y2="200" Stroke="#3A2114" StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+        <Line X1="740" Y1="182" X2="740" Y2="218" Stroke="#3A2114" StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+
+        <Ellipse Width="148" Height="116" Canvas.Left="1366" Canvas.Top="172" Fill="#58FFD7B0" Stroke="#788B4F2A" StrokeThickness="1.6" />
+        <Ellipse Width="148" Height="116" Canvas.Left="1366" Canvas.Top="172" Stroke="#80532C16" StrokeThickness="1.1" StrokeDashArray="3 3" StrokeDashCap="Round" Fill="#00000000" />
+        <Ellipse Width="40" Height="40" Canvas.Left="1420" Canvas.Top="210" Fill="#6FA8DC" Stroke="#5E8FB8" StrokeThickness="1.6" />
+        <Line X1="1428" Y1="230" X2="1452" Y2="230" Stroke="#3A2114" StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+        <Line X1="1440" Y1="218" X2="1440" Y2="242" Stroke="#3A2114" StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+
+        <Line X1="60" Y1="640" X2="380" Y2="640" Stroke="#80532C16" StrokeThickness="1.4" StrokeDashArray="4 4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+        <Line X1="120" Y1="690" X2="460" Y2="690" Stroke="#705E8FB8" StrokeThickness="1.2" StrokeDashArray="4 4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+        <Line X1="1180" Y1="120" X2="1500" Y2="120" Stroke="#80532C16" StrokeThickness="1.4" StrokeDashArray="4 4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+        <Line X1="1100" Y1="160" X2="1440" Y2="160" Stroke="#705E8FB8" StrokeThickness="1.2" StrokeDashArray="4 4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+        <Line X1="980" Y1="770" X2="1320" Y2="770" Stroke="#80532C16" StrokeThickness="1.4" StrokeDashArray="4 4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+
+        <Path Stroke="#90532C16" StrokeThickness="1.5" StrokeDashArray="4 4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Fill="#00000000"
+              Data="M0,540 C220,500 380,580 600,520 C820,460 1000,560 1220,500 C1420,448 1540,520 1600,500" />
+        <Path Stroke="#785E8FB8" StrokeThickness="1.2" StrokeDashArray="3 3" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Fill="#00000000"
+              Data="M0,820 C200,790 360,860 560,810 C760,762 940,840 1140,790 C1340,742 1500,810 1600,780" />
+
+        <Ellipse Width="14" Height="14" Canvas.Left="340" Canvas.Top="86" Fill="#ED7E2C" />
+        <Ellipse Width="10" Height="10" Canvas.Left="408" Canvas.Top="138" Fill="#FFF8EC" />
+        <Ellipse Width="12" Height="12" Canvas.Left="760" Canvas.Top="92" Fill="#5E8FB8" />
+        <Ellipse Width="9" Height="9" Canvas.Left="856" Canvas.Top="144" Fill="#ED7E2C" />
+        <Ellipse Width="12" Height="12" Canvas.Left="1208" Canvas.Top="182" Fill="#FFF8EC" />
+        <Ellipse Width="9" Height="9" Canvas.Left="1542" Canvas.Top="138" Fill="#6FA8DC" />
+        <Ellipse Width="12" Height="12" Canvas.Left="186" Canvas.Top="752" Fill="#ED7E2C" />
+        <Ellipse Width="8" Height="8" Canvas.Left="1148" Canvas.Top="838" Fill="#5E8FB8" />
+        <Ellipse Width="10" Height="10" Canvas.Left="1504" Canvas.Top="824" Fill="#FFF8EC" />
+        <Ellipse Width="8" Height="8" Canvas.Left="868" Canvas.Top="496" Fill="#FFD7B0" />
+        <Ellipse Width="9" Height="9" Canvas.Left="582" Canvas.Top="380" Fill="#6FA8DC" />
+    </Canvas>
+</Grid>

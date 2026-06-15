@@ -737,7 +737,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             new ThemeOption(AppTheme.DreadNightBar, "Dread Night Bar"),
             new ThemeOption(AppTheme.Baked, "Baked"),
             new ThemeOption(AppTheme.NeonBorb, "Neon Borb"),
-            new ThemeOption(AppTheme.StinkyOnline, "Stinky Online")
+            new ThemeOption(AppTheme.StinkyOnline, "Stinky Online"),
+            new ThemeOption(AppTheme.SquishyFoxPlush, "Squishy Fox Plush")
         ];
         LanguageOptions =
         [
@@ -2765,6 +2766,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public bool IsStinkyOnlineThemeSelected => SelectedTheme == AppTheme.StinkyOnline;
 
+    public bool IsSquishyFoxPlushThemeSelected => SelectedTheme == AppTheme.SquishyFoxPlush;
+
     public bool HasCustomThemeBackgroundImage => !string.IsNullOrWhiteSpace(Settings.CustomTheme.BackgroundImageRelativePath);
 
     public string CustomThemeBackgroundImageStatusText => HasCustomThemeBackgroundImage
@@ -3738,6 +3741,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RaisePropertyChanged(nameof(IsBakedThemeSelected));
         RaisePropertyChanged(nameof(IsNeonBorbThemeSelected));
         RaisePropertyChanged(nameof(IsStinkyOnlineThemeSelected));
+        RaisePropertyChanged(nameof(IsSquishyFoxPlushThemeSelected));
         RaisePropertyChanged(nameof(HasCustomThemeBackgroundImage));
         RaisePropertyChanged(nameof(CustomThemeBackgroundImageStatusText));
     }
