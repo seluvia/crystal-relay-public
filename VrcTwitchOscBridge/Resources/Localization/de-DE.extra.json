@@ -18,6 +18,7 @@
   "Boost Float": "Float boosten",
   "Boost Reward Title": "Boost-Belohnungstitel",
   "Boost reward for {0}": "Boost-Belohnung fuer {0}",
+  "Bot Twitch login needs reconnecting. Chat announcements are disabled until then.": "Bot-Twitch-Login muss neu verbunden werden. Chat-Ankündigungen sind bis dahin deaktiviert.",
   "Connected as {0}, but reconnect Twitch to refresh the background listener.": "Verbunden als {0}, aber Twitch neu verbinden, um den Hintergrund-Listener zu aktualisieren.",
   "Connected as {0}, but reconnect Twitch to restore bot announcements.": "Verbunden als {0}, aber Twitch neu verbinden, um Bot-Ankuendigungen wiederherzustellen.",
   "Decimal mode sends the value directly as a 0.00 to 1.00 OSC float.": "Der Dezimalmodus sendet den Wert direkt als OSC-Float von 0.00 bis 1.00.",

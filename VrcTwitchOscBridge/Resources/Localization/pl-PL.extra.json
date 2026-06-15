@@ -18,6 +18,7 @@
   "Boost Float": "Wzmocnienie zmiennoprzecinkowe",
   "Boost Reward Title": "Tytuł nagrody wzmocnienia",
   "Boost reward for {0}": "Nagroda wzmocnienia dla {0}",
+  "Bot Twitch login needs reconnecting. Chat announcements are disabled until then.": "Logowanie bota Twitch wymaga ponownego połączenia. Ogłoszenia na czacie są do tego czasu wyłączone.",
   "Connected as {0}, but reconnect Twitch to refresh the background listener.": "Połączono jako {0}, ale połącz ponownie Twitch, aby odświeżyć nasłuch w tle.",
   "Connected as {0}, but reconnect Twitch to refresh the listener.": "Połączono jako {0}, ale połącz ponownie Twitcha, aby odświeżyć nasłuchiwacza.",
   "Connected as {0}, but reconnect Twitch to restore bot announcements.": "Połączono jako {0}, ale połącz ponownie Twitcha, aby przywrócić ogłoszenia bota.",

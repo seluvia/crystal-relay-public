@@ -18,6 +18,7 @@
   "Boost Float": "부스트 플로트",
   "Boost Reward Title": "부스트 보상 제목",
   "Boost reward for {0}": "{0}의 부스트 보상",
+  "Bot Twitch login needs reconnecting. Chat announcements are disabled until then.": "Twitch 봇 로그인을 다시 연결해야 합니다. 그동안 채팅 알림은 비활성화됩니다.",
   "Connected as {0}, but reconnect Twitch to refresh the background listener.": "{0}(으)로 연결되었지만, 백그라운드 리스너를 새로고치려면 Twitch를 다시 연결하세요.",
   "Connected as {0}, but reconnect Twitch to restore bot announcements.": "{0}(으)로 연결되었지만, 봇 공지를 복원하려면 Twitch를 다시 연결하세요.",
   "Decimal mode sends the value directly as a 0.00 to 1.00 OSC float.": "소수 모드에서는 값을 0.00~1.00 OSC 플로트로 직접 전송합니다.",

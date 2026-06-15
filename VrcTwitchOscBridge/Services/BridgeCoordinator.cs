@@ -2625,11 +2625,6 @@ internal BridgeCoordinator(
                     await RefreshBroadcasterLiveStateAsync(cancellationToken);
                 }
 
-                if (bot is not null)
-                {
-                    bot = await EnsureAccountReadyAsync(bot, TwitchScopes.Bot, BridgeAccountRole.Bot, cancellationToken);
-                }
-
                 WriteLog("Validated the Twitch OAuth sessions.");
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -2649,6 +2644,33 @@ internal BridgeCoordinator(
                 StatusChanged?.Invoke("OAuth session expired. Please reconnect Twitch.");
                 runtimeCancellation?.Cancel();
                 return;
+            }
+
+            if (bot is not null)
+            {
+                try
+                {
+                    bot = await EnsureAccountReadyAsync(bot, TwitchScopes.Bot, BridgeAccountRole.Bot, cancellationToken);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    var broadcasterIsSender = activeConfiguration?.UseBroadcasterAsBotSender ?? false;
+                    if (broadcasterIsSender)
+                    {
+                        WriteLog($"Bot Twitch validation failed (broadcaster is used as chat sender, so the bridge is unaffected): {SensitiveTextSanitizer.Sanitize(ex.Message)}");
+                        bot = null;
+                    }
+                    else
+                    {
+                        WriteLog($"Bot Twitch validation failed: {SensitiveTextSanitizer.Sanitize(ex.Message)}");
+                        StatusChanged?.Invoke(T("Bot Twitch login needs reconnecting. Chat announcements are disabled until then."));
+                        bot = null;
+                    }
+                }
             }
         }
     }
@@ -3031,20 +3053,34 @@ internal BridgeCoordinator(
                 await RefreshChatBadgeCatalogAsync(cancellationToken);
 
                 StatusChanged?.Invoke("Listening for Twitch triggers.");
-                var result = await session.ListenAsync(notification => HandleNotificationAsync(notification, cancellationToken), cancellationToken);
+                try
+                {
+                    var result = await session.ListenAsync(notification => HandleNotificationSafelyAsync(notification, cancellationToken), cancellationToken);
 
-                if (cancellationToken.IsCancellationRequested)
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        return;
+                    }
+
+                    reconnectUrl = result.ReconnectRequested ? result.ReconnectUrl : null;
+                    WriteLog(result.Reason);
+
+                    if (!result.ReconnectRequested)
+                    {
+                        StatusChanged?.Invoke("Listener disconnected. Retrying...");
+                        await Task.Delay(TimeSpan.FromSeconds(3), cancellationToken);
+                    }
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
                     return;
                 }
-
-                reconnectUrl = result.ReconnectRequested ? result.ReconnectUrl : null;
-                WriteLog(result.Reason);
-
-                if (!result.ReconnectRequested)
+                catch (Exception ex)
                 {
-                    StatusChanged?.Invoke("Listener disconnected. Retrying...");
-                    await Task.Delay(TimeSpan.FromSeconds(3), cancellationToken);
+                    reconnectUrl = null;
+                    WriteLog($"EventSub connection issue: {ex.Message}");
+                    StatusChanged?.Invoke("Twitch connection issue. Retrying...");
+                    await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
                 }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -3058,6 +3094,18 @@ internal BridgeCoordinator(
                 StatusChanged?.Invoke("Twitch connection issue. Retrying...");
                 await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
             }
+        }
+    }
+
+    private async Task HandleNotificationSafelyAsync(EventSubNotification notification, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await HandleNotificationAsync(notification, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            WriteLog($"Notification handler error (keeping connection open): {SensitiveTextSanitizer.Sanitize(ex.Message)}");
         }
     }
 
