@@ -2625,11 +2625,6 @@ internal BridgeCoordinator(
                     await RefreshBroadcasterLiveStateAsync(cancellationToken);
                 }
 
-                if (bot is not null)
-                {
-                    bot = await EnsureAccountReadyAsync(bot, TwitchScopes.Bot, BridgeAccountRole.Bot, cancellationToken);
-                }
-
                 WriteLog("Validated the Twitch OAuth sessions.");
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -2649,6 +2644,33 @@ internal BridgeCoordinator(
                 StatusChanged?.Invoke("OAuth session expired. Please reconnect Twitch.");
                 runtimeCancellation?.Cancel();
                 return;
+            }
+
+            if (bot is not null)
+            {
+                try
+                {
+                    bot = await EnsureAccountReadyAsync(bot, TwitchScopes.Bot, BridgeAccountRole.Bot, cancellationToken);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    var broadcasterIsSender = activeConfiguration?.UseBroadcasterAsBotSender ?? false;
+                    if (broadcasterIsSender)
+                    {
+                        WriteLog($"Bot Twitch validation failed (broadcaster is used as chat sender, so the bridge is unaffected): {SensitiveTextSanitizer.Sanitize(ex.Message)}");
+                        bot = null;
+                    }
+                    else
+                    {
+                        WriteLog($"Bot Twitch validation failed: {SensitiveTextSanitizer.Sanitize(ex.Message)}");
+                        StatusChanged?.Invoke("Bot Twitch login needs reconnecting. Chat announcements are disabled until then.");
+                        bot = null;
+                    }
+                }
             }
         }
     }
