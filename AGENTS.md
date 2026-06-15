@@ -70,6 +70,8 @@ Use these locations only unless a change is explicitly required.
   `E:\!!!Program to work on\Proper Crystal Relay\oscquery-lib`
 - Localization audit:
   `E:\!!!Program to work on\Proper Crystal Relay\LocalizationAudit`
+- App test project (referenced by `VrcTwitchOscBridge.slnx`):
+  `E:\!!!Program to work on\Proper Crystal Relay\VrcTwitchOscBridge.Tests`
 - Dedicated updater:
   `E:\!!!Program to work on\Proper Crystal Relay\CrystalRelayUpdater`
 - Solution:
@@ -96,6 +98,10 @@ Use these locations only unless a change is explicitly required.
   `E:\!!!Program to work on\Proper Crystal Relay\Check-Crystal-Relay-Dependencies.ps1`
 - Cloudflare workers:
   `E:\!!!Program to work on\Proper Crystal Relay\cloudflare`
+- Void Crystal Website (production site for `void-crystal.com`):
+  `E:\!!!Program to work on\Void Crystal Website`
+  - Stack: Vite + React + TypeScript + Tailwind, deployed via Cloudflare (wrangler).
+  - `src/lib/site-data.ts` holds the single source of truth for site links, including the Crystal Relay download URL.
 - Dev tooling root:
   `E:\!!!Program to work on\Proper Crystal Relay\tools`
 - Private local tooling:
@@ -249,6 +255,7 @@ Two files drive release notes:
   - `RELEASE-CHANGE-RECORD.txt` baseline and draft sections are updated.
   - `README.md` `Current Release Highlights` reflects the new stable.
   - `AGENTS.md` "Project Identity" updates `Last stable release`, `Current source version`, and `Next post-release development version`, and resets `Active build lane` to `none` with `Active development build` set to the next patch version.
+  - Void Crystal Website download button is updated to the new stable build URL before the release goes live. Edit `E:\!!!Program to work on\Void Crystal Website\src\lib\site-data.ts` and change `siteConfig.links.crystalRelayDownload` from the previous stable URL to the GitHub release asset URL for the newly released version. The URL pattern is `https://github.com/seluvia/crystal-relay-public/releases/download/v<version>/CrystalRelayTwitchOsc-v<version>-win-x64.zip` (use the `v<version>` tag, not `latest`, so the link stays pinned to the stable version that's actually being shipped). That single value drives the top-right Navbar `Download` button (`src/components/Navbar.tsx`), the Hero `Download Crystal Relay` button (`src/components/sections/HeroSection.tsx`), and the `Download Latest Release` button in the Crystal Relay section (`src/components/sections\CrystalRelaySection.tsx` via the `crystalRelayActions` array). Run `npm run build` inside the website folder to verify, then deploy with `wrangler pages deploy <website-folder>\dist --project-name void-crystal` (the Pages project is `void-crystal`, serving `void-crystal.com`). The wrangler deploy step stays manual: never push a website download-URL change live without explicit user confirmation. Beta and test builds must NOT change the website download URL; it always tracks the most recent stable release only.
 
 ## Build and Release Rules
 - Test build first when a change is visual, risky, runtime-affecting, or user-requested.
@@ -332,6 +339,16 @@ Two files drive release notes:
 - Use `-TestBackup` only for test-only safeguards that must not touch the normal restore lane.
 - Do not delete backups unless the user explicitly requests it.
 - `Backup-Crystal-Relay-AppData.ps1` is the separate local app-data backup lane. It zips `%LOCALAPPDATA%\CrystalRelay` (settings, runtime config, avatar cache, OSC parameter cache, save-transfer files, crash logs, recovery files) into `Backups\v<ver>\...-appdata-<timestamp>.zip`, with a `BACKUP-NOTES.txt` that lists what was and was not included. App-data backups must not be synced to the public repo.
+- A legacy loose `Backup-Crystal-Relay-Source/` folder at the repo root is an older script-style source backup that predates the `Backup-Crystal-Relay-Project.ps1` lane. It is not an active backup destination; reconcile or remove it only when the user explicitly asks, and never let it conflict with the proper `Backups/` lane.
+
+## Repo Root Build/Dev Artifacts
+The following hidden/dotted folders may appear at the repo root and are local build or dev tooling scratch space, not source:
+- `.dotnet/`: `dotnet` CLI home used during scripted builds.
+- `.nuget/`: NuGet package and HTTP caches used during scripted builds.
+- `.appdata/`: redirected `%LOCALAPPDATA%` during scripted builds.
+- `.superpowers/`: local superpowers skill planning scratch.
+- `.wrangler/`: local Cloudflare wrangler scratch (website dev).
+None of these folders should be committed, public-synced, or treated as part of the source tree. They are safe to delete locally to reclaim space; the build scripts will recreate them as needed.
 
 ## Current Themes
 - `Void Crystal`
@@ -350,6 +367,7 @@ Two files drive release notes:
 - `Bratwurst`
 - `Neon Borb`
 - `Stinky Online`
+- `Squishy Fox Plush`
 
 ## Theme System Notes
 - Built-in themes resolve through `ThemeManager` and `ThemePaletteFactory`.
