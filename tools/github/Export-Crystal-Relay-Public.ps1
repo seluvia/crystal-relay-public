@@ -195,6 +195,7 @@ $excludedDirs = @(
     '.nuget',
     '.opencode',
     '.vs',
+    '.wrangler',
     'Backups',
     'Releases',
     'TestBuilds',
