@@ -13,6 +13,8 @@ v3.1.9 beta 3
 - Added an Avatar Readiness section in the editor that lists which OSC parameters are available on the current VRChat avatar.
 - Improved restore from manual test so trigger type, reward, bits range, sub tier, and action list all come back.
 - Routed managed reward saves and updates for Universal Triggers through Crystal Relay's standard channel-point reward sync.
+- Fixed an issue where the Twitch background listener could fail to recover after a temporary drop, requiring a manual app restart.
+- Fixed an issue where the bridge could stop running when the optional bot account needed reconnecting. With broadcaster-as-bot enabled, the bridge now keeps running and only bot-driven chat announcements stay disabled.
 
 v3.1.9 beta 2
 - Added Activity Resume so Crystal Relay remembers active redeems and picks up where it left off after a restart. Avatar changes, movement redeems, and scaling actions now survive app restarts instead of being lost.

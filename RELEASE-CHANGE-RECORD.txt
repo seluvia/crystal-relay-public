@@ -37,6 +37,8 @@ Changed:
 - Routed managed reward saves and updates for Universal Triggers through Crystal Relay's standard channel-point reward sync.
 Removed:
 - Replaced the old inline Universal Triggers settings tab with the new dedicated manager window. The old tab and its dual-pane editor are gone; everything they did is now in the new window.
+- Fixed an issue where the Twitch background listener could fail to recover after a temporary drop, requiring a manual app restart.
+- Fixed an issue where the bridge could stop running when the optional bot account needed reconnecting. With broadcaster-as-bot enabled, the bridge now keeps running and only bot-driven chat announcements stay disabled.
 
 v3.1.9 beta 2 (already shipped)
 Added:
