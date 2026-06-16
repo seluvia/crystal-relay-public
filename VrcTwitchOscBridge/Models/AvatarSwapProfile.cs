@@ -20,11 +20,13 @@ public sealed class AvatarSwapProfile : ObservableObject
     private DateTime updatedAt = DateTime.UtcNow;
     private ObservableCollection<TriggerRule> channelPointRules = [];
     private ObservableCollection<TriggerRule> bitsSubsRules = [];
+    private ObservableCollection<TriggerRule> rouletteRules = [];
 
     public AvatarSwapProfile()
     {
         channelPointRules.CollectionChanged += OnCollectionChanged;
         bitsSubsRules.CollectionChanged += OnCollectionChanged;
+        RouletteRules.CollectionChanged += OnCollectionChanged;
     }
 
     public Guid Id
@@ -158,30 +160,42 @@ public sealed class AvatarSwapProfile : ObservableObject
         }
     }
 
+    public ObservableCollection<TriggerRule> RouletteRules
+    {
+        get => rouletteRules;
+        set
+        {
+            if (rouletteRules is not null)
+            {
+                rouletteRules.CollectionChanged -= OnCollectionChanged;
+            }
+            SetProperty(ref rouletteRules, value ?? []);
+            if (rouletteRules is not null)
+            {
+                rouletteRules.CollectionChanged += OnCollectionChanged;
+            }
+            RaisePropertyChanged(nameof(HasRules));
+            RaisePropertyChanged(nameof(UsesRouletteRules));
+            RaisePropertyChanged(nameof(AvatarSubtitle));
+        }
+    }
+
     public string DisplayTitle => string.IsNullOrWhiteSpace(TargetAvatarName)
         ? (string.IsNullOrWhiteSpace(TargetAvatarId) ? "New Avatar Swap" : TargetAvatarId)
         : TargetAvatarName;
 
     public bool HasTarget => !string.IsNullOrWhiteSpace(TargetAvatarId);
 
-    public string AvatarSubtitle
-    {
-        get
-        {
-            var cp = ChannelPointRules?.Count ?? 0;
-            var bs = BitsSubsRules?.Count ?? 0;
-            if (cp == 0 && bs == 0) return "No rules yet";
-            if (cp > 0 && bs > 0) return $"{cp} channel point · {bs} bits/subs";
-            if (cp > 0) return $"{cp} channel point rule{(cp == 1 ? "" : "s")}";
-            return $"{bs} bits/subs rule{(bs == 1 ? "" : "s")}";
-        }
-    }
+    public string AvatarSubtitle =>
+        $"{ChannelPointRules.Count} channel-point, {BitsSubsRules.Count} bits/subs, {RouletteRules.Count} roulette";
 
-    public bool HasRules => (ChannelPointRules?.Count ?? 0) + (BitsSubsRules?.Count ?? 0) > 0;
+    public bool HasRules => ChannelPointRules.Count + BitsSubsRules.Count + RouletteRules.Count > 0;
 
     public bool UsesChannelPointRules => (ChannelPointRules?.Count ?? 0) > 0;
 
     public bool UsesBitsSubsRules => (BitsSubsRules?.Count ?? 0) > 0;
+
+    public bool UsesRouletteRules => RouletteRules.Count > 0;
 
     public string ReturnAvatarDisplay => ReturnAvatarMode switch
     {
@@ -221,6 +235,7 @@ public sealed class AvatarSwapProfile : ObservableObject
         RaisePropertyChanged(nameof(HasRules));
         RaisePropertyChanged(nameof(UsesChannelPointRules));
         RaisePropertyChanged(nameof(UsesBitsSubsRules));
+        RaisePropertyChanged(nameof(UsesRouletteRules));
         RaisePropertyChanged(nameof(AvatarSubtitle));
         UpdatedAt = DateTime.UtcNow;
     }
