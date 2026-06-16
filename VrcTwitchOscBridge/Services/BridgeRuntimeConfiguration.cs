@@ -135,7 +135,8 @@ public sealed record TriggerRuleSnapshot(
     IReadOnlyList<SetTriggerActionSnapshot> SetTriggerActions,
     SpecialRulePairingMode SpecialRulePairingMode,
     IReadOnlyList<Guid> TemporarilyDisabledRuleIds,
-    string BotMessageTemplate);
+    string BotMessageTemplate,
+    TriggerRule Rule);
 
 public sealed record UniversalTriggerActionSnapshot(
     Guid Id,
@@ -541,6 +542,20 @@ public sealed record BridgeRuntimeConfiguration(
             settings.MasterAvatarSwapReturnName?.Trim() ?? string.Empty);
     }
 
+    public AvatarSwapProfileSnapshot? FindAvatarSwapProfileForRule(TriggerRule rule)
+    {
+        foreach (var profile in AvatarSwapProfiles)
+        {
+            if (profile.ChannelPointRules.Any(r => ReferenceEquals(r.Rule, rule)))
+                return profile;
+            if (profile.BitsSubsRules.Any(r => ReferenceEquals(r.Rule, rule)))
+                return profile;
+            if (profile.RouletteRules.Any(r => ReferenceEquals(r.Rule, rule)))
+                return profile;
+        }
+        return null;
+    }
+
     public static TwitchAccountSnapshot ToSnapshot(TwitchAccountSettings settings)
     {
         return new TwitchAccountSnapshot(
@@ -904,7 +919,8 @@ public sealed record BridgeRuntimeConfiguration(
             [.. rule.SetTriggerActions.Select(ToSetTriggerActionSnapshot).Where(action => HasAvatarParameterPath(action.ParameterName) && !string.IsNullOrWhiteSpace(action.ParameterValue))],
             rule.SpecialRulePairingMode,
             [.. rule.TemporarilyDisabledRuleIds.Where(ruleId => ruleId != Guid.Empty).Distinct()],
-            rule.BotMessageTemplate.Trim());
+            rule.BotMessageTemplate.Trim(),
+            rule);
     }
 
     private static SetTriggerActionSnapshot ToSetTriggerActionSnapshot(SetTriggerAction action)
@@ -1268,7 +1284,8 @@ public sealed record BridgeRuntimeConfiguration(
             : !string.IsNullOrWhiteSpace(rule.ChannelPointRewardId)
                 || !string.IsNullOrWhiteSpace(rule.ChannelPointRewardTitle);
 
-        if (rule.TriggerType == TwitchTriggerType.ChannelPoints
+        if (rule.ActionType != OscActionType.AvatarChange
+            && rule.TriggerType == TwitchTriggerType.ChannelPoints
             && !hasChatCommandFallback
             && !hasChannelPointRewardIdentity)
         {
