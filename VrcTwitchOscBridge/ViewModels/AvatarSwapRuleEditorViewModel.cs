@@ -12,9 +12,9 @@ public sealed class AvatarSwapRuleEditorViewModel : ObservableObject
         Rule = rule;
         OriginalSnapshot = Clone(rule);
         Name = rule.Name;
-        Cost = rule.Cost;
+        Cost = rule.ChannelPointRewardCost;
         CooldownSeconds = rule.CooldownSeconds;
-        ActiveTimeSeconds = rule.ActiveTimeSeconds;
+        ActiveTimeSeconds = rule.DurationSeconds;
         TriggerType = rule.TriggerType;
         MinimumAmount = rule.MinimumAmount;
         ActionType = rule.ActionType;
@@ -35,9 +35,9 @@ public sealed class AvatarSwapRuleEditorViewModel : ObservableObject
 
     public bool IsDirty => OriginalSnapshot is null
         || Name != OriginalSnapshot.Name
-        || Cost != OriginalSnapshot.Cost
+        || Cost != OriginalSnapshot.ChannelPointRewardCost
         || CooldownSeconds != OriginalSnapshot.CooldownSeconds
-        || ActiveTimeSeconds != OriginalSnapshot.ActiveTimeSeconds
+        || ActiveTimeSeconds != OriginalSnapshot.DurationSeconds
         || TriggerType != OriginalSnapshot.TriggerType
         || MinimumAmount != OriginalSnapshot.MinimumAmount
         || ActionType != OriginalSnapshot.ActionType
@@ -54,7 +54,7 @@ public sealed class AvatarSwapRuleEditorViewModel : ObservableObject
     public string Name { get; set; }
     public int Cost { get; set; }
     public int CooldownSeconds { get; set; }
-    public int ActiveTimeSeconds { get; set; }
+    public double ActiveTimeSeconds { get; set; }
     public TwitchTriggerType TriggerType { get; set; }
     public int MinimumAmount { get; set; }
     public OscActionType ActionType { get; set; }
@@ -71,9 +71,9 @@ public sealed class AvatarSwapRuleEditorViewModel : ObservableObject
     public void Save()
     {
         Rule.Name = Name;
-        Rule.Cost = Cost;
+        Rule.ChannelPointRewardCost = Cost;
         Rule.CooldownSeconds = CooldownSeconds;
-        Rule.ActiveTimeSeconds = ActiveTimeSeconds;
+        Rule.DurationSeconds = ActiveTimeSeconds;
         Rule.TriggerType = TriggerType;
         Rule.MinimumAmount = MinimumAmount;
         Rule.ActionType = ActionType;
@@ -91,9 +91,9 @@ public sealed class AvatarSwapRuleEditorViewModel : ObservableObject
     private static TriggerRule Clone(TriggerRule r) => new()
     {
         Name = r.Name,
-        Cost = r.Cost,
+        ChannelPointRewardCost = r.ChannelPointRewardCost,
         CooldownSeconds = r.CooldownSeconds,
-        ActiveTimeSeconds = r.ActiveTimeSeconds,
+        DurationSeconds = r.DurationSeconds,
         TriggerType = r.TriggerType,
         MinimumAmount = r.MinimumAmount,
         ActionType = r.ActionType,
