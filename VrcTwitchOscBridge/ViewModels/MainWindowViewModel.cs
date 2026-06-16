@@ -914,6 +914,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ShowPowerUpsCommand = new RelayCommand(ShowPowerUps);
         OpenUniversalTriggersManagerCommand = new RelayCommand(OpenUniversalTriggersManager);
         OpenAvatarSetsManagerCommand = new RelayCommand(OpenAvatarSetsManager);
+        OpenAvatarSwapManagerCommand = new RelayCommand(OpenAvatarSwapManager);
         ShowAvatarScalingCommand = new RelayCommand(ShowAvatarScaling);
         ShowCashPaymentsCommand = new RelayCommand(ShowCashPayments);
         ShowRewardFireSaleCommand = new RelayCommand(ShowRewardFireSale);
@@ -4522,7 +4523,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         return entries;
     }
 
-    private string ResolveVrChatAvatarName(string? avatarId)
+    public string ResolveVrChatAvatarName(string? avatarId)
     {
         var normalizedId = avatarId?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(normalizedId))
@@ -5097,6 +5098,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     private AvatarSetsManagerWindow? _avatarSetsManagerWindow;
 
+    private AvatarSwapManagerWindow? _avatarSwapManagerWindow;
+
     private void OpenUniversalTriggersManager()
     {
         if (_universalTriggersManagerWindow is { IsVisible: true })
@@ -5136,6 +5139,25 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             IsAvatarSetsManagerOpen = false;
         };
         _avatarSetsManagerWindow.Show();
+    }
+
+    public RelayCommand OpenAvatarSwapManagerCommand { get; }
+
+    public void OpenAvatarSwapManager()
+    {
+        if (_avatarSwapManagerWindow is { IsVisible: true })
+        {
+            _avatarSwapManagerWindow.Activate();
+            return;
+        }
+
+        var managerVm = new AvatarSwapManagerViewModel(Settings, this, new AvatarImageService());
+        _avatarSwapManagerWindow = new AvatarSwapManagerWindow(managerVm)
+        {
+            Owner = System.Windows.Application.Current?.MainWindow,
+        };
+        _avatarSwapManagerWindow.Closed += (_, _) => _avatarSwapManagerWindow = null;
+        _avatarSwapManagerWindow.Show();
     }
 
     private bool _isAvatarSetsManagerOpen;
@@ -6472,6 +6494,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             return [];
         }
     }
+
+    public IReadOnlyList<VrChatAvatarSummary> GetAllVrChatAvatars()
+        => availableVrChatAvatars
+            .Select(a => new VrChatAvatarSummary(a.Id, a.Name, a.SourceLabel, a.IsCurrentAvatar, a.ThumbnailUrl))
+            .ToList();
 
     public string? TryGetVrChatAvatarThumbnailUrl(string? avatarId)
     {
