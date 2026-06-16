@@ -475,6 +475,9 @@ public sealed class AppSettings : ObservableObject
         set => SetProperty(ref avatarChangeCooldownOnlyModeEnabled, value);
     }
 
+    public bool AvatarSwapManagerUseFullRuleEditor { get; set; } = true;
+    public bool AvatarSwapMigrationNoticeShown { get; set; }
+
     public bool EmergencyRedeemStopEnabled
     {
         get => emergencyRedeemStopEnabled;
