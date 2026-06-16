@@ -452,6 +452,11 @@ public sealed class SettingsStore
             settings.CashPaymentRules = new ObservableCollection<CashPaymentRule>(
                 (profile.CashPaymentRules ?? []).Select(ToCashPaymentRule));
             settings.Rules = new ObservableCollection<TriggerRule>((profile.Rules ?? []).Select(ToRule));
+            settings.MasterAvatarSwapReturnId = profile.MasterAvatarSwapReturnId;
+            settings.MasterAvatarSwapReturnName = profile.MasterAvatarSwapReturnName;
+            settings.AvatarChangeToAvatarSwapMigrationVersion = profile.AvatarChangeToAvatarSwapMigrationVersion;
+            settings.AvatarSwapProfiles = new ObservableCollection<AvatarSwapProfile>(
+                (profile.AvatarSwapProfiles ?? []).Select(ToAvatarSwapProfile));
         }
 
         var secureMetadata = await LoadProtectedJsonAsync<PersistedSecureMetadataSettings>(
@@ -506,6 +511,8 @@ public sealed class SettingsStore
         {
             MigrateLegacyRulesIntoNewCollections(settings, settings.Rules);
         }
+
+        AvatarSwapMigrationService.Migrate(settings);
 
         if (needsMetadataRewrite || legacyPlainSecure is not null || migratedSecrets)
         {
@@ -600,7 +607,11 @@ public sealed class SettingsStore
             PowerUpRules = [.. settings.PowerUpRules.Select(ToPersistedPowerUpRule)],
             RewardFireSale = ToPersistedRewardFireSaleSettings(settings.RewardFireSale),
             CashPayments = ToPersistedCashPaymentConnectionSettings(settings.CashPayments),
-            CashPaymentRules = [.. settings.CashPaymentRules.Select(ToPersistedCashPaymentRule)]
+            CashPaymentRules = [.. settings.CashPaymentRules.Select(ToPersistedCashPaymentRule)],
+            MasterAvatarSwapReturnId = settings.MasterAvatarSwapReturnId,
+            MasterAvatarSwapReturnName = settings.MasterAvatarSwapReturnName,
+            AvatarChangeToAvatarSwapMigrationVersion = settings.AvatarChangeToAvatarSwapMigrationVersion,
+            AvatarSwapProfiles = [.. settings.AvatarSwapProfiles.Select(ToPersistedAvatarSwapProfile)]
         };
 
         await SaveTextFileAtomicallyAsync(
@@ -894,7 +905,8 @@ public sealed class SettingsStore
             AvatarScaleSets = new ObservableCollection<AvatarScaleSet>(),
             CashPayments = new CashPaymentConnectionSettings(),
             CashPaymentRules = new ObservableCollection<CashPaymentRule>(),
-            Rules = new ObservableCollection<TriggerRule>()
+            Rules = new ObservableCollection<TriggerRule>(),
+            AvatarSwapProfiles = new ObservableCollection<AvatarSwapProfile>()
         };
     }
 
@@ -1109,6 +1121,46 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             ParameterType = action.ParameterType,
             ParameterValue = action.ParameterValue
         };
+
+    private static PersistedAvatarSwapProfile ToPersistedAvatarSwapProfile(AvatarSwapProfile profile)
+    {
+        return new PersistedAvatarSwapProfile
+        {
+            Id = profile.Id,
+            IsEnabled = profile.IsEnabled,
+            TargetAvatarId = profile.TargetAvatarId,
+            TargetAvatarName = profile.TargetAvatarName,
+            TargetThumbnailUrl = profile.TargetThumbnailUrl,
+            ReturnAvatarMode = profile.ReturnAvatarMode,
+            ReturnAvatarId = profile.ReturnAvatarId,
+            ReturnAvatarName = profile.ReturnAvatarName,
+            CreatedAt = profile.CreatedAt,
+            UpdatedAt = profile.UpdatedAt,
+            ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
+            BitsSubsRules = [.. profile.BitsSubsRules.Select(ToPersistedRule)]
+        };
+    }
+
+    private static AvatarSwapProfile ToAvatarSwapProfile(PersistedAvatarSwapProfile profile)
+    {
+        return new AvatarSwapProfile
+        {
+            Id = profile.Id,
+            IsEnabled = profile.IsEnabled,
+            TargetAvatarId = profile.TargetAvatarId ?? string.Empty,
+            TargetAvatarName = profile.TargetAvatarName ?? string.Empty,
+            TargetThumbnailUrl = profile.TargetThumbnailUrl,
+            ReturnAvatarMode = profile.ReturnAvatarMode,
+            ReturnAvatarId = profile.ReturnAvatarId,
+            ReturnAvatarName = profile.ReturnAvatarName,
+            CreatedAt = profile.CreatedAt == default ? DateTime.UtcNow : profile.CreatedAt,
+            UpdatedAt = profile.UpdatedAt == default ? DateTime.UtcNow : profile.UpdatedAt,
+            ChannelPointRules = new ObservableCollection<TriggerRule>(
+                (profile.ChannelPointRules ?? []).Select(ToRule)),
+            BitsSubsRules = new ObservableCollection<TriggerRule>(
+                (profile.BitsSubsRules ?? []).Select(ToRule))
+        };
+    }
 
     private static TriggerRule ToRule(PersistedTriggerRule rule)
     {
@@ -2606,6 +2658,14 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
         public List<PersistedAvatarScaleRule>? AvatarScaleRules { get; set; }
 
         public List<PersistedTriggerRule>? Rules { get; set; }
+
+        public string? MasterAvatarSwapReturnId { get; set; }
+
+        public string? MasterAvatarSwapReturnName { get; set; }
+
+        public int AvatarChangeToAvatarSwapMigrationVersion { get; set; }
+
+        public List<PersistedAvatarSwapProfile>? AvatarSwapProfiles { get; set; }
     }
 
     private sealed class PersistedRedeemGroup
@@ -2947,6 +3007,33 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
         public string? WardrobeMasterRewardReadyColor { get; set; }
 
         public string? WardrobeMasterRewardCooldownColor { get; set; }
+    }
+
+    private sealed class PersistedAvatarSwapProfile
+    {
+        public Guid Id { get; set; }
+
+        public bool IsEnabled { get; set; }
+
+        public string TargetAvatarId { get; set; } = string.Empty;
+
+        public string TargetAvatarName { get; set; } = string.Empty;
+
+        public string? TargetThumbnailUrl { get; set; }
+
+        public ReturnAvatarMode ReturnAvatarMode { get; set; } = ReturnAvatarMode.UseGlobal;
+
+        public string? ReturnAvatarId { get; set; }
+
+        public string? ReturnAvatarName { get; set; }
+
+        public DateTime CreatedAt { get; set; }
+
+        public DateTime UpdatedAt { get; set; }
+
+        public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
+
+        public List<PersistedTriggerRule>? BitsSubsRules { get; set; }
     }
 
     private sealed class PersistedWardrobeOutfit
