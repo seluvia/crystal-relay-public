@@ -3989,17 +3989,10 @@
                             <Button Style="{StaticResource RuleLibraryPrimaryButtonStyle}"
                                     Content="{loc:Translate 'Add Avatar Supporter Trigger'}"
                                     Command="{Binding AddAvatarSupporterTriggerCommand}" />
-                            <UniformGrid Margin="0,10,0,0"
-                                         Columns="2">
-                                <Button Style="{StaticResource RuleLibraryButtonStyle}"
-                                        Margin="0,0,6,0"
-                                        Content="{loc:Translate 'Add Avatar Change Override'}"
-                                        Command="{Binding AddAvatarChangeOverrideCommand}" />
-                                <Button Style="{StaticResource RuleLibraryButtonStyle}"
-                                        Margin="6,0,0,0"
-                                        Content="{loc:Translate 'Add Force Movement'}"
-                                        Command="{Binding AddForceMovementOverrideCommand}" />
-                            </UniformGrid>
+                            <Button Style="{StaticResource RuleLibraryButtonStyle}"
+                                    Margin="0,10,0,0"
+                                    Content="{loc:Translate 'Add Force Movement'}"
+                                    Command="{Binding AddForceMovementOverrideCommand}" />
                             <Border Margin="0,12,0,0"
                                     Height="1"
                                     Background="{DynamicResource InputBorderBrush}"
@@ -4220,40 +4213,6 @@
                                                     Tag="Force Movement Overrides listen for Bits cheers with a configured word, then hold the selected VRChat movement input for the active time. Small spelling mistakes are okay, but unclear words will not trigger." />
                                         </DockPanel>
                                         <ListBox ItemsSource="{Binding ForceMovementOverrideRules}"
-                                                 SelectedItem="{Binding SelectedRule, Mode=OneWayToSource}"
-                                                 Margin="0,8,0,0"
-                                                 MinHeight="54"
-                                                 MaxHeight="190"
-                                                 ScrollViewer.CanContentScroll="True"
-                                                 VirtualizingStackPanel.IsVirtualizing="True"
-                                                 VirtualizingStackPanel.VirtualizationMode="Recycling" />
-                                    </StackPanel>
-                                </Border>
-
-                                <Border Margin="0,8,0,0"
-                                        Background="{DynamicResource NestedPanelBrush}"
-                                        BorderBrush="{DynamicResource HighlightBorderBrush}"
-                                        BorderThickness="1"
-                                        CornerRadius="14"
-                                        Padding="8">
-                                    <StackPanel>
-                                        <DockPanel LastChildFill="False">
-                                            <TextBlock Text="{loc:Translate 'Avatar Change Overrides'}"
-                                                       Foreground="{DynamicResource TextBrush}"
-                                                       FontWeight="SemiBold"
-                                                       TextWrapping="Wrap"
-                                                       VerticalAlignment="Center" />
-                                            <Button Style="{StaticResource HelpIconButtonStyle}"
-                                                    Width="22"
-                                                    Height="22"
-                                                    MinWidth="22"
-                                                    MinHeight="22"
-                                                    Margin="6,0,0,0"
-                                                    Click="OnHelpButtonClicked"
-                                                    CommandParameter="Avatar Change Overrides"
-                                                    Tag="Global paid avatar changes live here so outfit-name Bits triggers can win when viewers type an outfit name." />
-                                        </DockPanel>
-                                        <ListBox ItemsSource="{Binding AvatarChangeOverrideRules}"
                                                  SelectedItem="{Binding SelectedRule, Mode=OneWayToSource}"
                                                  Margin="0,8,0,0"
                                                  MinHeight="54"
