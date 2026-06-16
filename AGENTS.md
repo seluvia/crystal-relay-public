@@ -3,11 +3,11 @@
 ## Project Identity
 - Product name: `Crystal Relay`
 - Legacy source/project name may still appear as `VrcTwitchOscBridge`
-- Last stable release: `v3.1.8`
-- Current source version: `v3.1.9`
-- Next post-release development version: `v3.1.10`
-- Active development build: `v3.1.9`
-- Active build lane: `beta3`
+- Last stable release: `v3.1.9`
+- Current source version: `v3.1.10`
+- Next post-release development version: `v3.1.11`
+- Active development build: `v3.1.10`
+- Active build lane: `beta1`
 - Platform: Windows desktop app
 - Primary purpose: Twitch-to-OSC / OSCQuery control for VRChat
 - Public GitHub repo: `seluvia/crystal-relay-public`
