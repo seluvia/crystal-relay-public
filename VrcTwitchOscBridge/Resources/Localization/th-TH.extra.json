@@ -1142,5 +1142,7 @@
   "Avatar Sets Editor Save Close": "บันทึกและปิด",
   "Avatar Sets Editor Cancel": "ยกเลิก",
   "Avatar Sets Manage Button": "จัดการชุดอวาตาร์",
-  "Avatar Sets Summary Format": "{0} ชุด • {1} เปิดใช้งาน"
+  "Avatar Sets Summary Format": "{0} ชุด • {1} เปิดใช้งาน",
+  "Avatar Swap has replaced the old Avatar Change system. All of your avatar change, Bits + Subs, Power-up avatar swap, cash payment avatar swap, and avatar roulette rules are now managed in the new Avatar Swap window. The 'Avatar Change Setup' tab has been removed. This notice will not appear again.": "Avatar Swap ได้เข้ามาแทนที่ระบบ Avatar Change เดิมแล้ว กฎการเปลี่ยนอวตาร, Bits + Subs, การสลับอวตารของ Power-up, การสลับอวตารด้วยการชำระเงินสด และรูเล็ตอวตารทั้งหมดของคุณ ตอนนี้จัดการในหน้าต่าง Avatar Swap ใหม่ แท็บ 'Avatar Change Setup' ถูกลบไปแล้ว ข้อความแจ้งนี้จะไม่ปรากฏอีก",
+  "This rule's avatar-swap action has moved to the Avatar Swap manager. Edit it in the Avatar Swap window.": "การกระทำ Avatar Swap ของกฎนี้ถูกย้ายไปยังตัวจัดการ Avatar Swap แล้ว แก้ไขได้ในหน้าต่าง Avatar Swap"
 }

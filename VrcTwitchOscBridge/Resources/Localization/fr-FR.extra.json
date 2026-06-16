@@ -1140,5 +1140,7 @@
   "Avatar Sets Editor Save Close": "Enregistrer et fermer",
   "Avatar Sets Editor Cancel": "Annuler",
   "Avatar Sets Manage Button": "Gérer les ensembles d'avatars",
-  "Avatar Sets Summary Format": "{0} ensembles • {1} actifs"
+  "Avatar Sets Summary Format": "{0} ensembles • {1} actifs",
+  "Avatar Swap has replaced the old Avatar Change system. All of your avatar change, Bits + Subs, Power-up avatar swap, cash payment avatar swap, and avatar roulette rules are now managed in the new Avatar Swap window. The 'Avatar Change Setup' tab has been removed. This notice will not appear again.": "Avatar Swap a remplacé l'ancien système de changement d'avatar. Toutes tes règles de changement d'avatar, Bits + Subs, Avatar Swap Power-up, Avatar Swap de paiement, et roulette d'avatar sont maintenant gérées dans la nouvelle fenêtre Avatar Swap. L'onglet 'Avatar Change Setup' a été supprimé. Cet avis ne s'affichera plus.",
+  "This rule's avatar-swap action has moved to the Avatar Swap manager. Edit it in the Avatar Swap window.": "L'action Avatar Swap de cette règle a été déplacée dans le gestionnaire Avatar Swap. Modifie-la dans la fenêtre Avatar Swap."
 }

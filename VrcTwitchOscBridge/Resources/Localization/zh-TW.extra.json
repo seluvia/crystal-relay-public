@@ -1139,5 +1139,7 @@
   "Avatar Sets Editor Save Close": "儲存並關閉",
   "Avatar Sets Editor Cancel": "取消",
   "Avatar Sets Manage Button": "管理頭像套裝",
-  "Avatar Sets Summary Format": "{0} 個套裝 • {1} 個活躍"
+  "Avatar Sets Summary Format": "{0} 個套裝 • {1} 個活躍",
+  "Avatar Swap has replaced the old Avatar Change system. All of your avatar change, Bits + Subs, Power-up avatar swap, cash payment avatar swap, and avatar roulette rules are now managed in the new Avatar Swap window. The 'Avatar Change Setup' tab has been removed. This notice will not appear again.": "頭像切換已取代舊的頭像更換系統。所有的頭像更換、Bits + Subs、Power-up 頭像切換、現金付款頭像切換和頭像輪盤規則現在都在新的頭像切換視窗中管理。'Avatar Change Setup' 分頁已移除。此通知將不再出現。",
+  "This rule's avatar-swap action has moved to the Avatar Swap manager. Edit it in the Avatar Swap window.": "此規則的頭像切換動作已移至頭像切換管理員。請在頭像切換視窗中編輯它。"
 }

@@ -1138,5 +1138,7 @@
   "Avatar Sets Editor Save Close": "保存して閉じる",
   "Avatar Sets Editor Cancel": "キャンセル",
   "Avatar Sets Manage Button": "アバターセットを管理",
-  "Avatar Sets Summary Format": "{0} セット • {1} アクティブ"
+  "Avatar Sets Summary Format": "{0} セット • {1} アクティブ",
+  "Avatar Swap has replaced the old Avatar Change system. All of your avatar change, Bits + Subs, Power-up avatar swap, cash payment avatar swap, and avatar roulette rules are now managed in the new Avatar Swap window. The 'Avatar Change Setup' tab has been removed. This notice will not appear again.": "Avatar Swapは古いアバター変更システムに代わりました。アバター変更、Bits + Subs、Power-upアバタースワップ、キャッシュペイメントアバタースワップ、アバタールーレットのルールはすべて新しいAvatar Swapウィンドウで管理されるようになりました。「Avatar Change Setup」タブは削除されました。この通知は再表示されません。",
+  "This rule's avatar-swap action has moved to the Avatar Swap manager. Edit it in the Avatar Swap window.": "このルールのアバタースワップアクションはAvatar Swapマネージャーに移動しました。Avatar Swapウィンドウで編集してください。"
 }

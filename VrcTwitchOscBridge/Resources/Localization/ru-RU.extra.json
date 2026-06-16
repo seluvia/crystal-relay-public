@@ -1139,5 +1139,7 @@
   "Avatar Sets Editor Save Close": "Сохранить и закрыть",
   "Avatar Sets Editor Cancel": "Отмена",
   "Avatar Sets Manage Button": "Управление наборами аватаров",
-  "Avatar Sets Summary Format": "{0} наборов • {1} активных"
+  "Avatar Sets Summary Format": "{0} наборов • {1} активных",
+  "Avatar Swap has replaced the old Avatar Change system. All of your avatar change, Bits + Subs, Power-up avatar swap, cash payment avatar swap, and avatar roulette rules are now managed in the new Avatar Swap window. The 'Avatar Change Setup' tab has been removed. This notice will not appear again.": "Avatar Swap заменил старую систему смены аватара. Все твои правила смены аватара, Bits + Subs, обмен аватара Power-up, обмен аватара за денежный платёж и рулетка аватаров теперь управляются в новом окне Avatar Swap. Вкладка 'Avatar Change Setup' удалена. Это уведомление больше не появится.",
+  "This rule's avatar-swap action has moved to the Avatar Swap manager. Edit it in the Avatar Swap window.": "Действие Avatar Swap этого правила перенесено в менеджер Avatar Swap. Отредактируй его в окне Avatar Swap."
 }
