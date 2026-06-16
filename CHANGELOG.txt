@@ -3,6 +3,14 @@ Crystal Relay Changelog
 
 Newest updates appear first. This changelog focuses on the changes users will notice most.
 
+v3.1.9 beta 4
+- Added a new Avatar Swap manager window in the Redeem Library with per-target-avatar cards showing the avatar image and name.
+- Added a Return Avatar header banner with a global picker at the top of the manager.
+- Added Channel Point Swaps and Bits + Subs Swaps sections inside the manager so each target avatar groups its own redeems.
+- Renamed "Avatar Change" to "Avatar Swap" in the Redeem Library user-facing strings.
+- Improved avatar selection in the new manager by showing the picked avatar's image and name together on each card.
+- Kept the existing Avatar Change action type and TriggerRule fields internal so existing saves, Fooma imports, Power-ups, Universal Triggers, and Avatar Roulette continue to work without any rewrites.
+
 v3.1.9 beta 3
 - Rebuilt the Universal Triggers manager as its own themed window with a search bar, type/status/source filters, and per-section collapse controls.
 - Added a slide-out editor panel for editing triggers without leaving the manager, including trigger type, Twitch reward, avatar readiness check, and OSC action list.
