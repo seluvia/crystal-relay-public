@@ -22,8 +22,10 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject, IDisposable
 
     private readonly ObservableCollection<AvatarSwapCardViewModel> _channelPointCards = [];
     private readonly ObservableCollection<AvatarSwapCardViewModel> _bitsSubsCards = [];
+    private readonly ObservableCollection<AvatarSwapCardViewModel> _rouletteCards = [];
     private readonly ObservableCollection<AvatarSwapProfile> _channelPointProfiles = [];
     private readonly ObservableCollection<AvatarSwapProfile> _bitsSubsProfiles = [];
+    private readonly ObservableCollection<AvatarSwapProfile> _rouletteProfiles = [];
 
     private AvatarSwapProfileSnapshot? _editorSnapshot;
     private AvatarSwapProfile? _editorProfile;
@@ -56,12 +58,16 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject, IDisposable
         UseCurrentAvatarForTargetCommand = new RelayCommand(p => UseCurrentAvatarForTarget(p as AvatarSwapProfile));
         DeleteChannelPointRuleCommand = new RelayCommand(p => DeleteRule(p as TriggerRule, isBitsSubs: false));
         DeleteBitsSubsRuleCommand = new RelayCommand(p => DeleteRule(p as TriggerRule, isBitsSubs: true));
+        DeleteRouletteRuleCommand = new RelayCommand(p => DeleteRouletteRule(p as TriggerRule));
         AddChannelPointRuleCommand = new RelayCommand(AddChannelPointRule);
         AddBitsSubsRuleCommand = new RelayCommand(AddBitsSubsRule);
         AddRouletteRuleCommand = new RelayCommand(AddRouletteRule, () => SelectedProfile is not null);
         OpenRuleEditorCommand = new RelayCommand(p => OpenRuleEditor(p as TriggerRule));
         ToggleChannelPointSectionCommand = new RelayCommand(() => IsChannelPointSectionCollapsed = !IsChannelPointSectionCollapsed);
         ToggleBitsSubsSectionCommand = new RelayCommand(() => IsBitsSubsSectionCollapsed = !IsBitsSubsSectionCollapsed);
+        ToggleRouletteSectionCommand = new RelayCommand(() => IsRouletteSectionCollapsed = !IsRouletteSectionCollapsed);
+        CommitRuleEditCommand = new RelayCommand(CommitRuleEdit);
+        CancelRuleEditCommand = new RelayCommand(CancelRuleEdit);
 
         RebuildCollections();
         LoadReturnAvatarImage();
@@ -69,6 +75,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject, IDisposable
 
     public ObservableCollection<AvatarSwapCardViewModel> ChannelPointCards => _channelPointCards;
     public ObservableCollection<AvatarSwapCardViewModel> BitsSubsCards => _bitsSubsCards;
+    public ObservableCollection<AvatarSwapCardViewModel> RouletteCards => _rouletteCards;
 
     public IReadOnlyList<ReturnAvatarMode> ReturnAvatarModes { get; } =
         [ReturnAvatarMode.UseGlobal, ReturnAvatarMode.UseCustom, ReturnAvatarMode.SameAsTarget];
@@ -241,14 +248,17 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject, IDisposable
             {
                 ChannelPointCardsView.Refresh();
                 BitsSubsCardsView.Refresh();
+                RouletteCardsView.Refresh();
                 RaisePropertyChanged(nameof(ChannelPointSectionSuffix));
                 RaisePropertyChanged(nameof(BitsSubsSectionSuffix));
+                RaisePropertyChanged(nameof(RouletteSectionSuffix));
             }
         }
     }
 
     public ICollectionView ChannelPointCardsView { get; private set; } = null!;
     public ICollectionView BitsSubsCardsView { get; private set; } = null!;
+    public ICollectionView RouletteCardsView { get; private set; } = null!;
 
     private bool _isChannelPointSectionCollapsed;
     public bool IsChannelPointSectionCollapsed
@@ -264,8 +274,16 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject, IDisposable
         set => SetProperty(ref _isBitsSubsSectionCollapsed, value);
     }
 
+    private bool _isRouletteSectionCollapsed;
+    public bool IsRouletteSectionCollapsed
+    {
+        get => _isRouletteSectionCollapsed;
+        set => SetProperty(ref _isRouletteSectionCollapsed, value);
+    }
+
     public int ChannelPointCount => _channelPointProfiles.Count;
     public int BitsSubsCount => _bitsSubsProfiles.Count;
+    public int RouletteCount => _rouletteProfiles.Count;
 
     public string ChannelPointSectionSuffix => FilterText is { Length: > 0 }
         ? $"({_channelPointCards.Count} of {ChannelPointCount})"
@@ -274,6 +292,10 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject, IDisposable
     public string BitsSubsSectionSuffix => FilterText is { Length: > 0 }
         ? $"({_bitsSubsCards.Count} of {BitsSubsCount})"
         : $"({BitsSubsCount})";
+
+    public string RouletteSectionSuffix => FilterText is { Length: > 0 }
+        ? $"({_rouletteCards.Count} of {RouletteCount})"
+        : $"({RouletteCount})";
 
     public RelayCommand AddNewSwapCommand { get; }
     public RelayCommand OpenEditorCommand { get; }
@@ -289,12 +311,16 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject, IDisposable
     public RelayCommand UseCurrentAvatarForTargetCommand { get; }
     public RelayCommand DeleteChannelPointRuleCommand { get; }
     public RelayCommand DeleteBitsSubsRuleCommand { get; }
+    public RelayCommand DeleteRouletteRuleCommand { get; }
     public RelayCommand AddChannelPointRuleCommand { get; }
     public RelayCommand AddBitsSubsRuleCommand { get; }
     public RelayCommand AddRouletteRuleCommand { get; }
     public RelayCommand OpenRuleEditorCommand { get; }
     public RelayCommand ToggleChannelPointSectionCommand { get; }
     public RelayCommand ToggleBitsSubsSectionCommand { get; }
+    public RelayCommand ToggleRouletteSectionCommand { get; }
+    public RelayCommand CommitRuleEditCommand { get; }
+    public RelayCommand CancelRuleEditCommand { get; }
 
     public void OnWindowClosed()
     {
@@ -312,6 +338,10 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject, IDisposable
             card.Dispose();
         }
         foreach (var card in _bitsSubsCards)
+        {
+            card.Dispose();
+        }
+        foreach (var card in _rouletteCards)
         {
             card.Dispose();
         }
@@ -367,8 +397,10 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject, IDisposable
     {
         _channelPointCards.Clear();
         _bitsSubsCards.Clear();
+        _rouletteCards.Clear();
         _channelPointProfiles.Clear();
         _bitsSubsProfiles.Clear();
+        _rouletteProfiles.Clear();
 
         foreach (var profile in _settings.AvatarSwapProfiles)
         {
@@ -380,17 +412,25 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject, IDisposable
             {
                 AddCardToSection(profile, _bitsSubsProfiles, _bitsSubsCards);
             }
+            if (profile.UsesRouletteRules)
+            {
+                AddCardToSection(profile, _rouletteProfiles, _rouletteCards);
+            }
         }
 
         ChannelPointCardsView = CollectionViewSource.GetDefaultView(_channelPointCards);
         ChannelPointCardsView.Filter = FilterCard;
         BitsSubsCardsView = CollectionViewSource.GetDefaultView(_bitsSubsCards);
         BitsSubsCardsView.Filter = FilterCard;
+        RouletteCardsView = CollectionViewSource.GetDefaultView(_rouletteCards);
+        RouletteCardsView.Filter = FilterCard;
 
         RaisePropertyChanged(nameof(ChannelPointCardsView));
         RaisePropertyChanged(nameof(BitsSubsCardsView));
+        RaisePropertyChanged(nameof(RouletteCardsView));
         RaisePropertyChanged(nameof(ChannelPointSectionSuffix));
         RaisePropertyChanged(nameof(BitsSubsSectionSuffix));
+        RaisePropertyChanged(nameof(RouletteSectionSuffix));
     }
 
     private void AddCardToSection(AvatarSwapProfile profile, ObservableCollection<AvatarSwapProfile> section, ObservableCollection<AvatarSwapCardViewModel> cards)
@@ -421,10 +461,18 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject, IDisposable
             _bitsSubsCards.Remove(bs);
             bs.Dispose();
         }
+        var rl = _rouletteCards.FirstOrDefault(c => c.Profile == profile);
+        if (rl is not null)
+        {
+            _rouletteCards.Remove(rl);
+            rl.Dispose();
+        }
         _channelPointProfiles.Remove(profile);
         _bitsSubsProfiles.Remove(profile);
+        _rouletteProfiles.Remove(profile);
         RaisePropertyChanged(nameof(ChannelPointSectionSuffix));
         RaisePropertyChanged(nameof(BitsSubsSectionSuffix));
+        RaisePropertyChanged(nameof(RouletteSectionSuffix));
     }
 
     private bool FilterCard(object obj)
@@ -450,6 +498,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject, IDisposable
             {
                 AddCardToSection(item, _channelPointProfiles, _channelPointCards);
                 AddCardToSection(item, _bitsSubsProfiles, _bitsSubsCards);
+                AddCardToSection(item, _rouletteProfiles, _rouletteCards);
             }
         }
         if (e.OldItems is not null)
@@ -461,6 +510,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject, IDisposable
         }
         RaisePropertyChanged(nameof(ChannelPointSectionSuffix));
         RaisePropertyChanged(nameof(BitsSubsSectionSuffix));
+        RaisePropertyChanged(nameof(RouletteSectionSuffix));
     }
 
     private void AddNewSwap()
@@ -523,6 +573,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject, IDisposable
         }
         _editorSnapshot = null;
         _editorIsNew = false;
+        EditingRule = null;
         IsEditorOpen = false;
         SelectedProfile = null;
     }
@@ -676,6 +727,16 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject, IDisposable
         collection.Remove(rule);
         RaisePropertyChanged(nameof(EditorChannelPointRules));
         RaisePropertyChanged(nameof(EditorBitsSubsRules));
+    }
+
+    private void DeleteRouletteRule(TriggerRule? rule)
+    {
+        if (_editorProfile is null || rule is null) return;
+        _editorProfile.RouletteRules.Remove(rule);
+        if (ReferenceEquals(EditingRule?.Rule, rule))
+        {
+            EditingRule = null;
+        }
     }
 
     private void AddChannelPointRule()

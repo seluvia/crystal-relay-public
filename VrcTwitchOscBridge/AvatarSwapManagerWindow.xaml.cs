@@ -50,6 +50,11 @@ public partial class AvatarSwapManagerWindow : Window
         _viewModel.ToggleBitsSubsSectionCommand.Execute(null);
     }
 
+    private void OnRouletteSectionHeaderClick(object sender, MouseButtonEventArgs e)
+    {
+        _viewModel.ToggleRouletteSectionCommand.Execute(null);
+    }
+
     private void OnThemeChanged(object? sender, System.EventArgs e)
     {
         Dispatcher.InvokeAsync(() => ThemeManager.ApplyToResources(Resources));

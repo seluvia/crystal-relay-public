@@ -65,7 +65,12 @@ public sealed class InverseBooleanConverter : IValueConverter
 public sealed class NullToVisibilityConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-        => value is null ? Visibility.Collapsed : Visibility.Visible;
+    {
+        var inverted = parameter is string s && s.Equals("Inverted", StringComparison.OrdinalIgnoreCase);
+        var isNull = value is null;
+        if (inverted) isNull = !isNull;
+        return isNull ? Visibility.Collapsed : Visibility.Visible;
+    }
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         => throw new NotSupportedException();

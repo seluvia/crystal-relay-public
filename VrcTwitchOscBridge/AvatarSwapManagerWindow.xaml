@@ -7,6 +7,7 @@
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         xmlns:local="clr-namespace:VrcTwitchOscBridge"
         xmlns:conv="clr-namespace:VrcTwitchOscBridge.Converters"
+        xmlns:uc="clr-namespace:VrcTwitchOscBridge.UserControls"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
@@ -32,6 +33,7 @@
         <local:CountToVisibilityConverter x:Key="CountToVisibilityConverter" />
         <local:CollapseChevronTextConverter x:Key="CollapseChevronTextConverter" />
         <local:CollapseChevronColorConverter x:Key="CollapseChevronColorConverter" />
+        <local:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
         <conv:ReturnAvatarModeToVisibilityConverter x:Key="ReturnAvatarModeToVisibilityConverter" />
 
         <Style x:Key="SecondaryButtonStyle" TargetType="Button">
@@ -439,6 +441,33 @@
                             </ItemsControl>
                         </StackPanel>
                     </Border>
+
+                    <Border Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="0" Margin="0,0,0,10">
+                        <StackPanel>
+                            <Border Background="{DynamicResource NestedPanelBrush}" Padding="10,8" Cursor="Hand"
+                                    MouseLeftButtonUp="OnRouletteSectionHeaderClick">
+                                <DockPanel LastChildFill="False">
+                                    <TextBlock Text="&#x1F3B2;" FontSize="14" Margin="0,0,8,0" />
+                                    <TextBlock Text="{loc:Translate 'Roulette Swaps'}" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource TextBrush}" />
+                                    <TextBlock Text="{Binding RouletteSectionSuffix}" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="6,0,0,0" />
+                                    <TextBlock DockPanel.Dock="Right" Text="{Binding IsRouletteSectionCollapsed, Converter={StaticResource CollapseChevronTextConverter}}" FontSize="13" Foreground="{DynamicResource MutedBrush}" />
+                                </DockPanel>
+                            </Border>
+                            <ItemsControl ItemsSource="{Binding RouletteCardsView}" Margin="10,8,10,10"
+                                          Visibility="{Binding IsRouletteSectionCollapsed, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <ContentControl Content="{Binding}" ContentTemplate="{StaticResource AvatarSwapCardTemplate}" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
             </ScrollViewer>
 
@@ -452,12 +481,16 @@
                     </Grid.RowDefinitions>
                     <Border Grid.Row="0" Background="{DynamicResource NestedPanelBrush}" Padding="12,10">
                         <DockPanel LastChildFill="False">
-                            <TextBlock Text="{loc:Translate 'Edit Avatar Swap'}" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource TextBrush}" FontFamily="{DynamicResource HeadingFontFamily}" />
+                            <TextBlock Text="{loc:Translate 'Edit Avatar Swap'}" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource TextBrush}" FontFamily="{DynamicResource HeadingFontFamily}"
+                                       Visibility="{Binding EditingRule, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter=Inverted}" />
+                            <TextBlock Text="{loc:Translate 'Edit Rule'}" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource TextBrush}" FontFamily="{DynamicResource HeadingFontFamily}"
+                                       Visibility="{Binding EditingRule, Converter={StaticResource NullToVisibilityConverter}}" />
                             <Button DockPanel.Dock="Right" Content="&#x2715;" Width="24" Height="24" Background="Transparent" BorderBrush="Transparent"
                                     Foreground="{DynamicResource TextBrush}" Command="{Binding CloseEditorCommand}" />
                         </DockPanel>
                     </Border>
-                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="12" Style="{StaticResource ThemedScrollViewerStyle}">
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="12" Style="{StaticResource ThemedScrollViewerStyle}"
+                                  Visibility="{Binding EditingRule, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter=Inverted}">
                         <StackPanel>
                             <TextBlock Text="{loc:Translate 'Target Avatar'}" FontWeight="Bold" Margin="0,0,0,4" Foreground="{DynamicResource TextBrush}" />
                             <DockPanel Margin="0,0,0,8">
@@ -483,7 +516,12 @@
                             <ItemsControl ItemsSource="{Binding SelectedProfile.ChannelPointRules}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Background="{DynamicResource InputBrush}" CornerRadius="6" Padding="8" Margin="0,4">
+                                        <Border Background="{DynamicResource InputBrush}" CornerRadius="6" Padding="8" Margin="0,4" Cursor="Hand">
+                                            <Border.InputBindings>
+                                                <MouseBinding MouseAction="LeftClick"
+                                                              Command="{Binding DataContext.OpenRuleEditorCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                              CommandParameter="{Binding}" />
+                                            </Border.InputBindings>
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*" />
@@ -515,7 +553,12 @@
                             <ItemsControl ItemsSource="{Binding SelectedProfile.BitsSubsRules}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Background="{DynamicResource InputBrush}" CornerRadius="6" Padding="8" Margin="0,4">
+                                        <Border Background="{DynamicResource InputBrush}" CornerRadius="6" Padding="8" Margin="0,4" Cursor="Hand">
+                                            <Border.InputBindings>
+                                                <MouseBinding MouseAction="LeftClick"
+                                                              Command="{Binding DataContext.OpenRuleEditorCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                              CommandParameter="{Binding}" />
+                                            </Border.InputBindings>
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*" />
@@ -538,15 +581,68 @@
                             <TextBlock Text="{loc:Translate 'No bits/subs rules yet. Click + Add to create one.'}"
                                        FontSize="11" Foreground="{DynamicResource MutedBrush}" FontStyle="Italic" Margin="2,4,0,0"
                                        Visibility="{Binding SelectedProfile.BitsSubsRules.Count, Converter={StaticResource CountToVisibilityConverter}, ConverterParameter=Inverted}" />
+
+                            <DockPanel Margin="0,14,0,4">
+                                <TextBlock Text="{loc:Translate 'Roulette Swaps'}" FontWeight="Bold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
+                                <Button DockPanel.Dock="Right" Content="+ Add" Style="{StaticResource SecondaryButtonStyle}" Padding="10,3" FontSize="11"
+                                        Command="{Binding AddRouletteRuleCommand}" />
+                            </DockPanel>
+                            <ItemsControl ItemsSource="{Binding SelectedProfile.RouletteRules}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{DynamicResource InputBrush}" CornerRadius="6" Padding="8" Margin="0,4" Cursor="Hand">
+                                            <Border.InputBindings>
+                                                <MouseBinding MouseAction="LeftClick"
+                                                              Command="{Binding DataContext.OpenRuleEditorCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                              CommandParameter="{Binding}" />
+                                            </Border.InputBindings>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{Binding DisplayTitle}" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                <Border Grid.Column="1" Background="{DynamicResource AccentDimBrush}" CornerRadius="6" Padding="6,2" Margin="0,0,6,0"
+                                                        Visibility="{Binding HasSourceBadge, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                    <TextBlock Text="{Binding SourceDisplayName}" FontSize="10" Foreground="{DynamicResource TextBrush}" />
+                                                </Border>
+                                                <Button Grid.Column="2" Content="&#x1F5D1;" Width="28" Height="24" Background="Transparent" BorderBrush="Transparent"
+                                                        Command="{Binding DataContext.DeleteRouletteRuleCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        CommandParameter="{Binding}" />
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock Text="{loc:Translate 'No roulette rules yet. Click + Add to create one.'}"
+                                       FontSize="11" Foreground="{DynamicResource MutedBrush}" FontStyle="Italic" Margin="2,4,0,0"
+                                       Visibility="{Binding SelectedProfile.RouletteRules.Count, Converter={StaticResource CountToVisibilityConverter}, ConverterParameter=Inverted}" />
                         </StackPanel>
                     </ScrollViewer>
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0" Style="{StaticResource ThemedScrollViewerStyle}"
+                                  Visibility="{Binding EditingRule, Converter={StaticResource NullToVisibilityConverter}}">
+                        <Grid HorizontalAlignment="Stretch">
+                            <uc:AvatarSwapRuleEditorControl DataContext="{Binding EditingRule}" HorizontalAlignment="Stretch" />
+                        </Grid>
+                    </ScrollViewer>
                     <Border Grid.Row="2" Background="{DynamicResource NestedPanelBrush}" Padding="12,10">
-                        <DockPanel LastChildFill="False">
-                            <Button DockPanel.Dock="Left" Content="{loc:Translate 'Delete'}" Style="{StaticResource DangerButtonStyle}"
-                                    Command="{Binding DeleteSelectedProfileCommand}" />
-                            <Button DockPanel.Dock="Right" Content="{loc:Translate 'Save'}" Style="{StaticResource AccentButtonStyle}"
-                                    Command="{Binding SaveEditorCommand}" />
-                        </DockPanel>
+                        <Grid>
+                            <DockPanel LastChildFill="False"
+                                       Visibility="{Binding EditingRule, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter=Inverted}">
+                                <Button DockPanel.Dock="Left" Content="{loc:Translate 'Delete'}" Style="{StaticResource DangerButtonStyle}"
+                                        Command="{Binding DeleteSelectedProfileCommand}" />
+                                <Button DockPanel.Dock="Right" Content="{loc:Translate 'Save'}" Style="{StaticResource AccentButtonStyle}"
+                                        Command="{Binding SaveEditorCommand}" />
+                            </DockPanel>
+                            <DockPanel LastChildFill="False"
+                                       Visibility="{Binding EditingRule, Converter={StaticResource NullToVisibilityConverter}}">
+                                <Button DockPanel.Dock="Left" Content="{loc:Translate 'Cancel'}" Style="{StaticResource SecondaryButtonStyle}"
+                                        Command="{Binding CancelRuleEditCommand}" />
+                                <Button DockPanel.Dock="Right" Content="{loc:Translate 'Save'}" Style="{StaticResource AccentButtonStyle}"
+                                        Command="{Binding CommitRuleEditCommand}" />
+                            </DockPanel>
+                        </Grid>
                     </Border>
                 </Grid>
             </Border>
