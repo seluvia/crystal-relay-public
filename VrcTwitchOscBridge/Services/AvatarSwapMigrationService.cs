@@ -5,7 +5,7 @@ namespace VrcTwitchOscBridge.Services;
 
 public static class AvatarSwapMigrationService
 {
-    public const int CurrentMigrationVersion = 1;
+    public const int CurrentMigrationVersion = 2;
 
     public static void Migrate(AppSettings settings)
     {
@@ -23,15 +23,23 @@ public static class AvatarSwapMigrationService
             settings.MasterAvatarSwapReturnName = masterProfile.AvatarName;
         }
 
-        if (masterProfile is not null)
+        foreach (var profile in settings.AvatarProfiles)
         {
-            foreach (var rule in masterProfile.ChannelPointRules
+            var isMaster = profile.IsMasterProfile;
+            foreach (var rule in profile.ChannelPointRules
                          .Where(r => r.ActionType == OscActionType.AvatarChange
                                      && !string.IsNullOrWhiteSpace(r.AvatarChangeTargetId))
                          .ToList())
             {
-                var profile = FindOrCreateProfile(settings, rule.AvatarChangeTargetId, rule.AvatarTargetName);
-                profile.ChannelPointRules.Add(rule);
+                var swapProfile = FindOrCreateProfile(settings, rule.AvatarChangeTargetId, rule.AvatarTargetName);
+                if (isMaster)
+                {
+                    MigrateInto(swapProfile.ChannelPointRules, rule, TriggerRuleSource.AvatarSet);
+                }
+                else
+                {
+                    MigrateInto(swapProfile.ChannelPointRules, rule, TriggerRuleSource.AvatarSet);
+                }
             }
         }
 
@@ -40,11 +48,43 @@ public static class AvatarSwapMigrationService
                                  && !string.IsNullOrWhiteSpace(r.AvatarChangeTargetId))
                      .ToList())
         {
-            var profile = FindOrCreateProfile(settings, rule.AvatarChangeTargetId, rule.AvatarTargetName);
-            profile.BitsSubsRules.Add(rule);
+            var swapProfile = FindOrCreateProfile(settings, rule.AvatarChangeTargetId, rule.AvatarTargetName);
+            MigrateInto(swapProfile.BitsSubsRules, rule, TriggerRuleSource.GlobalOverride);
+        }
+
+        foreach (var powerUp in settings.PowerUpRules)
+        {
+            var action = powerUp.ActionRule;
+            if (action is null) continue;
+            if (action.ActionType != OscActionType.AvatarChange) continue;
+            if (string.IsNullOrWhiteSpace(action.AvatarChangeTargetId)) continue;
+
+            var swapProfile = FindOrCreateProfile(settings, action.AvatarChangeTargetId, action.AvatarTargetName);
+            MigrateInto(swapProfile.ChannelPointRules, action, TriggerRuleSource.PowerUp);
+        }
+
+        foreach (var cash in settings.CashPaymentRules)
+        {
+            var action = cash.TriggerAction;
+            if (action is null) continue;
+            if (action.ActionType != OscActionType.AvatarChange) continue;
+            if (string.IsNullOrWhiteSpace(action.AvatarChangeTargetId)) continue;
+
+            var swapProfile = FindOrCreateProfile(settings, action.AvatarChangeTargetId, action.AvatarTargetName);
+            MigrateInto(swapProfile.ChannelPointRules, action, TriggerRuleSource.CashPayment);
         }
 
         settings.AvatarChangeToAvatarSwapMigrationVersion = CurrentMigrationVersion;
+    }
+
+    private static void MigrateInto(
+        System.Collections.ObjectModel.ObservableCollection<TriggerRule> target,
+        TriggerRule rule,
+        TriggerRuleSource source)
+    {
+        if (target.Contains(rule)) return;
+        rule.Source = source;
+        target.Add(rule);
     }
 
     private static AvatarSwapProfile FindOrCreateProfile(AppSettings settings, string targetAvatarId, string targetAvatarName)

@@ -115,6 +115,7 @@
     <Compile Include="Models\AppSettings.cs" />
     <Compile Include="Models\AvatarTriggerProfile.cs" />
     <Compile Include="Models\ReturnAvatarMode.cs" />
+    <Compile Include="Models\TriggerRuleSource.cs" />
     <Compile Include="Models\AvatarSwapProfile.cs" />
     <Compile Include="Models\AvatarSetsFilterMode.cs" />
     <Compile Include="Models\AvatarSetsSortMode.cs" />

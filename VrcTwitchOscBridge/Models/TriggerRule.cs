@@ -57,6 +57,7 @@ public sealed class TriggerRule : ObservableObject
     private bool isEnabled = true;
     private string name = "New Twitch trigger";
     private TwitchTriggerType triggerType = TwitchTriggerType.ChannelPoints;
+    private TriggerRuleSource source = TriggerRuleSource.None;
     private string channelPointRewardId = string.Empty;
     private string channelPointRewardTitle = string.Empty;
     private string channelPointRewardDescription = string.Empty;
@@ -188,6 +189,30 @@ public sealed class TriggerRule : ObservableObject
             }
         }
     }
+
+    public TriggerRuleSource Source
+    {
+        get => source;
+        set
+        {
+            if (SetProperty(ref source, value))
+            {
+                RaisePropertyChanged(nameof(SourceDisplayName));
+            }
+        }
+    }
+
+    public string SourceDisplayName => Source switch
+    {
+        TriggerRuleSource.Native => "Native",
+        TriggerRuleSource.AvatarSet => "From Avatar Set",
+        TriggerRuleSource.GlobalOverride => "From Supporter Override",
+        TriggerRuleSource.PowerUp => "From Power-up",
+        TriggerRuleSource.CashPayment => "From Cash Payment",
+        _ => string.Empty
+    };
+
+    public bool HasSourceBadge => Source != TriggerRuleSource.None && Source != TriggerRuleSource.Native;
 
     public string ChannelPointRewardId
     {

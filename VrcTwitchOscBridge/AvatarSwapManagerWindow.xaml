@@ -484,12 +484,21 @@
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <Border Background="{DynamicResource InputBrush}" CornerRadius="6" Padding="8" Margin="0,4">
-                                            <DockPanel>
-                                                <Button DockPanel.Dock="Right" Content="&#x1F5D1;" Width="28" Height="24" Background="Transparent" BorderBrush="Transparent"
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{Binding DisplayTitle}" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                <Border Grid.Column="1" Background="{DynamicResource AccentDimBrush}" CornerRadius="6" Padding="6,2" Margin="0,0,6,0"
+                                                        Visibility="{Binding HasSourceBadge, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                    <TextBlock Text="{Binding SourceDisplayName}" FontSize="10" Foreground="{DynamicResource TextBrush}" />
+                                                </Border>
+                                                <Button Grid.Column="2" Content="&#x1F5D1;" Width="28" Height="24" Background="Transparent" BorderBrush="Transparent"
                                                         Command="{Binding DataContext.DeleteChannelPointRuleCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                         CommandParameter="{Binding}" />
-                                                <TextBlock Text="{Binding DisplayTitle}" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
-                                            </DockPanel>
+                                            </Grid>
                                         </Border>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
@@ -507,12 +516,21 @@
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <Border Background="{DynamicResource InputBrush}" CornerRadius="6" Padding="8" Margin="0,4">
-                                            <DockPanel>
-                                                <Button DockPanel.Dock="Right" Content="&#x1F5D1;" Width="28" Height="24" Background="Transparent" BorderBrush="Transparent"
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{Binding DisplayTitle}" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                <Border Grid.Column="1" Background="{DynamicResource AccentDimBrush}" CornerRadius="6" Padding="6,2" Margin="0,0,6,0"
+                                                        Visibility="{Binding HasSourceBadge, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                    <TextBlock Text="{Binding SourceDisplayName}" FontSize="10" Foreground="{DynamicResource TextBrush}" />
+                                                </Border>
+                                                <Button Grid.Column="2" Content="&#x1F5D1;" Width="28" Height="24" Background="Transparent" BorderBrush="Transparent"
                                                         Command="{Binding DataContext.DeleteBitsSubsRuleCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                         CommandParameter="{Binding}" />
-                                                <TextBlock Text="{Binding DisplayTitle}" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
-                                            </DockPanel>
+                                            </Grid>
                                         </Border>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>

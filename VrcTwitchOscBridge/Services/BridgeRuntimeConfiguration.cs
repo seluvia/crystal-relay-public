@@ -362,6 +362,11 @@ public sealed record BridgeRuntimeConfiguration(
         {
             foreach (var rule in profile.ChannelPointRules)
             {
+                if (rule.ActionType == OscActionType.AvatarChange
+                    && !string.IsNullOrWhiteSpace(rule.AvatarChangeTargetId))
+                {
+                    continue;
+                }
                 if (TryToSnapshot(rule, isGlobalOverride: false, profile, linkedRewardCooldownSecondsById, out var snapshot))
                 {
                     rules.Add(snapshot);
@@ -371,6 +376,11 @@ public sealed record BridgeRuntimeConfiguration(
 
         foreach (var rule in settings.GlobalOverrideRules)
         {
+            if (rule.ActionType == OscActionType.AvatarChange
+                && !string.IsNullOrWhiteSpace(rule.AvatarChangeTargetId))
+            {
+                continue;
+            }
             var supporterProfile = rule.SupporterAvatarProfileId == Guid.Empty
                 ? null
                 : settings.AvatarProfiles.FirstOrDefault(profile => profile.Id == rule.SupporterAvatarProfileId);
@@ -629,31 +639,42 @@ public sealed record BridgeRuntimeConfiguration(
         }
         else
         {
-            if (!IsManualTestReady(rule.TriggerAction))
+            var isAvatarSwapAction = rule.TriggerAction is not null
+                && rule.TriggerAction.ActionType == OscActionType.AvatarChange
+                && !string.IsNullOrWhiteSpace(rule.TriggerAction.AvatarChangeTargetId);
+
+            if (!isAvatarSwapAction && !IsManualTestReady(rule.TriggerAction))
             {
                 return false;
             }
 
-            var triggerSnapshot = CreateSnapshot(
-                rule.TriggerAction,
-                isGlobalOverride: true,
-                profile: null,
-                linkedRewardCooldownSecondsById: null);
-            triggerAction = triggerSnapshot with
+            if (isAvatarSwapAction)
             {
-                Id = rule.Id,
-                IsEnabled = rule.IsEnabled && triggerSnapshot.IsEnabled,
-                Name = rule.DisplayTitle,
-                TriggerType = TwitchTriggerType.Bits,
-                ChannelPointRewardId = string.Empty,
-                ChannelPointRewardTitle = string.Empty,
-                ChatCommandEnabled = false,
-                ChatCommandText = string.Empty,
-                MinimumAmount = 1,
-                CooldownSeconds = Math.Max(0, rule.CooldownSeconds),
-                UsesLinkedChannelPointReward = false,
-                BotMessageCooldownSeconds = Math.Max(0, rule.CooldownSeconds)
-            };
+                triggerAction = null;
+            }
+            else
+            {
+                var triggerSnapshot = CreateSnapshot(
+                    rule.TriggerAction,
+                    isGlobalOverride: true,
+                    profile: null,
+                    linkedRewardCooldownSecondsById: null);
+                triggerAction = triggerSnapshot with
+                {
+                    Id = rule.Id,
+                    IsEnabled = rule.IsEnabled && triggerSnapshot.IsEnabled,
+                    Name = rule.DisplayTitle,
+                    TriggerType = TwitchTriggerType.Bits,
+                    ChannelPointRewardId = string.Empty,
+                    ChannelPointRewardTitle = string.Empty,
+                    ChatCommandEnabled = false,
+                    ChatCommandText = string.Empty,
+                    MinimumAmount = 1,
+                    CooldownSeconds = Math.Max(0, rule.CooldownSeconds),
+                    UsesLinkedChannelPointReward = false,
+                    BotMessageCooldownSeconds = Math.Max(0, rule.CooldownSeconds)
+                };
+            }
         }
 
         snapshot = new CashPaymentRuleSnapshot(
@@ -942,69 +963,80 @@ public sealed record BridgeRuntimeConfiguration(
         }
         else
         {
-            if (!IsManualTestReady(rule.ActionRule))
+            var isAvatarSwapAction = rule.ActionRule is not null
+                && rule.ActionRule.ActionType == OscActionType.AvatarChange
+                && !string.IsNullOrWhiteSpace(rule.ActionRule.AvatarChangeTargetId);
+
+            if (!isAvatarSwapAction && !IsManualTestReady(rule.ActionRule))
             {
                 return false;
             }
 
-            var actionSnapshot = CreateSnapshot(
-                rule.ActionRule,
-                isGlobalOverride: true,
-                profile: null,
-                linkedRewardCooldownSecondsById: null);
-
-            var isAvatarSwitch = rule.ActionRule.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet;
-            var requiredAvatarId = string.Empty;
-            var requiredAvatarName = string.Empty;
-            var belongsToMasterAvatarProfile = false;
-            if (isAvatarSwitch)
+            if (isAvatarSwapAction)
             {
-                requiredAvatarId = masterProfile?.AvatarId.Trim() ?? string.Empty;
-                requiredAvatarName = masterProfile?.AvatarName.Trim() ?? string.Empty;
-                belongsToMasterAvatarProfile = true;
+                triggerAction = null;
             }
-            else if (rule.AvatarScoped)
+            else
             {
-                requiredAvatarId = rule.AvatarId.Trim();
-                requiredAvatarName = rule.AvatarName.Trim();
-            }
+                var actionSnapshot = CreateSnapshot(
+                    rule.ActionRule,
+                    isGlobalOverride: true,
+                    profile: null,
+                    linkedRewardCooldownSecondsById: null);
 
-            var hasRequiredAvatar = !string.IsNullOrWhiteSpace(requiredAvatarId);
-            triggerAction = actionSnapshot with
-            {
-                Id = rule.Id,
-                IsEnabled = rule.IsEnabled && actionSnapshot.IsEnabled,
-                Name = rule.DisplayTitle,
-                IsGlobalOverride = !hasRequiredAvatar,
-                AvatarProfileId = Guid.Empty,
-                AvatarProfileName = string.Empty,
-                RequiredAvatarId = requiredAvatarId,
-                RequiredAvatarName = requiredAvatarName,
-                SupporterAvatarProfileId = Guid.Empty,
-                SupporterAvatarId = rule.AvatarScoped ? rule.AvatarId.Trim() : string.Empty,
-                SupporterAvatarName = rule.AvatarScoped ? rule.AvatarName.Trim() : string.Empty,
-                BelongsToMasterAvatarProfile = belongsToMasterAvatarProfile,
-                TriggerType = TwitchTriggerType.PowerUp,
-                ChannelPointRewardId = string.Empty,
-                ChannelPointRewardTitle = rule.PowerUpTitle.Trim(),
-                ChatCommandEnabled = false,
-                ChatCommandText = string.Empty,
-                MinimumAmount = 1,
-                AmountScaledDurationEnabled = false,
-                CooldownSeconds = Math.Max(0, rule.CooldownSeconds),
-                UsesLinkedChannelPointReward = false,
-                BotMessageCooldownSeconds = Math.Max(0, rule.CooldownSeconds),
-                SupporterFloatAddEnabled = rule.FixedFloatAddEnabled,
-                SupporterFloatAddMinimumValue = rule.FixedFloatAddMinimumValue.Trim(),
-                SupporterFloatAddMaximumValue = rule.FixedFloatAddMaximumValue.Trim(),
-                SupporterFloatAddRanges =
-                [
-                    new SupporterFloatAddRangeSnapshot(
-                        1,
-                        0,
-                        string.IsNullOrWhiteSpace(rule.FixedFloatAddValue) ? "0.05" : rule.FixedFloatAddValue.Trim())
-                ]
-            };
+                var isAvatarSwitch = rule.ActionRule.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet;
+                var requiredAvatarId = string.Empty;
+                var requiredAvatarName = string.Empty;
+                var belongsToMasterAvatarProfile = false;
+                if (isAvatarSwitch)
+                {
+                    requiredAvatarId = masterProfile?.AvatarId.Trim() ?? string.Empty;
+                    requiredAvatarName = masterProfile?.AvatarName.Trim() ?? string.Empty;
+                    belongsToMasterAvatarProfile = true;
+                }
+                else if (rule.AvatarScoped)
+                {
+                    requiredAvatarId = rule.AvatarId.Trim();
+                    requiredAvatarName = rule.AvatarName.Trim();
+                }
+
+                var hasRequiredAvatar = !string.IsNullOrWhiteSpace(requiredAvatarId);
+                triggerAction = actionSnapshot with
+                {
+                    Id = rule.Id,
+                    IsEnabled = rule.IsEnabled && actionSnapshot.IsEnabled,
+                    Name = rule.DisplayTitle,
+                    IsGlobalOverride = !hasRequiredAvatar,
+                    AvatarProfileId = Guid.Empty,
+                    AvatarProfileName = string.Empty,
+                    RequiredAvatarId = requiredAvatarId,
+                    RequiredAvatarName = requiredAvatarName,
+                    SupporterAvatarProfileId = Guid.Empty,
+                    SupporterAvatarId = rule.AvatarScoped ? rule.AvatarId.Trim() : string.Empty,
+                    SupporterAvatarName = rule.AvatarScoped ? rule.AvatarName.Trim() : string.Empty,
+                    BelongsToMasterAvatarProfile = belongsToMasterAvatarProfile,
+                    TriggerType = TwitchTriggerType.PowerUp,
+                    ChannelPointRewardId = string.Empty,
+                    ChannelPointRewardTitle = rule.PowerUpTitle.Trim(),
+                    ChatCommandEnabled = false,
+                    ChatCommandText = string.Empty,
+                    MinimumAmount = 1,
+                    AmountScaledDurationEnabled = false,
+                    CooldownSeconds = Math.Max(0, rule.CooldownSeconds),
+                    UsesLinkedChannelPointReward = false,
+                    BotMessageCooldownSeconds = Math.Max(0, rule.CooldownSeconds),
+                    SupporterFloatAddEnabled = rule.FixedFloatAddEnabled,
+                    SupporterFloatAddMinimumValue = rule.FixedFloatAddMinimumValue.Trim(),
+                    SupporterFloatAddMaximumValue = rule.FixedFloatAddMaximumValue.Trim(),
+                    SupporterFloatAddRanges =
+                    [
+                        new SupporterFloatAddRangeSnapshot(
+                            1,
+                            0,
+                            string.IsNullOrWhiteSpace(rule.FixedFloatAddValue) ? "0.05" : rule.FixedFloatAddValue.Trim())
+                    ]
+                };
+            }
         }
 
         snapshot = new PowerUpRuleSnapshot(

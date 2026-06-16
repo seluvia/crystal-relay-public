@@ -678,7 +678,8 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject, IDisposable
             ChannelPointRewardCost = 100,
             CooldownSeconds = 0,
             IsEnabled = true,
-            Name = "New Avatar Swap"
+            Name = "New Avatar Swap",
+            Source = TriggerRuleSource.Native
         };
         _editorProfile.ChannelPointRules.Add(rule);
         RaisePropertyChanged(nameof(EditorChannelPointRules));
@@ -695,7 +696,8 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject, IDisposable
             TriggerType = TwitchTriggerType.Bits,
             MinimumAmount = 100,
             IsEnabled = true,
-            Name = "New Bits/Subs Swap"
+            Name = "New Bits/Subs Swap",
+            Source = TriggerRuleSource.Native
         };
         _editorProfile.BitsSubsRules.Add(rule);
         RaisePropertyChanged(nameof(EditorBitsSubsRules));
