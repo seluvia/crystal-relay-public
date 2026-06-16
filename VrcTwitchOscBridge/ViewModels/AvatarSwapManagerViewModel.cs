@@ -30,6 +30,8 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject, IDisposable
     private bool _editorIsNew;
     private bool _isEditorOpen;
     private string? _filterText;
+    private System.Windows.Media.ImageSource? _returnAvatarImage;
+    private System.Threading.CancellationTokenSource? _returnAvatarImageCts;
 
     public AvatarSwapManagerViewModel(AppSettings settings, MainWindowViewModel mainVm, AvatarImageService imageService)
     {
@@ -57,6 +59,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject, IDisposable
         ToggleBitsSubsSectionCommand = new RelayCommand(() => IsBitsSubsSectionCollapsed = !IsBitsSubsSectionCollapsed);
 
         RebuildCollections();
+        LoadReturnAvatarImage();
     }
 
     public ObservableCollection<AvatarSwapCardViewModel> ChannelPointCards => _channelPointCards;
@@ -75,6 +78,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject, IDisposable
             RaisePropertyChanged(nameof(ReturnAvatarName));
             RaisePropertyChanged(nameof(HasReturnAvatar));
             RaisePropertyChanged(nameof(ReturnAvatarDisplayName));
+            LoadReturnAvatarImage();
         }
     }
 
@@ -92,6 +96,20 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject, IDisposable
     public bool HasReturnAvatar => !string.IsNullOrWhiteSpace(ReturnAvatarId);
 
     public string ReturnAvatarDisplayName => _settings.MasterAvatarSwapReturnDisplayName;
+
+    public System.Windows.Media.ImageSource? ReturnAvatarImage
+    {
+        get => _returnAvatarImage;
+        private set
+        {
+            if (SetProperty(ref _returnAvatarImage, value))
+            {
+                RaisePropertyChanged(nameof(HasReturnAvatarImage));
+            }
+        }
+    }
+
+    public bool HasReturnAvatarImage => _returnAvatarImage is not null;
 
     public bool IsEditorOpen
     {
@@ -271,6 +289,8 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject, IDisposable
     public void Dispose()
     {
         CloseEditor();
+        _returnAvatarImageCts?.Cancel();
+        _returnAvatarImageCts?.Dispose();
         _settings.AvatarSwapProfiles.CollectionChanged -= OnProfilesChanged;
         foreach (var card in _channelPointCards)
         {
@@ -280,6 +300,52 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject, IDisposable
         {
             card.Dispose();
         }
+    }
+
+    private void LoadReturnAvatarImage()
+    {
+        _returnAvatarImageCts?.Cancel();
+        _returnAvatarImageCts?.Dispose();
+        _returnAvatarImageCts = new System.Threading.CancellationTokenSource();
+        var avatarId = _settings.MasterAvatarSwapReturnId;
+        var thumbnailUrl = _mainVm.TryGetVrChatAvatarThumbnailUrl(avatarId);
+        var ct = _returnAvatarImageCts.Token;
+
+        if (string.IsNullOrWhiteSpace(avatarId))
+        {
+            ReturnAvatarImage = null;
+            return;
+        }
+
+        var syncImage = _imageService.GetAvatarImage(avatarId, null, thumbnailUrl);
+        if (syncImage is not null && !ct.IsCancellationRequested)
+        {
+            System.Windows.Application.Current?.Dispatcher.InvokeAsync(() => ReturnAvatarImage = syncImage);
+            return;
+        }
+
+        _ = System.Threading.Tasks.Task.Run(async () =>
+        {
+            try
+            {
+                var asyncImage = await _imageService.GetAvatarImageAsync(avatarId, null, thumbnailUrl, ct);
+                if (asyncImage is not null && !ct.IsCancellationRequested)
+                {
+                    System.Windows.Application.Current?.Dispatcher.InvokeAsync(() => ReturnAvatarImage = asyncImage);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch
+            {
+                if (!ct.IsCancellationRequested)
+                {
+                    var placeholder = _imageService.GetPlaceholderImage();
+                    System.Windows.Application.Current?.Dispatcher.InvokeAsync(() => ReturnAvatarImage = placeholder);
+                }
+            }
+        }, ct);
     }
 
     private void RebuildCollections()
