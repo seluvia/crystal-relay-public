@@ -29,7 +29,6 @@ public sealed class PowerUpRule : ObservableObject
     private string fixedFloatAddValue = "0.05";
     private string fixedFloatAddMinimumValue = "0";
     private string fixedFloatAddMaximumValue = "1";
-    private bool permanentAvatarChange;
     private PowerUpActionKind actionKind = PowerUpActionKind.TriggerAction;
     private TriggerRule actionRule = CreateDefaultTriggerAction();
     private AvatarScaleRule scaleAction = CreateDefaultScaleAction();
@@ -247,23 +246,6 @@ public sealed class PowerUpRule : ObservableObject
         }
     }
 
-    public bool PermanentAvatarChange
-    {
-        get => permanentAvatarChange;
-        set
-        {
-            if (SetProperty(ref permanentAvatarChange, value))
-            {
-                if (ActionRule.ActionType == OscActionType.AvatarChange)
-                {
-                    ActionRule.DurationSeconds = value ? 0 : Math.Max(1, ActionRule.DurationSeconds);
-                }
-
-                RaisePropertyChanged(nameof(TriggerSummary));
-            }
-        }
-    }
-
     public PowerUpActionKind ActionKind
     {
         get => actionKind;
@@ -435,15 +417,6 @@ public sealed class PowerUpRule : ObservableObject
 
     private void NestedActionChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (sender is TriggerRule rule && e.PropertyName == nameof(TriggerRule.ActionType))
-        {
-            if (rule.ActionType != OscActionType.AvatarChange && permanentAvatarChange)
-            {
-                permanentAvatarChange = false;
-                RaisePropertyChanged(nameof(PermanentAvatarChange));
-            }
-        }
-
         RaisePropertyChanged(nameof(TriggerSummary));
     }
 

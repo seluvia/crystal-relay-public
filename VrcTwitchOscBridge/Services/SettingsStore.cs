@@ -1627,7 +1627,6 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             FixedFloatAddValue = rule.FixedFloatAddValue,
             FixedFloatAddMinimumValue = rule.FixedFloatAddMinimumValue,
             FixedFloatAddMaximumValue = rule.FixedFloatAddMaximumValue,
-            PermanentAvatarChange = rule.PermanentAvatarChange,
             ActionKind = rule.ActionKind,
             ActionRule = ToPersistedRule(rule.ActionRule),
             ScaleAction = ToPersistedAvatarScaleRule(rule.ScaleAction)
@@ -1654,7 +1653,6 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             FixedFloatAddValue = string.IsNullOrWhiteSpace(rule.FixedFloatAddValue) ? "0.05" : rule.FixedFloatAddValue.Trim(),
             FixedFloatAddMinimumValue = string.IsNullOrWhiteSpace(rule.FixedFloatAddMinimumValue) ? "0" : rule.FixedFloatAddMinimumValue.Trim(),
             FixedFloatAddMaximumValue = string.IsNullOrWhiteSpace(rule.FixedFloatAddMaximumValue) ? "1" : rule.FixedFloatAddMaximumValue.Trim(),
-            PermanentAvatarChange = rule.PermanentAvatarChange,
             ActionKind = Enum.IsDefined(rule.ActionKind) ? rule.ActionKind : PowerUpActionKind.TriggerAction,
             ActionRule = rule.ActionRule is null ? PowerUpRule.CreateDefaultTriggerAction() : ToRule(rule.ActionRule),
             ScaleAction = rule.ScaleAction is null ? PowerUpRule.CreateDefaultScaleAction() : ToAvatarScaleRule(rule.ScaleAction)
@@ -2808,8 +2806,6 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
         public string? FixedFloatAddMinimumValue { get; set; }
 
         public string? FixedFloatAddMaximumValue { get; set; }
-
-        public bool PermanentAvatarChange { get; set; }
 
         public PowerUpActionKind ActionKind { get; set; }
 

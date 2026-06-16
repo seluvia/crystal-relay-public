@@ -5080,16 +5080,6 @@
                                                                    Foreground="{DynamicResource TextBrush}"
                                                                    FontWeight="SemiBold" />
                                                         <CheckBox Margin="0,10,0,0"
-                                                                  IsChecked="{Binding PermanentAvatarChange, UpdateSourceTrigger=PropertyChanged}">
-                                                            <TextBlock Text="{loc:Translate 'Permanent avatar change'}"
-                                                                       TextWrapping="Wrap" />
-                                                        </CheckBox>
-                                                        <TextBlock Margin="26,6,0,0"
-                                                                   Text="{loc:Translate 'For Avatar Change or Avatar Roulette actions, timed swaps return to the shared return avatar. Permanent changes update the return avatar instead.'}"
-                                                                   Foreground="{DynamicResource MutedBrush}"
-                                                                   TextWrapping="Wrap" />
-
-                                                        <CheckBox Margin="0,14,0,0"
                                                                   IsChecked="{Binding FixedFloatAddEnabled, UpdateSourceTrigger=PropertyChanged}">
                                                             <TextBlock Text="{loc:Translate 'Use fixed float add'}"
                                                                        TextWrapping="Wrap" />
