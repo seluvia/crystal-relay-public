@@ -142,6 +142,24 @@ public partial class MainWindow : Window
         StopLoadingAnimations();
         RestoreRestartSessionWindows();
         QueueApplicationUpdateCheck();
+        ShowAvatarSwapMigrationNoticeIfNeeded();
+    }
+
+    private void ShowAvatarSwapMigrationNoticeIfNeeded()
+    {
+        if (!viewModel.ShowMigrationNotice)
+        {
+            return;
+        }
+
+        MessageBox.Show(
+            this,
+            LocalizationService.Translate(
+                "Avatar Swap has replaced the old Avatar Change redeems. Your previous rules have been moved into Avatar Swap Manager and continue to work as Avatar Swap redeems. Open the new manager from the home page to review them."),
+            LocalizationService.Translate("Avatar Swap Manager"),
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
+        viewModel.DismissMigrationNoticeCommand.Execute(null);
     }
 
     private async void OnClosing(object? sender, CancelEventArgs e)

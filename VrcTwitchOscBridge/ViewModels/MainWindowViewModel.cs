@@ -902,6 +902,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ClearSelectedChatUserSuspiciousStatusCommand = new AsyncRelayCommand(ClearSelectedChatUserSuspiciousStatusAsync, CanManageSelectedChatUserSuspiciousStatus);
         OpenBuiltInCommandsCommand = new RelayCommand(OpenBuiltInCommands);
         RefreshWorldCommandBlacklistCommand = new AsyncRelayCommand(RefreshWorldCommandBlacklistManuallyAsync);
+        DismissMigrationNoticeCommand = new RelayCommand(DismissMigrationNotice);
         ShowSettingsTwitchSectionCommand = new RelayCommand(() => SetActiveSettingsSection(SettingsSectionView.Twitch));
         ShowSettingsVrChatSectionCommand = new RelayCommand(() => SetActiveSettingsSection(SettingsSectionView.VrChat));
         ShowSettingsAppSectionCommand = new RelayCommand(() => SetActiveSettingsSection(SettingsSectionView.App));
@@ -1355,6 +1356,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     public bool IsLanguageRestartNoticeVisible => Settings.Language != activeLanguageAtStartup;
 
     public string LanguageRestartNoticeText => T("Language changes apply after you restart Crystal Relay.");
+
+    public bool ShowMigrationNotice =>
+        !Settings.AvatarSwapMigrationNoticeShown
+        && Settings.AvatarChangeToAvatarSwapMigrationVersion >= AvatarSwapMigrationService.CurrentMigrationVersion;
 
     public string UiOpacityStatusText => TF("UI Opacity: {0}%", Settings.InterfaceOpacityPercent);
 
@@ -3059,6 +3064,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public AsyncRelayCommand RefreshWorldCommandBlacklistCommand { get; }
 
+    public RelayCommand DismissMigrationNoticeCommand { get; }
+
     public RelayCommand ShowSettingsTwitchSectionCommand { get; }
 
     public RelayCommand ShowSettingsVrChatSectionCommand { get; }
@@ -3694,6 +3701,17 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             Owner = Application.Current?.MainWindow
         };
         dialog.ShowDialog();
+    }
+
+    private void DismissMigrationNotice()
+    {
+        if (Settings.AvatarSwapMigrationNoticeShown)
+        {
+            return;
+        }
+
+        Settings.AvatarSwapMigrationNoticeShown = true;
+        _ = SaveSettingsAsync();
     }
 
     private void OnTwitchChatboxClosed(object? sender, EventArgs e)
