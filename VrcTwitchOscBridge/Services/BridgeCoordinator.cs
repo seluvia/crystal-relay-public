@@ -8133,6 +8133,15 @@ internal BridgeCoordinator(
         bool preferLocalInstantToggleState,
         SharedReturnAvatarSnapshot capturedReturnAvatar)
     {
+        if (rule.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet)
+        {
+            var parentProfile = activeConfiguration?.FindAvatarSwapProfileForRule(rule.Rule);
+            if (parentProfile != null)
+            {
+                return ResolveAvatarSwapAction(parentProfile, rule, capturedReturnAvatar);
+            }
+        }
+
         return rule.ActionType switch
             {
             OscActionType.AvatarParameter => await ResolveAvatarParameterActionAsync(rule, cancellationToken, preferLocalInstantToggleState),
@@ -8162,8 +8171,10 @@ internal BridgeCoordinator(
 
     private ResolvedRuleAction ResolveAvatarSwapAction(
         AvatarSwapProfileSnapshot profile,
+        TriggerRuleSnapshot rule,
         SharedReturnAvatarSnapshot capturedReturnAvatar)
     {
+        _ = rule;
         if (!profile.IsEnabled || string.IsNullOrWhiteSpace(profile.TargetAvatarId))
         {
             return new ResolvedRuleAction(
@@ -8204,7 +8215,32 @@ internal BridgeCoordinator(
         TriggerRuleSnapshot rule,
         SharedReturnAvatarSnapshot capturedReturnAvatar)
     {
+        var parentProfile = activeConfiguration?.FindAvatarSwapProfileForRule(rule.Rule);
         var selectedAvatar = PickAvatarRouletTarget(rule);
+        if (parentProfile != null)
+        {
+            var returnAvatarId = parentProfile.ReturnAvatarMode switch
+            {
+                ReturnAvatarMode.UseCustom => parentProfile.ReturnAvatarId,
+                ReturnAvatarMode.UseGlobal => capturedReturnAvatar.AvatarId,
+                ReturnAvatarMode.SameAsTarget => null,
+                _ => capturedReturnAvatar.AvatarId
+            };
+            var hasReturn = parentProfile.ReturnAvatarMode == ReturnAvatarMode.UseCustom
+                ? !string.IsNullOrWhiteSpace(parentProfile.ReturnAvatarId)
+                : !string.IsNullOrWhiteSpace(capturedReturnAvatar.AvatarId);
+            return new ResolvedRuleAction(
+                vrChatOscClient.BuildAvatarChangePacket(selectedAvatar.AvatarId),
+                hasReturn && !string.IsNullOrWhiteSpace(returnAvatarId)
+                    ? vrChatOscClient.BuildAvatarChangePacket(returnAvatarId)
+                    : null,
+                selectedAvatar.AvatarName,
+                selectedAvatar.AvatarId,
+                selectedAvatar.AvatarName,
+                returnAvatarId ?? string.Empty,
+                parentProfile.ReturnAvatarName ?? capturedReturnAvatar.AvatarName);
+        }
+
         return new ResolvedRuleAction(
             vrChatOscClient.BuildAvatarChangePacket(selectedAvatar.AvatarId),
             !string.IsNullOrWhiteSpace(capturedReturnAvatar.AvatarId)
