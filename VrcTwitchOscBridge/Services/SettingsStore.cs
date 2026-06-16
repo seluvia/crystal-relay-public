@@ -406,6 +406,8 @@ public sealed class SettingsStore
                     : settings.WorldCommandPermission;
             settings.ChannelPointRewardTestModeEnabled = profile.ChannelPointRewardTestModeEnabled ?? settings.ChannelPointRewardTestModeEnabled;
             settings.AvatarChangeCooldownOnlyModeEnabled = profile.AvatarChangeCooldownOnlyModeEnabled ?? settings.AvatarChangeCooldownOnlyModeEnabled;
+            settings.AvatarSwapManagerUseFullRuleEditor = profile.AvatarSwapManagerUseFullRuleEditor ?? settings.AvatarSwapManagerUseFullRuleEditor;
+            settings.AvatarSwapMigrationNoticeShown = profile.AvatarSwapMigrationNoticeShown ?? settings.AvatarSwapMigrationNoticeShown;
             settings.EmergencyRedeemStopEnabled = profile.EmergencyRedeemStopEnabled ?? settings.EmergencyRedeemStopEnabled;
             settings.DesktopModeInputLockEnabled = profile.DesktopModeInputLockEnabled ?? settings.DesktopModeInputLockEnabled;
             settings.RestartVrChatInDesktopMode = profile.RestartVrChatInDesktopMode ?? settings.RestartVrChatInDesktopMode;
@@ -577,6 +579,8 @@ public sealed class SettingsStore
             WorldCommandPermission = settings.WorldCommandPermission,
             ChannelPointRewardTestModeEnabled = settings.ChannelPointRewardTestModeEnabled,
             AvatarChangeCooldownOnlyModeEnabled = settings.AvatarChangeCooldownOnlyModeEnabled,
+            AvatarSwapManagerUseFullRuleEditor = settings.AvatarSwapManagerUseFullRuleEditor,
+            AvatarSwapMigrationNoticeShown = settings.AvatarSwapMigrationNoticeShown,
             EmergencyRedeemStopEnabled = settings.EmergencyRedeemStopEnabled,
             DesktopModeInputLockEnabled = settings.DesktopModeInputLockEnabled,
             RestartVrChatInDesktopMode = settings.RestartVrChatInDesktopMode,
@@ -1137,7 +1141,8 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             CreatedAt = profile.CreatedAt,
             UpdatedAt = profile.UpdatedAt,
             ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
-            BitsSubsRules = [.. profile.BitsSubsRules.Select(ToPersistedRule)]
+            BitsSubsRules = [.. profile.BitsSubsRules.Select(ToPersistedRule)],
+            RouletteRules = [.. profile.RouletteRules.Select(ToPersistedRule)]
         };
     }
 
@@ -1158,7 +1163,9 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             ChannelPointRules = new ObservableCollection<TriggerRule>(
                 (profile.ChannelPointRules ?? []).Select(ToRule)),
             BitsSubsRules = new ObservableCollection<TriggerRule>(
-                (profile.BitsSubsRules ?? []).Select(ToRule))
+                (profile.BitsSubsRules ?? []).Select(ToRule)),
+            RouletteRules = new ObservableCollection<TriggerRule>(
+                (profile.RouletteRules ?? []).Select(ToRule))
         };
     }
 
@@ -2592,6 +2599,12 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
 
         public bool? AvatarChangeCooldownOnlyModeEnabled { get; set; }
 
+        [JsonPropertyName("avatarSwapManagerUseFullRuleEditor")]
+        public bool? AvatarSwapManagerUseFullRuleEditor { get; set; }
+
+        [JsonPropertyName("avatarSwapMigrationNoticeShown")]
+        public bool? AvatarSwapMigrationNoticeShown { get; set; }
+
         public bool? EmergencyRedeemStopEnabled { get; set; }
 
         public bool? DesktopModeInputLockEnabled { get; set; }
@@ -3034,6 +3047,9 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
         public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
 
         public List<PersistedTriggerRule>? BitsSubsRules { get; set; }
+
+        [JsonPropertyName("rouletteRules")]
+        public List<PersistedTriggerRule>? RouletteRules { get; set; }
     }
 
     private sealed class PersistedWardrobeOutfit
