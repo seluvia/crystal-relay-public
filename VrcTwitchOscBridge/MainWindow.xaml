@@ -3525,22 +3525,7 @@
                                              </Style>
                                          </Button.Style>
                                      </Button>
-                                     <Button Content="{loc:Translate 'Avatar Change'}"
-                                             Command="{Binding ShowMasterAvatarTabCommand}">
-                                         <Button.Style>
-                                             <Style TargetType="Button" BasedOn="{StaticResource RuleLibraryTabButtonStyle}">
-                                                 <Setter Property="Margin" Value="0,0,5,0" />
-                                                 <Style.Triggers>
-                                                     <DataTrigger Binding="{Binding IsViewingMasterAvatar}" Value="True">
-                                                         <Setter Property="Background" Value="{DynamicResource SectionActiveBrush}" />
-                                                         <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                                                         <Setter Property="Foreground" Value="White" />
-                                                     </DataTrigger>
-                                                 </Style.Triggers>
-                                             </Style>
-                                         </Button.Style>
-                                     </Button>
-                                     <Button Content="{loc:Translate 'Avatar Scaling'}"
+                                      <Button Content="{loc:Translate 'Avatar Scaling'}"
                                              Command="{Binding ShowAvatarScalingCommand}">
                                          <Button.Style>
                                              <Style TargetType="Button" BasedOn="{StaticResource RuleLibraryTabButtonStyle}">
