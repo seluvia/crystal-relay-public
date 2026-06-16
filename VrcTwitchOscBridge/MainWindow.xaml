@@ -3949,42 +3949,6 @@
                                 <Style TargetType="StackPanel">
                                     <Setter Property="Visibility" Value="Collapsed" />
                                     <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsViewingMasterAvatar}" Value="True">
-                                            <Setter Property="Visibility" Value="Visible" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </StackPanel.Style>
-                            <UniformGrid Columns="2">
-                                <Button Style="{StaticResource RuleLibraryPrimaryButtonStyle}"
-                                        Margin="0,0,10,0"
-                                        Content="{loc:Translate 'Add Avatar Change'}"
-                                        Command="{Binding AddRuleCommand}" />
-                                <Button Style="{StaticResource RuleLibraryButtonStyle}"
-                                        Margin="10,0,0,0"
-                                        Content="{loc:Translate 'Delete Avatar Change'}"
-                                        Command="{Binding RemoveSelectedRuleCommand}" />
-                            </UniformGrid>
-                            <UniformGrid Margin="0,10,0,0"
-                                         Columns="2">
-                                <Button Style="{StaticResource RuleLibraryButtonStyle}"
-                                        Margin="0,0,10,0"
-                                        Content="{loc:Translate 'Enable All'}"
-                                        Command="{Binding EnableAllRulesCommand}" />
-                                <Button Style="{StaticResource RuleLibraryButtonStyle}"
-                                        Margin="10,0,0,0"
-                                        Content="{loc:Translate 'Disable All'}"
-                                        Command="{Binding DisableAllRulesCommand}" />
-                            </UniformGrid>
-                        </StackPanel>
-
-                        <StackPanel Margin="0,14,0,0"
-                                    Width="340"
-                                    HorizontalAlignment="Center">
-                            <StackPanel.Style>
-                                <Style TargetType="StackPanel">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                    <Style.Triggers>
                                         <DataTrigger Binding="{Binding IsViewingMovementRedeems}" Value="True">
                                             <Setter Property="Visibility" Value="Visible" />
                                         </DataTrigger>
@@ -4169,24 +4133,7 @@
                             </Border>
                         </StackPanel>
 
-                    <ListBox ItemsSource="{Binding MasterAvatarRules}"
-                                 SelectedItem="{Binding SelectedRule}"
-                                 ScrollViewer.CanContentScroll="True"
-                                 VirtualizingStackPanel.IsVirtualizing="True"
-                                 VirtualizingStackPanel.VirtualizationMode="Recycling">
-                            <ListBox.Style>
-                                <Style TargetType="ListBox" BasedOn="{StaticResource {x:Type ListBox}}">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsViewingMasterAvatar}" Value="True">
-                                            <Setter Property="Visibility" Value="Visible" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </ListBox.Style>
-                        </ListBox>
-
-                        <ListBox ItemsSource="{Binding MovementRedeemSets}"
+                    <ListBox ItemsSource="{Binding MovementRedeemSets}"
                                  SelectedItem="{Binding SelectedMovementRedeemSet}"
                                  ItemTemplate="{StaticResource MovementRedeemSetListItemTemplate}"
                                  ScrollViewer.CanContentScroll="True"
@@ -4437,9 +4384,6 @@
                                             </MultiDataTrigger.Conditions>
                                             <Setter Property="Visibility" Value="Visible" />
                                         </MultiDataTrigger>
-                                        <DataTrigger Binding="{Binding IsViewingMasterAvatar}" Value="True">
-                                            <Setter Property="Visibility" Value="Collapsed" />
-                                        </DataTrigger>
                                         <MultiDataTrigger>
                                             <MultiDataTrigger.Conditions>
                                                 <Condition Binding="{Binding IsViewingMovementRedeems}" Value="True" />
@@ -4515,6 +4459,105 @@
                                        FontSize="24"
                                        FontWeight="Bold"
                                        Foreground="{DynamicResource TextBrush}" />
+                            <Border Margin="0,18,0,0"
+                                    Background="{DynamicResource PanelHighlightBrush}"
+                                    BorderBrush="{DynamicResource HighlightBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="18"
+                                    Padding="18">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsViewingMasterAvatar}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <StackPanel>
+                                    <DockPanel LastChildFill="False">
+                                        <TextBlock Text="{loc:Translate 'Global Return Avatar'}"
+                                                   Style="{StaticResource HeadingTextStyle}"
+                                                   FontSize="22"
+                                                   FontWeight="Bold"
+                                                   Foreground="{DynamicResource TextBrush}" />
+                                    </DockPanel>
+                                    <TextBlock Margin="0,10,0,0"
+                                               Text="{loc:Translate 'Pick the shared return avatar first so timed Avatar Swap and Avatar Roulette redeems know the exact VRChat avatar ID to switch back to.'}"
+                                               Foreground="{DynamicResource MutedBrush}"
+                                               TextWrapping="Wrap" />
+                                    <Border Margin="0,14,0,0"
+                                            Background="{DynamicResource NestedPanelBrush}"
+                                            BorderBrush="{DynamicResource HighlightBorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="12"
+                                            Padding="14">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="64" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Border Grid.Column="0"
+                                                    Width="64"
+                                                    Height="64"
+                                                    CornerRadius="10"
+                                                    ClipToBounds="True"
+                                                    Background="{DynamicResource InputBrush}"
+                                                    Margin="0,0,14,0"
+                                                    VerticalAlignment="Center">
+                                                <Grid>
+                                                    <Image Source="{Binding MasterAvatarReturnImage}"
+                                                           Stretch="UniformToFill"
+                                                           RenderOptions.BitmapScalingMode="HighQuality"
+                                                           Visibility="{Binding HasMasterAvatarReturnImage, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                                    <TextBlock Text="&#x1F504;"
+                                                               FontSize="28"
+                                                               HorizontalAlignment="Center"
+                                                               VerticalAlignment="Center"
+                                                               Foreground="{DynamicResource MutedBrush}"
+                                                               Visibility="{Binding HasMasterAvatarReturnImage, Converter={StaticResource InverseBoolToVisibilityConverter}}" />
+                                                </Grid>
+                                            </Border>
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                <TextBlock Text="{loc:Translate 'Return Avatar'}"
+                                                           FontWeight="Bold"
+                                                           FontSize="14"
+                                                           Foreground="{DynamicResource TextBrush}"
+                                                           FontFamily="{DynamicResource HeadingFontFamily}" />
+                                                <TextBlock Text="{Binding Settings.MasterAvatarSwapReturnDisplayName}"
+                                                           FontSize="12"
+                                                           Foreground="{DynamicResource MutedBrush}"
+                                                           Margin="0,2,0,8" />
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Button Content="{loc:Translate 'Pick...'}"
+                                                            Style="{StaticResource SecondaryButtonStyle}"
+                                                            Margin="0,0,6,0"
+                                                            Command="{Binding PickReturnAvatarCommand}" />
+                                                    <Button Content="{loc:Translate 'Use Current Avatar'}"
+                                                            Style="{StaticResource SecondaryButtonStyle}"
+                                                            Margin="0,0,6,0"
+                                                            Command="{Binding UseCurrentAvatarForReturnCommand}" />
+                                                    <Button Content="{loc:Translate 'Clear'}"
+                                                            Style="{StaticResource SecondaryButtonStyle}"
+                                                            Command="{Binding ClearReturnAvatarCommand}" />
+                                                </StackPanel>
+                                                <TextBlock Text="{loc:Translate 'Pick the Return Avatar first so timed Avatar Swap and Avatar Roulette redeems know the exact VRChat avatar ID to switch back to.'}"
+                                                           FontSize="10"
+                                                           Foreground="{DynamicResource MutedBrush}"
+                                                           Margin="0,8,0,0"
+                                                           TextWrapping="Wrap"
+                                                           Visibility="{Binding Settings.HasMasterAvatarSwapReturn, Converter={StaticResource InverseBoolToVisibilityConverter}}" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                    <Button Margin="0,18,0,0"
+                                            HorizontalAlignment="Center"
+                                            Content="{loc:Translate 'Open Avatar Swap Manager'}"
+                                            Style="{StaticResource PrimaryButtonStyle}"
+                                            Command="{Binding OpenAvatarSwapManagerCommand}" />
+                                </StackPanel>
+                            </Border>
                             <Border Margin="0,18,0,0"
                                     Background="{DynamicResource PanelHighlightBrush}"
                                     BorderBrush="{DynamicResource HighlightBorderBrush}"
@@ -5130,35 +5173,6 @@
                                     </DataTemplate>
                                 </ContentControl.ContentTemplate>
                             </ContentControl>
-                            <Border Margin="0,18,0,0"
-                                    Padding="14"
-                                    CornerRadius="14"
-                                    Background="{DynamicResource NestedPanelBrush}"
-                                    BorderBrush="{DynamicResource HighlightBorderBrush}"
-                                    BorderThickness="1">
-                                <Border.Style>
-                                    <Style TargetType="Border">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsViewingMasterAvatar}" Value="True">
-                                                <Setter Property="Visibility" Value="Visible" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Border.Style>
-                                <StackPanel>
-                                    <CheckBox IsChecked="{Binding Settings.AvatarChangeCooldownOnlyModeEnabled, UpdateSourceTrigger=PropertyChanged}">
-                                        <TextBlock Text="{loc:Translate 'Use cooldown-only avatar changes (no return avatar)'}"
-                                                   TextWrapping="Wrap" />
-                                    </CheckBox>
-                                    <TextBlock Margin="36,6,0,0"
-                                               Text="{loc:Translate 'When enabled, direct Avatar Change redeems use cooldown visibility instead of Active Time. Crystal Relay hides the avatar you are already wearing and keeps the used reward visible only while its cooldown is active.'}"
-                                               Foreground="{DynamicResource MutedBrush}"
-                                                TextWrapping="Wrap" />
-                                 </StackPanel>
-                             </Border>
-
-
                             <Border Margin="0,18,0,0"
                                     Background="{DynamicResource PanelHighlightBrush}"
                                     BorderBrush="{DynamicResource HighlightBorderBrush}"
@@ -8318,9 +8332,6 @@
                                                                 <Style TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
                                                                     <Setter Property="Visibility" Value="Collapsed" />
                                                                     <Style.Triggers>
-                                                                        <DataTrigger Binding="{Binding DataContext.IsViewingMasterAvatar, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
-                                                                            <Setter Property="Visibility" Value="Visible" />
-                                                                        </DataTrigger>
                                                                         <DataTrigger Binding="{Binding DataContext.IsViewingSupporterOverrides, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
                                                                             <Setter Property="Visibility" Value="Visible" />
                                                                         </DataTrigger>
@@ -8862,10 +8873,6 @@
                                                                     Content="{loc:Translate 'Use Current Avatar'}"
                                                                     Style="{StaticResource SecondaryButtonStyle}"
                                                                     Command="{Binding DataContext.UseCurrentAvatarForAvatarChangeRuleCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
-                                                            <TextBlock Margin="0,12,0,0"
-                                                                       Foreground="{DynamicResource MutedBrush}"
-                                                                       TextWrapping="Wrap"
-                                                                       Text="{Binding DataContext.MasterAvatarReturnText, RelativeSource={RelativeSource AncestorType=Window}}" />
                                                         </StackPanel>
 
                                                         <StackPanel Margin="0,14,0,0"
