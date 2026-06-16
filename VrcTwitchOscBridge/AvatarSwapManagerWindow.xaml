@@ -475,8 +475,12 @@
                                 <TextBox Text="{Binding EditorReturnAvatarName, UpdateSourceTrigger=PropertyChanged}" />
                             </StackPanel>
 
-                            <TextBlock Text="{loc:Translate 'Channel Point Swaps'}" FontWeight="Bold" Margin="0,14,0,4" Foreground="{DynamicResource TextBrush}" />
-                            <ItemsControl ItemsSource="{Binding EditorChannelPointRules}">
+                            <DockPanel Margin="0,14,0,4">
+                                <TextBlock Text="{loc:Translate 'Channel Point Swaps'}" FontWeight="Bold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
+                                <Button DockPanel.Dock="Right" Content="+ Add" Style="{StaticResource SecondaryButtonStyle}" Padding="10,3" FontSize="11"
+                                        Command="{Binding AddChannelPointRuleCommand}" />
+                            </DockPanel>
+                            <ItemsControl ItemsSource="{Binding SelectedProfile.ChannelPointRules}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <Border Background="{DynamicResource InputBrush}" CornerRadius="6" Padding="8" Margin="0,4">
@@ -484,15 +488,22 @@
                                                 <Button DockPanel.Dock="Right" Content="&#x1F5D1;" Width="28" Height="24" Background="Transparent" BorderBrush="Transparent"
                                                         Command="{Binding DataContext.DeleteChannelPointRuleCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                         CommandParameter="{Binding}" />
-                                                <TextBlock Text="{Binding DisplayTitle}" Foreground="{DynamicResource TextBrush}" />
+                                                <TextBlock Text="{Binding DisplayTitle}" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
                                             </DockPanel>
                                         </Border>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
+                            <TextBlock Text="{loc:Translate 'No channel point rules yet. Click + Add to create one.'}"
+                                       FontSize="11" Foreground="{DynamicResource MutedBrush}" FontStyle="Italic" Margin="2,4,0,0"
+                                       Visibility="{Binding SelectedProfile.ChannelPointRules.Count, Converter={StaticResource CountToVisibilityConverter}, ConverterParameter=Inverted}" />
 
-                            <TextBlock Text="{loc:Translate 'Bits + Subs Swaps'}" FontWeight="Bold" Margin="0,14,0,4" Foreground="{DynamicResource TextBrush}" />
-                            <ItemsControl ItemsSource="{Binding EditorBitsSubsRules}">
+                            <DockPanel Margin="0,14,0,4">
+                                <TextBlock Text="{loc:Translate 'Bits + Subs Swaps'}" FontWeight="Bold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
+                                <Button DockPanel.Dock="Right" Content="+ Add" Style="{StaticResource SecondaryButtonStyle}" Padding="10,3" FontSize="11"
+                                        Command="{Binding AddBitsSubsRuleCommand}" />
+                            </DockPanel>
+                            <ItemsControl ItemsSource="{Binding SelectedProfile.BitsSubsRules}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <Border Background="{DynamicResource InputBrush}" CornerRadius="6" Padding="8" Margin="0,4">
@@ -500,12 +511,15 @@
                                                 <Button DockPanel.Dock="Right" Content="&#x1F5D1;" Width="28" Height="24" Background="Transparent" BorderBrush="Transparent"
                                                         Command="{Binding DataContext.DeleteBitsSubsRuleCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                         CommandParameter="{Binding}" />
-                                                <TextBlock Text="{Binding DisplayTitle}" Foreground="{DynamicResource TextBrush}" />
+                                                <TextBlock Text="{Binding DisplayTitle}" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
                                             </DockPanel>
                                         </Border>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
+                            <TextBlock Text="{loc:Translate 'No bits/subs rules yet. Click + Add to create one.'}"
+                                       FontSize="11" Foreground="{DynamicResource MutedBrush}" FontStyle="Italic" Margin="2,4,0,0"
+                                       Visibility="{Binding SelectedProfile.BitsSubsRules.Count, Converter={StaticResource CountToVisibilityConverter}, ConverterParameter=Inverted}" />
                         </StackPanel>
                     </ScrollViewer>
                     <Border Grid.Row="2" Background="{DynamicResource NestedPanelBrush}" Padding="12,10">

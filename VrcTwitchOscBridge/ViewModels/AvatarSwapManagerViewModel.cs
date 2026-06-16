@@ -55,6 +55,8 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject, IDisposable
         UseCurrentAvatarForTargetCommand = new RelayCommand(p => UseCurrentAvatarForTarget(p as AvatarSwapProfile));
         DeleteChannelPointRuleCommand = new RelayCommand(p => DeleteRule(p as TriggerRule, isBitsSubs: false));
         DeleteBitsSubsRuleCommand = new RelayCommand(p => DeleteRule(p as TriggerRule, isBitsSubs: true));
+        AddChannelPointRuleCommand = new RelayCommand(AddChannelPointRule);
+        AddBitsSubsRuleCommand = new RelayCommand(AddBitsSubsRule);
         ToggleChannelPointSectionCommand = new RelayCommand(() => IsChannelPointSectionCollapsed = !IsChannelPointSectionCollapsed);
         ToggleBitsSubsSectionCommand = new RelayCommand(() => IsBitsSubsSectionCollapsed = !IsBitsSubsSectionCollapsed);
 
@@ -278,6 +280,8 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject, IDisposable
     public RelayCommand UseCurrentAvatarForTargetCommand { get; }
     public RelayCommand DeleteChannelPointRuleCommand { get; }
     public RelayCommand DeleteBitsSubsRuleCommand { get; }
+    public RelayCommand AddChannelPointRuleCommand { get; }
+    public RelayCommand AddBitsSubsRuleCommand { get; }
     public RelayCommand ToggleChannelPointSectionCommand { get; }
     public RelayCommand ToggleBitsSubsSectionCommand { get; }
 
@@ -596,6 +600,11 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject, IDisposable
     {
         if (profile is null) return;
         var avatars = _mainVm.GetAllVrChatAvatars();
+        if (avatars.Count == 0)
+        {
+            ShowNoAvatarsDialog();
+            return;
+        }
         var result = AvatarPickerService.OpenSingle(
             ThemeManager.CurrentTheme,
             avatars,
@@ -615,7 +624,11 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject, IDisposable
     {
         if (profile is null) return;
         var currentId = _settings.VrChat.CurrentAvatarId;
-        if (string.IsNullOrWhiteSpace(currentId)) return;
+        if (string.IsNullOrWhiteSpace(currentId))
+        {
+            ShowNoCurrentAvatarDialog();
+            return;
+        }
         profile.TargetAvatarId = currentId;
         profile.TargetAvatarName = _mainVm.ResolveVrChatAvatarName(currentId);
         profile.TargetThumbnailUrl = _mainVm.TryGetVrChatAvatarThumbnailUrl(currentId);
@@ -624,12 +637,67 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject, IDisposable
         card?.SetThumbnailUrl(profile.TargetThumbnailUrl);
     }
 
+    private void ShowNoAvatarsDialog()
+    {
+        MessageBox.Show(
+            Application.Current?.MainWindow,
+            "No VRChat avatars are loaded yet. Connect to VRChat on the Home tab and let Crystal Relay load your avatars, or pick an avatar from the Avatar Library instead.",
+            "No Avatars Available",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
+    }
+
+    private void ShowNoCurrentAvatarDialog()
+    {
+        MessageBox.Show(
+            Application.Current?.MainWindow,
+            "No current VRChat avatar is set. Connect to VRChat and switch into a world first, then try again.",
+            "No Current Avatar",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
+    }
+
     private void DeleteRule(TriggerRule? rule, bool isBitsSubs)
     {
         if (_editorProfile is null || rule is null) return;
         var collection = isBitsSubs ? _editorProfile.BitsSubsRules : _editorProfile.ChannelPointRules;
         collection.Remove(rule);
         RaisePropertyChanged(nameof(EditorChannelPointRules));
+        RaisePropertyChanged(nameof(EditorBitsSubsRules));
+    }
+
+    private void AddChannelPointRule()
+    {
+        if (_editorProfile is null) return;
+        var rule = new TriggerRule
+        {
+            ActionType = OscActionType.AvatarChange,
+            AvatarChangeTargetId = _editorProfile.TargetAvatarId,
+            AvatarTargetName = _editorProfile.TargetAvatarName,
+            TriggerType = TwitchTriggerType.ChannelPoints,
+            ChannelPointRewardCost = 100,
+            CooldownSeconds = 0,
+            IsEnabled = true,
+            Name = "New Avatar Swap"
+        };
+        _editorProfile.ChannelPointRules.Add(rule);
+        RaisePropertyChanged(nameof(EditorChannelPointRules));
+    }
+
+    private void AddBitsSubsRule()
+    {
+        if (_editorProfile is null) return;
+        var rule = new TriggerRule
+        {
+            ActionType = OscActionType.AvatarChange,
+            AvatarChangeTargetId = _editorProfile.TargetAvatarId,
+            AvatarTargetName = _editorProfile.TargetAvatarName,
+            TriggerType = TwitchTriggerType.Bits,
+            MinimumAmount = 100,
+            IsEnabled = true,
+            Name = "New Bits/Subs Swap"
+        };
+        _editorProfile.BitsSubsRules.Add(rule);
         RaisePropertyChanged(nameof(EditorBitsSubsRules));
     }
 }
