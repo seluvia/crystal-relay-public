@@ -291,6 +291,18 @@ public sealed record PowerUpRuleSnapshot(
     TriggerRuleSnapshot? TriggerAction,
     AvatarScaleRuleSnapshot? ScaleAction);
 
+public sealed record AvatarSwapProfileSnapshot(
+    Guid Id,
+    string TargetAvatarId,
+    string TargetAvatarName,
+    ReturnAvatarMode ReturnAvatarMode,
+    string? ReturnAvatarId,
+    string? ReturnAvatarName,
+    bool IsEnabled,
+    string? ThumbnailUrl,
+    IReadOnlyList<TriggerRuleSnapshot> ChannelPointRules,
+    IReadOnlyList<TriggerRuleSnapshot> BitsSubsRules);
+
 public sealed record BridgeRuntimeConfiguration(
     string TwitchClientId,
     TwitchAccountSnapshot Broadcaster,
@@ -329,7 +341,10 @@ public sealed record BridgeRuntimeConfiguration(
     IReadOnlyList<UniversalTriggerRuleSnapshot> UniversalTriggers,
     IReadOnlyList<AvatarScaleRuleSnapshot> AvatarScaleRules,
     IReadOnlyList<CashPaymentRuleSnapshot> CashPaymentRules,
-    IReadOnlyList<AvatarTriggerProfile> AvatarProfiles)
+    IReadOnlyList<AvatarTriggerProfile> AvatarProfiles,
+    IReadOnlyList<AvatarSwapProfileSnapshot> AvatarSwapProfiles,
+    string MasterAvatarSwapReturnId,
+    string MasterAvatarSwapReturnName)
 {
     public static BridgeRuntimeConfiguration FromSettings(
         AppSettings settings,
@@ -411,13 +426,51 @@ public sealed record BridgeRuntimeConfiguration(
             }
         }
 
+        var avatarSwapProfiles = new List<AvatarSwapProfileSnapshot>();
+        foreach (var swapProfile in settings.AvatarSwapProfiles)
+        {
+            var channelPointSnapshots = new List<TriggerRuleSnapshot>();
+            foreach (var rule in swapProfile.ChannelPointRules)
+            {
+                if (TryToSnapshot(rule, isGlobalOverride: false, profile: null, linkedRewardCooldownSecondsById, out var snapshot))
+                {
+                    channelPointSnapshots.Add(snapshot);
+                }
+            }
+
+            var bitsSubsSnapshots = new List<TriggerRuleSnapshot>();
+            foreach (var rule in swapProfile.BitsSubsRules)
+            {
+                if (TryToSnapshot(rule, isGlobalOverride: true, profile: null, linkedRewardCooldownSecondsById, out var snapshot))
+                {
+                    bitsSubsSnapshots.Add(snapshot);
+                }
+            }
+
+            avatarSwapProfiles.Add(new AvatarSwapProfileSnapshot(
+                swapProfile.Id,
+                swapProfile.TargetAvatarId,
+                swapProfile.TargetAvatarName,
+                swapProfile.ReturnAvatarMode,
+                swapProfile.ReturnAvatarId,
+                swapProfile.ReturnAvatarName,
+                swapProfile.IsEnabled,
+                swapProfile.TargetThumbnailUrl,
+                channelPointSnapshots.ToArray(),
+                bitsSubsSnapshots.ToArray()));
+        }
+
         return new BridgeRuntimeConfiguration(
             runtimeConfig.TwitchClientId.Trim(),
             ToSnapshot(settings.Broadcaster),
             settings.Bot.IsConnected ? ToSnapshot(settings.Bot) : null,
             settings.VrChat.CurrentAvatarId.Trim(),
-            masterProfile?.AvatarId.Trim() ?? string.Empty,
-            masterProfile?.AvatarName.Trim() ?? string.Empty,
+            !string.IsNullOrWhiteSpace(settings.MasterAvatarSwapReturnId)
+                ? settings.MasterAvatarSwapReturnId.Trim()
+                : (masterProfile?.AvatarId.Trim() ?? string.Empty),
+            !string.IsNullOrWhiteSpace(settings.MasterAvatarSwapReturnName)
+                ? settings.MasterAvatarSwapReturnName.Trim()
+                : (masterProfile?.AvatarName.Trim() ?? string.Empty),
             settings.VrChat.IsConnected
                 ? new VrChatSessionSnapshot(
                     settings.VrChat.AuthCookie,
@@ -461,7 +514,10 @@ public sealed record BridgeRuntimeConfiguration(
             universalTriggers.ToArray(),
             avatarScaleRules.ToArray(),
             cashPaymentRules.ToArray(),
-            settings.AvatarProfiles.ToArray());
+            settings.AvatarProfiles.ToArray(),
+            avatarSwapProfiles.ToArray(),
+            settings.MasterAvatarSwapReturnId?.Trim() ?? string.Empty,
+            settings.MasterAvatarSwapReturnName?.Trim() ?? string.Empty);
     }
 
     public static TwitchAccountSnapshot ToSnapshot(TwitchAccountSettings settings)
