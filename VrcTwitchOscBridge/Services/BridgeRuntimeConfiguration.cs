@@ -301,7 +301,8 @@ public sealed record AvatarSwapProfileSnapshot(
     bool IsEnabled,
     string? ThumbnailUrl,
     IReadOnlyList<TriggerRuleSnapshot> ChannelPointRules,
-    IReadOnlyList<TriggerRuleSnapshot> BitsSubsRules);
+    IReadOnlyList<TriggerRuleSnapshot> BitsSubsRules,
+    IReadOnlyList<TriggerRuleSnapshot> RouletteRules);
 
 public sealed record BridgeRuntimeConfiguration(
     string TwitchClientId,
@@ -457,6 +458,15 @@ public sealed record BridgeRuntimeConfiguration(
                 }
             }
 
+            var rouletteSnapshots = new List<TriggerRuleSnapshot>();
+            foreach (var rule in swapProfile.RouletteRules)
+            {
+                if (TryToSnapshot(rule, isGlobalOverride: true, profile: null, linkedRewardCooldownSecondsById, out var snapshot))
+                {
+                    rouletteSnapshots.Add(snapshot);
+                }
+            }
+
             avatarSwapProfiles.Add(new AvatarSwapProfileSnapshot(
                 swapProfile.Id,
                 swapProfile.TargetAvatarId,
@@ -467,7 +477,8 @@ public sealed record BridgeRuntimeConfiguration(
                 swapProfile.IsEnabled,
                 swapProfile.TargetThumbnailUrl,
                 channelPointSnapshots.ToArray(),
-                bitsSubsSnapshots.ToArray()));
+                bitsSubsSnapshots.ToArray(),
+                rouletteSnapshots.ToArray()));
         }
 
         return new BridgeRuntimeConfiguration(

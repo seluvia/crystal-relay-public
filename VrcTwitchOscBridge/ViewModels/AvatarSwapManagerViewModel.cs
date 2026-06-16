@@ -493,6 +493,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject, IDisposable
             profile.IsEnabled,
             profile.TargetThumbnailUrl,
             [],
+            [],
             []);
     }
 
