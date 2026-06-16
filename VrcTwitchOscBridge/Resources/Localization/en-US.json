@@ -1,4 +1,4 @@
-{
+﻿{
   " - Test Build": " - Test Build",
   "{0} | Crystal Relay": "{0} | Crystal Relay",
   "12-hour": "12-hour",
@@ -25,8 +25,8 @@
   "Available Redeems In This Avatar Set": "Available Redeems In This Avatar Set",
   "Avatar Change": "Avatar Change",
   "Avatar Swap": "Avatar Swap",
-  "Avatar Change Redeems": "Avatar Change Redeems",
-  "Avatar Change Setup": "Avatar Change Setup",
+  "Avatar Change Redeems": "Avatar Swap Redeems",
+  "Avatar Change Setup": "Avatar Swap",
   "Avatar Parameter": "Avatar Parameter",
   "Avatar Redeems": "Avatar Redeems",
   "Avatar Roulette": "Avatar Roulette",
@@ -273,8 +273,8 @@
   "Add Avatar Set": "Add Avatar Set",
   "Delete Avatar Set": "Delete Avatar Set",
   "Delete All Avatar Sets": "Delete All Avatar Sets",
-  "Add Avatar Change": "Add Avatar Change",
-  "Delete Avatar Change": "Delete Avatar Change",
+  "Add Avatar Change": "Add Avatar Swap",
+  "Delete Avatar Change": "Delete Avatar Swap",
   "Enable All": "Enable All",
   "Disable All": "Disable All",
   "Add an avatar set to get started.": "Add an avatar set to get started.",

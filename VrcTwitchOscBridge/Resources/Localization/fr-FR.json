@@ -1,4 +1,4 @@
-{
+﻿{
   " - Test Build": " - Version de test",
   "{0} | Crystal Relay": "{0} | Crystal Relay",
   "12-hour": "12 heures",
@@ -28,8 +28,8 @@
   "Available Avatars": "Avatars disponibles",
   "Available Redeems In This Avatar Set": "Récompenses disponibles dans cet ensemble d'avatars",
   "Avatar Change": "Changement d'avatar",
-  "Avatar Change Redeems": "Récompenses de changement d'avatar",
-  "Avatar Change Setup": "Configuration du changement d'avatar",
+  "Avatar Change Redeems": "Recompenses de changement d'avatar",
+  "Avatar Change Setup": "Changement d'avatar",
   "Avatar Parameter": "Paramètre d'avatar",
   "Avatar Redeems": "Récompenses d'avatar",
   "Avatar Roulette": "Roulette d'avatar",

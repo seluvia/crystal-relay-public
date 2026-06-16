@@ -1,4 +1,4 @@
-{
+﻿{
   " - Test Build": " - 測試版本",
   "{0} | Crystal Relay": "{0} | Crystal Relay",
   "12-hour": "12小時制",
@@ -24,8 +24,8 @@
   "Available Avatars": "可用頭像",
   "Available Redeems In This Avatar Set": "此頭像套裝中的可用兌換",
   "Avatar Change": "頭像切換",
-  "Avatar Change Redeems": "頭像切換兌換",
-  "Avatar Change Setup": "頭像切換設定",
+  "Avatar Change Redeems": "Avatar Swap Redeems",
+  "Avatar Change Setup": "Avatar Swap",
   "Avatar Parameter": "頭像參數",
   "Avatar Redeems": "頭像兌換",
   "Avatar Roulette": "頭像輪盤",
@@ -270,8 +270,8 @@
   "Add Avatar Set": "新增頭像套裝",
   "Delete Avatar Set": "刪除頭像套裝",
   "Delete All Avatar Sets": "刪除所有頭像套裝",
-  "Add Avatar Change": "新增頭像切換",
-  "Delete Avatar Change": "刪除頭像切換",
+  "Add Avatar Change": "Add Avatar Swap",
+  "Delete Avatar Change": "Delete Avatar Swap",
   "Enable All": "全部啟用",
   "Disable All": "全部停用",
   "Add an avatar set to get started.": "新增一個頭像套裝以開始。",

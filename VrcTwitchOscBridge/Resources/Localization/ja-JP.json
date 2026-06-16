@@ -1,4 +1,4 @@
-{
+﻿{
   " - Test Build": " - テストビルド",
   "{0} | Crystal Relay": "{0} | Crystal Relay",
   "12-hour": "12時間",
@@ -24,8 +24,8 @@
   "Available Avatars": "利用可能なアバター",
   "Available Redeems In This Avatar Set": "このアバターセットの利用可能な特典",
   "Avatar Change": "アバター変更",
-  "Avatar Change Redeems": "アバター変更特典",
-  "Avatar Change Setup": "アバター変更セットアップ",
+  "Avatar Change Redeems": "Avatar Swap Redeems",
+  "Avatar Change Setup": "Avatar Swap",
   "Avatar Parameter": "アバターパラメータ",
   "Avatar Redeems": "アバター特典",
   "Avatar Roulette": "アバタールーレット",
@@ -270,8 +270,8 @@
   "Add Avatar Set": "アバターセットを追加",
   "Delete Avatar Set": "アバターセットを削除",
   "Delete All Avatar Sets": "すべてのアバターセットを削除",
-  "Add Avatar Change": "アバター変更を追加",
-  "Delete Avatar Change": "アバター変更を削除",
+  "Add Avatar Change": "Add Avatar Swap",
+  "Delete Avatar Change": "Delete Avatar Swap",
   "Enable All": "すべて有効",
   "Disable All": "すべて無効",
   "Add an avatar set to get started.": "アバターセットを追加して開始してください。",

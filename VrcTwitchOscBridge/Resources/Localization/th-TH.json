@@ -1,4 +1,4 @@
-{
+﻿{
   " - Test Build": " - เวอร์ชันทดสอบ",
   "{0} | Crystal Relay": "{0} | Crystal Relay",
   "12-hour": "12 ชั่วโมง",
@@ -24,8 +24,8 @@
   "Available Avatars": "อวตารที่มี",
   "Available Redeems In This Avatar Set": "รางวัลที่มีในชุดอวตารนี้",
   "Avatar Change": "เปลี่ยนอวตาร",
-  "Avatar Change Redeems": "รางวัลเปลี่ยนอวตาร",
-  "Avatar Change Setup": "ตั้งค่าเปลี่ยนอวตาร",
+  "Avatar Change Redeems": "Avatar Swap Redeems",
+  "Avatar Change Setup": "Avatar Swap",
   "Avatar Parameter": "พารามิเตอร์อวตาร",
   "Avatar Redeems": "รางวัลอวตาร",
   "Avatar Roulette": "รูเล็ตอวตาร",
@@ -270,8 +270,8 @@
   "Add Avatar Set": "เพิ่มชุดอวตาร",
   "Delete Avatar Set": "ลบชุดอวตาร",
   "Delete All Avatar Sets": "ลบทุกชุดอวตาร",
-  "Add Avatar Change": "เพิ่มการเปลี่ยนอวตาร",
-  "Delete Avatar Change": "ลบการเปลี่ยนอวตาร",
+  "Add Avatar Change": "Add Avatar Swap",
+  "Delete Avatar Change": "Delete Avatar Swap",
   "Enable All": "เปิดทั้งหมด",
   "Disable All": "ปิดทั้งหมด",
   "Add an avatar set to get started.": "เพิ่มชุดอวตารเพื่อเริ่มต้น",

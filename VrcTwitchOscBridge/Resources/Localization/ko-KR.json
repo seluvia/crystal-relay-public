@@ -1,4 +1,4 @@
-{
+﻿{
   " - Test Build": " - 테스트 빌드",
   "{0} | Crystal Relay": "{0} | Crystal Relay",
   "12-hour": "12시간",
@@ -24,8 +24,8 @@
   "Available Avatars": "사용 가능한 아바타",
   "Available Redeems In This Avatar Set": "이 아바타 세트의 사용 가능한 보상",
   "Avatar Change": "아바타 변경",
-  "Avatar Change Redeems": "아바타 변경 보상",
-  "Avatar Change Setup": "아바타 변경 설정",
+  "Avatar Change Redeems": "Avatar Swap Redeems",
+  "Avatar Change Setup": "Avatar Swap",
   "Avatar Parameter": "아바타 매개변수",
   "Avatar Redeems": "아바타 보상",
   "Avatar Roulette": "아바타 룰렛",
@@ -270,8 +270,8 @@
   "Add Avatar Set": "아바타 세트 추가",
   "Delete Avatar Set": "아바타 세트 삭제",
   "Delete All Avatar Sets": "모든 아바타 세트 삭제",
-  "Add Avatar Change": "아바타 변경 추가",
-  "Delete Avatar Change": "아바타 변경 삭제",
+  "Add Avatar Change": "Add Avatar Swap",
+  "Delete Avatar Change": "Delete Avatar Swap",
   "Enable All": "모두 활성화",
   "Disable All": "모두 비활성화",
   "Add an avatar set to get started.": "시작하려면 아바타 세트를 추가하세요.",

@@ -1,4 +1,4 @@
-{
+﻿{
   " - Test Build": " - Тестовая сборка",
   "{0} | Crystal Relay": "{0} | Crystal Relay",
   "12-hour": "12-часовой",
@@ -24,8 +24,8 @@
   "Available Avatars": "Доступные аватары",
   "Available Redeems In This Avatar Set": "Доступные награды в этом наборе аватаров",
   "Avatar Change": "Смена аватара",
-  "Avatar Change Redeems": "Награды смены аватара",
-  "Avatar Change Setup": "Настройка смены аватара",
+  "Avatar Change Redeems": "Avatar Swap Redeems",
+  "Avatar Change Setup": "Avatar Swap",
   "Avatar Parameter": "Параметр аватара",
   "Avatar Redeems": "Награды аватара",
   "Avatar Roulette": "Рулетка аватаров",
@@ -272,8 +272,8 @@
   "Add Avatar Set": "Добавить набор аватаров",
   "Delete Avatar Set": "Удалить набор аватаров",
   "Delete All Avatar Sets": "Удалить все наборы аватаров",
-  "Add Avatar Change": "Добавить смену аватара",
-  "Delete Avatar Change": "Удалить смену аватара",
+  "Add Avatar Change": "Add Avatar Swap",
+  "Delete Avatar Change": "Delete Avatar Swap",
   "Enable All": "Включить все",
   "Disable All": "Отключить все",
   "Add an avatar set to get started.": "Добавьте набор аватаров для начала.",

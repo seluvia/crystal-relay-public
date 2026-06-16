@@ -1,4 +1,4 @@
-{
+﻿{
   " - Test Build": " - Testbygge",
   "{0} | Crystal Relay": "{0} | Crystal Relay",
   "12-hour": "12-timmars",
@@ -24,8 +24,8 @@
   "Available Avatars": "Tillgängliga avatars",
   "Available Redeems In This Avatar Set": "Tillgängliga belöningar i denna avataruppsättning",
   "Avatar Change": "Avatarbyten",
-  "Avatar Change Redeems": "Avatarbytesbelöningar",
-  "Avatar Change Setup": "Avatarbyteinställning",
+  "Avatar Change Redeems": "Avatarbytesbeloningar",
+  "Avatar Change Setup": "Avatarbyte",
   "Avatar Parameter": "Avatarparameter",
   "Avatar Redeems": "Avatarbelöningar",
   "Avatar Roulette": "Avatarroulette",
@@ -270,7 +270,7 @@
   "Add Avatar Set": "Lägg till avataruppsättning",
   "Delete Avatar Set": "Ta bort avataruppsättning",
   "Delete All Avatar Sets": "Ta bort alla avataruppsättningar",
-  "Add Avatar Change": "Lägg till avatarbyte",
+  "Add Avatar Change": "Lagg till avatarbyte",
   "Delete Avatar Change": "Ta bort avatarbyte",
   "Enable All": "Aktivera alla",
   "Disable All": "Inaktivera alla",
