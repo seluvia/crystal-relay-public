@@ -51,6 +51,7 @@
     <Page Include="VrChatLoginWindow.xaml" />
     <Page Include="VrChatTwoFactorWindow.xaml" />
     <Page Include="RedeemGroupEditorDialog.xaml" />
+    <Page Include="UserControls\AvatarSwapRuleEditorControl.xaml" />
 
     <Resource Include="Assets\crystal-relay-icon.ico" />
     <Resource Include="Assets\crystal-relay-icon.png" />
@@ -104,6 +105,9 @@
     <Compile Include="VrChatLoginWindow.xaml.cs" />
     <Compile Include="VrChatTwoFactorWindow.xaml.cs" />
     <Compile Include="RedeemGroupEditorDialog.xaml.cs" />
+    <Compile Include="UserControls\AvatarSwapRuleEditorControl.xaml.cs">
+      <DependentUpon>AvatarSwapRuleEditorControl.xaml</DependentUpon>
+    </Compile>
 
     <Compile Include="Infrastructure\AsyncRelayCommand.cs" />
     <Compile Include="Infrastructure\ObservableObject.cs" />

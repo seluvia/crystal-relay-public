@@ -1,0 +1,42 @@
+<UserControl x:Class="VrcTwitchOscBridge.UserControls.AvatarSwapRuleEditorControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="clr-namespace:VrcTwitchOscBridge.Services"
+             Width="460">
+    <StackPanel Margin="12">
+        <TextBlock Text="{loc:Translate Edit Rule}" FontSize="18" FontWeight="Bold" Margin="0,0,0,12" />
+
+        <TextBlock Text="{loc:Translate Name}" />
+        <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" />
+
+        <TextBlock Text="{loc:Translate Cost}" />
+        <TextBox Text="{Binding Cost, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" />
+
+        <TextBlock Text="{loc:Translate Cooldown seconds}" />
+        <TextBox Text="{Binding CooldownSeconds, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" />
+
+        <TextBlock Text="{loc:Translate Active time seconds}" />
+        <TextBox Text="{Binding ActiveTimeSeconds, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" />
+
+        <TextBlock Text="{loc:Translate Trigger Type}" />
+        <ComboBox SelectedItem="{Binding TriggerType}" Margin="0,0,0,8" />
+
+        <TextBlock Text="{loc:Translate Action Type}" />
+        <ComboBox SelectedItem="{Binding ActionType}" Margin="0,0,0,8" />
+
+        <StackPanel>
+            <StackPanel.Style>
+                <Style TargetType="StackPanel">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding ActionType}" Value="AvatarRoulet">
+                            <Setter Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </StackPanel.Style>
+            <TextBlock Text="{loc:Translate Roulette Pool}" />
+            <ListBox ItemsSource="{Binding RoulettePool}" />
+        </StackPanel>
+    </StackPanel>
+</UserControl>
