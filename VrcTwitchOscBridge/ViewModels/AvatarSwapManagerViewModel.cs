@@ -1,0 +1,569 @@
+using System;
+using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.ComponentModel;
+using System.Linq;
+using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Data;
+using System.Windows.Input;
+using System.Windows.Media;
+using VrcTwitchOscBridge.Infrastructure;
+using VrcTwitchOscBridge.Models;
+using VrcTwitchOscBridge.Services;
+
+namespace VrcTwitchOscBridge.ViewModels;
+
+public sealed class AvatarSwapManagerViewModel : ObservableObject, IDisposable
+{
+    private readonly AppSettings _settings;
+    private readonly MainWindowViewModel _mainVm;
+    private readonly AvatarImageService _imageService;
+
+    private readonly ObservableCollection<AvatarSwapCardViewModel> _channelPointCards = [];
+    private readonly ObservableCollection<AvatarSwapCardViewModel> _bitsSubsCards = [];
+    private readonly ObservableCollection<AvatarSwapProfile> _channelPointProfiles = [];
+    private readonly ObservableCollection<AvatarSwapProfile> _bitsSubsProfiles = [];
+
+    private AvatarSwapProfileSnapshot? _editorSnapshot;
+    private AvatarSwapProfile? _editorProfile;
+    private bool _editorIsNew;
+    private bool _isEditorOpen;
+    private string? _filterText;
+
+    public AvatarSwapManagerViewModel(AppSettings settings, MainWindowViewModel mainVm, AvatarImageService imageService)
+    {
+        _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        _mainVm = mainVm ?? throw new ArgumentNullException(nameof(mainVm));
+        _imageService = imageService ?? throw new ArgumentNullException(nameof(imageService));
+
+        _settings.AvatarSwapProfiles.CollectionChanged += OnProfilesChanged;
+
+        AddNewSwapCommand = new RelayCommand(AddNewSwap);
+        OpenEditorCommand = new RelayCommand(p => OpenEditor(p as AvatarSwapProfile));
+        CloseEditorCommand = new RelayCommand(CloseEditor);
+        SaveEditorCommand = new AsyncRelayCommand(SaveEditorAsync);
+        DeleteSelectedProfileCommand = new AsyncRelayCommand(DeleteSelectedProfileAsync, () => SelectedProfile is not null);
+        PickReturnAvatarCommand = new RelayCommand(PickReturnAvatar);
+        UseCurrentAvatarForReturnCommand = new RelayCommand(UseCurrentAvatarForReturn);
+        ClearReturnAvatarCommand = new RelayCommand(ClearReturnAvatar);
+        EnableAllCommand = new RelayCommand(EnableAll);
+        DisableAllCommand = new RelayCommand(DisableAll);
+        PickTargetAvatarCommand = new RelayCommand(p => PickTargetAvatar(p as AvatarSwapProfile));
+        UseCurrentAvatarForTargetCommand = new RelayCommand(p => UseCurrentAvatarForTarget(p as AvatarSwapProfile));
+        DeleteChannelPointRuleCommand = new RelayCommand(p => DeleteRule(p as TriggerRule, isBitsSubs: false));
+        DeleteBitsSubsRuleCommand = new RelayCommand(p => DeleteRule(p as TriggerRule, isBitsSubs: true));
+        ToggleChannelPointSectionCommand = new RelayCommand(() => IsChannelPointSectionCollapsed = !IsChannelPointSectionCollapsed);
+        ToggleBitsSubsSectionCommand = new RelayCommand(() => IsBitsSubsSectionCollapsed = !IsBitsSubsSectionCollapsed);
+
+        RebuildCollections();
+    }
+
+    public ObservableCollection<AvatarSwapCardViewModel> ChannelPointCards => _channelPointCards;
+    public ObservableCollection<AvatarSwapCardViewModel> BitsSubsCards => _bitsSubsCards;
+
+    public IReadOnlyList<ReturnAvatarMode> ReturnAvatarModes { get; } =
+        [ReturnAvatarMode.UseGlobal, ReturnAvatarMode.UseCustom, ReturnAvatarMode.SameAsTarget];
+
+    public string? ReturnAvatarId
+    {
+        get => _settings.MasterAvatarSwapReturnId;
+        set
+        {
+            _settings.MasterAvatarSwapReturnId = value;
+            RaisePropertyChanged();
+            RaisePropertyChanged(nameof(ReturnAvatarName));
+            RaisePropertyChanged(nameof(HasReturnAvatar));
+            RaisePropertyChanged(nameof(ReturnAvatarDisplayName));
+        }
+    }
+
+    public string? ReturnAvatarName
+    {
+        get => _settings.MasterAvatarSwapReturnName;
+        set
+        {
+            _settings.MasterAvatarSwapReturnName = value;
+            RaisePropertyChanged();
+            RaisePropertyChanged(nameof(ReturnAvatarDisplayName));
+        }
+    }
+
+    public bool HasReturnAvatar => !string.IsNullOrWhiteSpace(ReturnAvatarId);
+
+    public string ReturnAvatarDisplayName => _settings.MasterAvatarSwapReturnDisplayName;
+
+    public bool IsEditorOpen
+    {
+        get => _isEditorOpen;
+        set
+        {
+            if (SetProperty(ref _isEditorOpen, value))
+            {
+                RaisePropertyChanged(nameof(IsEditorClosed));
+            }
+        }
+    }
+
+    public bool IsEditorClosed => !_isEditorOpen;
+
+    public AvatarSwapProfile? SelectedProfile
+    {
+        get => _editorProfile;
+        private set
+        {
+            if (SetProperty(ref _editorProfile, value))
+            {
+                RaisePropertyChanged(nameof(EditorProfileId));
+                RaisePropertyChanged(nameof(EditorTargetAvatarName));
+                RaisePropertyChanged(nameof(EditorTargetAvatarId));
+                RaisePropertyChanged(nameof(EditorReturnMode));
+                RaisePropertyChanged(nameof(EditorReturnAvatarId));
+                RaisePropertyChanged(nameof(EditorReturnAvatarName));
+                RaisePropertyChanged(nameof(EditorChannelPointRules));
+                RaisePropertyChanged(nameof(EditorBitsSubsRules));
+                RaisePropertyChanged(nameof(EditorHasTarget));
+            }
+        }
+    }
+
+    public Guid? EditorProfileId => _editorProfile?.Id;
+
+    public string EditorTargetAvatarName
+    {
+        get => _editorProfile?.TargetAvatarName ?? string.Empty;
+        set
+        {
+            if (_editorProfile is not null)
+            {
+                _editorProfile.TargetAvatarName = value;
+                RaisePropertyChanged();
+            }
+        }
+    }
+
+    public string EditorTargetAvatarId
+    {
+        get => _editorProfile?.TargetAvatarId ?? string.Empty;
+        set
+        {
+            if (_editorProfile is not null)
+            {
+                _editorProfile.TargetAvatarId = value;
+                RaisePropertyChanged();
+                RaisePropertyChanged(nameof(EditorHasTarget));
+            }
+        }
+    }
+
+    public bool EditorHasTarget => _editorProfile?.HasTarget == true;
+
+    public ReturnAvatarMode EditorReturnMode
+    {
+        get => _editorProfile?.ReturnAvatarMode ?? ReturnAvatarMode.UseGlobal;
+        set
+        {
+            if (_editorProfile is not null)
+            {
+                _editorProfile.ReturnAvatarMode = value;
+                RaisePropertyChanged();
+            }
+        }
+    }
+
+    public string? EditorReturnAvatarId
+    {
+        get => _editorProfile?.ReturnAvatarId;
+        set
+        {
+            if (_editorProfile is not null)
+            {
+                _editorProfile.ReturnAvatarId = value;
+                RaisePropertyChanged();
+            }
+        }
+    }
+
+    public string? EditorReturnAvatarName
+    {
+        get => _editorProfile?.ReturnAvatarName;
+        set
+        {
+            if (_editorProfile is not null)
+            {
+                _editorProfile.ReturnAvatarName = value;
+                RaisePropertyChanged();
+            }
+        }
+    }
+
+    public ObservableCollection<TriggerRule> EditorChannelPointRules =>
+        _editorProfile?.ChannelPointRules ?? [];
+
+    public ObservableCollection<TriggerRule> EditorBitsSubsRules =>
+        _editorProfile?.BitsSubsRules ?? [];
+
+    public string? FilterText
+    {
+        get => _filterText;
+        set
+        {
+            if (SetProperty(ref _filterText, value))
+            {
+                ChannelPointCardsView.Refresh();
+                BitsSubsCardsView.Refresh();
+                RaisePropertyChanged(nameof(ChannelPointSectionSuffix));
+                RaisePropertyChanged(nameof(BitsSubsSectionSuffix));
+            }
+        }
+    }
+
+    public ICollectionView ChannelPointCardsView { get; private set; } = null!;
+    public ICollectionView BitsSubsCardsView { get; private set; } = null!;
+
+    private bool _isChannelPointSectionCollapsed;
+    public bool IsChannelPointSectionCollapsed
+    {
+        get => _isChannelPointSectionCollapsed;
+        set => SetProperty(ref _isChannelPointSectionCollapsed, value);
+    }
+
+    private bool _isBitsSubsSectionCollapsed;
+    public bool IsBitsSubsSectionCollapsed
+    {
+        get => _isBitsSubsSectionCollapsed;
+        set => SetProperty(ref _isBitsSubsSectionCollapsed, value);
+    }
+
+    public int ChannelPointCount => _channelPointProfiles.Count;
+    public int BitsSubsCount => _bitsSubsProfiles.Count;
+
+    public string ChannelPointSectionSuffix => FilterText is { Length: > 0 }
+        ? $"({_channelPointCards.Count} of {ChannelPointCount})"
+        : $"({ChannelPointCount})";
+
+    public string BitsSubsSectionSuffix => FilterText is { Length: > 0 }
+        ? $"({_bitsSubsCards.Count} of {BitsSubsCount})"
+        : $"({BitsSubsCount})";
+
+    public RelayCommand AddNewSwapCommand { get; }
+    public RelayCommand OpenEditorCommand { get; }
+    public RelayCommand CloseEditorCommand { get; }
+    public AsyncRelayCommand SaveEditorCommand { get; }
+    public AsyncRelayCommand DeleteSelectedProfileCommand { get; }
+    public RelayCommand PickReturnAvatarCommand { get; }
+    public RelayCommand UseCurrentAvatarForReturnCommand { get; }
+    public RelayCommand ClearReturnAvatarCommand { get; }
+    public RelayCommand EnableAllCommand { get; }
+    public RelayCommand DisableAllCommand { get; }
+    public RelayCommand PickTargetAvatarCommand { get; }
+    public RelayCommand UseCurrentAvatarForTargetCommand { get; }
+    public RelayCommand DeleteChannelPointRuleCommand { get; }
+    public RelayCommand DeleteBitsSubsRuleCommand { get; }
+    public RelayCommand ToggleChannelPointSectionCommand { get; }
+    public RelayCommand ToggleBitsSubsSectionCommand { get; }
+
+    public void OnWindowClosed()
+    {
+        CloseEditor();
+    }
+
+    public void Dispose()
+    {
+        CloseEditor();
+        _settings.AvatarSwapProfiles.CollectionChanged -= OnProfilesChanged;
+        foreach (var card in _channelPointCards)
+        {
+            card.Dispose();
+        }
+        foreach (var card in _bitsSubsCards)
+        {
+            card.Dispose();
+        }
+    }
+
+    private void RebuildCollections()
+    {
+        _channelPointCards.Clear();
+        _bitsSubsCards.Clear();
+        _channelPointProfiles.Clear();
+        _bitsSubsProfiles.Clear();
+
+        foreach (var profile in _settings.AvatarSwapProfiles)
+        {
+            if (profile.UsesChannelPointRules)
+            {
+                AddCardToSection(profile, _channelPointProfiles, _channelPointCards);
+            }
+            if (profile.UsesBitsSubsRules)
+            {
+                AddCardToSection(profile, _bitsSubsProfiles, _bitsSubsCards);
+            }
+        }
+
+        ChannelPointCardsView = CollectionViewSource.GetDefaultView(_channelPointCards);
+        ChannelPointCardsView.Filter = FilterCard;
+        BitsSubsCardsView = CollectionViewSource.GetDefaultView(_bitsSubsCards);
+        BitsSubsCardsView.Filter = FilterCard;
+
+        RaisePropertyChanged(nameof(ChannelPointCardsView));
+        RaisePropertyChanged(nameof(BitsSubsCardsView));
+        RaisePropertyChanged(nameof(ChannelPointSectionSuffix));
+        RaisePropertyChanged(nameof(BitsSubsSectionSuffix));
+    }
+
+    private void AddCardToSection(AvatarSwapProfile profile, ObservableCollection<AvatarSwapProfile> section, ObservableCollection<AvatarSwapCardViewModel> cards)
+    {
+        if (!section.Contains(profile))
+        {
+            section.Add(profile);
+        }
+        if (!cards.Any(c => c.Profile == profile))
+        {
+            var card = new AvatarSwapCardViewModel(profile, _imageService);
+            card.SetThumbnailUrl(_mainVm.TryGetVrChatAvatarThumbnailUrl(profile.TargetAvatarId));
+            cards.Add(card);
+        }
+    }
+
+    private void RemoveCardFromSection(AvatarSwapProfile profile)
+    {
+        var cp = _channelPointCards.FirstOrDefault(c => c.Profile == profile);
+        if (cp is not null)
+        {
+            _channelPointCards.Remove(cp);
+            cp.Dispose();
+        }
+        var bs = _bitsSubsCards.FirstOrDefault(c => c.Profile == profile);
+        if (bs is not null)
+        {
+            _bitsSubsCards.Remove(bs);
+            bs.Dispose();
+        }
+        _channelPointProfiles.Remove(profile);
+        _bitsSubsProfiles.Remove(profile);
+        RaisePropertyChanged(nameof(ChannelPointSectionSuffix));
+        RaisePropertyChanged(nameof(BitsSubsSectionSuffix));
+    }
+
+    private bool FilterCard(object obj)
+    {
+        if (obj is not AvatarSwapCardViewModel card) return false;
+        if (string.IsNullOrWhiteSpace(FilterText)) return true;
+        var text = FilterText.Trim();
+        return card.DisplayTitle.Contains(text, StringComparison.OrdinalIgnoreCase)
+            || card.AvatarSubtitle.Contains(text, StringComparison.OrdinalIgnoreCase)
+            || card.Profile.TargetAvatarId.Contains(text, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void OnProfilesChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.Action == NotifyCollectionChangedAction.Reset)
+        {
+            RebuildCollections();
+            return;
+        }
+        if (e.NewItems is not null)
+        {
+            foreach (var item in e.NewItems.OfType<AvatarSwapProfile>())
+            {
+                AddCardToSection(item, _channelPointProfiles, _channelPointCards);
+                AddCardToSection(item, _bitsSubsProfiles, _bitsSubsCards);
+            }
+        }
+        if (e.OldItems is not null)
+        {
+            foreach (var item in e.OldItems.OfType<AvatarSwapProfile>())
+            {
+                RemoveCardFromSection(item);
+            }
+        }
+        RaisePropertyChanged(nameof(ChannelPointSectionSuffix));
+        RaisePropertyChanged(nameof(BitsSubsSectionSuffix));
+    }
+
+    private void AddNewSwap()
+    {
+        var profile = new AvatarSwapProfile
+        {
+            IsEnabled = true,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        _settings.AvatarSwapProfiles.Add(profile);
+        _editorIsNew = true;
+        OpenEditor(profile);
+    }
+
+    private void OpenEditor(AvatarSwapProfile? profile)
+    {
+        if (profile is null) return;
+        if (_editorProfile is not null && IsEditorOpen)
+        {
+            CloseEditor();
+        }
+        _editorSnapshot = CreateSnapshot(profile);
+        _editorProfile = profile;
+        _editorIsNew = false;
+        SelectedProfile = profile;
+        IsEditorOpen = true;
+        RaisePropertyChanged(nameof(EditorChannelPointRules));
+        RaisePropertyChanged(nameof(EditorBitsSubsRules));
+    }
+
+    private static AvatarSwapProfileSnapshot? CreateSnapshot(AvatarSwapProfile profile)
+    {
+        return new AvatarSwapProfileSnapshot(
+            profile.Id,
+            profile.TargetAvatarId,
+            profile.TargetAvatarName,
+            profile.ReturnAvatarMode,
+            profile.ReturnAvatarId,
+            profile.ReturnAvatarName,
+            profile.IsEnabled,
+            profile.TargetThumbnailUrl,
+            [],
+            []);
+    }
+
+    private void CloseEditor()
+    {
+        if (_editorProfile is not null)
+        {
+            if (_editorIsNew)
+            {
+                _settings.AvatarSwapProfiles.Remove(_editorProfile);
+            }
+            else if (_editorSnapshot is not null)
+            {
+                RestoreFromSnapshot(_editorProfile, _editorSnapshot);
+            }
+        }
+        _editorSnapshot = null;
+        _editorIsNew = false;
+        IsEditorOpen = false;
+        SelectedProfile = null;
+    }
+
+    private static void RestoreFromSnapshot(AvatarSwapProfile profile, AvatarSwapProfileSnapshot snapshot)
+    {
+        profile.TargetAvatarId = snapshot.TargetAvatarId;
+        profile.TargetAvatarName = snapshot.TargetAvatarName;
+        profile.ReturnAvatarMode = snapshot.ReturnAvatarMode;
+        profile.ReturnAvatarId = snapshot.ReturnAvatarId;
+        profile.ReturnAvatarName = snapshot.ReturnAvatarName;
+        profile.IsEnabled = snapshot.IsEnabled;
+        profile.UpdatedAt = DateTime.UtcNow;
+    }
+
+    private async Task SaveEditorAsync()
+    {
+        if (_editorProfile is null) return;
+        _editorProfile.UpdatedAt = DateTime.UtcNow;
+        await _mainVm.SaveSettingsAsync();
+        _editorIsNew = false;
+        IsEditorOpen = false;
+        SelectedProfile = null;
+        _editorSnapshot = null;
+    }
+
+    private async Task DeleteSelectedProfileAsync()
+    {
+        if (_editorProfile is null) return;
+        var result = MessageBox.Show(
+            "Delete this Avatar Swap and all of its rules? This cannot be undone.",
+            "Confirm Delete",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+        if (result != MessageBoxResult.Yes) return;
+        _settings.AvatarSwapProfiles.Remove(_editorProfile);
+        await _mainVm.SaveSettingsAsync();
+        IsEditorOpen = false;
+        SelectedProfile = null;
+    }
+
+    private void PickReturnAvatar()
+    {
+        var avatars = _mainVm.GetAllVrChatAvatars();
+        var result = AvatarPickerService.OpenSingle(
+            ThemeManager.CurrentTheme,
+            avatars,
+            _settings.AvatarLibrary,
+            _settings.MasterAvatarSwapReturnId,
+            Application.Current?.MainWindow);
+        if (result is null) return;
+        ReturnAvatarId = result.AvatarId;
+        ReturnAvatarName = result.AvatarName;
+    }
+
+    private void UseCurrentAvatarForReturn()
+    {
+        var currentId = _settings.VrChat.CurrentAvatarId;
+        if (string.IsNullOrWhiteSpace(currentId)) return;
+        ReturnAvatarId = currentId;
+        ReturnAvatarName = _mainVm.ResolveVrChatAvatarName(currentId);
+    }
+
+    private void ClearReturnAvatar()
+    {
+        ReturnAvatarId = null;
+        ReturnAvatarName = null;
+    }
+
+    private void EnableAll()
+    {
+        foreach (var profile in _settings.AvatarSwapProfiles)
+        {
+            profile.IsEnabled = true;
+        }
+    }
+
+    private void DisableAll()
+    {
+        foreach (var profile in _settings.AvatarSwapProfiles)
+        {
+            profile.IsEnabled = false;
+        }
+    }
+
+    private void PickTargetAvatar(AvatarSwapProfile? profile)
+    {
+        if (profile is null) return;
+        var avatars = _mainVm.GetAllVrChatAvatars();
+        var result = AvatarPickerService.OpenSingle(
+            ThemeManager.CurrentTheme,
+            avatars,
+            _settings.AvatarLibrary,
+            profile.TargetAvatarId,
+            Application.Current?.MainWindow);
+        if (result is null) return;
+        profile.TargetAvatarId = result.AvatarId;
+        profile.TargetAvatarName = result.AvatarName;
+        profile.TargetThumbnailUrl = _mainVm.TryGetVrChatAvatarThumbnailUrl(result.AvatarId);
+        var card = _channelPointCards.FirstOrDefault(c => c.Profile == profile)
+            ?? _bitsSubsCards.FirstOrDefault(c => c.Profile == profile);
+        card?.SetThumbnailUrl(profile.TargetThumbnailUrl);
+    }
+
+    private void UseCurrentAvatarForTarget(AvatarSwapProfile? profile)
+    {
+        if (profile is null) return;
+        var currentId = _settings.VrChat.CurrentAvatarId;
+        if (string.IsNullOrWhiteSpace(currentId)) return;
+        profile.TargetAvatarId = currentId;
+        profile.TargetAvatarName = _mainVm.ResolveVrChatAvatarName(currentId);
+        profile.TargetThumbnailUrl = _mainVm.TryGetVrChatAvatarThumbnailUrl(currentId);
+        var card = _channelPointCards.FirstOrDefault(c => c.Profile == profile)
+            ?? _bitsSubsCards.FirstOrDefault(c => c.Profile == profile);
+        card?.SetThumbnailUrl(profile.TargetThumbnailUrl);
+    }
+
+    private void DeleteRule(TriggerRule? rule, bool isBitsSubs)
+    {
+        if (_editorProfile is null || rule is null) return;
+        var collection = isBitsSubs ? _editorProfile.BitsSubsRules : _editorProfile.ChannelPointRules;
+        collection.Remove(rule);
+        RaisePropertyChanged(nameof(EditorChannelPointRules));
+        RaisePropertyChanged(nameof(EditorBitsSubsRules));
+    }
+}
