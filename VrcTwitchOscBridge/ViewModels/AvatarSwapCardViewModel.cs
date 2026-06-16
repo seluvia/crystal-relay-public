@@ -59,6 +59,8 @@ public sealed class AvatarSwapCardViewModel : ObservableObject, IDisposable
         }
     }
 
+    public int RouletteRuleCount => Profile.RouletteRules?.Count ?? 0;
+
     public bool HasTarget => Profile.HasTarget;
 
     public bool IsEnabled => Profile.IsEnabled;
@@ -68,6 +70,8 @@ public sealed class AvatarSwapCardViewModel : ObservableObject, IDisposable
     public bool UsesChannelPointRules => Profile.UsesChannelPointRules;
 
     public bool UsesBitsSubsRules => Profile.UsesBitsSubsRules;
+
+    public bool UsesRouletteRules => Profile.UsesRouletteRules;
 
     public System.Windows.Media.Brush StatusStripeBrush => Profile.IsEnabled
         ? Profile.StatusStripeReadyBrush
@@ -162,6 +166,12 @@ public sealed class AvatarSwapCardViewModel : ObservableObject, IDisposable
                 RaisePropertyChanged(nameof(HasRules));
                 RaisePropertyChanged(nameof(UsesChannelPointRules));
                 RaisePropertyChanged(nameof(UsesBitsSubsRules));
+                break;
+            case nameof(AvatarSwapProfile.RouletteRules):
+                RaisePropertyChanged(nameof(AvatarSubtitle));
+                RaisePropertyChanged(nameof(RouletteRuleCount));
+                RaisePropertyChanged(nameof(HasRules));
+                RaisePropertyChanged(nameof(UsesRouletteRules));
                 break;
             case nameof(AvatarSwapProfile.ReturnAvatarDisplay):
                 RaisePropertyChanged(nameof(ReturnAvatarDisplay));
