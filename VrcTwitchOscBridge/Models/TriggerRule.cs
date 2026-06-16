@@ -783,6 +783,9 @@ public sealed class TriggerRule : ObservableObject
         }
     }
 
+    public string? PowerUpId { get; set; }
+    public string? CashPaymentRuleId { get; set; }
+
     public ObservableCollection<string> AvatarRouletAvatarIds
     {
         get => avatarRouletAvatarIds;
