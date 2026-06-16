@@ -47,6 +47,7 @@
     <Page Include="AvatarLibraryManagerWindow.xaml" />
     <Page Include="AvatarSetsManagerWindow.xaml" />
     <Page Include="UniversalTriggersManagerWindow.xaml" />
+    <Page Include="AvatarSwapManagerWindow.xaml" />
     <Page Include="VrChatLoginWindow.xaml" />
     <Page Include="VrChatTwoFactorWindow.xaml" />
     <Page Include="RedeemGroupEditorDialog.xaml" />
@@ -90,12 +91,16 @@
     <Compile Include="UniversalTriggersManagerWindow.xaml.cs">
       <DependentUpon>UniversalTriggersManagerWindow.xaml</DependentUpon>
     </Compile>
+    <Compile Include="AvatarSwapManagerWindow.xaml.cs">
+      <DependentUpon>AvatarSwapManagerWindow.xaml</DependentUpon>
+    </Compile>
     <Compile Include="ViewModels\UniversalTriggersManagerViewModel.cs" />
     <Compile Include="ViewModels\UniversalTriggerCardViewModel.cs" />
     <Compile Include="ViewModels\AvatarSetsManagerViewModel.cs" />
     <Compile Include="ViewModels\AvatarSetCardViewModel.cs" />
     <Compile Include="Converters.cs" />
     <Compile Include="Converters\UniversalTriggerValueConverters.cs" />
+    <Compile Include="Converters\AvatarSwapConverters.cs" />
     <Compile Include="VrChatLoginWindow.xaml.cs" />
     <Compile Include="VrChatTwoFactorWindow.xaml.cs" />
     <Compile Include="RedeemGroupEditorDialog.xaml.cs" />
@@ -109,6 +114,8 @@
     <Compile Include="Models\AppLanguage.cs" />
     <Compile Include="Models\AppSettings.cs" />
     <Compile Include="Models\AvatarTriggerProfile.cs" />
+    <Compile Include="Models\ReturnAvatarMode.cs" />
+    <Compile Include="Models\AvatarSwapProfile.cs" />
     <Compile Include="Models\AvatarSetsFilterMode.cs" />
     <Compile Include="Models\AvatarSetsSortMode.cs" />
     <Compile Include="Models\AvatarScaleRule.cs" />
@@ -150,6 +157,7 @@
     <Compile Include="Services\ApplicationRestartService.cs" />
     <Compile Include="Services\ApplicationSelfUpdateService.cs" />
     <Compile Include="Services\ApplicationUpdateService.cs" />
+    <Compile Include="Services\AvatarSwapMigrationService.cs" />
     <Compile Include="Services\BridgeAccountRole.cs" />
     <Compile Include="Services\BridgeCoordinator.cs" />
     <Compile Include="Services\BridgeRuntimeConfiguration.cs" />
@@ -196,6 +204,8 @@
     <Compile Include="ViewModels\MainWindowViewModel.cs" />
     <Compile Include="ViewModels\AvatarPickerViewModel.cs" />
     <Compile Include="ViewModels\AvatarLibraryManagerViewModel.cs" />
+    <Compile Include="ViewModels\AvatarSwapCardViewModel.cs" />
+    <Compile Include="ViewModels\AvatarSwapManagerViewModel.cs" />
 
   </ItemGroup>
   <ItemGroup>
