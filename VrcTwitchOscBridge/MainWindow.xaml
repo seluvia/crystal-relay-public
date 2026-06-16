@@ -8843,39 +8843,6 @@
                                                         </StackPanel>
 
                                                         <StackPanel Margin="0,14,0,0"
-                                                                    Visibility="{Binding UsesAvatarChange, Converter={StaticResource BoolToVisibilityConverter}}">
-                                                            <DockPanel LastChildFill="False">
-                                                                <TextBlock Text="{loc:Translate 'Avatar To Switch To'}"
-                                                                           Foreground="{DynamicResource TextBrush}"
-                                                                           FontWeight="SemiBold" />
-                                                                <Button Style="{StaticResource HelpIconButtonStyle}"
-                                                                        Width="24"
-                                                                        Height="24"
-                                                                        MinWidth="24"
-                                                                        MinHeight="24"
-                                                                        Click="OnHelpButtonClicked"
-                                                                        CommandParameter="Avatar To Switch To"
-                                                                        Tag="Choose the exact VRChat avatar this rule should switch you to. Crystal Relay shows clean avatar names here, but it still stores the real avatar ID behind the scenes so OSC avatar changes go to the correct target. Start typing to search the cached avatar list by name." />
-                                                            </DockPanel>
-                                                            <DockPanel Margin="0,8,0,0">
-                                                                <Button DockPanel.Dock="Right"
-                                                                        Content="{loc:Translate 'Browse...'}"
-                                                                        Style="{StaticResource SecondaryButtonStyle}"
-                                                                        Command="{Binding DataContext.OpenAvatarPickerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                        CommandParameter="AvatarChange" />
-                                                                <TextBlock Text="{Binding AvatarChangeDisplayName}"
-                                                                           Foreground="{DynamicResource TextBrush}"
-                                                                           VerticalAlignment="Center"
-                                                                           Margin="0,0,8,0"
-                                                                           TextWrapping="Wrap" />
-                                                            </DockPanel>
-                                                            <Button Margin="0,8,0,0"
-                                                                    Content="{loc:Translate 'Use Current Avatar'}"
-                                                                    Style="{StaticResource SecondaryButtonStyle}"
-                                                                    Command="{Binding DataContext.UseCurrentAvatarForAvatarChangeRuleCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
-                                                        </StackPanel>
-
-                                                        <StackPanel Margin="0,14,0,0"
                                                                     Visibility="{Binding UsesAvatarRoulet, Converter={StaticResource BoolToVisibilityConverter}}">
                                                             <DockPanel LastChildFill="False">
                                                                 <TextBlock Text="{loc:Translate 'Avatar Roulette Pool'}"
