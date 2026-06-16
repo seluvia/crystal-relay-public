@@ -178,13 +178,15 @@
 
         <Style x:Key="ScrollBarThumbStyle" TargetType="Thumb">
             <Setter Property="MinHeight" Value="32" />
+            <Setter Property="OverridesDefaultStyle" Value="True" />
+            <Setter Property="IsTabStop" Value="False" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Thumb">
                         <Border x:Name="ThumbChrome"
-                                Margin="2"
+                                Margin="0"
                                 Background="{DynamicResource ScrollThumbBrush}"
-                                CornerRadius="8" />
+                                CornerRadius="6" />
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="ThumbChrome" Property="Background" Value="{DynamicResource AccentBrush}" />
@@ -214,14 +216,14 @@
 
         <ControlTemplate x:Key="VerticalScrollBarTemplate" TargetType="ScrollBar">
             <Grid Width="{TemplateBinding Width}"
-                  MinWidth="18"
+                  MinWidth="20"
                   Background="Transparent">
                 <Border Background="{DynamicResource ScrollTrackBrush}"
                         BorderBrush="{DynamicResource InputBorderBrush}"
                         BorderThickness="1"
-                        CornerRadius="8" />
+                        CornerRadius="10" />
                 <Track x:Name="PART_Track"
-                       Margin="2"
+                       Margin="3"
                        IsDirectionReversed="True">
                     <Track.DecreaseRepeatButton>
                         <RepeatButton Style="{StaticResource ScrollBarTrackButtonStyle}"
@@ -240,8 +242,9 @@
 
         <Style x:Key="ThemedScrollBarStyle" TargetType="ScrollBar">
             <Setter Property="Background" Value="{DynamicResource ScrollTrackBrush}" />
-            <Setter Property="Width" Value="18" />
+            <Setter Property="Width" Value="20" />
             <Setter Property="Height" Value="Auto" />
+            <Setter Property="MinWidth" Value="20" />
             <Setter Property="Template" Value="{StaticResource VerticalScrollBarTemplate}" />
         </Style>
 
@@ -264,6 +267,7 @@
                            Cursor="Arrow"
                            Maximum="{TemplateBinding ScrollableHeight}"
                            Minimum="0"
+                           ViewportSize="{TemplateBinding ViewportHeight}"
                            Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}"
                            Value="{Binding VerticalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}" />
             </Grid>
