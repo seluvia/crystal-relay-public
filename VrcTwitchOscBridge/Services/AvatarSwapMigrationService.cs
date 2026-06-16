@@ -5,7 +5,7 @@ namespace VrcTwitchOscBridge.Services;
 
 public static class AvatarSwapMigrationService
 {
-    public const int CurrentMigrationVersion = 2;
+    public const int CurrentMigrationVersion = 3;
 
     public static void Migrate(AppSettings settings)
     {
