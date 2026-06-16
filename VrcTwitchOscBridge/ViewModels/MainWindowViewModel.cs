@@ -908,13 +908,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ShowSettingsVisualsSectionCommand = new RelayCommand(() => SetActiveSettingsSection(SettingsSectionView.Visuals));
         ShowSettingsSafetySectionCommand = new RelayCommand(() => SetActiveSettingsSection(SettingsSectionView.Safety));
         ShowAvatarTriggerRulesCommand = new RelayCommand(ShowAvatarTriggerRules);
-        ShowMasterAvatarTabCommand = new RelayCommand(ShowMasterAvatarTab);
         ShowMovementRedeemsCommand = new RelayCommand(ShowMovementRedeems);
         ShowSupporterOverridesCommand = new RelayCommand(ShowSupporterOverrides);
         ShowPowerUpsCommand = new RelayCommand(ShowPowerUps);
         OpenUniversalTriggersManagerCommand = new RelayCommand(OpenUniversalTriggersManager);
         OpenAvatarSetsManagerCommand = new RelayCommand(OpenAvatarSetsManager);
         OpenAvatarSwapManagerCommand = new RelayCommand(OpenAvatarSwapManager);
+        PickReturnAvatarCommand = new RelayCommand(PickReturnAvatar);
+        UseCurrentAvatarForReturnCommand = new RelayCommand(UseCurrentAvatarForReturn);
+        ClearReturnAvatarCommand = new RelayCommand(ClearReturnAvatar);
         ShowAvatarScalingCommand = new RelayCommand(ShowAvatarScaling);
         ShowCashPaymentsCommand = new RelayCommand(ShowCashPayments);
         ShowRewardFireSaleCommand = new RelayCommand(ShowRewardFireSale);
@@ -932,9 +934,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         UseCurrentAvatarForSupporterRuleCommand = new RelayCommand(
             UseCurrentAvatarForSupporterRule,
             () => CanUseCurrentAvatarForSupporterRule());
-        UseCurrentAvatarForAvatarChangeRuleCommand = new RelayCommand(
-            UseCurrentAvatarForAvatarChangeRule,
-            () => CanUseCurrentAvatarForAvatarChangeRule());
         OpenAvatarPickerCommand = new RelayCommand(OpenAvatarPicker);
         AddRuleCommand = new RelayCommand(AddRule);
         AddOutfitChoiceCommand = new RelayCommand(AddOutfitChoice, () => IsViewingAvatarTriggers && SelectedAvatarProfile is not null);
@@ -944,7 +943,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
         SelectRuleCommand = new RelayCommand(SelectRule, target => target is TriggerRule);
         AddAvatarSupporterTriggerCommand = new RelayCommand(AddAvatarSupporterTrigger);
-        AddAvatarChangeOverrideCommand = new RelayCommand(AddAvatarChangeOverride);
         AddForceMovementOverrideCommand = new RelayCommand(AddForceMovementOverride);
         RemoveSelectedRuleCommand = new RelayCommand(RemoveSelectedRule, () => SelectedRule is not null);
         EnableAllRulesCommand = new RelayCommand(EnableAllRules, () => GetCurrentEditableRuleCollection().Count > 0);
@@ -1518,17 +1516,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         .Where(IsSupporterForceMovementOverride)
         .ToArray();
 
-    public IReadOnlyList<TriggerRule> AvatarChangeOverrideRules => Settings.GlobalOverrideRules
-        .Where(IsSupporterAvatarChangeOverride)
-        .ToArray();
-
     public IReadOnlyList<TriggerRule> GlobalSupporterRules => [];
 
     public bool HasSelectedAvatarSupporterRules => SelectedAvatarSupporterRules.Count > 0;
 
     public bool HasForceMovementOverrideRules => ForceMovementOverrideRules.Count > 0;
-
-    public bool HasAvatarChangeOverrideRules => AvatarChangeOverrideRules.Count > 0;
 
     public bool HasGlobalSupporterRules => GlobalSupporterRules.Count > 0;
 
@@ -2508,7 +2500,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 TestSelectedPowerUpRuleCommand.NotifyCanExecuteChanged();
                 UnlinkPowerUpCommand.NotifyCanExecuteChanged();
                 UseCurrentAvatarForPowerUpRuleCommand.NotifyCanExecuteChanged();
-                UseCurrentAvatarForAvatarChangeRuleCommand.NotifyCanExecuteChanged();
                 RaisePropertyChanged(nameof(SelectedPowerUpRule));
                 RaisePropertyChanged(nameof(PowerUpRuleStatusText));
                 RaisePropertyChanged(nameof(PowerUpActionEditorHelpText));
@@ -3080,8 +3071,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public RelayCommand ShowAvatarTriggerRulesCommand { get; }
 
-    public RelayCommand ShowMasterAvatarTabCommand { get; }
-
     public RelayCommand ShowMovementRedeemsCommand { get; }
 
     public RelayCommand ShowSupporterOverridesCommand { get; }
@@ -3116,8 +3105,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public RelayCommand UseCurrentAvatarForSupporterRuleCommand { get; }
 
-    public RelayCommand UseCurrentAvatarForAvatarChangeRuleCommand { get; }
-
     public RelayCommand OpenAvatarPickerCommand { get; }
 
     public RelayCommand AddRuleCommand { get; }
@@ -3129,8 +3116,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     public RelayCommand SelectRuleCommand { get; }
 
     public RelayCommand AddAvatarSupporterTriggerCommand { get; }
-
-    public RelayCommand AddAvatarChangeOverrideCommand { get; }
 
     public RelayCommand AddForceMovementOverrideCommand { get; }
 
@@ -3220,6 +3205,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public RelayCommand ResetRewardFireSaleProgressCommand { get; }
 
+    public RelayCommand PickReturnAvatarCommand { get; }
+
+    public RelayCommand UseCurrentAvatarForReturnCommand { get; }
+
+    public RelayCommand ClearReturnAvatarCommand { get; }
+
     // Startup flow for the main window. This loads saved data, rebuilds editor state,
     // restores helper caches, and runs cleanup recovery if the previous launch ended badly.
     public async Task InitializeAsync()
@@ -3270,6 +3261,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         UpdateAccountStatuses();
         isInitialized = true;
         ScheduleRewardFireSaleExpirationIfNeeded();
+        LoadMasterAvatarReturnImage();
         if (normalizedChatCommandFallbacks || fusedUniversalCommandFallbacks > 0 || normalizedSupporterAvatarScopes || normalizedRewardFireSale)
         {
             QueueSave(0);
@@ -5065,15 +5057,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         SwitchRuleView(RuleListView.AvatarTriggers, profile, rule);
     }
 
-    private void ShowMasterAvatarTab()
-    {
-        EnsureMasterAvatarProfileExists();
-        var profile = MasterAvatarProfile;
-        ApplyMasterAvatarDefaults(profile);
-        var rule = GetRememberedMasterRule();
-        SwitchRuleView(RuleListView.MasterAvatar, profile, rule);
-    }
-
     private void ShowMovementRedeems()
     {
         EnsureSelectedMovementRedeemSet();
@@ -5099,6 +5082,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private AvatarSetsManagerWindow? _avatarSetsManagerWindow;
 
     private AvatarSwapManagerWindow? _avatarSwapManagerWindow;
+
+    private readonly AvatarImageService _masterAvatarReturnImageService = new();
+    private System.Windows.Media.ImageSource? _masterAvatarReturnImage;
+    private System.Threading.CancellationTokenSource? _masterAvatarReturnImageCts;
 
     private void OpenUniversalTriggersManager()
     {
@@ -5158,6 +5145,103 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         };
         _avatarSwapManagerWindow.Closed += (_, _) => _avatarSwapManagerWindow = null;
         _avatarSwapManagerWindow.Show();
+    }
+
+    public System.Windows.Media.ImageSource? MasterAvatarReturnImage
+    {
+        get => _masterAvatarReturnImage;
+        private set
+        {
+            if (SetProperty(ref _masterAvatarReturnImage, value))
+            {
+                RaisePropertyChanged(nameof(HasMasterAvatarReturnImage));
+            }
+        }
+    }
+
+    public bool HasMasterAvatarReturnImage => _masterAvatarReturnImage is not null;
+
+    private void PickReturnAvatar()
+    {
+        var avatars = GetAllVrChatAvatars();
+        var result = AvatarPickerService.OpenSingle(
+            ThemeManager.CurrentTheme,
+            avatars,
+            Settings.AvatarLibrary,
+            Settings.MasterAvatarSwapReturnId,
+            Application.Current?.MainWindow);
+        if (result is null) return;
+        Settings.MasterAvatarSwapReturnId = result.AvatarId;
+        Settings.MasterAvatarSwapReturnName = result.AvatarName;
+        QueueSave();
+        QueueBridgeRefresh();
+        AppendLog($"Picked return avatar '{result.AvatarName}'.");
+    }
+
+    private void UseCurrentAvatarForReturn()
+    {
+        var currentId = Settings.VrChat.CurrentAvatarId;
+        if (string.IsNullOrWhiteSpace(currentId)) return;
+        Settings.MasterAvatarSwapReturnId = currentId;
+        Settings.MasterAvatarSwapReturnName = ResolveVrChatAvatarName(currentId);
+        QueueSave();
+        QueueBridgeRefresh();
+        AppendLog($"Set return avatar to current avatar '{Settings.MasterAvatarSwapReturnName}'.");
+    }
+
+    private void ClearReturnAvatar()
+    {
+        Settings.MasterAvatarSwapReturnId = null;
+        Settings.MasterAvatarSwapReturnName = null;
+        QueueSave();
+        QueueBridgeRefresh();
+        AppendLog("Cleared the return avatar.");
+    }
+
+    private void LoadMasterAvatarReturnImage()
+    {
+        _masterAvatarReturnImageCts?.Cancel();
+        _masterAvatarReturnImageCts?.Dispose();
+        _masterAvatarReturnImageCts = new System.Threading.CancellationTokenSource();
+        var avatarId = Settings.MasterAvatarSwapReturnId;
+        var thumbnailUrl = TryGetVrChatAvatarThumbnailUrl(avatarId);
+        var ct = _masterAvatarReturnImageCts.Token;
+
+        if (string.IsNullOrWhiteSpace(avatarId))
+        {
+            MasterAvatarReturnImage = null;
+            return;
+        }
+
+        var syncImage = _masterAvatarReturnImageService.GetAvatarImage(avatarId, null, thumbnailUrl);
+        if (syncImage is not null && !ct.IsCancellationRequested)
+        {
+            System.Windows.Application.Current?.Dispatcher.InvokeAsync(() => MasterAvatarReturnImage = syncImage);
+            return;
+        }
+
+        _ = System.Threading.Tasks.Task.Run(async () =>
+        {
+            try
+            {
+                var asyncImage = await _masterAvatarReturnImageService.GetAvatarImageAsync(avatarId, null, thumbnailUrl, ct);
+                if (asyncImage is not null && !ct.IsCancellationRequested)
+                {
+                    System.Windows.Application.Current?.Dispatcher.InvokeAsync(() => MasterAvatarReturnImage = asyncImage);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch
+            {
+                if (!ct.IsCancellationRequested)
+                {
+                    var placeholder = _masterAvatarReturnImageService.GetPlaceholderImage();
+                    System.Windows.Application.Current?.Dispatcher.InvokeAsync(() => MasterAvatarReturnImage = placeholder);
+                }
+            }
+        }, ct);
     }
 
     private bool _isAvatarSetsManagerOpen;
@@ -6084,7 +6168,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             "Profile" => SelectedAvatarProfile?.AvatarId,
             "PowerUp" => SelectedPowerUpRule?.AvatarId,
             "Supporter" => SelectedRule?.SupporterAvatarId,
-            "AvatarChange" => SelectedRule?.AvatarChangeTargetId,
             _ => SelectedAvatarProfile?.AvatarId,
         };
 
@@ -6121,13 +6204,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 {
                     SelectedRule.SupporterAvatarId = result.AvatarId;
                     SelectedRule.SupporterAvatarName = result.AvatarName;
-                }
-                break;
-            case "AvatarChange":
-                if (SelectedRule is not null)
-                {
-                    SelectedRule.AvatarChangeTargetId = result.AvatarId;
-                    SelectedRule.AvatarTargetName = result.AvatarName;
                 }
                 break;
         }
@@ -6167,39 +6243,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         QueueBridgeRefresh();
         RaiseSupporterRuleGroupProperties();
         AppendLog($"Set supporter trigger '{SelectedRule.DisplayTitle}' to current avatar '{GetSafeVrChatAvatarDisplayName(resolvedName, currentAvatarId)}'.");
-    }
-
-    private bool CanUseCurrentAvatarForAvatarChangeRule()
-    {
-        return (IsViewingSupporterOverrides || IsViewingPowerUps)
-            && SelectedRule?.ActionType == OscActionType.AvatarChange
-            && !string.IsNullOrWhiteSpace(Settings.VrChat.CurrentAvatarId);
-    }
-
-    private void UseCurrentAvatarForAvatarChangeRule()
-    {
-        if (!CanUseCurrentAvatarForAvatarChangeRule() || SelectedRule is null)
-        {
-            return;
-        }
-
-        var currentAvatarId = Settings.VrChat.CurrentAvatarId?.Trim() ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(currentAvatarId))
-        {
-            VrChatAvatarStatus = T("Crystal Relay does not know the current avatar yet. Refresh avatars first.");
-            return;
-        }
-
-        var resolvedName = ResolveVrChatAvatarName(currentAvatarId);
-        SelectedRule.AvatarChangeTargetId = currentAvatarId;
-        SelectedRule.AvatarTargetName = resolvedName;
-        RefreshVrChatAvatarSelectionOptions();
-        QueueSave();
-        QueueBridgeRefresh();
-        var currentAvatarName = GetSafeVrChatAvatarDisplayName(resolvedName, currentAvatarId);
-        AppendLog(IsViewingPowerUps
-            ? $"Set Power Up avatar change '{SelectedRule.DisplayTitle}' target to current avatar '{currentAvatarName}'."
-            : $"Set avatar change override '{SelectedRule.DisplayTitle}' target to current avatar '{currentAvatarName}'.");
     }
 
     private void ApplySharedReturnAvatarSelection(string avatarId, string? avatarName, bool saveImmediately)
@@ -6561,17 +6604,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         QueueBridgeRefresh();
         RaiseSupporterRuleGroupProperties();
         AppendLog($"Added avatar supporter trigger '{rule.DisplayTitle}' for '{FormatSupporterAvatarScopeLabel(avatarId, avatarName)}'.");
-    }
-
-    private void AddAvatarChangeOverride()
-    {
-        var rule = CreateDefaultAvatarChangeOverrideRule();
-        Settings.GlobalOverrideRules.Add(rule);
-        SelectedRule = rule;
-        QueueSave();
-        QueueBridgeRefresh();
-        RaiseSupporterRuleGroupProperties();
-        AppendLog($"Added avatar change override '{rule.DisplayTitle}'.");
     }
 
     private void AddForceMovementOverride()
@@ -8580,7 +8612,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         OpenSupporterOverrideTimeSettingsCommand.NotifyCanExecuteChanged();
         AddSetTriggerActionCommand.NotifyCanExecuteChanged();
         RemoveSelectedSetTriggerActionCommand.NotifyCanExecuteChanged();
-        UseCurrentAvatarForAvatarChangeRuleCommand.NotifyCanExecuteChanged();
         RefreshAvatarParameterPathCommandStates();
     }
 
@@ -9333,6 +9364,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             RaisePropertyChanged(nameof(SelectedAvatarProfileStatusText));
             QueueBridgeRefresh();
             QueueManagedRewardSync(0);
+        }
+
+        if (sender is AppSettings
+            && e.PropertyName is nameof(AppSettings.MasterAvatarSwapReturnId) or nameof(AppSettings.MasterAvatarSwapReturnName))
+        {
+            LoadMasterAvatarReturnImage();
         }
 
         if (sender is AppSettings
@@ -16983,7 +17020,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         AddOutfitChoiceCommand.NotifyCanExecuteChanged();
         RemoveSelectedOutfitChoiceCommand.NotifyCanExecuteChanged();
         AddAvatarSupporterTriggerCommand.NotifyCanExecuteChanged();
-        AddAvatarChangeOverrideCommand.NotifyCanExecuteChanged();
         AddForceMovementOverrideCommand.NotifyCanExecuteChanged();
         AddAvatarProfileCommand.NotifyCanExecuteChanged();
         RemoveSelectedRuleCommand.NotifyCanExecuteChanged();
@@ -17027,7 +17063,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ToggleSelectedAvatarRewardTestOverrideCommand.NotifyCanExecuteChanged();
         UseCurrentVrChatAvatarForProfileCommand.NotifyCanExecuteChanged();
         UseCurrentAvatarForSupporterRuleCommand.NotifyCanExecuteChanged();
-        UseCurrentAvatarForAvatarChangeRuleCommand.NotifyCanExecuteChanged();
         StopRewardFireSaleCommand.NotifyCanExecuteChanged();
         ResetRewardFireSaleProgressCommand.NotifyCanExecuteChanged();
         RemoveRewardFireSaleTierCommand.NotifyCanExecuteChanged();
@@ -18504,11 +18539,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RefreshSupporterRuleScopeLabels();
         RaisePropertyChanged(nameof(SelectedAvatarSupporterRules));
         RaisePropertyChanged(nameof(ForceMovementOverrideRules));
-        RaisePropertyChanged(nameof(AvatarChangeOverrideRules));
         RaisePropertyChanged(nameof(GlobalSupporterRules));
         RaisePropertyChanged(nameof(HasSelectedAvatarSupporterRules));
         RaisePropertyChanged(nameof(HasForceMovementOverrideRules));
-        RaisePropertyChanged(nameof(HasAvatarChangeOverrideRules));
         RaisePropertyChanged(nameof(HasGlobalSupporterRules));
     }
 
@@ -18704,19 +18737,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         rule.SupporterAvatarName = avatarName?.Trim() ?? string.Empty;
         rule.ActionType = OscActionType.AvatarParameter;
         rule.MinimumAmount = 100;
-        return rule;
-    }
-
-    private static TriggerRule CreateDefaultAvatarChangeOverrideRule()
-    {
-        var rule = CreateBaseRule("New Avatar Change Override", TwitchTriggerType.Bits);
-        rule.ActionType = OscActionType.AvatarChange;
-        rule.SupporterAvatarProfileId = Guid.Empty;
-        rule.SupporterAvatarId = string.Empty;
-        rule.SupporterAvatarName = string.Empty;
-        rule.MinimumAmount = 100;
-        rule.DurationSeconds = 20;
-        rule.CooldownSeconds = 30;
         return rule;
     }
 
