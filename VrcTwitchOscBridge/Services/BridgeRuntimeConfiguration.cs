@@ -364,11 +364,6 @@ public sealed record BridgeRuntimeConfiguration(
         {
             foreach (var rule in profile.ChannelPointRules)
             {
-                if (rule.ActionType == OscActionType.AvatarChange
-                    && !string.IsNullOrWhiteSpace(rule.AvatarChangeTargetId))
-                {
-                    continue;
-                }
                 if (TryToSnapshot(rule, isGlobalOverride: false, profile, linkedRewardCooldownSecondsById, out var snapshot))
                 {
                     rules.Add(snapshot);
@@ -378,11 +373,6 @@ public sealed record BridgeRuntimeConfiguration(
 
         foreach (var rule in settings.GlobalOverrideRules)
         {
-            if (rule.ActionType == OscActionType.AvatarChange
-                && !string.IsNullOrWhiteSpace(rule.AvatarChangeTargetId))
-            {
-                continue;
-            }
             var supporterProfile = rule.SupporterAvatarProfileId == Guid.Empty
                 ? null
                 : settings.AvatarProfiles.FirstOrDefault(profile => profile.Id == rule.SupporterAvatarProfileId);
