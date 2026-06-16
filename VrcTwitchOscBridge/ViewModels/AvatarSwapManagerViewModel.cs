@@ -29,6 +29,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject, IDisposable
     private AvatarSwapProfile? _editorProfile;
     private bool _editorIsNew;
     private bool _isEditorOpen;
+    private AvatarSwapRuleEditorViewModel? _editingRule;
     private string? _filterText;
     private System.Windows.Media.ImageSource? _returnAvatarImage;
     private System.Threading.CancellationTokenSource? _returnAvatarImageCts;
@@ -57,6 +58,8 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject, IDisposable
         DeleteBitsSubsRuleCommand = new RelayCommand(p => DeleteRule(p as TriggerRule, isBitsSubs: true));
         AddChannelPointRuleCommand = new RelayCommand(AddChannelPointRule);
         AddBitsSubsRuleCommand = new RelayCommand(AddBitsSubsRule);
+        AddRouletteRuleCommand = new RelayCommand(AddRouletteRule, () => SelectedProfile is not null);
+        OpenRuleEditorCommand = new RelayCommand(p => OpenRuleEditor(p as TriggerRule));
         ToggleChannelPointSectionCommand = new RelayCommand(() => IsChannelPointSectionCollapsed = !IsChannelPointSectionCollapsed);
         ToggleBitsSubsSectionCommand = new RelayCommand(() => IsBitsSubsSectionCollapsed = !IsBitsSubsSectionCollapsed);
 
@@ -223,6 +226,12 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject, IDisposable
     public ObservableCollection<TriggerRule> EditorBitsSubsRules =>
         _editorProfile?.BitsSubsRules ?? [];
 
+    public AvatarSwapRuleEditorViewModel? EditingRule
+    {
+        get => _editingRule;
+        private set => SetProperty(ref _editingRule, value);
+    }
+
     public string? FilterText
     {
         get => _filterText;
@@ -282,6 +291,8 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject, IDisposable
     public RelayCommand DeleteBitsSubsRuleCommand { get; }
     public RelayCommand AddChannelPointRuleCommand { get; }
     public RelayCommand AddBitsSubsRuleCommand { get; }
+    public RelayCommand AddRouletteRuleCommand { get; }
+    public RelayCommand OpenRuleEditorCommand { get; }
     public RelayCommand ToggleChannelPointSectionCommand { get; }
     public RelayCommand ToggleBitsSubsSectionCommand { get; }
 
@@ -492,9 +503,9 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject, IDisposable
             profile.ReturnAvatarName,
             profile.IsEnabled,
             profile.TargetThumbnailUrl,
-            [],
-            [],
-            []);
+            profile.ChannelPointRules.Select(SafeCreateTriggerRuleSnapshot).Where(s => s is not null).Select(s => s!).ToList(),
+            profile.BitsSubsRules.Select(SafeCreateTriggerRuleSnapshot).Where(s => s is not null).Select(s => s!).ToList(),
+            profile.RouletteRules.Select(SafeCreateTriggerRuleSnapshot).Where(s => s is not null).Select(s => s!).ToList());
     }
 
     private void CloseEditor()
@@ -702,5 +713,50 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject, IDisposable
         };
         _editorProfile.BitsSubsRules.Add(rule);
         RaisePropertyChanged(nameof(EditorBitsSubsRules));
+    }
+
+    private void AddRouletteRule()
+    {
+        if (SelectedProfile is null) return;
+        var rule = new TriggerRule
+        {
+            ActionType = OscActionType.AvatarRoulet,
+            Name = "New Roulette Rule",
+            Source = TriggerRuleSource.Native
+        };
+        SelectedProfile.RouletteRules.Add(rule);
+        OpenRuleEditor(rule);
+    }
+
+    private void OpenRuleEditor(TriggerRule? rule)
+    {
+        if (rule is null) return;
+        EditingRule = new AvatarSwapRuleEditorViewModel(rule);
+        IsEditorOpen = true;
+    }
+
+    public void CommitRuleEdit()
+    {
+        EditingRule?.Save();
+        EditingRule = null;
+        IsEditorOpen = false;
+    }
+
+    public void CancelRuleEdit()
+    {
+        EditingRule = null;
+        IsEditorOpen = false;
+    }
+
+    private static TriggerRuleSnapshot? SafeCreateTriggerRuleSnapshot(TriggerRule rule)
+    {
+        try
+        {
+            return BridgeRuntimeConfiguration.CreateManualTestSnapshot(rule, isGlobalOverride: false, profile: null);
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
     }
 }
