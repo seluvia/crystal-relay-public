@@ -206,6 +206,7 @@
     <Compile Include="ViewModels\AvatarPickerViewModel.cs" />
     <Compile Include="ViewModels\AvatarLibraryManagerViewModel.cs" />
     <Compile Include="ViewModels\AvatarSwapCardViewModel.cs" />
+    <Compile Include="ViewModels\AvatarSwapRuleEditorViewModel.cs" />
     <Compile Include="ViewModels\AvatarSwapManagerViewModel.cs" />
 
   </ItemGroup>
