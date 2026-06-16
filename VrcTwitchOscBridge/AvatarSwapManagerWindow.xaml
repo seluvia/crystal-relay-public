@@ -623,7 +623,7 @@
                     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0" Style="{StaticResource ThemedScrollViewerStyle}"
                                   Visibility="{Binding EditingRule, Converter={StaticResource NullToVisibilityConverter}}">
                         <Grid HorizontalAlignment="Stretch">
-                            <uc:AvatarSwapRuleEditorControl DataContext="{Binding EditingRule}" HorizontalAlignment="Stretch" />
+                            <uc:AvatarSwapRuleEditorControl DataContext="{Binding EditingRule.Rule}" HorizontalAlignment="Stretch" />
                         </Grid>
                     </ScrollViewer>
                     <Border Grid.Row="2" Background="{DynamicResource NestedPanelBrush}" Padding="12,10">

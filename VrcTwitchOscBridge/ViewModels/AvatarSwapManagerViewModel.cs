@@ -80,6 +80,65 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject, IDisposable
     public IReadOnlyList<ReturnAvatarMode> ReturnAvatarModes { get; } =
         [ReturnAvatarMode.UseGlobal, ReturnAvatarMode.UseCustom, ReturnAvatarMode.SameAsTarget];
 
+    public bool IsViewingAvatarTriggers => true;
+    public bool IsViewingCashPayments => false;
+    public bool IsViewingPowerUps => false;
+    public bool IsViewingSupporterOverrides => false;
+    public bool IsViewingMovementRedeems => false;
+    public bool SelectedSetTriggerUsesSharedNumberedReward => false;
+    public string ManagedChannelPointRewardHelpText => string.Empty;
+    public string ChatCommandFallbackHelpText => string.Empty;
+    public string ManagedRewardColorsDescriptionText => string.Empty;
+    public string VrChatOscParameterStatus => string.Empty;
+
+    public IReadOnlyList<Models.TwitchTriggerType>? AvailableOverrideTriggerTypesForSelectedRule => null;
+    public IReadOnlyList<ActionTypeOption>? AvailableActionTypesForSelectedContext => null;
+    public IReadOnlyList<Models.OscParameterType>? ParameterTypes => null;
+    public System.Collections.ObjectModel.ObservableCollection<Models.VrChatOscParameterSummary>? AvatarParameterOptions => null;
+    public IReadOnlyList<string>? BoolValueOptions => null;
+    public IReadOnlyList<Models.IntZeroDurationMode>? IntZeroDurationModes => null;
+    public IReadOnlyList<Models.FloatValueMode>? FloatValueModes => null;
+    public IReadOnlyList<PlayerMovementOption>? MovementDirections => null;
+    public IReadOnlyList<ChatCommandPermissionOption>? ChatCommandPermissionOptions => null;
+    public IReadOnlyList<TwitchRewardSyncModeOption>? RewardSyncModeOptions => null;
+    public System.Collections.ObjectModel.ObservableCollection<TwitchRewardOption>? RewardOptions => null;
+    public System.Collections.ObjectModel.ObservableCollection<Models.VrChatOscParameterSummary>? SetTriggerParameterOptions => null;
+    public Models.VrChatOscParameterSummary? SelectedAvatarParameterOption
+    {
+        get => null;
+        set { }
+    }
+    public Models.VrChatOscParameterSummary? SelectedSetTriggerParameterOption
+    {
+        get => null;
+        set { }
+    }
+    public Models.SetTriggerAction? SelectedSetTriggerAction
+    {
+        get => null;
+        set { }
+    }
+    public ActionTypeOption? SelectedActionTypeOption
+    {
+        get => null;
+        set { }
+    }
+
+    public AppSettings Settings => _settings;
+
+    public ICommand? TestSelectedRuleCommand => null;
+    public ICommand? OpenAvatarPickerCommand => null;
+    public ICommand? UseCurrentAvatarForSupporterRuleCommand => null;
+    public ICommand? RefreshTwitchRewardsCommand => null;
+    public ICommand? UnlinkTwitchRewardCommand => null;
+    public ICommand? OpenSupporterOverrideTimeSettingsCommand => null;
+    public ICommand? OpenActiveFloatBoostRewardCommand => null;
+    public ICommand? OpenAvatarRouletPoolPickerCommand => null;
+    public ICommand? AddSetTriggerActionCommand => null;
+    public ICommand? RemoveSelectedSetTriggerActionCommand => null;
+    public ICommand? CopySelectedAvatarParameterPathCommand => null;
+    public ICommand? PasteSelectedAvatarParameterPathCommand => null;
+
     public string? ReturnAvatarId
     {
         get => _settings.MasterAvatarSwapReturnId;
