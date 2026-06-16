@@ -34,6 +34,7 @@
         <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
         <local:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
         <local:ScalePreviewConverter x:Key="ScalePreviewConverter" />
+        <local:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter" />
         <DataTemplate x:Key="AboutTwitchProfileTemplate">
             <Border x:Name="AboutProfileCard"
                     Margin="0,12,0,0"
