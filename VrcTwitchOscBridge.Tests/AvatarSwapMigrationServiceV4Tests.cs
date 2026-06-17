@@ -11,4 +11,22 @@ public sealed class AvatarSwapMigrationServiceV4Tests
         var rule = new TriggerRule();
         Assert.False(rule.IsGiftSubscription);
     }
+
+    [Fact]
+    public void TwitchTriggerType_HasGiftSubscriptionValue()
+    {
+        Assert.True(Enum.IsDefined(typeof(TwitchTriggerType), "GiftSubscription"));
+    }
+
+    [Fact]
+    public void TwitchTriggerType_HasChatCommandValue()
+    {
+        Assert.True(Enum.IsDefined(typeof(TwitchTriggerType), "ChatCommand"));
+    }
+
+    [Fact]
+    public void TwitchTriggerType_HasFollowValue()
+    {
+        Assert.True(Enum.IsDefined(typeof(TwitchTriggerType), "Follow"));
+    }
 }

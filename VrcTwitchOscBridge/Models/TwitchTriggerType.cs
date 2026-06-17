@@ -5,5 +5,8 @@ public enum TwitchTriggerType
     ChannelPoints,
     Bits,
     Subscriptions,
-    PowerUp
+    GiftSubscription,
+    PowerUp,
+    ChatCommand,
+    Follow,
 }
