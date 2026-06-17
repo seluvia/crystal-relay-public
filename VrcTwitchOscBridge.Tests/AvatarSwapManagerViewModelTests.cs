@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using VrcTwitchOscBridge.Models;
+using VrcTwitchOscBridge.Services;
 using VrcTwitchOscBridge.ViewModels;
 using Xunit;
 
@@ -38,5 +39,54 @@ public sealed class AvatarSwapManagerViewModelTests
         Assert.Same(card, vm.SelectedSwapCard);
         Assert.Contains(nameof(AvatarSwapManagerViewModel.SelectedSwapCard), propertyChanges);
         Assert.Single(vm.ChannelPointRows);
+    }
+
+    [Fact]
+    public void HasAnyRules_FalseWhenAllRuleCollectionsEmpty()
+    {
+        var profile = new AvatarSwapProfile();
+        var vm = new AvatarSwapCardViewModel(profile, new AvatarImageService());
+
+        Assert.False(vm.HasAnyRules);
+    }
+
+    [Fact]
+    public void HasAnyRules_TrueWhenChannelPointRulesPresent()
+    {
+        var profile = new AvatarSwapProfile();
+        profile.ChannelPointRules.Add(new TriggerRule());
+        var vm = new AvatarSwapCardViewModel(profile, new AvatarImageService());
+
+        Assert.True(vm.HasAnyRules);
+    }
+
+    [Fact]
+    public void HasAnyRules_TrueWhenBitsRulesPresent()
+    {
+        var profile = new AvatarSwapProfile();
+        profile.BitsRules.Add(new TriggerRule());
+        var vm = new AvatarSwapCardViewModel(profile, new AvatarImageService());
+
+        Assert.True(vm.HasAnyRules);
+    }
+
+    [Fact]
+    public void HasAnyRules_TrueWhenSubsRulesPresent()
+    {
+        var profile = new AvatarSwapProfile();
+        profile.SubsRules.Add(new TriggerRule());
+        var vm = new AvatarSwapCardViewModel(profile, new AvatarImageService());
+
+        Assert.True(vm.HasAnyRules);
+    }
+
+    [Fact]
+    public void HasAnyRules_TrueWhenPaymentRulesPresent()
+    {
+        var profile = new AvatarSwapProfile();
+        profile.PaymentRules.Add(new TriggerRule());
+        var vm = new AvatarSwapCardViewModel(profile, new AvatarImageService());
+
+        Assert.True(vm.HasAnyRules);
     }
 }

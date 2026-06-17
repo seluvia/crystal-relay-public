@@ -73,6 +73,8 @@ public sealed class AvatarSwapCardViewModel : ObservableObject, IDisposable
 
     public bool UsesPaymentRules => Profile.UsesPaymentRules;
 
+    public bool HasAnyRules => UsesChannelPointRules || UsesBitsRules || UsesSubsRules || UsesPaymentRules;
+
     public System.Windows.Media.Brush StatusStripeBrush => Profile.IsEnabled
         ? System.Windows.Media.Brushes.MediumSeaGreen
         : System.Windows.Media.Brushes.Gray;
@@ -166,6 +168,7 @@ public sealed class AvatarSwapCardViewModel : ObservableObject, IDisposable
                 RaisePropertyChanged(nameof(AvatarSubtitle));
                 RaisePropertyChanged(nameof(RuleCountText));
                 RaisePropertyChanged(nameof(HasRules));
+                RaisePropertyChanged(nameof(HasAnyRules));
                 RaisePropertyChanged(nameof(UsesChannelPointRules));
                 RaisePropertyChanged(nameof(UsesBitsRules));
                 RaisePropertyChanged(nameof(UsesSubsRules));
