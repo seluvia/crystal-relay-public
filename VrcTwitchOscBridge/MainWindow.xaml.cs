@@ -155,7 +155,7 @@ public partial class MainWindow : Window
         MessageBox.Show(
             this,
             LocalizationService.Translate(
-                "Avatar Swap has replaced the old Avatar Change system. All of your avatar change, Bits + Subs, Power-up avatar swap, cash payment avatar swap, and avatar roulette rules are now managed in the new Avatar Swap window. The 'Avatar Change Setup' tab has been removed. This notice will not appear again."),
+                "Avatar Swap has been reworked! Avatar Roulette is now its own card type, and Bits / Subs / Payment each have their own section. The per-avatar 'Return Avatar' is gone — all swaps now return to the global Return Avatar at the top of the window. This notice will not appear again."),
             LocalizationService.Translate("Avatar Swap Manager"),
             MessageBoxButton.OK,
             MessageBoxImage.Information);
