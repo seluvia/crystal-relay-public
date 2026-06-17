@@ -8187,28 +8187,22 @@ internal BridgeCoordinator(
                 capturedReturnAvatar.AvatarName);
         }
 
-        var returnAvatarId = profile.ReturnAvatarMode switch
-        {
-            ReturnAvatarMode.UseCustom => profile.ReturnAvatarId,
-            ReturnAvatarMode.UseGlobal => capturedReturnAvatar.AvatarId,
-            ReturnAvatarMode.SameAsTarget => null,
-            _ => capturedReturnAvatar.AvatarId
-        };
-
-        var hasReturn = profile.ReturnAvatarMode == ReturnAvatarMode.UseCustom
-            ? !string.IsNullOrWhiteSpace(profile.ReturnAvatarId)
-            : !string.IsNullOrWhiteSpace(capturedReturnAvatar.AvatarId);
+        var returnAvatarId = capturedReturnAvatar.AvatarId;
+        var returnAvatarName = !string.IsNullOrWhiteSpace(capturedReturnAvatar.AvatarName)
+            ? capturedReturnAvatar.AvatarName
+            : (activeConfiguration?.MasterAvatarSwapReturnName ?? profile.TargetAvatarName);
+        var hasReturn = !string.IsNullOrWhiteSpace(returnAvatarId);
 
         return new ResolvedRuleAction(
             vrChatOscClient.BuildAvatarChangePacket(profile.TargetAvatarId),
-            hasReturn && !string.IsNullOrWhiteSpace(returnAvatarId)
+            hasReturn
                 ? vrChatOscClient.BuildAvatarChangePacket(returnAvatarId)
                 : null,
             profile.TargetAvatarName,
             profile.TargetAvatarId,
             profile.TargetAvatarName,
-            returnAvatarId ?? string.Empty,
-            profile.ReturnAvatarName ?? capturedReturnAvatar.AvatarName);
+            returnAvatarId,
+            returnAvatarName);
     }
 
     private ResolvedRuleAction ResolveAvatarRouletAction(

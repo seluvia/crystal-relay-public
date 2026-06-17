@@ -71,4 +71,19 @@ public sealed class AvatarRouletteProfileDispatchTests
         Assert.NotNull(found);
         Assert.Equal("avtr_a", found.TargetAvatarId);
     }
+
+    [Fact]
+    public void ResolveAvatarSwapAction_UsesGlobalReturnAvatar()
+    {
+        var s = new AppSettings
+        {
+            MasterAvatarSwapReturnId = "avtr_return",
+            MasterAvatarSwapReturnName = "Return",
+        };
+        var p = new AvatarSwapProfile { TargetAvatarId = "avtr_target" };
+        s.AvatarSwapProfiles.Add(p);
+
+        var config = BridgeRuntimeConfiguration.FromSettings(s, RuntimeConfig.CreateDefault(), null);
+        Assert.Equal("avtr_return", config.MasterAvatarSwapReturnId);
+    }
 }
