@@ -44,15 +44,16 @@ public sealed class AvatarSwapMigrationServiceTests
         Assert.Equal(2, a.ChannelPointRules.Count);
         Assert.Single(b.ChannelPointRules);
         Assert.Equal("avtr_return", settings.MasterAvatarSwapReturnId);
-        Assert.Equal(3, settings.AvatarChangeToAvatarSwapMigrationVersion);
+        Assert.Equal(4, settings.AvatarChangeToAvatarSwapMigrationVersion);
     }
 
     [Fact]
-    public void Migrate_FoldsGlobalOverrideRulesIntoBitsSubsRules()
+    public void Migrate_FoldsGlobalOverrideRulesIntoBitsRules()
     {
         var settings = new AppSettings();
         settings.GlobalOverrideRules.Add(new TriggerRule
         {
+            TriggerType = TwitchTriggerType.Bits,
             ActionType = OscActionType.AvatarChange,
             AvatarChangeTargetId = "avtr_a",
             AvatarTargetName = "Avatar A",
@@ -62,8 +63,8 @@ public sealed class AvatarSwapMigrationServiceTests
         AvatarSwapMigrationService.Migrate(settings);
 
         var a = Assert.Single(settings.AvatarSwapProfiles);
-        Assert.Single(a.BitsSubsRules);
-        Assert.Equal(100, a.BitsSubsRules[0].MinimumAmount);
+        Assert.Single(a.BitsRules);
+        Assert.Equal(100, a.BitsRules[0].MinimumAmount);
     }
 
     [Fact]
@@ -160,7 +161,7 @@ public sealed class AvatarSwapMigrationServiceTests
         AvatarSwapMigrationService.Migrate(settings);
 
         var profile = Assert.Single(settings.AvatarSwapProfiles);
-        var rule = Assert.Single(profile.ChannelPointRules);
+        var rule = Assert.Single(profile.PaymentRules);
         Assert.Equal(TriggerRuleSource.CashPayment, rule.Source);
         Assert.Same(cashRule.TriggerAction, rule);
     }
@@ -192,10 +193,10 @@ public sealed class AvatarSwapMigrationServiceTests
     }
 
     [Fact]
-    public void Migrate_BumpsMigrationVersionTo3()
+    public void Migrate_BumpsMigrationVersionTo4()
     {
         var settings = new AppSettings();
         AvatarSwapMigrationService.Migrate(settings);
-        Assert.Equal(3, settings.AvatarChangeToAvatarSwapMigrationVersion);
+        Assert.Equal(4, settings.AvatarChangeToAvatarSwapMigrationVersion);
     }
 }

@@ -65,7 +65,7 @@ public static class AvatarSwapMigrationService
         foreach (var rule in globalRulesToMove)
         {
             var swapProfile = FindOrCreateSwapProfile(settings, rule.AvatarChangeTargetId, rule.AvatarTargetName);
-            MigrateInto(swapProfile.ChannelPointRules, rule, TriggerRuleSource.GlobalOverride);
+            MigrateInto(GetTargetCollectionForTrigger(swapProfile, rule), rule, TriggerRuleSource.GlobalOverride);
             settings.GlobalOverrideRules.Remove(rule);
         }
 
@@ -255,5 +255,16 @@ public static class AvatarSwapMigrationService
         };
         settings.AvatarSwapProfiles.Add(profile);
         return profile;
+    }
+
+    private static System.Collections.ObjectModel.ObservableCollection<TriggerRule> GetTargetCollectionForTrigger(
+        AvatarSwapProfile profile, TriggerRule rule)
+    {
+        return rule.TriggerType switch
+        {
+            TwitchTriggerType.Bits => profile.BitsRules,
+            TwitchTriggerType.Subscriptions or TwitchTriggerType.GiftSubscription => profile.SubsRules,
+            _ => profile.ChannelPointRules,
+        };
     }
 }
