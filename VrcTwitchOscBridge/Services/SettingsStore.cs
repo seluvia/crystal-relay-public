@@ -459,6 +459,8 @@ public sealed class SettingsStore
             settings.AvatarChangeToAvatarSwapMigrationVersion = profile.AvatarChangeToAvatarSwapMigrationVersion;
             settings.AvatarSwapProfiles = new ObservableCollection<AvatarSwapProfile>(
                 (profile.AvatarSwapProfiles ?? []).Select(ToAvatarSwapProfile));
+            settings.AvatarRouletteProfiles = new ObservableCollection<AvatarRouletteProfile>(
+                (profile.AvatarRouletteProfiles ?? new()).Select(ToAvatarRouletteProfile));
         }
 
         var secureMetadata = await LoadProtectedJsonAsync<PersistedSecureMetadataSettings>(
@@ -615,7 +617,8 @@ public sealed class SettingsStore
             MasterAvatarSwapReturnId = settings.MasterAvatarSwapReturnId,
             MasterAvatarSwapReturnName = settings.MasterAvatarSwapReturnName,
             AvatarChangeToAvatarSwapMigrationVersion = settings.AvatarChangeToAvatarSwapMigrationVersion,
-            AvatarSwapProfiles = [.. settings.AvatarSwapProfiles.Select(ToPersistedAvatarSwapProfile)]
+            AvatarSwapProfiles = [.. settings.AvatarSwapProfiles.Select(ToPersistedAvatarSwapProfile)],
+            AvatarRouletteProfiles = [.. settings.AvatarRouletteProfiles.Select(ToPersistedAvatarRouletteProfile)]
         };
 
         await SaveTextFileAtomicallyAsync(
@@ -910,7 +913,8 @@ public sealed class SettingsStore
             CashPayments = new CashPaymentConnectionSettings(),
             CashPaymentRules = new ObservableCollection<CashPaymentRule>(),
             Rules = new ObservableCollection<TriggerRule>(),
-            AvatarSwapProfiles = new ObservableCollection<AvatarSwapProfile>()
+            AvatarSwapProfiles = new ObservableCollection<AvatarSwapProfile>(),
+            AvatarRouletteProfiles = new ObservableCollection<AvatarRouletteProfile>()
         };
     }
 
@@ -1168,6 +1172,54 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
                 (profile.RouletteRules ?? []).Select(ToRule))
         };
     }
+
+    private static AvatarRouletteProfile ToAvatarRouletteProfile(PersistedAvatarRouletteProfile p)
+    {
+        var profile = new AvatarRouletteProfile
+        {
+            Id = p.Id == Guid.Empty ? Guid.NewGuid() : p.Id,
+            Name = p.Name ?? "Roulette",
+            IsEnabled = p.IsEnabled,
+            CreatedAt = NormalizeTimestamp(p.CreatedAt),
+            UpdatedAt = NormalizeTimestamp(p.UpdatedAt),
+            ReturnAvatarId = p.ReturnAvatarId,
+            ReturnAvatarName = p.ReturnAvatarName,
+        };
+        foreach (var entry in p.Pool ?? new())
+            profile.Pool.Add(new RouletteAvatarEntry
+            {
+                AvatarId = entry.AvatarId,
+                AvatarName = entry.AvatarName,
+                ThumbnailUrl = entry.ThumbnailUrl,
+            });
+        foreach (var t in p.Triggers ?? new())
+            profile.Triggers.Add(ToRule(t));
+        return profile;
+    }
+
+    private static PersistedAvatarRouletteProfile ToPersistedAvatarRouletteProfile(AvatarRouletteProfile p)
+    {
+        return new PersistedAvatarRouletteProfile
+        {
+            Id = p.Id,
+            Name = p.Name,
+            IsEnabled = p.IsEnabled,
+            CreatedAt = p.CreatedAt,
+            UpdatedAt = p.UpdatedAt,
+            ReturnAvatarId = p.ReturnAvatarId,
+            ReturnAvatarName = p.ReturnAvatarName,
+            Pool = p.Pool.Select(e => new PersistedRouletteAvatarEntry
+            {
+                AvatarId = e.AvatarId,
+                AvatarName = e.AvatarName,
+                ThumbnailUrl = e.ThumbnailUrl,
+            }).ToList(),
+            Triggers = p.Triggers.Select(ToPersistedRule).ToList(),
+        };
+    }
+
+    private static DateTime NormalizeTimestamp(DateTime value) =>
+        value == default ? DateTime.UtcNow : value;
 
     private static TriggerRule ToRule(PersistedTriggerRule rule)
     {
@@ -2677,6 +2729,8 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
         public int AvatarChangeToAvatarSwapMigrationVersion { get; set; }
 
         public List<PersistedAvatarSwapProfile>? AvatarSwapProfiles { get; set; }
+
+        public List<PersistedAvatarRouletteProfile> AvatarRouletteProfiles { get; set; } = new();
     }
 
     private sealed class PersistedRedeemGroup
@@ -3046,6 +3100,26 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
 
         [JsonPropertyName("rouletteRules")]
         public List<PersistedTriggerRule>? RouletteRules { get; set; }
+    }
+
+    private sealed class PersistedAvatarRouletteProfile
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public bool IsEnabled { get; set; } = true;
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
+        public List<PersistedRouletteAvatarEntry> Pool { get; set; } = new();
+        public string? ReturnAvatarId { get; set; }
+        public string? ReturnAvatarName { get; set; }
+        public List<PersistedTriggerRule> Triggers { get; set; } = new();
+    }
+
+    private sealed class PersistedRouletteAvatarEntry
+    {
+        public string AvatarId { get; set; } = string.Empty;
+        public string AvatarName { get; set; } = string.Empty;
+        public string? ThumbnailUrl { get; set; }
     }
 
     private sealed class PersistedWardrobeOutfit

@@ -1,4 +1,5 @@
 using VrcTwitchOscBridge.Models;
+using VrcTwitchOscBridge.Services;
 using Xunit;
 
 namespace VrcTwitchOscBridge.Tests;
@@ -108,5 +109,27 @@ public sealed class AvatarSwapMigrationServiceV4Tests
         var s = new AppSettings();
         Assert.NotNull(s.AvatarRouletteProfiles);
         Assert.Empty(s.AvatarRouletteProfiles);
+    }
+
+    [Fact]
+    public async Task SettingsStore_RoundTripsAvatarRouletteProfiles()
+    {
+        var temp = Path.Combine(Path.GetTempPath(), $"cr-settings-{Guid.NewGuid():N}.json");
+        try
+        {
+            var store = new SettingsStore(temp);
+            var settings = new AppSettings();
+            settings.AvatarRouletteProfiles.Add(new AvatarRouletteProfile { Name = "Test Roulette" });
+
+            await store.SaveAsync(settings);
+            var loaded = await store.LoadAsync();
+
+            Assert.Single(loaded.AvatarRouletteProfiles);
+            Assert.Equal("Test Roulette", loaded.AvatarRouletteProfiles[0].Name);
+        }
+        finally
+        {
+            if (File.Exists(temp)) File.Delete(temp);
+        }
     }
 }
