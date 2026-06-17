@@ -305,6 +305,20 @@ public sealed record AvatarSwapProfileSnapshot(
     IReadOnlyList<TriggerRuleSnapshot> BitsSubsRules,
     IReadOnlyList<TriggerRuleSnapshot> RouletteRules);
 
+public sealed record RouletteAvatarEntrySnapshot(
+    string AvatarId,
+    string AvatarName,
+    string? ThumbnailUrl);
+
+public sealed record AvatarRouletteProfileSnapshot(
+    Guid Id,
+    string Name,
+    bool IsEnabled,
+    IReadOnlyList<RouletteAvatarEntrySnapshot> Pool,
+    string? ReturnAvatarId,
+    string? ReturnAvatarName,
+    IReadOnlyList<TriggerRuleSnapshot> Triggers);
+
 public sealed record BridgeRuntimeConfiguration(
     string TwitchClientId,
     TwitchAccountSnapshot Broadcaster,
@@ -345,6 +359,7 @@ public sealed record BridgeRuntimeConfiguration(
     IReadOnlyList<CashPaymentRuleSnapshot> CashPaymentRules,
     IReadOnlyList<AvatarTriggerProfile> AvatarProfiles,
     IReadOnlyList<AvatarSwapProfileSnapshot> AvatarSwapProfiles,
+    IReadOnlyList<AvatarRouletteProfileSnapshot> AvatarRouletteProfiles,
     string MasterAvatarSwapReturnId,
     string MasterAvatarSwapReturnName)
 {
@@ -472,6 +487,35 @@ public sealed record BridgeRuntimeConfiguration(
                 rouletteSnapshots.ToArray()));
         }
 
+        var avatarRouletteProfiles = new List<AvatarRouletteProfileSnapshot>();
+        foreach (var rouletteProfile in settings.AvatarRouletteProfiles)
+        {
+            var poolSnapshots = rouletteProfile.Pool
+                .Select(entry => new RouletteAvatarEntrySnapshot(
+                    entry.AvatarId?.Trim() ?? string.Empty,
+                    entry.AvatarName?.Trim() ?? string.Empty,
+                    entry.ThumbnailUrl))
+                .ToList();
+
+            var triggerSnapshots = new List<TriggerRuleSnapshot>();
+            foreach (var rule in rouletteProfile.Triggers)
+            {
+                if (TryToSnapshot(rule, isGlobalOverride: true, profile: null, linkedRewardCooldownSecondsById, out var snapshot))
+                {
+                    triggerSnapshots.Add(snapshot);
+                }
+            }
+
+            avatarRouletteProfiles.Add(new AvatarRouletteProfileSnapshot(
+                rouletteProfile.Id,
+                rouletteProfile.Name?.Trim() ?? string.Empty,
+                rouletteProfile.IsEnabled,
+                poolSnapshots,
+                rouletteProfile.ReturnAvatarId?.Trim() ?? string.Empty,
+                rouletteProfile.ReturnAvatarName?.Trim() ?? string.Empty,
+                triggerSnapshots.ToArray()));
+        }
+
         return new BridgeRuntimeConfiguration(
             runtimeConfig.TwitchClientId.Trim(),
             ToSnapshot(settings.Broadcaster),
@@ -528,6 +572,7 @@ public sealed record BridgeRuntimeConfiguration(
             cashPaymentRules.ToArray(),
             settings.AvatarProfiles.ToArray(),
             avatarSwapProfiles.ToArray(),
+            avatarRouletteProfiles.ToArray(),
             settings.MasterAvatarSwapReturnId?.Trim() ?? string.Empty,
             settings.MasterAvatarSwapReturnName?.Trim() ?? string.Empty);
     }
