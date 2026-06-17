@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
 using System.Net.Http;
@@ -167,6 +168,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private readonly Dictionary<Guid, ActiveRuleLockoutState> activeRuleUnlocks = [];
     private readonly Dictionary<Guid, ActiveRuleLockoutState> activeAvatarSwitchRuleLockouts = [];
     private readonly Dictionary<Guid, HashSet<string>> remainingAvatarRouletCandidateIdsByRuleId = [];
+    private static readonly ConcurrentDictionary<Guid, List<int>> remainingAvatarRouletIndicesByRouletteId = new();
     private readonly Dictionary<Guid, CancellationTokenSource> cooldownStateNotifications = [];
     private readonly Dictionary<Guid, CancellationTokenSource> lockoutStateNotifications = [];
     private readonly Dictionary<Guid, CancellationTokenSource> avatarSwitchLockoutStateNotifications = [];
@@ -8135,6 +8137,14 @@ internal BridgeCoordinator(
     {
         if (rule.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet)
         {
+            if (rule.ActionType == OscActionType.AvatarRoulet)
+            {
+                var roulette = activeConfiguration?.FindRouletteProfileForRule(rule.Rule);
+                if (roulette != null)
+                {
+                    return ResolveRouletteProfileAction(roulette, rule);
+                }
+            }
             var parentProfile = activeConfiguration?.FindAvatarSwapProfileForRule(rule.Rule);
             if (parentProfile != null)
             {
@@ -8205,36 +8215,56 @@ internal BridgeCoordinator(
             returnAvatarName);
     }
 
+    private ResolvedRuleAction ResolveRouletteProfileAction(
+        AvatarRouletteProfileSnapshot roulette,
+        TriggerRuleSnapshot rule)
+    {
+        _ = rule;
+        if (roulette.Pool is null || roulette.Pool.Count == 0)
+        {
+            throw new InvalidOperationException(
+                $"Avatar Roulette profile '{roulette.Name}' has no avatars in the pool.");
+        }
+
+        var picked = PickAvatarRouletTarget(roulette);
+        if (picked is null)
+        {
+            throw new InvalidOperationException(
+                $"Avatar Roulette profile '{roulette.Name}' has no avatars in the pool.");
+        }
+
+        var returnAvatarId = !string.IsNullOrWhiteSpace(roulette.ReturnAvatarId)
+            ? roulette.ReturnAvatarId
+            : (activeConfiguration?.MasterAvatarSwapReturnId ?? picked.AvatarId);
+        var returnAvatarName = !string.IsNullOrWhiteSpace(roulette.ReturnAvatarName)
+            ? roulette.ReturnAvatarName
+            : (activeConfiguration?.MasterAvatarSwapReturnName ?? picked.AvatarName);
+        var hasReturn = !string.IsNullOrWhiteSpace(returnAvatarId)
+            && !string.Equals(returnAvatarId, picked.AvatarId, StringComparison.Ordinal);
+
+        return new ResolvedRuleAction(
+            vrChatOscClient.BuildAvatarChangePacket(picked.AvatarId),
+            hasReturn
+                ? vrChatOscClient.BuildAvatarChangePacket(returnAvatarId)
+                : null,
+            string.IsNullOrWhiteSpace(picked.AvatarName) ? "selected avatar" : picked.AvatarName,
+            picked.AvatarId,
+            picked.AvatarName,
+            hasReturn ? returnAvatarId : string.Empty,
+            hasReturn ? returnAvatarName : string.Empty);
+    }
+
     private ResolvedRuleAction ResolveAvatarRouletAction(
         TriggerRuleSnapshot rule,
         SharedReturnAvatarSnapshot capturedReturnAvatar)
     {
-        var parentProfile = activeConfiguration?.FindAvatarSwapProfileForRule(rule.Rule);
-        var selectedAvatar = PickAvatarRouletTarget(rule);
-        if (parentProfile != null)
+        var roulette = activeConfiguration?.FindRouletteProfileForRule(rule.Rule);
+        if (roulette != null)
         {
-            var returnAvatarId = parentProfile.ReturnAvatarMode switch
-            {
-                ReturnAvatarMode.UseCustom => parentProfile.ReturnAvatarId,
-                ReturnAvatarMode.UseGlobal => capturedReturnAvatar.AvatarId,
-                ReturnAvatarMode.SameAsTarget => null,
-                _ => capturedReturnAvatar.AvatarId
-            };
-            var hasReturn = parentProfile.ReturnAvatarMode == ReturnAvatarMode.UseCustom
-                ? !string.IsNullOrWhiteSpace(parentProfile.ReturnAvatarId)
-                : !string.IsNullOrWhiteSpace(capturedReturnAvatar.AvatarId);
-            return new ResolvedRuleAction(
-                vrChatOscClient.BuildAvatarChangePacket(selectedAvatar.AvatarId),
-                hasReturn && !string.IsNullOrWhiteSpace(returnAvatarId)
-                    ? vrChatOscClient.BuildAvatarChangePacket(returnAvatarId)
-                    : null,
-                selectedAvatar.AvatarName,
-                selectedAvatar.AvatarId,
-                selectedAvatar.AvatarName,
-                returnAvatarId ?? string.Empty,
-                parentProfile.ReturnAvatarName ?? capturedReturnAvatar.AvatarName);
+            return ResolveRouletteProfileAction(roulette, rule);
         }
 
+        var selectedAvatar = PickAvatarRouletTargetFromRule(rule);
         return new ResolvedRuleAction(
             vrChatOscClient.BuildAvatarChangePacket(selectedAvatar.AvatarId),
             !string.IsNullOrWhiteSpace(capturedReturnAvatar.AvatarId)
@@ -8306,7 +8336,36 @@ internal BridgeCoordinator(
             displayValue);
     }
 
-    private AvatarRouletSelection PickAvatarRouletTarget(TriggerRuleSnapshot rule)
+    private RouletteAvatarEntrySnapshot? PickAvatarRouletTarget(AvatarRouletteProfileSnapshot roulette)
+    {
+        if (roulette.Pool is null || roulette.Pool.Count == 0)
+        {
+            return null;
+        }
+
+        lock (stateGate)
+        {
+            var bag = remainingAvatarRouletIndicesByRouletteId.GetOrAdd(roulette.Id, _ => new List<int>());
+            if (bag.Count == 0)
+            {
+                for (var i = 0; i < roulette.Pool.Count; i++)
+                {
+                    bag.Add(i);
+                }
+                for (var i = bag.Count - 1; i > 0; i--)
+                {
+                    var j = Random.Shared.Next(i + 1);
+                    (bag[i], bag[j]) = (bag[j], bag[i]);
+                }
+            }
+
+            var idx = bag[bag.Count - 1];
+            bag.RemoveAt(bag.Count - 1);
+            return roulette.Pool[idx];
+        }
+    }
+
+    private AvatarRouletSelection PickAvatarRouletTargetFromRule(TriggerRuleSnapshot rule)
     {
         var configuredNames = rule.AvatarRouletAvatarNames
             .Select(avatarName => avatarName?.Trim() ?? string.Empty)
