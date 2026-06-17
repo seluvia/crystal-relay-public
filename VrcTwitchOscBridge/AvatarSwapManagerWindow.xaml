@@ -168,7 +168,7 @@
     <WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="32" CornerRadius="0" GlassFrameThickness="0" ResizeBorderThickness="6" UseAeroCaptionButtons="False" />
     </WindowChrome.WindowChrome>
-    <Border Background="#1a1426" BorderBrush="#3a2a5a" BorderThickness="1">
+    <Border Background="{DynamicResource WindowBackgroundBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="32" />
@@ -176,10 +176,10 @@
             </Grid.RowDefinitions>
 
             <!-- Custom title bar -->
-            <Border Grid.Row="0" Background="#241a3a" MouseLeftButtonDown="OnTitleBarMouseDown">
+            <Border Grid.Row="0" Background="{DynamicResource TitleBarBrush}" MouseLeftButtonDown="OnTitleBarMouseDown">
                 <DockPanel LastChildFill="False">
-                    <TextBlock Text="Avatar Swap" Foreground="#e8e3f5" FontWeight="SemiBold" VerticalAlignment="Center" Margin="12,0" />
-                    <Button DockPanel.Dock="Right" Content="✕" Width="40" Height="32" Background="Transparent" BorderThickness="0" Foreground="#e8e3f5" Click="OnCloseClicked" WindowChrome.IsHitTestVisibleInChrome="True" />
+                    <TextBlock Text="Avatar Swap" Foreground="{DynamicResource TitleBarTextBrush}" FontFamily="{DynamicResource HeadingFontFamily}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="12,0" />
+                    <Button DockPanel.Dock="Right" Content="✕" Style="{DynamicResource TitleBarButtonStyle}" Click="OnCloseClicked" WindowChrome.IsHitTestVisibleInChrome="True" />
                 </DockPanel>
             </Border>
 
@@ -190,15 +190,15 @@
                 </Grid.RowDefinitions>
 
                 <!-- Global Return Avatar banner -->
-                <Border Grid.Row="0" Background="#241a3a" BorderBrush="#3a2a5a" BorderThickness="1" CornerRadius="6" Padding="8" Margin="0,0,0,10">
+                <Border Grid.Row="0" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="8" Margin="0,0,0,10">
                     <DockPanel>
-                        <TextBlock DockPanel.Dock="Top" Text="↩ RETURN AVATAR (used by all swaps + roulettes)" Foreground="#9b86c9" FontSize="10" Margin="0,0,0,4" />
+                        <TextBlock DockPanel.Dock="Top" Text="↩ RETURN AVATAR (used by all swaps + roulettes)" Foreground="{DynamicResource MutedBrush}" FontSize="10" Margin="0,0,0,4" />
                         <StackPanel Orientation="Horizontal">
-                            <Border Width="32" Height="32" Background="#3a2a5a" CornerRadius="5" Margin="0,0,8,0" />
+                            <Border Width="32" Height="32" Background="{DynamicResource NestedPanelBrush}" CornerRadius="5" Margin="0,0,8,0" />
                             <TextBlock Text="{Binding GlobalReturnAvatarName}" VerticalAlignment="Center" Margin="0,0,12,0" />
-                            <Button Content="Pick…" Click="OnPickGlobalReturnClicked" Padding="8,4" Margin="0,0,4,0" />
-                            <Button Content="Use Current" Click="OnUseCurrentAvatarForGlobalReturnClicked" Padding="8,4" Margin="0,0,4,0" />
-                            <Button Content="Clear" Command="{Binding ClearGlobalReturnCommand}" Padding="8,4" />
+                            <Button Content="Pick…" Click="OnPickGlobalReturnClicked" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,4,0" />
+                            <Button Content="Use Current" Click="OnUseCurrentAvatarForGlobalReturnClicked" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,4,0" />
+                            <Button Content="Clear" Command="{Binding ClearGlobalReturnCommand}" Style="{StaticResource SecondaryButtonStyle}" />
                         </StackPanel>
                     </DockPanel>
                 </Border>
