@@ -101,4 +101,12 @@ public sealed class AvatarSwapMigrationServiceV4Tests
         Assert.Contains("🎲", p.Subtitle);
         Assert.Contains("pool", p.Subtitle);
     }
+
+    [Fact]
+    public void AppSettings_AvatarRouletteProfiles_DefaultsToEmpty()
+    {
+        var s = new AppSettings();
+        Assert.NotNull(s.AvatarRouletteProfiles);
+        Assert.Empty(s.AvatarRouletteProfiles);
+    }
 }

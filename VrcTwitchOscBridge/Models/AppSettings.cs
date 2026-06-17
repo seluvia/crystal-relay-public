@@ -222,6 +222,8 @@ public sealed class AppSettings : ObservableObject
         set => SetProperty(ref avatarSwapProfiles, value ?? []);
     }
 
+    public ObservableCollection<AvatarRouletteProfile> AvatarRouletteProfiles { get; set; } = new();
+
     public string? MasterAvatarSwapReturnId
     {
         get => masterAvatarSwapReturnId;
