@@ -171,4 +171,22 @@ public sealed class AvatarSwapMigrationServiceV4Tests
             if (File.Exists(temp)) File.Delete(temp);
         }
     }
+
+    [Fact]
+    public void MigrateV4_IsIdempotent_OnV4Save()
+    {
+        var s = new AppSettings();
+        var profile = new AvatarSwapProfile { TargetAvatarId = "avtr_a" };
+        profile.BitsRules.Add(new TriggerRule { TriggerType = TwitchTriggerType.Bits, Name = "Bits" });
+        s.AvatarSwapProfiles.Add(profile);
+        s.AvatarChangeToAvatarSwapMigrationVersion = 4;
+
+        AvatarSwapMigrationService.Migrate(s);
+
+        Assert.Single(profile.BitsRules);
+        Assert.Empty(profile.SubsRules);
+        Assert.Empty(profile.PaymentRules);
+        Assert.Empty(s.AvatarRouletteProfiles);
+        Assert.Equal(4, s.AvatarChangeToAvatarSwapMigrationVersion);
+    }
 }
