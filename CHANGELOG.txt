@@ -4,12 +4,14 @@ Crystal Relay Changelog
 Newest updates appear first. This changelog focuses on the changes users will notice most.
 
 v3.1.10
-- Finished the Avatar Swap migration: the new Avatar Swap manager is now the one UI for all avatar swaps, with runtime dispatch, paid-system routing, source cleanup, full per-rule editing, and avatar roulette folded in.
-- Wired AvatarSwapProfile rules into the runtime dispatch path so per-profile Return Avatar mode (Use Global / Use Custom / Same as Target) is honored.
-- Folded Power-up Bits, Cash Payments (StreamElements / Streamlabs / Ko-fi), and Avatar Roulette into the new manager.
-- Added full per-rule editing inside the manager: name, cost, cooldown, active time, trigger type, minimum amount, max accumulated duration, reward sync mode, delete-when-inactive, amount-scaled duration, supporter-avatar scope, and permanent-avatar-change.
-- Removed the legacy Avatar Change Setup tab, the Add Avatar Change Override button, and the per-rule UsesAvatarChange action block.
-- Showed a one-time migration notice on first run.
+- Reworked the Avatar Swap window: the right-side editor is now split into four clean sections (Channel Points, Bits, Subs, Payment) with per-section add buttons.
+- Made Avatar Roulette its own first-class card type with a gold-bordered style and a pool thumbnail strip.
+- The per-avatar "Return Avatar" mode is gone. All swaps and roulettes return to the single global Return Avatar at the top of the window.
+- Rule rows can be expanded inline in the section to edit cost, duration, cooldown, and other common fields.
+- Chat Command, Follow, and Power-up are now first-class trigger sources in the Avatar Swap editor.
+- Avatar Swap cards are smaller and use a 3-column grid.
+- Legacy "Avatar Change Setup" tab and related controls are removed from the main window.
+- A one-time migration notice is shown on first run after upgrading from v3.1.9.
 
 v3.1.9 beta 4
 - Added a new Avatar Swap manager window in the Redeem Library with per-target-avatar cards showing the avatar image and name.
