@@ -1539,264 +1539,15 @@ git commit -m "feat(avatar-swap): add ResolveRouletteProfileAction + update Pick
 
 ## Phase 4: ViewModels
 
-### Task 15: Restructure `AvatarSwapManagerViewModel` for 4 collections + roulette
+### Task 15: Build the full `AvatarSwapManagerViewModel`
 
 **Files:**
-- Modify: `VrcTwitchOscBridge/ViewModels/AvatarSwapManagerViewModel.cs`
-
-> **Note:** This is a large refactor. The full new file is provided to minimize partial-state compile errors. Read the existing file first to understand its public surface and dependencies; then replace it with the v4 version.
-
-- [ ] **Step 1: Build the v4 VM shell**
-
-The new VM exposes:
-- 1 left card collection: `SwapCards` (per-avatar card VMs)
-- 1 left card collection: `RouletteCards` (per-roulette card VMs)
-- Right editor state: `SelectedSwapProfile`, `EditingRoulette`
-- Global return avatar properties (delegated to `Settings.MasterAvatarSwapReturnId/Name`)
-- Commands: `AddSwapCommand`, `AddRouletteCommand`, `OpenSwapEditorCommand`, `OpenRouletteEditorCommand`, `AddChannelPointRuleCommand`, `AddBitsRuleCommand`, `AddSubsRuleCommand`, `AddPaymentRuleCommand`, `AddAdvancedTriggerCommand(TriggerSource)`, `SaveSwapEditorCommand`, `SaveRouletteEditorCommand`, `DeleteSwapCommand`, `DeleteRouletteCommand`, `PickGlobalReturnAvatarCommand`, `UseCurrentAvatarForGlobalReturnCommand`, `ClearGlobalReturnCommand`, `PickTargetAvatarCommand`, `UseCurrentAvatarForTargetCommand`, `PickRoulettePoolAvatarCommand`, `BeginInlineEditRuleCommand`, `CommitInlineEditRuleCommand`, `CancelInlineEditRuleCommand`, `DeleteRuleCommand`
-
-The implementation in this task establishes the shell with stubbed command bodies. Tasks 16-19 fill in the rest.
-
-Replace the contents of `VrcTwitchOscBridge/ViewModels/AvatarSwapManagerViewModel.cs` with:
-
-```csharp
-using System.Collections.ObjectModel;
-using System.Windows.Input;
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
-using VrcTwitchOscBridge.Models;
-using VrcTwitchOscBridge.Services;
-
-namespace VrcTwitchOscBridge.ViewModels;
-
-public partial class AvatarSwapManagerViewModel : ObservableObject
-{
-    private readonly AppSettings _settings;
-
-    public ObservableCollection<AvatarSwapCardViewModel> SwapCards { get; } = new();
-    public ObservableCollection<AvatarRouletteCardViewModel> RouletteCards { get; } = new();
-
-    [ObservableProperty] private AvatarSwapCardViewModel? _selectedSwapCard;
-    [ObservableProperty] private AvatarRouletteCardViewModel? _selectedRouletteCard;
-    [ObservableProperty] private bool _isSwapEditorOpen;
-    [ObservableProperty] private bool _isRouletteEditorOpen;
-    [ObservableProperty] private InlineAvatarSwapRuleRowViewModel? _editingRule;
-
-    // Global return avatar (lives at the top banner)
-    public string? GlobalReturnAvatarId => _settings.MasterAvatarSwapReturnId;
-    public string? GlobalReturnAvatarName => _settings.MasterAvatarSwapReturnName;
-
-    public AvatarSwapManagerViewModel(AppSettings settings)
-    {
-        _settings = settings;
-        RebuildCards();
-    }
-
-    public void RebuildCards()
-    {
-        SwapCards.Clear();
-        foreach (var profile in _settings.AvatarSwapProfiles)
-            SwapCards.Add(new AvatarSwapCardViewModel(profile));
-        RouletteCards.Clear();
-        foreach (var roulette in _settings.AvatarRouletteProfiles)
-            RouletteCards.Add(new AvatarRouletteCardViewModel(roulette));
-    }
-
-    [RelayCommand]
-    private void AddSwap() { /* Task 16 */ }
-    [RelayCommand]
-    private void AddRoulette() { /* Task 16 */ }
-    [RelayCommand]
-    private void OpenSwapEditor(AvatarSwapCardViewModel? card) { /* Task 16 */ }
-    [RelayCommand]
-    private void OpenRouletteEditor(AvatarRouletteCardViewModel? card) { /* Task 16 */ }
-    [RelayCommand]
-    private void SaveSwapEditor() { /* Task 17 */ }
-    [RelayCommand]
-    private void SaveRouletteEditor() { /* Task 17 */ }
-    [RelayCommand]
-    private void DeleteSwap() { /* Task 17 */ }
-    [RelayCommand]
-    private void DeleteRoulette() { /* Task 17 */ }
-
-    [RelayCommand]
-    private void AddChannelPointRule() { /* Task 18 */ }
-    [RelayCommand]
-    private void AddBitsRule() { /* Task 18 */ }
-    [RelayCommand]
-    private void AddSubsRule() { /* Task 18 */ }
-    [RelayCommand]
-    private void AddPaymentRule() { /* Task 18 */ }
-    [RelayCommand]
-    private void AddAdvancedTrigger(string triggerSource) { /* Task 18 */ }
-    [RelayCommand]
-    private void DeleteRule(InlineAvatarSwapRuleRowViewModel? row) { /* Task 18 */ }
-    [RelayCommand]
-    private void BeginInlineEdit(InlineAvatarSwapRuleRowViewModel? row) { /* Task 18 */ }
-    [RelayCommand]
-    private void CommitInlineEdit() { EditingRule = null; }
-    [RelayCommand]
-    private void CancelInlineEdit() { EditingRule = null; }
-
-    [RelayCommand]
-    private void PickGlobalReturnAvatar() { /* Task 19 */ }
-    [RelayCommand]
-    private void UseCurrentAvatarForGlobalReturn() { /* Task 19 */ }
-    [RelayCommand]
-    private void ClearGlobalReturn() { /* Task 19 */ }
-}
-```
-
-- [ ] **Step 2: Build to verify the shell compiles**
-
-Run: `dotnet build "E:\!!!Program to work on\Proper Crystal Relay\VrcTwitchOscBridge\VrcTwitchOscBridge.csproj" --no-restore`
-Expected: 0 errors at the VM level. Errors from the XAML layer (which still references the old commands) are expected and addressed in Phase 5.
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add VrcTwitchOscBridge/ViewModels/AvatarSwapManagerViewModel.cs
-git commit -m "refactor(avatar-swap): restructure AvatarSwapManagerViewModel for 4 collections + roulette (shell)"
-```
-
----
-
-### Task 16: Add Swap / Roulette add + open editor commands
-
-**Files:**
-- Modify: `VrcTwitchOscBridge/ViewModels/AvatarSwapManagerViewModel.cs`
-
-- [ ] **Step 1: Fill in `AddSwap`, `AddRoulette`, `OpenSwapEditor`, `OpenRouletteEditor`**
-
-Replace the stubs in `AvatarSwapManagerViewModel.cs`:
-
-```csharp
-[RelayCommand]
-private void AddSwap()
-{
-    var profile = new AvatarSwapProfile
-    {
-        TargetAvatarName = "New Avatar",
-    };
-    _settings.AvatarSwapProfiles.Add(profile);
-    var card = new AvatarSwapCardViewModel(profile);
-    SwapCards.Add(card);
-    SelectedSwapCard = card;
-    IsSwapEditorOpen = true;
-    IsRouletteEditorOpen = false;
-}
-
-[RelayCommand]
-private void AddRoulette()
-{
-    var roulette = new AvatarRouletteProfile { Name = "New Roulette" };
-    _settings.AvatarRouletteProfiles.Add(roulette);
-    var card = new AvatarRouletteCardViewModel(roulette);
-    RouletteCards.Add(card);
-    SelectedRouletteCard = card;
-    IsRouletteEditorOpen = true;
-    IsSwapEditorOpen = false;
-}
-
-[RelayCommand]
-private void OpenSwapEditor(AvatarSwapCardViewModel? card)
-{
-    if (card is null) return;
-    SelectedSwapCard = card;
-    IsSwapEditorOpen = true;
-    IsRouletteEditorOpen = false;
-}
-
-[RelayCommand]
-private void OpenRouletteEditor(AvatarRouletteCardViewModel? card)
-{
-    if (card is null) return;
-    SelectedRouletteCard = card;
-    IsRouletteEditorOpen = true;
-    IsSwapEditorOpen = false;
-}
-```
-
-- [ ] **Step 2: Build to verify**
-
-Run: `dotnet build "E:\!!!Program to work on\Proper Crystal Relay\VrcTwitchOscBridge\VrcTwitchOscBridge.csproj" --no-restore`
-Expected: 0 VM errors. XAML errors from the old command names will be addressed in Phase 5.
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add VrcTwitchOscBridge/ViewModels/AvatarSwapManagerViewModel.cs
-git commit -m "feat(avatar-swap): add Swap + Roulette add/open editor commands"
-```
-
----
-
-### Task 17: Add save / delete commands for swap + roulette
-
-**Files:**
-- Modify: `VrcTwitchOscBridge/ViewModels/AvatarSwapManagerViewModel.cs`
-
-- [ ] **Step 1: Fill in save / delete commands**
-
-```csharp
-[RelayCommand]
-private void SaveSwapEditor()
-{
-    if (SelectedSwapCard is null) return;
-    SelectedSwapCard.Profile.UpdatedAt = DateTime.UtcNow;
-    IsSwapEditorOpen = false;
-    SelectedSwapCard = null;
-}
-
-[RelayCommand]
-private void SaveRouletteEditor()
-{
-    if (SelectedRouletteCard is null) return;
-    SelectedRouletteCard.Roulette.UpdatedAt = DateTime.UtcNow;
-    IsRouletteEditorOpen = false;
-    SelectedRouletteCard = null;
-}
-
-[RelayCommand]
-private void DeleteSwap()
-{
-    if (SelectedSwapCard is null) return;
-    _settings.AvatarSwapProfiles.Remove(SelectedSwapCard.Profile);
-    SwapCards.Remove(SelectedSwapCard);
-    IsSwapEditorOpen = false;
-    SelectedSwapCard = null;
-}
-
-[RelayCommand]
-private void DeleteRoulette()
-{
-    if (SelectedRouletteCard is null) return;
-    _settings.AvatarRouletteProfiles.Remove(SelectedRouletteCard.Roulette);
-    RouletteCards.Remove(SelectedRouletteCard);
-    IsRouletteEditorOpen = false;
-    SelectedRouletteCard = null;
-}
-```
-
-- [ ] **Step 2: Build to verify**
-
-Run: `dotnet build "E:\!!!Program to work on\Proper Crystal Relay\VrcTwitchOscBridge\VrcTwitchOscBridge.csproj" --no-restore`
-Expected: 0 VM errors.
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add VrcTwitchOscBridge/ViewModels/AvatarSwapManagerViewModel.cs
-git commit -m "feat(avatar-swap): add save/delete commands for swap and roulette"
-```
-
----
-
-### Task 18: Add per-section add-rule commands and inline edit commands
-
-**Files:**
-- Modify: `VrcTwitchOscBridge/ViewModels/AvatarSwapManagerViewModel.cs`
 - Create: `VrcTwitchOscBridge/ViewModels/InlineAvatarSwapRuleRowViewModel.cs`
+- Create: `VrcTwitchOscBridge/ViewModels/AvatarRouletteCardViewModel.cs`
+- Modify: `VrcTwitchOscBridge/ViewModels/AvatarSwapManagerViewModel.cs` (full rewrite)
+- Modify: `VrcTwitchOscBridge/ViewModels/AvatarSwapCardViewModel.cs` (subtitle update)
+
+> **Note:** The full VM is provided in one task. Read the existing `AvatarSwapManagerViewModel.cs` first to capture any external dependencies (services, dialogs) that the new VM must still call. Replace the file in its entirety.
 
 - [ ] **Step 1: Create `InlineAvatarSwapRuleRowViewModel`**
 
@@ -1828,181 +1579,310 @@ public partial class InlineAvatarSwapRuleRowViewModel : ObservableObject
 }
 ```
 
-- [ ] **Step 2: Add a per-section `ObservableCollection<InlineAvatarSwapRuleRowViewModel>` for the selected swap profile**
+- [ ] **Step 2: Create `AvatarRouletteCardViewModel`**
 
-Add to `AvatarSwapManagerViewModel`:
+Create `VrcTwitchOscBridge/ViewModels/AvatarRouletteCardViewModel.cs`:
 
 ```csharp
-public ObservableCollection<InlineAvatarSwapRuleRowViewModel> ChannelPointRows { get; } = new();
-public ObservableCollection<InlineAvatarSwapRuleRowViewModel> BitsRows { get; } = new();
-public ObservableCollection<InlineAvatarSwapRuleRowViewModel> SubsRows { get; } = new();
-public ObservableCollection<InlineAvatarSwapRuleRowViewModel> PaymentRows { get; } = new();
-public ObservableCollection<InlineAvatarSwapRuleRowViewModel> RouletteTriggerRows { get; } = new();
+using CommunityToolkit.Mvvm.ComponentModel;
+using VrcTwitchOscBridge.Models;
 
-private void RebuildRows()
+namespace VrcTwitchOscBridge.ViewModels;
+
+public partial class AvatarRouletteCardViewModel : ObservableObject
 {
-    ChannelPointRows.Clear();
-    BitsRows.Clear();
-    SubsRows.Clear();
-    PaymentRows.Clear();
-    RouletteTriggerRows.Clear();
-    if (SelectedSwapCard is not null)
+    public AvatarRouletteProfile Roulette { get; }
+
+    public AvatarRouletteCardViewModel(AvatarRouletteProfile roulette)
     {
-        foreach (var r in SelectedSwapCard.Profile.ChannelPointRules) ChannelPointRows.Add(new InlineAvatarSwapRuleRowViewModel(r));
-        foreach (var r in SelectedSwapCard.Profile.BitsRules) BitsRows.Add(new InlineAvatarSwapRuleRowViewModel(r));
-        foreach (var r in SelectedSwapCard.Profile.SubsRules) SubsRows.Add(new InlineAvatarSwapRuleRowViewModel(r));
-        foreach (var r in SelectedSwapCard.Profile.PaymentRules) PaymentRows.Add(new InlineAvatarSwapRuleRowViewModel(r));
+        Roulette = roulette;
     }
-    if (SelectedRouletteCard is not null)
+
+    public string Name => Roulette.Name;
+    public string Subtitle => Roulette.Subtitle;
+    public int PoolCount => Roulette.PoolCount;
+    public int TriggerCount => Roulette.TriggerCount;
+}
+```
+
+- [ ] **Step 3: Replace `AvatarSwapManagerViewModel.cs` with the full v4 implementation**
+
+Replace the contents of `VrcTwitchOscBridge/ViewModels/AvatarSwapManagerViewModel.cs` with:
+
+```csharp
+using System.Collections.ObjectModel;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using VrcTwitchOscBridge.Models;
+
+namespace VrcTwitchOscBridge.ViewModels;
+
+public partial class AvatarSwapManagerViewModel : ObservableObject
+{
+    private readonly AppSettings _settings;
+
+    public ObservableCollection<AvatarSwapCardViewModel> SwapCards { get; } = new();
+    public ObservableCollection<AvatarRouletteCardViewModel> RouletteCards { get; } = new();
+    public ObservableCollection<InlineAvatarSwapRuleRowViewModel> ChannelPointRows { get; } = new();
+    public ObservableCollection<InlineAvatarSwapRuleRowViewModel> BitsRows { get; } = new();
+    public ObservableCollection<InlineAvatarSwapRuleRowViewModel> SubsRows { get; } = new();
+    public ObservableCollection<InlineAvatarSwapRuleRowViewModel> PaymentRows { get; } = new();
+    public ObservableCollection<InlineAvatarSwapRuleRowViewModel> RouletteTriggerRows { get; } = new();
+
+    [ObservableProperty] private AvatarSwapCardViewModel? _selectedSwapCard;
+    [ObservableProperty] private AvatarRouletteCardViewModel? _selectedRouletteCard;
+    [ObservableProperty] private bool _isSwapEditorOpen;
+    [ObservableProperty] private bool _isRouletteEditorOpen;
+    [ObservableProperty] private InlineAvatarSwapRuleRowViewModel? _editingRule;
+
+    public string? GlobalReturnAvatarId => _settings.MasterAvatarSwapReturnId;
+    public string? GlobalReturnAvatarName => _settings.MasterAvatarSwapReturnName;
+
+    public AvatarSwapManagerViewModel(AppSettings settings)
     {
-        foreach (var r in SelectedRouletteCard.Roulette.Triggers) RouletteTriggerRows.Add(new InlineAvatarSwapRuleRowViewModel(r));
+        _settings = settings;
+        RebuildCards();
+    }
+
+    public void RebuildCards()
+    {
+        SwapCards.Clear();
+        foreach (var profile in _settings.AvatarSwapProfiles)
+            SwapCards.Add(new AvatarSwapCardViewModel(profile));
+        RouletteCards.Clear();
+        foreach (var roulette in _settings.AvatarRouletteProfiles)
+            RouletteCards.Add(new AvatarRouletteCardViewModel(roulette));
+    }
+
+    private void RebuildRows()
+    {
+        ChannelPointRows.Clear();
+        BitsRows.Clear();
+        SubsRows.Clear();
+        PaymentRows.Clear();
+        RouletteTriggerRows.Clear();
+        if (SelectedSwapCard is not null)
+        {
+            foreach (var r in SelectedSwapCard.Profile.ChannelPointRules) ChannelPointRows.Add(new InlineAvatarSwapRuleRowViewModel(r));
+            foreach (var r in SelectedSwapCard.Profile.BitsRules) BitsRows.Add(new InlineAvatarSwapRuleRowViewModel(r));
+            foreach (var r in SelectedSwapCard.Profile.SubsRules) SubsRows.Add(new InlineAvatarSwapRuleRowViewModel(r));
+            foreach (var r in SelectedSwapCard.Profile.PaymentRules) PaymentRows.Add(new InlineAvatarSwapRuleRowViewModel(r));
+        }
+        if (SelectedRouletteCard is not null)
+        {
+            foreach (var r in SelectedRouletteCard.Roulette.Triggers) RouletteTriggerRows.Add(new InlineAvatarSwapRuleRowViewModel(r));
+        }
+    }
+
+    [RelayCommand]
+    private void AddSwap()
+    {
+        var profile = new AvatarSwapProfile { TargetAvatarName = "New Avatar" };
+        _settings.AvatarSwapProfiles.Add(profile);
+        var card = new AvatarSwapCardViewModel(profile);
+        SwapCards.Add(card);
+        SelectedSwapCard = card;
+        IsSwapEditorOpen = true;
+        IsRouletteEditorOpen = false;
+    }
+
+    [RelayCommand]
+    private void AddRoulette()
+    {
+        var roulette = new AvatarRouletteProfile { Name = "New Roulette" };
+        _settings.AvatarRouletteProfiles.Add(roulette);
+        var card = new AvatarRouletteCardViewModel(roulette);
+        RouletteCards.Add(card);
+        SelectedRouletteCard = card;
+        IsRouletteEditorOpen = true;
+        IsSwapEditorOpen = false;
+    }
+
+    [RelayCommand]
+    private void OpenSwapEditor(AvatarSwapCardViewModel? card)
+    {
+        if (card is null) return;
+        SelectedSwapCard = card;
+        IsSwapEditorOpen = true;
+        IsRouletteEditorOpen = false;
+        RebuildRows();
+    }
+
+    [RelayCommand]
+    private void OpenRouletteEditor(AvatarRouletteCardViewModel? card)
+    {
+        if (card is null) return;
+        SelectedRouletteCard = card;
+        IsRouletteEditorOpen = true;
+        IsSwapEditorOpen = false;
+        RebuildRows();
+    }
+
+    [RelayCommand]
+    private void SaveSwapEditor()
+    {
+        if (SelectedSwapCard is null) return;
+        SelectedSwapCard.Profile.UpdatedAt = DateTime.UtcNow;
+        IsSwapEditorOpen = false;
+        SelectedSwapCard = null;
+    }
+
+    [RelayCommand]
+    private void SaveRouletteEditor()
+    {
+        if (SelectedRouletteCard is null) return;
+        SelectedRouletteCard.Roulette.UpdatedAt = DateTime.UtcNow;
+        IsRouletteEditorOpen = false;
+        SelectedRouletteCard = null;
+    }
+
+    [RelayCommand]
+    private void DeleteSwap()
+    {
+        if (SelectedSwapCard is null) return;
+        _settings.AvatarSwapProfiles.Remove(SelectedSwapCard.Profile);
+        SwapCards.Remove(SelectedSwapCard);
+        IsSwapEditorOpen = false;
+        SelectedSwapCard = null;
+    }
+
+    [RelayCommand]
+    private void DeleteRoulette()
+    {
+        if (SelectedRouletteCard is null) return;
+        _settings.AvatarRouletteProfiles.Remove(SelectedRouletteCard.Roulette);
+        RouletteCards.Remove(SelectedRouletteCard);
+        IsRouletteEditorOpen = false;
+        SelectedRouletteCard = null;
+    }
+
+    [RelayCommand]
+    private void AddChannelPointRule()
+    {
+        if (SelectedSwapCard is null) return;
+        var rule = new TriggerRule { TriggerType = TwitchTriggerType.ChannelPoints, ActionType = OscActionType.AvatarChange };
+        SelectedSwapCard.Profile.ChannelPointRules.Add(rule);
+        ChannelPointRows.Add(new InlineAvatarSwapRuleRowViewModel(rule));
+    }
+
+    [RelayCommand]
+    private void AddBitsRule()
+    {
+        if (SelectedSwapCard is null) return;
+        var rule = new TriggerRule { TriggerType = TwitchTriggerType.Bits, ActionType = OscActionType.AvatarChange, MinimumAmount = 100 };
+        SelectedSwapCard.Profile.BitsRules.Add(rule);
+        BitsRows.Add(new InlineAvatarSwapRuleRowViewModel(rule));
+    }
+
+    [RelayCommand]
+    private void AddSubsRule()
+    {
+        if (SelectedSwapCard is null) return;
+        var rule = new TriggerRule { TriggerType = TwitchTriggerType.Subscriptions, ActionType = OscActionType.AvatarChange };
+        SelectedSwapCard.Profile.SubsRules.Add(rule);
+        SubsRows.Add(new InlineAvatarSwapRuleRowViewModel(rule));
+    }
+
+    [RelayCommand]
+    private void AddPaymentRule()
+    {
+        if (SelectedSwapCard is null) return;
+        var rule = new TriggerRule { TriggerType = TwitchTriggerType.ChannelPoints, ActionType = OscActionType.AvatarChange, Source = TriggerRuleSource.CashPayment };
+        SelectedSwapCard.Profile.PaymentRules.Add(rule);
+        PaymentRows.Add(new InlineAvatarSwapRuleRowViewModel(rule));
+    }
+
+    [RelayCommand]
+    private void AddAdvancedTrigger(string? triggerSource)
+    {
+        if (SelectedSwapCard is null || string.IsNullOrEmpty(triggerSource)) return;
+        var type = Enum.Parse<TwitchTriggerType>(triggerSource);
+        var rule = new TriggerRule { TriggerType = type, ActionType = OscActionType.AvatarChange };
+        SelectedSwapCard.Profile.ChannelPointRules.Add(rule);
+        ChannelPointRows.Add(new InlineAvatarSwapRuleRowViewModel(rule));
+    }
+
+    [RelayCommand]
+    private void DeleteRule(InlineAvatarSwapRuleRowViewModel? row)
+    {
+        if (row is null || SelectedSwapCard is null) return;
+        if (SelectedSwapCard.Profile.ChannelPointRules.Remove(row.Rule)) ChannelPointRows.Remove(row);
+        else if (SelectedSwapCard.Profile.BitsRules.Remove(row.Rule)) BitsRows.Remove(row);
+        else if (SelectedSwapCard.Profile.SubsRules.Remove(row.Rule)) SubsRows.Remove(row);
+        else if (SelectedSwapCard.Profile.PaymentRules.Remove(row.Rule)) PaymentRows.Remove(row);
+        else if (SelectedRouletteCard is not null && SelectedRouletteCard.Roulette.Triggers.Remove(row.Rule)) RouletteTriggerRows.Remove(row);
+    }
+
+    [RelayCommand]
+    private void BeginInlineEdit(InlineAvatarSwapRuleRowViewModel? row)
+    {
+        if (row is null) return;
+        foreach (var r in ChannelPointRows) r.IsExpanded = false;
+        foreach (var r in BitsRows) r.IsExpanded = false;
+        foreach (var r in SubsRows) r.IsExpanded = false;
+        foreach (var r in PaymentRows) r.IsExpanded = false;
+        foreach (var r in RouletteTriggerRows) r.IsExpanded = false;
+        row.IsExpanded = true;
+        EditingRule = row;
+    }
+
+    [RelayCommand]
+    private void CommitInlineEdit() { EditingRule = null; }
+
+    [RelayCommand]
+    private void CancelInlineEdit() { EditingRule = null; }
+
+    [RelayCommand]
+    private void PickGlobalReturnAvatar()
+    {
+        // The window codebehind invokes the avatar picker and calls SetGlobalReturnAvatar on close.
+    }
+
+    [RelayCommand]
+    private void UseCurrentAvatarForGlobalReturn()
+    {
+        // The window codebehind resolves the current VRChat avatar and calls SetGlobalReturnAvatar.
+    }
+
+    [RelayCommand]
+    private void ClearGlobalReturn()
+    {
+        _settings.MasterAvatarSwapReturnId = null;
+        _settings.MasterAvatarSwapReturnName = null;
+        OnPropertyChanged(nameof(GlobalReturnAvatarId));
+        OnPropertyChanged(nameof(GlobalReturnAvatarName));
+    }
+
+    public void SetGlobalReturnAvatar(string? id, string? name)
+    {
+        _settings.MasterAvatarSwapReturnId = id;
+        _settings.MasterAvatarSwapReturnName = name;
+        OnPropertyChanged(nameof(GlobalReturnAvatarId));
+        OnPropertyChanged(nameof(GlobalReturnAvatarName));
     }
 }
 ```
 
-Call `RebuildRows()` at the end of `OpenSwapEditor` and `OpenRouletteEditor`.
+- [ ] **Step 4: Update `AvatarSwapCardViewModel` to use the new subtitle**
 
-- [ ] **Step 3: Fill in the add / delete / begin-inline commands**
+In `VrcTwitchOscBridge/ViewModels/AvatarSwapCardViewModel.cs`, find the `AvatarSubtitle` getter and replace it:
 
 ```csharp
-[RelayCommand]
-private void AddChannelPointRule()
-{
-    if (SelectedSwapCard is null) return;
-    var rule = new TriggerRule { TriggerType = TwitchTriggerType.ChannelPoints, ActionType = OscActionType.AvatarChange };
-    SelectedSwapCard.Profile.ChannelPointRules.Add(rule);
-    ChannelPointRows.Add(new InlineAvatarSwapRuleRowViewModel(rule));
-}
-
-[RelayCommand]
-private void AddBitsRule()
-{
-    if (SelectedSwapCard is null) return;
-    var rule = new TriggerRule { TriggerType = TwitchTriggerType.Bits, ActionType = OscActionType.AvatarChange, MinimumAmount = 100 };
-    SelectedSwapCard.Profile.BitsRules.Add(rule);
-    BitsRows.Add(new InlineAvatarSwapRuleRowViewModel(rule));
-}
-
-[RelayCommand]
-private void AddSubsRule()
-{
-    if (SelectedSwapCard is null) return;
-    var rule = new TriggerRule { TriggerType = TwitchTriggerType.Subscriptions, ActionType = OscActionType.AvatarChange };
-    SelectedSwapCard.Profile.SubsRules.Add(rule);
-    SubsRows.Add(new InlineAvatarSwapRuleRowViewModel(rule));
-}
-
-[RelayCommand]
-private void AddPaymentRule()
-{
-    if (SelectedSwapCard is null) return;
-    var rule = new TriggerRule { TriggerType = TwitchTriggerType.ChannelPoints, ActionType = OscActionType.AvatarChange, Source = TriggerRuleSource.CashPayment };
-    SelectedSwapCard.Profile.PaymentRules.Add(rule);
-    PaymentRows.Add(new InlineAvatarSwapRuleRowViewModel(rule));
-}
-
-[RelayCommand]
-private void AddAdvancedTrigger(string? triggerSource)
-{
-    if (SelectedSwapCard is null || string.IsNullOrEmpty(triggerSource)) return;
-    var type = Enum.Parse<TwitchTriggerType>(triggerSource);
-    var rule = new TriggerRule { TriggerType = type, ActionType = OscActionType.AvatarChange };
-    SelectedSwapCard.Profile.ChannelPointRules.Add(rule);
-    ChannelPointRows.Add(new InlineAvatarSwapRuleRowViewModel(rule));
-}
-
-[RelayCommand]
-private void DeleteRule(InlineAvatarSwapRuleRowViewModel? row)
-{
-    if (row is null || SelectedSwapCard is null) return;
-    if (SelectedSwapCard.Profile.ChannelPointRules.Remove(row.Rule)) ChannelPointRows.Remove(row);
-    else if (SelectedSwapCard.Profile.BitsRules.Remove(row.Rule)) BitsRows.Remove(row);
-    else if (SelectedSwapCard.Profile.SubsRules.Remove(row.Rule)) SubsRows.Remove(row);
-    else if (SelectedSwapCard.Profile.PaymentRules.Remove(row.Rule)) PaymentRows.Remove(row);
-    else if (SelectedRouletteCard is not null && SelectedRouletteCard.Roulette.Triggers.Remove(row.Rule)) RouletteTriggerRows.Remove(row);
-}
-
-[RelayCommand]
-private void BeginInlineEdit(InlineAvatarSwapRuleRowViewModel? row)
-{
-    if (row is null) return;
-    // Collapse all rows in all sections first
-    foreach (var r in ChannelPointRows) r.IsExpanded = false;
-    foreach (var r in BitsRows) r.IsExpanded = false;
-    foreach (var r in SubsRows) r.IsExpanded = false;
-    foreach (var r in PaymentRows) r.IsExpanded = false;
-    foreach (var r in RouletteTriggerRows) r.IsExpanded = false;
-    row.IsExpanded = true;
-    EditingRule = row;
-}
+public string AvatarSubtitle => Profile.AvatarSubtitle;
 ```
 
-- [ ] **Step 4: Build to verify**
+Remove any `RouletteRuleCount` property and its pill on the card (roulette is no longer on the avatar card).
+
+- [ ] **Step 5: Build to verify**
 
 Run: `dotnet build "E:\!!!Program to work on\Proper Crystal Relay\VrcTwitchOscBridge\VrcTwitchOscBridge.csproj" --no-restore`
-Expected: 0 VM errors.
+Expected: 0 errors at the VM level. XAML errors from the old command names will be addressed in Phase 5.
 
-- [ ] **Step 5: Commit**
-
-```bash
-git add VrcTwitchOscBridge/ViewModels/AvatarSwapManagerViewModel.cs VrcTwitchOscBridge/ViewModels/InlineAvatarSwapRuleRowViewModel.cs
-git commit -m "feat(avatar-swap): add per-section add-rule and inline-edit commands"
-```
-
----
-
-### Task 19: Add global return avatar picker commands
-
-**Files:**
-- Modify: `VrcTwitchOscBridge/ViewModels/AvatarSwapManagerViewModel.cs`
-
-- [ ] **Step 1: Fill in the global return avatar commands**
-
-```csharp
-[RelayCommand]
-private void PickGlobalReturnAvatar()
-{
-    // Defer to MainWindowViewModel.OpenAvatarPickerCommand; this VM does not own the picker UI.
-    // The window codebehind invokes the picker and calls back via SetGlobalReturnAvatar.
-    // The placeholder body is fine for now; the XAML wires the click to a codebehind method.
-}
-
-[RelayCommand]
-private void UseCurrentAvatarForGlobalReturn()
-{
-    // Placeholder: MainWindowViewModel injects the current avatar id/name via a callback.
-}
-
-[RelayCommand]
-private void ClearGlobalReturn()
-{
-    _settings.MasterAvatarSwapReturnId = null;
-    _settings.MasterAvatarSwapReturnName = null;
-    OnPropertyChanged(nameof(GlobalReturnAvatarId));
-    OnPropertyChanged(nameof(GlobalReturnAvatarName));
-}
-
-public void SetGlobalReturnAvatar(string? id, string? name)
-{
-    _settings.MasterAvatarSwapReturnId = id;
-    _settings.MasterAvatarSwapReturnName = name;
-    OnPropertyChanged(nameof(GlobalReturnAvatarId));
-    OnPropertyChanged(nameof(GlobalReturnAvatarName));
-}
-```
-
-> **Implementation note:** The picker flow is shared with `MainWindowViewModel`. The window codebehind will need to wire the picker's `Closed` event to call `SetGlobalReturnAvatar`. See the existing `MainWindowViewModel.PickReturnAvatar` pattern for the wiring approach.
-
-- [ ] **Step 2: Build to verify**
-
-Run: `dotnet build "E:\!!!Program to work on\Proper Crystal Relay\VrcTwitchOscBridge\VrcTwitchOscBridge.csproj" --no-restore`
-Expected: 0 VM errors.
-
-- [ ] **Step 3: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add VrcTwitchOscBridge/ViewModels/AvatarSwapManagerViewModel.cs
-git commit -m "feat(avatar-swap): add global return avatar picker commands"
+git add VrcTwitchOscBridge/ViewModels/AvatarSwapManagerViewModel.cs VrcTwitchOscBridge/ViewModels/AvatarSwapCardViewModel.cs VrcTwitchOscBridge/ViewModels/InlineAvatarSwapRuleRowViewModel.cs VrcTwitchOscBridge/ViewModels/AvatarRouletteCardViewModel.cs
+git commit -m "feat(avatar-swap): rewrite AvatarSwapManagerViewModel + new inline + roulette card VMs"
 ```
 
 ---
