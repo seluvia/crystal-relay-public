@@ -296,14 +296,12 @@ public sealed record AvatarSwapProfileSnapshot(
     Guid Id,
     string TargetAvatarId,
     string TargetAvatarName,
-    ReturnAvatarMode ReturnAvatarMode,
-    string? ReturnAvatarId,
-    string? ReturnAvatarName,
+    string? TargetThumbnailUrl,
     bool IsEnabled,
-    string? ThumbnailUrl,
     IReadOnlyList<TriggerRuleSnapshot> ChannelPointRules,
-    IReadOnlyList<TriggerRuleSnapshot> BitsSubsRules,
-    IReadOnlyList<TriggerRuleSnapshot> RouletteRules);
+    IReadOnlyList<TriggerRuleSnapshot> BitsRules,
+    IReadOnlyList<TriggerRuleSnapshot> SubsRules,
+    IReadOnlyList<TriggerRuleSnapshot> PaymentRules);
 
 public sealed record RouletteAvatarEntrySnapshot(
     string AvatarId,
@@ -455,21 +453,30 @@ public sealed record BridgeRuntimeConfiguration(
                 }
             }
 
-            var bitsSubsSnapshots = new List<TriggerRuleSnapshot>();
-            foreach (var rule in swapProfile.BitsSubsRules)
+            var bitsSnapshots = new List<TriggerRuleSnapshot>();
+            foreach (var rule in swapProfile.BitsRules)
             {
                 if (TryToSnapshot(rule, isGlobalOverride: true, profile: null, linkedRewardCooldownSecondsById, out var snapshot))
                 {
-                    bitsSubsSnapshots.Add(snapshot);
+                    bitsSnapshots.Add(snapshot);
                 }
             }
 
-            var rouletteSnapshots = new List<TriggerRuleSnapshot>();
-            foreach (var rule in swapProfile.RouletteRules)
+            var subsSnapshots = new List<TriggerRuleSnapshot>();
+            foreach (var rule in swapProfile.SubsRules)
             {
                 if (TryToSnapshot(rule, isGlobalOverride: true, profile: null, linkedRewardCooldownSecondsById, out var snapshot))
                 {
-                    rouletteSnapshots.Add(snapshot);
+                    subsSnapshots.Add(snapshot);
+                }
+            }
+
+            var paymentSnapshots = new List<TriggerRuleSnapshot>();
+            foreach (var rule in swapProfile.PaymentRules)
+            {
+                if (TryToSnapshot(rule, isGlobalOverride: true, profile: null, linkedRewardCooldownSecondsById, out var snapshot))
+                {
+                    paymentSnapshots.Add(snapshot);
                 }
             }
 
@@ -477,14 +484,12 @@ public sealed record BridgeRuntimeConfiguration(
                 swapProfile.Id,
                 swapProfile.TargetAvatarId,
                 swapProfile.TargetAvatarName,
-                swapProfile.ReturnAvatarMode,
-                swapProfile.ReturnAvatarId,
-                swapProfile.ReturnAvatarName,
-                swapProfile.IsEnabled,
                 swapProfile.TargetThumbnailUrl,
+                swapProfile.IsEnabled,
                 channelPointSnapshots.ToArray(),
-                bitsSubsSnapshots.ToArray(),
-                rouletteSnapshots.ToArray()));
+                bitsSnapshots.ToArray(),
+                subsSnapshots.ToArray(),
+                paymentSnapshots.ToArray()));
         }
 
         var avatarRouletteProfiles = new List<AvatarRouletteProfileSnapshot>();
@@ -583,9 +588,11 @@ public sealed record BridgeRuntimeConfiguration(
         {
             if (profile.ChannelPointRules.Any(r => ReferenceEquals(r.Rule, rule)))
                 return profile;
-            if (profile.BitsSubsRules.Any(r => ReferenceEquals(r.Rule, rule)))
+            if (profile.BitsRules.Any(r => ReferenceEquals(r.Rule, rule)))
                 return profile;
-            if (profile.RouletteRules.Any(r => ReferenceEquals(r.Rule, rule)))
+            if (profile.SubsRules.Any(r => ReferenceEquals(r.Rule, rule)))
+                return profile;
+            if (profile.PaymentRules.Any(r => ReferenceEquals(r.Rule, rule)))
                 return profile;
         }
         return null;

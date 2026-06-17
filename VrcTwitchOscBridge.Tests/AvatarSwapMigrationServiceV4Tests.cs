@@ -134,6 +134,26 @@ public sealed class AvatarSwapMigrationServiceV4Tests
     }
 
     [Fact]
+    public void FromSettings_AvatarSwapProfileSnapshot_HasFourRuleLists()
+    {
+        var s = new AppSettings();
+        var p = new AvatarSwapProfile { TargetAvatarId = "avtr_a" };
+        p.ChannelPointRules.Add(new TriggerRule { TriggerType = TwitchTriggerType.ChannelPoints });
+        p.BitsRules.Add(new TriggerRule { TriggerType = TwitchTriggerType.Bits });
+        p.SubsRules.Add(new TriggerRule { TriggerType = TwitchTriggerType.Subscriptions });
+        p.PaymentRules.Add(new TriggerRule { Source = TriggerRuleSource.CashPayment });
+        s.AvatarSwapProfiles.Add(p);
+
+        var config = BridgeRuntimeConfiguration.FromSettings(s, RuntimeConfig.CreateDefault(), null);
+
+        var snap = config.AvatarSwapProfiles.Single();
+        Assert.Single(snap.ChannelPointRules);
+        Assert.Single(snap.BitsRules);
+        Assert.Single(snap.SubsRules);
+        Assert.Single(snap.PaymentRules);
+    }
+
+    [Fact]
     public void MigrateV4_SplitsBitsSubsRulesIntoBitsAndSubs()
     {
         var temp = Path.Combine(Path.GetTempPath(), $"cr-v3-{Guid.NewGuid():N}.json");
