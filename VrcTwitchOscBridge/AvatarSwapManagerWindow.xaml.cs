@@ -1,5 +1,7 @@
 using System.Windows;
 using System.Windows.Input;
+using VrcTwitchOscBridge.Models;
+using VrcTwitchOscBridge.Services;
 using VrcTwitchOscBridge.ViewModels;
 
 namespace VrcTwitchOscBridge;
@@ -35,5 +37,65 @@ public partial class AvatarSwapManagerWindow : Window
     private void OnCloseClicked(object sender, RoutedEventArgs e)
     {
         Close();
+    }
+
+    private void OnPickGlobalReturnClicked(object sender, RoutedEventArgs e)
+    {
+        var mainVm = GetMainWindowViewModel();
+        if (mainVm is null) return;
+        var avatars = mainVm.GetAllVrChatAvatars();
+        var result = AvatarPickerService.OpenSingle(
+            ThemeManager.CurrentTheme,
+            avatars,
+            mainVm.Settings.AvatarLibrary,
+            mainVm.Settings.MasterAvatarSwapReturnId,
+            this);
+        if (result is null) return;
+        _viewModel.SetGlobalReturnAvatar(result.AvatarId, result.AvatarName);
+    }
+
+    private void OnUseCurrentAvatarForGlobalReturnClicked(object sender, RoutedEventArgs e)
+    {
+        var mainVm = GetMainWindowViewModel();
+        if (mainVm is null) return;
+        var currentId = mainVm.Settings.VrChat.CurrentAvatarId;
+        if (string.IsNullOrWhiteSpace(currentId)) return;
+        var name = mainVm.ResolveVrChatAvatarName(currentId);
+        _viewModel.SetGlobalReturnAvatar(currentId, name);
+    }
+
+    private void OnPickTargetAvatarClicked(object sender, RoutedEventArgs e)
+    {
+        var mainVm = GetMainWindowViewModel();
+        if (mainVm is null) return;
+        var avatars = mainVm.GetAllVrChatAvatars();
+        var currentTargetId = _viewModel.SelectedSwapCard?.Profile.TargetAvatarId;
+        var result = AvatarPickerService.OpenSingle(
+            ThemeManager.CurrentTheme,
+            avatars,
+            mainVm.Settings.AvatarLibrary,
+            currentTargetId,
+            this);
+        if (result is null) return;
+        _viewModel.SetTargetAvatar(result.AvatarId, result.AvatarName);
+    }
+
+    private void OnUseCurrentAvatarForTargetClicked(object sender, RoutedEventArgs e)
+    {
+        var mainVm = GetMainWindowViewModel();
+        if (mainVm is null) return;
+        var currentId = mainVm.Settings.VrChat.CurrentAvatarId;
+        if (string.IsNullOrWhiteSpace(currentId)) return;
+        var name = mainVm.ResolveVrChatAvatarName(currentId);
+        _viewModel.SetTargetAvatar(currentId, name);
+    }
+
+    private static MainWindowViewModel? GetMainWindowViewModel()
+    {
+        if (Application.Current?.MainWindow?.DataContext is MainWindowViewModel mainVm)
+        {
+            return mainVm;
+        }
+        return null;
     }
 }

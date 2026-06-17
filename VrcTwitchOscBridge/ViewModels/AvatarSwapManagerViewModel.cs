@@ -460,6 +460,13 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
         RaisePropertyChanged(nameof(HasGlobalReturnAvatar));
     }
 
+    public void SetTargetAvatar(string? id, string? name)
+    {
+        if (SelectedSwapCard is null) return;
+        SelectedSwapCard.Profile.TargetAvatarId = id ?? string.Empty;
+        SelectedSwapCard.Profile.TargetAvatarName = name ?? string.Empty;
+    }
+
     public void OnWindowClosed()
     {
         CloseEditor();

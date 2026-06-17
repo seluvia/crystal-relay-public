@@ -45,8 +45,8 @@
                         <StackPanel Orientation="Horizontal">
                             <Border Width="32" Height="32" Background="#3a2a5a" CornerRadius="5" Margin="0,0,8,0" />
                             <TextBlock Text="{Binding GlobalReturnAvatarName}" VerticalAlignment="Center" Margin="0,0,12,0" />
-                            <Button Content="Pick…" Command="{Binding PickGlobalReturnAvatarCommand}" Padding="8,4" Margin="0,0,4,0" />
-                            <Button Content="Use Current" Command="{Binding UseCurrentAvatarForGlobalReturnCommand}" Padding="8,4" Margin="0,0,4,0" />
+                            <Button Content="Pick…" Click="OnPickGlobalReturnClicked" Padding="8,4" Margin="0,0,4,0" />
+                            <Button Content="Use Current" Click="OnUseCurrentAvatarForGlobalReturnClicked" Padding="8,4" Margin="0,0,4,0" />
                             <Button Content="Clear" Command="{Binding ClearGlobalReturnCommand}" Padding="8,4" />
                         </StackPanel>
                     </DockPanel>
@@ -133,8 +133,8 @@
                                         <TextBlock Text="Target Avatar" Foreground="#9b86c9" FontSize="10" />
                                     </StackPanel>
                                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                                        <Button Content="Browse" Padding="6,3" Margin="0,0,4,0" />
-                                        <Button Content="Use Current" Padding="6,3" />
+                                        <Button Content="Browse" Click="OnPickTargetAvatarClicked" Padding="6,3" Margin="0,0,4,0" />
+                                        <Button Content="Use Current" Click="OnUseCurrentAvatarForTargetClicked" Padding="6,3" />
                                     </StackPanel>
                                 </DockPanel>
                                 <TextBlock Text="↩ Returns to global return avatar" Foreground="#9b86c9" FontSize="10" Margin="0,0,0,8" />
