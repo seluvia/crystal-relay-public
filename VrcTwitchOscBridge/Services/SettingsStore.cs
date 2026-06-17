@@ -516,7 +516,7 @@ public sealed class SettingsStore
             MigrateLegacyRulesIntoNewCollections(settings, settings.Rules);
         }
 
-        AvatarSwapMigrationService.Migrate(settings);
+        AvatarSwapMigrationService.Migrate(settings, profile?.AvatarSwapProfiles);
 
         if (needsMetadataRewrite || legacyPlainSecure is not null || migratedSecrets)
         {
@@ -1139,14 +1139,9 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             TargetAvatarId = profile.TargetAvatarId,
             TargetAvatarName = profile.TargetAvatarName,
             TargetThumbnailUrl = profile.TargetThumbnailUrl,
-            ReturnAvatarMode = profile.ReturnAvatarMode,
-            ReturnAvatarId = profile.ReturnAvatarId,
-            ReturnAvatarName = profile.ReturnAvatarName,
             CreatedAt = profile.CreatedAt,
             UpdatedAt = profile.UpdatedAt,
-            ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
-            BitsSubsRules = [.. profile.BitsSubsRules.Select(ToPersistedRule)],
-            RouletteRules = [.. profile.RouletteRules.Select(ToPersistedRule)]
+            ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)]
         };
     }
 
@@ -1159,17 +1154,10 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             TargetAvatarId = profile.TargetAvatarId ?? string.Empty,
             TargetAvatarName = profile.TargetAvatarName ?? string.Empty,
             TargetThumbnailUrl = profile.TargetThumbnailUrl,
-            ReturnAvatarMode = profile.ReturnAvatarMode,
-            ReturnAvatarId = profile.ReturnAvatarId,
-            ReturnAvatarName = profile.ReturnAvatarName,
             CreatedAt = profile.CreatedAt == default ? DateTime.UtcNow : profile.CreatedAt,
             UpdatedAt = profile.UpdatedAt == default ? DateTime.UtcNow : profile.UpdatedAt,
             ChannelPointRules = new ObservableCollection<TriggerRule>(
-                (profile.ChannelPointRules ?? []).Select(ToRule)),
-            BitsSubsRules = new ObservableCollection<TriggerRule>(
-                (profile.BitsSubsRules ?? []).Select(ToRule)),
-            RouletteRules = new ObservableCollection<TriggerRule>(
-                (profile.RouletteRules ?? []).Select(ToRule))
+                (profile.ChannelPointRules ?? []).Select(ToRule))
         };
     }
 
@@ -1221,7 +1209,7 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
     private static DateTime NormalizeTimestamp(DateTime value) =>
         value == default ? DateTime.UtcNow : value;
 
-    private static TriggerRule ToRule(PersistedTriggerRule rule)
+    internal static TriggerRule ToRule(PersistedTriggerRule rule)
     {
         var migratedAvatarChangeTargetId = !string.IsNullOrWhiteSpace(rule.AvatarChangeTargetId)
             ? rule.AvatarChangeTargetId
@@ -3072,7 +3060,7 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
         public string? WardrobeMasterRewardCooldownColor { get; set; }
     }
 
-    private sealed class PersistedAvatarSwapProfile
+    internal sealed class PersistedAvatarSwapProfile
     {
         public Guid Id { get; set; }
 
@@ -3083,12 +3071,6 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
         public string TargetAvatarName { get; set; } = string.Empty;
 
         public string? TargetThumbnailUrl { get; set; }
-
-        public ReturnAvatarMode ReturnAvatarMode { get; set; } = ReturnAvatarMode.UseGlobal;
-
-        public string? ReturnAvatarId { get; set; }
-
-        public string? ReturnAvatarName { get; set; }
 
         public DateTime CreatedAt { get; set; }
 
@@ -3102,7 +3084,7 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
         public List<PersistedTriggerRule>? RouletteRules { get; set; }
     }
 
-    private sealed class PersistedAvatarRouletteProfile
+    internal sealed class PersistedAvatarRouletteProfile
     {
         public Guid Id { get; set; }
         public string Name { get; set; } = string.Empty;
@@ -3115,7 +3097,7 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
         public List<PersistedTriggerRule> Triggers { get; set; } = new();
     }
 
-    private sealed class PersistedRouletteAvatarEntry
+    internal sealed class PersistedRouletteAvatarEntry
     {
         public string AvatarId { get; set; } = string.Empty;
         public string AvatarName { get; set; } = string.Empty;
@@ -3164,7 +3146,7 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
         public string? SetValue { get; set; }
     }
 
-    private sealed class PersistedTriggerRule
+    internal sealed class PersistedTriggerRule
     {
         public Guid Id { get; set; }
 
@@ -3313,7 +3295,7 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
         public string? BotMessageTemplate { get; set; }
     }
 
-    private sealed class PersistedSupporterFloatAddRange
+    internal sealed class PersistedSupporterFloatAddRange
     {
         public int MinimumAmount { get; set; }
 
@@ -3322,7 +3304,7 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
         public string? AddValue { get; set; }
     }
 
-    private sealed class PersistedSetTriggerAction
+    internal sealed class PersistedSetTriggerAction
     {
         public Guid Id { get; set; }
 

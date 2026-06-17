@@ -132,4 +132,43 @@ public sealed class AvatarSwapMigrationServiceV4Tests
             if (File.Exists(temp)) File.Delete(temp);
         }
     }
+
+    [Fact]
+    public void MigrateV4_SplitsBitsSubsRulesIntoBitsAndSubs()
+    {
+        var temp = Path.Combine(Path.GetTempPath(), $"cr-v3-{Guid.NewGuid():N}.json");
+        try
+        {
+            var json = "{\n" +
+                       "  \"avatarSwapProfiles\": [\n" +
+                       "    {\n" +
+                       "      \"id\": \"00000000-0000-0000-0000-000000000001\",\n" +
+                       "      \"targetAvatarId\": \"avtr_a\",\n" +
+                       "      \"channelPointRules\": [],\n" +
+                       "      \"bitsSubsRules\": [\n" +
+                       "        { \"name\": \"Bits 500\", \"triggerType\": 1, \"minimumAmount\": 500 },\n" +
+                       "        { \"name\": \"T1 Sub\", \"triggerType\": 2 },\n" +
+                       "        { \"name\": \"Gift 5\", \"triggerType\": 2, \"isGiftSubscription\": true }\n" +
+                       "      ]\n" +
+                       "    }\n" +
+                       "  ]\n" +
+                       "}";
+            File.WriteAllText(temp, json);
+            var store = new SettingsStore(temp);
+            var loaded = store.LoadAsync().GetAwaiter().GetResult();
+
+            AvatarSwapMigrationService.Migrate(loaded);
+
+            var p = loaded.AvatarSwapProfiles.Single();
+            Assert.Single(p.BitsRules);
+            Assert.Equal("Bits 500", p.BitsRules[0].Name);
+            Assert.Equal(2, p.SubsRules.Count);
+            Assert.Contains(p.SubsRules, r => r.Name == "T1 Sub" && r.TriggerType == TwitchTriggerType.Subscriptions);
+            Assert.Contains(p.SubsRules, r => r.Name == "Gift 5" && r.TriggerType == TwitchTriggerType.GiftSubscription);
+        }
+        finally
+        {
+            if (File.Exists(temp)) File.Delete(temp);
+        }
+    }
 }
