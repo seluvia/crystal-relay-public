@@ -1,9 +1,11 @@
 <Window x:Class="VrcTwitchOscBridge.AvatarSwapManagerWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:VrcTwitchOscBridge.Services"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         xmlns:vm="clr-namespace:VrcTwitchOscBridge.ViewModels"
         xmlns:uc="clr-namespace:VrcTwitchOscBridge.UserControls"
+        xmlns:local="clr-namespace:VrcTwitchOscBridge"
         Title="Avatar Swap"
         Width="1100" Height="700"
         MinWidth="900" MinHeight="600"
@@ -13,7 +15,7 @@
         ResizeMode="CanResize">
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
-        <BooleanToVisibilityConverter x:Key="InverseBoolToVisibilityConverter" />
+        <local:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter" />
 
         <FontFamily x:Key="BodyFontFamily">Verdana</FontFamily>
         <FontFamily x:Key="HeadingFontFamily">Constantia</FontFamily>
@@ -221,23 +223,45 @@
                             </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border Width="180" Height="130" Background="#322250" BorderBrush="#4a3868" BorderThickness="1" CornerRadius="7" Margin="0,0,6,6" Padding="6" ClipToBounds="True" Cursor="Hand">
+                                    <Border Width="180" Height="130" Background="{DynamicResource PanelBrush}" BorderBrush="{Binding StatusStripeBrush}" BorderThickness="4,1,1,1" CornerRadius="7" Margin="0,0,6,6" Padding="6" ClipToBounds="True" Cursor="Hand">
                                         <Border.InputBindings>
                                             <MouseBinding MouseAction="LeftClick" Command="{Binding DataContext.OpenSwapEditorCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" />
                                         </Border.InputBindings>
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="BorderBrush" Value="{DynamicResource RuleCardHoverBrush}" />
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
                                         <Grid>
                                             <Grid.RowDefinitions>
                                                 <RowDefinition Height="64" />
                                                 <RowDefinition Height="Auto" />
                                                 <RowDefinition Height="Auto" />
                                             </Grid.RowDefinitions>
-                                            <Border Grid.Row="0" Background="#3a2a5a" CornerRadius="4" ClipToBounds="True">
+
+                                            <Border Grid.Row="0" Background="{DynamicResource NestedPanelBrush}" CornerRadius="4" ClipToBounds="True">
                                                 <Grid>
-                                                    <Image Source="{Binding Image}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
+                                                    <Image Source="{Binding Image}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality"
+                                                           Visibility="{Binding HasTarget, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                Visibility="{Binding HasTarget, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                                                        <TextBlock Text="🎭" FontSize="24" HorizontalAlignment="Center" Foreground="{DynamicResource MutedBrush}" />
+                                                        <TextBlock Text="{loc:Translate 'Avatar Swap Card Pick Avatar'}" FontSize="10" HorizontalAlignment="Center" Margin="0,2,0,0" Foreground="{DynamicResource MutedBrush}" />
+                                                    </StackPanel>
+                                                    <Border HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,4,4,0"
+                                                            Background="{DynamicResource AccentBrush}" CornerRadius="8" Padding="6,1"
+                                                            Visibility="{Binding HasAnyRules, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                        <TextBlock Text="{Binding RuleCountText}" FontSize="9" FontWeight="Bold" Foreground="{DynamicResource ComboTextBrush}" />
+                                                    </Border>
                                                 </Grid>
                                             </Border>
-                                            <TextBlock Grid.Row="1" Text="{Binding Profile.TargetAvatarName}" FontWeight="SemiBold" FontSize="11" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Grid.Row="2" Text="{Binding AvatarSubtitle}" Foreground="#b0a3d0" FontSize="9" TextTrimming="CharacterEllipsis" />
+
+                                            <TextBlock Grid.Row="1" Text="{Binding Profile.TargetAvatarName}" FontWeight="SemiBold" FontSize="12" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" ToolTip="{Binding Profile.TargetAvatarName}" />
+                                            <TextBlock Grid.Row="2" Text="{Binding AvatarSubtitle}" Foreground="{DynamicResource MutedBrush}" FontSize="10" TextTrimming="CharacterEllipsis" ToolTip="{Binding AvatarSubtitle}" />
                                         </Grid>
                                     </Border>
                                 </DataTemplate>
