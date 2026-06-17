@@ -785,6 +785,7 @@ public sealed class TriggerRule : ObservableObject
 
     public string? PowerUpId { get; set; }
     public string? CashPaymentRuleId { get; set; }
+    public bool IsGiftSubscription { get; set; }
     public bool PermanentAvatarChange { get; set; }
     public bool CooldownOnlyAvatarChange { get; set; }
 
