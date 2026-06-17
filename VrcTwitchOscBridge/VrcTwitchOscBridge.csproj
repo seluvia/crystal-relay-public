@@ -120,6 +120,7 @@
     <Compile Include="Models\AvatarTriggerProfile.cs" />
     <Compile Include="Models\TriggerRuleSource.cs" />
     <Compile Include="Models\AvatarSwapProfile.cs" />
+    <Compile Include="Models\AvatarRouletteProfile.cs" />
     <Compile Include="Models\AvatarSetsFilterMode.cs" />
     <Compile Include="Models\AvatarSetsSortMode.cs" />
     <Compile Include="Models\AvatarScaleRule.cs" />

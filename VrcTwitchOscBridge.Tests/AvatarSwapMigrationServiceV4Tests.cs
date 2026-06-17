@@ -73,4 +73,32 @@ public sealed class AvatarSwapMigrationServiceV4Tests
         Assert.Contains("subs", subtitle);
         Assert.Contains("pay", subtitle);
     }
+
+    [Fact]
+    public void AvatarRouletteProfile_DefaultsAreEmpty()
+    {
+        var p = new AvatarRouletteProfile();
+        Assert.NotNull(p.Pool);
+        Assert.Empty(p.Pool);
+        Assert.NotNull(p.Triggers);
+        Assert.Empty(p.Triggers);
+        Assert.True(p.IsEnabled);
+        Assert.Null(p.ReturnAvatarId);
+        Assert.Null(p.ReturnAvatarName);
+        Assert.Equal(0, p.PoolCount);
+        Assert.Equal(0, p.TriggerCount);
+    }
+
+    [Fact]
+    public void AvatarRouletteProfile_Subtitle_FormatsPoolAndTriggerCount()
+    {
+        var p = new AvatarRouletteProfile { Name = "Demo" };
+        p.Pool.Add(new RouletteAvatarEntry { AvatarId = "a1", AvatarName = "One" });
+        p.Pool.Add(new RouletteAvatarEntry { AvatarId = "a2", AvatarName = "Two" });
+        p.Triggers.Add(new TriggerRule());
+        Assert.Contains("2", p.Subtitle);
+        Assert.Contains("1", p.Subtitle);
+        Assert.Contains("🎲", p.Subtitle);
+        Assert.Contains("pool", p.Subtitle);
+    }
 }
