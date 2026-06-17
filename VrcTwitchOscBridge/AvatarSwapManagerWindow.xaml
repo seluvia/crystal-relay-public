@@ -1,650 +1,196 @@
 <Window x:Class="VrcTwitchOscBridge.AvatarSwapManagerWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:loc="clr-namespace:VrcTwitchOscBridge.Services"
         xmlns:vm="clr-namespace:VrcTwitchOscBridge.ViewModels"
-        xmlns:models="clr-namespace:VrcTwitchOscBridge.Models"
-        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
-        xmlns:local="clr-namespace:VrcTwitchOscBridge"
-        xmlns:conv="clr-namespace:VrcTwitchOscBridge.Converters"
         xmlns:uc="clr-namespace:VrcTwitchOscBridge.UserControls"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d"
-        d:DataContext="{d:DesignInstance Type=vm:AvatarSwapManagerViewModel}"
-        Title="{loc:Translate 'Avatar Swap'}"
-        Icon="Assets/crystal-relay-icon.ico"
-        Width="1040"
-        Height="680"
-        MinWidth="780"
-        MinHeight="520"
-        WindowStyle="None"
-        WindowStartupLocation="CenterOwner"
-        FontFamily="{DynamicResource BodyFontFamily}"
-        UseLayoutRounding="True"
-        SnapsToDevicePixels="True"
-        Background="{DynamicResource WindowBackgroundBrush}">
-    <shell:WindowChrome.WindowChrome>
-        <shell:WindowChrome CaptionHeight="0" CornerRadius="0" GlassFrameThickness="0" ResizeBorderThickness="6" UseAeroCaptionButtons="False" />
-    </shell:WindowChrome.WindowChrome>
+        Title="Avatar Swap"
+        Width="1100" Height="700"
+        WindowStartupLocation="CenterOwner">
     <Window.Resources>
-        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
-        <local:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter" />
-        <local:CountToVisibilityConverter x:Key="CountToVisibilityConverter" />
-        <local:CollapseChevronTextConverter x:Key="CollapseChevronTextConverter" />
-        <local:CollapseChevronColorConverter x:Key="CollapseChevronColorConverter" />
-        <local:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
-        <conv:ReturnAvatarModeToVisibilityConverter x:Key="ReturnAvatarModeToVisibilityConverter" />
-
-        <Style x:Key="SecondaryButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="{DynamicResource SecondaryButtonBrush}" />
-            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource SecondaryButtonBorderBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Padding" Value="12,6" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="FontFamily" Value="{DynamicResource BodyFontFamily}" />
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="BtnBorder"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="8"
-                                Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="BtnBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="BtnBorder" Property="Background" Value="{DynamicResource ComboDropButtonPressedBrush}" />
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Opacity" Value="0.5" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <Style x:Key="AccentButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
-            <Setter Property="Foreground" Value="{DynamicResource ComboTextBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Padding" Value="14,7" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="FontFamily" Value="{DynamicResource BodyFontFamily}" />
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="FontWeight" Value="Bold" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="BtnBorder"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="8"
-                                Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="BtnBorder" Property="Background" Value="{DynamicResource RuleCardHoverBrush}" />
-                                <Setter TargetName="BtnBorder" Property="BorderBrush" Value="{DynamicResource RuleCardHoverBrush}" />
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="BtnBorder" Property="Background" Value="{DynamicResource ComboDropButtonPressedBrush}" />
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Opacity" Value="0.5" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <Style x:Key="DangerButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="{DynamicResource WarnBrush}" />
-            <Setter Property="Foreground" Value="{DynamicResource WarnTextBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource WarnBorderBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Padding" Value="12,6" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="FontFamily" Value="{DynamicResource BodyFontFamily}" />
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="BtnBorder"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="8"
-                                Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="BtnBorder" Property="Background" Value="{DynamicResource TitleBarCloseHoverBrush}" />
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Opacity" Value="0.5" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <Style x:Key="TitleBarButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="{DynamicResource TitleBarButtonBrush}" />
-            <Setter Property="Foreground" Value="{DynamicResource TitleBarTextBrush}" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Width" Value="32" />
-            <Setter Property="Height" Value="32" />
-            <Setter Property="FontSize" Value="14" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="BtnBorder"
-                                Background="{TemplateBinding Background}"
-                                CornerRadius="0">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="BtnBorder" Property="Background" Value="{DynamicResource TitleBarButtonHoverBrush}" />
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="BtnBorder" Property="Background" Value="{DynamicResource TitleBarButtonPressedBrush}" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <Style x:Key="CardPillStyle" TargetType="Border">
-            <Setter Property="Background" Value="{DynamicResource AccentDimBrush}" />
-            <Setter Property="CornerRadius" Value="8" />
-            <Setter Property="Padding" Value="6,2" />
-        </Style>
-
-        <Style x:Key="ScrollBarThumbStyle" TargetType="Thumb">
-            <Setter Property="MinHeight" Value="32" />
-            <Setter Property="OverridesDefaultStyle" Value="True" />
-            <Setter Property="IsTabStop" Value="False" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Thumb">
-                        <Border x:Name="ThumbChrome"
-                                Margin="0"
-                                Background="{DynamicResource ScrollThumbBrush}"
-                                CornerRadius="6" />
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="ThumbChrome" Property="Background" Value="{DynamicResource AccentBrush}" />
-                            </Trigger>
-                            <Trigger Property="IsDragging" Value="True">
-                                <Setter TargetName="ThumbChrome" Property="Background" Value="{DynamicResource ComboDropButtonPressedBrush}" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <Style x:Key="ScrollBarTrackButtonStyle" TargetType="RepeatButton">
-            <Setter Property="Focusable" Value="False" />
-            <Setter Property="IsTabStop" Value="False" />
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="RepeatButton">
-                        <Border Background="Transparent" />
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <ControlTemplate x:Key="VerticalScrollBarTemplate" TargetType="ScrollBar">
-            <Grid Width="{TemplateBinding Width}"
-                  MinWidth="20"
-                  Background="Transparent">
-                <Border Background="{DynamicResource ScrollTrackBrush}"
-                        BorderBrush="{DynamicResource InputBorderBrush}"
-                        BorderThickness="1"
-                        CornerRadius="10" />
-                <Track x:Name="PART_Track"
-                       Margin="3"
-                       IsDirectionReversed="True">
-                    <Track.DecreaseRepeatButton>
-                        <RepeatButton Style="{StaticResource ScrollBarTrackButtonStyle}"
-                                      Command="{x:Static ScrollBar.PageUpCommand}" />
-                    </Track.DecreaseRepeatButton>
-                    <Track.Thumb>
-                        <Thumb Style="{StaticResource ScrollBarThumbStyle}" />
-                    </Track.Thumb>
-                    <Track.IncreaseRepeatButton>
-                        <RepeatButton Style="{StaticResource ScrollBarTrackButtonStyle}"
-                                      Command="{x:Static ScrollBar.PageDownCommand}" />
-                    </Track.IncreaseRepeatButton>
-                </Track>
-            </Grid>
-        </ControlTemplate>
-
-        <Style x:Key="ThemedScrollBarStyle" TargetType="ScrollBar">
-            <Setter Property="Background" Value="{DynamicResource ScrollTrackBrush}" />
-            <Setter Property="Width" Value="20" />
-            <Setter Property="Height" Value="Auto" />
-            <Setter Property="MinWidth" Value="20" />
-            <Setter Property="Template" Value="{StaticResource VerticalScrollBarTemplate}" />
-        </Style>
-
-        <ControlTemplate x:Key="ThemedScrollViewerTemplate" TargetType="ScrollViewer">
-            <Grid x:Name="Grid" Background="{TemplateBinding Background}">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <ScrollContentPresenter x:Name="PART_ScrollContentPresenter"
-                                        Grid.Column="0"
-                                        CanContentScroll="{TemplateBinding CanContentScroll}"
-                                        Content="{TemplateBinding Content}"
-                                        ContentTemplate="{TemplateBinding ContentTemplate}"
-                                        Margin="{TemplateBinding Padding}" />
-                <ScrollBar x:Name="PART_VerticalScrollBar"
-                           Grid.Column="1"
-                           Style="{StaticResource ThemedScrollBarStyle}"
-                           AutomationProperties.AutomationId="VerticalScrollBar"
-                           Cursor="Arrow"
-                           Maximum="{TemplateBinding ScrollableHeight}"
-                           Minimum="0"
-                           ViewportSize="{TemplateBinding ViewportHeight}"
-                           Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}"
-                           Value="{Binding VerticalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}" />
-            </Grid>
-        </ControlTemplate>
-
-        <Style x:Key="ThemedScrollViewerStyle" TargetType="ScrollViewer">
-            <Setter Property="Template" Value="{StaticResource ThemedScrollViewerTemplate}" />
-        </Style>
-
-        <DataTemplate x:Key="AvatarSwapCardTemplate" DataType="{x:Type vm:AvatarSwapCardViewModel}">
-            <Border Width="240" Height="200" Margin="0,0,10,10"
-                    Background="{DynamicResource PanelBrush}"
-                    BorderBrush="{Binding StatusStripeBrush}"
-                    BorderThickness="3,1,1,1"
-                    CornerRadius="12"
-                    Padding="10"
-                    Cursor="Hand">
-                <Border.InputBindings>
-                    <MouseBinding MouseAction="LeftClick"
-                                  Command="{Binding DataContext.OpenEditorCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                  CommandParameter="{Binding Profile}" />
-                </Border.InputBindings>
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="110" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-                    <Border Grid.Row="0" Background="{DynamicResource NestedPanelBrush}" CornerRadius="8" ClipToBounds="True">
-                        <Grid>
-                            <Image Source="{Binding Image}" Stretch="UniformToFill"
-                                   RenderOptions.BitmapScalingMode="HighQuality"
-                                   Visibility="{Binding HasImage, Converter={StaticResource BoolToVisibilityConverter}}" />
-                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
-                                        Visibility="{Binding HasImage, Converter={StaticResource InverseBoolToVisibilityConverter}}">
-                                <TextBlock Text="&#x1F3AD;" FontSize="32" HorizontalAlignment="Center" Foreground="{DynamicResource MutedBrush}" />
-                                <TextBlock Text="{loc:Translate 'Pick Avatar'}" FontSize="10" Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" Margin="0,4,0,0" />
-                            </StackPanel>
-                        </Grid>
-                    </Border>
-                    <TextBlock Grid.Row="1" Text="{Binding DisplayTitle}" FontWeight="Bold" FontSize="14"
-                               Foreground="{DynamicResource TextBrush}" Margin="0,8,0,0"
-                               TextTrimming="CharacterEllipsis" />
-                    <TextBlock Grid.Row="2" Text="{Binding AvatarSubtitle}" FontSize="11"
-                               Foreground="{DynamicResource MutedBrush}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
-                    <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,8,0,0" VerticalAlignment="Bottom">
-                        <Border Style="{StaticResource CardPillStyle}" Margin="0,0,6,0">
-                            <TextBlock Text="{Binding RuleCountText}" FontSize="10" Foreground="{DynamicResource TextBrush}" />
-                        </Border>
-                        <Border Background="{DynamicResource StatusChipBrush}" CornerRadius="8" Padding="6,2">
-                            <TextBlock Text="{Binding StatusText}" FontSize="10" Foreground="{DynamicResource TextBrush}" />
-                        </Border>
-                    </StackPanel>
-                </Grid>
-            </Border>
-        </DataTemplate>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
     </Window.Resources>
-    <Grid>
+    <Grid Margin="14">
         <Grid.RowDefinitions>
-            <RowDefinition Height="32" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <Border Grid.Row="0" Background="{DynamicResource TitleBarBrush}" MouseLeftButtonDown="OnTitleBarMouseDown">
-            <DockPanel LastChildFill="False">
-                <TextBlock Text="{loc:Translate 'Avatar Swap'}" Margin="14,0,0,0" VerticalAlignment="Center"
-                           FontFamily="{DynamicResource HeadingFontFamily}" FontWeight="Bold" FontSize="14"
-                           Foreground="{DynamicResource TitleBarTextBrush}" />
-                <Button DockPanel.Dock="Right" Content="&#x2715;" Style="{StaticResource TitleBarButtonStyle}"
-                        Click="OnCloseClicked" />
+        <!-- Global Return Avatar banner -->
+        <Border Grid.Row="0" Background="#241a3a" BorderBrush="#3a2a5a" BorderThickness="1" CornerRadius="6" Padding="8" Margin="0,0,0,10">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Text="↩ RETURN AVATAR (used by all swaps + roulettes)" Foreground="#9b86c9" FontSize="10" Margin="0,0,0,4" />
+                <StackPanel Orientation="Horizontal">
+                    <Border Width="32" Height="32" Background="#3a2a5a" CornerRadius="5" Margin="0,0,8,0" />
+                    <TextBlock Text="{Binding GlobalReturnAvatarName}" VerticalAlignment="Center" Margin="0,0,12,0" />
+                    <Button Content="Pick…" Command="{Binding PickGlobalReturnAvatarCommand}" Padding="8,4" Margin="0,0,4,0" />
+                    <Button Content="Use Current" Command="{Binding UseCurrentAvatarForGlobalReturnCommand}" Padding="8,4" Margin="0,0,4,0" />
+                    <Button Content="Clear" Command="{Binding ClearGlobalReturnCommand}" Padding="8,4" />
+                </StackPanel>
             </DockPanel>
         </Border>
 
+        <!-- Left cards + right editor -->
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="420" />
             </Grid.ColumnDefinitions>
 
-            <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Padding="14" Style="{StaticResource ThemedScrollViewerStyle}">
-                <StackPanel>
-                    <Border Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="14" Margin="0,0,0,14">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="64" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <Border Grid.Column="0" Width="64" Height="64" CornerRadius="10" ClipToBounds="True" Background="{DynamicResource InputBrush}" Margin="0,0,14,0" VerticalAlignment="Center">
-                                <Grid>
-                                    <Image Source="{Binding ReturnAvatarImage}" Stretch="UniformToFill"
-                                           RenderOptions.BitmapScalingMode="HighQuality"
-                                           Visibility="{Binding HasReturnAvatarImage, Converter={StaticResource BoolToVisibilityConverter}}" />
-                                    <TextBlock Text="&#x1F504;" FontSize="28" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                               Foreground="{DynamicResource MutedBrush}"
-                                               Visibility="{Binding HasReturnAvatarImage, Converter={StaticResource InverseBoolToVisibilityConverter}}" />
-                                </Grid>
-                            </Border>
-                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                <TextBlock Text="{loc:Translate 'Return Avatar'}" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource TextBrush}" FontFamily="{DynamicResource HeadingFontFamily}" />
-                                <TextBlock Text="{Binding ReturnAvatarDisplayName}" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,2,0,8" />
-                                <StackPanel Orientation="Horizontal">
-                                    <Button Content="{loc:Translate 'Pick...'}" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,6,0"
-                                            Command="{Binding PickReturnAvatarCommand}" />
-                                    <Button Content="{loc:Translate 'Use Current Avatar'}" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,6,0"
-                                            Command="{Binding UseCurrentAvatarForReturnCommand}" />
-                                    <Button Content="{loc:Translate 'Clear'}" Style="{StaticResource SecondaryButtonStyle}"
-                                            Command="{Binding ClearReturnAvatarCommand}" />
+            <!-- Left grid -->
+            <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                <TextBlock Text="Avatar Swaps" FontSize="10" Foreground="#b0a3d0" Margin="0,0,0,6" />
+                <ItemsControl ItemsSource="{Binding SwapCards}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Width="180" Height="130" Background="#322250" BorderBrush="#4a3868" BorderThickness="1" CornerRadius="7" Margin="0,0,6,6" Padding="6">
+                                <Border.InputBindings>
+                                    <MouseBinding MouseAction="LeftClick" Command="{Binding DataContext.OpenSwapEditorCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" />
+                                </Border.InputBindings>
+                                <StackPanel>
+                                    <Border Height="64" Background="#3a2a5a" CornerRadius="4" Margin="0,0,0,4" />
+                                    <TextBlock Text="{Binding Profile.TargetAvatarName}" FontWeight="SemiBold" FontSize="11" />
+                                    <TextBlock Text="{Binding AvatarSubtitle}" Foreground="#b0a3d0" FontSize="9" />
                                 </StackPanel>
-                                <TextBlock Text="{loc:Translate 'Pick the Return Avatar first so timed Avatar Swap and Avatar Roulette redeems know the exact VRChat avatar ID to switch back to.'}"
-                                           FontSize="10" Foreground="{DynamicResource MutedBrush}" Margin="0,8,0,0" TextWrapping="Wrap"
-                                           Visibility="{Binding HasReturnAvatar, Converter={StaticResource InverseBoolToVisibilityConverter}}" />
-                            </StackPanel>
-                        </Grid>
-                    </Border>
-
-                    <Border Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="0" Margin="0,0,0,10">
-                        <StackPanel>
-                            <Border Background="{DynamicResource NestedPanelBrush}" Padding="10,8" Cursor="Hand"
-                                    MouseLeftButtonUp="OnChannelPointSectionHeaderClick">
-                                <DockPanel LastChildFill="False">
-                                    <TextBlock Text="&#x1F381;" FontSize="14" Margin="0,0,8,0" />
-                                    <TextBlock Text="{loc:Translate 'Channel Point Swaps'}" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource TextBrush}" />
-                                    <TextBlock Text="{Binding ChannelPointSectionSuffix}" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="6,0,0,0" />
-                                    <TextBlock DockPanel.Dock="Right" Text="{Binding IsChannelPointSectionCollapsed, Converter={StaticResource CollapseChevronTextConverter}}" FontSize="13" Foreground="{DynamicResource MutedBrush}" />
-                                </DockPanel>
                             </Border>
-                            <ItemsControl ItemsSource="{Binding ChannelPointCardsView}" Margin="10,8,10,10"
-                                          Visibility="{Binding IsChannelPointSectionCollapsed, Converter={StaticResource InverseBoolToVisibilityConverter}}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <WrapPanel Orientation="Horizontal" />
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <ContentControl Content="{Binding}" ContentTemplate="{StaticResource AvatarSwapCardTemplate}" />
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <Button Content="{loc:Translate 'New Swap'}" Margin="10,0,10,10" Style="{StaticResource AccentButtonStyle}"
-                                    Command="{Binding AddNewSwapCommand}" />
-                        </StackPanel>
-                    </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <Button Content="+ Add Avatar" Command="{Binding AddSwapCommand}" HorizontalAlignment="Left" Padding="10,5" Margin="0,6,0,14" />
 
-                    <Border Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="0">
-                        <StackPanel>
-                            <Border Background="{DynamicResource NestedPanelBrush}" Padding="10,8" Cursor="Hand"
-                                    MouseLeftButtonUp="OnBitsSubsSectionHeaderClick">
-                                <DockPanel LastChildFill="False">
-                                    <TextBlock Text="&#x1F48E;" FontSize="14" Margin="0,0,8,0" />
-                                    <TextBlock Text="{loc:Translate 'Bits + Subs Swaps'}" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource TextBrush}" />
-                                    <TextBlock Text="{Binding BitsSubsSectionSuffix}" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="6,0,0,0" />
-                                    <TextBlock DockPanel.Dock="Right" Text="{Binding IsBitsSubsSectionCollapsed, Converter={StaticResource CollapseChevronTextConverter}}" FontSize="13" Foreground="{DynamicResource MutedBrush}" />
-                                </DockPanel>
+                <TextBlock Text="🎰 Avatar Roulette" FontSize="10" Foreground="#d4af37" Margin="0,0,0,6" />
+                <ItemsControl ItemsSource="{Binding RouletteCards}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Width="180" Height="130" Background="#322250" BorderBrush="#d4af37" BorderThickness="1.5" CornerRadius="7" Margin="0,0,6,6" Padding="6">
+                                <Border.InputBindings>
+                                    <MouseBinding MouseAction="LeftClick" Command="{Binding DataContext.OpenRouletteEditorCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" />
+                                </Border.InputBindings>
+                                <StackPanel>
+                                    <Border Height="64" Background="#3a2a5a" CornerRadius="4" Margin="0,0,0,4" />
+                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="11" />
+                                    <TextBlock Text="{Binding Subtitle}" Foreground="#d4af37" FontSize="9" />
+                                </StackPanel>
                             </Border>
-                            <ItemsControl ItemsSource="{Binding BitsSubsCardsView}" Margin="10,8,10,10"
-                                          Visibility="{Binding IsBitsSubsSectionCollapsed, Converter={StaticResource InverseBoolToVisibilityConverter}}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <WrapPanel Orientation="Horizontal" />
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <ContentControl Content="{Binding}" ContentTemplate="{StaticResource AvatarSwapCardTemplate}" />
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </StackPanel>
-                    </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <Button Content="+ Add Roulette" Command="{Binding AddRouletteCommand}" HorizontalAlignment="Left" Padding="10,5" Margin="0,6,0,0" />
+            </StackPanel>
 
-                    <Border Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="0" Margin="0,0,0,10">
-                        <StackPanel>
-                            <Border Background="{DynamicResource NestedPanelBrush}" Padding="10,8" Cursor="Hand"
-                                    MouseLeftButtonUp="OnRouletteSectionHeaderClick">
-                                <DockPanel LastChildFill="False">
-                                    <TextBlock Text="&#x1F3B2;" FontSize="14" Margin="0,0,8,0" />
-                                    <TextBlock Text="{loc:Translate 'Roulette Swaps'}" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource TextBrush}" />
-                                    <TextBlock Text="{Binding RouletteSectionSuffix}" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="6,0,0,0" />
-                                    <TextBlock DockPanel.Dock="Right" Text="{Binding IsRouletteSectionCollapsed, Converter={StaticResource CollapseChevronTextConverter}}" FontSize="13" Foreground="{DynamicResource MutedBrush}" />
-                                </DockPanel>
-                            </Border>
-                            <ItemsControl ItemsSource="{Binding RouletteCardsView}" Margin="10,8,10,10"
-                                          Visibility="{Binding IsRouletteSectionCollapsed, Converter={StaticResource InverseBoolToVisibilityConverter}}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <WrapPanel Orientation="Horizontal" />
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <ContentControl Content="{Binding}" ContentTemplate="{StaticResource AvatarSwapCardTemplate}" />
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+            <!-- Right editor: avatar swap -->
+            <Border Grid.Column="1" Background="#241a3a" BorderBrush="#3a2a5a" BorderThickness="1" CornerRadius="6" Padding="10"
+                    Visibility="{Binding IsSwapEditorOpen, Converter={StaticResource BoolToVis}}">
+                <StackPanel>
+                    <DockPanel Margin="0,0,0,8">
+                        <Border Width="40" Height="40" Background="#3a2a5a" CornerRadius="5" Margin="0,0,8,0" />
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="{Binding SelectedSwapCard.Profile.TargetAvatarName}" FontWeight="SemiBold" FontSize="13" />
+                            <TextBlock Text="Target Avatar" Foreground="#9b86c9" FontSize="10" />
                         </StackPanel>
-                    </Border>
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                            <Button Content="Browse" Padding="6,3" Margin="0,0,4,0" />
+                            <Button Content="Use Current" Padding="6,3" />
+                        </StackPanel>
+                    </DockPanel>
+                    <TextBlock Text="↩ Returns to global return avatar" Foreground="#9b86c9" FontSize="10" Margin="0,0,0,8" />
+
+                    <TextBlock Text="🏆 Channel Points" FontWeight="SemiBold" FontSize="11" Margin="0,0,0,4" />
+                    <ItemsControl ItemsSource="{Binding ChannelPointRows}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <uc:InlineAvatarSwapRuleRowControl Row="{Binding}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <Button Content="+ Add Channel Point" Command="{Binding AddChannelPointRuleCommand}" HorizontalAlignment="Left" Padding="6,3" Margin="0,4,0,8" />
+
+                    <TextBlock Text="💎 Bits" FontWeight="SemiBold" FontSize="11" Margin="0,0,0,4" />
+                    <ItemsControl ItemsSource="{Binding BitsRows}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <uc:InlineAvatarSwapRuleRowControl Row="{Binding}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <Button Content="+ Add Bits Trigger" Command="{Binding AddBitsRuleCommand}" HorizontalAlignment="Left" Padding="6,3" Margin="0,4,0,8" />
+
+                    <TextBlock Text="⭐ Subs" FontWeight="SemiBold" FontSize="11" Margin="0,0,0,4" />
+                    <ItemsControl ItemsSource="{Binding SubsRows}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <uc:InlineAvatarSwapRuleRowControl Row="{Binding}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <Button Content="+ Add Sub Trigger" Command="{Binding AddSubsRuleCommand}" HorizontalAlignment="Left" Padding="6,3" Margin="0,4,0,8" />
+
+                    <TextBlock Text="💵 Payment" FontWeight="SemiBold" FontSize="11" Margin="0,0,0,4" />
+                    <ItemsControl ItemsSource="{Binding PaymentRows}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <uc:InlineAvatarSwapRuleRowControl Row="{Binding}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <Button Content="+ Add Payment Trigger" Command="{Binding AddPaymentRuleCommand}" HorizontalAlignment="Left" Padding="6,3" Margin="0,4,0,8" />
+
+                    <TextBlock Text="Advanced triggers (open full editor)" Foreground="#9b86c9" FontSize="10" Margin="0,8,0,4" />
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="💬 Chat Command" Command="{Binding AddAdvancedTriggerCommand}" CommandParameter="ChatCommand" Padding="6,3" Margin="0,0,4,0" />
+                        <Button Content="👥 Follow" Command="{Binding AddAdvancedTriggerCommand}" CommandParameter="Follow" Padding="6,3" Margin="0,0,4,0" />
+                        <Button Content="⚡ Power-up" Command="{Binding AddAdvancedTriggerCommand}" CommandParameter="PowerUp" Padding="6,3" />
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                        <Button Content="Delete Avatar" Command="{Binding DeleteSwapCommand}" Padding="8,4" Background="#5a2a2a" Foreground="#f0a0a0" />
+                        <Button Content="Save" Command="{Binding SaveSwapEditorCommand}" Padding="8,4" Margin="6,0,0,0" />
+                    </StackPanel>
                 </StackPanel>
-            </ScrollViewer>
+            </Border>
 
-            <Border Grid.Column="1" Width="420" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1,0,0,0"
-                    Visibility="{Binding IsEditorOpen, Converter={StaticResource BoolToVisibilityConverter}}">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <Border Grid.Row="0" Background="{DynamicResource NestedPanelBrush}" Padding="12,10">
-                        <DockPanel LastChildFill="False">
-                            <TextBlock Text="{loc:Translate 'Edit Avatar Swap'}" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource TextBrush}" FontFamily="{DynamicResource HeadingFontFamily}"
-                                       Visibility="{Binding EditingRule, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter=Inverted}" />
-                            <TextBlock Text="{loc:Translate 'Edit Rule'}" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource TextBrush}" FontFamily="{DynamicResource HeadingFontFamily}"
-                                       Visibility="{Binding EditingRule, Converter={StaticResource NullToVisibilityConverter}}" />
-                            <Button DockPanel.Dock="Right" Content="&#x2715;" Width="24" Height="24" Background="Transparent" BorderBrush="Transparent"
-                                    Foreground="{DynamicResource TextBrush}" Command="{Binding CloseEditorCommand}" />
-                        </DockPanel>
-                    </Border>
-                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="12" Style="{StaticResource ThemedScrollViewerStyle}"
-                                  Visibility="{Binding EditingRule, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter=Inverted}">
-                        <StackPanel>
-                            <TextBlock Text="{loc:Translate 'Target Avatar'}" FontWeight="Bold" Margin="0,0,0,4" Foreground="{DynamicResource TextBrush}" />
-                            <DockPanel Margin="0,0,0,8">
-                                <Button DockPanel.Dock="Right" Content="{loc:Translate 'Browse...'}" Margin="6,0,0,0" Style="{StaticResource SecondaryButtonStyle}"
-                                        Command="{Binding PickTargetAvatarCommand}" CommandParameter="{Binding SelectedProfile}" />
-                                <TextBlock Text="{Binding EditorTargetAvatarName}" VerticalAlignment="Center" Foreground="{DynamicResource MutedBrush}" />
-                            </DockPanel>
-                            <Button Content="{loc:Translate 'Use Current Avatar'}" Margin="0,0,0,14" HorizontalAlignment="Left" Style="{StaticResource SecondaryButtonStyle}"
-                                    Command="{Binding UseCurrentAvatarForTargetCommand}" CommandParameter="{Binding SelectedProfile}" />
+            <!-- Right editor: roulette -->
+            <Border Grid.Column="1" Background="#241a3a" BorderBrush="#3a2a5a" BorderThickness="1" CornerRadius="6" Padding="10"
+                    Visibility="{Binding IsRouletteEditorOpen, Converter={StaticResource BoolToVis}}">
+                <StackPanel>
+                    <TextBlock Text="Roulette" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,8" />
+                    <TextBlock Text="Pool" FontWeight="SemiBold" FontSize="11" Margin="0,0,0,4" />
+                    <ItemsControl ItemsSource="{Binding SelectedRouletteCard.Roulette.Pool}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Width="60" Height="60" Background="#3a2a5a" CornerRadius="3" Margin="0,0,4,4" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
 
-                            <TextBlock Text="{loc:Translate 'Return Avatar'}" FontWeight="Bold" Margin="0,0,0,4" Foreground="{DynamicResource TextBrush}" />
-                            <ComboBox SelectedItem="{Binding EditorReturnMode}" ItemsSource="{Binding ReturnAvatarModes}" Margin="0,0,0,8" />
-                            <StackPanel Visibility="{Binding EditorReturnMode, Converter={StaticResource ReturnAvatarModeToVisibilityConverter}, ConverterParameter=UseCustom}">
-                                <TextBlock Text="{loc:Translate 'Custom Return Avatar'}" Margin="0,0,0,4" Foreground="{DynamicResource MutedBrush}" />
-                                <TextBox Text="{Binding EditorReturnAvatarName, UpdateSourceTrigger=PropertyChanged}" />
-                            </StackPanel>
+                    <TextBlock Text="Triggers" FontWeight="SemiBold" FontSize="11" Margin="0,8,0,4" />
+                    <ItemsControl ItemsSource="{Binding RouletteTriggerRows}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <uc:InlineAvatarSwapRuleRowControl Row="{Binding}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
 
-                            <DockPanel Margin="0,14,0,4">
-                                <TextBlock Text="{loc:Translate 'Channel Point Swaps'}" FontWeight="Bold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
-                                <Button DockPanel.Dock="Right" Content="+ Add" Style="{StaticResource SecondaryButtonStyle}" Padding="10,3" FontSize="11"
-                                        Command="{Binding AddChannelPointRuleCommand}" />
-                            </DockPanel>
-                            <ItemsControl ItemsSource="{Binding SelectedProfile.ChannelPointRules}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border Background="{DynamicResource InputBrush}" CornerRadius="6" Padding="8" Margin="0,4" Cursor="Hand">
-                                            <Border.InputBindings>
-                                                <MouseBinding MouseAction="LeftClick"
-                                                              Command="{Binding DataContext.OpenRuleEditorCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                              CommandParameter="{Binding}" />
-                                            </Border.InputBindings>
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="Auto" />
-                                                    <ColumnDefinition Width="Auto" />
-                                                </Grid.ColumnDefinitions>
-                                                <TextBlock Grid.Column="0" Text="{Binding DisplayTitle}" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                                <Border Grid.Column="1" Background="{DynamicResource AccentDimBrush}" CornerRadius="6" Padding="6,2" Margin="0,0,6,0"
-                                                        Visibility="{Binding HasSourceBadge, Converter={StaticResource BoolToVisibilityConverter}}">
-                                                    <TextBlock Text="{Binding SourceDisplayName}" FontSize="10" Foreground="{DynamicResource TextBrush}" />
-                                                </Border>
-                                                <Button Grid.Column="2" Content="&#x1F5D1;" Width="28" Height="24" Background="Transparent" BorderBrush="Transparent"
-                                                        Command="{Binding DataContext.DeleteChannelPointRuleCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                        CommandParameter="{Binding}" />
-                                            </Grid>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <TextBlock Text="{loc:Translate 'No channel point rules yet. Click + Add to create one.'}"
-                                       FontSize="11" Foreground="{DynamicResource MutedBrush}" FontStyle="Italic" Margin="2,4,0,0"
-                                       Visibility="{Binding SelectedProfile.ChannelPointRules.Count, Converter={StaticResource CountToVisibilityConverter}, ConverterParameter=Inverted}" />
-
-                            <DockPanel Margin="0,14,0,4">
-                                <TextBlock Text="{loc:Translate 'Bits + Subs Swaps'}" FontWeight="Bold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
-                                <Button DockPanel.Dock="Right" Content="+ Add" Style="{StaticResource SecondaryButtonStyle}" Padding="10,3" FontSize="11"
-                                        Command="{Binding AddBitsSubsRuleCommand}" />
-                            </DockPanel>
-                            <ItemsControl ItemsSource="{Binding SelectedProfile.BitsSubsRules}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border Background="{DynamicResource InputBrush}" CornerRadius="6" Padding="8" Margin="0,4" Cursor="Hand">
-                                            <Border.InputBindings>
-                                                <MouseBinding MouseAction="LeftClick"
-                                                              Command="{Binding DataContext.OpenRuleEditorCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                              CommandParameter="{Binding}" />
-                                            </Border.InputBindings>
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="Auto" />
-                                                    <ColumnDefinition Width="Auto" />
-                                                </Grid.ColumnDefinitions>
-                                                <TextBlock Grid.Column="0" Text="{Binding DisplayTitle}" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                                <Border Grid.Column="1" Background="{DynamicResource AccentDimBrush}" CornerRadius="6" Padding="6,2" Margin="0,0,6,0"
-                                                        Visibility="{Binding HasSourceBadge, Converter={StaticResource BoolToVisibilityConverter}}">
-                                                    <TextBlock Text="{Binding SourceDisplayName}" FontSize="10" Foreground="{DynamicResource TextBrush}" />
-                                                </Border>
-                                                <Button Grid.Column="2" Content="&#x1F5D1;" Width="28" Height="24" Background="Transparent" BorderBrush="Transparent"
-                                                        Command="{Binding DataContext.DeleteBitsSubsRuleCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                        CommandParameter="{Binding}" />
-                                            </Grid>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <TextBlock Text="{loc:Translate 'No bits/subs rules yet. Click + Add to create one.'}"
-                                       FontSize="11" Foreground="{DynamicResource MutedBrush}" FontStyle="Italic" Margin="2,4,0,0"
-                                       Visibility="{Binding SelectedProfile.BitsSubsRules.Count, Converter={StaticResource CountToVisibilityConverter}, ConverterParameter=Inverted}" />
-
-                            <DockPanel Margin="0,14,0,4">
-                                <TextBlock Text="{loc:Translate 'Roulette Swaps'}" FontWeight="Bold" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
-                                <Button DockPanel.Dock="Right" Content="+ Add" Style="{StaticResource SecondaryButtonStyle}" Padding="10,3" FontSize="11"
-                                        Command="{Binding AddRouletteRuleCommand}" />
-                            </DockPanel>
-                            <ItemsControl ItemsSource="{Binding SelectedProfile.RouletteRules}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border Background="{DynamicResource InputBrush}" CornerRadius="6" Padding="8" Margin="0,4" Cursor="Hand">
-                                            <Border.InputBindings>
-                                                <MouseBinding MouseAction="LeftClick"
-                                                              Command="{Binding DataContext.OpenRuleEditorCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                              CommandParameter="{Binding}" />
-                                            </Border.InputBindings>
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="Auto" />
-                                                    <ColumnDefinition Width="Auto" />
-                                                </Grid.ColumnDefinitions>
-                                                <TextBlock Grid.Column="0" Text="{Binding DisplayTitle}" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                                <Border Grid.Column="1" Background="{DynamicResource AccentDimBrush}" CornerRadius="6" Padding="6,2" Margin="0,0,6,0"
-                                                        Visibility="{Binding HasSourceBadge, Converter={StaticResource BoolToVisibilityConverter}}">
-                                                    <TextBlock Text="{Binding SourceDisplayName}" FontSize="10" Foreground="{DynamicResource TextBrush}" />
-                                                </Border>
-                                                <Button Grid.Column="2" Content="&#x1F5D1;" Width="28" Height="24" Background="Transparent" BorderBrush="Transparent"
-                                                        Command="{Binding DataContext.DeleteRouletteRuleCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                        CommandParameter="{Binding}" />
-                                            </Grid>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <TextBlock Text="{loc:Translate 'No roulette rules yet. Click + Add to create one.'}"
-                                       FontSize="11" Foreground="{DynamicResource MutedBrush}" FontStyle="Italic" Margin="2,4,0,0"
-                                       Visibility="{Binding SelectedProfile.RouletteRules.Count, Converter={StaticResource CountToVisibilityConverter}, ConverterParameter=Inverted}" />
-                        </StackPanel>
-                    </ScrollViewer>
-                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0" Style="{StaticResource ThemedScrollViewerStyle}"
-                                  Visibility="{Binding EditingRule, Converter={StaticResource NullToVisibilityConverter}}">
-                        <Grid HorizontalAlignment="Stretch">
-                            <uc:AvatarSwapRuleEditorControl DataContext="{Binding EditingRule.Rule}" HorizontalAlignment="Stretch" />
-                        </Grid>
-                    </ScrollViewer>
-                    <Border Grid.Row="2" Background="{DynamicResource NestedPanelBrush}" Padding="12,10">
-                        <Grid>
-                            <DockPanel LastChildFill="False"
-                                       Visibility="{Binding EditingRule, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter=Inverted}">
-                                <Button DockPanel.Dock="Left" Content="{loc:Translate 'Delete'}" Style="{StaticResource DangerButtonStyle}"
-                                        Command="{Binding DeleteSelectedProfileCommand}" />
-                                <Button DockPanel.Dock="Right" Content="{loc:Translate 'Save'}" Style="{StaticResource AccentButtonStyle}"
-                                        Command="{Binding SaveEditorCommand}" />
-                            </DockPanel>
-                            <DockPanel LastChildFill="False"
-                                       Visibility="{Binding EditingRule, Converter={StaticResource NullToVisibilityConverter}}">
-                                <Button DockPanel.Dock="Left" Content="{loc:Translate 'Cancel'}" Style="{StaticResource SecondaryButtonStyle}"
-                                        Command="{Binding CancelRuleEditCommand}" />
-                                <Button DockPanel.Dock="Right" Content="{loc:Translate 'Save'}" Style="{StaticResource AccentButtonStyle}"
-                                        Command="{Binding CommitRuleEditCommand}" />
-                            </DockPanel>
-                        </Grid>
-                    </Border>
-                </Grid>
+                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                        <Button Content="Delete Roulette" Command="{Binding DeleteRouletteCommand}" Padding="8,4" Background="#5a2a2a" Foreground="#f0a0a0" />
+                        <Button Content="Save" Command="{Binding SaveRouletteEditorCommand}" Padding="8,4" Margin="6,0,0,0" />
+                    </StackPanel>
+                </StackPanel>
             </Border>
         </Grid>
     </Grid>
