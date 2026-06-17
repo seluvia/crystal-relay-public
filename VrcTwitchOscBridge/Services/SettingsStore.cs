@@ -1147,7 +1147,7 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
 
     private static AvatarSwapProfile ToAvatarSwapProfile(PersistedAvatarSwapProfile profile)
     {
-        return new AvatarSwapProfile
+        var result = new AvatarSwapProfile
         {
             Id = profile.Id,
             IsEnabled = profile.IsEnabled,
@@ -1155,10 +1155,13 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             TargetAvatarName = profile.TargetAvatarName ?? string.Empty,
             TargetThumbnailUrl = profile.TargetThumbnailUrl,
             CreatedAt = profile.CreatedAt == default ? DateTime.UtcNow : profile.CreatedAt,
-            UpdatedAt = profile.UpdatedAt == default ? DateTime.UtcNow : profile.UpdatedAt,
-            ChannelPointRules = new ObservableCollection<TriggerRule>(
-                (profile.ChannelPointRules ?? []).Select(ToRule))
+            UpdatedAt = profile.UpdatedAt == default ? DateTime.UtcNow : profile.UpdatedAt
         };
+        foreach (var rule in (profile.ChannelPointRules ?? []).Select(ToRule))
+        {
+            result.ChannelPointRules.Add(rule);
+        }
+        return result;
     }
 
     private static AvatarRouletteProfile ToAvatarRouletteProfile(PersistedAvatarRouletteProfile p)

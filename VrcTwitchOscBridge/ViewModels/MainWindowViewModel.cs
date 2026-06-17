@@ -5156,7 +5156,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             return;
         }
 
-        var managerVm = new AvatarSwapManagerViewModel(Settings, this, new AvatarImageService());
+        var managerVm = new AvatarSwapManagerViewModel(Settings);
         _avatarSwapManagerWindow = new AvatarSwapManagerWindow(managerVm)
         {
             Owner = System.Windows.Application.Current?.MainWindow,

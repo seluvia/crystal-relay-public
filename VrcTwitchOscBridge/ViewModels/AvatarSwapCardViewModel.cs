@@ -41,27 +41,25 @@ public sealed class AvatarSwapCardViewModel : ObservableObject, IDisposable
 
     public bool HasImage => image is not null;
 
-    public string DisplayTitle => Profile.DisplayTitle;
+    public string DisplayTitle => string.IsNullOrWhiteSpace(Profile.TargetAvatarName) ? "Pick Avatar" : Profile.TargetAvatarName;
 
     public string AvatarSubtitle => Profile.AvatarSubtitle;
 
-    public string ReturnAvatarDisplay => Profile.ReturnAvatarDisplay;
-
-    public string StatusText => Profile.StatusText;
+    public string StatusText => Profile.IsEnabled ? "On" : "Off";
 
     public string RuleCountText
     {
         get
         {
             var cp = Profile.ChannelPointRules?.Count ?? 0;
-            var bs = Profile.BitsSubsRules?.Count ?? 0;
-            return (cp + bs).ToString();
+            var bits = Profile.BitsRules?.Count ?? 0;
+            var subs = Profile.SubsRules?.Count ?? 0;
+            var pay = Profile.PaymentRules?.Count ?? 0;
+            return (cp + bits + subs + pay).ToString();
         }
     }
 
-    public int RouletteRuleCount => Profile.RouletteRules?.Count ?? 0;
-
-    public bool HasTarget => Profile.HasTarget;
+    public bool HasTarget => !string.IsNullOrWhiteSpace(Profile.TargetAvatarId);
 
     public bool IsEnabled => Profile.IsEnabled;
 
@@ -69,13 +67,15 @@ public sealed class AvatarSwapCardViewModel : ObservableObject, IDisposable
 
     public bool UsesChannelPointRules => Profile.UsesChannelPointRules;
 
-    public bool UsesBitsSubsRules => Profile.UsesBitsSubsRules;
+    public bool UsesBitsRules => Profile.UsesBitsRules;
 
-    public bool UsesRouletteRules => Profile.UsesRouletteRules;
+    public bool UsesSubsRules => Profile.UsesSubsRules;
+
+    public bool UsesPaymentRules => Profile.UsesPaymentRules;
 
     public System.Windows.Media.Brush StatusStripeBrush => Profile.IsEnabled
-        ? Profile.StatusStripeReadyBrush
-        : Profile.StatusStripeOffBrush;
+        ? System.Windows.Media.Brushes.MediumSeaGreen
+        : System.Windows.Media.Brushes.Gray;
 
     public void SetThumbnailUrl(string? thumbnailUrl)
     {
@@ -160,21 +160,16 @@ public sealed class AvatarSwapCardViewModel : ObservableObject, IDisposable
                 RaisePropertyChanged(nameof(StatusStripeBrush));
                 break;
             case nameof(AvatarSwapProfile.ChannelPointRules):
-            case nameof(AvatarSwapProfile.BitsSubsRules):
+            case nameof(AvatarSwapProfile.BitsRules):
+            case nameof(AvatarSwapProfile.SubsRules):
+            case nameof(AvatarSwapProfile.PaymentRules):
                 RaisePropertyChanged(nameof(AvatarSubtitle));
                 RaisePropertyChanged(nameof(RuleCountText));
                 RaisePropertyChanged(nameof(HasRules));
                 RaisePropertyChanged(nameof(UsesChannelPointRules));
-                RaisePropertyChanged(nameof(UsesBitsSubsRules));
-                break;
-            case nameof(AvatarSwapProfile.RouletteRules):
-                RaisePropertyChanged(nameof(AvatarSubtitle));
-                RaisePropertyChanged(nameof(RouletteRuleCount));
-                RaisePropertyChanged(nameof(HasRules));
-                RaisePropertyChanged(nameof(UsesRouletteRules));
-                break;
-            case nameof(AvatarSwapProfile.ReturnAvatarDisplay):
-                RaisePropertyChanged(nameof(ReturnAvatarDisplay));
+                RaisePropertyChanged(nameof(UsesBitsRules));
+                RaisePropertyChanged(nameof(UsesSubsRules));
+                RaisePropertyChanged(nameof(UsesPaymentRules));
                 break;
         }
     }
