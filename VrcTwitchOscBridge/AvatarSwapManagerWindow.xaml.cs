@@ -13,11 +13,24 @@ public partial class AvatarSwapManagerWindow : Window
     public AvatarSwapManagerWindow(AvatarSwapManagerViewModel viewModel)
     {
         InitializeComponent();
+        ThemeManager.ApplyToResources(Resources, ThemeManager.CurrentTheme);
+        ThemeManager.ThemeChanged += OnThemeChanged;
         _viewModel = viewModel ?? throw new System.ArgumentNullException(nameof(viewModel));
         DataContext = _viewModel;
     }
 
     public AvatarSwapManagerViewModel ViewModel => _viewModel;
+
+    private void OnThemeChanged(object? sender, EventArgs e)
+    {
+        Dispatcher.BeginInvoke(() => ThemeManager.ApplyToResources(Resources));
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        ThemeManager.ThemeChanged -= OnThemeChanged;
+        base.OnClosed(e);
+    }
 
     private void OnTitleBarMouseDown(object sender, MouseButtonEventArgs e)
     {
