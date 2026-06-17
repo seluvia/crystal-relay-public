@@ -189,4 +189,71 @@ public sealed class AvatarSwapMigrationServiceV4Tests
         Assert.Empty(s.AvatarRouletteProfiles);
         Assert.Equal(4, s.AvatarChangeToAvatarSwapMigrationVersion);
     }
+
+    [Fact]
+    public void MigrateV4_RetagsCashPaymentRulesToPaymentRules()
+    {
+        var s = new AppSettings();
+        var profile = new AvatarSwapProfile { TargetAvatarId = "avtr_a" };
+        var cashRule = new TriggerRule
+        {
+            TriggerType = TwitchTriggerType.ChannelPoints,
+            Source = TriggerRuleSource.CashPayment,
+            CashPaymentRuleId = "cash_1",
+            Name = "SE tip",
+        };
+        profile.ChannelPointRules.Add(cashRule);
+        s.AvatarSwapProfiles.Add(profile);
+        s.AvatarChangeToAvatarSwapMigrationVersion = 3;
+
+        AvatarSwapMigrationService.Migrate(s);
+
+        Assert.Empty(profile.ChannelPointRules);
+        Assert.Single(profile.PaymentRules);
+        Assert.Equal("SE tip", profile.PaymentRules[0].Name);
+        Assert.Equal("cash_1", profile.PaymentRules[0].CashPaymentRuleId);
+    }
+
+    [Fact]
+    public void MigrateV4_ConvertsRouletteToAvatarRouletteProfile()
+    {
+        var s = new AppSettings { AvatarChangeToAvatarSwapMigrationVersion = 3 };
+        s.AvatarSwapProfiles.Add(new AvatarSwapProfile { TargetAvatarId = "avtr_a", TargetAvatarName = "Host" });
+
+        var temp = Path.Combine(Path.GetTempPath(), $"cr-v3-roulette-{Guid.NewGuid():N}.json");
+        try
+        {
+            var json = "{\n" +
+                       "  \"avatarSwapProfiles\": [\n" +
+                       "    {\n" +
+                       "      \"id\": \"00000000-0000-0000-0000-000000000001\",\n" +
+                       "      \"targetAvatarId\": \"avtr_a\",\n" +
+                       "      \"targetAvatarName\": \"Host\",\n" +
+                       "      \"channelPointRules\": [],\n" +
+                       "      \"bitsSubsRules\": [],\n" +
+                       "      \"rouletteRules\": [\n" +
+                       "        { \"name\": \"Furry Roulette\", \"actionType\": 3, \"avatarRouletAvatarIds\": [\"avtr_1\",\"avtr_2\"], \"avatarRouletAvatarNames\": [\"One\",\"Two\"] }\n" +
+                       "      ]\n" +
+                       "    }\n" +
+                       "  ]\n" +
+                       "}";
+            File.WriteAllText(temp, json);
+            var store = new SettingsStore(temp);
+            var loaded = store.LoadAsync().GetAwaiter().GetResult();
+
+            AvatarSwapMigrationService.Migrate(loaded);
+
+            Assert.Single(loaded.AvatarRouletteProfiles);
+            var roulette = loaded.AvatarRouletteProfiles[0];
+            Assert.Equal("Host Roulette", roulette.Name);
+            Assert.Equal(2, roulette.Pool.Count);
+            Assert.Equal("One", roulette.Pool[0].AvatarName);
+            Assert.Single(roulette.Triggers);
+            Assert.Equal(OscActionType.AvatarRoulet, roulette.Triggers[0].ActionType);
+        }
+        finally
+        {
+            if (File.Exists(temp)) File.Delete(temp);
+        }
+    }
 }
