@@ -12,7 +12,158 @@
         WindowStyle="None"
         ResizeMode="CanResize">
     <Window.Resources>
-        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+        <BooleanToVisibilityConverter x:Key="InverseBoolToVisibilityConverter" />
+
+        <FontFamily x:Key="BodyFontFamily">Verdana</FontFamily>
+        <FontFamily x:Key="HeadingFontFamily">Constantia</FontFamily>
+
+        <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#130B1E" />
+        <SolidColorBrush x:Key="PanelBrush" Color="#CC1C132B" />
+        <SolidColorBrush x:Key="NestedPanelBrush" Color="#B8241739" />
+        <SolidColorBrush x:Key="BorderBrush" Color="#5A3D92" />
+        <SolidColorBrush x:Key="AccentBrush" Color="#B16BFF" />
+        <SolidColorBrush x:Key="TextBrush" Color="#F5EEFF" />
+        <SolidColorBrush x:Key="MutedBrush" Color="#BFAFD8" />
+        <SolidColorBrush x:Key="InputBrush" Color="#B8271A3D" />
+        <SolidColorBrush x:Key="InputBorderBrush" Color="#7552BC" />
+        <SolidColorBrush x:Key="SecondaryButtonBrush" Color="#2C1C48" />
+        <SolidColorBrush x:Key="SecondaryButtonBorderBrush" Color="#7F5FD0" />
+        <SolidColorBrush x:Key="WarnBrush" Color="#4a3a1a" />
+        <SolidColorBrush x:Key="WarnBorderBrush" Color="#a08a3a" />
+        <SolidColorBrush x:Key="WarnTextBrush" Color="#f0d878" />
+        <SolidColorBrush x:Key="RuleCardHoverBrush" Color="#A978FF" />
+        <SolidColorBrush x:Key="TitleBarBrush" Color="#20122F" />
+        <SolidColorBrush x:Key="TitleBarTextBrush" Color="#F5EEFF" />
+        <SolidColorBrush x:Key="TitleBarSubTextBrush" Color="#CBB9E5" />
+        <SolidColorBrush x:Key="TitleBarButtonBrush" Color="#00000000" />
+        <SolidColorBrush x:Key="TitleBarButtonHoverBrush" Color="#3B235B" />
+        <SolidColorBrush x:Key="TitleBarButtonPressedBrush" Color="#543183" />
+        <SolidColorBrush x:Key="TitleBarCloseHoverBrush" Color="#B43D62" />
+        <SolidColorBrush x:Key="TitleBarClosePressedBrush" Color="#8C2648" />
+        <SolidColorBrush x:Key="ScrollTrackBrush" Color="#25183D" />
+        <SolidColorBrush x:Key="ScrollThumbBrush" Color="#7B57D0" />
+        <SolidColorBrush x:Key="ComboTextBrush" Color="#140C20" />
+
+        <Style TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{DynamicResource BodyFontFamily}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="FontFamily" Value="{DynamicResource BodyFontFamily}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Padding" Value="6,4" />
+            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CaretBrush" Value="{DynamicResource TextBrush}" />
+        </Style>
+
+        <Style x:Key="SecondaryButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="{DynamicResource SecondaryButtonBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SecondaryButtonBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="8,3" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style x:Key="AccentButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource ComboTextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="10,4" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FontWeight" Value="Bold" />
+        </Style>
+        <Style x:Key="DangerButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="{DynamicResource WarnBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource WarnTextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource WarnBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="8,3" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+
+        <Style x:Key="TitleBarButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="40" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Background" Value="{DynamicResource TitleBarButtonBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TitleBarTextBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="TitleBarButtonBorder"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="0">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="TitleBarButtonBorder" Property="Background" Value="{DynamicResource TitleBarButtonHoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="TitleBarButtonBorder" Property="Background" Value="{DynamicResource TitleBarButtonPressedBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ScrollBarThumbStyle" TargetType="Thumb">
+            <Setter Property="MinHeight" Value="32" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Border x:Name="ThumbChrome" Margin="2" Background="{DynamicResource ScrollThumbBrush}" CornerRadius="8" />
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ThumbChrome" Property="Background" Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="ScrollBarTrackButtonStyle" TargetType="RepeatButton">
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="IsTabStop" Value="False" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RepeatButton">
+                        <Border Background="Transparent" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <ControlTemplate x:Key="VerticalScrollBarTemplate" TargetType="ScrollBar">
+            <Grid Width="18" MinWidth="18" Background="Transparent">
+                <Border Background="{DynamicResource ScrollTrackBrush}" BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1" CornerRadius="8" />
+                <Track x:Name="PART_Track" Margin="2" IsDirectionReversed="True">
+                    <Track.DecreaseRepeatButton>
+                        <RepeatButton Style="{StaticResource ScrollBarTrackButtonStyle}" Command="{x:Static ScrollBar.PageUpCommand}" />
+                    </Track.DecreaseRepeatButton>
+                    <Track.Thumb>
+                        <Thumb Style="{StaticResource ScrollBarThumbStyle}" />
+                    </Track.Thumb>
+                    <Track.IncreaseRepeatButton>
+                        <RepeatButton Style="{StaticResource ScrollBarTrackButtonStyle}" Command="{x:Static ScrollBar.PageDownCommand}" />
+                    </Track.IncreaseRepeatButton>
+                </Track>
+            </Grid>
+        </ControlTemplate>
+        <Style TargetType="ScrollBar">
+            <Setter Property="Background" Value="{DynamicResource ScrollTrackBrush}" />
+            <Setter Property="Width" Value="18" />
+            <Setter Property="Height" Value="Auto" />
+            <Setter Property="Template" Value="{StaticResource VerticalScrollBarTemplate}" />
+        </Style>
     </Window.Resources>
     <WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="32" CornerRadius="0" GlassFrameThickness="0" ResizeBorderThickness="6" UseAeroCaptionButtons="False" />
