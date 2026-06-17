@@ -278,14 +278,24 @@
                             </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border Width="180" Height="130" Background="#322250" BorderBrush="#d4af37" BorderThickness="1.5" CornerRadius="7" Margin="0,0,6,6" Padding="6" ClipToBounds="True" Cursor="Hand">
+                                    <Border Width="180" Height="130" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource WarnBorderBrush}" BorderThickness="2,1,1,1" CornerRadius="7" Margin="0,0,6,6" Padding="6" ClipToBounds="True" Cursor="Hand">
                                         <Border.InputBindings>
                                             <MouseBinding MouseAction="LeftClick" Command="{Binding DataContext.OpenRouletteEditorCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" />
                                         </Border.InputBindings>
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="BorderBrush" Value="{DynamicResource WarnBorderBrush}" />
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="BorderBrush" Value="{DynamicResource RuleCardHoverBrush}" />
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
                                         <StackPanel>
-                                            <Border Height="64" Background="#3a2a5a" CornerRadius="4" ClipToBounds="True" />
-                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="11" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Text="{Binding Subtitle}" Foreground="#d4af37" FontSize="9" TextTrimming="CharacterEllipsis" />
+                                            <Border Height="64" Background="{DynamicResource NestedPanelBrush}" CornerRadius="4" ClipToBounds="True" />
+                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="12" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
+                                            <TextBlock Text="{Binding Subtitle}" Foreground="{DynamicResource WarnTextBrush}" FontSize="10" TextTrimming="CharacterEllipsis" ToolTip="{Binding Subtitle}" />
                                         </StackPanel>
                                     </Border>
                                 </DataTemplate>
