@@ -29,4 +29,46 @@ public sealed class AvatarRouletteProfileDispatchTests
         Assert.Equal("a1", snap.Pool[0].AvatarId);
         Assert.Single(snap.Triggers);
     }
+
+    [Fact]
+    public void FindRouletteProfileForRule_ReturnsProfileForTrigger()
+    {
+        var s = new AppSettings();
+        var roulette = new AvatarRouletteProfile { Name = "Demo" };
+        var trigger = new TriggerRule { ActionType = OscActionType.AvatarRoulet };
+        trigger.AvatarRouletAvatarIds.Add("avtr_x");
+        roulette.Triggers.Add(trigger);
+        s.AvatarRouletteProfiles.Add(roulette);
+
+        var config = BridgeRuntimeConfiguration.FromSettings(s, RuntimeConfig.CreateDefault(), null);
+
+        var found = config.FindRouletteProfileForRule(trigger);
+        Assert.NotNull(found);
+        Assert.Equal("Demo", found.Name);
+    }
+
+    [Fact]
+    public void FindRouletteProfileForRule_ReturnsNullForUnknownRule()
+    {
+        var s = new AppSettings();
+        var config = BridgeRuntimeConfiguration.FromSettings(s, RuntimeConfig.CreateDefault(), null);
+        var stray = new TriggerRule { ActionType = OscActionType.AvatarRoulet };
+        Assert.Null(config.FindRouletteProfileForRule(stray));
+    }
+
+    [Fact]
+    public void FindAvatarSwapProfileForRule_LocatesRuleInBitsRules()
+    {
+        var s = new AppSettings();
+        var p = new AvatarSwapProfile { TargetAvatarId = "avtr_a" };
+        var bits = new TriggerRule { TriggerType = TwitchTriggerType.Bits, ActionType = OscActionType.AvatarChange, AvatarChangeTargetId = "avtr_b", AvatarTargetName = "B" };
+        p.BitsRules.Add(bits);
+        s.AvatarSwapProfiles.Add(p);
+
+        var config = BridgeRuntimeConfiguration.FromSettings(s, RuntimeConfig.CreateDefault(), null);
+
+        var found = config.FindAvatarSwapProfileForRule(bits);
+        Assert.NotNull(found);
+        Assert.Equal("avtr_a", found.TargetAvatarId);
+    }
 }

@@ -598,6 +598,18 @@ public sealed record BridgeRuntimeConfiguration(
         return null;
     }
 
+    public AvatarRouletteProfileSnapshot? FindRouletteProfileForRule(TriggerRule rule)
+    {
+        foreach (var p in AvatarRouletteProfiles)
+        {
+            foreach (var t in p.Triggers)
+            {
+                if (ReferenceEquals(t.Rule, rule)) return p;
+            }
+        }
+        return null;
+    }
+
     public static TwitchAccountSnapshot ToSnapshot(TwitchAccountSettings settings)
     {
         return new TwitchAccountSnapshot(
