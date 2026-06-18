@@ -5,32 +5,32 @@
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
         <Style TargetType="TextBlock" x:Key="LabelStyle">
-            <Setter Property="Foreground" Value="#9b86c9" />
-            <Setter Property="FontSize" Value="9" />
+            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+            <Setter Property="FontSize" Value="10" />
             <Setter Property="Margin" Value="0,0,0,2" />
         </Style>
         <Style TargetType="TextBox" x:Key="InputStyle">
-            <Setter Property="Background" Value="#0d0a18" />
-            <Setter Property="BorderBrush" Value="#3a2a5a" />
-            <Setter Property="Foreground" Value="#e8e3f5" />
+            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
             <Setter Property="Padding" Value="3" />
             <Setter Property="FontSize" Value="11" />
         </Style>
     </UserControl.Resources>
     <StackPanel>
-        <Border Background="#241a3a" Padding="4,3" CornerRadius="3" Margin="0,0,0,2">
+        <Border Background="{DynamicResource PanelBrush}" Padding="4,3" CornerRadius="3" Margin="0,0,0,2">
             <DockPanel>
                 <TextBlock Text="{Binding Summary}" FontSize="11" />
-                <Button DockPanel.Dock="Right" Content="🗑" Command="{Binding DataContext.DeleteRuleCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" Width="20" Background="Transparent" Foreground="#9b86c9" BorderThickness="0" />
+                <Button DockPanel.Dock="Right" Content="🗑" Command="{Binding DataContext.DeleteRuleCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" Width="20" Background="Transparent" Foreground="{DynamicResource MutedBrush}" BorderThickness="0" />
             </DockPanel>
             <Border.InputBindings>
                 <MouseBinding MouseAction="LeftClick" Command="{Binding DataContext.BeginInlineEditCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" />
             </Border.InputBindings>
         </Border>
-        <Border Background="#241a3a" BorderBrush="#6b3fa0" BorderThickness="1" CornerRadius="4" Padding="8,6"
+        <Border Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1" CornerRadius="4" Padding="8,6"
                 Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVis}}">
             <StackPanel>
-                <TextBlock Text="(Inline editor — fields vary by trigger type)" Foreground="#b0a3d0" FontSize="11" />
+                <TextBlock Text="(Inline editor — fields vary by trigger type)" Foreground="{DynamicResource MutedBrush}" FontSize="11" />
             </StackPanel>
         </Border>
     </StackPanel>

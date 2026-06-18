@@ -380,12 +380,12 @@
                     </Border>
 
                     <!-- Right editor: roulette -->
-                    <Border Grid.Column="1" Background="#241a3a" BorderBrush="#3a2a5a" BorderThickness="1" CornerRadius="6" Padding="10"
-                            Visibility="{Binding IsRouletteEditorOpen, Converter={StaticResource BoolToVis}}">
+                    <Border Grid.Column="1" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="10"
+                            Visibility="{Binding IsRouletteEditorOpen, Converter={StaticResource BoolToVisibilityConverter}}">
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
                             <StackPanel>
                                 <TextBlock Text="Roulette" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,8" />
-                                <TextBlock Text="Pool" FontWeight="SemiBold" FontSize="11" Margin="0,0,0,4" />
+                                <TextBlock Text="Pool" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,4" />
                                 <ItemsControl ItemsSource="{Binding SelectedRouletteCard.Roulette.Pool}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
@@ -394,12 +394,12 @@
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Border Width="60" Height="60" Background="#3a2a5a" CornerRadius="3" Margin="0,0,4,4" ClipToBounds="True" />
+                                            <Border Width="60" Height="60" Background="{DynamicResource NestedPanelBrush}" CornerRadius="3" Margin="0,0,4,4" ClipToBounds="True" />
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
 
-                                <TextBlock Text="Triggers" FontWeight="SemiBold" FontSize="11" Margin="0,8,0,4" />
+                                <TextBlock Text="Triggers" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextBrush}" Margin="0,8,0,4" />
                                 <ItemsControl ItemsSource="{Binding RouletteTriggerRows}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
@@ -409,8 +409,8 @@
                                 </ItemsControl>
 
                                 <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                                    <Button Content="Delete Roulette" Command="{Binding DeleteRouletteCommand}" Padding="8,4" Background="#5a2a2a" Foreground="#f0a0a0" />
-                                    <Button Content="Save" Command="{Binding SaveRouletteEditorCommand}" Padding="8,4" Margin="6,0,0,0" />
+                                    <Button Content="Delete Roulette" Command="{Binding DeleteRouletteCommand}" Style="{StaticResource DangerButtonStyle}" />
+                                    <Button Content="Save" Command="{Binding SaveRouletteEditorCommand}" Style="{StaticResource AccentButtonStyle}" Margin="6,0,0,0" />
                                 </StackPanel>
                             </StackPanel>
                         </ScrollViewer>
