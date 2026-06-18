@@ -2,6 +2,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Linq;
+using System.Windows.Input;
 using VrcTwitchOscBridge.Infrastructure;
 using VrcTwitchOscBridge.Models;
 using VrcTwitchOscBridge.Services;
@@ -11,6 +12,7 @@ namespace VrcTwitchOscBridge.ViewModels;
 public sealed class AvatarSwapManagerViewModel : ObservableObject
 {
     private readonly AppSettings _settings;
+    private readonly ITwitchRewardSource _twitchRewardSource;
     private readonly AvatarImageService _imageService;
 
     private bool _isChannelPointSectionCollapsed;
@@ -18,10 +20,15 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
     private bool _isRouletteSectionCollapsed;
     private string? _filterText;
 
-    public AvatarSwapManagerViewModel(AppSettings settings)
+    public AvatarSwapManagerViewModel(AppSettings settings, ITwitchRewardSource twitchRewardSource)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        _twitchRewardSource = twitchRewardSource ?? throw new ArgumentNullException(nameof(twitchRewardSource));
         _imageService = new AvatarImageService();
+
+        TwitchRewardOptions = _twitchRewardSource.RewardOptions;
+        RefreshTwitchRewardsCommand = _twitchRewardSource.RefreshTwitchRewardsCommand;
+        UnlinkTwitchRewardCommand = _twitchRewardSource.UnlinkTwitchRewardCommand;
 
         _settings.AvatarSwapProfiles.CollectionChanged += OnProfilesChanged;
         _settings.AvatarRouletteProfiles.CollectionChanged += OnRouletteProfilesChanged;
@@ -59,6 +66,10 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
 
     public ObservableCollection<AvatarRouletteCardViewModel> RouletteCards { get; } = new();
 
+    public ObservableCollection<TwitchRewardOption> TwitchRewardOptions { get; }
+    public ICommand RefreshTwitchRewardsCommand { get; }
+    public ICommand UnlinkTwitchRewardCommand { get; }
+
     public ObservableCollection<InlineAvatarSwapRuleRowViewModel> ChannelPointRows { get; } = new();
 
     public ObservableCollection<InlineAvatarSwapRuleRowViewModel> BitsRows { get; } = new();
@@ -86,6 +97,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
             if (SetProperty(ref _selectedSwapCard, value))
             {
                 RebuildRows();
+                NotifySelectionCommandsChanged();
             }
         }
     }
@@ -99,6 +111,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
             if (SetProperty(ref _selectedRouletteCard, value))
             {
                 RebuildRows();
+                NotifySelectionCommandsChanged();
             }
         }
     }
@@ -232,8 +245,8 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
     {
         var profile = new AvatarSwapProfile { TargetAvatarName = "New Avatar" };
         _settings.AvatarSwapProfiles.Add(profile);
-        var card = new AvatarSwapCardViewModel(profile, _imageService);
-        SwapCards.Add(card);
+        var card = SwapCards.FirstOrDefault(c => c.Profile == profile)
+            ?? new AvatarSwapCardViewModel(profile, _imageService);
         SelectedSwapCard = card;
         IsSwapEditorOpen = true;
         IsRouletteEditorOpen = false;
@@ -243,8 +256,8 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
     {
         var roulette = new AvatarRouletteProfile { Name = "New Roulette" };
         _settings.AvatarRouletteProfiles.Add(roulette);
-        var card = new AvatarRouletteCardViewModel(roulette);
-        RouletteCards.Add(card);
+        var card = RouletteCards.FirstOrDefault(c => c.Roulette == roulette)
+            ?? new AvatarRouletteCardViewModel(roulette);
         SelectedRouletteCard = card;
         IsRouletteEditorOpen = true;
         IsSwapEditorOpen = false;
@@ -282,6 +295,16 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
         SelectedRouletteCard.Roulette.UpdatedAt = DateTime.UtcNow;
         IsRouletteEditorOpen = false;
         SelectedRouletteCard = null;
+    }
+
+    private void NotifySelectionCommandsChanged()
+    {
+        DeleteSwapCommand.NotifyCanExecuteChanged();
+        DeleteRouletteCommand.NotifyCanExecuteChanged();
+        AddChannelPointRuleCommand.NotifyCanExecuteChanged();
+        AddBitsRuleCommand.NotifyCanExecuteChanged();
+        AddSubsRuleCommand.NotifyCanExecuteChanged();
+        AddPaymentRuleCommand.NotifyCanExecuteChanged();
     }
 
     private void CloseEditor()
