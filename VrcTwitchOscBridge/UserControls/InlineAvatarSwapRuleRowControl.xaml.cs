@@ -82,6 +82,10 @@ public partial class InlineAvatarSwapRuleRowControl : UserControl
             {
                 return rule;
             }
+            if (candidate is FrameworkElement { DataContext: InlineAvatarSwapRuleRowViewModel rowVm })
+            {
+                return rowVm.Rule;
+            }
             candidate = VisualTreeHelper.GetParent(candidate);
         }
         return null;
