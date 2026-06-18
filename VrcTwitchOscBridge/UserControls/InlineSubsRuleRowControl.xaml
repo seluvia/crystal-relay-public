@@ -1,0 +1,16 @@
+<UserControl x:Class="VrcTwitchOscBridge.UserControls.InlineSubsRuleRowControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="clr-namespace:VrcTwitchOscBridge.Services">
+    <Border Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1" Padding="8,6" CornerRadius="4" Margin="0,0,0,4">
+        <DockPanel>
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button Content="⚙" Width="24" Height="24" Margin="0,0,4,0"
+                        Command="{Binding EditCommand}" ToolTip="{loc:Translate 'Edit'}" />
+                <Button Content="🗑" Width="24" Height="24"
+                        Command="{Binding DeleteCommand}" ToolTip="{loc:Translate 'Delete'}" />
+            </StackPanel>
+            <TextBlock Text="{Binding Summary}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+        </DockPanel>
+    </Border>
+</UserControl>

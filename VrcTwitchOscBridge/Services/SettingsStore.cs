@@ -18,7 +18,8 @@ public sealed class SettingsStore
 {
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
-        WriteIndented = true
+        WriteIndented = true,
+        Converters = { new CashPaymentRuleJsonConverter() }
     };
 
     private const string BroadcasterAccessTokenCredential = "CrystalRelay:Twitch:Broadcaster:AccessToken";

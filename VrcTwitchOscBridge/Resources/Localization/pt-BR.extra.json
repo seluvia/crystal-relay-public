@@ -1,4 +1,4 @@
-{
+﻿{
   "OSC parameter paths must match VRChat exactly: capitalization, spacing, slashes, and the parameter name all need to be 1-to-1. Wrong value type, missing target/default values, duration resets, or a parameter that does not exist on the current avatar can make a trigger look like it did nothing. Channel point triggers also need a reward name or linked reward before Twitch can match them. Linked rewards are listen-only, and incomplete triggers stay local until setup is complete.": "Os caminhos de parâmetros OSC precisam corresponder exatamente ao VRChat: capitalização, espaços, barras e o nome do parâmetro precisam ser 1 para 1. Tipo de valor errado, valores alvo/padrão ausentes, reinicializações de duração ou um parâmetro que não existe no avatar atual podem fazer um gatilho parecer que não fez nada. Gatilhos de recompensa de canal também precisam de um nome de recompensa ou recompensa vinculada antes que o Twitch possa correspondê-los. Recompensas vinculadas são apenas de escuta, e gatilhos incompletos ficam locais até que a configuração esteja completa.",
   "Unconfigured": "Não configurado",
   "Universal Trigger Setup Warning": "Aviso de configuração de gatilho universal",
@@ -1158,5 +1158,7 @@
   "Reward Colors": "Cores da recompensa",
   "Everyone": "Todos",
   "Moderators": "Moderadores",
-  "Broadcaster": "Streamer"
+  "Broadcaster": "Streamer",
+  "Back to {0}": "← Back to {0}",
+  "Back to {0} (Roulette)": "← Back to {0} (Roulette)"
 }

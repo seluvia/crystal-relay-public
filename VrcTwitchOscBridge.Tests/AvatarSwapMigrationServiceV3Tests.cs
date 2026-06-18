@@ -28,7 +28,7 @@ public sealed class AvatarSwapMigrationServiceV3Tests
         Assert.Single(settings.AvatarSwapProfiles[0].ChannelPointRules);
         Assert.Empty(profile.ChannelPointRules);
         Assert.Equal(TriggerRuleSource.AvatarSet, rule.Source);
-        Assert.Equal(4, settings.AvatarChangeToAvatarSwapMigrationVersion);
+        Assert.Equal(AvatarSwapMigrationService.CurrentMigrationVersion, settings.AvatarChangeToAvatarSwapMigrationVersion);
     }
 
     [Fact]
@@ -111,7 +111,7 @@ public sealed class AvatarSwapMigrationServiceV3Tests
     {
         var settings = new AppSettings();
         AvatarSwapMigrationService.Migrate(settings);
-        Assert.Equal(4, settings.AvatarChangeToAvatarSwapMigrationVersion);
+        Assert.Equal(AvatarSwapMigrationService.CurrentMigrationVersion, settings.AvatarChangeToAvatarSwapMigrationVersion);
     }
 
     [Fact]

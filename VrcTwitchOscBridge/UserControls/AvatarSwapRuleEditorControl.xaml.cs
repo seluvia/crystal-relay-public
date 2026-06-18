@@ -10,6 +10,19 @@ namespace VrcTwitchOscBridge.UserControls;
 
 public partial class AvatarSwapRuleEditorControl : UserControl
 {
+    public static readonly DependencyProperty IsInAvatarSwapManagerProperty =
+        DependencyProperty.Register(
+            nameof(IsInAvatarSwapManager),
+            typeof(bool),
+            typeof(AvatarSwapRuleEditorControl),
+            new PropertyMetadata(false));
+
+    public bool IsInAvatarSwapManager
+    {
+        get => (bool)GetValue(IsInAvatarSwapManagerProperty);
+        set => SetValue(IsInAvatarSwapManagerProperty, value);
+    }
+
     public AvatarSwapRuleEditorControl()
     {
         InitializeComponent();

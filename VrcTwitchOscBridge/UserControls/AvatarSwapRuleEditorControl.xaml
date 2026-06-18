@@ -319,6 +319,13 @@
                                 </MultiDataTrigger.Conditions>
                                 <Setter Property="Visibility" Value="Visible" />
                             </MultiDataTrigger>
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding IsInAvatarSwapManager, RelativeSource={RelativeSource AncestorType=UserControl}, FallbackValue=False}" Value="True" />
+                                    <Condition Binding="{Binding UsesChannelPointReward}" Value="False" />
+                                </MultiDataTrigger.Conditions>
+                                <Setter Property="Visibility" Value="Visible" />
+                            </MultiDataTrigger>
                         </Style.Triggers>
                     </Style>
                 </StackPanel.Style>
@@ -350,6 +357,9 @@
                             <Setter Property="Visibility" Value="Collapsed" />
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding DataContext.IsViewingSupporterOverrides, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=False}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding IsInAvatarSwapManager, RelativeSource={RelativeSource AncestorType=UserControl}, FallbackValue=False}" Value="True">
                                     <Setter Property="Visibility" Value="Visible" />
                                 </DataTrigger>
                             </Style.Triggers>

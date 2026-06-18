@@ -6,7 +6,7 @@ namespace VrcTwitchOscBridge.Services;
 
 public static class AvatarSwapMigrationService
 {
-    public const int CurrentMigrationVersion = 4;
+    public const int CurrentMigrationVersion = 5;
 
     public static void Migrate(AppSettings settings)
     {
@@ -30,6 +30,11 @@ public static class AvatarSwapMigrationService
         if (settings.AvatarChangeToAvatarSwapMigrationVersion < 4)
         {
             MigrateV3ToV4(settings, persistedSwapProfiles);
+        }
+
+        if (settings.AvatarChangeToAvatarSwapMigrationVersion < 5)
+        {
+            MigrateV4ToV5(settings);
         }
 
         settings.AvatarChangeToAvatarSwapMigrationVersion = CurrentMigrationVersion;
@@ -217,9 +222,27 @@ public static class AvatarSwapMigrationService
             foreach (var rule in profile.ChannelPointRules)
             {
                 if (rule.Source == TriggerRuleSource.CashPayment)
-                    profile.PaymentRules.Add(rule);
+                {
+                    var migrated = new CashPaymentRule
+                    {
+                        Name = rule.Name,
+                        Provider = CashPaymentProvider.StreamElements,
+                        MinimumAmount = (decimal)rule.MinimumAmount,
+                        IsEnabled = true,
+                        ActionKind = CashPaymentActionKind.TriggerAction,
+                        TriggerAction = new TriggerRule
+                        {
+                            ActionType = rule.ActionType,
+                            AvatarChangeTargetId = rule.AvatarChangeTargetId,
+                            AvatarTargetName = rule.AvatarTargetName
+                        }
+                    };
+                    profile.PaymentRules.Add(migrated);
+                }
                 else
+                {
                     keepers.Add(rule);
+                }
             }
             profile.ChannelPointRules.Clear();
             foreach (var k in keepers) profile.ChannelPointRules.Add(k);
@@ -266,5 +289,15 @@ public static class AvatarSwapMigrationService
             TwitchTriggerType.Subscriptions or TwitchTriggerType.GiftSubscription => profile.SubsRules,
             _ => profile.ChannelPointRules,
         };
+    }
+
+    private static void MigrateV4ToV5(AppSettings settings)
+    {
+        // V4->V5: The data model for AvatarSwapProfile.PaymentRules changed
+        // from ObservableCollection<TriggerRule> to ObservableCollection<CashPaymentRule>.
+        // The actual conversion from legacy TriggerRule JSON to CashPaymentRule happens
+        // during deserialization via CashPaymentRuleJsonConverter (registered in SettingsStore).
+        // This step simply marks settings at version 4 as up-to-date once they've been
+        // loaded through the converter.
     }
 }

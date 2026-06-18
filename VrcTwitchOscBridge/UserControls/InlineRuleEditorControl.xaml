@@ -1,0 +1,122 @@
+<UserControl x:Class="VrcTwitchOscBridge.UserControls.InlineRuleEditorControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="clr-namespace:VrcTwitchOscBridge.Services"
+             xmlns:models="clr-namespace:VrcTwitchOscBridge.Models">
+    <Border Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="14">
+        <StackPanel>
+            <Button Content="← Back"
+                    Command="{Binding DataContext.BackToListCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                    Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Left" Margin="0,0,0,12" />
+
+            <TextBlock Text="Edit Trigger" Style="{StaticResource HeadingTextStyle}" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,12" />
+
+            <UniformGrid Columns="2" Margin="0,0,0,10">
+                <StackPanel Margin="0,0,8,0">
+                    <TextBlock Text="{loc:Translate 'Name'}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
+                    <TextBox Text="{Binding Rule.Name, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+                <StackPanel Margin="8,0,0,0">
+                    <TextBlock Text="{loc:Translate 'Trigger Type'}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
+                    <TextBlock Text="{Binding Rule.TriggerType}" Foreground="{DynamicResource TextBrush}" />
+                </StackPanel>
+            </UniformGrid>
+
+            <!-- Bits-specific fields -->
+            <StackPanel Margin="0,8,0,0">
+                <StackPanel.Style>
+                    <Style TargetType="StackPanel">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Rule.TriggerType}" Value="Bits">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </StackPanel.Style>
+                <Border Background="{DynamicResource NestedPanelBrush}" CornerRadius="4" Padding="10" Margin="0,0,0,8">
+                    <StackPanel>
+                        <TextBlock Text="Bits Settings" Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" Margin="0,0,0,8" />
+                        <UniformGrid Columns="2">
+                            <StackPanel Margin="0,0,8,0">
+                                <TextBlock Text="{loc:Translate 'Minimum Amount'}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
+                                <TextBox Text="{Binding Rule.MinimumAmount, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+                            <StackPanel Margin="8,0,0,0">
+                                <TextBlock Text="Seconds per Bits" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
+                                <UniformGrid Columns="2">
+                                    <TextBox Text="{Binding Rule.BitsAmountUnitsPerDuration, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,2,0" />
+                                    <TextBox Text="{Binding Rule.BitsSecondsPerAmountUnit, UpdateSourceTrigger=PropertyChanged}" Margin="2,0,0,0" />
+                                </UniformGrid>
+                            </StackPanel>
+                        </UniformGrid>
+                        <CheckBox IsChecked="{Binding Rule.MaxAccumulatedDurationEnabled}" Content="Cap max accumulated duration" Margin="0,8,0,0" />
+                        <StackPanel Visibility="{Binding Rule.MaxAccumulatedDurationEnabled, Converter={StaticResource BoolToVisibilityConverter}}" Margin="20,4,0,0">
+                            <TextBox Text="{Binding Rule.MaxAccumulatedDurationSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                        <TextBlock Text="Chat keyword" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,8,0,2" />
+                        <TextBox Text="{Binding Rule.SupporterKeywordText, UpdateSourceTrigger=PropertyChanged}" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <!-- Subs-specific fields -->
+            <StackPanel Margin="0,8,0,0">
+                <StackPanel.Style>
+                    <Style TargetType="StackPanel">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Rule.TriggerType}" Value="Subscriptions">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding Rule.TriggerType}" Value="GiftSubscription">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </StackPanel.Style>
+                <Border Background="{DynamicResource NestedPanelBrush}" CornerRadius="4" Padding="10" Margin="0,0,0,8">
+                    <StackPanel>
+                        <TextBlock Text="Subscription Settings" Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" Margin="0,0,0,8" />
+                        <UniformGrid Columns="3">
+                            <StackPanel Margin="0,0,6,0">
+                                <TextBlock Text="T1 seconds/sub" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
+                                <TextBox Text="{Binding Rule.SubscriptionTier1SecondsPerSub, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+                            <StackPanel Margin="6,0,6,0">
+                                <TextBlock Text="T2 seconds/sub" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
+                                <TextBox Text="{Binding Rule.SubscriptionTier2SecondsPerSub, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+                            <StackPanel Margin="6,0,0,0">
+                                <TextBlock Text="T3 seconds/sub" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
+                                <TextBox Text="{Binding Rule.SubscriptionTier3SecondsPerSub, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+                        </UniformGrid>
+                        <CheckBox IsChecked="{Binding Rule.IsGiftSubscription}" Content="Include gift subs" Margin="0,8,0,0" />
+                        <TextBlock Text="Chat keyword" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,8,0,2" />
+                        <TextBox Text="{Binding Rule.SupporterKeywordText, UpdateSourceTrigger=PropertyChanged}" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <!-- Common fields -->
+            <Border Background="{DynamicResource NestedPanelBrush}" CornerRadius="4" Padding="10">
+                <StackPanel>
+                    <TextBlock Text="Common" Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" Margin="0,0,0,8" />
+                    <UniformGrid Columns="2">
+                        <StackPanel Margin="0,0,8,0">
+                            <TextBlock Text="{loc:Translate 'Active Time (seconds)'}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
+                            <TextBox Text="{Binding Rule.DurationSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                        <StackPanel Margin="8,0,0,0">
+                            <TextBlock Text="{loc:Translate 'Cooldown (seconds)'}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
+                            <TextBox Text="{Binding Rule.CooldownSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                    </UniformGrid>
+                    <TextBlock Text="{loc:Translate 'Bot Message'}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,8,0,2" />
+                    <TextBox Text="{Binding Rule.BotMessageTemplate, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" Height="60" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </Border>
+</UserControl>

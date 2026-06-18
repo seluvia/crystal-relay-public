@@ -474,7 +474,8 @@ public sealed record BridgeRuntimeConfiguration(
             var paymentSnapshots = new List<TriggerRuleSnapshot>();
             foreach (var rule in swapProfile.PaymentRules)
             {
-                if (TryToSnapshot(rule, isGlobalOverride: true, profile: null, linkedRewardCooldownSecondsById, out var snapshot))
+                if (rule.TriggerAction is not null
+                    && TryToSnapshot(rule.TriggerAction, isGlobalOverride: true, profile: null, linkedRewardCooldownSecondsById, out var snapshot))
                 {
                     paymentSnapshots.Add(snapshot);
                 }

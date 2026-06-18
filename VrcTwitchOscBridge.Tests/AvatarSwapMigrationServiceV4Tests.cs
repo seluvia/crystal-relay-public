@@ -67,7 +67,7 @@ public sealed class AvatarSwapMigrationServiceV4Tests
         profile.BitsRules.Add(new TriggerRule());
         profile.SubsRules.Add(new TriggerRule());
         profile.SubsRules.Add(new TriggerRule());
-        profile.PaymentRules.Add(new TriggerRule());
+        profile.PaymentRules.Add(new CashPaymentRule());
         var subtitle = profile.AvatarSubtitle;
         Assert.Contains("1", subtitle);
         Assert.Contains("2", subtitle);
@@ -141,7 +141,17 @@ public sealed class AvatarSwapMigrationServiceV4Tests
         p.ChannelPointRules.Add(new TriggerRule { TriggerType = TwitchTriggerType.ChannelPoints, ActionType = OscActionType.AvatarChange, ChannelPointRewardId = "rew_1", AvatarChangeTargetId = "avtr_b", AvatarTargetName = "B" });
         p.BitsRules.Add(new TriggerRule { TriggerType = TwitchTriggerType.Bits, ActionType = OscActionType.AvatarChange, AvatarChangeTargetId = "avtr_b", AvatarTargetName = "B" });
         p.SubsRules.Add(new TriggerRule { TriggerType = TwitchTriggerType.Subscriptions, ActionType = OscActionType.AvatarChange, AvatarChangeTargetId = "avtr_b", AvatarTargetName = "B" });
-        p.PaymentRules.Add(new TriggerRule { TriggerType = TwitchTriggerType.ChannelPoints, ActionType = OscActionType.AvatarChange, Source = TriggerRuleSource.CashPayment, AvatarChangeTargetId = "avtr_b", AvatarTargetName = "B" });
+        p.PaymentRules.Add(new CashPaymentRule
+        {
+            Name = "SE tip",
+            Provider = CashPaymentProvider.StreamElements,
+            TriggerAction = new TriggerRule
+            {
+                ActionType = OscActionType.AvatarChange,
+                AvatarChangeTargetId = "avtr_b",
+                AvatarTargetName = "B"
+            }
+        });
         s.AvatarSwapProfiles.Add(p);
 
         var config = BridgeRuntimeConfiguration.FromSettings(s, RuntimeConfig.CreateDefault(), null);
@@ -179,7 +189,7 @@ public sealed class AvatarSwapMigrationServiceV4Tests
         Assert.Empty(profile.SubsRules);
         Assert.Empty(profile.PaymentRules);
         Assert.Empty(s.AvatarRouletteProfiles);
-        Assert.Equal(4, s.AvatarChangeToAvatarSwapMigrationVersion);
+        Assert.Equal(AvatarSwapMigrationService.CurrentMigrationVersion, s.AvatarChangeToAvatarSwapMigrationVersion);
     }
 
     [Fact]
@@ -191,8 +201,10 @@ public sealed class AvatarSwapMigrationServiceV4Tests
         {
             TriggerType = TwitchTriggerType.ChannelPoints,
             Source = TriggerRuleSource.CashPayment,
-            CashPaymentRuleId = "cash_1",
             Name = "SE tip",
+            ActionType = OscActionType.AvatarChange,
+            AvatarChangeTargetId = "avtr_b",
+            AvatarTargetName = "B"
         };
         profile.ChannelPointRules.Add(cashRule);
         s.AvatarSwapProfiles.Add(profile);
@@ -202,8 +214,12 @@ public sealed class AvatarSwapMigrationServiceV4Tests
 
         Assert.Empty(profile.ChannelPointRules);
         Assert.Single(profile.PaymentRules);
-        Assert.Equal("SE tip", profile.PaymentRules[0].Name);
-        Assert.Equal("cash_1", profile.PaymentRules[0].CashPaymentRuleId);
+        var migrated = profile.PaymentRules[0];
+        Assert.Equal("SE tip", migrated.Name);
+        Assert.Equal(CashPaymentProvider.StreamElements, migrated.Provider);
+        Assert.Equal(CashPaymentActionKind.TriggerAction, migrated.ActionKind);
+        Assert.NotNull(migrated.TriggerAction);
+        Assert.Equal("avtr_b", migrated.TriggerAction!.AvatarChangeTargetId);
     }
 
     [Fact(Skip = "SettingsStore has parameterless constructor only; v3 JSON round-trip requires AppData path override. Covered by manual smoke test.")]

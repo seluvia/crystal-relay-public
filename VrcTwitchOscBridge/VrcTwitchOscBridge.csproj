@@ -52,7 +52,13 @@
     <Page Include="VrChatTwoFactorWindow.xaml" />
     <Page Include="RedeemGroupEditorDialog.xaml" />
     <Page Include="UserControls\AvatarSwapRuleEditorControl.xaml" />
-    <Page Include="UserControls\InlineAvatarSwapRuleRowControl.xaml" />
+    <Page Include="UserControls\InlineBitsRuleRowControl.xaml" />
+    <Page Include="UserControls\InlineCashPaymentRuleEditorControl.xaml" />
+    <Page Include="UserControls\InlineChannelPointRuleRowControl.xaml" />
+    <Page Include="UserControls\InlinePaymentRuleRowControl.xaml" />
+    <Page Include="UserControls\InlineRouletteRuleRowControl.xaml" />
+    <Page Include="UserControls\InlineRuleEditorControl.xaml" />
+    <Page Include="UserControls\InlineSubsRuleRowControl.xaml" />
 
     <Resource Include="Assets\crystal-relay-icon.ico" />
     <Resource Include="Assets\crystal-relay-icon.png" />
@@ -110,8 +116,26 @@
       <DependentUpon>AvatarSwapRuleEditorControl.xaml</DependentUpon>
     </Compile>
     <Compile Include="UserControls\EnumToBoolConverter.cs" />
-    <Compile Include="UserControls\InlineAvatarSwapRuleRowControl.xaml.cs">
-      <DependentUpon>InlineAvatarSwapRuleRowControl.xaml</DependentUpon>
+    <Compile Include="UserControls\InlineBitsRuleRowControl.xaml.cs">
+      <DependentUpon>InlineBitsRuleRowControl.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="UserControls\InlineCashPaymentRuleEditorControl.xaml.cs">
+      <DependentUpon>InlineCashPaymentRuleEditorControl.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="UserControls\InlineChannelPointRuleRowControl.xaml.cs">
+      <DependentUpon>InlineChannelPointRuleRowControl.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="UserControls\InlinePaymentRuleRowControl.xaml.cs">
+      <DependentUpon>InlinePaymentRuleRowControl.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="UserControls\InlineRouletteRuleRowControl.xaml.cs">
+      <DependentUpon>InlineRouletteRuleRowControl.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="UserControls\InlineRuleEditorControl.xaml.cs">
+      <DependentUpon>InlineRuleEditorControl.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="UserControls\InlineSubsRuleRowControl.xaml.cs">
+      <DependentUpon>InlineSubsRuleRowControl.xaml</DependentUpon>
     </Compile>
 
     <Compile Include="Infrastructure\AsyncRelayCommand.cs" />
@@ -168,6 +192,7 @@
     <Compile Include="Services\ApplicationSelfUpdateService.cs" />
     <Compile Include="Services\ApplicationUpdateService.cs" />
     <Compile Include="Services\AvatarSwapMigrationService.cs" />
+    <Compile Include="Services\CashPaymentRuleJsonConverter.cs" />
     <Compile Include="Services\BridgeAccountRole.cs" />
     <Compile Include="Services\BridgeCoordinator.cs" />
     <Compile Include="Services\BridgeRuntimeConfiguration.cs" />
@@ -214,12 +239,18 @@
     <Compile Include="ViewModels\MainWindowViewModel.cs" />
     <Compile Include="ViewModels\AvatarPickerViewModel.cs" />
     <Compile Include="ViewModels\AvatarLibraryManagerViewModel.cs" />
+    <Compile Include="UserControls\InlineBitsRuleRowViewModel.cs" />
+    <Compile Include="UserControls\InlineChannelPointRuleRowViewModel.cs" />
+    <Compile Include="UserControls\InlinePaymentRuleRowViewModel.cs" />
+    <Compile Include="UserControls\InlineRouletteRuleRowViewModel.cs" />
+    <Compile Include="UserControls\InlineSubsRuleRowViewModel.cs" />
+    <Compile Include="UserControls\IRuleRowViewModel.cs" />
+    <Compile Include="UserControls\RuleListPaneViewModel.cs" />
     <Compile Include="ViewModels\AvatarRouletteCardViewModel.cs" />
     <Compile Include="ViewModels\AvatarSwapCardViewModel.cs" />
     <Compile Include="ViewModels\AvatarSwapRuleEditorViewModel.cs" />
     <Compile Include="ViewModels\AvatarSwapManagerViewModel.cs" />
     <Compile Include="ViewModels\ITwitchRewardSource.cs" />
-    <Compile Include="ViewModels\InlineAvatarSwapRuleRowViewModel.cs" />
 
   </ItemGroup>
   <ItemGroup>

@@ -6,6 +6,7 @@ using System.Windows.Input;
 using VrcTwitchOscBridge.Infrastructure;
 using VrcTwitchOscBridge.Models;
 using VrcTwitchOscBridge.Services;
+using VrcTwitchOscBridge.UserControls;
 
 namespace VrcTwitchOscBridge.ViewModels;
 
@@ -47,10 +48,8 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
         AddSubsRuleCommand = new RelayCommand(AddSubsRule, () => SelectedSwapCard is not null);
         AddPaymentRuleCommand = new RelayCommand(AddPaymentRule, () => SelectedSwapCard is not null);
         AddAdvancedTriggerCommand = new RelayCommand(p => AddAdvancedTrigger(p as string));
-        DeleteRuleCommand = new RelayCommand(p => DeleteRule(p as InlineAvatarSwapRuleRowViewModel));
-        BeginInlineEditCommand = new RelayCommand(p => BeginInlineEdit(p as InlineAvatarSwapRuleRowViewModel));
-        CommitInlineEditCommand = new RelayCommand(CommitInlineEdit);
-        CancelInlineEditCommand = new RelayCommand(CancelInlineEdit);
+        DeleteRuleCommand = new RelayCommand(p => DeleteRule(p as IRuleRowViewModel));
+        BackToListCommand = new RelayCommand(BackToList);
         PickGlobalReturnAvatarCommand = new RelayCommand(PickGlobalReturnAvatar);
         UseCurrentAvatarForGlobalReturnCommand = new RelayCommand(UseCurrentAvatarForGlobalReturn);
         ClearGlobalReturnCommand = new RelayCommand(ClearGlobalReturn);
@@ -70,15 +69,15 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
     public ICommand RefreshTwitchRewardsCommand { get; }
     public ICommand UnlinkTwitchRewardCommand { get; }
 
-    public ObservableCollection<InlineAvatarSwapRuleRowViewModel> ChannelPointRows { get; } = new();
+    public ObservableCollection<InlineChannelPointRuleRowViewModel> ChannelPointRows { get; } = new();
 
-    public ObservableCollection<InlineAvatarSwapRuleRowViewModel> BitsRows { get; } = new();
+    public ObservableCollection<InlineBitsRuleRowViewModel> BitsRows { get; } = new();
 
-    public ObservableCollection<InlineAvatarSwapRuleRowViewModel> SubsRows { get; } = new();
+    public ObservableCollection<InlineSubsRuleRowViewModel> SubsRows { get; } = new();
 
-    public ObservableCollection<InlineAvatarSwapRuleRowViewModel> PaymentRows { get; } = new();
+    public ObservableCollection<InlinePaymentRuleRowViewModel> PaymentRows { get; } = new();
 
-    public ObservableCollection<InlineAvatarSwapRuleRowViewModel> RouletteTriggerRows { get; } = new();
+    public ObservableCollection<InlineRouletteRuleRowViewModel> RouletteTriggerRows { get; } = new();
 
     public string? GlobalReturnAvatarId => _settings.MasterAvatarSwapReturnId;
 
@@ -144,11 +143,35 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
 
     public bool IsEditorOpen => IsSwapEditorOpen || IsRouletteEditorOpen;
 
-    private InlineAvatarSwapRuleRowViewModel? _editingRule;
-    public InlineAvatarSwapRuleRowViewModel? EditingRule
+    private object? _rightPaneContent;
+    public object? RightPaneContent
     {
-        get => _editingRule;
-        set => SetProperty(ref _editingRule, value);
+        get => _rightPaneContent;
+        private set
+        {
+            if (SetProperty(ref _rightPaneContent, value))
+            {
+                RaisePropertyChanged(nameof(IsEditorOpen));
+            }
+        }
+    }
+
+    private IRuleRowViewModel? _selectedRule;
+    public IRuleRowViewModel? SelectedRule
+    {
+        get => _selectedRule;
+        set
+        {
+            if (SetProperty(ref _selectedRule, value))
+            {
+                RightPaneContent = value;
+            }
+        }
+    }
+
+    private void BackToList()
+    {
+        SelectedRule = null;
     }
 
     public bool IsChannelPointSectionCollapsed
@@ -193,9 +216,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
     public RelayCommand AddPaymentRuleCommand { get; }
     public RelayCommand AddAdvancedTriggerCommand { get; }
     public RelayCommand DeleteRuleCommand { get; }
-    public RelayCommand BeginInlineEditCommand { get; }
-    public RelayCommand CommitInlineEditCommand { get; }
-    public RelayCommand CancelInlineEditCommand { get; }
+    public RelayCommand BackToListCommand { get; }
     public RelayCommand PickGlobalReturnAvatarCommand { get; }
     public RelayCommand UseCurrentAvatarForGlobalReturnCommand { get; }
     public RelayCommand ClearGlobalReturnCommand { get; }
@@ -229,16 +250,47 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
 
         if (SelectedSwapCard is not null)
         {
-            foreach (var r in SelectedSwapCard.Profile.ChannelPointRules) ChannelPointRows.Add(new InlineAvatarSwapRuleRowViewModel(r));
-            foreach (var r in SelectedSwapCard.Profile.BitsRules) BitsRows.Add(new InlineAvatarSwapRuleRowViewModel(r));
-            foreach (var r in SelectedSwapCard.Profile.SubsRules) SubsRows.Add(new InlineAvatarSwapRuleRowViewModel(r));
-            foreach (var r in SelectedSwapCard.Profile.PaymentRules) PaymentRows.Add(new InlineAvatarSwapRuleRowViewModel(r));
+            foreach (var r in SelectedSwapCard.Profile.ChannelPointRules)
+            {
+                var row = new InlineChannelPointRuleRowViewModel(r);
+                WireRowCommands(row);
+                ChannelPointRows.Add(row);
+            }
+            foreach (var r in SelectedSwapCard.Profile.BitsRules)
+            {
+                var row = new InlineBitsRuleRowViewModel(r);
+                WireRowCommands(row);
+                BitsRows.Add(row);
+            }
+            foreach (var r in SelectedSwapCard.Profile.SubsRules)
+            {
+                var row = new InlineSubsRuleRowViewModel(r);
+                WireRowCommands(row);
+                SubsRows.Add(row);
+            }
+            foreach (var r in SelectedSwapCard.Profile.PaymentRules)
+            {
+                var row = new InlinePaymentRuleRowViewModel(r);
+                WireRowCommands(row);
+                PaymentRows.Add(row);
+            }
         }
 
         if (SelectedRouletteCard is not null)
         {
-            foreach (var r in SelectedRouletteCard.Roulette.Triggers) RouletteTriggerRows.Add(new InlineAvatarSwapRuleRowViewModel(r));
+            foreach (var r in SelectedRouletteCard.Roulette.Triggers)
+            {
+                var row = new InlineRouletteRuleRowViewModel(r);
+                WireRowCommands(row);
+                RouletteTriggerRows.Add(row);
+            }
         }
+    }
+
+    private void WireRowCommands(IRuleRowViewModel row)
+    {
+        row.EditCommand = new RelayCommand(() => SelectedRule = row);
+        row.DeleteCommand = new RelayCommand(() => DeleteRule(row));
     }
 
     private void AddSwap()
@@ -270,6 +322,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
         IsSwapEditorOpen = true;
         IsRouletteEditorOpen = false;
         RebuildRows();
+        RightPaneContent = new RuleListPaneViewModel(card.Profile?.TargetAvatarName);
     }
 
     private void OpenRouletteEditor(AvatarRouletteCardViewModel? card)
@@ -279,6 +332,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
         IsRouletteEditorOpen = true;
         IsSwapEditorOpen = false;
         RebuildRows();
+        RightPaneContent = new RuleListPaneViewModel(card.Roulette?.Name);
     }
 
     private void SaveSwapEditor()
@@ -286,6 +340,8 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
         if (SelectedSwapCard is null) return;
         SelectedSwapCard.Profile.UpdatedAt = DateTime.UtcNow;
         IsSwapEditorOpen = false;
+        RightPaneContent = null;
+        SelectedRule = null;
         SelectedSwapCard = null;
     }
 
@@ -294,6 +350,8 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
         if (SelectedRouletteCard is null) return;
         SelectedRouletteCard.Roulette.UpdatedAt = DateTime.UtcNow;
         IsRouletteEditorOpen = false;
+        RightPaneContent = null;
+        SelectedRule = null;
         SelectedRouletteCard = null;
     }
 
@@ -311,7 +369,8 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
     {
         IsSwapEditorOpen = false;
         IsRouletteEditorOpen = false;
-        EditingRule = null;
+        RightPaneContent = null;
+        SelectedRule = null;
         SelectedSwapCard = null;
         SelectedRouletteCard = null;
     }
@@ -322,6 +381,8 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
         _settings.AvatarSwapProfiles.Remove(SelectedSwapCard.Profile);
         SwapCards.Remove(SelectedSwapCard);
         IsSwapEditorOpen = false;
+        RightPaneContent = null;
+        SelectedRule = null;
         SelectedSwapCard = null;
     }
 
@@ -331,6 +392,8 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
         _settings.AvatarRouletteProfiles.Remove(SelectedRouletteCard.Roulette);
         RouletteCards.Remove(SelectedRouletteCard);
         IsRouletteEditorOpen = false;
+        RightPaneContent = null;
+        SelectedRule = null;
         SelectedRouletteCard = null;
     }
 
@@ -347,7 +410,9 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
             Name = "New Channel Point Swap"
         };
         SelectedSwapCard.Profile.ChannelPointRules.Add(rule);
-        ChannelPointRows.Add(new InlineAvatarSwapRuleRowViewModel(rule));
+        var row = new InlineChannelPointRuleRowViewModel(rule);
+        WireRowCommands(row);
+        ChannelPointRows.Add(row);
     }
 
     private void AddBitsRule()
@@ -363,7 +428,9 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
             Name = "New Bits Swap"
         };
         SelectedSwapCard.Profile.BitsRules.Add(rule);
-        BitsRows.Add(new InlineAvatarSwapRuleRowViewModel(rule));
+        var row = new InlineBitsRuleRowViewModel(rule);
+        WireRowCommands(row);
+        BitsRows.Add(row);
     }
 
     private void AddSubsRule()
@@ -378,21 +445,31 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
             Name = "New Subs Swap"
         };
         SelectedSwapCard.Profile.SubsRules.Add(rule);
-        SubsRows.Add(new InlineAvatarSwapRuleRowViewModel(rule));
+        var row = new InlineSubsRuleRowViewModel(rule);
+        WireRowCommands(row);
+        SubsRows.Add(row);
     }
 
     private void AddPaymentRule()
     {
         if (SelectedSwapCard is null) return;
-        var rule = new TriggerRule
+        var rule = new CashPaymentRule
         {
-            TriggerType = TwitchTriggerType.ChannelPoints,
-            ActionType = OscActionType.AvatarChange,
-            Source = TriggerRuleSource.CashPayment,
-            Name = "New Cash Payment Swap"
+            Name = "New Cash Payment Swap",
+            Provider = CashPaymentProvider.StreamElements,
+            IsEnabled = true,
+            ActionKind = CashPaymentActionKind.TriggerAction,
+            TriggerAction = new TriggerRule
+            {
+                ActionType = OscActionType.AvatarChange,
+                AvatarChangeTargetId = SelectedSwapCard.Profile.TargetAvatarId,
+                AvatarTargetName = SelectedSwapCard.Profile.TargetAvatarName
+            }
         };
         SelectedSwapCard.Profile.PaymentRules.Add(rule);
-        PaymentRows.Add(new InlineAvatarSwapRuleRowViewModel(rule));
+        var row = new InlinePaymentRuleRowViewModel(rule);
+        WireRowCommands(row);
+        PaymentRows.Add(row);
     }
 
     private void AddAdvancedTrigger(string? triggerSource)
@@ -403,56 +480,67 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
         {
             TriggerType = type,
             ActionType = OscActionType.AvatarChange,
+            AvatarChangeTargetId = SelectedSwapCard.Profile.TargetAvatarId,
+            AvatarTargetName = SelectedSwapCard.Profile.TargetAvatarName,
             Name = $"New {type} Swap"
         };
         SelectedSwapCard.Profile.ChannelPointRules.Add(rule);
-        ChannelPointRows.Add(new InlineAvatarSwapRuleRowViewModel(rule));
+        var row = new InlineChannelPointRuleRowViewModel(rule);
+        WireRowCommands(row);
+        ChannelPointRows.Add(row);
     }
 
-    private void DeleteRule(InlineAvatarSwapRuleRowViewModel? row)
+    private void DeleteRule(IRuleRowViewModel? row)
     {
         if (row is null || SelectedSwapCard is null) return;
-        if (SelectedSwapCard.Profile.ChannelPointRules.Remove(row.Rule)) ChannelPointRows.Remove(row);
-        else if (SelectedSwapCard.Profile.BitsRules.Remove(row.Rule)) BitsRows.Remove(row);
-        else if (SelectedSwapCard.Profile.SubsRules.Remove(row.Rule)) SubsRows.Remove(row);
-        else if (SelectedSwapCard.Profile.PaymentRules.Remove(row.Rule)) PaymentRows.Remove(row);
-        else if (SelectedRouletteCard is not null && SelectedRouletteCard.Roulette.Triggers.Remove(row.Rule)) RouletteTriggerRows.Remove(row);
-
-        if (ReferenceEquals(EditingRule, row))
+        if (row is InlineChannelPointRuleRowViewModel cp
+            && SelectedSwapCard.Profile.ChannelPointRules.Remove((TriggerRule)cp.Rule))
         {
-            EditingRule = null;
+            ChannelPointRows.Remove(cp);
+        }
+        else if (row is InlineBitsRuleRowViewModel bits
+            && SelectedSwapCard.Profile.BitsRules.Remove((TriggerRule)bits.Rule))
+        {
+            BitsRows.Remove(bits);
+        }
+        else if (row is InlineSubsRuleRowViewModel subs
+            && SelectedSwapCard.Profile.SubsRules.Remove((TriggerRule)subs.Rule))
+        {
+            SubsRows.Remove(subs);
+        }
+        else if (row is InlinePaymentRuleRowViewModel pay
+            && SelectedSwapCard.Profile.PaymentRules.Remove((CashPaymentRule)pay.Rule))
+        {
+            PaymentRows.Remove(pay);
+        }
+        else if (row is InlineRouletteRuleRowViewModel roulette
+            && SelectedRouletteCard is not null
+            && SelectedRouletteCard.Roulette.Triggers.Remove((TriggerRule)roulette.Rule))
+        {
+            RouletteTriggerRows.Remove(roulette);
+        }
+
+        if (ReferenceEquals(SelectedRule, row))
+        {
+            SelectedRule = null;
         }
     }
 
-    private void BeginInlineEdit(InlineAvatarSwapRuleRowViewModel? row)
+    private void BeginInlineEdit(IRuleRowViewModel? row)
     {
-        if (row is null) return;
-        foreach (var r in ChannelPointRows) r.IsExpanded = false;
-        foreach (var r in BitsRows) r.IsExpanded = false;
-        foreach (var r in SubsRows) r.IsExpanded = false;
-        foreach (var r in PaymentRows) r.IsExpanded = false;
-        foreach (var r in RouletteTriggerRows) r.IsExpanded = false;
-        row.IsExpanded = true;
-        EditingRule = row;
+        // No-op: rows are now compact cards; the full editor opens in the right pane
+        // via SelectedRule. Kept for binary compatibility; callers should use
+        // SelectedRule instead.
     }
 
     private void CommitInlineEdit()
     {
-        if (EditingRule is not null)
-        {
-            EditingRule.IsExpanded = false;
-            EditingRule.UpdateSummary();
-        }
-        EditingRule = null;
+        // No-op: see BeginInlineEdit.
     }
 
     private void CancelInlineEdit()
     {
-        if (EditingRule is not null)
-        {
-            EditingRule.IsExpanded = false;
-        }
-        EditingRule = null;
+        // No-op: see BeginInlineEdit.
     }
 
     private void PickGlobalReturnAvatar()

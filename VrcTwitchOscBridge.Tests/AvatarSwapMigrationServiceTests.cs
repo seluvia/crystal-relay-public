@@ -44,7 +44,7 @@ public sealed class AvatarSwapMigrationServiceTests
         Assert.Equal(2, a.ChannelPointRules.Count);
         Assert.Single(b.ChannelPointRules);
         Assert.Equal("avtr_return", settings.MasterAvatarSwapReturnId);
-        Assert.Equal(4, settings.AvatarChangeToAvatarSwapMigrationVersion);
+        Assert.Equal(AvatarSwapMigrationService.CurrentMigrationVersion, settings.AvatarChangeToAvatarSwapMigrationVersion);
     }
 
     [Fact]
@@ -147,6 +147,9 @@ public sealed class AvatarSwapMigrationServiceTests
     [Fact]
     public void Migrate_FoldsCashPaymentAvatarChangeTriggerActions()
     {
+        // V3->V4 creates an AvatarSwapProfile for a CashPaymentRule with ActionType=AvatarChange
+        // and puts the converted CashPaymentRule (with the inner TriggerAction) into the
+        // profile's PaymentRules collection.
         var settings = new AppSettings();
         var cashRule = new CashPaymentRule
         {
@@ -161,9 +164,13 @@ public sealed class AvatarSwapMigrationServiceTests
         AvatarSwapMigrationService.Migrate(settings);
 
         var profile = Assert.Single(settings.AvatarSwapProfiles);
-        var rule = Assert.Single(profile.PaymentRules);
-        Assert.Equal(TriggerRuleSource.CashPayment, rule.Source);
-        Assert.Same(cashRule.TriggerAction, rule);
+        var migrated = Assert.Single(profile.PaymentRules);
+        Assert.IsType<CashPaymentRule>(migrated);
+        var cash = (CashPaymentRule)migrated;
+        Assert.Equal("Test Cash Rule", cash.Name);
+        Assert.Equal(CashPaymentProvider.StreamElements, cash.Provider);
+        Assert.NotNull(cash.TriggerAction);
+        Assert.Equal("avtr_target", cash.TriggerAction!.AvatarChangeTargetId);
     }
 
     [Fact]
@@ -193,10 +200,10 @@ public sealed class AvatarSwapMigrationServiceTests
     }
 
     [Fact]
-    public void Migrate_BumpsMigrationVersionTo4()
+    public void Migrate_BumpsMigrationVersionToCurrent()
     {
         var settings = new AppSettings();
         AvatarSwapMigrationService.Migrate(settings);
-        Assert.Equal(4, settings.AvatarChangeToAvatarSwapMigrationVersion);
+        Assert.Equal(AvatarSwapMigrationService.CurrentMigrationVersion, settings.AvatarChangeToAvatarSwapMigrationVersion);
     }
 }

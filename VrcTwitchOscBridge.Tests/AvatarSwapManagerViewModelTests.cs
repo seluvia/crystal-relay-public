@@ -5,6 +5,7 @@ using System.Windows.Input;
 using VrcTwitchOscBridge.Infrastructure;
 using VrcTwitchOscBridge.Models;
 using VrcTwitchOscBridge.Services;
+using VrcTwitchOscBridge.UserControls;
 using VrcTwitchOscBridge.ViewModels;
 using Xunit;
 
@@ -143,7 +144,7 @@ public sealed class AvatarSwapManagerViewModelTests
     public void HasAnyRules_TrueWhenPaymentRulesPresent()
     {
         var profile = new AvatarSwapProfile();
-        profile.PaymentRules.Add(new TriggerRule());
+        profile.PaymentRules.Add(new CashPaymentRule());
         var vm = new AvatarSwapCardViewModel(profile, new AvatarImageService());
 
         Assert.True(vm.HasAnyRules);
@@ -176,6 +177,141 @@ public sealed class AvatarSwapManagerViewModelTests
         source.RewardOptions.Add(option);
 
         Assert.Contains(option, vm.TwitchRewardOptions);
+    }
+
+    [Fact]
+    public void AddPaymentRuleCommand_CreatesCashPaymentRuleNotTriggerRule()
+    {
+        var settings = new AppSettings();
+        var profile = new AvatarSwapProfile { TargetAvatarId = "avtr_a", TargetAvatarName = "Avatar A" };
+        settings.AvatarSwapProfiles.Add(profile);
+
+        var vm = new AvatarSwapManagerViewModel(settings, new StubTwitchRewardSource());
+        vm.OpenSwapEditorCommand.Execute(vm.SwapCards.Single());
+
+        vm.AddPaymentRuleCommand.Execute(null);
+
+        Assert.Single(profile.PaymentRules);
+        Assert.IsType<CashPaymentRule>(profile.PaymentRules[0]);
+        var rule = (CashPaymentRule)profile.PaymentRules[0];
+        Assert.Equal("New Cash Payment Swap", rule.Name);
+        Assert.Equal(CashPaymentProvider.StreamElements, rule.Provider);
+        Assert.True(rule.IsEnabled);
+        Assert.Equal(CashPaymentActionKind.TriggerAction, rule.ActionKind);
+        Assert.NotNull(rule.TriggerAction);
+        Assert.Equal(OscActionType.AvatarChange, rule.TriggerAction.ActionType);
+        Assert.Equal("avtr_a", rule.TriggerAction.AvatarChangeTargetId);
+        Assert.Single(vm.PaymentRows);
+        Assert.IsType<InlinePaymentRuleRowViewModel>(vm.PaymentRows[0]);
+    }
+
+    [Fact]
+    public void SelectedRule_SetsRightPaneContent()
+    {
+        var settings = new AppSettings();
+        var profile = new AvatarSwapProfile { TargetAvatarId = "avtr_a", TargetAvatarName = "Avatar A" };
+        profile.ChannelPointRules.Add(new TriggerRule { TriggerType = TwitchTriggerType.ChannelPoints, Name = "Test" });
+        settings.AvatarSwapProfiles.Add(profile);
+
+        var vm = new AvatarSwapManagerViewModel(settings, new StubTwitchRewardSource());
+        vm.OpenSwapEditorCommand.Execute(vm.SwapCards.Single());
+        Assert.IsType<RuleListPaneViewModel>(vm.RightPaneContent);
+
+        var row = vm.ChannelPointRows.Single();
+        row.EditCommand.Execute(null);
+
+        Assert.Same(row, vm.SelectedRule);
+        Assert.Same(row, vm.RightPaneContent);
+    }
+
+    [Fact]
+    public void BackToListCommand_ClearsSelectedRule()
+    {
+        var settings = new AppSettings();
+        var profile = new AvatarSwapProfile { TargetAvatarId = "avtr_a", TargetAvatarName = "Avatar A" };
+        profile.ChannelPointRules.Add(new TriggerRule { TriggerType = TwitchTriggerType.ChannelPoints, Name = "Test" });
+        settings.AvatarSwapProfiles.Add(profile);
+
+        var vm = new AvatarSwapManagerViewModel(settings, new StubTwitchRewardSource());
+        vm.OpenSwapEditorCommand.Execute(vm.SwapCards.Single());
+        var row = vm.ChannelPointRows.Single();
+        row.EditCommand.Execute(null);
+        Assert.NotNull(vm.SelectedRule);
+
+        vm.BackToListCommand.Execute(null);
+
+        Assert.Null(vm.SelectedRule);
+        Assert.Null(vm.RightPaneContent);
+    }
+
+    [Fact]
+    public void DeleteRule_RemovesTypedRuleFromCollection()
+    {
+        var settings = new AppSettings();
+        var profile = new AvatarSwapProfile { TargetAvatarId = "avtr_a", TargetAvatarName = "Avatar A" };
+        settings.AvatarSwapProfiles.Add(profile);
+
+        var vm = new AvatarSwapManagerViewModel(settings, new StubTwitchRewardSource());
+        vm.OpenSwapEditorCommand.Execute(vm.SwapCards.Single());
+
+        vm.AddBitsRuleCommand.Execute(null);
+        var bitsRow = vm.BitsRows.Single();
+
+        vm.DeleteRuleCommand.Execute(bitsRow);
+
+        Assert.Empty(profile.BitsRules);
+        Assert.Empty(vm.BitsRows);
+    }
+
+    [Fact]
+    public void AddBitsRuleCommand_CreatesTypedInlineBitsRuleRowViewModel()
+    {
+        var settings = new AppSettings();
+        var profile = new AvatarSwapProfile { TargetAvatarId = "avtr_a", TargetAvatarName = "Avatar A" };
+        settings.AvatarSwapProfiles.Add(profile);
+
+        var vm = new AvatarSwapManagerViewModel(settings, new StubTwitchRewardSource());
+        vm.OpenSwapEditorCommand.Execute(vm.SwapCards.Single());
+
+        vm.AddBitsRuleCommand.Execute(null);
+
+        Assert.Single(profile.BitsRules);
+        Assert.Single(vm.BitsRows);
+        Assert.IsType<InlineBitsRuleRowViewModel>(vm.BitsRows[0]);
+    }
+
+    [Fact]
+    public void AddSubsRuleCommand_CreatesTypedInlineSubsRuleRowViewModel()
+    {
+        var settings = new AppSettings();
+        var profile = new AvatarSwapProfile { TargetAvatarId = "avtr_a", TargetAvatarName = "Avatar A" };
+        settings.AvatarSwapProfiles.Add(profile);
+
+        var vm = new AvatarSwapManagerViewModel(settings, new StubTwitchRewardSource());
+        vm.OpenSwapEditorCommand.Execute(vm.SwapCards.Single());
+
+        vm.AddSubsRuleCommand.Execute(null);
+
+        Assert.Single(profile.SubsRules);
+        Assert.Single(vm.SubsRows);
+        Assert.IsType<InlineSubsRuleRowViewModel>(vm.SubsRows[0]);
+    }
+
+    [Fact]
+    public void AddChannelPointRuleCommand_CreatesTypedInlineChannelPointRuleRowViewModel()
+    {
+        var settings = new AppSettings();
+        var profile = new AvatarSwapProfile { TargetAvatarId = "avtr_a", TargetAvatarName = "Avatar A" };
+        settings.AvatarSwapProfiles.Add(profile);
+
+        var vm = new AvatarSwapManagerViewModel(settings, new StubTwitchRewardSource());
+        vm.OpenSwapEditorCommand.Execute(vm.SwapCards.Single());
+
+        vm.AddChannelPointRuleCommand.Execute(null);
+
+        Assert.Single(profile.ChannelPointRules);
+        Assert.Single(vm.ChannelPointRows);
+        Assert.IsType<InlineChannelPointRuleRowViewModel>(vm.ChannelPointRows[0]);
     }
 
     private sealed class StubTwitchRewardSource : ITwitchRewardSource

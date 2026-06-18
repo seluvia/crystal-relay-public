@@ -1,4 +1,4 @@
-{
+﻿{
   "OSC parameter paths must match VRChat exactly: capitalization, spacing, slashes, and the parameter name all need to be 1-to-1. Wrong value type, missing target/default values, duration resets, or a parameter that does not exist on the current avatar can make a trigger look like it did nothing. Channel point triggers also need a reward name or linked reward before Twitch can match them. Linked rewards are listen-only, and incomplete triggers stay local until setup is complete.": "เส้นทาง OSC parameter ต้องตรงกับ VRChat พอดี: ตัวพิมพ์ใหญ่-เล็ก, ช่องว่าง, ขีด slash และชื่อ parameter ต้องเป็น 1 ต่อ 1 ชนิดค่าผิด, ค่าเป้าหมาย/ค่าเริ่มต้นหายไป, ค่า duration รีเซ็ต หรือ parameter ที่ไม่มีอยู่ในอวตารปัจจุบัน อาจทำให้ตัวกระตุ้นดูเหมือนไม่ได้ทำงาน ตัวกระตุ้น channel point ยังต้องมีชื่อรางวัลหรือรางวัลที่เชื่อมโยงก่อนที่ Twitch จะจับคู่ได้ รางวัลที่เชื่อมโยงจะเป็นแบบฟังอย่างเดียว และตัวกระตุ้นที่ยังไม่สมบูรณ์จะอยู่ในเครื่องจนกว่าจะตั้งค่าเสร็จ",
   "Unconfigured": "ยังไม่ได้ตั้งค่า",
   "Universal Trigger Setup Warning": "คำเตือนการตั้งค่าตัวกระตุ้นสากล",
@@ -1161,5 +1161,7 @@
   "Reward Colors": "สีของรางวัล",
   "Everyone": "ทุกคน",
   "Moderators": "ผู้ดูแล",
-  "Broadcaster": "ผู้ถ่ายทอดสด"
+  "Broadcaster": "ผู้ถ่ายทอดสด",
+  "Back to {0}": "← Back to {0}",
+  "Back to {0} (Roulette)": "← Back to {0} (Roulette)"
 }

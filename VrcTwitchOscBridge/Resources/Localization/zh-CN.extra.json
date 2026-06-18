@@ -1,4 +1,4 @@
-{
+﻿{
   "OSC parameter paths must match VRChat exactly: capitalization, spacing, slashes, and the parameter name all need to be 1-to-1. Wrong value type, missing target/default values, duration resets, or a parameter that does not exist on the current avatar can make a trigger look like it did nothing. Channel point triggers also need a reward name or linked reward before Twitch can match them. Linked rewards are listen-only, and incomplete triggers stay local until setup is complete.": "OSC 参数路径必须与 VRChat 完全匹配：大小写、空格、斜杠和参数名都需要一一对应。值类型错误、缺少目标/默认值、持续时间重置或当前头像上不存在的参数都可能让触发器看起来没有反应。频道积分触发器还需要奖励名称或关联奖励才能被 Twitch 匹配。关联奖励仅监听，不完整的触发器在设置完成前保持本地状态。",
   "Unconfigured": "未配置",
   "Universal Trigger Setup Warning": "通用触发器设置警告",
@@ -1194,5 +1194,7 @@
   "Reward Colors": "奖励颜色",
   "Everyone": "所有人",
   "Moderators": "版主",
-  "Broadcaster": "主播"
+  "Broadcaster": "主播",
+  "Back to {0}": "← Back to {0}",
+  "Back to {0} (Roulette)": "← Back to {0} (Roulette)"
 }

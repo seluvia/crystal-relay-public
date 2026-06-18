@@ -17,7 +17,7 @@ public partial class AvatarSwapProfile : ObservableObject
     public ObservableCollection<TriggerRule> ChannelPointRules { get; } = new();
     public ObservableCollection<TriggerRule> BitsRules { get; } = new();
     public ObservableCollection<TriggerRule> SubsRules { get; } = new();
-    public ObservableCollection<TriggerRule> PaymentRules { get; } = new();
+    public ObservableCollection<CashPaymentRule> PaymentRules { get; } = new();
 
     public bool HasRules =>
         ChannelPointRules.Count + BitsRules.Count + SubsRules.Count + PaymentRules.Count > 0;
