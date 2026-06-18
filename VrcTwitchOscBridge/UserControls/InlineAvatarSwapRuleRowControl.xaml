@@ -3,9 +3,11 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:loc="clr-namespace:VrcTwitchOscBridge.Services"
              xmlns:vm="clr-namespace:VrcTwitchOscBridge.ViewModels"
-             xmlns:models="clr-namespace:VrcTwitchOscBridge.Models">
+             xmlns:models="clr-namespace:VrcTwitchOscBridge.Models"
+             xmlns:local="clr-namespace:VrcTwitchOscBridge.UserControls">
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
+        <local:EnumToBoolConverter x:Key="EnumToBoolConverter" />
         <Style TargetType="TextBlock" x:Key="LabelStyle">
             <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
             <Setter Property="FontSize" Value="10" />
@@ -70,10 +72,40 @@
                 <TextBlock Style="{StaticResource LabelStyle}" Text="{loc:Translate 'Delete Reward When Inactive'}" />
                 <CheckBox IsChecked="{Binding Rule.DeleteManagedRewardWhenInactive, UpdateSourceTrigger=PropertyChanged}" Content="{loc:Translate 'Free Twitch reward slots when inactive'}" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,6" />
 
+                <TextBlock Style="{StaticResource LabelStyle}" Text="{loc:Translate 'Reward Sync Mode'}" />
+                <StackPanel Margin="0,0,0,4">
+                    <RadioButton GroupName="SyncMode" Content="{loc:Translate 'Create or Manage'}"
+                                 IsChecked="{Binding Rule.RewardSyncMode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter=CreateOrManage}"
+                                 Foreground="{DynamicResource TextBrush}" />
+                    <RadioButton GroupName="SyncMode" Content="{loc:Translate 'Link Existing'}"
+                                 IsChecked="{Binding Rule.RewardSyncMode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter=LinkExisting}"
+                                 Foreground="{DynamicResource TextBrush}" />
+                </StackPanel>
+                <Border Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2,0,0,0" CornerRadius="0,3,3,0" Padding="8,4" Margin="0,0,0,6">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource LabelStyle}" Text="{loc:Translate 'Existing Twitch Reward'}" />
+                        <ComboBox ItemsSource="{Binding DataContext.TwitchRewardOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                  SelectedValuePath="Id" SelectedValue="{Binding Rule.ChannelPointRewardId, UpdateSourceTrigger=PropertyChanged}"
+                                  Background="{DynamicResource InputBrush}" Foreground="{DynamicResource TextBrush}" BorderBrush="{DynamicResource InputBorderBrush}" Margin="0,0,0,4" />
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="{loc:Translate 'Refresh Rewards'}" Command="{Binding DataContext.RefreshTwitchRewardsCommand, RelativeSource={RelativeSource AncestorType=Window}}" Style="{StaticResource InlineButtonStyle}" Margin="0,0,4,0" />
+                            <Button Content="{loc:Translate 'Unlink Reward'}" Command="{Binding DataContext.UnlinkTwitchRewardCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding Rule}" Style="{StaticResource InlineButtonStyle}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
                 <TextBlock Style="{StaticResource LabelStyle}" Text="{loc:Translate 'Active Time (seconds)'}" />
                 <TextBox Style="{StaticResource InputStyle}" Text="{Binding Rule.DurationSeconds, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6" />
                 <TextBlock Style="{StaticResource LabelStyle}" Text="{loc:Translate 'Cooldown (seconds)'}" />
                 <TextBox Style="{StaticResource InputStyle}" Text="{Binding Rule.CooldownSeconds, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6" />
+
+                <TextBlock Style="{StaticResource LabelStyle}" Text="{loc:Translate 'Pairing'}" />
+                <ComboBox SelectedValuePath="Tag" SelectedValue="{Binding Rule.SpecialRulePairingMode, UpdateSourceTrigger=PropertyChanged}"
+                          Background="{DynamicResource InputBrush}" Foreground="{DynamicResource TextBrush}" BorderBrush="{DynamicResource InputBorderBrush}" Margin="0,0,0,4">
+                    <ComboBoxItem Content="{loc:Translate 'Hide Paired While On Cooldown'}" Tag="{x:Static models:SpecialRulePairingMode.HidePairedWhileActive}" />
+                    <ComboBoxItem Content="{loc:Translate 'Show Paired Only While On Cooldown'}" Tag="{x:Static models:SpecialRulePairingMode.ShowPairedWhileActive}" />
+                </ComboBox>
+                <TextBlock Text="{loc:Translate 'Manage paired rules in the Full Editor.'}" Foreground="{DynamicResource MutedBrush}" FontSize="10" FontStyle="Italic" Margin="0,0,0,6" />
 
                 <TextBlock Style="{StaticResource LabelStyle}" Text="{loc:Translate 'Bot Reply'}" />
                 <TextBox Style="{StaticResource InputStyle}" Text="{Binding Rule.BotMessageTemplate, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" Height="60" TextWrapping="Wrap" Margin="0,0,0,6" />

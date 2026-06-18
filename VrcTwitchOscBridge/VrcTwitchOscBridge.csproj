@@ -109,6 +109,7 @@
     <Compile Include="UserControls\AvatarSwapRuleEditorControl.xaml.cs">
       <DependentUpon>AvatarSwapRuleEditorControl.xaml</DependentUpon>
     </Compile>
+    <Compile Include="UserControls\EnumToBoolConverter.cs" />
     <Compile Include="UserControls\InlineAvatarSwapRuleRowControl.xaml.cs">
       <DependentUpon>InlineAvatarSwapRuleRowControl.xaml</DependentUpon>
     </Compile>
