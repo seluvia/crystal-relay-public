@@ -214,7 +214,9 @@
 
                     <!-- Left grid -->
                     <StackPanel Grid.Column="0" Margin="0,0,10,0">
-                        <TextBlock Text="Avatar Swaps" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,6" />
+                        <Border Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="0,0,0,2" CornerRadius="4" Padding="8,4" Margin="0,0,0,8">
+                            <TextBlock Text="Avatar Swaps" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
+                        </Border>
                         <ItemsControl ItemsSource="{Binding SwapCards}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
@@ -260,8 +262,10 @@
                                                 </Grid>
                                             </Border>
 
-                                            <TextBlock Grid.Row="1" Text="{Binding Profile.TargetAvatarName}" FontWeight="SemiBold" FontSize="12" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" ToolTip="{Binding Profile.TargetAvatarName}" />
-                                            <TextBlock Grid.Row="2" Text="{Binding AvatarSubtitle}" Foreground="{DynamicResource MutedBrush}" FontSize="10" TextTrimming="CharacterEllipsis" ToolTip="{Binding AvatarSubtitle}" />
+                                            <Border Grid.Row="1" Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1,0,0,1" CornerRadius="0,0,4,4" Padding="6,4" Margin="0,4,0,0">
+                                                <TextBlock Text="{Binding DisplayTitle}" FontWeight="SemiBold" FontSize="12" TextTrimming="CharacterEllipsis" ToolTip="{Binding DisplayTitle}" />
+                                            </Border>
+                                            <TextBlock Grid.Row="2" Text="{Binding AvatarSubtitle}" Foreground="{DynamicResource MutedBrush}" FontSize="10" TextTrimming="CharacterEllipsis" ToolTip="{Binding AvatarSubtitle}" Margin="0,3,0,0" />
                                         </Grid>
                                     </Border>
                                 </DataTemplate>
@@ -269,7 +273,9 @@
                         </ItemsControl>
                         <Button Content="+ Add Avatar" Command="{Binding AddSwapCommand}" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Left" Padding="10,5" Margin="0,6,0,14" />
 
-                        <TextBlock Text="🎰 Avatar Roulette" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource WarnTextBrush}" Margin="0,0,0,6" />
+                        <Border Background="{DynamicResource WarnBrush}" BorderBrush="{DynamicResource WarnBorderBrush}" BorderThickness="0,0,0,2" CornerRadius="4" Padding="8,4" Margin="0,0,0,8">
+                            <TextBlock Text="🎰 Avatar Roulette" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource WarnTextBrush}" />
+                        </Border>
                         <ItemsControl ItemsSource="{Binding RouletteCards}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
@@ -313,10 +319,12 @@
                                     <Border Width="40" Height="40" Background="{DynamicResource NestedPanelBrush}" CornerRadius="5" Margin="0,0,8,0" ClipToBounds="True">
                                         <Image Source="{Binding SelectedSwapCard.Image}" Stretch="UniformToFill" />
                                     </Border>
-                                    <StackPanel VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding SelectedSwapCard.Profile.TargetAvatarName}" FontWeight="SemiBold" FontSize="13" TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Text="Target Avatar" Foreground="{DynamicResource MutedBrush}" FontSize="10" />
-                                    </StackPanel>
+                                    <Border VerticalAlignment="Center" Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2,0,0,0" CornerRadius="0,4,4,0" Padding="8,4" Margin="0,0,8,0">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding SelectedSwapCard.DisplayTitle}" FontWeight="SemiBold" FontSize="13" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="Target Avatar" Foreground="{DynamicResource MutedBrush}" FontSize="10" />
+                                        </StackPanel>
+                                    </Border>
                                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                                         <Button Content="Browse" Click="OnPickTargetAvatarClicked" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,4,0" />
                                         <Button Content="Use Current" Click="OnUseCurrentAvatarForTargetClicked" Style="{StaticResource SecondaryButtonStyle}" />
@@ -324,7 +332,9 @@
                                 </DockPanel>
                                 <TextBlock Text="↩ Returns to global return avatar" Foreground="{DynamicResource MutedBrush}" FontSize="10" Margin="0,0,0,8" />
 
-                                <TextBlock Text="🏆 Channel Points" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,4" />
+                                <Border Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2,0,0,0" CornerRadius="0,3,3,0" Padding="6,3" Margin="0,0,0,4">
+                                    <TextBlock Text="🏆 Channel Points" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextBrush}" />
+                                </Border>
                                 <ItemsControl ItemsSource="{Binding ChannelPointRows}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
@@ -334,7 +344,9 @@
                                 </ItemsControl>
                                 <Button Content="+ Add Channel Point" Command="{Binding AddChannelPointRuleCommand}" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Left" Margin="0,4,0,8" />
 
-                                <TextBlock Text="💎 Bits" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,4" />
+                                <Border Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2,0,0,0" CornerRadius="0,3,3,0" Padding="6,3" Margin="0,0,0,4">
+                                    <TextBlock Text="💎 Bits" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextBrush}" />
+                                </Border>
                                 <ItemsControl ItemsSource="{Binding BitsRows}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
@@ -344,7 +356,9 @@
                                 </ItemsControl>
                                 <Button Content="+ Add Bits Trigger" Command="{Binding AddBitsRuleCommand}" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Left" Margin="0,4,0,8" />
 
-                                <TextBlock Text="⭐ Subs" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,4" />
+                                <Border Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2,0,0,0" CornerRadius="0,3,3,0" Padding="6,3" Margin="0,0,0,4">
+                                    <TextBlock Text="⭐ Subs" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextBrush}" />
+                                </Border>
                                 <ItemsControl ItemsSource="{Binding SubsRows}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
@@ -354,7 +368,9 @@
                                 </ItemsControl>
                                 <Button Content="+ Add Sub Trigger" Command="{Binding AddSubsRuleCommand}" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Left" Margin="0,4,0,8" />
 
-                                <TextBlock Text="💵 Payment" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,4" />
+                                <Border Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2,0,0,0" CornerRadius="0,3,3,0" Padding="6,3" Margin="0,0,0,4">
+                                    <TextBlock Text="💵 Payment" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextBrush}" />
+                                </Border>
                                 <ItemsControl ItemsSource="{Binding PaymentRows}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>

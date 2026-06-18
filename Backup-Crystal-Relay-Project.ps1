@@ -85,6 +85,8 @@ $rootFiles =
     'Build-Crystal-Relay-Release.ps1',
     'Build-Crystal-Relay-Test.ps1',
     'Backup-Crystal-Relay-Project.ps1',
+    'Check-Crystal-Relay-Dependencies.ps1',
+    'Create-Crystal-Relay-Debug-Shortcut.ps1',
     'Launch-Crystal-Relay.bat',
     'NuGet.Config',
     'Open-Crystal-Relay-GitHub-Desktop-Workflow.ps1',
@@ -94,6 +96,7 @@ $rootFiles =
     'RELEASE-CHANGE-RECORD.txt',
     'Run-Crystal-Relay-Source.ps1',
     'Sync-Crystal-Relay-GitHub-Repos.ps1',
+    'TRANSLATING.md',
     'VrcTwitchOscBridge.slnx'
 )
 
@@ -101,7 +104,10 @@ $rootDirectories =
 @(
     'docs',
     'VrcTwitchOscBridge',
-    'oscquery-lib'
+    'VrcTwitchOscBridge.Tests',
+    'oscquery-lib',
+    'CrystalRelayUpdater',
+    'LocalizationAudit'
 )
 
 New-Item -ItemType Directory -Path $stagingPath -Force | Out-Null
