@@ -156,6 +156,32 @@
                         <ComboBoxItem Content="{loc:Translate 'Broadcaster'}" Tag="{x:Static models:ChatCommandPermission.Broadcaster}" />
                     </ComboBox>
                 </StackPanel>
+
+                <TextBlock Style="{StaticResource LabelStyle}" Text="{loc:Translate 'Reward Colors'}" />
+                <Grid Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Ellipse Grid.Column="0" Width="16" Height="16" Fill="{Binding Rule.ManagedRewardReadyBrush}" Stroke="{DynamicResource TextBrush}" StrokeThickness="1" Margin="0,0,6,0" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" Text="{loc:Translate 'Ready'}" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
+                    <Button Grid.Column="2" Content="{loc:Translate 'Pick...'}" Tag="Ready" Click="OnPickManagedRewardColorClicked" Style="{StaticResource InlineButtonStyle}" Margin="0,0,4,0" />
+                    <Button Grid.Column="3" Content="{loc:Translate 'Reset'}" Tag="Ready" Click="OnResetManagedRewardColorClicked" Style="{StaticResource InlineButtonStyle}" />
+                </Grid>
+                <Grid Margin="0,0,0,6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Ellipse Grid.Column="0" Width="16" Height="16" Fill="{Binding Rule.ManagedRewardCooldownBrush}" Stroke="{DynamicResource TextBrush}" StrokeThickness="1" Margin="0,0,6,0" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" Text="{loc:Translate 'Cooldown'}" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
+                    <Button Grid.Column="2" Content="{loc:Translate 'Pick...'}" Tag="Cooldown" Click="OnPickManagedRewardColorClicked" Style="{StaticResource InlineButtonStyle}" Margin="0,0,4,0" />
+                    <Button Grid.Column="3" Content="{loc:Translate 'Reset'}" Tag="Cooldown" Click="OnResetManagedRewardColorClicked" Style="{StaticResource InlineButtonStyle}" />
+                </Grid>
             </StackPanel>
         </Border>
     </StackPanel>

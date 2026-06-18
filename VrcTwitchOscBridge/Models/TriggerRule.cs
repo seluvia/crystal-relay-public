@@ -306,6 +306,24 @@ public sealed class TriggerRule : ObservableObject
         }
     }
 
+    public System.Windows.Media.Brush ManagedRewardReadyBrush => HexToBrush(ManagedRewardReadyColor);
+
+    public System.Windows.Media.Brush ManagedRewardCooldownBrush => HexToBrush(ManagedRewardCooldownColor);
+
+    private static System.Windows.Media.Brush HexToBrush(string? hex)
+    {
+        if (string.IsNullOrWhiteSpace(hex)) return System.Windows.Media.Brushes.Transparent;
+        try
+        {
+            var converter = new System.Windows.Media.BrushConverter();
+            return (System.Windows.Media.Brush?)converter.ConvertFromString(hex) ?? System.Windows.Media.Brushes.Transparent;
+        }
+        catch
+        {
+            return System.Windows.Media.Brushes.Transparent;
+        }
+    }
+
     public bool DeleteManagedRewardWhenInactive
     {
         get => deleteManagedRewardWhenInactive;
