@@ -107,6 +107,15 @@
                 </ComboBox>
                 <TextBlock Text="{loc:Translate 'Manage paired rules in the Full Editor.'}" Foreground="{DynamicResource MutedBrush}" FontSize="10" FontStyle="Italic" Margin="0,0,0,6" />
 
+                <TextBlock Style="{StaticResource LabelStyle}" Text="{loc:Translate 'Shared / Numbered Reward Choice'}" />
+                <CheckBox x:Name="SharedChoiceEnabledCheckBox" IsChecked="{Binding Rule.SharedRewardChoiceEnabled, UpdateSourceTrigger=PropertyChanged}" Content="{loc:Translate 'Use shared numbered reward'}" Foreground="{DynamicResource TextBrush}" />
+                <StackPanel Margin="0,4,0,6" Visibility="{Binding IsChecked, ElementName=SharedChoiceEnabledCheckBox, Converter={StaticResource BoolToVis}}">
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="{loc:Translate 'Choice number'}" />
+                    <TextBox Style="{StaticResource InputStyle}" Text="{Binding Rule.SharedRewardChoiceNumber, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4" />
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="{loc:Translate 'Choice label'}" />
+                    <TextBox Style="{StaticResource InputStyle}" Text="{Binding Rule.SharedRewardHelpText, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+
                 <TextBlock Style="{StaticResource LabelStyle}" Text="{loc:Translate 'Bot Reply'}" />
                 <TextBox Style="{StaticResource InputStyle}" Text="{Binding Rule.BotMessageTemplate, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" Height="60" TextWrapping="Wrap" Margin="0,0,0,6" />
 
@@ -134,19 +143,18 @@
                     <TextBox Style="{StaticResource InputStyle}" Text="{Binding Rule.MinimumAmount, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6" />
                 </StackPanel>
 
-                <StackPanel>
-                    <StackPanel.Style>
-                        <Style TargetType="StackPanel">
-                            <Setter Property="Visibility" Value="Collapsed" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding Rule.TriggerType}" Value="{x:Static models:TwitchTriggerType.ChatCommand}">
-                                    <Setter Property="Visibility" Value="Visible" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </StackPanel.Style>
-                    <TextBlock Style="{StaticResource LabelStyle}" Text="{loc:Translate 'Chat Command'}" />
-                    <TextBox Style="{StaticResource InputStyle}" Text="{Binding Rule.ChatCommandText, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6" />
+                <TextBlock Style="{StaticResource LabelStyle}" Text="{loc:Translate 'Chat Command'}" />
+                <CheckBox x:Name="ChatCommandEnabledCheckBox" IsChecked="{Binding Rule.ChatCommandEnabled, UpdateSourceTrigger=PropertyChanged}" Content="{loc:Translate 'Enabled'}" Foreground="{DynamicResource TextBrush}" />
+                <StackPanel Margin="0,4,0,6" Visibility="{Binding IsChecked, ElementName=ChatCommandEnabledCheckBox, Converter={StaticResource BoolToVis}}">
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="{loc:Translate 'Chat command'}" />
+                    <TextBox Style="{StaticResource InputStyle}" Text="{Binding Rule.ChatCommandText, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4" />
+                    <TextBlock Style="{StaticResource LabelStyle}" Text="{loc:Translate 'Permission'}" />
+                    <ComboBox SelectedValuePath="Tag" SelectedValue="{Binding Rule.ChatCommandPermission, UpdateSourceTrigger=PropertyChanged}"
+                              Background="{DynamicResource InputBrush}" Foreground="{DynamicResource TextBrush}" BorderBrush="{DynamicResource InputBorderBrush}">
+                        <ComboBoxItem Content="{loc:Translate 'Everyone'}" Tag="{x:Static models:ChatCommandPermission.Everyone}" />
+                        <ComboBoxItem Content="{loc:Translate 'Moderators'}" Tag="{x:Static models:ChatCommandPermission.Moderators}" />
+                        <ComboBoxItem Content="{loc:Translate 'Broadcaster'}" Tag="{x:Static models:ChatCommandPermission.Broadcaster}" />
+                    </ComboBox>
                 </StackPanel>
             </StackPanel>
         </Border>
