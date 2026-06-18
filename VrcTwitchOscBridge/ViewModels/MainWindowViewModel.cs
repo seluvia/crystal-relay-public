@@ -9,6 +9,7 @@ using System.Reflection;
 using System.Text;
 using System.Windows;
 using System.Windows.Data;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using Microsoft.Win32;
@@ -25,7 +26,7 @@ namespace VrcTwitchOscBridge.ViewModels;
 /// This file ties the window to saved settings, Twitch and VRChat setup,
 /// rule editing, managed rewards, chatbox state, and About-page data.
 /// </summary>
-public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
+public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, ITwitchRewardSource
 {
     // Internal result used by reward-sync callers so unsupported broadcaster accounts
     // can be handled as a normal limitation instead of a fatal error.
@@ -3008,7 +3009,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public AsyncRelayCommand RefreshTwitchRewardsCommand { get; }
 
+    ICommand ITwitchRewardSource.RefreshTwitchRewardsCommand => RefreshTwitchRewardsCommand;
+
     public RelayCommand UnlinkTwitchRewardCommand { get; }
+
+    ICommand ITwitchRewardSource.UnlinkTwitchRewardCommand => UnlinkTwitchRewardCommand;
 
     public RelayCommand UnlinkWardrobeMasterRewardCommand { get; }
 
