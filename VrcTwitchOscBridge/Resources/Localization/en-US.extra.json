@@ -1098,5 +1098,21 @@
     "Universal Triggers New Trigger Default Name": "New trigger",
   "Avatar Swap has replaced the old Avatar Change system. All of your avatar change, Bits + Subs, Power-up avatar swap, cash payment avatar swap, and avatar roulette rules are now managed in the new Avatar Swap window. The 'Avatar Change Setup' tab has been removed. This notice will not appear again.": "Avatar Swap has replaced the old Avatar Change system. All of your avatar change, Bits + Subs, Power-up avatar swap, cash payment avatar swap, and avatar roulette rules are now managed in the new Avatar Swap window. The 'Avatar Change Setup' tab has been removed. This notice will not appear again.",
 
-  "This rule's avatar-swap action has moved to the Avatar Swap manager. Edit it in the Avatar Swap window.": "This rule's avatar-swap action has moved to the Avatar Swap manager. Edit it in the Avatar Swap window."
-  }
+  "This rule's avatar-swap action has moved to the Avatar Swap manager. Edit it in the Avatar Swap window.": "This rule's avatar-swap action has moved to the Avatar Swap manager. Edit it in the Avatar Swap window.",
+  "Edit Trigger": "Edit Trigger",
+  "Twitch Reward": "Twitch Reward",
+  "Reward Sync Mode": "Reward Sync Mode",
+  "Create or Manage": "Create or Manage",
+  "Link Existing": "Link Existing",
+  "Delete Reward When Inactive": "Delete Reward When Inactive",
+  "Free Twitch reward slots when inactive": "Free Twitch reward slots when inactive",
+  "Shared / Numbered Reward Choice": "Shared / Numbered Reward Choice",
+  "Pairing": "Pairing",
+  "Hide Paired While On Cooldown": "Hide Paired While On Cooldown",
+  "Show Paired Only While On Cooldown": "Show Paired Only While On Cooldown",
+  "Manage paired rules in the Full Editor.": "Manage paired rules in the Full Editor.",
+  "Reward Colors": "Reward Colors",
+  "Everyone": "Everyone",
+  "Moderators": "Moderators",
+  "Broadcaster": "Broadcaster"
+}

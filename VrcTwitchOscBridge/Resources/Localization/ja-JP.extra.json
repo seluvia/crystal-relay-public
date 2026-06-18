@@ -1,4 +1,4 @@
-﻿{
+{
   "OSC parameter paths must match VRChat exactly: capitalization, spacing, slashes, and the parameter name all need to be 1-to-1. Wrong value type, missing target/default values, duration resets, or a parameter that does not exist on the current avatar can make a trigger look like it did nothing. Channel point triggers also need a reward name or linked reward before Twitch can match them. Linked rewards are listen-only, and incomplete triggers stay local until setup is complete.": "OSCパラメータパスはVRChatと完全に一致する必要があります。大文字小文字、スペース、スラッシュ、パラメータ名すべてが1対1である必要があります。値タイプの間違い、ターゲット/デフォルト値の欠落、デュレーションリセット、または現在のアバターに存在しないパラメータは、トリガーが何も実行しなかったように見えます。チャンネルポイントトリガーはTwitchがマッチングする前に報酬名またはリンクされた報酬が必要です。リンクされた報酬は読み取り専用で、未完了のトリガーはセットアップが完了するまでローカルに留まります。",
   "Unconfigured": "未設定",
   "Universal Trigger Setup Warning": "ユニバーサルトリガーセットアップ警告",
@@ -1141,5 +1141,21 @@
   "Avatar Sets Manage Button": "アバターセットを管理",
   "Avatar Sets Summary Format": "{0} セット • {1} アクティブ",
   "Avatar Swap has replaced the old Avatar Change system. All of your avatar change, Bits + Subs, Power-up avatar swap, cash payment avatar swap, and avatar roulette rules are now managed in the new Avatar Swap window. The 'Avatar Change Setup' tab has been removed. This notice will not appear again.": "Avatar Swapは古いアバター変更システムに代わりました。アバター変更、Bits + Subs、Power-upアバタースワップ、キャッシュペイメントアバタースワップ、アバタールーレットのルールはすべて新しいAvatar Swapウィンドウで管理されるようになりました。「Avatar Change Setup」タブは削除されました。この通知は再表示されません。",
-  "This rule's avatar-swap action has moved to the Avatar Swap manager. Edit it in the Avatar Swap window.": "このルールのアバタースワップアクションはAvatar Swapマネージャーに移動しました。Avatar Swapウィンドウで編集してください。"
+  "This rule's avatar-swap action has moved to the Avatar Swap manager. Edit it in the Avatar Swap window.": "このルールのアバタースワップアクションはAvatar Swapマネージャーに移動しました。Avatar Swapウィンドウで編集してください。",
+  "Edit Trigger": "トリガーを編集",
+  "Twitch Reward": "Twitchリワード",
+  "Reward Sync Mode": "リワード同期モード",
+  "Create or Manage": "作成または管理",
+  "Link Existing": "既存を連携",
+  "Delete Reward When Inactive": "非アクティブ時にリワードを削除",
+  "Free Twitch reward slots when inactive": "非アクティブ時にTwitchリワード枠を解放",
+  "Shared / Numbered Reward Choice": "共有 / 番号付きリワード選択",
+  "Pairing": "ペアリング",
+  "Hide Paired While On Cooldown": "クールダウン中はペアを非表示",
+  "Show Paired Only While On Cooldown": "クールダウン中のみペアを表示",
+  "Manage paired rules in the Full Editor.": "ペアのルールはフルエディタで管理します。",
+  "Reward Colors": "リワードの色",
+  "Everyone": "全員",
+  "Moderators": "モデレーター",
+  "Broadcaster": "配信者"
 }

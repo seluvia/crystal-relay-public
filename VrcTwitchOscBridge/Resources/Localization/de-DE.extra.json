@@ -1,4 +1,4 @@
-﻿{
+{
   "OSC parameter paths must match VRChat exactly: capitalization, spacing, slashes, and the parameter name all need to be 1-to-1. Wrong value type, missing target/default values, duration resets, or a parameter that does not exist on the current avatar can make a trigger look like it did nothing. Channel point triggers also need a reward name or linked reward before Twitch can match them. Linked rewards are listen-only, and incomplete triggers stay local until setup is complete.": "OSC-Parameterpfade müssen exakt mit VRChat übereinstimmen: Groß-/Kleinschreibung, Leerzeichen, Schrägstriche und Parametername müssen 1:1 passen. Ein falscher Werttyp, fehlende Ziel-/Standardwerte, Rücksetzungen durch Dauer oder ein Parameter, der auf dem aktuellen Avatar nicht existiert, können so wirken, als ob der Trigger nichts tut. Kanalpunkte-Trigger benötigen außerdem einen Belohnungsnamen oder eine verknüpfte Belohnung, damit Twitch sie zuordnen kann. Verknüpfte Belohnungen sind nur zum Zuhören, und unvollständige Trigger bleiben lokal, bis die Einrichtung vollständig ist.",
   "Unconfigured": "Nicht konfiguriert",
   "Universal Trigger Setup Warning": "Einrichtungswarnung für Universal Trigger",
@@ -1187,5 +1187,21 @@
   "Avatar Sets Manage Button": "Avatar-Sets verwalten",
   "Avatar Sets Summary Format": "{0} Sets • {1} aktiv",
   "Avatar Swap has replaced the old Avatar Change system. All of your avatar change, Bits + Subs, Power-up avatar swap, cash payment avatar swap, and avatar roulette rules are now managed in the new Avatar Swap window. The 'Avatar Change Setup' tab has been removed. This notice will not appear again.": "Avatar-Swap hat das alte Avatar Change-System abgelöst. Alle deine Avatar-Wechsel-, Bits + Subs-, Power-up-Avatar-Swap-, Bargeldzahlungs-Avatar-Swap- und Avatar-Roulette-Regeln werden jetzt im neuen Avatar-Swap-Fenster verwaltet. Der Reiter 'Avatar Change Setup' wurde entfernt. Diese Meldung wird nicht mehr angezeigt.",
-  "This rule's avatar-swap action has moved to the Avatar Swap manager. Edit it in the Avatar Swap window.": "Die Avatar-Swap-Aktion dieser Regel wurde in den Avatar-Swap-Manager verschoben. Bearbeite sie im Avatar-Swap-Fenster."
+  "This rule's avatar-swap action has moved to the Avatar Swap manager. Edit it in the Avatar Swap window.": "Die Avatar-Swap-Aktion dieser Regel wurde in den Avatar-Swap-Manager verschoben. Bearbeite sie im Avatar-Swap-Fenster.",
+  "Edit Trigger": "Trigger bearbeiten",
+  "Twitch Reward": "Twitch-Belohnung",
+  "Reward Sync Mode": "Belohnungs-Sync-Modus",
+  "Create or Manage": "Erstellen oder verwalten",
+  "Link Existing": "Vorhandene verknüpfen",
+  "Delete Reward When Inactive": "Belohnung im inaktiven Zustand löschen",
+  "Free Twitch reward slots when inactive": "Twitch-Belohnungs-Slots freigeben, wenn inaktiv",
+  "Shared / Numbered Reward Choice": "Geteilte / nummerierte Belohnungsauswahl",
+  "Pairing": "Paarung",
+  "Hide Paired While On Cooldown": "Gepaarte während Abklingzeit ausblenden",
+  "Show Paired Only While On Cooldown": "Gepaarte nur während Abklingzeit anzeigen",
+  "Manage paired rules in the Full Editor.": "Gepaarte Regeln im vollständigen Editor verwalten.",
+  "Reward Colors": "Belohnungsfarben",
+  "Everyone": "Alle",
+  "Moderators": "Moderatoren",
+  "Broadcaster": "Streamer"
 }

@@ -1,4 +1,4 @@
-﻿{
+{
   "OSC parameter paths must match VRChat exactly: capitalization, spacing, slashes, and the parameter name all need to be 1-to-1. Wrong value type, missing target/default values, duration resets, or a parameter that does not exist on the current avatar can make a trigger look like it did nothing. Channel point triggers also need a reward name or linked reward before Twitch can match them. Linked rewards are listen-only, and incomplete triggers stay local until setup is complete.": "OSC 매개변수 경로는 VRChat와 정확히 일치해야 합니다: 대소문자, 공백, 슬래시, 매개변수 이름이 모두 일대일로 일치해야 합니다. 잘못된 값 타입, 누락된 대상/기본값, 기간 초기화, 또는 현재 아바타에 존재하지 않는 매개변수는 트리거가 아무 작업도 하지 않은 것처럼 보이게 할 수 있습니다. 채널 포인트 트리거도 Twitch가 매칭할 수 있도록 보상 이름이나 연결된 보상이 필요합니다. 연결된 보상은 수신 전용이며, 미완성 트리거는 설정이 완료될 때까지 로컬에 유지됩니다.",
   "Unconfigured": "미설정",
   "Universal Trigger Setup Warning": "유니버설 트리거 설정 경고",
@@ -1141,5 +1141,21 @@
   "Avatar Sets Manage Button": "아바타 세트 관리",
   "Avatar Sets Summary Format": "{0} 세트 • {1} 활성",
   "Avatar Swap has replaced the old Avatar Change system. All of your avatar change, Bits + Subs, Power-up avatar swap, cash payment avatar swap, and avatar roulette rules are now managed in the new Avatar Swap window. The 'Avatar Change Setup' tab has been removed. This notice will not appear again.": "Avatar Swap이 기존 아바타 변경 시스템을 대체했습니다. 모든 아바타 변경, Bits + Subs, Power-up 아바타 스왑, 현금 결제 아바타 스왑, 아바타 룰렛 규칙은 이제 새 Avatar Swap 창에서 관리됩니다. 'Avatar Change Setup' 탭이 제거되었습니다. 이 알림은 다시 나타나지 않습니다.",
-  "This rule's avatar-swap action has moved to the Avatar Swap manager. Edit it in the Avatar Swap window.": "이 규칙의 아바타 스왑 동작이 Avatar Swap 관리자로 이동했습니다. Avatar Swap 창에서 편집하세요."
+  "This rule's avatar-swap action has moved to the Avatar Swap manager. Edit it in the Avatar Swap window.": "이 규칙의 아바타 스왑 동작이 Avatar Swap 관리자로 이동했습니다. Avatar Swap 창에서 편집하세요.",
+  "Edit Trigger": "트리거 편집",
+  "Twitch Reward": "트위치 보상",
+  "Reward Sync Mode": "보상 동기화 모드",
+  "Create or Manage": "만들기 또는 관리",
+  "Link Existing": "기존 보상 연결",
+  "Delete Reward When Inactive": "비활성 시 보상 삭제",
+  "Free Twitch reward slots when inactive": "비활성 시 트위치 보상 슬롯 해제",
+  "Shared / Numbered Reward Choice": "공유 / 번호 지정 보상 선택",
+  "Pairing": "페어링",
+  "Hide Paired While On Cooldown": "쿨다운 중 페어링 숨기기",
+  "Show Paired Only While On Cooldown": "쿨다운 중에만 페어링 표시",
+  "Manage paired rules in the Full Editor.": "페어링 규칙은 전체 편집기에서 관리하세요.",
+  "Reward Colors": "보상 색상",
+  "Everyone": "모두",
+  "Moderators": "중재자",
+  "Broadcaster": "방송자"
 }

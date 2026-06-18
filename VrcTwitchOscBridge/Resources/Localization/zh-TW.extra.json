@@ -1,4 +1,4 @@
-﻿{
+{
   "OSC parameter paths must match VRChat exactly: capitalization, spacing, slashes, and the parameter name all need to be 1-to-1. Wrong value type, missing target/default values, duration resets, or a parameter that does not exist on the current avatar can make a trigger look like it did nothing. Channel point triggers also need a reward name or linked reward before Twitch can match them. Linked rewards are listen-only, and incomplete triggers stay local until setup is complete.": "OSC 參數路徑必須與 VRChat 完全一致：大小寫、空格、斜線和參數名稱都需要逐字元比對。錯誤的值類型、缺少目標/預設值、持續時間重置，或當前頭像上不存在的參數，都可能讓觸發器看起來毫無作用。頻道點數觸發器還需要獎勵名稱或關聯獎勵，Twitch 才能進行匹配。關聯獎勵僅供監聽，不完整的觸發器會保持在本機直到設定完成。",
   "Unconfigured": "未設定",
   "Universal Trigger Setup Warning": "通用觸發器設定警告",
@@ -1142,5 +1142,21 @@
   "Avatar Sets Manage Button": "管理頭像套裝",
   "Avatar Sets Summary Format": "{0} 個套裝 • {1} 個活躍",
   "Avatar Swap has replaced the old Avatar Change system. All of your avatar change, Bits + Subs, Power-up avatar swap, cash payment avatar swap, and avatar roulette rules are now managed in the new Avatar Swap window. The 'Avatar Change Setup' tab has been removed. This notice will not appear again.": "頭像切換已取代舊的頭像更換系統。所有的頭像更換、Bits + Subs、Power-up 頭像切換、現金付款頭像切換和頭像輪盤規則現在都在新的頭像切換視窗中管理。'Avatar Change Setup' 分頁已移除。此通知將不再出現。",
-  "This rule's avatar-swap action has moved to the Avatar Swap manager. Edit it in the Avatar Swap window.": "此規則的頭像切換動作已移至頭像切換管理員。請在頭像切換視窗中編輯它。"
+  "This rule's avatar-swap action has moved to the Avatar Swap manager. Edit it in the Avatar Swap window.": "此規則的頭像切換動作已移至頭像切換管理員。請在頭像切換視窗中編輯它。",
+  "Edit Trigger": "編輯觸發條件",
+  "Twitch Reward": "Twitch 獎勵",
+  "Reward Sync Mode": "獎勵同步模式",
+  "Create or Manage": "建立或管理",
+  "Link Existing": "連結現有獎勵",
+  "Delete Reward When Inactive": "非活動時刪除獎勵",
+  "Free Twitch reward slots when inactive": "非活動時釋出 Twitch 獎勵名額",
+  "Shared / Numbered Reward Choice": "共用 / 編號獎勵選項",
+  "Pairing": "配對",
+  "Hide Paired While On Cooldown": "冷卻時隱藏配對",
+  "Show Paired Only While On Cooldown": "僅在冷卻時顯示配對",
+  "Manage paired rules in the Full Editor.": "請在完整編輯器中管理配對規則。",
+  "Reward Colors": "獎勵顏色",
+  "Everyone": "所有人",
+  "Moderators": "版主",
+  "Broadcaster": "主播"
 }
