@@ -217,6 +217,7 @@
     <Compile Include="ViewModels\AvatarSwapCardViewModel.cs" />
     <Compile Include="ViewModels\AvatarSwapRuleEditorViewModel.cs" />
     <Compile Include="ViewModels\AvatarSwapManagerViewModel.cs" />
+    <Compile Include="ViewModels\ITwitchRewardSource.cs" />
     <Compile Include="ViewModels\InlineAvatarSwapRuleRowViewModel.cs" />
 
   </ItemGroup>
