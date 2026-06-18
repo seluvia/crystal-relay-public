@@ -305,26 +305,26 @@
                     </StackPanel>
 
                     <!-- Right editor: avatar swap -->
-                    <Border Grid.Column="1" Background="#241a3a" BorderBrush="#3a2a5a" BorderThickness="1" CornerRadius="6" Padding="10"
-                            Visibility="{Binding IsSwapEditorOpen, Converter={StaticResource BoolToVis}}">
+                    <Border Grid.Column="1" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="10"
+                            Visibility="{Binding IsSwapEditorOpen, Converter={StaticResource BoolToVisibilityConverter}}">
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
                             <StackPanel>
                                 <DockPanel Margin="0,0,0,8">
-                                    <Border Width="40" Height="40" Background="#3a2a5a" CornerRadius="5" Margin="0,0,8,0" ClipToBounds="True">
+                                    <Border Width="40" Height="40" Background="{DynamicResource NestedPanelBrush}" CornerRadius="5" Margin="0,0,8,0" ClipToBounds="True">
                                         <Image Source="{Binding SelectedSwapCard.Image}" Stretch="UniformToFill" />
                                     </Border>
                                     <StackPanel VerticalAlignment="Center">
                                         <TextBlock Text="{Binding SelectedSwapCard.Profile.TargetAvatarName}" FontWeight="SemiBold" FontSize="13" TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Text="Target Avatar" Foreground="#9b86c9" FontSize="10" />
+                                        <TextBlock Text="Target Avatar" Foreground="{DynamicResource MutedBrush}" FontSize="10" />
                                     </StackPanel>
                                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                                        <Button Content="Browse" Click="OnPickTargetAvatarClicked" Padding="6,3" Margin="0,0,4,0" />
-                                        <Button Content="Use Current" Click="OnUseCurrentAvatarForTargetClicked" Padding="6,3" />
+                                        <Button Content="Browse" Click="OnPickTargetAvatarClicked" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,4,0" />
+                                        <Button Content="Use Current" Click="OnUseCurrentAvatarForTargetClicked" Style="{StaticResource SecondaryButtonStyle}" />
                                     </StackPanel>
                                 </DockPanel>
-                                <TextBlock Text="↩ Returns to global return avatar" Foreground="#9b86c9" FontSize="10" Margin="0,0,0,8" />
+                                <TextBlock Text="↩ Returns to global return avatar" Foreground="{DynamicResource MutedBrush}" FontSize="10" Margin="0,0,0,8" />
 
-                                <TextBlock Text="🏆 Channel Points" FontWeight="SemiBold" FontSize="11" Margin="0,0,0,4" />
+                                <TextBlock Text="🏆 Channel Points" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,4" />
                                 <ItemsControl ItemsSource="{Binding ChannelPointRows}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
@@ -332,9 +332,9 @@
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
-                                <Button Content="+ Add Channel Point" Command="{Binding AddChannelPointRuleCommand}" HorizontalAlignment="Left" Padding="6,3" Margin="0,4,0,8" />
+                                <Button Content="+ Add Channel Point" Command="{Binding AddChannelPointRuleCommand}" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Left" Margin="0,4,0,8" />
 
-                                <TextBlock Text="💎 Bits" FontWeight="SemiBold" FontSize="11" Margin="0,0,0,4" />
+                                <TextBlock Text="💎 Bits" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,4" />
                                 <ItemsControl ItemsSource="{Binding BitsRows}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
@@ -342,9 +342,9 @@
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
-                                <Button Content="+ Add Bits Trigger" Command="{Binding AddBitsRuleCommand}" HorizontalAlignment="Left" Padding="6,3" Margin="0,4,0,8" />
+                                <Button Content="+ Add Bits Trigger" Command="{Binding AddBitsRuleCommand}" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Left" Margin="0,4,0,8" />
 
-                                <TextBlock Text="⭐ Subs" FontWeight="SemiBold" FontSize="11" Margin="0,0,0,4" />
+                                <TextBlock Text="⭐ Subs" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,4" />
                                 <ItemsControl ItemsSource="{Binding SubsRows}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
@@ -352,9 +352,9 @@
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
-                                <Button Content="+ Add Sub Trigger" Command="{Binding AddSubsRuleCommand}" HorizontalAlignment="Left" Padding="6,3" Margin="0,4,0,8" />
+                                <Button Content="+ Add Sub Trigger" Command="{Binding AddSubsRuleCommand}" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Left" Margin="0,4,0,8" />
 
-                                <TextBlock Text="💵 Payment" FontWeight="SemiBold" FontSize="11" Margin="0,0,0,4" />
+                                <TextBlock Text="💵 Payment" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,4" />
                                 <ItemsControl ItemsSource="{Binding PaymentRows}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
@@ -362,18 +362,18 @@
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
-                                <Button Content="+ Add Payment Trigger" Command="{Binding AddPaymentRuleCommand}" HorizontalAlignment="Left" Padding="6,3" Margin="0,4,0,8" />
+                                <Button Content="+ Add Payment Trigger" Command="{Binding AddPaymentRuleCommand}" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Left" Margin="0,4,0,8" />
 
-                                <TextBlock Text="Advanced triggers (open full editor)" Foreground="#9b86c9" FontSize="10" Margin="0,8,0,4" />
-                                <StackPanel Orientation="Horizontal">
-                                    <Button Content="💬 Chat Command" Command="{Binding AddAdvancedTriggerCommand}" CommandParameter="ChatCommand" Padding="6,3" Margin="0,0,4,0" />
-                                    <Button Content="👥 Follow" Command="{Binding AddAdvancedTriggerCommand}" CommandParameter="Follow" Padding="6,3" Margin="0,0,4,0" />
-                                    <Button Content="⚡ Power-up" Command="{Binding AddAdvancedTriggerCommand}" CommandParameter="PowerUp" Padding="6,3" />
-                                </StackPanel>
+                                <TextBlock Text="Advanced triggers (open full editor)" Foreground="{DynamicResource MutedBrush}" FontSize="10" Margin="0,8,0,4" />
+                                <WrapPanel Orientation="Horizontal">
+                                    <Button Content="💬 Chat Command" Command="{Binding AddAdvancedTriggerCommand}" CommandParameter="ChatCommand" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,4,4" />
+                                    <Button Content="👥 Follow" Command="{Binding AddAdvancedTriggerCommand}" CommandParameter="Follow" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,4,4" />
+                                    <Button Content="⚡ Power-up" Command="{Binding AddAdvancedTriggerCommand}" CommandParameter="PowerUp" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,4,4" />
+                                </WrapPanel>
 
                                 <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                                    <Button Content="Delete Avatar" Command="{Binding DeleteSwapCommand}" Padding="8,4" Background="#5a2a2a" Foreground="#f0a0a0" />
-                                    <Button Content="Save" Command="{Binding SaveSwapEditorCommand}" Padding="8,4" Margin="6,0,0,0" />
+                                    <Button Content="Delete Avatar" Command="{Binding DeleteSwapCommand}" Style="{StaticResource DangerButtonStyle}" />
+                                    <Button Content="Save" Command="{Binding SaveSwapEditorCommand}" Style="{StaticResource AccentButtonStyle}" Margin="6,0,0,0" />
                                 </StackPanel>
                             </StackPanel>
                         </ScrollViewer>
