@@ -322,7 +322,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
         IsSwapEditorOpen = true;
         IsRouletteEditorOpen = false;
         RebuildRows();
-        RightPaneContent = new RuleListPaneViewModel(card.Profile?.TargetAvatarName);
+        RightPaneContent = new RuleListPaneViewModel(RuleListPaneKind.Swap, card.Profile?.TargetAvatarName);
     }
 
     private void OpenRouletteEditor(AvatarRouletteCardViewModel? card)
@@ -332,7 +332,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
         IsRouletteEditorOpen = true;
         IsSwapEditorOpen = false;
         RebuildRows();
-        RightPaneContent = new RuleListPaneViewModel(card.Roulette?.Name);
+        RightPaneContent = new RuleListPaneViewModel(RuleListPaneKind.Roulette, card.Roulette?.Name);
     }
 
     private void SaveSwapEditor()

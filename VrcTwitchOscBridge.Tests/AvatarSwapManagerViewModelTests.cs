@@ -314,6 +314,42 @@ public sealed class AvatarSwapManagerViewModelTests
         Assert.IsType<InlineChannelPointRuleRowViewModel>(vm.ChannelPointRows[0]);
     }
 
+    [Fact]
+    public void OpenSwapEditor_SetsRuleListPaneKindToSwap()
+    {
+        var settings = new AppSettings();
+        var profile = new AvatarSwapProfile { TargetAvatarId = "avtr_a", TargetAvatarName = "Avatar A" };
+        settings.AvatarSwapProfiles.Add(profile);
+
+        var vm = new AvatarSwapManagerViewModel(settings, new StubTwitchRewardSource());
+        vm.OpenSwapEditorCommand.Execute(vm.SwapCards.Single());
+
+        var pane = Assert.IsType<RuleListPaneViewModel>(vm.RightPaneContent);
+        Assert.Equal(RuleListPaneKind.Swap, pane.Kind);
+    }
+
+    [Fact]
+    public void OpenRouletteEditor_SetsRuleListPaneKindToRoulette()
+    {
+        var settings = new AppSettings();
+        var roulette = new AvatarRouletteProfile { Name = "My Roulette" };
+        settings.AvatarRouletteProfiles.Add(roulette);
+
+        var vm = new AvatarSwapManagerViewModel(settings, new StubTwitchRewardSource());
+        vm.OpenRouletteEditorCommand.Execute(vm.RouletteCards.Single());
+
+        var pane = Assert.IsType<RuleListPaneViewModel>(vm.RightPaneContent);
+        Assert.Equal(RuleListPaneKind.Roulette, pane.Kind);
+    }
+
+    [Fact]
+    public void RuleListPaneViewModel_StoresKindAndTitle()
+    {
+        var pane = new RuleListPaneViewModel(RuleListPaneKind.Swap, "Avatar Name");
+        Assert.Equal(RuleListPaneKind.Swap, pane.Kind);
+        Assert.Equal("Avatar Name", pane.Title);
+    }
+
     private sealed class StubTwitchRewardSource : ITwitchRewardSource
     {
         public ObservableCollection<TwitchRewardOption> RewardOptions { get; } = new();
