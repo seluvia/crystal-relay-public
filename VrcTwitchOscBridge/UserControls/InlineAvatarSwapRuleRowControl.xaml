@@ -85,7 +85,7 @@
                     <StackPanel>
                         <TextBlock Style="{StaticResource LabelStyle}" Text="{loc:Translate 'Existing Twitch Reward'}" />
                         <ComboBox ItemsSource="{Binding DataContext.TwitchRewardOptions, RelativeSource={RelativeSource AncestorType=Window}}"
-                                  SelectedValuePath="Id" SelectedValue="{Binding Rule.ChannelPointRewardId, UpdateSourceTrigger=PropertyChanged}"
+                                  SelectedValuePath="Id" DisplayMemberPath="Title" SelectedValue="{Binding Rule.ChannelPointRewardId, UpdateSourceTrigger=PropertyChanged}"
                                   Background="{DynamicResource InputBrush}" Foreground="{DynamicResource TextBrush}" BorderBrush="{DynamicResource InputBorderBrush}" Margin="0,0,0,4" />
                         <StackPanel Orientation="Horizontal">
                             <Button Content="{loc:Translate 'Refresh Rewards'}" Command="{Binding DataContext.RefreshTwitchRewardsCommand, RelativeSource={RelativeSource AncestorType=Window}}" Style="{StaticResource InlineButtonStyle}" Margin="0,0,4,0" />
