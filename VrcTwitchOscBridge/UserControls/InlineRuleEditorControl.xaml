@@ -3,6 +3,24 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:loc="clr-namespace:VrcTwitchOscBridge.Services"
              xmlns:models="clr-namespace:VrcTwitchOscBridge.Models">
+    <UserControl.Resources>
+        <Style x:Key="HeadingTextStyle" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{DynamicResource HeadingFontFamily}" />
+        </Style>
+
+        <Style x:Key="SecondaryButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="{DynamicResource SecondaryButtonBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SecondaryButtonBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="8,3" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+    </UserControl.Resources>
+
     <Border Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="14">
         <StackPanel>
             <Button Content="← Back"
