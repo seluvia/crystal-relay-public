@@ -54,8 +54,16 @@
                 <TextBox Style="{StaticResource InputStyle}" Text="{Binding Rule.Name, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6" />
 
                 <TextBlock Style="{StaticResource LabelStyle}" Text="{loc:Translate 'Twitch Reward'}" />
-                <TextBlock Style="{StaticResource LabelStyle}" Text="{loc:Translate 'Reward Name'}" />
-                <TextBox Style="{StaticResource InputStyle}" Text="{Binding Rule.ChannelPointRewardTitle, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6" />
+                <UniformGrid Columns="2" Margin="0,0,0,6">
+                    <StackPanel Margin="0,0,4,0">
+                        <TextBlock Style="{StaticResource LabelStyle}" Text="{loc:Translate 'Reward Name'}" />
+                        <TextBox Style="{StaticResource InputStyle}" Text="{Binding Rule.ChannelPointRewardTitle, UpdateSourceTrigger=PropertyChanged}" />
+                    </StackPanel>
+                    <StackPanel Margin="4,0,0,0">
+                        <TextBlock Style="{StaticResource LabelStyle}" Text="{loc:Translate 'Reward Cost'}" />
+                        <TextBox Style="{StaticResource InputStyle}" Text="{Binding Rule.ChannelPointRewardCost, UpdateSourceTrigger=PropertyChanged}" />
+                    </StackPanel>
+                </UniformGrid>
                 <TextBlock Style="{StaticResource LabelStyle}" Text="{loc:Translate 'Reward Description'}" />
                 <TextBox Style="{StaticResource InputStyle}" Text="{Binding Rule.ChannelPointRewardDescription, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" Height="60" TextWrapping="Wrap" Margin="0,0,0,6" />
 
