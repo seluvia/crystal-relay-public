@@ -12878,7 +12878,7 @@ internal BridgeCoordinator(
         var forceMovementRules = globalRules
             .Where(IsBitsForceMovementRule)
             .Where(rule => bridgeEvent.Amount >= Math.Max(1, rule.MinimumAmount))
-            .Where(rule => !string.IsNullOrWhiteSpace(rule.SupporterKeywordText))
+            .Where(rule => rule.BitsKeywordEnabled && !string.IsNullOrWhiteSpace(rule.SupporterKeywordText))
             .ToArray();
 
         var choiceText = ExtractBitsOutfitChoiceText(bridgeEvent.MessageText);
@@ -13240,12 +13240,12 @@ internal BridgeCoordinator(
         }
 
         var candidates = rules
+            .Where(rule => rule.BitsKeywordEnabled && !string.IsNullOrWhiteSpace(rule.SupporterKeywordText))
             .Select(rule => new BitsOutfitNameCandidate(
                 rule,
                 rule.SupporterKeywordText.Trim(),
                 NormalizeBitsOutfitPhrase(rule.SupporterKeywordText),
                 NormalizeBitsOutfitCompact(rule.SupporterKeywordText)))
-            .Where(candidate => !string.IsNullOrWhiteSpace(candidate.CompactName))
             .ToArray();
 
         var exactMatches = candidates
@@ -16479,7 +16479,7 @@ internal BridgeCoordinator(
     private static IReadOnlyList<string> BuildForceMovementAnnouncementOptions(IReadOnlyList<TriggerRuleSnapshot> rules)
     {
         return rules
-            .Where(rule => rule.IsEnabled && IsBitsForceMovementRule(rule) && !string.IsNullOrWhiteSpace(rule.SupporterKeywordText))
+            .Where(rule => rule.IsEnabled && IsBitsForceMovementRule(rule) && rule.BitsKeywordEnabled && !string.IsNullOrWhiteSpace(rule.SupporterKeywordText))
             .OrderBy(rule => Math.Max(1, rule.MinimumAmount))
             .ThenBy(rule => rule.SupporterKeywordText, StringComparer.CurrentCultureIgnoreCase)
             .Select(rule => TF("Cheer{0} {1}", Math.Max(1, rule.MinimumAmount), rule.SupporterKeywordText.Trim()))
@@ -16654,7 +16654,7 @@ internal BridgeCoordinator(
         var threshold = Math.Max(1, rule.MinimumAmount);
         if (IsBitsForceMovementRule(rule))
         {
-            var keyword = string.IsNullOrWhiteSpace(rule.SupporterKeywordText)
+            var keyword = !rule.BitsKeywordEnabled || string.IsNullOrWhiteSpace(rule.SupporterKeywordText)
                 ? T("movement word")
                 : rule.SupporterKeywordText.Trim();
             return TF(
