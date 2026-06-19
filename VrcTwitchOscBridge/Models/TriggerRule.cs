@@ -1027,10 +1027,15 @@ public sealed class TriggerRule : ObservableObject
         {
             if (SetProperty(ref bitsKeywordEnabled, value))
             {
+                RaisePropertyChanged(nameof(UsesBitsKeyword));
                 RaisePropertyChanged(nameof(TriggerSummary));
             }
         }
     }
+
+    [JsonIgnore]
+    public bool UsesBitsKeyword
+        => BitsKeywordEnabled && !string.IsNullOrWhiteSpace(SupporterKeywordText);
 
     public Guid ActiveFloatBoostRewardOwnerId
     {
