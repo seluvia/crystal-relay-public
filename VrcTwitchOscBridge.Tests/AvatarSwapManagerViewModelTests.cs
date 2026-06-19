@@ -377,6 +377,24 @@ public sealed class AvatarSwapManagerViewModelTests
     }
 
     [Fact]
+    public void AddSubsRuleCommand_NewRuleHasAllTierTogglesEnabled()
+    {
+        var settings = new AppSettings();
+        var profile = new AvatarSwapProfile { TargetAvatarId = "avtr_a", TargetAvatarName = "Avatar A" };
+        settings.AvatarSwapProfiles.Add(profile);
+
+        var vm = new AvatarSwapManagerViewModel(settings, new StubTwitchRewardSource());
+        vm.OpenSwapEditorCommand.Execute(vm.SwapCards.Single());
+
+        vm.AddSubsRuleCommand.Execute(null);
+
+        var rule = profile.SubsRules.Single();
+        Assert.True(rule.SubscriptionTier1Enabled);
+        Assert.True(rule.SubscriptionTier2Enabled);
+        Assert.True(rule.SubscriptionTier3Enabled);
+    }
+
+    [Fact]
     public void OpenSwapEditor_SetsRuleListPaneKindToSwap()
     {
         var settings = new AppSettings();
