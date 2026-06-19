@@ -1058,6 +1058,7 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             SharedRewardChoiceNumber = rule.SharedRewardChoiceNumber,
             SharedRewardHelpText = rule.SharedRewardHelpText,
             SupporterKeywordText = rule.SupporterKeywordText,
+            BitsKeywordEnabled = rule.BitsKeywordEnabled,
             ActiveFloatBoostRewardOwnerId = rule.ActiveFloatBoostRewardOwnerId,
             ActiveFloatBoostRewardEnabled = rule.ActiveFloatBoostRewardEnabled,
             ActiveFloatBoostRewardId = rule.ActiveFloatBoostRewardId,
@@ -1313,6 +1314,7 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             SharedRewardChoiceNumber = Math.Max(0, rule.SharedRewardChoiceNumber),
             SharedRewardHelpText = rule.SharedRewardHelpText ?? string.Empty,
             SupporterKeywordText = rule.SupporterKeywordText ?? string.Empty,
+            BitsKeywordEnabled = rule.BitsKeywordEnabled,
             ActiveFloatBoostRewardOwnerId = rule.ActiveFloatBoostRewardOwnerId == Guid.Empty
                 ? Guid.NewGuid()
                 : rule.ActiveFloatBoostRewardOwnerId,
@@ -3255,6 +3257,8 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
         public string? SharedRewardHelpText { get; set; }
 
         public string? SupporterKeywordText { get; set; }
+
+        public bool BitsKeywordEnabled { get; set; }
 
         public Guid ActiveFloatBoostRewardOwnerId { get; set; }
 
