@@ -148,8 +148,16 @@ Net effect:
 Add `BitsKeywordEnabled` to the rule DTOs that already carry
 `SupporterKeywordText` so it round-trips through JSON save/load:
 
-- `RuleSaveData` (or equivalent bits DTO)
-- `BitsRuleSettings` in `BridgeRuntimeConfiguration`
+- `PersistedTriggerRule` (defined at `SettingsStore.cs:3153`, the DTO that
+  holds the serialized rule fields including `SupporterKeywordText` at
+  `SettingsStore.cs:3257`)
+- `TriggerRuleSnapshot` (defined at `BridgeRuntimeConfiguration.cs:58`, the
+  runtime snapshot record that already carries `SupporterKeywordText` at
+  `BridgeRuntimeConfiguration.cs:134`)
+
+Add the new field to the DTOs and to the two mapping blocks
+(`SettingsStore.cs:1060` for rule→DTO and `SettingsStore.cs:1315` for
+DTO→rule, and the corresponding mappings in `BridgeRuntimeConfiguration.cs`).
 
 Default to `false` when the field is missing on load (backward-compatible with
 existing saves that don't have the field).
