@@ -109,6 +109,7 @@ public sealed class TriggerRule : ObservableObject
     private int sharedRewardChoiceNumber;
     private string sharedRewardHelpText = string.Empty;
     private string supporterKeywordText = string.Empty;
+    private bool bitsKeywordEnabled;
     private Guid activeFloatBoostRewardOwnerId = Guid.NewGuid();
     private bool activeFloatBoostRewardEnabled;
     private string activeFloatBoostRewardId = string.Empty;
@@ -1014,6 +1015,18 @@ public sealed class TriggerRule : ObservableObject
             if (SetProperty(ref supporterKeywordText, normalizedValue))
             {
                 RaisePropertyChanged(nameof(UsesForceMovementBitsTrigger));
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public bool BitsKeywordEnabled
+    {
+        get => bitsKeywordEnabled;
+        set
+        {
+            if (SetProperty(ref bitsKeywordEnabled, value))
+            {
                 RaisePropertyChanged(nameof(TriggerSummary));
             }
         }

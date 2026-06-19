@@ -78,4 +78,18 @@ public sealed class TriggerRuleRoundTripTests
         backingField!.SetValue(rule, string.Empty);
         Assert.Equal(System.Windows.Media.Brushes.Transparent, rule.ManagedRewardReadyBrush);
     }
+
+    [Fact]
+    public void BitsKeywordEnabled_DefaultsToFalse()
+    {
+        var rule = new TriggerRule();
+        Assert.False(rule.BitsKeywordEnabled);
+    }
+
+    [Fact]
+    public void BitsKeywordEnabled_RoundTrips()
+    {
+        var rule = new TriggerRule { BitsKeywordEnabled = true };
+        Assert.True(rule.BitsKeywordEnabled);
+    }
 }
