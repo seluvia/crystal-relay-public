@@ -229,21 +229,31 @@
                         <TextBlock Text="Subscription Settings" Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" Margin="0,0,0,8" />
                         <UniformGrid Columns="3">
                             <StackPanel Margin="0,0,6,0">
-                                <TextBlock Text="T1 seconds/sub" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
-                                <TextBox Text="{Binding Rule.SubscriptionTier1SecondsPerSub, UpdateSourceTrigger=PropertyChanged}" />
+                                <CheckBox IsChecked="{Binding Rule.SubscriptionTier1Enabled}"
+                                          Content="T1 seconds/sub"
+                                          Foreground="{DynamicResource MutedBrush}"
+                                          FontSize="11" Margin="0,0,0,2" />
+                                <TextBox Text="{Binding Rule.SubscriptionTier1SecondsPerSub, UpdateSourceTrigger=PropertyChanged}"
+                                         IsEnabled="{Binding Rule.SubscriptionTier1Enabled}" />
                             </StackPanel>
                             <StackPanel Margin="6,0,6,0">
-                                <TextBlock Text="T2 seconds/sub" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
-                                <TextBox Text="{Binding Rule.SubscriptionTier2SecondsPerSub, UpdateSourceTrigger=PropertyChanged}" />
+                                <CheckBox IsChecked="{Binding Rule.SubscriptionTier2Enabled}"
+                                          Content="T2 seconds/sub"
+                                          Foreground="{DynamicResource MutedBrush}"
+                                          FontSize="11" Margin="0,0,0,2" />
+                                <TextBox Text="{Binding Rule.SubscriptionTier2SecondsPerSub, UpdateSourceTrigger=PropertyChanged}"
+                                         IsEnabled="{Binding Rule.SubscriptionTier2Enabled}" />
                             </StackPanel>
                             <StackPanel Margin="6,0,0,0">
-                                <TextBlock Text="T3 seconds/sub" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
-                                <TextBox Text="{Binding Rule.SubscriptionTier3SecondsPerSub, UpdateSourceTrigger=PropertyChanged}" />
+                                <CheckBox IsChecked="{Binding Rule.SubscriptionTier3Enabled}"
+                                          Content="T3 seconds/sub"
+                                          Foreground="{DynamicResource MutedBrush}"
+                                          FontSize="11" Margin="0,0,0,2" />
+                                <TextBox Text="{Binding Rule.SubscriptionTier3SecondsPerSub, UpdateSourceTrigger=PropertyChanged}"
+                                         IsEnabled="{Binding Rule.SubscriptionTier3Enabled}" />
                             </StackPanel>
                         </UniformGrid>
                         <CheckBox IsChecked="{Binding Rule.IsGiftSubscription}" Content="Include gift subs" Margin="0,8,0,0" />
-                        <TextBlock Text="Chat keyword" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,8,0,2" />
-                        <TextBox Text="{Binding Rule.SupporterKeywordText, UpdateSourceTrigger=PropertyChanged}" />
                     </StackPanel>
                 </Border>
             </StackPanel>
