@@ -61,11 +61,19 @@
                                 <TextBox Text="{Binding Rule.MinimumAmount, UpdateSourceTrigger=PropertyChanged}" />
                             </StackPanel>
                             <StackPanel Margin="8,0,0,0">
-                                <TextBlock Text="Seconds per Bits" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
                                 <UniformGrid Columns="2">
-                                    <TextBox Text="{Binding Rule.BitsAmountUnitsPerDuration, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,2,0" />
-                                    <TextBox Text="{Binding Rule.BitsSecondsPerAmountUnit, UpdateSourceTrigger=PropertyChanged}" Margin="2,0,0,0" />
+                                    <StackPanel Margin="0,0,4,0">
+                                        <TextBlock Text="{loc:Translate 'Bits'}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
+                                        <TextBox Text="{Binding Rule.BitsAmountUnitsPerDuration, UpdateSourceTrigger=PropertyChanged}" />
+                                    </StackPanel>
+                                    <StackPanel Margin="4,0,0,0">
+                                        <TextBlock Text="{loc:Translate 'Seconds'}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
+                                        <TextBox Text="{Binding Rule.BitsSecondsPerAmountUnit, UpdateSourceTrigger=PropertyChanged}" />
+                                    </StackPanel>
                                 </UniformGrid>
+                                <TextBlock Text="{loc:Translate 'Every X bits = Y seconds'}"
+                                           Foreground="{DynamicResource MutedBrush}" FontSize="10"
+                                           FontStyle="Italic" Margin="0,4,0,0" />
                             </StackPanel>
                         </UniformGrid>
                         <CheckBox IsChecked="{Binding Rule.MaxAccumulatedDurationEnabled}" Content="Cap max accumulated duration" Margin="0,8,0,0" />
