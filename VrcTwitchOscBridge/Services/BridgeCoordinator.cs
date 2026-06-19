@@ -6507,6 +6507,17 @@ internal BridgeCoordinator(
         };
     }
 
+    private static bool IsSubscriptionTierEnabled(TriggerRuleSnapshot rule, string tier)
+    {
+        return tier?.Trim() switch
+        {
+            "1000" => rule.SubscriptionTier1Enabled,
+            "2000" => rule.SubscriptionTier2Enabled,
+            "3000" => rule.SubscriptionTier3Enabled,
+            _ => true
+        };
+    }
+
     private static TimeSpan ClampSupporterOverrideAddedDuration(
         TriggerRuleSnapshot rule,
         TimeSpan requestedDuration,

@@ -137,7 +137,10 @@ public sealed record TriggerRuleSnapshot(
     SpecialRulePairingMode SpecialRulePairingMode,
     IReadOnlyList<Guid> TemporarilyDisabledRuleIds,
     string BotMessageTemplate,
-    TriggerRule Rule);
+    TriggerRule Rule,
+    bool SubscriptionTier1Enabled = true,
+    bool SubscriptionTier2Enabled = true,
+    bool SubscriptionTier3Enabled = true);
 
 public sealed record UniversalTriggerActionSnapshot(
     Guid Id,
@@ -985,7 +988,10 @@ public sealed record BridgeRuntimeConfiguration(
             rule.SpecialRulePairingMode,
             [.. rule.TemporarilyDisabledRuleIds.Where(ruleId => ruleId != Guid.Empty).Distinct()],
             rule.BotMessageTemplate.Trim(),
-            rule);
+            rule,
+            rule.SubscriptionTier1Enabled,
+            rule.SubscriptionTier2Enabled,
+            rule.SubscriptionTier3Enabled);
     }
 
     private static SetTriggerActionSnapshot ToSetTriggerActionSnapshot(SetTriggerAction action)
