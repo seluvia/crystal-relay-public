@@ -113,4 +113,30 @@ public sealed class TriggerRuleRoundTripTests
         var rule = new TriggerRule { SupporterKeywordText = "hello", BitsKeywordEnabled = true };
         Assert.True(rule.UsesBitsKeyword);
     }
+
+    [Fact]
+    public void SupporterKeywordText_NonEmptyEnablesBitsKeyword()
+    {
+        var rule = new TriggerRule();
+        Assert.False(rule.BitsKeywordEnabled);
+        rule.SupporterKeywordText = "hello";
+        Assert.True(rule.BitsKeywordEnabled);
+    }
+
+    [Fact]
+    public void SupporterKeywordText_EmptyDisablesBitsKeyword()
+    {
+        var rule = new TriggerRule { BitsKeywordEnabled = true };
+        rule.SupporterKeywordText = "";
+        Assert.False(rule.BitsKeywordEnabled);
+    }
+
+    [Fact]
+    public void SupporterKeywordText_WhitespaceEnablesBitsKeyword()
+    {
+        var rule = new TriggerRule();
+        rule.SupporterKeywordText = "  hello  ";
+        Assert.True(rule.BitsKeywordEnabled);
+        Assert.Equal("hello", rule.SupporterKeywordText);
+    }
 }

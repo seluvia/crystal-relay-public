@@ -1012,6 +1012,7 @@ public sealed class TriggerRule : ObservableObject
         set
         {
             var normalizedValue = string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
+            BitsKeywordEnabled = !string.IsNullOrEmpty(normalizedValue);
             if (SetProperty(ref supporterKeywordText, normalizedValue))
             {
                 RaisePropertyChanged(nameof(UsesForceMovementBitsTrigger));
