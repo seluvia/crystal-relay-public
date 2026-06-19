@@ -1314,7 +1314,6 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             SharedRewardChoiceNumber = Math.Max(0, rule.SharedRewardChoiceNumber),
             SharedRewardHelpText = rule.SharedRewardHelpText ?? string.Empty,
             SupporterKeywordText = rule.SupporterKeywordText ?? string.Empty,
-            BitsKeywordEnabled = rule.BitsKeywordEnabled,
             ActiveFloatBoostRewardOwnerId = rule.ActiveFloatBoostRewardOwnerId == Guid.Empty
                 ? Guid.NewGuid()
                 : rule.ActiveFloatBoostRewardOwnerId,
