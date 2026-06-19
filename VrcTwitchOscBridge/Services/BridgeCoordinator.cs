@@ -8455,6 +8455,12 @@ internal BridgeCoordinator(
             return;
         }
 
+        if (rule.TriggerType == TwitchTriggerType.Subscriptions
+            && !IsSubscriptionTierEnabled(rule, bridgeEvent.SubscriptionTier))
+        {
+            return;
+        }
+
         if (!queuedReplay)
         {
             var cooldownSeconds = GetCooldownSeconds(rule);
