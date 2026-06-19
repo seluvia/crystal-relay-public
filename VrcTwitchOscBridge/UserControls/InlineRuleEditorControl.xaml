@@ -80,8 +80,12 @@
                         <StackPanel Visibility="{Binding Rule.MaxAccumulatedDurationEnabled, Converter={StaticResource BoolToVisibilityConverter}}" Margin="20,4,0,0">
                             <TextBox Text="{Binding Rule.MaxAccumulatedDurationSeconds, UpdateSourceTrigger=PropertyChanged}" />
                         </StackPanel>
+                        <CheckBox IsChecked="{Binding Rule.BitsKeywordEnabled}"
+                                  Content="{loc:Translate 'Require chat keyword'}"
+                                  Margin="0,8,0,0" />
                         <TextBlock Text="Chat keyword" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,8,0,2" />
-                        <TextBox Text="{Binding Rule.SupporterKeywordText, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBox Text="{Binding Rule.SupporterKeywordText, UpdateSourceTrigger=PropertyChanged}"
+                                 IsEnabled="{Binding Rule.BitsKeywordEnabled}" />
                     </StackPanel>
                 </Border>
             </StackPanel>
