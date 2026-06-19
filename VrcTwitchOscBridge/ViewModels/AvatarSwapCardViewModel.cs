@@ -161,10 +161,15 @@ public sealed class AvatarSwapCardViewModel : ObservableObject, IDisposable
                 RaisePropertyChanged(nameof(StatusText));
                 RaisePropertyChanged(nameof(StatusStripeBrush));
                 break;
-            case nameof(AvatarSwapProfile.ChannelPointRules):
-            case nameof(AvatarSwapProfile.BitsRules):
-            case nameof(AvatarSwapProfile.SubsRules):
-            case nameof(AvatarSwapProfile.PaymentRules):
+            // AvatarSwapProfile.Bump() raises HasRules/Uses*/AvatarSubtitle on every rule
+            // collection change (it does not raise the collection property names), so we
+            // forward those to refresh the card's count badge and subtitle live.
+            case nameof(AvatarSwapProfile.HasRules):
+            case nameof(AvatarSwapProfile.UsesChannelPointRules):
+            case nameof(AvatarSwapProfile.UsesBitsRules):
+            case nameof(AvatarSwapProfile.UsesSubsRules):
+            case nameof(AvatarSwapProfile.UsesPaymentRules):
+            case nameof(AvatarSwapProfile.AvatarSubtitle):
                 RaisePropertyChanged(nameof(AvatarSubtitle));
                 RaisePropertyChanged(nameof(RuleCountText));
                 RaisePropertyChanged(nameof(HasRules));

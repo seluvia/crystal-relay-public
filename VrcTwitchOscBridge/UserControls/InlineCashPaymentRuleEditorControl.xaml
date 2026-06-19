@@ -8,6 +8,19 @@
             <Setter Property="FontFamily" Value="{DynamicResource HeadingFontFamily}" />
         </Style>
 
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+        </Style>
+
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CaretBrush" Value="{DynamicResource TextBrush}" />
+            <Setter Property="Padding" Value="6,4" />
+        </Style>
+
         <Style x:Key="SecondaryButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="{DynamicResource SecondaryButtonBrush}" />
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />

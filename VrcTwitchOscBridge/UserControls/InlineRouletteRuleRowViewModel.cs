@@ -42,10 +42,34 @@ public sealed class InlineRouletteRuleRowViewModel : ObservableObject, IRuleRowV
         var name = string.IsNullOrWhiteSpace(_rule.Name) ? "Untitled" : _rule.Name;
         var sb = new StringBuilder();
         sb.Append("🎰 ").Append(name);
-        if (_rule.ChannelPointRewardCost > 0)
+
+        switch (_rule.TriggerType)
         {
-            sb.Append(" — ").Append(_rule.ChannelPointRewardCost).Append(" pts");
+            case TwitchTriggerType.ChannelPoints:
+                if (_rule.ChannelPointRewardCost > 0)
+                    sb.Append(" — ").Append(_rule.ChannelPointRewardCost).Append(" pts");
+                break;
+            case TwitchTriggerType.Bits:
+                if (_rule.MinimumAmount > 0)
+                    sb.Append(" — ").Append(_rule.MinimumAmount).Append(" bits");
+                break;
+            case TwitchTriggerType.Subscriptions:
+            case TwitchTriggerType.GiftSubscription:
+                if (_rule.MinimumAmount > 0)
+                    sb.Append(" — ").Append(_rule.MinimumAmount).Append(" subs");
+                break;
+            case TwitchTriggerType.Follow:
+                sb.Append(" — follow");
+                break;
+            case TwitchTriggerType.ChatCommand:
+                if (!string.IsNullOrWhiteSpace(_rule.ChatCommandText))
+                    sb.Append(" — ").Append(_rule.ChatCommandText);
+                break;
+            case TwitchTriggerType.PowerUp:
+                sb.Append(" — power-up");
+                break;
         }
+
         Summary = sb.ToString();
     }
 

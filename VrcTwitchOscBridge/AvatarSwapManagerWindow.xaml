@@ -197,8 +197,15 @@
                     <DockPanel>
                         <TextBlock DockPanel.Dock="Top" Text="↩ RETURN AVATAR (used by all swaps + roulettes)" Foreground="{DynamicResource MutedBrush}" FontSize="10" Margin="0,0,0,4" />
                         <StackPanel Orientation="Horizontal">
-                            <Border Width="32" Height="32" Background="{DynamicResource NestedPanelBrush}" CornerRadius="5" Margin="0,0,8,0" />
-                            <TextBlock Text="{Binding GlobalReturnAvatarName}" VerticalAlignment="Center" Margin="0,0,12,0" />
+                            <Border Width="32" Height="32" Background="{DynamicResource NestedPanelBrush}" CornerRadius="5" Margin="0,0,8,0" ClipToBounds="True">
+                                <Grid>
+                                    <Image Source="{Binding GlobalReturnAvatarImage}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality"
+                                           Visibility="{Binding HasGlobalReturnAvatarImage, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                    <TextBlock Text="🎭" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource MutedBrush}"
+                                               Visibility="{Binding HasGlobalReturnAvatarImage, Converter={StaticResource InverseBoolToVisibilityConverter}}" />
+                                </Grid>
+                            </Border>
+                            <TextBlock Text="{Binding GlobalReturnAvatarName}" VerticalAlignment="Center" Margin="0,0,12,0" Foreground="{DynamicResource TextBrush}" />
                             <Button Content="Pick…" Click="OnPickGlobalReturnClicked" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,4,0" />
                             <Button Content="Use Current" Click="OnUseCurrentAvatarForGlobalReturnClicked" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,4,0" />
                             <Button Content="Clear" Command="{Binding ClearGlobalReturnCommand}" Style="{StaticResource SecondaryButtonStyle}" />
@@ -249,12 +256,15 @@
                                             <Border Grid.Row="0" Background="{DynamicResource NestedPanelBrush}" CornerRadius="4" ClipToBounds="True">
                                                 <Grid>
                                                     <Image Source="{Binding Image}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality"
-                                                           Visibility="{Binding HasTarget, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                                           Visibility="{Binding HasImage, Converter={StaticResource BoolToVisibilityConverter}}" />
                                                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
                                                                 Visibility="{Binding HasTarget, Converter={StaticResource InverseBoolToVisibilityConverter}}">
                                                         <TextBlock Text="🎭" FontSize="24" HorizontalAlignment="Center" Foreground="{DynamicResource MutedBrush}" />
                                                         <TextBlock Text="{loc:Translate 'Avatar Swap Card Pick Avatar'}" FontSize="10" HorizontalAlignment="Center" Margin="0,2,0,0" Foreground="{DynamicResource MutedBrush}" />
                                                     </StackPanel>
+                                                    <TextBlock Text="🎭" FontSize="24" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource MutedBrush}"
+                                                               Visibility="{Binding HasImage, Converter={StaticResource InverseBoolToVisibilityConverter}}"
+                                                               IsHitTestVisible="False" />
                                                     <Border HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,4,4,0"
                                                             Background="{DynamicResource AccentBrush}" CornerRadius="8" Padding="6,1"
                                                             Visibility="{Binding HasAnyRules, Converter={StaticResource BoolToVisibilityConverter}}">
@@ -264,7 +274,7 @@
                                             </Border>
 
                                             <Border Grid.Row="1" Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1,0,0,1" CornerRadius="0,0,4,4" Padding="6,4" Margin="0,4,0,0">
-                                                <TextBlock Text="{Binding DisplayTitle}" FontWeight="SemiBold" FontSize="12" TextTrimming="CharacterEllipsis" ToolTip="{Binding DisplayTitle}" />
+                                                <TextBlock Text="{Binding DisplayTitle}" FontWeight="SemiBold" FontSize="12" TextTrimming="CharacterEllipsis" ToolTip="{Binding DisplayTitle}" Foreground="{DynamicResource TextBrush}" />
                                             </Border>
                                             <TextBlock Grid.Row="2" Text="{Binding AvatarSubtitle}" Foreground="{DynamicResource MutedBrush}" FontSize="10" TextTrimming="CharacterEllipsis" ToolTip="{Binding AvatarSubtitle}" Margin="0,3,0,0" />
                                         </Grid>
@@ -301,7 +311,7 @@
                                         </Border.Style>
                                         <StackPanel>
                                             <Border Height="64" Background="{DynamicResource NestedPanelBrush}" CornerRadius="4" ClipToBounds="True" />
-                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="12" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
+                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="12" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" Foreground="{DynamicResource TextBrush}" />
                                             <TextBlock Text="{Binding Subtitle}" Foreground="{DynamicResource WarnTextBrush}" FontSize="10" TextTrimming="CharacterEllipsis" ToolTip="{Binding Subtitle}" />
                                         </StackPanel>
                                     </Border>
@@ -328,7 +338,7 @@
                                                     </Border>
                                                     <Border VerticalAlignment="Center" Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2,0,0,0" CornerRadius="0,4,4,0" Padding="8,4" Margin="0,0,8,0">
                                                         <StackPanel>
-                                                            <TextBlock Text="{Binding DataContext.SelectedSwapCard.DisplayTitle, RelativeSource={RelativeSource AncestorType=Window}}" FontWeight="SemiBold" FontSize="13" TextTrimming="CharacterEllipsis" />
+                                                            <TextBlock Text="{Binding DataContext.SelectedSwapCard.DisplayTitle, RelativeSource={RelativeSource AncestorType=Window}}" FontWeight="SemiBold" FontSize="13" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextBrush}" />
                                                             <TextBlock Text="Target Avatar" Foreground="{DynamicResource MutedBrush}" FontSize="10" />
                                                         </StackPanel>
                                                     </Border>
@@ -407,8 +417,14 @@
                                             Visibility="{Binding Kind, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter=Roulette}">
                                         <ScrollViewer VerticalScrollBarVisibility="Auto">
                                             <StackPanel>
-                                                <TextBlock Text="{Binding DataContext.SelectedRouletteCard.Roulette.Name, RelativeSource={RelativeSource AncestorType=Window}, StringFormat='Roulette: {0}'}" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,8" />
-                                                <TextBlock Text="Pool" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,4" />
+                                                <TextBox Text="{Binding DataContext.SelectedRouletteCard.Roulette.Name, RelativeSource={RelativeSource AncestorType=Window}, UpdateSourceTrigger=PropertyChanged}"
+                                                         FontWeight="SemiBold" FontSize="13" Margin="0,0,0,8"
+                                                         Foreground="{DynamicResource TextBrush}" Background="Transparent"
+                                                         BorderThickness="0" Padding="0" />
+
+                                                <Border Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2,0,0,0" CornerRadius="0,3,3,0" Padding="6,3" Margin="0,0,0,4">
+                                                    <TextBlock Text="🎲 Pool" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextBrush}" />
+                                                </Border>
                                                 <ItemsControl ItemsSource="{Binding DataContext.SelectedRouletteCard.Roulette.Pool, RelativeSource={RelativeSource AncestorType=Window}}">
                                                     <ItemsControl.ItemsPanel>
                                                         <ItemsPanelTemplate>
@@ -417,19 +433,56 @@
                                                     </ItemsControl.ItemsPanel>
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
-                                                            <Border Width="60" Height="60" Background="{DynamicResource NestedPanelBrush}" CornerRadius="3" Margin="0,0,4,4" ClipToBounds="True" />
+                                                            <Border Width="60" Height="60" Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="4" Margin="0,0,4,4" ClipToBounds="True">
+                                                                <TextBlock Text="{Binding AvatarName}" FontSize="9" Foreground="{DynamicResource MutedBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Bottom" Margin="2" />
+                                                            </Border>
                                                         </DataTemplate>
                                                     </ItemsControl.ItemTemplate>
                                                 </ItemsControl>
+                                                <Button Content="+ Add Avatar to Pool" Command="{Binding DataContext.AddRoulettePoolEntryCommand, RelativeSource={RelativeSource AncestorType=Window}}" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Left" Margin="0,4,0,10" />
 
-                                                <TextBlock Text="Triggers" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextBrush}" Margin="0,8,0,4" />
-                                                <ItemsControl ItemsSource="{Binding DataContext.RouletteTriggerRows, RelativeSource={RelativeSource AncestorType=Window}}">
+                                                <Border Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2,0,0,0" CornerRadius="0,3,3,0" Padding="6,3" Margin="0,0,0,4">
+                                                    <TextBlock Text="🏆 Channel Points" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextBrush}" />
+                                                </Border>
+                                                <ItemsControl ItemsSource="{Binding DataContext.RouletteChannelPointRows, RelativeSource={RelativeSource AncestorType=Window}}">
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
-                                                            <uc:InlineRouletteRuleRowControl />
+                                                            <uc:InlineChannelPointRuleRowControl />
                                                         </DataTemplate>
                                                     </ItemsControl.ItemTemplate>
                                                 </ItemsControl>
+                                                <Button Content="+ Add Channel Point" Command="{Binding DataContext.AddAdvancedTriggerCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="ChannelPoints" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Left" Margin="0,4,0,8" />
+
+                                                <Border Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2,0,0,0" CornerRadius="0,3,3,0" Padding="6,3" Margin="0,0,0,4">
+                                                    <TextBlock Text="💎 Bits" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextBrush}" />
+                                                </Border>
+                                                <ItemsControl ItemsSource="{Binding DataContext.RouletteBitsRows, RelativeSource={RelativeSource AncestorType=Window}}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <uc:InlineBitsRuleRowControl />
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                                <Button Content="+ Add Bits Trigger" Command="{Binding DataContext.AddAdvancedTriggerCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="Bits" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Left" Margin="0,4,0,8" />
+
+                                                <Border Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2,0,0,0" CornerRadius="0,3,3,0" Padding="6,3" Margin="0,0,0,4">
+                                                    <TextBlock Text="⭐ Subs" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextBrush}" />
+                                                </Border>
+                                                <ItemsControl ItemsSource="{Binding DataContext.RouletteSubsRows, RelativeSource={RelativeSource AncestorType=Window}}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <uc:InlineSubsRuleRowControl />
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                                <Button Content="+ Add Sub Trigger" Command="{Binding DataContext.AddAdvancedTriggerCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="Subscriptions" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Left" Margin="0,4,0,8" />
+
+                                                <TextBlock Text="Advanced triggers (open full editor)" Foreground="{DynamicResource MutedBrush}" FontSize="10" Margin="0,4,0,4" />
+                                                <WrapPanel Orientation="Horizontal">
+                                                    <Button Content="💬 Chat Command" Command="{Binding DataContext.AddAdvancedTriggerCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="ChatCommand" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,4,4" />
+                                                    <Button Content="👥 Follow" Command="{Binding DataContext.AddAdvancedTriggerCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="Follow" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,4,4" />
+                                                    <Button Content="⚡ Power-up" Command="{Binding DataContext.AddAdvancedTriggerCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="PowerUp" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,4,4" />
+                                                </WrapPanel>
 
                                                 <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
                                                     <Button Content="Delete Roulette" Command="{Binding DataContext.DeleteRouletteCommand, RelativeSource={RelativeSource AncestorType=Window}}" Style="{StaticResource DangerButtonStyle}" />

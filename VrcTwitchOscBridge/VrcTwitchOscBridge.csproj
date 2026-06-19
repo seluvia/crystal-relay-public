@@ -59,6 +59,7 @@
     <Page Include="UserControls\InlineRouletteRuleRowControl.xaml" />
     <Page Include="UserControls\InlineRuleEditorControl.xaml" />
     <Page Include="UserControls\InlineSubsRuleRowControl.xaml" />
+    <Page Include="UserControls\RouletteRewardSettingsControl.xaml" />
 
     <Resource Include="Assets\crystal-relay-icon.ico" />
     <Resource Include="Assets\crystal-relay-icon.png" />
@@ -136,6 +137,12 @@
     </Compile>
     <Compile Include="UserControls\InlineSubsRuleRowControl.xaml.cs">
       <DependentUpon>InlineSubsRuleRowControl.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="UserControls\RouletteRewardSettingsControl.xaml.cs">
+      <DependentUpon>RouletteRewardSettingsControl.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="UserControls\RouletteRewardSettingsControl.xaml.cs">
+      <DependentUpon>RouletteRewardSettingsControl.xaml</DependentUpon>
     </Compile>
 
     <Compile Include="Infrastructure\AsyncRelayCommand.cs" />

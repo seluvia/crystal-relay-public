@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel;
 using System.Windows.Input;
+using System.Windows.Media;
 using VrcTwitchOscBridge.Infrastructure;
 using VrcTwitchOscBridge.Models;
 
@@ -30,6 +31,10 @@ public sealed class InlineChannelPointRuleRowViewModel : ObservableObject, IRule
 
     public bool IsEnabled => _rule.IsEnabled;
 
+    public Brush ReadyBrush => _rule.ManagedRewardReadyBrush;
+
+    public Brush CooldownBrush => _rule.ManagedRewardCooldownBrush;
+
     public ICommand EditCommand
     {
         get => _editCommand ??= new RelayCommand(_ => { });
@@ -54,10 +59,14 @@ public sealed class InlineChannelPointRuleRowViewModel : ObservableObject, IRule
     {
         if (e.PropertyName is nameof(TriggerRule.Name)
             or nameof(TriggerRule.ChannelPointRewardCost)
-            or nameof(TriggerRule.IsEnabled))
+            or nameof(TriggerRule.IsEnabled)
+            or nameof(TriggerRule.ManagedRewardReadyColor)
+            or nameof(TriggerRule.ManagedRewardCooldownColor))
         {
             RefreshSummary();
             RaisePropertyChanged(nameof(IsEnabled));
+            RaisePropertyChanged(nameof(ReadyBrush));
+            RaisePropertyChanged(nameof(CooldownBrush));
         }
     }
 }

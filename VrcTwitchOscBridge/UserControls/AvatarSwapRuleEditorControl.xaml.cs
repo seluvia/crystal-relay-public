@@ -75,10 +75,6 @@ public partial class AvatarSwapRuleEditorControl : UserControl
         var initialColor = isCooldownColor
             ? rule.ManagedRewardCooldownColor
             : rule.ManagedRewardReadyColor;
-        if (string.IsNullOrWhiteSpace(initialColor))
-        {
-            return;
-        }
 
         using var dialog = new WinForms.ColorDialog
         {

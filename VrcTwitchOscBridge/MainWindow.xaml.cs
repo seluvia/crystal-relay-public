@@ -410,10 +410,6 @@ public partial class MainWindow : Window
                 : fireSale.FundingRewardReadyColor,
             _ => string.Empty
         };
-        if (string.IsNullOrWhiteSpace(initialColor))
-        {
-            return;
-        }
 
         using var dialog = new WinForms.ColorDialog
         {

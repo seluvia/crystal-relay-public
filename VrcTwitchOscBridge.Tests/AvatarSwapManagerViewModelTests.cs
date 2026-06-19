@@ -151,6 +151,23 @@ public sealed class AvatarSwapManagerViewModelTests
     }
 
     [Fact]
+    public void CardViewModel_RuleCountUpdatesLiveWhenRuleAdded()
+    {
+        var profile = new AvatarSwapProfile();
+        var vm = new AvatarSwapCardViewModel(profile, new AvatarImageService());
+        Assert.Equal("0", vm.RuleCountText);
+
+        var changed = new List<string>();
+        vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName ?? string.Empty);
+
+        profile.ChannelPointRules.Add(new TriggerRule { TriggerType = TwitchTriggerType.ChannelPoints });
+
+        Assert.Equal("1", vm.RuleCountText);
+        Assert.Contains(nameof(AvatarSwapCardViewModel.RuleCountText), changed);
+        Assert.Contains(nameof(AvatarSwapCardViewModel.HasAnyRules), changed);
+    }
+
+    [Fact]
     public void Constructor_ForwardsTwitchRewardSourceProperties()
     {
         var settings = new AppSettings();
@@ -225,7 +242,7 @@ public sealed class AvatarSwapManagerViewModelTests
     }
 
     [Fact]
-    public void BackToListCommand_ClearsSelectedRule()
+    public void BackToListCommand_RestoresRuleListViewForSwapEditor()
     {
         var settings = new AppSettings();
         var profile = new AvatarSwapProfile { TargetAvatarId = "avtr_a", TargetAvatarName = "Avatar A" };
@@ -237,11 +254,40 @@ public sealed class AvatarSwapManagerViewModelTests
         var row = vm.ChannelPointRows.Single();
         row.EditCommand.Execute(null);
         Assert.NotNull(vm.SelectedRule);
+        Assert.IsNotType<RuleListPaneViewModel>(vm.RightPaneContent);
 
         vm.BackToListCommand.Execute(null);
 
         Assert.Null(vm.SelectedRule);
-        Assert.Null(vm.RightPaneContent);
+        var pane = Assert.IsType<RuleListPaneViewModel>(vm.RightPaneContent);
+        Assert.Equal(RuleListPaneKind.Swap, pane.Kind);
+    }
+
+    [Fact]
+    public void BackToListCommand_RestoresRuleListViewForRouletteEditor()
+    {
+        var settings = new AppSettings();
+        var roulette = new AvatarRouletteProfile { Name = "My Roulette" };
+        roulette.Triggers.Add(new TriggerRule
+        {
+            TriggerType = TwitchTriggerType.ChannelPoints,
+            ActionType = OscActionType.AvatarChange,
+            Name = "Test"
+        });
+        settings.AvatarRouletteProfiles.Add(roulette);
+
+        var vm = new AvatarSwapManagerViewModel(settings, new StubTwitchRewardSource());
+        vm.OpenRouletteEditorCommand.Execute(vm.RouletteCards.Single());
+        var row = vm.RouletteChannelPointRows.Single();
+        row.EditCommand.Execute(null);
+        Assert.NotNull(vm.SelectedRule);
+        Assert.IsNotType<RuleListPaneViewModel>(vm.RightPaneContent);
+
+        vm.BackToListCommand.Execute(null);
+
+        Assert.Null(vm.SelectedRule);
+        var pane = Assert.IsType<RuleListPaneViewModel>(vm.RightPaneContent);
+        Assert.Equal(RuleListPaneKind.Roulette, pane.Kind);
     }
 
     [Fact]

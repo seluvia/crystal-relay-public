@@ -15,17 +15,19 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
     private readonly AppSettings _settings;
     private readonly ITwitchRewardSource _twitchRewardSource;
     private readonly AvatarImageService _imageService;
+    private readonly Func<string?, string?>? _thumbnailUrlResolver;
 
     private bool _isChannelPointSectionCollapsed;
     private bool _isBitsSubsSectionCollapsed;
     private bool _isRouletteSectionCollapsed;
     private string? _filterText;
 
-    public AvatarSwapManagerViewModel(AppSettings settings, ITwitchRewardSource twitchRewardSource)
+    public AvatarSwapManagerViewModel(AppSettings settings, ITwitchRewardSource twitchRewardSource, Func<string?, string?>? thumbnailUrlResolver = null)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _twitchRewardSource = twitchRewardSource ?? throw new ArgumentNullException(nameof(twitchRewardSource));
         _imageService = new AvatarImageService();
+        _thumbnailUrlResolver = thumbnailUrlResolver;
 
         TwitchRewardOptions = _twitchRewardSource.RewardOptions;
         RefreshTwitchRewardsCommand = _twitchRewardSource.RefreshTwitchRewardsCommand;
@@ -48,6 +50,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
         AddSubsRuleCommand = new RelayCommand(AddSubsRule, () => SelectedSwapCard is not null);
         AddPaymentRuleCommand = new RelayCommand(AddPaymentRule, () => SelectedSwapCard is not null);
         AddAdvancedTriggerCommand = new RelayCommand(p => AddAdvancedTrigger(p as string));
+        AddRoulettePoolEntryCommand = new RelayCommand(AddRoulettePoolEntry, () => SelectedRouletteCard is not null);
         DeleteRuleCommand = new RelayCommand(p => DeleteRule(p as IRuleRowViewModel));
         BackToListCommand = new RelayCommand(BackToList);
         PickGlobalReturnAvatarCommand = new RelayCommand(PickGlobalReturnAvatar);
@@ -59,6 +62,57 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
         ToggleRouletteSectionCommand = new RelayCommand(() => IsRouletteSectionCollapsed = !IsRouletteSectionCollapsed);
 
         RebuildCards();
+        RefreshGlobalReturnAvatarImage();
+    }
+
+    private System.Windows.Media.ImageSource? _globalReturnAvatarImage;
+    public System.Windows.Media.ImageSource? GlobalReturnAvatarImage
+    {
+        get => _globalReturnAvatarImage;
+        private set
+        {
+            if (SetProperty(ref _globalReturnAvatarImage, value))
+            {
+                RaisePropertyChanged(nameof(HasGlobalReturnAvatarImage));
+            }
+        }
+    }
+
+    public bool HasGlobalReturnAvatarImage => _globalReturnAvatarImage is not null;
+
+    private void RefreshGlobalReturnAvatarImage()
+    {
+        var avatarId = _settings.MasterAvatarSwapReturnId;
+        if (string.IsNullOrWhiteSpace(avatarId))
+        {
+            GlobalReturnAvatarImage = null;
+            return;
+        }
+
+        var thumbnailUrl = _thumbnailUrlResolver?.Invoke(avatarId);
+        var capturedId = avatarId;
+
+        var syncImage = _imageService.GetAvatarImage(avatarId, null, thumbnailUrl);
+        if (syncImage is not null)
+        {
+            GlobalReturnAvatarImage = syncImage;
+        }
+
+        _ = System.Threading.Tasks.Task.Run(async () =>
+        {
+            try
+            {
+                var asyncImage = await _imageService.GetAvatarImageAsync(capturedId, null, thumbnailUrl, System.Threading.CancellationToken.None);
+                if (asyncImage is not null && string.Equals(_settings.MasterAvatarSwapReturnId, capturedId, StringComparison.Ordinal))
+                {
+                    System.Windows.Application.Current?.Dispatcher.InvokeAsync(() => GlobalReturnAvatarImage = asyncImage);
+                }
+            }
+            catch
+            {
+                // Keep whatever sync image we already have.
+            }
+        });
     }
 
     public ObservableCollection<AvatarSwapCardViewModel> SwapCards { get; } = new();
@@ -77,7 +131,11 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
 
     public ObservableCollection<InlinePaymentRuleRowViewModel> PaymentRows { get; } = new();
 
-    public ObservableCollection<InlineRouletteRuleRowViewModel> RouletteTriggerRows { get; } = new();
+    public ObservableCollection<IRuleRowViewModel> RouletteTriggerRows { get; } = new();
+
+    public ObservableCollection<InlineChannelPointRuleRowViewModel> RouletteChannelPointRows { get; } = new();
+    public ObservableCollection<InlineBitsRuleRowViewModel> RouletteBitsRows { get; } = new();
+    public ObservableCollection<InlineSubsRuleRowViewModel> RouletteSubsRows { get; } = new();
 
     public string? GlobalReturnAvatarId => _settings.MasterAvatarSwapReturnId;
 
@@ -164,7 +222,10 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
         {
             if (SetProperty(ref _selectedRule, value))
             {
-                RightPaneContent = value;
+                if (value is not null)
+                {
+                    RightPaneContent = value;
+                }
             }
         }
     }
@@ -172,6 +233,14 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
     private void BackToList()
     {
         SelectedRule = null;
+        if (SelectedSwapCard is not null)
+        {
+            RightPaneContent = new RuleListPaneViewModel(RuleListPaneKind.Swap, SelectedSwapCard.Profile?.TargetAvatarName);
+        }
+        else if (SelectedRouletteCard is not null)
+        {
+            RightPaneContent = new RuleListPaneViewModel(RuleListPaneKind.Roulette, SelectedRouletteCard.Roulette?.Name);
+        }
     }
 
     public bool IsChannelPointSectionCollapsed
@@ -215,6 +284,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
     public RelayCommand AddSubsRuleCommand { get; }
     public RelayCommand AddPaymentRuleCommand { get; }
     public RelayCommand AddAdvancedTriggerCommand { get; }
+    public RelayCommand AddRoulettePoolEntryCommand { get; }
     public RelayCommand DeleteRuleCommand { get; }
     public RelayCommand BackToListCommand { get; }
     public RelayCommand PickGlobalReturnAvatarCommand { get; }
@@ -247,6 +317,9 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
         SubsRows.Clear();
         PaymentRows.Clear();
         RouletteTriggerRows.Clear();
+        RouletteChannelPointRows.Clear();
+        RouletteBitsRows.Clear();
+        RouletteSubsRows.Clear();
 
         if (SelectedSwapCard is not null)
         {
@@ -280,9 +353,29 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
         {
             foreach (var r in SelectedRouletteCard.Roulette.Triggers)
             {
-                var row = new InlineRouletteRuleRowViewModel(r);
+                IRuleRowViewModel row = r.TriggerType switch
+                {
+                    TwitchTriggerType.ChannelPoints => new InlineChannelPointRuleRowViewModel(r),
+                    TwitchTriggerType.Bits => new InlineBitsRuleRowViewModel(r),
+                    TwitchTriggerType.Subscriptions or TwitchTriggerType.GiftSubscription => new InlineSubsRuleRowViewModel(r),
+                    _ => new InlineRouletteRuleRowViewModel(r)
+                };
                 WireRowCommands(row);
                 RouletteTriggerRows.Add(row);
+
+                switch (r.TriggerType)
+                {
+                    case TwitchTriggerType.ChannelPoints:
+                        RouletteChannelPointRows.Add((InlineChannelPointRuleRowViewModel)row);
+                        break;
+                    case TwitchTriggerType.Bits:
+                        RouletteBitsRows.Add((InlineBitsRuleRowViewModel)row);
+                        break;
+                    case TwitchTriggerType.Subscriptions:
+                    case TwitchTriggerType.GiftSubscription:
+                        RouletteSubsRows.Add((InlineSubsRuleRowViewModel)row);
+                        break;
+                }
             }
         }
     }
@@ -474,50 +567,139 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
 
     private void AddAdvancedTrigger(string? triggerSource)
     {
-        if (SelectedSwapCard is null || string.IsNullOrEmpty(triggerSource)) return;
+        if (string.IsNullOrEmpty(triggerSource)) return;
         if (!Enum.TryParse<TwitchTriggerType>(triggerSource, out var type)) return;
-        var rule = new TriggerRule
+
+        if (SelectedRouletteCard is not null)
         {
-            TriggerType = type,
-            ActionType = OscActionType.AvatarChange,
-            AvatarChangeTargetId = SelectedSwapCard.Profile.TargetAvatarId,
-            AvatarTargetName = SelectedSwapCard.Profile.TargetAvatarName,
-            Name = $"New {type} Swap"
+            var rule = new TriggerRule
+            {
+                TriggerType = type,
+                ActionType = OscActionType.AvatarChange,
+                AvatarChangeTargetId = SelectedRouletteCard.Roulette.ReturnAvatarId ?? string.Empty,
+                AvatarTargetName = SelectedRouletteCard.Roulette.ReturnAvatarName ?? string.Empty,
+                Name = $"New {type} Roulette Trigger"
+            };
+            SelectedRouletteCard.Roulette.Triggers.Add(rule);
+            var row = GetRowViewModelForRule(rule);
+            if (row != null)
+            {
+                WireRowCommands(row);
+                RouletteTriggerRows.Add(row);
+
+                switch (type)
+                {
+                    case TwitchTriggerType.ChannelPoints:
+                        RouletteChannelPointRows.Add((InlineChannelPointRuleRowViewModel)row);
+                        break;
+                    case TwitchTriggerType.Bits:
+                        RouletteBitsRows.Add((InlineBitsRuleRowViewModel)row);
+                        break;
+                    case TwitchTriggerType.Subscriptions:
+                    case TwitchTriggerType.GiftSubscription:
+                        RouletteSubsRows.Add((InlineSubsRuleRowViewModel)row);
+                        break;
+                }
+            }
+        }
+        else if (SelectedSwapCard is not null)
+        {
+            var rule = new TriggerRule
+            {
+                TriggerType = type,
+                ActionType = OscActionType.AvatarChange,
+                AvatarChangeTargetId = SelectedSwapCard.Profile.TargetAvatarId,
+                AvatarTargetName = SelectedSwapCard.Profile.TargetAvatarName,
+                Name = $"New {type} Swap"
+            };
+
+            switch (type)
+            {
+                case TwitchTriggerType.ChannelPoints:
+                    SelectedSwapCard.Profile.ChannelPointRules.Add(rule);
+                    var cpRow = new InlineChannelPointRuleRowViewModel(rule);
+                    WireRowCommands(cpRow);
+                    ChannelPointRows.Add(cpRow);
+                    break;
+                case TwitchTriggerType.Bits:
+                    SelectedSwapCard.Profile.BitsRules.Add(rule);
+                    var bitsRow = new InlineBitsRuleRowViewModel(rule);
+                    WireRowCommands(bitsRow);
+                    BitsRows.Add(bitsRow);
+                    break;
+                case TwitchTriggerType.Subscriptions:
+                case TwitchTriggerType.GiftSubscription:
+                    SelectedSwapCard.Profile.SubsRules.Add(rule);
+                    var subsRow = new InlineSubsRuleRowViewModel(rule);
+                    WireRowCommands(subsRow);
+                    SubsRows.Add(subsRow);
+                    break;
+                default:
+                    SelectedSwapCard.Profile.ChannelPointRules.Add(rule);
+                    var defaultRow = new InlineChannelPointRuleRowViewModel(rule);
+                    WireRowCommands(defaultRow);
+                    ChannelPointRows.Add(defaultRow);
+                    break;
+            }
+        }
+    }
+
+    private IRuleRowViewModel? GetRowViewModelForRule(TriggerRule rule)
+    {
+        return rule.TriggerType switch
+        {
+            TwitchTriggerType.ChannelPoints => new InlineChannelPointRuleRowViewModel(rule),
+            TwitchTriggerType.Bits => new InlineBitsRuleRowViewModel(rule),
+            TwitchTriggerType.Subscriptions or TwitchTriggerType.GiftSubscription => new InlineSubsRuleRowViewModel(rule),
+            _ => new InlineRouletteRuleRowViewModel(rule)
         };
-        SelectedSwapCard.Profile.ChannelPointRules.Add(rule);
-        var row = new InlineChannelPointRuleRowViewModel(rule);
-        WireRowCommands(row);
-        ChannelPointRows.Add(row);
+    }
+
+    private void AddRoulettePoolEntry()
+    {
+        if (SelectedRouletteCard is null) return;
+        SelectedRouletteCard.Roulette.Pool.Add(new RouletteAvatarEntry());
     }
 
     private void DeleteRule(IRuleRowViewModel? row)
     {
-        if (row is null || SelectedSwapCard is null) return;
-        if (row is InlineChannelPointRuleRowViewModel cp
-            && SelectedSwapCard.Profile.ChannelPointRules.Remove((TriggerRule)cp.Rule))
+        if (row is null) return;
+
+        var ruleObj = row.Rule;
+
+        if (SelectedRouletteCard is not null && ruleObj is TriggerRule rTrigger
+            && SelectedRouletteCard.Roulette.Triggers.Remove(rTrigger))
         {
-            ChannelPointRows.Remove(cp);
+            RouletteTriggerRows.Remove(row);
+            if (row is InlineChannelPointRuleRowViewModel cpRow)
+                RouletteChannelPointRows.Remove(cpRow);
+            else if (row is InlineBitsRuleRowViewModel bitsRow)
+                RouletteBitsRows.Remove(bitsRow);
+            else if (row is InlineSubsRuleRowViewModel subsRow)
+                RouletteSubsRows.Remove(subsRow);
         }
-        else if (row is InlineBitsRuleRowViewModel bits
-            && SelectedSwapCard.Profile.BitsRules.Remove((TriggerRule)bits.Rule))
+        else if (SelectedSwapCard is not null)
         {
-            BitsRows.Remove(bits);
-        }
-        else if (row is InlineSubsRuleRowViewModel subs
-            && SelectedSwapCard.Profile.SubsRules.Remove((TriggerRule)subs.Rule))
-        {
-            SubsRows.Remove(subs);
-        }
-        else if (row is InlinePaymentRuleRowViewModel pay
-            && SelectedSwapCard.Profile.PaymentRules.Remove((CashPaymentRule)pay.Rule))
-        {
-            PaymentRows.Remove(pay);
-        }
-        else if (row is InlineRouletteRuleRowViewModel roulette
-            && SelectedRouletteCard is not null
-            && SelectedRouletteCard.Roulette.Triggers.Remove((TriggerRule)roulette.Rule))
-        {
-            RouletteTriggerRows.Remove(roulette);
+            if (row is InlineChannelPointRuleRowViewModel cp
+                && SelectedSwapCard.Profile.ChannelPointRules.Remove((TriggerRule)cp.Rule))
+            {
+                ChannelPointRows.Remove(cp);
+            }
+            else if (row is InlineBitsRuleRowViewModel bits
+                && SelectedSwapCard.Profile.BitsRules.Remove((TriggerRule)bits.Rule))
+            {
+                BitsRows.Remove(bits);
+            }
+            else if (row is InlineSubsRuleRowViewModel subs
+                && SelectedSwapCard.Profile.SubsRules.Remove((TriggerRule)subs.Rule))
+            {
+                SubsRows.Remove(subs);
+            }
+            else if (row is InlinePaymentRuleRowViewModel pay
+                && SelectedSwapCard.Profile.PaymentRules.Remove((CashPaymentRule)pay.Rule))
+            {
+                PaymentRows.Remove(pay);
+            }
         }
 
         if (ReferenceEquals(SelectedRule, row))
@@ -559,6 +741,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
         RaisePropertyChanged(nameof(GlobalReturnAvatarName));
         RaisePropertyChanged(nameof(GlobalReturnAvatarDisplayName));
         RaisePropertyChanged(nameof(HasGlobalReturnAvatar));
+        RefreshGlobalReturnAvatarImage();
     }
 
     public void SetGlobalReturnAvatar(string? id, string? name)
@@ -569,6 +752,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
         RaisePropertyChanged(nameof(GlobalReturnAvatarName));
         RaisePropertyChanged(nameof(GlobalReturnAvatarDisplayName));
         RaisePropertyChanged(nameof(HasGlobalReturnAvatar));
+        RefreshGlobalReturnAvatarImage();
     }
 
     public void SetTargetAvatar(string? id, string? name)
@@ -576,6 +760,14 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
         if (SelectedSwapCard is null) return;
         SelectedSwapCard.Profile.TargetAvatarId = id ?? string.Empty;
         SelectedSwapCard.Profile.TargetAvatarName = name ?? string.Empty;
+        // Resolve and store the thumbnail URL so the card image can render (the picker
+        // result only carries id + name). Setting TargetThumbnailUrl triggers the card's
+        // image reload via AvatarSwapCardViewModel.OnProfilePropertyChanged.
+        var thumbnailUrl = _thumbnailUrlResolver?.Invoke(id);
+        if (!string.IsNullOrWhiteSpace(thumbnailUrl))
+        {
+            SelectedSwapCard.SetThumbnailUrl(thumbnailUrl);
+        }
     }
 
     public void OnWindowClosed()

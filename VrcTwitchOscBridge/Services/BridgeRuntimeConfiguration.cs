@@ -445,12 +445,18 @@ public sealed record BridgeRuntimeConfiguration(
         var avatarSwapProfiles = new List<AvatarSwapProfileSnapshot>();
         foreach (var swapProfile in settings.AvatarSwapProfiles)
         {
+            // Avatar-swap rules are snapshotted into the per-profile snapshot AND added to the
+            // main matchable lists (rules / cashPaymentRules). Without this, the runtime rule
+            // index never matches them, so the avatar swap never fires. When a rule matches, the
+            // coordinator routes it through FindAvatarSwapProfileForRule to use the profile's
+            // target avatar (ReferenceEquals on the same TriggerRule instance).
             var channelPointSnapshots = new List<TriggerRuleSnapshot>();
             foreach (var rule in swapProfile.ChannelPointRules)
             {
                 if (TryToSnapshot(rule, isGlobalOverride: false, profile: null, linkedRewardCooldownSecondsById, out var snapshot))
                 {
                     channelPointSnapshots.Add(snapshot);
+                    rules.Add(snapshot);
                 }
             }
 
@@ -460,6 +466,7 @@ public sealed record BridgeRuntimeConfiguration(
                 if (TryToSnapshot(rule, isGlobalOverride: true, profile: null, linkedRewardCooldownSecondsById, out var snapshot))
                 {
                     bitsSnapshots.Add(snapshot);
+                    rules.Add(snapshot);
                 }
             }
 
@@ -469,6 +476,7 @@ public sealed record BridgeRuntimeConfiguration(
                 if (TryToSnapshot(rule, isGlobalOverride: true, profile: null, linkedRewardCooldownSecondsById, out var snapshot))
                 {
                     subsSnapshots.Add(snapshot);
+                    rules.Add(snapshot);
                 }
             }
 
@@ -479,6 +487,14 @@ public sealed record BridgeRuntimeConfiguration(
                     && TryToSnapshot(rule.TriggerAction, isGlobalOverride: true, profile: null, linkedRewardCooldownSecondsById, out var snapshot))
                 {
                     paymentSnapshots.Add(snapshot);
+                }
+
+                // Register the payment rule with the cash-payment matcher so it fires on
+                // StreamElements / Streamlabs / Ko-fi events. The fired TriggerAction is routed
+                // back to this profile's target avatar via FindAvatarSwapProfileForRule.
+                if (TryToCashPaymentSnapshot(rule, out var cashSnapshot))
+                {
+                    cashPaymentRules.Add(cashSnapshot);
                 }
             }
 
