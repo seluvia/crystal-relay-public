@@ -132,6 +132,7 @@ public sealed record TriggerRuleSnapshot(
     bool PostOutfitChoiceListToTwitchChat,
     SetTriggerRestoreMode SetTriggerRestoreMode,
     string SupporterKeywordText,
+    bool BitsKeywordEnabled,
     IReadOnlyList<SetTriggerActionSnapshot> SetTriggerActions,
     SpecialRulePairingMode SpecialRulePairingMode,
     IReadOnlyList<Guid> TemporarilyDisabledRuleIds,
@@ -963,6 +964,7 @@ public sealed record BridgeRuntimeConfiguration(
                 ? rule.SetTriggerRestoreMode
                 : SetTriggerRestoreMode.ConfiguredAndRelated,
             rule.SupporterKeywordText.Trim(),
+            rule.BitsKeywordEnabled,
             [.. rule.SetTriggerActions.Select(ToSetTriggerActionSnapshot).Where(action => HasAvatarParameterPath(action.ParameterName) && !string.IsNullOrWhiteSpace(action.ParameterValue))],
             rule.SpecialRulePairingMode,
             [.. rule.TemporarilyDisabledRuleIds.Where(ruleId => ruleId != Guid.Empty).Distinct()],
