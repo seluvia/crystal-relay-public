@@ -139,4 +139,46 @@ public sealed class TriggerRuleRoundTripTests
         Assert.True(rule.BitsKeywordEnabled);
         Assert.Equal("hello", rule.SupporterKeywordText);
     }
+
+    [Fact]
+    public void SubscriptionTier1Enabled_DefaultsToTrue()
+    {
+        var rule = new TriggerRule();
+        Assert.True(rule.SubscriptionTier1Enabled);
+    }
+
+    [Fact]
+    public void SubscriptionTier2Enabled_DefaultsToTrue()
+    {
+        var rule = new TriggerRule();
+        Assert.True(rule.SubscriptionTier2Enabled);
+    }
+
+    [Fact]
+    public void SubscriptionTier3Enabled_DefaultsToTrue()
+    {
+        var rule = new TriggerRule();
+        Assert.True(rule.SubscriptionTier3Enabled);
+    }
+
+    [Fact]
+    public void SubscriptionTier1Enabled_RoundTrips()
+    {
+        var rule = new TriggerRule { SubscriptionTier1Enabled = false };
+        Assert.False(rule.SubscriptionTier1Enabled);
+    }
+
+    [Fact]
+    public void SubscriptionTier2Enabled_RoundTrips()
+    {
+        var rule = new TriggerRule { SubscriptionTier2Enabled = false };
+        Assert.False(rule.SubscriptionTier2Enabled);
+    }
+
+    [Fact]
+    public void SubscriptionTier3Enabled_RoundTrips()
+    {
+        var rule = new TriggerRule { SubscriptionTier3Enabled = false };
+        Assert.False(rule.SubscriptionTier3Enabled);
+    }
 }

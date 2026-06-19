@@ -80,6 +80,9 @@ public sealed class TriggerRule : ObservableObject
     private int subscriptionTier1SecondsPerSub = 1;
     private int subscriptionTier2SecondsPerSub = 1;
     private int subscriptionTier3SecondsPerSub = 1;
+    private bool subscriptionTier1Enabled = true;
+    private bool subscriptionTier2Enabled = true;
+    private bool subscriptionTier3Enabled = true;
     private bool maxAccumulatedDurationEnabled;
     private int maxAccumulatedDurationSeconds = 1800;
     private OscActionType actionType = OscActionType.AvatarParameter;
@@ -524,6 +527,42 @@ public sealed class TriggerRule : ObservableObject
             {
                 RaisePropertyChanged(nameof(TriggerSummary));
                 RaisePropertyChanged(nameof(SupporterTimeSettingsSummary));
+            }
+        }
+    }
+
+    public bool SubscriptionTier1Enabled
+    {
+        get => subscriptionTier1Enabled;
+        set
+        {
+            if (SetProperty(ref subscriptionTier1Enabled, value))
+            {
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public bool SubscriptionTier2Enabled
+    {
+        get => subscriptionTier2Enabled;
+        set
+        {
+            if (SetProperty(ref subscriptionTier2Enabled, value))
+            {
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public bool SubscriptionTier3Enabled
+    {
+        get => subscriptionTier3Enabled;
+        set
+        {
+            if (SetProperty(ref subscriptionTier3Enabled, value))
+            {
+                RaisePropertyChanged(nameof(TriggerSummary));
             }
         }
     }
