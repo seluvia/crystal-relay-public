@@ -1033,6 +1033,9 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             SubscriptionTier1SecondsPerSub = rule.SubscriptionTier1SecondsPerSub,
             SubscriptionTier2SecondsPerSub = rule.SubscriptionTier2SecondsPerSub,
             SubscriptionTier3SecondsPerSub = rule.SubscriptionTier3SecondsPerSub,
+            SubscriptionTier1Enabled = rule.SubscriptionTier1Enabled,
+            SubscriptionTier2Enabled = rule.SubscriptionTier2Enabled,
+            SubscriptionTier3Enabled = rule.SubscriptionTier3Enabled,
             MaxAccumulatedDurationEnabled = rule.MaxAccumulatedDurationEnabled,
             MaxAccumulatedDurationSeconds = rule.MaxAccumulatedDurationSeconds,
             ActionType = rule.ActionType,
@@ -1283,6 +1286,9 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             SubscriptionTier3SecondsPerSub = rule.SubscriptionTier3SecondsPerSub <= 0
                 ? migratedSubscriptionSecondsPerAmountUnit
                 : rule.SubscriptionTier3SecondsPerSub,
+            SubscriptionTier1Enabled = rule.SubscriptionTier1Enabled,
+            SubscriptionTier2Enabled = rule.SubscriptionTier2Enabled,
+            SubscriptionTier3Enabled = rule.SubscriptionTier3Enabled,
             MaxAccumulatedDurationEnabled = rule.MaxAccumulatedDurationEnabled,
             MaxAccumulatedDurationSeconds = rule.MaxAccumulatedDurationSeconds <= 0
                 ? 1800
@@ -3206,6 +3212,12 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
         public int SubscriptionTier2SecondsPerSub { get; set; }
 
         public int SubscriptionTier3SecondsPerSub { get; set; }
+
+        public bool SubscriptionTier1Enabled { get; set; } = true;
+
+        public bool SubscriptionTier2Enabled { get; set; } = true;
+
+        public bool SubscriptionTier3Enabled { get; set; } = true;
 
         public bool MaxAccumulatedDurationEnabled { get; set; }
 
