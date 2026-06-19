@@ -58,28 +58,46 @@ public bool SubscriptionTier1Enabled
 **Defaults:** all `true` (all tiers start enabled — matches current behavior
 where every sub tier triggers the rule).
 
-### 2. Runtime: `Services/BridgeCoordinator.cs:6504-6506`
+### 2. Runtime: `Services/BridgeCoordinator.cs:8429` — early return at the entry point
 
-The current tier→seconds map always returns a value via `Math.Max(1, value)`.
-Change it to signal "tier disabled" by returning `0` and let the caller skip
-the rule:
+The tier→seconds map at `BridgeCoordinator.cs:6502-6507` cannot signal
+"skip" by returning `0` because `GetSupporterOverrideDuration` at line
+6426 clamps with `Math.Max(1, seconds)`, so a `0` return becomes
+`TimeSpan.FromSeconds(1)` and the rule still fires for 1 second.
+
+The correct skip point is the entry of
+`HandleTimedSupporterOverrideTriggerAsync` (line 8429). After the existing
+float-add diagnostic check (line 8440-8445), add a tier-enabled guard:
 
 ```csharp
-// Pseudocode — exact shape depends on the surrounding switch
-var subPlan = bridgeEvent.SubPlan; // "1000" / "2000" / "3000" / null
-int secondsPerSub = subPlan switch
+if (rule.TriggerType == TwitchTriggerType.Subscriptions
+    && !IsSubscriptionTierEnabled(rule, bridgeEvent.SubscriptionTier))
 {
-    "1000" when rule.SubscriptionTier1Enabled => Math.Max(1, rule.SubscriptionTier1SecondsPerSub),
-    "2000" when rule.SubscriptionTier2Enabled => Math.Max(1, rule.SubscriptionTier2SecondsPerSub),
-    "3000" when rule.SubscriptionTier3Enabled => Math.Max(1, rule.SubscriptionTier3SecondsPerSub),
-    _ => 0  // tier disabled or unknown — caller treats 0 as "skip"
-};
+    return;
+}
 ```
 
-A `0` return value signals "this tier is disabled for this rule" and the
-surrounding code path will skip applying the duration. The exact skip
-mechanism (early return, filter on a LINQ chain, or guard around the
-apply) will be wired during implementation by tracing the call site.
+Add the helper near the other subscription helpers (around line 6498):
+
+```csharp
+private static bool IsSubscriptionTierEnabled(TriggerRuleSnapshot rule, string tier)
+{
+    return tier?.Trim() switch
+    {
+        "1000" => rule.SubscriptionTier1Enabled,
+        "2000" => rule.SubscriptionTier2Enabled,
+        "3000" => rule.SubscriptionTier3Enabled,
+        _ => true  // unknown tier — don't skip, preserve current behavior
+    };
+}
+```
+
+This skips the rule entirely (no duration added, no cooldown consumed, no
+log entry) when the incoming sub's tier is disabled for this rule.
+
+The tier→seconds map at line 6502-6507 is **not modified** — it still
+returns a value for the bot-message path at line 16739, which is
+informational and not affected by the toggle.
 
 ### 3. UI: `UserControls/InlineRuleEditorControl.xaml` — Subs section (lines 212-249)
 
