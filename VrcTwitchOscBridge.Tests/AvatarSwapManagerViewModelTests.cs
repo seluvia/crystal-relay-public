@@ -315,6 +315,22 @@ public sealed class AvatarSwapManagerViewModelTests
     }
 
     [Fact]
+    public void AddBitsRuleCommand_NewRuleHasBitsKeywordEnabledFalse()
+    {
+        var settings = new AppSettings();
+        var profile = new AvatarSwapProfile { TargetAvatarId = "avtr_a", TargetAvatarName = "Avatar A" };
+        settings.AvatarSwapProfiles.Add(profile);
+
+        var vm = new AvatarSwapManagerViewModel(settings, new StubTwitchRewardSource());
+        vm.OpenSwapEditorCommand.Execute(vm.SwapCards.Single());
+
+        vm.AddBitsRuleCommand.Execute(null);
+
+        var rule = profile.BitsRules.Single();
+        Assert.False(rule.BitsKeywordEnabled);
+    }
+
+    [Fact]
     public void OpenSwapEditor_SetsRuleListPaneKindToSwap()
     {
         var settings = new AppSettings();
