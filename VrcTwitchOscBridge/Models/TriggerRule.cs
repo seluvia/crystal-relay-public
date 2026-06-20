@@ -1623,7 +1623,7 @@ public sealed class TriggerRule : ObservableObject
         : UsesAvatarRoulet
             ? T("Use whole seconds. Avatar Roulette is always a timed temporary switch, so 0 is not used here. Crystal Relay stays on the rolled avatar for this long, then returns to the shared return avatar.")
             : UsesAmountScaledDuration
-                ? T("Amount-scaled timer is enabled, so Active Time is the starting time. Bits and subs add time on top when the override first starts; later same-rule triggers extend the current timer by the amount only.")
+                ? T("Active time and amount both add on top. Each matching trigger extends the current timer by Active Time + the scaled amount.")
                 : UsesAvatarChange
                     ? T("Use whole seconds. Set this to 0 if you want the avatar change to stay active and become the new shared return avatar. Any value above 0 makes it a temporary switch that returns to the shared return avatar when the timer ends.")
                     : T("Use whole seconds. Set this to 0 for an instant one-shot action, or use a higher value when you want Crystal Relay to hold the parameter active for a timed redeem.");
