@@ -6,7 +6,7 @@ namespace VrcTwitchOscBridge.Services;
 
 public static class AvatarSwapMigrationService
 {
-    public const int CurrentMigrationVersion = 6;
+    public const int CurrentMigrationVersion = 7;
 
     public static void Migrate(AppSettings settings)
     {
@@ -40,6 +40,11 @@ public static class AvatarSwapMigrationService
         if (settings.AvatarChangeToAvatarSwapMigrationVersion < 6)
         {
             MigrateV5ToV6(settings);
+        }
+
+        if (settings.AvatarChangeToAvatarSwapMigrationVersion < 7)
+        {
+            MigrateV6ToV7(settings);
         }
 
         settings.AvatarChangeToAvatarSwapMigrationVersion = CurrentMigrationVersion;
@@ -312,5 +317,14 @@ public static class AvatarSwapMigrationService
         // Avatar Swap manager's Bits and Subs triggers. The field defaults to `false` on the
         // DTO, so legacy saves load with the new field set to `false` automatically. No
         // data transformation is needed; this step simply bumps the version.
+    }
+
+    private static void MigrateV6ToV7(AppSettings settings)
+    {
+        // V6->V7: AvatarSwapProfile gained a shared "MaxSwapTime" cap field for the
+        // per-avatar Bits and Subs editors. The field defaults to disabled (false) and
+        // 1800 seconds on the DTO. Legacy saves load with the new field set to these
+        // defaults automatically. No data transformation is needed; this step simply
+        // bumps the version.
     }
 }
