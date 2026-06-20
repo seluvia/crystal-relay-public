@@ -7,8 +7,8 @@ Purpose:
 - This file is for internal release prep and record-keeping. It should stay out of the public repo unless you explicitly choose otherwise.
 
 Current Baseline:
-- Last published version: v3.1.9
-- Current working source version: v3.1.10
+- Last published version: v3.1.8
+- Current working source version: v3.1.9
 
 How To Use:
 1. Add new lines under Added, Changed, or Removed while work is happening.
@@ -18,24 +18,24 @@ How To Use:
 5. Retired release drafts (versions that already shipped) are removed from the working area once their content is captured in CHANGELOG.txt. The release checklist is always kept.
 
 Pending Release Draft
-- Target version: v3.1.10
+- Target version: v3.1.9
 - Release lane: beta
-- Next build: v3.1.10 beta 1
-- Source files reflect v3.1.10; csproj and updater project will be updated when new work begins.
+- Next build: v3.1.9 beta 4
+- Source files reflect v3.1.9; csproj and updater project will be updated when new work begins.
 
-v3.1.10 beta 1 (this build)
+v3.1.9 beta 4 (in progress)
 Added:
-- Reworked the Avatar Swap window: the right-side editor is now split into four clean sections (Channel Points, Bits, Subs, Payment) with per-section add buttons.
-- Made Avatar Roulette its own first-class card type with a gold-bordered style and a pool thumbnail strip.
-- Added inline rule row expansion in each section to edit cost, duration, cooldown, and other common fields.
-- Added Chat Command, Follow, and Power-up as first-class trigger sources in the Avatar Swap editor.
-- A one-time migration notice is shown on first run after upgrading from v3.1.9.
 Changed:
-- Avatar Swap cards are smaller and use a 3-column grid.
-- All avatar swaps and roulettes now return to the single global Return Avatar at the top of the window.
+- "Add amount to active time" now always adds Active Time + scaled amount on every matching Bits or Subs trigger instead of only on the first trigger; cap still limits total running time.
+- Renamed "Scale active time by amount" to "Add amount to active time" in the Bits and Subs override time-settings popup.
 Removed:
-- Per-avatar Return Avatar mode is gone.
-- Legacy "Avatar Change Setup" tab and related controls are removed from the main window.
+
+v3.1.9 beta 3 (already shipped)
+Added:
+- Rebuilt the Universal Triggers manager as its own themed window with a search bar, type/status/source filters, and per-section collapse controls.
+- Added a slide-out editor panel for editing triggers without leaving the manager, including trigger type, Twitch reward, avatar readiness check, and OSC action list.
+- Added Ready / Needs attention / Disabled status pills, type pills for each trigger type, and Source pills (Fooma / Manual) on every Universal Triggers card.
+- Added a one-click Test button on every Universal Triggers card.
 
 v3.1.9 beta 3 (already shipped)
 Added:
