@@ -9,6 +9,18 @@ namespace VrcTwitchOscBridge.UserControls;
 
 public partial class InlineRuleEditorControl : UserControl
 {
+    public static readonly DependencyProperty ProfileProperty = DependencyProperty.Register(
+        nameof(Profile),
+        typeof(AvatarSwapProfile),
+        typeof(InlineRuleEditorControl),
+        new PropertyMetadata(null));
+
+    public AvatarSwapProfile? Profile
+    {
+        get => (AvatarSwapProfile?)GetValue(ProfileProperty);
+        set => SetValue(ProfileProperty, value);
+    }
+
     public InlineRuleEditorControl()
     {
         InitializeComponent();
