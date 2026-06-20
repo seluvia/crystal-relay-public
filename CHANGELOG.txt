@@ -27,6 +27,8 @@ v3.1.9 beta 4
 - Changed: the "Add amount to active time" toggle on Bits and Subs overrides now always adds Active Time + the scaled amount to the current timer on every matching trigger, instead of only adding the base time on the first trigger. Cap max accumulated duration still limits the total running time.
 - Renamed: "Scale active time by amount" -> "Add amount to active time" in the Bits and Subs override time-settings popup.
 - Added: an "Add bits time to swap" option on Bits and Subs triggers inside the Avatar Swap manager. When enabled, every matching trigger extends the current avatar swap by Active Time + the scaled amount. When disabled, only the fixed Active Time runs. The option is independent of the existing "Add amount to active time" toggle and works with or without a required chat keyword.
+- Renamed: the per-avatar Subs trigger toggle from "Add bits time to swap" to "Add sub time to swap".
+- Added: a shared max-time cap on the per-avatar Avatar Swap manager. The cap is stored on the avatar profile and is shown in both the Bits and Subs rule editors. Editing one updates the other. The T1/T2/T3 inputs in the Subs editor are now hidden when the new toggle is off.
 
 v3.1.9 beta 3
 - Rebuilt the Universal Triggers manager as its own themed window with a search bar, type/status/source filters, and per-section collapse controls.
