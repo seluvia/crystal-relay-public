@@ -654,4 +654,7 @@
   "Edit Rule": "Redigera regel",
   "Cooldown-only avatar change": "Avatarbyte endast med cooldown",
   "Roulette Pool": "Roulettepool"
-  "Add bits time to swap": "Lägg till bits-tid till bytet",}
+
+  "Add bits time to swap": "Lägg till bits-tid till bytet",
+  "Add sub time to swap": "Lägg till sub-tid till bytet",
+}

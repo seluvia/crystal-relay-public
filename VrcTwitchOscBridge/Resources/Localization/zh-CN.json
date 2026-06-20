@@ -600,4 +600,7 @@
   "Edit Rule": "编辑规则",
   "Cooldown-only avatar change": "仅冷却头像切换",
   "Roulette Pool": "轮盘池"
-  "Add bits time to swap": "将 Bits 时间加到切换中",}
+
+  "Add bits time to swap": "将 Bits 时间加到切换中",
+  "Add sub time to swap": "将 Sub 时间加到切换中",
+}

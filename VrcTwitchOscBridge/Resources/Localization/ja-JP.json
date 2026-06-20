@@ -654,4 +654,7 @@
   "Edit Rule": "ルールを編集",
   "Cooldown-only avatar change": "クールダウン専用アバター変更",
   "Roulette Pool": "ルーレットプール"
-  "Add bits time to swap": "スワップにBitsの時間を追加",}
+
+  "Add bits time to swap": "Bitsの時間をスワップに追加",
+  "Add sub time to swap": "Subの時間をスワップに追加",
+}

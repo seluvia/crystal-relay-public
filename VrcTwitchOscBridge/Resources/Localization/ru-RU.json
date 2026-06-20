@@ -654,4 +654,7 @@
   "Edit Rule": "Изменить правило",
   "Cooldown-only avatar change": "Смена аватара только по кулдауну",
   "Roulette Pool": "Пул рулетки"
-  "Add bits time to swap": "Добавить время от bits к переключению",}
+
+  "Add bits time to swap": "Добавить время от bits к переключению",
+  "Add sub time to swap": "Добавить время от sub к переключению",
+}

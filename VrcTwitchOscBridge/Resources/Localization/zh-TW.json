@@ -653,4 +653,7 @@
   "Edit Rule": "編輯規則",
   "Cooldown-only avatar change": "僅冷卻頭像更換",
   "Roulette Pool": "輪盤池"
-  "Add bits time to swap": "將 Bits 時間加到切換中",}
+
+  "Add bits time to swap": "將 Bits 時間加到切換中",
+  "Add sub time to swap": "將 Sub 時間加到切換中",
+}

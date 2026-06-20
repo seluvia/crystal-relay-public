@@ -654,4 +654,7 @@
   "Edit Rule": "Modifica regola",
   "Cooldown-only avatar change": "Cambio avatar solo cooldown",
   "Roulette Pool": "Pool roulette"
-  "Add bits time to swap": "Aggiungi tempo di bits al cambio",}
+
+  "Add bits time to swap": "Tempo di bits al cambio",
+  "Add sub time to swap": "Tempo di sub al cambio",
+}

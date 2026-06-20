@@ -486,8 +486,6 @@
   "Pick the kind of VRChat parameter value this redeem should send. Bool means simple on or off values like True and False. Int means whole numbers only, like 0, 1, or 2. Float means decimal numbers, like 0.0, 0.5, or 1.0. When you switch this type, Crystal Relay resets the value boxes so they match the type you chose.": "Pick the kind of VRChat parameter value this redeem should send. Bool means simple on or off values like True and False. Int means whole numbers only, like 0, 1, or 2. Float means decimal numbers, like 0.0, 0.5, or 1.0. When you switch this type, Crystal Relay resets the value boxes so they match the type you chose.",
   "Bits/Subs Amount Timer": "Bits/Subs Amount Timer",
   "Add amount to active time": "Add amount to active time",
-  "Add bits time to swap": "Add bits time to swap",
-  "Add sub time to swap": "Add sub time to swap",
   "Seconds per bit/sub": "Seconds per bit/sub",
   "When enabled, Crystal Relay ignores the fixed Active Time for this paid override and calculates the timer from the Twitch amount. Bits use the bit count, normal subs count as 1, and gift subs use the gift total. Example: 12 bits with 2 seconds per bit adds 24 seconds.": "When enabled, Crystal Relay ignores the fixed Active Time for this paid override and calculates the timer from the Twitch amount. Bits use the bit count, normal subs count as 1, and gift subs use the gift total. Example: 12 bits with 2 seconds per bit adds 24 seconds.",
   "Amount-scaled timer is enabled, so Active Time is calculated from the incoming bits/sub amount.": "Amount-scaled timer is enabled, so Active Time is calculated from the incoming bits/sub amount.",
@@ -727,4 +725,7 @@
   "Edit Rule": "Edit Rule",
   "Cooldown-only avatar change": "Cooldown-only avatar change",
   "Roulette Pool": "Roulette Pool"
+
+  "Add bits time to swap": "Add bits time to swap",
+  "Add sub time to swap": "Add sub time to swap",
 }
