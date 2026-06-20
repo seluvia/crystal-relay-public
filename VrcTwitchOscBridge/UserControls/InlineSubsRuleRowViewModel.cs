@@ -63,6 +63,10 @@ public sealed class InlineSubsRuleRowViewModel : ObservableObject, IRuleRowViewM
         {
             sb.Append(", keyword: ").Append(_rule.SupporterKeywordText);
         }
+        if (_rule.AddBitsToSwapTime)
+        {
+            sb.Append(", swap time");
+        }
         Summary = sb.ToString();
     }
 
