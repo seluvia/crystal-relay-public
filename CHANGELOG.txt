@@ -24,6 +24,8 @@ v3.1.9 beta 4
 - Renamed "Avatar Change" to "Avatar Swap" in the Redeem Library user-facing strings.
 - Improved avatar selection in the new manager by showing the picked avatar's image and name together on each card.
 - Kept the existing Avatar Change action type and TriggerRule fields internal so existing saves, Fooma imports, Power-ups, Universal Triggers, and Avatar Roulette continue to work without any rewrites.
+- Changed: the "Add amount to active time" toggle on Bits and Subs overrides now always adds Active Time + the scaled amount to the current timer on every matching trigger, instead of only adding the base time on the first trigger. Cap max accumulated duration still limits the total running time.
+- Renamed: "Scale active time by amount" -> "Add amount to active time" in the Bits and Subs override time-settings popup.
 
 v3.1.9 beta 3
 - Rebuilt the Universal Triggers manager as its own themed window with a search bar, type/status/source filters, and per-section collapse controls.
