@@ -593,7 +593,7 @@
   "Crystal Relay will create or link this Twitch redeem and keep it available in Test Mode or while live when the current avatar local OSC file has at least one matching avatar parameter action.": "Crystal Relay 會建立或關聯此 Twitch 兌換，並在當前頭像的本地 OSC 檔案至少有一個匹配的頭像參數動作時，使其在測試模式或直播中保持可用。",
   "Imported {0} universal trigger(s): {1} added, {2} updated. Fused {3} matching chat command(s) into rewards. Skipped {4} invalid item(s).": "已匯入 {0} 個通用觸發器：{1} 個已新增，{2} 個已更新。已融合 {3} 個匹配的聊天指令到獎勵中。跳過 {4} 個無效項目。",
   "Imported {0} universal trigger(s): {1} added, {2} updated. Skipped {3} invalid item(s).": "已匯入 {0} 個通用觸發器：{1} 個已新增，{2} 個已更新。跳過 {3} 個無效項目。",
-  "When enabled, Crystal Relay starts this paid override with Active Time, then adds time from separate Bits and Subs ratios. Bits use the bit count, normal subs count as 1, and gift subs use the gift total. Later same-rule events extend the running timer by the amount only.": "啟用時，Crystal Relay 以持續時間開始此付費覆寫規則，然後從 Bits 和訂閱的單獨比例新增時間。Bits 使用 bit 計數，普通訂閱計為 1，禮物訂閱使用禮物總數。之後相同規則的事件僅按金額延長運行計時器。",
+  "When enabled, every matching Bits or Subs trigger extends the current timer by Active Time + the scaled amount from separate Bits and Subs ratios. Bits use the bit count, normal subs count as 1, and gift subs use the gift total.": "啟用時，每個相符的 Bits 或訂閱觸發器都會將目前的計時器延長 持續時間 + 來自獨立 Bits 和訂閱比率的縮放後數量。Bits 使用 bit 計數，普通訂閱計為 1，禮物訂閱使用禮物總數。",
   "Amount-scaled timer is enabled, so Active Time is the starting time before Bits/Subs added time extends the override.": "金額縮放計時器已啟用，因此持續時間是 Bits/Subs 新增時間延長覆寫規則之前的起始時間。",
   "Active time and amount both add on top. Each matching trigger extends the current timer by Active Time + the scaled amount.": "持續時間和數量會疊加在頂部。每個相符的觸發器會將目前的計時器延長 持續時間 + 縮放後的數量。",
   "Start: {0}s": "起始：{0}s",
