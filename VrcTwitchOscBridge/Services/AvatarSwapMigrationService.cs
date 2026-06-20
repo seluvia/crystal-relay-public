@@ -6,7 +6,7 @@ namespace VrcTwitchOscBridge.Services;
 
 public static class AvatarSwapMigrationService
 {
-    public const int CurrentMigrationVersion = 5;
+    public const int CurrentMigrationVersion = 6;
 
     public static void Migrate(AppSettings settings)
     {
@@ -35,6 +35,11 @@ public static class AvatarSwapMigrationService
         if (settings.AvatarChangeToAvatarSwapMigrationVersion < 5)
         {
             MigrateV4ToV5(settings);
+        }
+
+        if (settings.AvatarChangeToAvatarSwapMigrationVersion < 6)
+        {
+            MigrateV5ToV6(settings);
         }
 
         settings.AvatarChangeToAvatarSwapMigrationVersion = CurrentMigrationVersion;
@@ -299,5 +304,13 @@ public static class AvatarSwapMigrationService
         // during deserialization via CashPaymentRuleJsonConverter (registered in SettingsStore).
         // This step simply marks settings at version 4 as up-to-date once they've been
         // loaded through the converter.
+    }
+
+    private static void MigrateV5ToV6(AppSettings settings)
+    {
+        // V5->V6: TriggerRule gained a new `AddBitsToSwapTime` field for the per-avatar
+        // Avatar Swap manager's Bits and Subs triggers. The field defaults to `false` on the
+        // DTO, so legacy saves load with the new field set to `false` automatically. No
+        // data transformation is needed; this step simply bumps the version.
     }
 }
