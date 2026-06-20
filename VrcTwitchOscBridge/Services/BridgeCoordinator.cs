@@ -6514,27 +6514,23 @@ internal BridgeCoordinator(
         };
     }
 
+    private (bool enabled, int seconds) ResolveOverrideCap(TriggerRuleSnapshot rule)
+    {
+        var profile = activeConfiguration?.FindAvatarSwapProfileForRule(rule.Rule);
+        if (profile is not null)
+        {
+            return (profile.MaxSwapTimeEnabled, profile.MaxSwapTimeSeconds);
+        }
+        return (rule.MaxAccumulatedDurationEnabled, rule.MaxAccumulatedDurationSeconds);
+    }
+
     private static TimeSpan ClampSupporterOverrideAddedDuration(
         TriggerRuleSnapshot rule,
         TimeSpan requestedDuration,
-        TimeSpan existingRemainingDuration)
-    {
-        if (requestedDuration <= TimeSpan.Zero || !rule.MaxAccumulatedDurationEnabled)
-        {
-            return requestedDuration;
-        }
-
-        var maxAccumulatedDuration = TimeSpan.FromSeconds(Math.Max(1, rule.MaxAccumulatedDurationSeconds));
-        var remainingCapacity = maxAccumulatedDuration - existingRemainingDuration;
-        if (remainingCapacity <= TimeSpan.Zero)
-        {
-            return TimeSpan.Zero;
-        }
-
-        return requestedDuration <= remainingCapacity
-            ? requestedDuration
-            : remainingCapacity;
-    }
+        TimeSpan existingRemainingDuration,
+        bool capEnabled,
+        int capSeconds) =>
+        SupportOverrideCapMath.ClampAddedDuration(capEnabled, capSeconds, requestedDuration, existingRemainingDuration);
 
     private TimeSpan GetCurrentSupporterOverrideRemainingDurationLocked(Guid ruleId, DateTimeOffset now)
     {
@@ -8497,14 +8493,15 @@ internal BridgeCoordinator(
             existingRemainingDuration = GetCurrentSupporterOverrideRemainingDurationLocked(rule.Id, now);
         }
 
+        var (capEnabled, capSeconds) = ResolveOverrideCap(rule);
         var requestedDuration = GetSupporterOverrideDuration(rule, bridgeEvent);
-        var triggerDuration = ClampSupporterOverrideAddedDuration(rule, requestedDuration, existingRemainingDuration);
+        var triggerDuration = ClampSupporterOverrideAddedDuration(rule, requestedDuration, existingRemainingDuration, capEnabled, capSeconds);
         if (triggerDuration <= TimeSpan.Zero)
         {
             WriteLog(TF(
                 "Paid override '{0}' is already at its max added time of {1}, so Crystal Relay did not add more time.",
                 rule.Name,
-                DescribeDuration(Math.Max(1, rule.MaxAccumulatedDurationSeconds))));
+                DescribeDuration(Math.Max(1, capSeconds))));
             return;
         }
 
