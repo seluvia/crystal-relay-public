@@ -926,10 +926,10 @@
                                 MinHeight="24"
                                 Click="OnHelpButtonClicked"
                                 CommandParameter="Bits/Subs Amount Timer"
-                                Tag="{loc:Translate 'When enabled, Crystal Relay starts this paid override with Active Time, then adds time from separate Bits and Subs ratios. Bits use the bit count, normal subs count as 1, and gift subs use the gift total. Later same-rule events extend the running timer by the amount only.'}" />
+                                Tag="{loc:Translate 'When enabled, every matching Bits or Subs trigger extends the current timer by Active Time + the scaled amount from separate Bits and Subs ratios. Bits use the bit count, normal subs count as 1, and gift subs use the gift total.'}" />
                     </DockPanel>
                     <CheckBox Margin="0,8,0,0"
-                              Content="{loc:Translate 'Scale active time by amount'}"
+                              Content="{loc:Translate 'Add amount to active time'}"
                               IsChecked="{Binding AmountScaledDurationEnabled, UpdateSourceTrigger=PropertyChanged}" />
                     <TextBlock Margin="0,6,0,0"
                                Foreground="{DynamicResource MutedBrush}"
