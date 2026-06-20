@@ -1142,6 +1142,8 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
         {
             Id = profile.Id,
             IsEnabled = profile.IsEnabled,
+            MaxSwapTimeEnabled = profile.MaxSwapTimeEnabled,
+            MaxSwapTimeSeconds = profile.MaxSwapTimeSeconds,
             TargetAvatarId = profile.TargetAvatarId,
             TargetAvatarName = profile.TargetAvatarName,
             TargetThumbnailUrl = profile.TargetThumbnailUrl,
@@ -1157,6 +1159,8 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
         {
             Id = profile.Id,
             IsEnabled = profile.IsEnabled,
+            MaxSwapTimeEnabled = profile.MaxSwapTimeEnabled,
+            MaxSwapTimeSeconds = profile.MaxSwapTimeSeconds <= 0 ? 1800 : profile.MaxSwapTimeSeconds,
             TargetAvatarId = profile.TargetAvatarId ?? string.Empty,
             TargetAvatarName = profile.TargetAvatarName ?? string.Empty,
             TargetThumbnailUrl = profile.TargetThumbnailUrl,
@@ -3078,6 +3082,10 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
         public Guid Id { get; set; }
 
         public bool IsEnabled { get; set; }
+
+        public bool MaxSwapTimeEnabled { get; set; }
+
+        public int MaxSwapTimeSeconds { get; set; } = 1800;
 
         public string TargetAvatarId { get; set; } = string.Empty;
 
