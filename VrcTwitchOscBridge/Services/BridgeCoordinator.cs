@@ -5,6 +5,7 @@ using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using VrcTwitchOscBridge.Models;
+using VrcTwitchOscBridge.Services.Support;
 
 namespace VrcTwitchOscBridge.Services;
 
@@ -6410,20 +6411,15 @@ internal BridgeCoordinator(
 
     private static TimeSpan GetSupporterOverrideDuration(
         TriggerRuleSnapshot rule,
-        BridgeIncomingEvent bridgeEvent,
-        bool includeStartingDuration)
+        BridgeIncomingEvent bridgeEvent)
     {
-        double seconds = Math.Max(1, rule.DurationSeconds);
-        if (rule.AmountScaledDurationEnabled)
-        {
-            seconds = GetSupporterOverrideAmountScaledDurationSeconds(rule, bridgeEvent);
-            if (includeStartingDuration)
-            {
-                seconds += Math.Max(0, rule.DurationSeconds);
-            }
-        }
+        var perEventAddSeconds = SupportOverrideDurationMath.ComputePerEventAddSeconds(
+            rule,
+            bridgeEvent.Amount,
+            bridgeEvent.SubscriptionTier);
 
-        return TimeSpan.FromSeconds(Math.Min(Math.Max(1, seconds), TimeSpan.MaxValue.TotalSeconds));
+        return TimeSpan.FromSeconds(
+            Math.Min(Math.Max(1, perEventAddSeconds), TimeSpan.MaxValue.TotalSeconds));
     }
 
     private static bool TryResolveSupporterFloatAddAmount(
