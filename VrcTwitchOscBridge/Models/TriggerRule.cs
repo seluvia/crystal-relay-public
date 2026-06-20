@@ -71,6 +71,7 @@ public sealed class TriggerRule : ObservableObject
     private ChatCommandPermission chatCommandPermission = ChatCommandPermission.Moderators;
     private int minimumAmount = 1;
     private bool amountScaledDurationEnabled;
+    private bool addBitsToSwapTime;
     private int amountUnitsPerDuration = 1;
     private int secondsPerAmountUnit = 1;
     private int bitsAmountUnitsPerDuration = 1;
@@ -405,6 +406,12 @@ public sealed class TriggerRule : ObservableObject
                 RaisePropertyChanged(nameof(TriggerSummary));
             }
         }
+    }
+
+    public bool AddBitsToSwapTime
+    {
+        get => addBitsToSwapTime;
+        set => SetProperty(ref addBitsToSwapTime, value);
     }
 
     public int AmountUnitsPerDuration
@@ -1337,6 +1344,8 @@ public sealed class TriggerRule : ObservableObject
     public bool UsesAmountThreshold => TriggerType is TwitchTriggerType.Bits or TwitchTriggerType.Subscriptions;
 
     public bool UsesAmountScaledDuration => UsesAmountThreshold && AmountScaledDurationEnabled;
+
+    public bool UsesAddBitsToSwapTime => UsesAmountThreshold && AddBitsToSwapTime;
 
     public string SupporterTimeSettingsSummary
     {

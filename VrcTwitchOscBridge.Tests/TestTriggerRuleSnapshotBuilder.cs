@@ -38,6 +38,7 @@ internal static class TestTriggerRuleSnapshotBuilder
         SubscriptionTier1SecondsPerSub: 0,
         SubscriptionTier2SecondsPerSub: 0,
         SubscriptionTier3SecondsPerSub: 0,
+        AddBitsToSwapTime: false,
         MaxAccumulatedDurationEnabled: false,
         MaxAccumulatedDurationSeconds: 0,
         ActionType: OscActionType.AvatarParameter,
