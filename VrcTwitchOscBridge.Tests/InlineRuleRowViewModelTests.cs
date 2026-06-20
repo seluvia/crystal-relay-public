@@ -109,6 +109,34 @@ public sealed class InlineBitsRuleRowViewModelTests
 
         Assert.Contains("keyword: !boost", vm.Summary);
     }
+
+    [Fact]
+    public void Summary_IncludesAddBitsToSwapTime_WhenEnabled()
+    {
+        var rule = new TriggerRule
+        {
+            Name = "Cheer",
+            TriggerType = TwitchTriggerType.Bits,
+            AddBitsToSwapTime = true
+        };
+        var vm = new InlineBitsRuleRowViewModel(rule);
+
+        Assert.Contains("swap time", vm.Summary);
+    }
+
+    [Fact]
+    public void Summary_OmitsAddBitsToSwapTime_WhenDisabled()
+    {
+        var rule = new TriggerRule
+        {
+            Name = "Cheer",
+            TriggerType = TwitchTriggerType.Bits,
+            AddBitsToSwapTime = false
+        };
+        var vm = new InlineBitsRuleRowViewModel(rule);
+
+        Assert.DoesNotContain("swap time", vm.Summary);
+    }
 }
 
 public sealed class InlineSubsRuleRowViewModelTests
@@ -189,6 +217,34 @@ public sealed class InlineSubsRuleRowViewModelTests
         var vm = new InlineSubsRuleRowViewModel(rule);
 
         Assert.Contains("keyword: !thanks", vm.Summary);
+    }
+
+    [Fact]
+    public void Summary_IncludesAddBitsToSwapTime_WhenEnabled()
+    {
+        var rule = new TriggerRule
+        {
+            Name = "Sub",
+            TriggerType = TwitchTriggerType.Subscriptions,
+            AddBitsToSwapTime = true
+        };
+        var vm = new InlineSubsRuleRowViewModel(rule);
+
+        Assert.Contains("swap time", vm.Summary);
+    }
+
+    [Fact]
+    public void Summary_OmitsAddBitsToSwapTime_WhenDisabled()
+    {
+        var rule = new TriggerRule
+        {
+            Name = "Sub",
+            TriggerType = TwitchTriggerType.Subscriptions,
+            AddBitsToSwapTime = false
+        };
+        var vm = new InlineSubsRuleRowViewModel(rule);
+
+        Assert.DoesNotContain("swap time", vm.Summary);
     }
 }
 
