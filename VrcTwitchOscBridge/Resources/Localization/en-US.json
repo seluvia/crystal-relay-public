@@ -487,6 +487,7 @@
   "Bits/Subs Amount Timer": "Bits/Subs Amount Timer",
   "Add amount to active time": "Add amount to active time",
   "Add bits time to swap": "Add bits time to swap",
+  "Add sub time to swap": "Add sub time to swap",
   "Seconds per bit/sub": "Seconds per bit/sub",
   "When enabled, Crystal Relay ignores the fixed Active Time for this paid override and calculates the timer from the Twitch amount. Bits use the bit count, normal subs count as 1, and gift subs use the gift total. Example: 12 bits with 2 seconds per bit adds 24 seconds.": "When enabled, Crystal Relay ignores the fixed Active Time for this paid override and calculates the timer from the Twitch amount. Bits use the bit count, normal subs count as 1, and gift subs use the gift total. Example: 12 bits with 2 seconds per bit adds 24 seconds.",
   "Amount-scaled timer is enabled, so Active Time is calculated from the incoming bits/sub amount.": "Amount-scaled timer is enabled, so Active Time is calculated from the incoming bits/sub amount.",
