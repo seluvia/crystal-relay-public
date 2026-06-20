@@ -98,7 +98,8 @@ internal static class TestTriggerRuleSnapshotBuilder
         int bitsSecondsPerAmountUnit = 1,
         int subscriptionTier1SecondsPerSub = 0,
         int subscriptionTier2SecondsPerSub = 0,
-        int subscriptionTier3SecondsPerSub = 0)
+        int subscriptionTier3SecondsPerSub = 0,
+        bool addBitsToSwapTime = false)
     {
         var realRule = new TriggerRule
         {
@@ -122,6 +123,7 @@ internal static class TestTriggerRuleSnapshotBuilder
             SubscriptionTier1SecondsPerSub = subscriptionTier1SecondsPerSub,
             SubscriptionTier2SecondsPerSub = subscriptionTier2SecondsPerSub,
             SubscriptionTier3SecondsPerSub = subscriptionTier3SecondsPerSub,
+            AddBitsToSwapTime = addBitsToSwapTime,
             Rule = realRule
         };
     }

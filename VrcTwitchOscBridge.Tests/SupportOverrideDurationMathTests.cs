@@ -115,4 +115,75 @@ public sealed class SupportOverrideDurationMathTests
 
         Assert.Equal(31, result);
     }
+
+    [Fact]
+    public void ComputePerEventAddSeconds_AddBitsToSwapTimeOff_ReturnsBaseDuration()
+    {
+        var rule = TestTriggerRuleSnapshotBuilder.Build(
+            addBitsToSwapTime: false,
+            amountScaledDurationEnabled: false,
+            durationSeconds: 30);
+
+        var result = SupportOverrideDurationMath.ComputePerEventAddSeconds(rule, amount: 100, subscriptionTier: string.Empty);
+
+        Assert.Equal(30, result);
+    }
+
+    [Fact]
+    public void ComputePerEventAddSeconds_AddBitsToSwapTimeOn_ReturnsBasePlusScaled()
+    {
+        var rule = TestTriggerRuleSnapshotBuilder.Build(
+            addBitsToSwapTime: true,
+            amountScaledDurationEnabled: false,
+            durationSeconds: 30,
+            bitsAmountUnitsPerDuration: 50,
+            bitsSecondsPerAmountUnit: 1);
+
+        var result = SupportOverrideDurationMath.ComputePerEventAddSeconds(rule, amount: 100, subscriptionTier: string.Empty);
+
+        Assert.Equal(32, result);
+    }
+
+    [Fact]
+    public void ComputePerEventAddSeconds_AddBitsToSwapTimeOn_SubsT1()
+    {
+        var rule = TestTriggerRuleSnapshotBuilder.Build(
+            triggerType: TwitchTriggerType.Subscriptions,
+            addBitsToSwapTime: true,
+            amountScaledDurationEnabled: false,
+            durationSeconds: 60,
+            subscriptionTier1SecondsPerSub: 30);
+
+        var result = SupportOverrideDurationMath.ComputePerEventAddSeconds(rule, amount: 1, subscriptionTier: "1000");
+
+        Assert.Equal(90, result);
+    }
+
+    [Fact]
+    public void ComputePerEventAddSeconds_BothTogglesOff_ReturnsBaseDuration()
+    {
+        var rule = TestTriggerRuleSnapshotBuilder.Build(
+            addBitsToSwapTime: false,
+            amountScaledDurationEnabled: false,
+            durationSeconds: 25);
+
+        var result = SupportOverrideDurationMath.ComputePerEventAddSeconds(rule, amount: 100, subscriptionTier: string.Empty);
+
+        Assert.Equal(25, result);
+    }
+
+    [Fact]
+    public void ComputePerEventAddSeconds_BothTogglesOn_StillScaled()
+    {
+        var rule = TestTriggerRuleSnapshotBuilder.Build(
+            addBitsToSwapTime: true,
+            amountScaledDurationEnabled: true,
+            durationSeconds: 30,
+            bitsAmountUnitsPerDuration: 50,
+            bitsSecondsPerAmountUnit: 1);
+
+        var result = SupportOverrideDurationMath.ComputePerEventAddSeconds(rule, amount: 100, subscriptionTier: string.Empty);
+
+        Assert.Equal(32, result);
+    }
 }
