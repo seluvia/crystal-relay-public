@@ -1664,11 +1664,11 @@ public sealed class TriggerRule : ObservableObject
                     ? TF("Bits >= {0} + movement word needed", Math.Max(1, MinimumAmount))
                     : TF("Bits >= {0} + Word: {1}", Math.Max(1, MinimumAmount), SupporterKeywordText.Trim()),
                 TwitchTriggerType.Bits when UsesActiveSupporterFloatAdd => SupporterFloatAddSummary,
-                TwitchTriggerType.Bits => AmountScaledDurationEnabled
+                TwitchTriggerType.Bits => (AmountScaledDurationEnabled || AddBitsToSwapTime)
                     ? TF("Bits >= {0} ({1}s per {2} bits)", Math.Max(1, MinimumAmount), Math.Max(1, BitsSecondsPerAmountUnit), Math.Max(1, BitsAmountUnitsPerDuration))
                     : TF("Bits >= {0}", Math.Max(1, MinimumAmount)),
                 TwitchTriggerType.Subscriptions when UsesActiveSupporterFloatAdd => SupporterFloatAddSummary,
-                TwitchTriggerType.Subscriptions => AmountScaledDurationEnabled
+                TwitchTriggerType.Subscriptions => (AmountScaledDurationEnabled || AddBitsToSwapTime)
                     ? TF("Subs >= {0} (T1 {1}s, T2 {2}s, T3 {3}s)", Math.Max(1, MinimumAmount), Math.Max(1, SubscriptionTier1SecondsPerSub), Math.Max(1, SubscriptionTier2SecondsPerSub), Math.Max(1, SubscriptionTier3SecondsPerSub))
                     : TF("Subs >= {0}", Math.Max(1, MinimumAmount)),
                 TwitchTriggerType.PowerUp => T("Power Up"),
