@@ -11,6 +11,8 @@ public partial class AvatarSwapProfile : ObservableObject
     public string TargetAvatarName { get; set; } = string.Empty;
     public string? TargetThumbnailUrl { get; set; }
     public bool IsEnabled { get; set; } = true;
+    public bool MaxSwapTimeEnabled { get; set; } = false;
+    public int MaxSwapTimeSeconds { get; set; } = 1800;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
