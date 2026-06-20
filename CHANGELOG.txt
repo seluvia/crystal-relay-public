@@ -26,6 +26,7 @@ v3.1.9 beta 4
 - Kept the existing Avatar Change action type and TriggerRule fields internal so existing saves, Fooma imports, Power-ups, Universal Triggers, and Avatar Roulette continue to work without any rewrites.
 - Changed: the "Add amount to active time" toggle on Bits and Subs overrides now always adds Active Time + the scaled amount to the current timer on every matching trigger, instead of only adding the base time on the first trigger. Cap max accumulated duration still limits the total running time.
 - Renamed: "Scale active time by amount" -> "Add amount to active time" in the Bits and Subs override time-settings popup.
+- Added: an "Add bits time to swap" option on Bits and Subs triggers inside the Avatar Swap manager. When enabled, every matching trigger extends the current avatar swap by Active Time + the scaled amount. When disabled, only the fixed Active Time runs. The option is independent of the existing "Add amount to active time" toggle and works with or without a required chat keyword.
 
 v3.1.9 beta 3
 - Rebuilt the Universal Triggers manager as its own themed window with a search bar, type/status/source filters, and per-section collapse controls.
