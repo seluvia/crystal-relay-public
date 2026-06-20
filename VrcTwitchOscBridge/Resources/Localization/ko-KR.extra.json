@@ -594,7 +594,7 @@
   "Imported {0} universal trigger(s): {1} added, {2} updated. Skipped {3} invalid item(s).": "{0}개의 유니버설 트리거를 가져왔습니다: {1}개 추가, {2}개 업데이트. {3}개의 잘못된 항목을 건너뛰었습니다.",
   "When enabled, Crystal Relay starts this paid override with Active Time, then adds time from separate Bits and Subs ratios. Bits use the bit count, normal subs count as 1, and gift subs use the gift total. Later same-rule events extend the running timer by the amount only.": "활성화되면 Crystal Relay는 이 유료 오버라이드를 활성 시간으로 시작한 다음 별도의 Bits 및 구독 비율에서 시간을 추가합니다. Bits는 Bit 수를 사용하고, 일반 구독은 1로 계산되며, 선물 구독은 선물 합계를 사용합니다. 이후 동일 규칙 이벤트는 금액만큼 실행 중인 타이머를 연장합니다.",
   "Amount-scaled timer is enabled, so Active Time is the starting time before Bits/Subs added time extends the override.": "금액 스케일 타이머가 활성화되어 있으므로 활성 시간은 Bits/구독이 추가한 시간이 오버라이드를 연장하기 전의 시작 시간입니다.",
-  "Amount-scaled timer is enabled, so Active Time is the starting time. Bits and subs add time on top when the override first starts; later same-rule triggers extend the current timer by the amount only.": "금액 스케일 타이머가 활성화되어 있으므로 활성 시간은 시작 시간입니다. Bits와 구독은 오버라이드가 처음 시작될 때 시간을 추가합니다. 이후 동일 규칙 트리거는 금액만큼 현재 타이머를 연장합니다.",
+  "Active time and amount both add on top. Each matching trigger extends the current timer by Active Time + the scaled amount.": "활성 시간과 수량이 위에 더해집니다. 일치하는 각 트리거는 활성 시간 + 조정된 수량만큼 현재 타이머를 연장합니다.",
   "Start: {0}s": "시작: {0}초",
   "Bits {0}+: start {1}, then every {2} bits adds {3}": "Bits {0}+: {1} 시작, 그 후 {2} bits마다 {3} 추가",
   "Subs {0}+: start {1}, then T1 {2}, T2 {3}, T3 {4}": "구독 {0}+: {1} 시작, 그 후 T1 {2}, T2 {3}, T3 {4}",

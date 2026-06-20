@@ -595,7 +595,7 @@
   "Imported {0} universal trigger(s): {1} added, {2} updated. Skipped {3} invalid item(s).": "已匯入 {0} 個通用觸發器：{1} 個已新增，{2} 個已更新。跳過 {3} 個無效項目。",
   "When enabled, Crystal Relay starts this paid override with Active Time, then adds time from separate Bits and Subs ratios. Bits use the bit count, normal subs count as 1, and gift subs use the gift total. Later same-rule events extend the running timer by the amount only.": "啟用時，Crystal Relay 以持續時間開始此付費覆寫規則，然後從 Bits 和訂閱的單獨比例新增時間。Bits 使用 bit 計數，普通訂閱計為 1，禮物訂閱使用禮物總數。之後相同規則的事件僅按金額延長運行計時器。",
   "Amount-scaled timer is enabled, so Active Time is the starting time before Bits/Subs added time extends the override.": "金額縮放計時器已啟用，因此持續時間是 Bits/Subs 新增時間延長覆寫規則之前的起始時間。",
-  "Amount-scaled timer is enabled, so Active Time is the starting time. Bits and subs add time on top when the override first starts; later same-rule triggers extend the current timer by the amount only.": "金額縮放計時器已啟用，因此持續時間是起始時間。Bits 和訂閱在覆寫規則首次啟動時在上面新增時間；之後相同規則的觸發器僅按金額延長當前計時器。",
+  "Active time and amount both add on top. Each matching trigger extends the current timer by Active Time + the scaled amount.": "持續時間和數量會疊加在頂部。每個相符的觸發器會將目前的計時器延長 持續時間 + 縮放後的數量。",
   "Start: {0}s": "起始：{0}s",
   "Bits {0}+: start {1}, then every {2} bits adds {3}": "Bits {0}+：起始 {1}，然後每 {2} bits 新增 {3}",
   "Subs {0}+: start {1}, then T1 {2}, T2 {3}, T3 {4}": "訂閱 {0}+：起始 {1}，然後 T1 {2}, T2 {3}, T3 {4}",

@@ -594,7 +594,7 @@
   "Imported {0} universal trigger(s): {1} added, {2} updated. Skipped {3} invalid item(s).": "{0} 件のユニバーサルトリガーをインポート: {1} 件追加、{2} 件更新。{3} 件の無効なアイテムをスキップ。",
   "When enabled, Crystal Relay starts this paid override with Active Time, then adds time from separate Bits and Subs ratios. Bits use the bit count, normal subs count as 1, and gift subs use the gift total. Later same-rule events extend the running timer by the amount only.": "有効にすると、Crystal Relayはこの有料オーバーライドをアクティブ時間で開始し、BitsとSubsの個別比率から時間を追加します。Bitsはビット数を使用し、通常Subsは1としてカウントし、ギフトSubsはギフト合計を使用します。後続の同じルールのイベントは実行中のタイマーを量のみで延長します。",
   "Amount-scaled timer is enabled, so Active Time is the starting time before Bits/Subs added time extends the override.": "量スケーリングタイマーが有効です。したがって、アクティブ時間はBits/Subsの追加時間がオーバーライドを延長する前の開始時間です。",
-  "Amount-scaled timer is enabled, so Active Time is the starting time. Bits and subs add time on top when the override first starts; later same-rule triggers extend the current timer by the amount only.": "量スケーリングタイマーが有効です。したがって、アクティブ時間は開始時間です。BitsとSubsはオーバーライドが最初に開始された時に上乗せして時間を追加します。後続の同じルールのトリガーは現在のタイマーを量のみで延長します。",
+  "Active time and amount both add on top. Each matching trigger extends the current timer by Active Time + the scaled amount.": "アクティブ時間と量が上乗せされます。一致する各トリガーは、現在のタイマーをアクティブ時間 + スケールされた量だけ延長します。",
   "Start: {0}s": "開始: {0}秒",
   "Bits {0}+: start {1}, then every {2} bits adds {3}": "Bits {0}+: {1} から開始、その後 {2} bitsごとに {3} を追加",
   "Subs {0}+: start {1}, then T1 {2}, T2 {3}, T3 {4}": "Subs {0}+: {1} から開始、その後 T1 {2}、T2 {3}、T3 {4}",
