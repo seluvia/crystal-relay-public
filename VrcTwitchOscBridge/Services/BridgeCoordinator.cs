@@ -8497,12 +8497,7 @@ internal BridgeCoordinator(
             existingRemainingDuration = GetCurrentSupporterOverrideRemainingDurationLocked(rule.Id, now);
         }
 
-        var hasSameRuleActive = activeState is not null
-            && activeState.ActiveUntil > now
-            && activeState.Rule.Id == rule.Id;
-        var hasSameRuleQueued = queuedIndex >= 0;
-        var includeStartingDuration = !hasSameRuleActive && !hasSameRuleQueued;
-        var requestedDuration = GetSupporterOverrideDuration(rule, bridgeEvent, includeStartingDuration);
+        var requestedDuration = GetSupporterOverrideDuration(rule, bridgeEvent);
         var triggerDuration = ClampSupporterOverrideAddedDuration(rule, requestedDuration, existingRemainingDuration);
         if (triggerDuration <= TimeSpan.Zero)
         {
@@ -16749,7 +16744,7 @@ internal BridgeCoordinator(
 
     private static double GetBotMessageDurationSeconds(TriggerRuleSnapshot rule, BridgeIncomingEvent bridgeEvent) =>
         IsTimedSupporterOverrideRule(rule)
-            ? GetSupporterOverrideDuration(rule, bridgeEvent, includeStartingDuration: true).TotalSeconds
+            ? GetSupporterOverrideDuration(rule, bridgeEvent).TotalSeconds
             : rule.DurationSeconds;
 
     private void ApplyChatboxRelayConfiguration(BridgeRuntimeConfiguration configuration)
