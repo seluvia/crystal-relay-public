@@ -217,7 +217,7 @@
                                    Foreground="{DynamicResource MutedBrush}"
                                    TextWrapping="Wrap" />
 
-                        <CheckBox Content="{loc:Translate 'Scale active time by amount'}"
+                        <CheckBox Content="{loc:Translate 'Add amount to active time'}"
                                   IsChecked="{Binding AmountScaledDurationEnabled, UpdateSourceTrigger=PropertyChanged}" />
                         <TextBlock Margin="0,8,0,0"
                                    Text="{Binding SupporterTimeSettingsSummary}"
