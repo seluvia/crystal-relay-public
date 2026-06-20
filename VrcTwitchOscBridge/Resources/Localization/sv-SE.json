@@ -468,7 +468,7 @@
   "Manual re-login window in about {0}.": "Manuellt omloggningsfönster omkring {0}.",
   "Pick the kind of VRChat parameter value this redeem should send. Bool means simple on or off values like True and False. Int means whole numbers only, like 0, 1, or 2. Float means decimal numbers, like 0.0, 0.5, or 1.0. When you switch this type, Crystal Relay resets the value boxes so they match the type you chose.": "Välj vilken typ av VRChat-parametervärde denna belöning ska skicka. Bool betyder enkla på- eller av-värden som True och False. Int betyder bara heltal, som 0, 1 eller 2. Float betyder decimaltal, som 0.0, 0.5 eller 1.0. När du växlar denna typ återställer Crystal Relay värdeboxarna så de matchar typen du valde.",
   "Bits/Subs Amount Timer": "Bits/Subs-beloppstimer",
-  "Scale active time by amount": "Skala aktiv tid efter belopp",
+  "Add amount to active time": "Skala aktiv tid efter belopp",
   "Seconds per bit/sub": "Sekunder per Bit/Sub",
   "When enabled, Crystal Relay ignores the fixed Active Time for this paid override and calculates the timer from the Twitch amount. Bits use the bit count, normal subs count as 1, and gift subs use the gift total. Example: 12 bits with 2 seconds per bit adds 24 seconds.": "När aktiverad ignorerar Crystal Relay den fastställda aktiva tiden för denna betalda överskridning och beräknar timern från Twitch-beloppet. Bits använder bit-antalet, normala Subs räknas som 1, och gåvoprenumerationar använder gåvototalen. Exempel: 12 Bits med 2 sekunder per Bit lägger till 24 sekunder.",
   "Amount-scaled timer is enabled, so Active Time is calculated from the incoming bits/sub amount.": "Beloppsskalad timer är aktiverad, så aktiv tid beräknas från inkommande Bits/Subs-belopp.",

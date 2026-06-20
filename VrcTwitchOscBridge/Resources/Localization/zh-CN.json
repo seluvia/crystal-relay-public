@@ -468,7 +468,7 @@
   "Manual re-login window in about {0}.": "手动重新登录窗口约在 {0} 后。",
   "Pick the kind of VRChat parameter value this redeem should send. Bool means simple on or off values like True and False. Int means whole numbers only, like 0, 1, or 2. Float means decimal numbers, like 0.0, 0.5, or 1.0. When you switch this type, Crystal Relay resets the value boxes so they match the type you chose.": "选择此兑换应发送的 VRChat 参数值类型。Bool 表示简单的开关值如 True 和 False。Int 表示整数如 0、1 或 2。Float 表示小数如 0.0、0.5 或 1.0。切换类型时 Crystal Relay 会重置值框以匹配你选择的类型。",
   "Bits/Subs Amount Timer": "Bits/Subs 数量计时器",
-  "Scale active time by amount": "按数量缩放持续时间",
+  "Add amount to active time": "按数量缩放持续时间",
   "Seconds per bit/sub": "每个 Bit/Sub 的秒数",
   "When enabled, Crystal Relay ignores the fixed Active Time for this paid override and calculates the timer from the Twitch amount. Bits use the bit count, normal subs count as 1, and gift subs use the gift total. Example: 12 bits with 2 seconds per bit adds 24 seconds.": "启用后，Crystal Relay 会忽略此付费覆盖的固定持续时间，根据 Twitch 数量计算计时。Bits 使用数量，普通订阅按 1 计算，赠送订阅使用赠送总数。示例：12 Bits 每 Bit 2 秒，增加 24 秒。",
   "Amount-scaled timer is enabled, so Active Time is calculated from the incoming bits/sub amount.": "已启用按数量缩放计时器，持续时间将根据收到的 Bits/Subs 数量计算。",

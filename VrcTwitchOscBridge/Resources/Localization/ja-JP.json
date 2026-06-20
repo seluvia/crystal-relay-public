@@ -468,7 +468,7 @@
   "Manual re-login window in about {0}.": "手動再ログインウィンドウは約{0}です。",
   "Pick the kind of VRChat parameter value this redeem should send. Bool means simple on or off values like True and False. Int means whole numbers only, like 0, 1, or 2. Float means decimal numbers, like 0.0, 0.5, or 1.0. When you switch this type, Crystal Relay resets the value boxes so they match the type you chose.": "この特典が送信するVRChatパラメータ値の種類を選択してください。BoolはTrueやFalseのようなシンプルなオン/オフ値です。Intは0、1、2のようなwhole numberのみです。Floatは0.0、0.5、1.0のような小数値です。このタイプを切り替えると、Crystal Relayは選択したタイプに一致するように値ボックスをリセットします。",
   "Bits/Subs Amount Timer": "Bits/Subs量タイマー",
-  "Scale active time by amount": "量に応じてアクティブ時間をスケール",
+  "Add amount to active time": "量に応じてアクティブ時間をスケール",
   "Seconds per bit/sub": "1 bit/subあたりの秒数",
   "When enabled, Crystal Relay ignores the fixed Active Time for this paid override and calculates the timer from the Twitch amount. Bits use the bit count, normal subs count as 1, and gift subs use the gift total. Example: 12 bits with 2 seconds per bit adds 24 seconds.": "有効にすると、Crystal Relayはこの有料オーバーライドの固定アクティブ時間を無視し、Twitchの量からタイマーを計算します。Bitsはbit数を使用し、通常のSubsは1としてカウントし、gift subsはgift合計を使用します。例: 1 bitあたり2秒で12 bitsの場合は24秒追加されます。",
   "Amount-scaled timer is enabled, so Active Time is calculated from the incoming bits/sub amount.": "量スケールタイマーが有効なため、アクティブ時間は受信したbits/subsの量から計算されます。",

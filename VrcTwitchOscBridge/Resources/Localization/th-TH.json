@@ -468,7 +468,7 @@
   "Manual re-login window in about {0}.": "หน้าต่างลงชื่อเข้าใช้ใหม่ด้วยตนเองในอีกประมาณ {0}",
   "Pick the kind of VRChat parameter value this redeem should send. Bool means simple on or off values like True and False. Int means whole numbers only, like 0, 1, or 2. Float means decimal numbers, like 0.0, 0.5, or 1.0. When you switch this type, Crystal Relay resets the value boxes so they match the type you chose.": "เลือกประเภทค่าพารามิเตอร์ VRChat ที่รางวัลนี้ควรส่ง บูลหมายถึงค่าเปิดหรือปิดง่ายๆ เช่น True และ False จำนวนเต็มหมายถึงจำนวนเต็มเท่านั้น เช่น 0, 1 หรือ 2 ทศนิยมหมายถึงเลขทศนิยม เช่น 0.0, 0.5 หรือ 1.0 เมื่อคุณสลับประเภทนี้ Crystal Relay จะรีเซ็ตช่องค่าให้ตรงกับประเภทที่คุณเลือก",
   "Bits/Subs Amount Timer": "ตัวจับเวลาจำนวน Bits/Subs",
-  "Scale active time by amount": "ปรับเวลาใช้งานตามจำนวน",
+  "Add amount to active time": "ปรับเวลาใช้งานตามจำนวน",
   "Seconds per bit/sub": "วินาทีต่อ bit/sub",
   "When enabled, Crystal Relay ignores the fixed Active Time for this paid override and calculates the timer from the Twitch amount. Bits use the bit count, normal subs count as 1, and gift subs use the gift total. Example: 12 bits with 2 seconds per bit adds 24 seconds.": "เมื่อเปิดใช้งาน Crystal Relay จะละเว้นเวลาใช้งานที่กำหนดไว้สำหรับการเขียนทับแบบเสียค่าใช้จ่ายนี้และคำนวณตัวจับเวลาจากจำนวน Twitch Bits ใช้จำนวน Bits Subs ปกตินับเป็น 1 และของขวัญ Subs ใช้ผลรวมของขวัญ ตัวอย่าง: 12 Bits ด้วย 2 วินาทีต่อ Bit จะเพิ่ม 24 วินาที",
   "Amount-scaled timer is enabled, so Active Time is calculated from the incoming bits/sub amount.": "ตัวจับเวลาแบบปรับตามจำนวนเปิดใช้งานแล้ว ดังนั้นเวลาใช้งานจะถูกคำนวณจากจำนวน bits/sub ที่เข้ามา",

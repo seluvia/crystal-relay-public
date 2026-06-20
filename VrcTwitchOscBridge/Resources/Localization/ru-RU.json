@@ -470,7 +470,7 @@
   "Manual re-login window in about {0}.": "Окно повторного входа примерно через {0}.",
   "Pick the kind of VRChat parameter value this redeem should send. Bool means simple on or off values like True and False. Int means whole numbers only, like 0, 1, or 2. Float means decimal numbers, like 0.0, 0.5, or 1.0. When you switch this type, Crystal Relay resets the value boxes so they match the type you chose.": "Выберите тип значения параметра VRChat для этой награды. Булево — простые значения вкл/выкл (True/False). Целое — только целые числа (0, 1, 2). Вещественное — десятичные числа (0.0, 0.5, 1.0). При смене типа Crystal Relay сбрасывает поля значений под выбранный тип.",
   "Bits/Subs Amount Timer": "Таймер суммы Bits/Subs",
-  "Scale active time by amount": "Масштабировать время активности по сумме",
+  "Add amount to active time": "Масштабировать время активности по сумме",
   "Seconds per bit/sub": "Секунд на бит/подписку",
   "When enabled, Crystal Relay ignores the fixed Active Time for this paid override and calculates the timer from the Twitch amount. Bits use the bit count, normal subs count as 1, and gift subs use the gift total. Example: 12 bits with 2 seconds per bit adds 24 seconds.": "При включении Crystal Relay игнорирует фиксированное время активности для этого платного переопределения и рассчитывает таймер по сумме Twitch. Bits используют количество битов, обычные подписки считаются как 1, подарочные подписки — общее количество подарков. Пример: 12 битов по 2 секунды добавляют 24 секунды.",
   "Amount-scaled timer is enabled, so Active Time is calculated from the incoming bits/sub amount.": "Таймер с масштабированием по сумме включён, поэтому время активности рассчитывается от суммы поступающих Bits/подписок.",
