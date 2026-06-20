@@ -1024,6 +1024,7 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             ChatCommandPermission = rule.ChatCommandPermission,
             MinimumAmount = rule.MinimumAmount,
             AmountScaledDurationEnabled = rule.AmountScaledDurationEnabled,
+            AddBitsToSwapTime = rule.AddBitsToSwapTime,
             AmountUnitsPerDuration = rule.AmountUnitsPerDuration,
             SecondsPerAmountUnit = rule.SecondsPerAmountUnit,
             BitsAmountUnitsPerDuration = rule.BitsAmountUnitsPerDuration,
@@ -1265,6 +1266,7 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
                 : ChatCommandPermission.Moderators,
             MinimumAmount = rule.MinimumAmount <= 0 ? 1 : rule.MinimumAmount,
             AmountScaledDurationEnabled = rule.AmountScaledDurationEnabled,
+            AddBitsToSwapTime = rule.AddBitsToSwapTime,
             AmountUnitsPerDuration = rule.AmountUnitsPerDuration <= 0 ? 1 : rule.AmountUnitsPerDuration,
             SecondsPerAmountUnit = rule.SecondsPerAmountUnit <= 0 ? 1 : rule.SecondsPerAmountUnit,
             BitsAmountUnitsPerDuration = rule.BitsAmountUnitsPerDuration <= 0
@@ -3194,6 +3196,8 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
         public int MinimumAmount { get; set; }
 
         public bool AmountScaledDurationEnabled { get; set; }
+
+        public bool AddBitsToSwapTime { get; set; }
 
         public int AmountUnitsPerDuration { get; set; }
 
