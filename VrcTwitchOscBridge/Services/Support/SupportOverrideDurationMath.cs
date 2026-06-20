@@ -10,7 +10,7 @@ public static class SupportOverrideDurationMath
         string subscriptionTier)
     {
         var baseSeconds = Math.Max(0, rule.DurationSeconds);
-        if (!rule.AmountScaledDurationEnabled)
+        if (!UsesScaledMath(rule))
         {
             return Math.Max(1, baseSeconds);
         }
@@ -18,6 +18,9 @@ public static class SupportOverrideDurationMath
         var scaled = ComputeScaledSeconds(rule, amount, subscriptionTier);
         return baseSeconds + scaled;
     }
+
+    private static bool UsesScaledMath(TriggerRuleSnapshot rule) =>
+        rule.AmountScaledDurationEnabled || rule.AddBitsToSwapTime;
 
     private static double ComputeScaledSeconds(
         TriggerRuleSnapshot rule,
