@@ -223,6 +223,7 @@
     <Compile Include="Services\ShutdownRecoveryStateStore.cs" />
     <Compile Include="Services\SettingsStore.cs" />
     <Compile Include="Services\SensitiveTextSanitizer.cs" />
+    <Compile Include="Services\Support\SupportOverrideDurationMath.cs" />
     <Compile Include="Services\TwitchApiClient.cs" />
     <Compile Include="Services\TwitchApiException.cs" />
     <Compile Include="Services\ThemeManager.cs" />
