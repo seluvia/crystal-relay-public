@@ -496,16 +496,16 @@
 
                             <!-- Per-rule full editors -->
                             <DataTemplate DataType="{x:Type uc:InlineChannelPointRuleRowViewModel}">
-                                <uc:InlineRuleEditorControl DataContext="{Binding}" />
+                                <uc:InlineRuleEditorControl DataContext="{Binding}" Profile="{Binding Profile}" />
                             </DataTemplate>
                             <DataTemplate DataType="{x:Type uc:InlineBitsRuleRowViewModel}">
-                                <uc:InlineRuleEditorControl DataContext="{Binding}" />
+                                <uc:InlineRuleEditorControl DataContext="{Binding}" Profile="{Binding Profile}" />
                             </DataTemplate>
                             <DataTemplate DataType="{x:Type uc:InlineSubsRuleRowViewModel}">
-                                <uc:InlineRuleEditorControl DataContext="{Binding}" />
+                                <uc:InlineRuleEditorControl DataContext="{Binding}" Profile="{Binding Profile}" />
                             </DataTemplate>
                             <DataTemplate DataType="{x:Type uc:InlineRouletteRuleRowViewModel}">
-                                <uc:InlineRuleEditorControl DataContext="{Binding}" />
+                                <uc:InlineRuleEditorControl DataContext="{Binding}" Profile="{Binding Profile}" />
                             </DataTemplate>
                             <DataTemplate DataType="{x:Type uc:InlinePaymentRuleRowViewModel}">
                                 <uc:InlineCashPaymentRuleEditorControl DataContext="{Binding Rule}" />

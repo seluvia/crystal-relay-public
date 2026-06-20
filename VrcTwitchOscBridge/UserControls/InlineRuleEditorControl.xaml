@@ -199,9 +199,9 @@
                                            FontStyle="Italic" Margin="0,4,0,0" />
                             </StackPanel>
                         </UniformGrid>
-                        <CheckBox IsChecked="{Binding Rule.MaxAccumulatedDurationEnabled}" Content="Cap max accumulated duration" Margin="0,8,0,0" />
-                        <StackPanel Visibility="{Binding Rule.MaxAccumulatedDurationEnabled, Converter={StaticResource BoolToVisibilityConverter}}" Margin="20,4,0,0">
-                            <TextBox Text="{Binding Rule.MaxAccumulatedDurationSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                        <CheckBox IsChecked="{Binding Profile.MaxSwapTimeEnabled}" Content="Cap max accumulated duration" Margin="0,8,0,0" />
+                        <StackPanel Visibility="{Binding Profile.MaxSwapTimeEnabled, Converter={StaticResource BoolToVisibilityConverter}}" Margin="20,4,0,0">
+                            <TextBox Text="{Binding Profile.MaxSwapTimeSeconds, UpdateSourceTrigger=PropertyChanged}" />
                         </StackPanel>
                         <CheckBox IsChecked="{Binding Rule.BitsKeywordEnabled}"
                                   Content="{loc:Translate 'Require chat keyword'}"
@@ -231,36 +231,42 @@
                 <Border Background="{DynamicResource NestedPanelBrush}" CornerRadius="4" Padding="10" Margin="0,0,0,8">
                     <StackPanel>
                         <TextBlock Text="Subscription Settings" Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" Margin="0,0,0,8" />
-                        <CheckBox Content="{loc:Translate 'Add bits time to swap'}"
+                        <CheckBox Content="{loc:Translate 'Add sub time to swap'}"
                                   IsChecked="{Binding Rule.AddBitsToSwapTime, UpdateSourceTrigger=PropertyChanged}"
                                   Margin="0,0,0,8" />
-                        <UniformGrid Columns="3">
-                            <StackPanel Margin="0,0,6,0">
-                                <CheckBox IsChecked="{Binding Rule.SubscriptionTier1Enabled}"
-                                          Content="T1 seconds/sub"
-                                          Foreground="{DynamicResource MutedBrush}"
-                                          FontSize="11" Margin="0,0,0,2" />
-                                <TextBox Text="{Binding Rule.SubscriptionTier1SecondsPerSub, UpdateSourceTrigger=PropertyChanged}"
-                                         IsEnabled="{Binding Rule.SubscriptionTier1Enabled}" />
-                            </StackPanel>
-                            <StackPanel Margin="6,0,6,0">
-                                <CheckBox IsChecked="{Binding Rule.SubscriptionTier2Enabled}"
-                                          Content="T2 seconds/sub"
-                                          Foreground="{DynamicResource MutedBrush}"
-                                          FontSize="11" Margin="0,0,0,2" />
-                                <TextBox Text="{Binding Rule.SubscriptionTier2SecondsPerSub, UpdateSourceTrigger=PropertyChanged}"
-                                         IsEnabled="{Binding Rule.SubscriptionTier2Enabled}" />
-                            </StackPanel>
-                            <StackPanel Margin="6,0,0,0">
-                                <CheckBox IsChecked="{Binding Rule.SubscriptionTier3Enabled}"
-                                          Content="T3 seconds/sub"
-                                          Foreground="{DynamicResource MutedBrush}"
-                                          FontSize="11" Margin="0,0,0,2" />
-                                <TextBox Text="{Binding Rule.SubscriptionTier3SecondsPerSub, UpdateSourceTrigger=PropertyChanged}"
-                                         IsEnabled="{Binding Rule.SubscriptionTier3Enabled}" />
-                            </StackPanel>
-                        </UniformGrid>
+                        <StackPanel Visibility="{Binding Rule.AddBitsToSwapTime, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <UniformGrid Columns="3">
+                                <StackPanel Margin="0,0,6,0">
+                                    <CheckBox IsChecked="{Binding Rule.SubscriptionTier1Enabled}"
+                                              Content="T1 seconds/sub"
+                                              Foreground="{DynamicResource MutedBrush}"
+                                              FontSize="11" Margin="0,0,0,2" />
+                                    <TextBox Text="{Binding Rule.SubscriptionTier1SecondsPerSub, UpdateSourceTrigger=PropertyChanged}"
+                                             IsEnabled="{Binding Rule.SubscriptionTier1Enabled}" />
+                                </StackPanel>
+                                <StackPanel Margin="6,0,6,0">
+                                    <CheckBox IsChecked="{Binding Rule.SubscriptionTier2Enabled}"
+                                              Content="T2 seconds/sub"
+                                              Foreground="{DynamicResource MutedBrush}"
+                                              FontSize="11" Margin="0,0,0,2" />
+                                    <TextBox Text="{Binding Rule.SubscriptionTier2SecondsPerSub, UpdateSourceTrigger=PropertyChanged}"
+                                             IsEnabled="{Binding Rule.SubscriptionTier2Enabled}" />
+                                </StackPanel>
+                                <StackPanel Margin="6,0,0,0">
+                                    <CheckBox IsChecked="{Binding Rule.SubscriptionTier3Enabled}"
+                                              Content="T3 seconds/sub"
+                                              Foreground="{DynamicResource MutedBrush}"
+                                              FontSize="11" Margin="0,0,0,2" />
+                                    <TextBox Text="{Binding Rule.SubscriptionTier3SecondsPerSub, UpdateSourceTrigger=PropertyChanged}"
+                                             IsEnabled="{Binding Rule.SubscriptionTier3Enabled}" />
+                                </StackPanel>
+                            </UniformGrid>
+                        </StackPanel>
                         <CheckBox IsChecked="{Binding Rule.IsGiftSubscription}" Content="Include gift subs" Margin="0,8,0,0" />
+                        <CheckBox IsChecked="{Binding Profile.MaxSwapTimeEnabled}" Content="Cap max accumulated duration" Margin="0,8,0,0" />
+                        <StackPanel Visibility="{Binding Profile.MaxSwapTimeEnabled, Converter={StaticResource BoolToVisibilityConverter}}" Margin="20,4,0,0">
+                            <TextBox Text="{Binding Profile.MaxSwapTimeSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
                     </StackPanel>
                 </Border>
             </StackPanel>
