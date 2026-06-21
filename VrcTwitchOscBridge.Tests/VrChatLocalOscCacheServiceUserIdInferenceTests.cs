@@ -33,28 +33,28 @@ public sealed class VrChatLocalOscCacheServiceUserIdInferenceTests : IDisposable
     }
 
     [Fact]
-    public void TryInferUserIdFromLocalLowInRootAsync_WhenNoOscFolder_ReturnsNull()
+    public void TryInferUserIdFromLocalLowInRoot_WhenNoOscFolder_ReturnsNull()
     {
-        var result = VrChatLocalOscCacheService.TryInferUserIdFromLocalLowInRootAsync(tempRoot);
+        var result = VrChatLocalOscCacheService.TryInferUserIdFromLocalLowInRoot(tempRoot);
         Assert.Null(result);
     }
 
     [Fact]
-    public void TryInferUserIdFromLocalLowInRootAsync_WhenSingleUserFolder_ReturnsThatUserId()
+    public void TryInferUserIdFromLocalLowInRoot_WhenSingleUserFolder_ReturnsThatUserId()
     {
         var expected = CreateOscUser("usr_single", DateTime.UtcNow);
-        var result = VrChatLocalOscCacheService.TryInferUserIdFromLocalLowInRootAsync(tempRoot);
+        var result = VrChatLocalOscCacheService.TryInferUserIdFromLocalLowInRoot(tempRoot);
         Assert.Equal(expected, result);
     }
 
     [Fact]
-    public void TryInferUserIdFromLocalLowInRootAsync_WhenMultipleUserFolders_ReturnsMostRecentlyModified()
+    public void TryInferUserIdFromLocalLowInRoot_WhenMultipleUserFolders_ReturnsMostRecentlyModified()
     {
         var older = DateTime.UtcNow.AddDays(-2);
         var newer = DateTime.UtcNow.AddDays(-1);
         CreateOscUser("usr_older", older);
         var expected = CreateOscUser("usr_newer", newer);
-        var result = VrChatLocalOscCacheService.TryInferUserIdFromLocalLowInRootAsync(tempRoot);
+        var result = VrChatLocalOscCacheService.TryInferUserIdFromLocalLowInRoot(tempRoot);
         Assert.Equal(expected, result);
     }
 }

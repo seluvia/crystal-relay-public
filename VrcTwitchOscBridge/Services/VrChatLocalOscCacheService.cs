@@ -245,7 +245,9 @@ internal sealed class VrChatLocalOscCacheService
     // or null when there are none (or the root is unreadable). The test-friendly
     // overload accepts an explicit root path; the public no-arg overload uses
     // %USERPROFILE%\AppData\LocalLow\VRChat\VRChat.
-    public static string? TryInferUserIdFromLocalLowInRootAsync(string rootPath)
+    // The returned value is the raw `usr_*` folder name (e.g. `usr_abc123...`)
+    // and is meant to be passed to GetAvatarOscFolderPath and similar helpers.
+    public static string? TryInferUserIdFromLocalLowInRoot(string rootPath)
     {
         if (string.IsNullOrWhiteSpace(rootPath) || !Directory.Exists(rootPath))
         {
@@ -271,7 +273,7 @@ internal sealed class VrChatLocalOscCacheService
         if (userDirs.Length == 0) return null;
         if (userDirs.Length == 1) return Path.GetFileName(userDirs[0]);
 
-        // multiple — pick the most recently modified and log a soft warning
+        // multiple — pick the most recently modified
         var newest = userDirs
             .OrderByDescending(d =>
             {
@@ -286,7 +288,7 @@ internal sealed class VrChatLocalOscCacheService
     {
         ct.ThrowIfCancellationRequested();
         var root = VrChatLocalClientStateService.GetVrChatRootPath();
-        return Task.FromResult(TryInferUserIdFromLocalLowInRootAsync(root));
+        return Task.FromResult(TryInferUserIdFromLocalLowInRoot(root));
     }
 
     // VRChat parameter files can contain separate input/output endpoints.
