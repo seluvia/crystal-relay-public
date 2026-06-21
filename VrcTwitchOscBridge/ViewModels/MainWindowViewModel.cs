@@ -522,6 +522,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     private string testModeCashMessage = string.Empty;
     private string testModeSimulationStatusText = T("Choose a simulated event and Crystal Relay will run it through the same matching path as a real stream event.");
     private FileSystemWatcher? vrChatLocalOscWatcher;
+    private string? inferredLocalLowUserId;
     private readonly List<VrChatAvatarSummary> availableVrChatAvatars = [];
     private readonly Dictionary<string, string> availableVrChatAvatarNamesById = new(StringComparer.Ordinal);
     private readonly Dictionary<string, List<VrChatOscParameterSummary>> cachedVrChatParametersByAvatarId = new(StringComparer.Ordinal);
@@ -1033,6 +1034,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         bridgeCoordinator.PauseCommandRequested += () => RunOnUi(() => ToggleEmergencyRedeemStop());
         bridgeCoordinator.GroupToggleRequested += groupName => RunOnUi(() => ToggleRedeemGroupByName(groupName));
         bridgeCoordinator.RedeemControlRequested += (redeemName, enable) => RunOnUi(() => ToggleRedeemByName(redeemName, enable));
+        bridgeCoordinator.VrChatOscAvatarChangeReceived += HandleIncomingOscAvatarChangeSync;
         liveFeedbackHeartbeatService.DiagnosticLogged += message => RunOnUi(() => AppendLog(message));
 
     }
@@ -2648,6 +2650,44 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         get => vrChatStatus;
         private set => SetProperty(ref vrChatStatus, value);
     }
+
+    private VrChatConnectionState vrChatConnectionState = VrChatConnectionState.NoData;
+    public VrChatConnectionState VrChatConnectionState
+    {
+        get => vrChatConnectionState;
+        private set
+        {
+            if (vrChatConnectionState != value)
+            {
+                vrChatConnectionState = value;
+                RaisePropertyChanged();
+                RaisePropertyChanged(nameof(VrChatConnectionStateLabel));
+                RaisePropertyChanged(nameof(VrChatConnectionStateTooltip));
+                RaisePropertyChanged(nameof(VrChatConnectionStateBrush));
+            }
+        }
+    }
+
+    public string VrChatConnectionStateLabel => VrChatConnectionState switch
+    {
+        VrChatConnectionState.LoggedIn => T("VRChat: Logged in"),
+        VrChatConnectionState.Cached => T("VRChat: Cached"),
+        _ => T("VRChat: No data"),
+    };
+
+    public string VrChatConnectionStateTooltip => VrChatConnectionState switch
+    {
+        VrChatConnectionState.LoggedIn => T("Connected to VRChat. Avatar names and the current avatar are fetched from the live API."),
+        VrChatConnectionState.Cached => T("VRChat login is unavailable. Crystal Relay is using the cached avatar list and detecting the current avatar via OSC and LocalLow files."),
+        _ => T("No avatar data is available. Log in to VRChat or visit an avatar in VRChat to build the cache."),
+    };
+
+    public Brush VrChatConnectionStateBrush => VrChatConnectionState switch
+    {
+        VrChatConnectionState.LoggedIn => Brushes.LimeGreen,
+        VrChatConnectionState.Cached => Brushes.Goldenrod,
+        _ => Brushes.Gray,
+    };
 
     public string VrChatAvatarStatus
     {
@@ -11383,6 +11423,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         catch (VrChatApiException apiException) when (apiException.StatusCode == System.Net.HttpStatusCode.Unauthorized)
         {
             ClearVrChatAccountPreservingCurrentAvatar();
+            InvalidateInferredLocalLowUserId();
             ClearAvailableVrChatAvatars();
             await settingsStore.ClearVrChatAvatarCacheAsync(CancellationToken.None);
             await settingsStore.ClearVrChatOscParameterCacheAsync(CancellationToken.None);
@@ -17676,6 +17717,52 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         RaisePropertyChanged(nameof(IsVrChatConnected));
         RaisePropertyChanged(nameof(IsVrChatDisconnected));
     }
+
+    private void RecomputeVrChatConnectionState()
+    {
+        VrChatConnectionState newState;
+        if (!string.IsNullOrWhiteSpace(Settings.VrChat.AuthCookie))
+        {
+            newState = VrChatConnectionState.LoggedIn;
+        }
+        else if (availableVrChatAvatars.Count > 0)
+        {
+            newState = VrChatConnectionState.Cached;
+        }
+        else
+        {
+            newState = VrChatConnectionState.NoData;
+        }
+        VrChatConnectionState = newState;
+    }
+
+    private string? ResolveCurrentUserIdForCache()
+    {
+        if (!string.IsNullOrWhiteSpace(Settings.VrChat.UserId))
+        {
+            return Settings.VrChat.UserId;
+        }
+        if (!string.IsNullOrWhiteSpace(inferredLocalLowUserId))
+        {
+            return inferredLocalLowUserId;
+        }
+        var inferred = VrChatLocalOscCacheService.TryInferUserIdFromLocalLowInRoot(
+            VrChatLocalClientStateService.GetVrChatRootPath());
+        inferredLocalLowUserId = inferred;
+        return inferred;
+    }
+
+    private void InvalidateInferredLocalLowUserId()
+    {
+        inferredLocalLowUserId = null;
+    }
+
+    private void HandleIncomingOscAvatarChangeSync(string avatarId)
+    {
+        _ = HandleIncomingOscAvatarChangeAsync(avatarId, CancellationToken.None);
+    }
+
+    private Task HandleIncomingOscAvatarChangeAsync(string avatarId, CancellationToken ct) => Task.CompletedTask;
 
     private void EnsureRuleCollectionsHaveStarterContent()
     {
