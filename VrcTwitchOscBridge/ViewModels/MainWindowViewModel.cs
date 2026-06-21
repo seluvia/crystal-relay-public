@@ -3873,6 +3873,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             QueueLocalVrChatOscAvatarScan(0);
             QueueCurrentVrChatLocalStateRefresh(0);
             await RefreshVrChatAvatarsAsync(forceRemoteRefresh: true);
+            RecomputeVrChatConnectionState();
         }
         catch (Exception ex)
         {
@@ -4133,37 +4134,51 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         if (!Settings.VrChat.IsConnected)
         {
             AvatarPickerService.SetVrChatAuthCookie(null);
+        }
+        else
+        {
+            AvatarPickerService.SetVrChatAuthCookie(Settings.VrChat.AuthCookie);
+        }
+
+        var startupUserId = ResolveCurrentUserIdForCache();
+        if (!string.IsNullOrEmpty(startupUserId))
+        {
+            var cachedAvatars = await settingsStore.LoadVrChatAvatarCacheAsync(startupUserId, CancellationToken.None);
+            ReplaceAvailableVrChatAvatars(cachedAvatars);
+        }
+
+        StartOrRefreshVrChatLocalOscWatcher();
+        QueueLocalVrChatOscAvatarScan(0);
+
+        if (!Settings.VrChat.IsConnected)
+        {
             VrChatStatus = T("VRChat avatar access is not connected.");
             VrChatAvatarStatus = T("Connect VRChat to load avatar choices.");
             VrChatOscParameterStatus = T("Connect VRChat to load avatar parameters.");
             ResetVrChatLocalRuntimeTracking();
-            DisposeVrChatLocalOscWatcher();
             RefreshVrChatAvatarSelectionOptions();
+            RecomputeVrChatConnectionState();
             return;
         }
 
-        AvatarPickerService.SetVrChatAuthCookie(Settings.VrChat.AuthCookie);
-        var cachedAvatars = await settingsStore.LoadVrChatAvatarCacheAsync(Settings.VrChat.UserId, CancellationToken.None);
-        ReplaceAvailableVrChatAvatars(cachedAvatars);
         if (NormalizeSupporterAvatarScopes())
         {
             QueueSave(0);
             QueueBridgeRefresh();
         }
-        StartOrRefreshVrChatLocalOscWatcher();
         await ScanLocalVrChatOscAvatarCacheAsync(CancellationToken.None);
         QueueCurrentVrChatLocalStateRefresh(0);
         UpdateAvatarProfileActivityStates();
 
-        if (cachedAvatars.Count > 0)
+        if (availableVrChatAvatars.Count > 0)
         {
             VrChatStatus = TF("Connected to VRChat as {0}.", Settings.VrChat.DisplayName);
-            VrChatAvatarStatus = TF("Loaded {0} saved avatars. Checking VRChat once for updates...", cachedAvatars.Count);
+            VrChatAvatarStatus = TF("Loaded {0} saved avatars. Checking VRChat once for updates...", availableVrChatAvatars.Count);
             SyncVrChatAvatarRuleLabels();
             RefreshVrChatAvatarSelectionOptions();
         }
 
-        if (cachedAvatars.Count == 0)
+        if (availableVrChatAvatars.Count == 0)
         {
             VrChatStatus = TF("Connected to VRChat as {0}.", Settings.VrChat.DisplayName);
             VrChatAvatarStatus = T("Pulling your VRChat avatar list...");
@@ -4173,6 +4188,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
         await EnsureSelectedAvatarParameterCacheLoadedAsync();
         await RefreshVrChatAvatarsAsync(forceRemoteRefresh: true);
+        RecomputeVrChatConnectionState();
     }
 
     private async Task RefreshVrChatAvatarsAsync()
@@ -4214,6 +4230,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             RefreshVrChatAvatarSelectionOptions();
             await EnsureSelectedAvatarParameterCacheLoadedAsync();
             RefreshCommandStates();
+            RecomputeVrChatConnectionState();
             return;
         }
 
@@ -4253,6 +4270,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
                 ? TF("Connected VRChat avatar access as {0}, but no avatars were returned.", account.DisplayName)
                 : TF("Loaded {0} VRChat avatars for {1}.", avatars.Count, account.DisplayName));
             await RefreshVrChatOscParametersAsync(suppressErrors: true);
+            RecomputeVrChatConnectionState();
         }
         catch (Exception ex)
         {
