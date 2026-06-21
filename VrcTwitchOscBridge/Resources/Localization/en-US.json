@@ -543,6 +543,7 @@
   "Max Added Time": "Max Added Time",
   "Limit total added time": "Limit total added time",
   "Maximum total time in seconds": "Maximum total time in seconds",
+  "Cap max accumulated duration": "Cap max accumulated duration",
   "When enabled, Crystal Relay caps the total remaining time for this same paid override rule. New bits or subs can only add time until the rule reaches this limit. Example: 1800 seconds = 30 minutes.": "When enabled, Crystal Relay caps the total remaining time for this same paid override rule. New bits or subs can only add time until the rule reaches this limit. Example: 1800 seconds = 30 minutes.",
   "Paid override '{0}' is already at its max added time of {1}, so Crystal Relay did not add more time.": "Paid override '{0}' is already at its max added time of {1}, so Crystal Relay did not add more time.",
   "Active Time Seconds": "Active Time Seconds",
@@ -724,8 +725,7 @@
   "Edit Avatar Swap": "Edit Avatar Swap",
   "Edit Rule": "Edit Rule",
   "Cooldown-only avatar change": "Cooldown-only avatar change",
-  "Roulette Pool": "Roulette Pool"
-
+  "Roulette Pool": "Roulette Pool",
   "Add bits time to swap": "Add bits time to swap",
-  "Add sub time to swap": "Add sub time to swap",
+  "Add sub time to swap": "Add sub time to swap"
 }

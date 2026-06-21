@@ -14,14 +14,16 @@ public sealed class InlineChannelPointRuleRowViewModel : ObservableObject, IRule
     private ICommand? _editCommand;
     private ICommand? _deleteCommand;
 
-    public InlineChannelPointRuleRowViewModel(TriggerRule rule)
+    public InlineChannelPointRuleRowViewModel(TriggerRule rule, AvatarSwapProfile? profile = null)
     {
         _rule = rule ?? throw new ArgumentNullException(nameof(rule));
+        Profile = profile;
         _rule.PropertyChanged += OnRulePropertyChanged;
         RefreshSummary();
     }
 
     public object Rule => _rule;
+    public AvatarSwapProfile? Profile { get; }
 
     public string Summary
     {

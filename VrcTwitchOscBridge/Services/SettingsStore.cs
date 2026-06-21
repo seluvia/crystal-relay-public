@@ -1142,7 +1142,8 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
         {
             Id = profile.Id,
             IsEnabled = profile.IsEnabled,
-            MaxSwapTimeEnabled = profile.MaxSwapTimeEnabled,
+            BitsMaxSwapTimeEnabled = profile.BitsMaxSwapTimeEnabled,
+            SubsMaxSwapTimeEnabled = profile.SubsMaxSwapTimeEnabled,
             MaxSwapTimeSeconds = profile.MaxSwapTimeSeconds,
             TargetAvatarId = profile.TargetAvatarId,
             TargetAvatarName = profile.TargetAvatarName,
@@ -1155,11 +1156,16 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
 
     private static AvatarSwapProfile ToAvatarSwapProfile(PersistedAvatarSwapProfile profile)
     {
+        var legacyCap = false;
+#pragma warning disable CS0618
+        legacyCap = profile.LegacyMaxSwapTimeEnabled ?? false;
+#pragma warning restore CS0618
         var result = new AvatarSwapProfile
         {
             Id = profile.Id,
             IsEnabled = profile.IsEnabled,
-            MaxSwapTimeEnabled = profile.MaxSwapTimeEnabled,
+            BitsMaxSwapTimeEnabled = profile.BitsMaxSwapTimeEnabled || legacyCap,
+            SubsMaxSwapTimeEnabled = profile.SubsMaxSwapTimeEnabled || legacyCap,
             MaxSwapTimeSeconds = profile.MaxSwapTimeSeconds <= 0 ? 1800 : profile.MaxSwapTimeSeconds,
             TargetAvatarId = profile.TargetAvatarId ?? string.Empty,
             TargetAvatarName = profile.TargetAvatarName ?? string.Empty,
@@ -3083,9 +3089,15 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
 
         public bool IsEnabled { get; set; }
 
-        public bool MaxSwapTimeEnabled { get; set; }
+        public bool BitsMaxSwapTimeEnabled { get; set; }
+
+        public bool SubsMaxSwapTimeEnabled { get; set; }
 
         public int MaxSwapTimeSeconds { get; set; } = 1800;
+
+        [JsonPropertyName("MaxSwapTimeEnabled")]
+        [Obsolete("Migrated to BitsMaxSwapTimeEnabled and SubsMaxSwapTimeEnabled. Kept for one release to preserve saved cap settings.")]
+        public bool? LegacyMaxSwapTimeEnabled { get; set; }
 
         public string TargetAvatarId { get; set; } = string.Empty;
 

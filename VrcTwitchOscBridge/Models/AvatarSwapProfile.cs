@@ -11,8 +11,42 @@ public partial class AvatarSwapProfile : ObservableObject
     public string TargetAvatarName { get; set; } = string.Empty;
     public string? TargetThumbnailUrl { get; set; }
     public bool IsEnabled { get; set; } = true;
-    public bool MaxSwapTimeEnabled { get; set; } = false;
-    public int MaxSwapTimeSeconds { get; set; } = 1800;
+    private bool bitsMaxSwapTimeEnabled;
+    private bool subsMaxSwapTimeEnabled;
+    private int maxSwapTimeSeconds = 1800;
+
+    public bool BitsMaxSwapTimeEnabled
+    {
+        get => bitsMaxSwapTimeEnabled;
+        set
+        {
+            if (SetProperty(ref bitsMaxSwapTimeEnabled, value))
+            {
+                RaisePropertyChanged(nameof(AnySwapTimeCapEnabled));
+            }
+        }
+    }
+
+    public bool SubsMaxSwapTimeEnabled
+    {
+        get => subsMaxSwapTimeEnabled;
+        set
+        {
+            if (SetProperty(ref subsMaxSwapTimeEnabled, value))
+            {
+                RaisePropertyChanged(nameof(AnySwapTimeCapEnabled));
+            }
+        }
+    }
+
+    public int MaxSwapTimeSeconds
+    {
+        get => maxSwapTimeSeconds;
+        set => SetProperty(ref maxSwapTimeSeconds, value);
+    }
+
+    public bool AnySwapTimeCapEnabled => BitsMaxSwapTimeEnabled || SubsMaxSwapTimeEnabled;
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

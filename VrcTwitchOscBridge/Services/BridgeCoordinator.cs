@@ -6519,7 +6519,13 @@ internal BridgeCoordinator(
         var profile = activeConfiguration?.FindAvatarSwapProfileForRule(rule.Rule);
         if (profile is not null)
         {
-            return (profile.MaxSwapTimeEnabled, profile.MaxSwapTimeSeconds);
+            var capEnabled = rule.TriggerType switch
+            {
+                TwitchTriggerType.Bits => profile.BitsMaxSwapTimeEnabled,
+                TwitchTriggerType.Subscriptions or TwitchTriggerType.GiftSubscription => profile.SubsMaxSwapTimeEnabled,
+                _ => false
+            };
+            return (capEnabled, profile.MaxSwapTimeSeconds);
         }
         return (rule.MaxAccumulatedDurationEnabled, rule.MaxAccumulatedDurationSeconds);
     }

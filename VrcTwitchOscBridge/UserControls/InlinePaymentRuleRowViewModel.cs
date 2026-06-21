@@ -14,14 +14,16 @@ public sealed class InlinePaymentRuleRowViewModel : ObservableObject, IRuleRowVi
     private ICommand? _editCommand;
     private ICommand? _deleteCommand;
 
-    public InlinePaymentRuleRowViewModel(CashPaymentRule rule)
+    public InlinePaymentRuleRowViewModel(CashPaymentRule rule, AvatarSwapProfile? profile = null)
     {
         _rule = rule ?? throw new ArgumentNullException(nameof(rule));
+        Profile = profile;
         _rule.PropertyChanged += OnRulePropertyChanged;
         RefreshSummary();
     }
 
     public object Rule => _rule;
+    public AvatarSwapProfile? Profile { get; }
     public string Summary { get => _summary; private set => SetProperty(ref _summary, value); }
     public bool IsEnabled => _rule.IsEnabled;
 

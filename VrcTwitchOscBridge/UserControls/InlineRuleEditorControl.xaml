@@ -199,10 +199,7 @@
                                            FontStyle="Italic" Margin="0,4,0,0" />
                             </StackPanel>
                         </UniformGrid>
-                        <CheckBox IsChecked="{Binding Profile.MaxSwapTimeEnabled}" Content="Cap max accumulated duration" Margin="0,8,0,0" />
-                        <StackPanel Visibility="{Binding Profile.MaxSwapTimeEnabled, Converter={StaticResource BoolToVisibilityConverter}}" Margin="20,4,0,0">
-                            <TextBox Text="{Binding Profile.MaxSwapTimeSeconds, UpdateSourceTrigger=PropertyChanged}" />
-                        </StackPanel>
+                        <CheckBox IsChecked="{Binding Profile.BitsMaxSwapTimeEnabled}" Content="{loc:Translate 'Cap max accumulated duration'}" Margin="0,8,0,0" />
                         <CheckBox IsChecked="{Binding Rule.BitsKeywordEnabled}"
                                   Content="{loc:Translate 'Require chat keyword'}"
                                   Margin="0,8,0,0" />
@@ -263,10 +260,7 @@
                             </UniformGrid>
                         </StackPanel>
                         <CheckBox IsChecked="{Binding Rule.IsGiftSubscription}" Content="Include gift subs" Margin="0,8,0,0" />
-                        <CheckBox IsChecked="{Binding Profile.MaxSwapTimeEnabled}" Content="Cap max accumulated duration" Margin="0,8,0,0" />
-                        <StackPanel Visibility="{Binding Profile.MaxSwapTimeEnabled, Converter={StaticResource BoolToVisibilityConverter}}" Margin="20,4,0,0">
-                            <TextBox Text="{Binding Profile.MaxSwapTimeSeconds, UpdateSourceTrigger=PropertyChanged}" />
-                        </StackPanel>
+                        <CheckBox IsChecked="{Binding Profile.SubsMaxSwapTimeEnabled}" Content="{loc:Translate 'Cap max accumulated duration'}" Margin="0,8,0,0" />
                     </StackPanel>
                 </Border>
             </StackPanel>
@@ -285,6 +279,11 @@
                             <TextBox Text="{Binding Rule.CooldownSeconds, UpdateSourceTrigger=PropertyChanged}" />
                         </StackPanel>
                     </UniformGrid>
+                    <StackPanel Margin="0,8,0,0"
+                                Visibility="{Binding Profile.AnySwapTimeCapEnabled, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <TextBlock Text="{loc:Translate 'Maximum total time in seconds'}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
+                        <TextBox Text="{Binding Profile.MaxSwapTimeSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                    </StackPanel>
                     <TextBlock Text="{loc:Translate 'Bot Message'}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,8,0,2" />
                     <TextBox Text="{Binding Rule.BotMessageTemplate, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" Height="60" TextWrapping="Wrap" />
                 </StackPanel>

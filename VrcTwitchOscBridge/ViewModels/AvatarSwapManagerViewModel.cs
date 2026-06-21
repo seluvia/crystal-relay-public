@@ -323,27 +323,28 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
 
         if (SelectedSwapCard is not null)
         {
-            foreach (var r in SelectedSwapCard.Profile.ChannelPointRules)
+            var swapProfile = SelectedSwapCard.Profile;
+            foreach (var r in swapProfile.ChannelPointRules)
             {
-                var row = new InlineChannelPointRuleRowViewModel(r);
+                var row = new InlineChannelPointRuleRowViewModel(r, swapProfile);
                 WireRowCommands(row);
                 ChannelPointRows.Add(row);
             }
-            foreach (var r in SelectedSwapCard.Profile.BitsRules)
+            foreach (var r in swapProfile.BitsRules)
             {
-                var row = new InlineBitsRuleRowViewModel(r);
+                var row = new InlineBitsRuleRowViewModel(r, swapProfile);
                 WireRowCommands(row);
                 BitsRows.Add(row);
             }
-            foreach (var r in SelectedSwapCard.Profile.SubsRules)
+            foreach (var r in swapProfile.SubsRules)
             {
-                var row = new InlineSubsRuleRowViewModel(r);
+                var row = new InlineSubsRuleRowViewModel(r, swapProfile);
                 WireRowCommands(row);
                 SubsRows.Add(row);
             }
-            foreach (var r in SelectedSwapCard.Profile.PaymentRules)
+            foreach (var r in swapProfile.PaymentRules)
             {
-                var row = new InlinePaymentRuleRowViewModel(r);
+                var row = new InlinePaymentRuleRowViewModel(r, swapProfile);
                 WireRowCommands(row);
                 PaymentRows.Add(row);
             }
@@ -503,7 +504,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
             Name = "New Channel Point Swap"
         };
         SelectedSwapCard.Profile.ChannelPointRules.Add(rule);
-        var row = new InlineChannelPointRuleRowViewModel(rule);
+        var row = new InlineChannelPointRuleRowViewModel(rule, SelectedSwapCard.Profile);
         WireRowCommands(row);
         ChannelPointRows.Add(row);
     }
@@ -521,7 +522,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
             Name = "New Bits Swap"
         };
         SelectedSwapCard.Profile.BitsRules.Add(rule);
-        var row = new InlineBitsRuleRowViewModel(rule);
+        var row = new InlineBitsRuleRowViewModel(rule, SelectedSwapCard.Profile);
         WireRowCommands(row);
         BitsRows.Add(row);
     }
@@ -538,7 +539,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
             Name = "New Subs Swap"
         };
         SelectedSwapCard.Profile.SubsRules.Add(rule);
-        var row = new InlineSubsRuleRowViewModel(rule);
+        var row = new InlineSubsRuleRowViewModel(rule, SelectedSwapCard.Profile);
         WireRowCommands(row);
         SubsRows.Add(row);
     }
@@ -560,7 +561,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
             }
         };
         SelectedSwapCard.Profile.PaymentRules.Add(rule);
-        var row = new InlinePaymentRuleRowViewModel(rule);
+        var row = new InlinePaymentRuleRowViewModel(rule, SelectedSwapCard.Profile);
         WireRowCommands(row);
         PaymentRows.Add(row);
     }
@@ -617,26 +618,26 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
             {
                 case TwitchTriggerType.ChannelPoints:
                     SelectedSwapCard.Profile.ChannelPointRules.Add(rule);
-                    var cpRow = new InlineChannelPointRuleRowViewModel(rule);
+                    var cpRow = new InlineChannelPointRuleRowViewModel(rule, SelectedSwapCard.Profile);
                     WireRowCommands(cpRow);
                     ChannelPointRows.Add(cpRow);
                     break;
                 case TwitchTriggerType.Bits:
                     SelectedSwapCard.Profile.BitsRules.Add(rule);
-                    var bitsRow = new InlineBitsRuleRowViewModel(rule);
+                    var bitsRow = new InlineBitsRuleRowViewModel(rule, SelectedSwapCard.Profile);
                     WireRowCommands(bitsRow);
                     BitsRows.Add(bitsRow);
                     break;
                 case TwitchTriggerType.Subscriptions:
                 case TwitchTriggerType.GiftSubscription:
                     SelectedSwapCard.Profile.SubsRules.Add(rule);
-                    var subsRow = new InlineSubsRuleRowViewModel(rule);
+                    var subsRow = new InlineSubsRuleRowViewModel(rule, SelectedSwapCard.Profile);
                     WireRowCommands(subsRow);
                     SubsRows.Add(subsRow);
                     break;
                 default:
                     SelectedSwapCard.Profile.ChannelPointRules.Add(rule);
-                    var defaultRow = new InlineChannelPointRuleRowViewModel(rule);
+                    var defaultRow = new InlineChannelPointRuleRowViewModel(rule, SelectedSwapCard.Profile);
                     WireRowCommands(defaultRow);
                     ChannelPointRows.Add(defaultRow);
                     break;
