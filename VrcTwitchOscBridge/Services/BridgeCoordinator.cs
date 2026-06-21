@@ -17128,9 +17128,9 @@ internal BridgeCoordinator(
                 {
                     VrChatOscAvatarChangeReceived?.Invoke(avatarId);
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // subscriber exceptions must not break the OSC receive loop
+                    WriteLog($"VrChatOscAvatarChangeReceived subscriber threw (ignoring to keep the OSC receive loop alive): {ex.Message}");
                 }
             }
             return;
