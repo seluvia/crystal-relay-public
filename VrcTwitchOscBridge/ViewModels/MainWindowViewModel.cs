@@ -3885,6 +3885,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             VrChatAvatarStatus = T("VRChat avatar list is unavailable until login succeeds.");
             AppendLog(VrChatStatus);
             QueueSave();
+            RecomputeVrChatConnectionState();
         }
         finally
         {
@@ -4156,6 +4157,26 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             VrChatAvatarStatus = T("Connect VRChat to load avatar choices.");
             VrChatOscParameterStatus = T("Connect VRChat to load avatar parameters.");
             ResetVrChatLocalRuntimeTracking();
+
+            var inferredUserId = ResolveCurrentUserIdForCache();
+            if (!string.IsNullOrEmpty(inferredUserId))
+            {
+                try
+                {
+                    var localAvatars = await vrChatLocalOscCacheService
+                        .LoadKnownAvatarsAsync(inferredUserId, CancellationToken.None)
+                        .ConfigureAwait(false);
+                    if (localAvatars.Count > 0)
+                    {
+                        RunOnUi(() => ApplyLocalVrChatOscAvatars(localAvatars));
+                    }
+                }
+                catch
+                {
+                    // best-effort; the watcher and managed-reward sync handle the persistent case
+                }
+            }
+
             RefreshVrChatAvatarSelectionOptions();
             RecomputeVrChatConnectionState();
             return;
