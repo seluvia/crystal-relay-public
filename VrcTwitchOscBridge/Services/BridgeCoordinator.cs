@@ -311,6 +311,8 @@ internal BridgeCoordinator(
 
     public event Action? AvatarScaleStatusChanged;
 
+    public event Action<string>? VrChatOscAvatarChangeReceived;
+
     public event Func<RewardFireSaleContribution, bool>? RewardFireSaleContributionReceived;
 
     public event Func<DevFireSaleRequest, bool>? DevFireSaleRequested;
@@ -17115,6 +17117,25 @@ internal BridgeCoordinator(
         OscObservedValue observedValue,
         bool updateActiveAvatarScaleCarryover = false)
     {
+        if (string.Equals(observedValue.Address, "/avatar/change", StringComparison.Ordinal))
+        {
+            string? avatarId = observedValue.ParameterType == OscParameterType.String && observedValue.Value is string s
+                ? s.Trim()
+                : null;
+            if (!string.IsNullOrEmpty(avatarId) && avatarId.StartsWith("avtr_", StringComparison.Ordinal))
+            {
+                try
+                {
+                    VrChatOscAvatarChangeReceived?.Invoke(avatarId);
+                }
+                catch
+                {
+                    // subscriber exceptions must not break the OSC receive loop
+                }
+            }
+            return;
+        }
+
         if (IsAvatarScaleAddress(observedValue.Address))
         {
             string? passiveCarryoverDiagnostic = null;
