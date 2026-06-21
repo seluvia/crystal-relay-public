@@ -17821,6 +17821,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             }
         }
 
+        // Synchronous: HandleVrChatAvatarChangedByBridge is void and mutates UI-bound
+        // state (Settings.VrChat.CurrentAvatarId, in-memory list, managed reward sync)
+        // that the following RecomputeVrChatConnectionState reads. Must run before
+        // RecomputeVrChatConnectionState so the connection state reflects the change.
         HandleVrChatAvatarChangedByBridge(avatarId, queueManagedRewardSync: true);
 
         RecomputeVrChatConnectionState();

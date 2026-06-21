@@ -5,7 +5,7 @@ using Xunit;
 
 namespace VrcTwitchOscBridge.Tests;
 
-public sealed class VrChatConnectionStateTests
+public sealed class OscAvatarChangeMergerTests
 {
     [Fact]
     public void MergeIntoList_EmptyList_AddsNewEntry()
@@ -68,7 +68,7 @@ public sealed class VrChatConnectionStateTests
         };
         var result = OscAvatarChangeMerger.MergeIntoList(
             existing, "", "X", "Local OSC");
-        Assert.Same(existing, result);
+        Assert.Equal(existing, result);
     }
 
     [Fact]
@@ -80,6 +80,20 @@ public sealed class VrChatConnectionStateTests
         };
         var result = OscAvatarChangeMerger.MergeIntoList(
             existing, "not_an_avatar_id", "X", "Local OSC");
-        Assert.Same(existing, result);
+        Assert.Equal(existing, result);
+    }
+
+    [Fact]
+    public void MergeIntoList_ExistingEntry_PreservesIsCurrentAvatarAndThumbnail()
+    {
+        var existing = new List<VrChatAvatarSummary>
+        {
+            new("avtr_abc", "avtr_abc", "Local OSC", IsCurrentAvatar: true, ThumbnailUrl: "https://example.test/thumb.png"),
+        };
+        var result = OscAvatarChangeMerger.MergeIntoList(
+            existing, "avtr_abc", "Real Name", "Local OSC");
+        Assert.Single(result);
+        Assert.True(result[0].IsCurrentAvatar);
+        Assert.Equal("https://example.test/thumb.png", result[0].ThumbnailUrl);
     }
 }
