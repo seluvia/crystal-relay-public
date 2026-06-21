@@ -1,5 +1,8 @@
 using System.IO;
+using System.Linq;
 using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using VrcTwitchOscBridge.Models;
 
 namespace VrcTwitchOscBridge.Services;
@@ -234,6 +237,56 @@ internal sealed class VrChatLocalOscCacheService
         }
 
         return null;
+    }
+
+    // Resolves the most likely VRChat user id by looking at the OSC user folders
+    // under a given LocalLow-style root. Returns the single folder name when
+    // there is one, the most-recently-modified folder when there are several,
+    // or null when there are none (or the root is unreadable). The test-friendly
+    // overload accepts an explicit root path; the public no-arg overload uses
+    // %USERPROFILE%\AppData\LocalLow\VRChat\VRChat.
+    public static string? TryInferUserIdFromLocalLowInRootAsync(string rootPath)
+    {
+        if (string.IsNullOrWhiteSpace(rootPath) || !Directory.Exists(rootPath))
+        {
+            return null;
+        }
+
+        var oscRoot = Path.Combine(rootPath, "OSC");
+        if (!Directory.Exists(oscRoot))
+        {
+            return null;
+        }
+
+        string[] userDirs;
+        try
+        {
+            userDirs = Directory.GetDirectories(oscRoot, "usr_*");
+        }
+        catch
+        {
+            return null;
+        }
+
+        if (userDirs.Length == 0) return null;
+        if (userDirs.Length == 1) return Path.GetFileName(userDirs[0]);
+
+        // multiple — pick the most recently modified and log a soft warning
+        var newest = userDirs
+            .OrderByDescending(d =>
+            {
+                try { return Directory.GetLastWriteTimeUtc(d); }
+                catch { return DateTime.MinValue; }
+            })
+            .First();
+        return Path.GetFileName(newest);
+    }
+
+    public static Task<string?> TryInferUserIdFromLocalLowAsync(CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        var root = VrChatLocalClientStateService.GetVrChatRootPath();
+        return Task.FromResult(TryInferUserIdFromLocalLowInRootAsync(root));
     }
 
     // VRChat parameter files can contain separate input/output endpoints.
