@@ -4259,17 +4259,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             if (ex is VrChatApiException apiException
                 && apiException.StatusCode == System.Net.HttpStatusCode.Unauthorized)
             {
-                ClearVrChatAccountPreservingCurrentAvatar();
-                ClearAvailableVrChatAvatars();
-                await settingsStore.ClearVrChatAvatarCacheAsync(CancellationToken.None);
-                await settingsStore.ClearVrChatOscParameterCacheAsync(CancellationToken.None);
-                cachedVrChatParametersByAvatarId.Clear();
+                await HandleVrChatUnauthorizedAsync(CancellationToken.None).ConfigureAwait(false);
                 AvatarParameterOptions.Clear();
                 SetTriggerParameterOptions.Clear();
                 SelectedAvatarParameterOption = null;
                 SelectedSetTriggerParameterOption = null;
                 RaiseVrChatConnectionStateProperties();
-                RecomputeVrChatConnectionState();
                 SyncVrChatRuntimeState(queueManagedRewardSync: false);
                 VrChatStatus = T("Saved VRChat session expired. Connect again to reload avatars.");
                 VrChatAvatarStatus = T("VRChat avatar list is unavailable until you reconnect.");
@@ -11424,18 +11419,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         }
         catch (VrChatApiException apiException) when (apiException.StatusCode == System.Net.HttpStatusCode.Unauthorized)
         {
-            ClearVrChatAccountPreservingCurrentAvatar();
-            InvalidateInferredLocalLowUserId();
-            ClearAvailableVrChatAvatars();
-            await settingsStore.ClearVrChatAvatarCacheAsync(CancellationToken.None);
-            await settingsStore.ClearVrChatOscParameterCacheAsync(CancellationToken.None);
-            cachedVrChatParametersByAvatarId.Clear();
+            await HandleVrChatUnauthorizedAsync(cancellationToken).ConfigureAwait(false);
             AvatarParameterOptions.Clear();
             SetTriggerParameterOptions.Clear();
             SelectedAvatarParameterOption = null;
             SelectedSetTriggerParameterOption = null;
             RaiseVrChatConnectionStateProperties();
-            RecomputeVrChatConnectionState();
             SyncVrChatRuntimeState(queueManagedRewardSync: false);
             VrChatStatus = T("Saved VRChat session expired. Connect again to keep tracking your current avatar.");
             VrChatAvatarStatus = T("VRChat avatar list is unavailable until you reconnect.");
@@ -17775,6 +17764,46 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     private void InvalidateInferredLocalLowUserId()
     {
         inferredLocalLowUserId = null;
+    }
+
+    private async Task HandleVrChatUnauthorizedAsync(CancellationToken ct)
+    {
+        // 1. Filter the in-memory list to LocalLow-sourced entries only.
+        var localOnly = availableVrChatAvatars
+            .Where(a => string.Equals(a.SourceLabel, "Local OSC", StringComparison.Ordinal))
+            .ToList();
+
+        // 2. Replace the in-memory list.
+        ReplaceAvailableVrChatAvatars(localOnly);
+
+        // 3. Persist the filtered list (keeps LocalLow, drops API).
+        var userId = ResolveCurrentUserIdForCache();
+        if (!string.IsNullOrEmpty(userId))
+        {
+            try
+            {
+                await settingsStore
+                    .SaveVrChatAvatarCacheAsync(userId, localOnly, ct)
+                    .ConfigureAwait(false);
+            }
+            catch
+            {
+                // best-effort; do not break the 401 cleanup
+            }
+        }
+
+        // 4. Clear auth state. (Do NOT clear CurrentAvatarId — the bridge keeps
+        //    tracking the last known avatar until the next /avatar/change.)
+        Settings.VrChat.AuthCookie = string.Empty;
+        Settings.VrChat.UserId = string.Empty;
+        Settings.VrChat.DisplayName = string.Empty;
+
+        // 5. OSC parameter cache and in-memory parameter dict stay as-is —
+        //    they are LocalLow-sourced and remain valid.
+
+        // 6. Re-evaluate the connection state.
+        RecomputeVrChatConnectionState();
+        InvalidateInferredLocalLowUserId();
     }
 
     private void HandleIncomingOscAvatarChangeSync(string avatarId)
