@@ -1034,9 +1034,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         bridgeCoordinator.PauseCommandRequested += () => RunOnUi(() => ToggleEmergencyRedeemStop());
         bridgeCoordinator.GroupToggleRequested += groupName => RunOnUi(() => ToggleRedeemGroupByName(groupName));
         bridgeCoordinator.RedeemControlRequested += (redeemName, enable) => RunOnUi(() => ToggleRedeemByName(redeemName, enable));
-        bridgeCoordinator.VrChatOscAvatarChangeReceived += HandleIncomingOscAvatarChangeSync;
+        bridgeCoordinator.VrChatOscAvatarChangeReceived += avatarId => RunOnUi(() => HandleIncomingOscAvatarChangeSync(avatarId));
         liveFeedbackHeartbeatService.DiagnosticLogged += message => RunOnUi(() => AppendLog(message));
 
+        RecomputeVrChatConnectionState();
     }
 
     public AppSettings Settings
@@ -4268,6 +4269,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
                 SelectedAvatarParameterOption = null;
                 SelectedSetTriggerParameterOption = null;
                 RaiseVrChatConnectionStateProperties();
+                RecomputeVrChatConnectionState();
                 SyncVrChatRuntimeState(queueManagedRewardSync: false);
                 VrChatStatus = T("Saved VRChat session expired. Connect again to reload avatars.");
                 VrChatAvatarStatus = T("VRChat avatar list is unavailable until you reconnect.");
@@ -11433,6 +11435,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             SelectedAvatarParameterOption = null;
             SelectedSetTriggerParameterOption = null;
             RaiseVrChatConnectionStateProperties();
+            RecomputeVrChatConnectionState();
             SyncVrChatRuntimeState(queueManagedRewardSync: false);
             VrChatStatus = T("Saved VRChat session expired. Connect again to keep tracking your current avatar.");
             VrChatAvatarStatus = T("VRChat avatar list is unavailable until you reconnect.");
