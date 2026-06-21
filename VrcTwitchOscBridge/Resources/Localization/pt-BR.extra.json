@@ -1114,5 +1114,12 @@
   "Reward Colors": "Cores da Recompensa",
   "Everyone": "Todos",
   "Moderators": "Moderadores",
-  "Broadcaster": "Streamer"
+  "Broadcaster": "Streamer",
+
+  "VRChat: Logged in": "VRChat: Conectado",
+  "VRChat: Cached": "VRChat: Em cache",
+  "VRChat: No data": "VRChat: Sem dados",
+  "Connected to VRChat. Avatar names and current avatar are fetched from the live API.": "Conectado ao VRChat. Os nomes dos avatares e o avatar atual são buscados diretamente da API ao vivo.",
+  "VRChat login is unavailable. Crystal Relay is using the cached avatar list and detecting the current avatar via OSC and LocalLow files.": "O login do VRChat não está disponível. O Crystal Relay está usando a lista de avatares em cache e detectando o avatar atual por OSC e arquivos LocalLow.",
+  "No avatar data is available. Log in to VRChat or visit an avatar in VRChat to build the cache.": "Não há dados de avatar disponíveis. Faça login no VRChat ou visite um avatar no VRChat para criar o cache."
 }

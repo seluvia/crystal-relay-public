@@ -258,6 +258,14 @@
   "VRChat 2FA | Crystal Relay": "VRChat 兩步驟驗證 | Crystal Relay",
   "VRChat 2-Factor Check": "VRChat 兩步驟驗證檢查",
   "VRChat Avatar Access": "VRChat 頭像存取",
+
+  "VRChat: Logged in": "VRChat：已登入",
+  "VRChat: Cached": "VRChat：已快取",
+  "VRChat: No data": "VRChat：無資料",
+  "Connected to VRChat. Avatar names and current avatar are fetched from the live API.": "已連線至 VRChat。頭像名稱與目前頭像透過即時 API 取得。",
+  "VRChat login is unavailable. Crystal Relay is using the cached avatar list and detecting the current avatar via OSC and LocalLow files.": "無法登入 VRChat。Crystal Relay 正在使用快取的頭像清單，並透過 OSC 與 LocalLow 檔案偵測目前頭像。",
+  "No avatar data is available. Log in to VRChat or visit an avatar in VRChat to build the cache.": "沒有可用的頭像資料。請登入 VRChat 或在 VRChat 中造訪一個頭像以建立快取。",
+
   "VRChat avatar access failed: {0}": "VRChat 頭像存取失敗:{0}",
   "VRChat avatar access is not connected.": "VRChat 頭像存取尚未連線。",
   "VRChat Chatbox": "VRChat 聊天視窗",

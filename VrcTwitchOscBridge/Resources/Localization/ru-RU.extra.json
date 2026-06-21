@@ -1114,5 +1114,12 @@
   "Reward Colors": "Цвета награды",
   "Everyone": "Все",
   "Moderators": "Модераторы",
-  "Broadcaster": "Стример"
+  "Broadcaster": "Стример",
+
+  "VRChat: Logged in": "VRChat: Вход выполнен",
+  "VRChat: Cached": "VRChat: Из кэша",
+  "VRChat: No data": "VRChat: Нет данных",
+  "Connected to VRChat. Avatar names and current avatar are fetched from the live API.": "Подключено к VRChat. Имена аватаров и текущий аватар загружаются из живого API.",
+  "VRChat login is unavailable. Crystal Relay is using the cached avatar list and detecting the current avatar via OSC and LocalLow files.": "Вход в VRChat недоступен. Crystal Relay использует кэшированный список аватаров и определяет текущий аватар через OSC и файлы LocalLow.",
+  "No avatar data is available. Log in to VRChat or visit an avatar in VRChat to build the cache.": "Нет данных об аватарах. Войдите в VRChat или посетите аватар в VRChat, чтобы создать кэш."
 }

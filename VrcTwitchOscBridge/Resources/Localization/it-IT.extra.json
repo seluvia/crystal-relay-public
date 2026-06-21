@@ -1161,5 +1161,12 @@
   "Moderators": "Moderatori",
   "Broadcaster": "Streamer",
   "Back to {0}": "← Back to {0}",
-  "Back to {0} (Roulette)": "← Back to {0} (Roulette)"
+  "Back to {0} (Roulette)": "← Back to {0} (Roulette)",
+
+  "VRChat: Logged in": "VRChat: Connesso",
+  "VRChat: Cached": "VRChat: In cache",
+  "VRChat: No data": "VRChat: Nessun dato",
+  "Connected to VRChat. Avatar names and current avatar are fetched from the live API.": "Connesso a VRChat. I nomi degli avatar e l'avatar attuale vengono recuperati dall'API live.",
+  "VRChat login is unavailable. Crystal Relay is using the cached avatar list and detecting the current avatar via OSC and LocalLow files.": "L'accesso a VRChat non è disponibile. Crystal Relay sta usando la lista avatar in cache e rileva l'avatar attuale tramite OSC e i file LocalLow.",
+  "No avatar data is available. Log in to VRChat or visit an avatar in VRChat to build the cache.": "Nessun dato avatar disponibile. Accedi a VRChat o visita un avatar in VRChat per creare la cache."
 }

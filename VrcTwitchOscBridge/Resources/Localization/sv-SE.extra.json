@@ -1,4 +1,4 @@
-{
+﻿{
   "OSC parameter paths must match VRChat exactly: capitalization, spacing, slashes, and the parameter name all need to be 1-to-1. Wrong value type, missing target/default values, duration resets, or a parameter that does not exist on the current avatar can make a trigger look like it did nothing. Channel point triggers also need a reward name or linked reward before Twitch can match them. Linked rewards are listen-only, and incomplete triggers stay local until setup is complete.": "OSC parameter paths must match VRChat exactly: capitalization, spacing, slashes, and the parameter name all need to be 1-to-1. Wrong value type, missing target/default values, duration resets, or a parameter that does not exist on the current avatar can make a trigger look like it did nothing. Channel point triggers also need a reward name or linked reward before Twitch can match them. Linked rewards are listen-only, and incomplete triggers stay local until setup is complete.",
   "Unconfigured": "Ej konfigurerad",
   "Universal Trigger Setup Warning": "Varning för universell utlösar-installation",
@@ -1113,5 +1113,12 @@
   "Crystal Relay could not import that background image.\n\n{0}": "Crystal Relay kunde inte importera den bakgrundsbilden.\n\n{0}",
   "Crystal Relay could not install the update automatically.\n\n{0}\n\nOpen the GitHub release page instead?": "Crystal Relay kunde inte installera uppdateringen automatiskt.\n\n{0}\n\nVill du öppna GitHub-versionssidan istället?",
   "Saved login repair could not finish. Your safety backup is still available at:\n{0}": "Reparationen av sparad inloggning kunde inte slutföras. Din säkerhetskopia finns fortfarande på:\n{0}",
-  "Saved login repair could not start.\n\n{0}": "Reparationen av sparad inloggning kunde inte starta.\n\n{0}"
+  "Saved login repair could not start.\n\n{0}": "Reparationen av sparad inloggning kunde inte starta.\n\n{0}",
+
+  "VRChat: Logged in": "VRChat: Inloggad",
+  "VRChat: Cached": "VRChat: Cachad",
+  "VRChat: No data": "VRChat: Ingen data",
+  "Connected to VRChat. Avatar names and current avatar are fetched from the live API.": "Ansluten till VRChat. Avatar-namn och aktuell avatar hämtas direkt från live-API:et.",
+  "VRChat login is unavailable. Crystal Relay is using the cached avatar list and detecting the current avatar via OSC and LocalLow files.": "VRChat-inloggning är inte tillgänglig. Crystal Relay använder den cachade avatar-listan och upptäcker aktuell avatar via OSC och LocalLow-filer.",
+  "No avatar data is available. Log in to VRChat or visit an avatar in VRChat to build the cache.": "Ingen avatar-data tillgänglig. Logga in på VRChat eller besök en avatar i VRChat för att bygga cachen."
 }

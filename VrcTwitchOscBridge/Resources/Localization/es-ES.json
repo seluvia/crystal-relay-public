@@ -258,6 +258,14 @@
   "VRChat 2FA | Crystal Relay": "2FA de VRChat | Crystal Relay",
   "VRChat 2-Factor Check": "Verificación 2FA de VRChat",
   "VRChat Avatar Access": "Acceso a avatares de VRChat",
+
+  "VRChat: Logged in": "VRChat: Conectado",
+  "VRChat: Cached": "VRChat: En caché",
+  "VRChat: No data": "VRChat: Sin datos",
+  "Connected to VRChat. Avatar names and current avatar are fetched from the live API.": "Conectado a VRChat. Los nombres de los avatares y el avatar actual se obtienen directamente de la API en vivo.",
+  "VRChat login is unavailable. Crystal Relay is using the cached avatar list and detecting the current avatar via OSC and LocalLow files.": "El inicio de sesión de VRChat no está disponible. Crystal Relay está usando la lista de avatares en caché y detecta el avatar actual mediante OSC y los archivos de LocalLow.",
+  "No avatar data is available. Log in to VRChat or visit an avatar in VRChat to build the cache.": "No hay datos de avatares disponibles. Inicia sesión en VRChat o visita un avatar en VRChat para crear la caché.",
+
   "VRChat avatar access failed: {0}": "Falló el acceso a avatares de VRChat: {0}",
   "VRChat avatar access is not connected.": "El acceso a avatares de VRChat no está conectado.",
   "VRChat Chatbox": "Chatbox de VRChat",

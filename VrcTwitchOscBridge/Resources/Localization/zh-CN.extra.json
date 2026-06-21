@@ -1176,5 +1176,12 @@
   "This list holds the redeems that belong to the avatar set you selected. These rules turn on when Crystal Relay detects that exact avatar, and they turn off again when you switch away. Add Redeem creates another rule for this avatar, Delete Redeem removes the selected one, Test Redeem lets you try it locally, and Disable Pairing can hide sibling redeems while one is on cooldown or reveal special sibling redeems only after another one triggers.": "这个列表里放着选中的头像套装对应的奖励。Crystal Relay 检测到那个确切的头像时,这些规则就会启用,切走之后又会关闭。添加奖励会为这个头像新建一条规则,删除奖励会移除选中的那一个,测试奖励可以本地试一下,禁用配对既可以在一段时间冷却时隐藏同级奖励,也可以在另一条触发后显示特殊的同级奖励。",
   "This tab is for universal Twitch interaction triggers. Import a Fooma Twitch Interaction config here, then test and adjust the OSC actions without changing the existing Avatar Sets, Movement Redeems, Avatar Change, or Bits + Subs override sections.": "这个标签页是通用 Twitch 互动触发。在这里导入 Fooma Twitch 互动配置,然后测试和调整 OSC 动作,不用改原有的头像套装、移动奖励、头像切换或 Bits + 订阅覆盖部分。",
   "This is the redeem list for this avatar set. Pick a redeem to edit it below, test it, or choose how paired sibling redeems should hide or reveal.": "这是这个头像套装的奖励列表。挑一条奖励,在下面编辑、测试,或者选择配对的同级奖励应该如何隐藏或显示。",
-  "{0} · Twitch ID {1} · {2}": "{0} · Twitch ID {1} · {2}"
+  "{0} · Twitch ID {1} · {2}": "{0} · Twitch ID {1} · {2}",
+
+  "VRChat: Logged in": "VRChat：已登录",
+  "VRChat: Cached": "VRChat：已缓存",
+  "VRChat: No data": "VRChat：无数据",
+  "Connected to VRChat. Avatar names and current avatar are fetched from the live API.": "已连接到 VRChat。头像名称和当前头像通过实时 API 获取。",
+  "VRChat login is unavailable. Crystal Relay is using the cached avatar list and detecting the current avatar via OSC and LocalLow files.": "无法登录 VRChat。Crystal Relay 正在使用缓存的头像列表，并通过 OSC 和 LocalLow 文件检测当前头像。",
+  "No avatar data is available. Log in to VRChat or visit an avatar in VRChat to build the cache.": "没有可用的头像数据。请登录 VRChat 或在 VRChat 中访问一个头像以建立缓存。"
 }

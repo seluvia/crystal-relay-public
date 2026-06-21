@@ -258,6 +258,14 @@
   "VRChat 2FA | Crystal Relay": "VRChat 2FA | Crystal Relay",
   "VRChat 2-Factor Check": "VRChat 二段階認証の確認",
   "VRChat Avatar Access": "VRChat アバターアクセス",
+
+  "VRChat: Logged in": "VRChat: ログイン中",
+  "VRChat: Cached": "VRChat: キャッシュ",
+  "VRChat: No data": "VRChat: データなし",
+  "Connected to VRChat. Avatar names and current avatar are fetched from the live API.": "VRChat に接続済み。アバター名と現在のアバターはライブ API から取得しています。",
+  "VRChat login is unavailable. Crystal Relay is using the cached avatar list and detecting the current avatar via OSC and LocalLow files.": "VRChat ログインが利用できません。Crystal Relay はキャッシュされたアバターリストを使用し、OSC と LocalLow ファイルで現在のアバターを検出しています。",
+  "No avatar data is available. Log in to VRChat or visit an avatar in VRChat to build the cache.": "アバターデータがありません。VRChat にログインするか、VRChat 内でアバターを訪問してキャッシュを構築してください。",
+
   "VRChat avatar access failed: {0}": "VRChat アバターアクセスに失敗しました: {0}",
   "VRChat avatar access is not connected.": "VRChat アバターアクセスが接続されていません。",
   "VRChat Chatbox": "VRChat チャットボックス",

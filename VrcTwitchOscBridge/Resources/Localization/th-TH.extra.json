@@ -1114,5 +1114,12 @@
   "Reward Colors": "สีของรีวาร์ด",
   "Everyone": "ทุกคน",
   "Moderators": "ผู้ดูแล",
-  "Broadcaster": "ผู้ถ่ายทอดสด"
+  "Broadcaster": "ผู้ถ่ายทอดสด",
+
+  "VRChat: Logged in": "VRChat: เข้าสู่ระบบแล้ว",
+  "VRChat: Cached": "VRChat: แคชไว้",
+  "VRChat: No data": "VRChat: ไม่มีข้อมูล",
+  "Connected to VRChat. Avatar names and current avatar are fetched from the live API.": "เชื่อมต่อกับ VRChat แล้ว ชื่ออวาตาร์และอวาตาร์ปัจจุบันถูกดึงจาก API แบบสด",
+  "VRChat login is unavailable. Crystal Relay is using the cached avatar list and detecting the current avatar via OSC and LocalLow files.": "ไม่สามารถเข้าสู่ระบบ VRChat ได้ Crystal Relay กำลังใช้รายการอวาตาร์ที่แคชไว้และตรวจจับอวาตาร์ปัจจุบันผ่าน OSC และไฟล์ LocalLow",
+  "No avatar data is available. Log in to VRChat or visit an avatar in VRChat to build the cache.": "ไม่มีข้อมูลอวาตาร์ที่ใช้งานได้ โปรดเข้าสู่ระบบ VRChat หรือเข้าไปยังอวาตาร์ใน VRChat เพื่อสร้างแคช"
 }
