@@ -11613,6 +11613,23 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
                 RefreshAvatarParameterOptions();
             }
         });
+
+        var persistUserId = ResolveCurrentUserIdForCache();
+        if (!string.IsNullOrEmpty(persistUserId))
+        {
+            try
+            {
+                await settingsStore
+                    .SaveVrChatAvatarCacheAsync(persistUserId, availableVrChatAvatars, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch
+            {
+                // best-effort; do not break the OSC flow
+            }
+        }
+
+        RecomputeVrChatConnectionState();
     }
 
     private void ApplyLocalVrChatOscAvatars(IReadOnlyList<LocalVrChatOscAvatarSummary> localAvatars)
