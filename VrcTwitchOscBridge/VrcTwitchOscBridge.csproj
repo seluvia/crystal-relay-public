@@ -185,6 +185,7 @@
     <Compile Include="Models\UniversalTriggerValueKind.cs" />
     <Compile Include="Models\VrChatAccountSettings.cs" />
     <Compile Include="Models\VrChatAvatarSummary.cs" />
+    <Compile Include="Models\VrChatConnectionState.cs" />
     <Compile Include="Models\AvatarLibrary.cs" />
     <Compile Include="Models\AvatarPickerViewMode.cs" />
     <Compile Include="Models\VrChatOscParameterSummary.cs" />
