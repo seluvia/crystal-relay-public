@@ -3078,6 +3078,12 @@
                                                        Foreground="{DynamicResource TextBrush}"
                                                        FontWeight="SemiBold"
                                                        TextWrapping="Wrap" />
+                                            <TextBlock Margin="0,4,0,0"
+                                                       Text="{Binding VrChatConnectionStateLabel}"
+                                                       ToolTip="{Binding VrChatConnectionStateTooltip}"
+                                                       Foreground="{Binding VrChatConnectionStateBrush}"
+                                                       FontSize="11"
+                                                       FontWeight="Normal" />
                                             <TextBlock Margin="0,6,0,0"
                                                        Text="{Binding VrChatAvatarStatus}"
                                                        Foreground="{DynamicResource MutedBrush}"
