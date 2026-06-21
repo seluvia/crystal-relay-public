@@ -17765,7 +17765,66 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         _ = HandleIncomingOscAvatarChangeAsync(avatarId, CancellationToken.None);
     }
 
-    private Task HandleIncomingOscAvatarChangeAsync(string avatarId, CancellationToken ct) => Task.CompletedTask;
+    private async Task HandleIncomingOscAvatarChangeAsync(string avatarId, CancellationToken ct)
+    {
+        if (!avatarId.StartsWith("avtr_", StringComparison.Ordinal)) return;
+
+        string? resolvedName = null;
+        if (availableVrChatAvatarNamesById.TryGetValue(avatarId, out var existingName) &&
+            !string.IsNullOrWhiteSpace(existingName) &&
+            !string.Equals(existingName, avatarId, StringComparison.Ordinal))
+        {
+            resolvedName = existingName;
+        }
+
+        if (resolvedName is null)
+        {
+            var inferredUserId = await Task.Run(
+                () => VrChatLocalOscCacheService.TryInferUserIdFromLocalLowInRoot(
+                    VrChatLocalClientStateService.GetVrChatRootPath()),
+                ct).ConfigureAwait(false);
+            if (!string.IsNullOrEmpty(inferredUserId))
+            {
+                var known = await vrChatLocalOscCacheService
+                    .LoadKnownAvatarsAsync(inferredUserId, ct)
+                    .ConfigureAwait(false);
+                var match = known.FirstOrDefault(a =>
+                    string.Equals(a.AvatarId, avatarId, StringComparison.Ordinal));
+                if (match is not null &&
+                    !string.IsNullOrWhiteSpace(match.AvatarName) &&
+                    !string.Equals(match.AvatarName, avatarId, StringComparison.Ordinal))
+                {
+                    resolvedName = match.AvatarName;
+                }
+            }
+        }
+
+        var merged = OscAvatarChangeMerger.MergeIntoList(
+            availableVrChatAvatars,
+            avatarId,
+            resolvedName ?? string.Empty,
+            "Local OSC");
+        ReplaceAvailableVrChatAvatars(merged);
+
+        var currentUserId = ResolveCurrentUserIdForCache();
+        if (!string.IsNullOrEmpty(currentUserId))
+        {
+            try
+            {
+                await settingsStore
+                    .SaveVrChatAvatarCacheAsync(currentUserId, availableVrChatAvatars, ct)
+                    .ConfigureAwait(false);
+            }
+            catch
+            {
+                // best-effort; do not break the OSC flow
+            }
+        }
+
+        HandleVrChatAvatarChangedByBridge(avatarId, queueManagedRewardSync: true);
+
+        RecomputeVrChatConnectionState();
+    }
 
     private void EnsureRuleCollectionsHaveStarterContent()
     {

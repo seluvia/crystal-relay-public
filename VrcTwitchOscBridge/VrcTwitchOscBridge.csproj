@@ -217,6 +217,7 @@
     <Compile Include="Services\LocalizationService.cs" />
     <Compile Include="Services\LiveFeedbackHeartbeatService.cs" />
     <Compile Include="Services\ManagedRewardPresentation.cs" />
+    <Compile Include="Services\OscAvatarChangeMerger.cs" />
     <Compile Include="Services\OscRouterService.cs" />
     <Compile Include="Services\RuntimeConfig.cs" />
     <Compile Include="Services\RuntimeConfigStore.cs" />
