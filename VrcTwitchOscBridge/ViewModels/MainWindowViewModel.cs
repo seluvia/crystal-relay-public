@@ -2677,7 +2677,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     public string VrChatConnectionStateTooltip => VrChatConnectionState switch
     {
-        VrChatConnectionState.LoggedIn => T("Connected to VRChat. Avatar names and the current avatar are fetched from the live API."),
+        VrChatConnectionState.LoggedIn => T("Connected to VRChat. Avatar names and current avatar are fetched from the live API."),
         VrChatConnectionState.Cached => T("VRChat login is unavailable. Crystal Relay is using the cached avatar list and detecting the current avatar via OSC and LocalLow files."),
         _ => T("No avatar data is available. Log in to VRChat or visit an avatar in VRChat to build the cache."),
     };
