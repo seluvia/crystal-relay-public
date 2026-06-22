@@ -163,6 +163,7 @@
     <Compile Include="Models\CashPaymentRule.cs" />
     <Compile Include="Models\ChatCommandPermission.cs" />
     <Compile Include="Models\ChatCommandUtility.cs" />
+    <Compile Include="Models\FloatActionMode.cs" />
     <Compile Include="Models\FloatValueMode.cs" />
     <Compile Include="Models\IntZeroDurationMode.cs" />
     <Compile Include="Models\MovementRedeemSet.cs" />
