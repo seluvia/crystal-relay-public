@@ -151,6 +151,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private readonly HashSet<string> drainingQueuedLanes = [];
     private readonly Dictionary<Guid, PendingResetState> pendingResets = [];
     private readonly Dictionary<Guid, ActiveFloatRedeemSessionState> activeFloatRedeemSessions = [];
+    private readonly Dictionary<Guid, ActiveFloatGlitchyRedeemSessionState> activeGlitchyRedeemSessions = [];
     private readonly Dictionary<string, DateTimeOffset> recentMessageIds = [];
     private readonly Dictionary<string, OscObservedValue> avatarParameterValues = [];
     private readonly Dictionary<string, OscObservedValue> avatarScaleValues = new(StringComparer.Ordinal);
@@ -10062,7 +10063,7 @@ internal BridgeCoordinator(
 
         if (sourceRule.FloatActionMode == FloatActionMode.Glitchy && sourceRule.DurationSeconds > 0)
         {
-            return ResolveGlitchyFloatSession(sourceRule, nextValue, address, targetPacket);
+            return ResolveGlitchyFloatSession(rule, address, nextValue);
         }
 
         return new ResolvedRuleAction(
@@ -10099,13 +10100,85 @@ internal BridgeCoordinator(
     }
 
     private ResolvedRuleAction ResolveGlitchyFloatSession(
-        TriggerRule sourceRule, double nextValue, string address, byte[] initialPacket)
+        TriggerRuleSnapshot rule, string address, double nextValue)
     {
-        // TODO: full implementation in Task 8 (GlitchyFloatRedeemSession).
+        var leaseId = Guid.NewGuid();
+        var resetValue = ParseResetValueForGlitchy(rule.Rule);
+        var session = new ActiveFloatGlitchyRedeemSessionState
+        {
+            Rule = rule,
+            Address = address,
+            Min = rule.Rule.FloatRangeMin,
+            Max = rule.Rule.FloatRangeMax,
+            IntervalMs = rule.Rule.FloatGlitchyIntervalMs,
+            ActiveUntil = DateTimeOffset.UtcNow.AddSeconds(rule.Rule.DurationSeconds),
+            ResetValue = resetValue,
+            LeaseId = leaseId,
+        };
+
+        if (activeGlitchyRedeemSessions.TryGetValue(rule.Rule.Id, out var prior))
+        {
+            prior.CompletionCancellation.Cancel();
+            activeGlitchyRedeemSessions.Remove(rule.Rule.Id);
+        }
+        activeGlitchyRedeemSessions[rule.Rule.Id] = session;
+
+        _ = Task.Run(() => RunGlitchyLoopAsync(session));
         return new ResolvedRuleAction(
-            packets: new[] { initialPacket },
+            packets: new[] { vrChatOscClient.BuildAvatarParameterPacket(
+                address, OscParameterType.Float,
+                FloatValueModeConverter.ToOscText(nextValue)) },
             resetPackets: Array.Empty<byte[]>(),
             displayValue: FloatValueModeConverter.ToOscText(nextValue));
+    }
+
+    private static double ParseResetValueForGlitchy(TriggerRule rule)
+    {
+        if (string.IsNullOrWhiteSpace(rule.ResetValue)) return 0.0;
+        if (double.TryParse(rule.ResetValue, System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture, out var v))
+        {
+            return Math.Clamp(v, 0.0, 1.0);
+        }
+        return 0.0;
+    }
+
+    private async Task RunGlitchyLoopAsync(ActiveFloatGlitchyRedeemSessionState session)
+    {
+        try
+        {
+            while (!session.CompletionCancellation.IsCancellationRequested
+                   && DateTimeOffset.UtcNow < session.ActiveUntil)
+            {
+                await Task.Delay(session.IntervalMs, session.CompletionCancellation.Token)
+                    .ConfigureAwait(false);
+                if (session.CompletionCancellation.IsCancellationRequested) break;
+                var value = Random.Shared.NextDouble() * (session.Max - session.Min) + session.Min;
+                await SendSingleFloatAvatarParameterValueAsync(
+                    session.Address, value, session.CompletionCancellation.Token)
+                    .ConfigureAwait(false);
+            }
+            if (!session.CompletionCancellation.IsCancellationRequested
+                && !string.IsNullOrWhiteSpace(session.Rule.ResetValue))
+            {
+                await SendSingleFloatAvatarParameterValueAsync(
+                    session.Address, session.ResetValue, session.CompletionCancellation.Token)
+                    .ConfigureAwait(false);
+            }
+        }
+        catch (TaskCanceledException) { /* expected on stop */ }
+        catch (Exception ex)
+        {
+            WriteLog($"Glitchy loop for '{session.Rule.Name}' failed: {ex.Message}");
+        }
+        finally
+        {
+            if (activeGlitchyRedeemSessions.TryGetValue(session.Rule.Id, out var current)
+                && current.LeaseId == session.LeaseId)
+            {
+                activeGlitchyRedeemSessions.Remove(session.Rule.Id);
+            }
+        }
     }
 
     private async Task<ResolvedRuleAction> ResolveSetTriggerActionAsync(
@@ -18459,6 +18532,21 @@ internal BridgeCoordinator(
         TimeSpan Remaining,
         int QueuedLiveLaneCountAtPause,
         string SourceDescription);
+
+    private sealed class ActiveFloatGlitchyRedeemSessionState
+    {
+        public TriggerRuleSnapshot Rule { get; init; } = null!;
+        public string Address { get; init; } = string.Empty;
+        public double Min { get; init; }
+        public double Max { get; init; }
+        public int IntervalMs { get; init; }
+        public DateTimeOffset ActiveUntil { get; init; }
+        public double ResetValue { get; init; }
+        public CancellationTokenSource CompletionCancellation { get; init; } = new();
+        public List<string> LaneKeys { get; init; } = new();
+        public Guid LeaseId { get; init; }
+        public bool IsTest { get; init; }
+    }
 
     private sealed class ActiveFloatRedeemSessionState
     {
