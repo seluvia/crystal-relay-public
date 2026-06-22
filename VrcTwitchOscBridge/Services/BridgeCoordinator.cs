@@ -152,6 +152,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private readonly Dictionary<Guid, PendingResetState> pendingResets = [];
     private readonly Dictionary<Guid, ActiveFloatRedeemSessionState> activeFloatRedeemSessions = [];
     private readonly Dictionary<Guid, ActiveFloatGlitchyRedeemSessionState> activeGlitchyRedeemSessions = [];
+    private readonly HashSet<CancellationTokenSource> cancellationTokensForPulse = [];
     private readonly Dictionary<string, DateTimeOffset> recentMessageIds = [];
     private readonly Dictionary<string, OscObservedValue> avatarParameterValues = [];
     private readonly Dictionary<string, OscObservedValue> avatarScaleValues = new(StringComparer.Ordinal);
@@ -10077,12 +10078,14 @@ internal BridgeCoordinator(
     {
         var (_, reset) = FloatActionDispatch.ComputeNext(sourceRule, currentValue: 0.0);
         var seconds = Math.Max(0.0, sourceRule.FloatPulseSeconds);
+        var cts = new CancellationTokenSource();
+        cancellationTokensForPulse.Add(cts);
         _ = Task.Run(async () =>
         {
             try
             {
-                await Task.Delay(TimeSpan.FromSeconds(seconds)).ConfigureAwait(false);
-                if (reset.HasValue)
+                await Task.Delay(TimeSpan.FromSeconds(seconds), cts.Token).ConfigureAwait(false);
+                if (reset.HasValue && !cts.IsCancellationRequested)
                 {
                     var resetPacket = vrChatOscClient.BuildAvatarParameterPacket(
                         address, OscParameterType.Float,
@@ -10091,10 +10094,15 @@ internal BridgeCoordinator(
                     ObserveOscValue(new OscObservedValue(address, OscParameterType.Float, (float)reset.Value));
                 }
             }
-            catch (TaskCanceledException) { }
+            catch (TaskCanceledException) { /* expected on stop or avatar change */ }
             catch (Exception ex)
             {
                 WriteLog($"Pulse restore for '{sourceRule.Name}' failed: {ex.Message}");
+            }
+            finally
+            {
+                cts.Dispose();
+                cancellationTokensForPulse.Remove(cts);
             }
         });
     }
@@ -17603,6 +17611,7 @@ internal BridgeCoordinator(
         CancellationTokenSource[] activeFloatRedeemCancellations;
         SemaphoreSlim[] activeFloatRedeemGates;
         CancellationTokenSource[] activeGlitchyRedeemCancellations;
+        CancellationTokenSource[] cancellationTokensForPulseSnapshot;
         CancellationTokenSource? masterUnlockNotification;
         CancellationTokenSource? masterCooldownNotification;
         CancellationTokenSource[] movementLockCancellations;
@@ -17628,6 +17637,8 @@ internal BridgeCoordinator(
             activeFloatRedeemSessions.Clear();
             activeGlitchyRedeemCancellations = [.. activeGlitchyRedeemSessions.Values.Select(session => session.CompletionCancellation)];
             activeGlitchyRedeemSessions.Clear();
+            cancellationTokensForPulseSnapshot = [.. cancellationTokensForPulse];
+            cancellationTokensForPulse.Clear();
             recentMessageIds.Clear();
             nextRecentMessagePruneAt = DateTimeOffset.MinValue;
             avatarParameterValues.Clear();
@@ -17728,6 +17739,16 @@ internal BridgeCoordinator(
         {
             activeGlitchyRedeemCancellation.Cancel();
             activeGlitchyRedeemCancellation.Dispose();
+        }
+
+        foreach (var pulseCancellation in cancellationTokensForPulseSnapshot)
+        {
+            try
+            {
+                pulseCancellation.Cancel();
+            }
+            catch (ObjectDisposedException) { /* already disposed */ }
+            pulseCancellation.Dispose();
         }
 
         foreach (var desktopLockCancellation in desktopLockCancellations)
