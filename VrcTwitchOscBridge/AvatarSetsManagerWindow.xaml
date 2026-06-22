@@ -137,48 +137,6 @@
             <Setter Property="Margin" Value="0,0,4,4" />
             <Setter Property="FontSize" Value="10" />
             <Setter Property="MinWidth" Value="48" />
-            <Style.Triggers>
-                <DataTrigger Binding="{Binding FloatActionMode}" Value="Set">
-                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
-                    <Setter Property="Foreground" Value="White" />
-                </DataTrigger>
-                <DataTrigger Binding="{Binding FloatActionMode}" Value="Random">
-                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
-                    <Setter Property="Foreground" Value="White" />
-                </DataTrigger>
-                <DataTrigger Binding="{Binding FloatActionMode}" Value="Add">
-                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
-                    <Setter Property="Foreground" Value="White" />
-                </DataTrigger>
-                <DataTrigger Binding="{Binding FloatActionMode}" Value="Subtract">
-                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
-                    <Setter Property="Foreground" Value="White" />
-                </DataTrigger>
-                <DataTrigger Binding="{Binding FloatActionMode}" Value="AddSubtract">
-                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
-                    <Setter Property="Foreground" Value="White" />
-                </DataTrigger>
-                <DataTrigger Binding="{Binding FloatActionMode}" Value="Multiply">
-                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
-                    <Setter Property="Foreground" Value="White" />
-                </DataTrigger>
-                <DataTrigger Binding="{Binding FloatActionMode}" Value="Toggle">
-                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
-                    <Setter Property="Foreground" Value="White" />
-                </DataTrigger>
-                <DataTrigger Binding="{Binding FloatActionMode}" Value="Cycle">
-                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
-                    <Setter Property="Foreground" Value="White" />
-                </DataTrigger>
-                <DataTrigger Binding="{Binding FloatActionMode}" Value="Glitchy">
-                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
-                    <Setter Property="Foreground" Value="White" />
-                </DataTrigger>
-                <DataTrigger Binding="{Binding FloatActionMode}" Value="Pulse">
-                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
-                    <Setter Property="Foreground" Value="White" />
-                </DataTrigger>
-            </Style.Triggers>
         </Style>
         <Style x:Key="FilterChipToggleStyle" TargetType="ToggleButton">
             <Setter Property="Background" Value="{DynamicResource SecondaryButtonBrush}" />
@@ -997,6 +955,7 @@
                                                     Margin="0,0,0,6" />
                                          <ComboBox SelectedValue="{Binding RewardSyncMode, UpdateSourceTrigger=PropertyChanged}"
                                                    SelectedValuePath="Tag"
+                                                   Style="{StaticResource ComboBoxStyle}"
                                                    Margin="0,0,0,8">
                                              <ComboBoxItem Content="Manage and Create" Tag="{x:Static models:TwitchRewardSyncMode.CreateOrManage}" />
                                              <ComboBoxItem Content="Link to listen only" Tag="{x:Static models:TwitchRewardSyncMode.LinkExisting}" />
@@ -1274,10 +1233,19 @@
                                           </UniformGrid>
 
                                           <TextBlock Text="Parameter Type"
-                                                   Foreground="{DynamicResource TextBrush}"
-                                                   FontWeight="SemiBold"
-                                                   FontSize="11"
-                                                   Margin="0,12,0,6" />
+                                                    Foreground="{DynamicResource TextBrush}"
+                                                    FontWeight="SemiBold"
+                                                    FontSize="11"
+                                                    Margin="0,12,0,6" />
+                                         <ComboBox ItemsSource="{Binding DataContext.ParameterTypes, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue={x:Null}}"
+                                                   SelectedItem="{Binding ParameterType, UpdateSourceTrigger=PropertyChanged}"
+                                                   Style="{StaticResource ComboBoxStyle}"
+                                                   Margin="0,0,0,8" />
+
+                                          <TextBlock Text="{loc:Translate 'Parameter List Filter'}"
+                                                     Foreground="{DynamicResource TextBrush}"
+                                                     FontSize="11"
+                                                     Margin="0,4,0,6" />
                                          <UniformGrid Columns="4" Margin="0,0,0,8">
                                              <Button Margin="0,0,3,0" Padding="8,4" FontSize="10"
                                                      Command="{Binding DataContext.FilterAllCommand, RelativeSource={RelativeSource AncestorType=Window}}">
@@ -1337,22 +1305,22 @@
                                               </Button>
                                           </UniformGrid>
 
-                                          <Border Background="#22FFFFFF" CornerRadius="6" Padding="8" Margin="0,4,0,4"
+                                          <Border Background="{DynamicResource NestedPanelBrush}" CornerRadius="6" Padding="8" Margin="0,4,0,4"
                                                   Visibility="{Binding UsesFloatActionMode, Converter={StaticResource BoolToVisibilityConverter}}">
                                               <StackPanel>
                                                   <TextBlock Text="{loc:Translate 'FloatActionModeHeader'}" FontWeight="SemiBold" Margin="0,0,0,4" />
-                                                  <WrapPanel>
-                                                      <Button Content="{loc:Translate 'FloatActionModeSet'}" Style="{StaticResource ChipButtonStyle}" Click="OnFloatModeSetClicked" />
-                                                      <Button Content="{loc:Translate 'FloatActionModeRandom'}" Style="{StaticResource ChipButtonStyle}" Click="OnFloatModeRandomClicked" />
-                                                      <Button Content="{loc:Translate 'FloatActionModeAdd'}" Style="{StaticResource ChipButtonStyle}" Click="OnFloatModeAddClicked" />
-                                                      <Button Content="{loc:Translate 'FloatActionModeSubtract'}" Style="{StaticResource ChipButtonStyle}" Click="OnFloatModeSubtractClicked" />
-                                                      <Button Content="±" Style="{StaticResource ChipButtonStyle}" Click="OnFloatModeAddSubtractClicked" />
-                                                      <Button Content="{loc:Translate 'FloatActionModeMultiply'}" Style="{StaticResource ChipButtonStyle}" Click="OnFloatModeMultiplyClicked" />
-                                                      <Button Content="{loc:Translate 'FloatActionModeToggle'}" Style="{StaticResource ChipButtonStyle}" Click="OnFloatModeToggleClicked" />
-                                                      <Button Content="{loc:Translate 'FloatActionModeCycle'}" Style="{StaticResource ChipButtonStyle}" Click="OnFloatModeCycleClicked" />
-                                                      <Button Content="{loc:Translate 'FloatActionModeGlitchy'}" Style="{StaticResource ChipButtonStyle}" Click="OnFloatModeGlitchyClicked" />
-                                                      <Button Content="{loc:Translate 'FloatActionModePulse'}" Style="{StaticResource ChipButtonStyle}" Click="OnFloatModePulseClicked" />
-                                                  </WrapPanel>
+                                                   <UniformGrid Columns="5">
+                                                       <Button Content="{loc:Translate 'FloatActionModeSet'}" Style="{StaticResource ChipButtonStyle}" Click="OnFloatModeSetClicked" Tag="{x:Static models:FloatActionMode.Set}" />
+                                                       <Button Content="{loc:Translate 'FloatActionModeRandom'}" Style="{StaticResource ChipButtonStyle}" Click="OnFloatModeRandomClicked" Tag="{x:Static models:FloatActionMode.Random}" />
+                                                       <Button Content="{loc:Translate 'FloatActionModeAdd'}" Style="{StaticResource ChipButtonStyle}" Click="OnFloatModeAddClicked" Tag="{x:Static models:FloatActionMode.Add}" />
+                                                       <Button Content="{loc:Translate 'FloatActionModeSubtract'}" Style="{StaticResource ChipButtonStyle}" Click="OnFloatModeSubtractClicked" Tag="{x:Static models:FloatActionMode.Subtract}" />
+                                                       <Button Content="±" Style="{StaticResource ChipButtonStyle}" Click="OnFloatModeAddSubtractClicked" Tag="{x:Static models:FloatActionMode.AddSubtract}" />
+                                                       <Button Content="{loc:Translate 'FloatActionModeMultiply'}" Style="{StaticResource ChipButtonStyle}" Click="OnFloatModeMultiplyClicked" Tag="{x:Static models:FloatActionMode.Multiply}" />
+                                                       <Button Content="{loc:Translate 'FloatActionModeToggle'}" Style="{StaticResource ChipButtonStyle}" Click="OnFloatModeToggleClicked" Tag="{x:Static models:FloatActionMode.Toggle}" />
+                                                       <Button Content="{loc:Translate 'FloatActionModeCycle'}" Style="{StaticResource ChipButtonStyle}" Click="OnFloatModeCycleClicked" Tag="{x:Static models:FloatActionMode.Cycle}" />
+                                                       <Button Content="{loc:Translate 'FloatActionModeGlitchy'}" Style="{StaticResource ChipButtonStyle}" Click="OnFloatModeGlitchyClicked" Tag="{x:Static models:FloatActionMode.Glitchy}" />
+                                                       <Button Content="{loc:Translate 'FloatActionModePulse'}" Style="{StaticResource ChipButtonStyle}" Click="OnFloatModePulseClicked" Tag="{x:Static models:FloatActionMode.Pulse}" />
+                                                   </UniformGrid>
 
                                                    <Grid Margin="0,6,0,0" Visibility="{Binding UsesFloatRangeInputs, Converter={StaticResource BoolToVisibilityConverter}}">
                                                        <Grid.ColumnDefinitions>
@@ -1420,7 +1388,8 @@
 
                                                    <StackPanel Margin="0,6,0,0" Visibility="{Binding UsesFloatClampMode, Converter={StaticResource BoolToVisibilityConverter}}">
                                                        <TextBlock Text="{loc:Translate 'FloatActionModeClampLabel'}" />
-                                                       <ComboBox SelectedValue="{Binding FloatClampMode}" SelectedValuePath="Tag">
+                                                       <ComboBox SelectedValue="{Binding FloatClampMode}" SelectedValuePath="Tag"
+                                                                 Style="{StaticResource ComboBoxStyle}">
                                                            <ComboBoxItem Content="{loc:Translate 'FloatActionModeClampNone'}" Tag="{x:Static models:FloatClampMode.None}" />
                                                            <ComboBoxItem Content="{loc:Translate 'FloatActionModeClampZeroToOne'}" Tag="{x:Static models:FloatClampMode.ZeroToOne}" />
                                                            <ComboBoxItem Content="{loc:Translate 'FloatActionModeClampMinToMax'}" Tag="{x:Static models:FloatClampMode.MinToMax}" />
