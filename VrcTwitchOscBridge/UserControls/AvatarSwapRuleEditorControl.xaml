@@ -1414,6 +1414,97 @@
                                 </StackPanel>
                             </UniformGrid>
                         </StackPanel>
+                        <Border BorderBrush="#44FFFFFF" BorderThickness="1" CornerRadius="6" Padding="8" Margin="0,4,0,4"
+                                Visibility="{Binding UsesFloatActionMode, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <StackPanel>
+                                <TextBlock Text="Float Action Mode" FontWeight="SemiBold" Margin="0,0,0,4" />
+                                <ComboBox SelectedValue="{Binding FloatActionMode}" SelectedValuePath="Tag">
+                                    <ComboBoxItem Content="Set" Tag="{x:Static models:FloatActionMode.Set}" />
+                                    <ComboBoxItem Content="Random" Tag="{x:Static models:FloatActionMode.Random}" />
+                                    <ComboBoxItem Content="Add" Tag="{x:Static models:FloatActionMode.Add}" />
+                                    <ComboBoxItem Content="Subtract" Tag="{x:Static models:FloatActionMode.Subtract}" />
+                                    <ComboBoxItem Content="Add/Subtract (±)" Tag="{x:Static models:FloatActionMode.AddSubtract}" />
+                                    <ComboBoxItem Content="Multiply" Tag="{x:Static models:FloatActionMode.Multiply}" />
+                                    <ComboBoxItem Content="Toggle" Tag="{x:Static models:FloatActionMode.Toggle}" />
+                                    <ComboBoxItem Content="Cycle" Tag="{x:Static models:FloatActionMode.Cycle}" />
+                                    <ComboBoxItem Content="Glitchy" Tag="{x:Static models:FloatActionMode.Glitchy}" />
+                                    <ComboBoxItem Content="Pulse" Tag="{x:Static models:FloatActionMode.Pulse}" />
+                                </ComboBox>
+
+                                <Grid Margin="0,6,0,0" Visibility="{Binding UsesFloatRangeInputs, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="Min" />
+                                        <TextBox Text="{Binding FloatRangeMin, UpdateSourceTrigger=PropertyChanged}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Max" />
+                                        <TextBox Text="{Binding FloatRangeMax, UpdateSourceTrigger=PropertyChanged}" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <StackPanel Margin="0,6,0,0" Visibility="{Binding UsesFloatCycleStep, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <TextBlock Text="Step" />
+                                    <TextBox Text="{Binding FloatCycleStep, UpdateSourceTrigger=PropertyChanged}" />
+                                </StackPanel>
+
+                                <StackPanel Margin="0,6,0,0" Visibility="{Binding UsesFloatAddMode, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <TextBlock Text="Add amount" />
+                                    <TextBox Text="{Binding FloatAddAmount, UpdateSourceTrigger=PropertyChanged}" />
+                                </StackPanel>
+                                <StackPanel Margin="0,6,0,0" Visibility="{Binding UsesFloatSubtractMode, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <TextBlock Text="Subtract amount" />
+                                    <TextBox Text="{Binding FloatSubtractAmount, UpdateSourceTrigger=PropertyChanged}" />
+                                </StackPanel>
+                                <StackPanel Margin="0,6,0,0" Visibility="{Binding UsesFloatAddSubtractMode, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <TextBlock Text="± value" />
+                                    <TextBox Text="{Binding FloatAddSubtractAmount, UpdateSourceTrigger=PropertyChanged}" />
+                                </StackPanel>
+                                <StackPanel Margin="0,6,0,0" Visibility="{Binding UsesFloatMultiplyMode, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <TextBlock Text="Multiply factor" />
+                                    <TextBox Text="{Binding FloatMultiplyFactor, UpdateSourceTrigger=PropertyChanged}" />
+                                </StackPanel>
+
+                                <Grid Margin="0,6,0,0" Visibility="{Binding UsesFloatToggleValues, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="On value" />
+                                        <TextBox Text="{Binding FloatToggleOnValue, UpdateSourceTrigger=PropertyChanged}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Off value" />
+                                        <TextBox Text="{Binding FloatToggleOffValue, UpdateSourceTrigger=PropertyChanged}" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <StackPanel Margin="0,6,0,0" Visibility="{Binding UsesFloatGlitchyInterval, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <TextBlock Text="Re-roll every (ms)" />
+                                    <TextBox Text="{Binding FloatGlitchyIntervalMs, UpdateSourceTrigger=PropertyChanged}" />
+                                </StackPanel>
+
+                                <StackPanel Margin="0,6,0,0" Visibility="{Binding UsesFloatPulseSeconds, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <TextBlock Text="Pulse seconds" />
+                                    <TextBox Text="{Binding FloatPulseSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                                </StackPanel>
+
+                                <StackPanel Margin="0,6,0,0" Visibility="{Binding UsesFloatClampMode, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <TextBlock Text="Clamp result" />
+                                    <ComboBox SelectedValue="{Binding FloatClampMode}" SelectedValuePath="Tag">
+                                        <ComboBoxItem Content="No clamp" Tag="{x:Static models:FloatClampMode.None}" />
+                                        <ComboBoxItem Content="Clamp 0..1" Tag="{x:Static models:FloatClampMode.ZeroToOne}" />
+                                        <ComboBoxItem Content="Clamp to range" Tag="{x:Static models:FloatClampMode.MinToMax}" />
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </StackPanel>
 
