@@ -9930,6 +9930,11 @@ internal BridgeCoordinator(
     {
         var address = VrChatOscClient.NormalizeAvatarParameterAddress(rule.ParameterName);
 
+        if (rule.ParameterType == OscParameterType.Float)
+        {
+            return await ResolveFloatActionAsync(rule, cancellationToken).ConfigureAwait(false);
+        }
+
         switch (rule.ParameterType)
         {
             case OscParameterType.Bool when rule.DurationSeconds <= 0:
@@ -10016,6 +10021,91 @@ internal BridgeCoordinator(
                     resetObservedValues: resetObservedValues);
             }
         }
+    }
+
+    private async Task<ResolvedRuleAction> ResolveFloatActionAsync(
+        TriggerRuleSnapshot rule,
+        CancellationToken cancellationToken)
+    {
+        var address = VrChatOscClient.NormalizeAvatarParameterAddress(rule.ParameterName);
+        var sourceRule = rule.Rule;
+
+        if (sourceRule.FloatActionMode == FloatActionMode.Pulse)
+        {
+            var (pulseValue, _) = FloatActionDispatch.ComputeNext(sourceRule, currentValue: 0.0);
+            var pulsePacket = vrChatOscClient.BuildAvatarParameterPacket(
+                address, OscParameterType.Float,
+                FloatValueModeConverter.ToOscText(pulseValue));
+            ScheduleFloatPulseRestore(sourceRule, address, pulsePacket);
+            return new ResolvedRuleAction(
+                packets: new[] { pulsePacket },
+                resetPackets: Array.Empty<byte[]>(),
+                displayValue: FloatValueModeConverter.ToOscText(pulseValue));
+        }
+
+        var fallback = FloatValueModeConverter.TryParseNormalized(
+            rule.FloatValueMode, rule.ParameterValue, out var fallbackValue) ? fallbackValue : 0.0;
+        var currentValue = await TryGetCurrentAvatarFloatValueAsync(address, fallback, cancellationToken).ConfigureAwait(false);
+
+        var (nextValue, resetValue) = FloatActionDispatch.ComputeNext(sourceRule, currentValue);
+        var targetPacket = vrChatOscClient.BuildAvatarParameterPacket(
+            address, OscParameterType.Float,
+            FloatValueModeConverter.ToOscText(nextValue));
+        var resetPackets = resetValue.HasValue
+            ? new[]
+              {
+                  vrChatOscClient.BuildAvatarParameterPacket(
+                      address, OscParameterType.Float,
+                      FloatValueModeConverter.ToOscText(resetValue.Value))
+              }
+            : Array.Empty<byte[]>();
+
+        if (sourceRule.FloatActionMode == FloatActionMode.Glitchy && sourceRule.DurationSeconds > 0)
+        {
+            return ResolveGlitchyFloatSession(sourceRule, nextValue, address, targetPacket);
+        }
+
+        return new ResolvedRuleAction(
+            packets: new[] { targetPacket },
+            resetPackets: resetPackets,
+            displayValue: FloatValueModeConverter.ToOscText(nextValue));
+    }
+
+    private void ScheduleFloatPulseRestore(
+        TriggerRule sourceRule, string address, byte[] initialPacket)
+    {
+        var (_, reset) = FloatActionDispatch.ComputeNext(sourceRule, currentValue: 0.0);
+        var seconds = Math.Max(0.0, sourceRule.FloatPulseSeconds);
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(seconds)).ConfigureAwait(false);
+                if (reset.HasValue)
+                {
+                    var resetPacket = vrChatOscClient.BuildAvatarParameterPacket(
+                        address, OscParameterType.Float,
+                        FloatValueModeConverter.ToOscText(reset.Value));
+                    await oscRouterService.SendToVrChatAsync(resetPacket).ConfigureAwait(false);
+                    ObserveOscValue(new OscObservedValue(address, OscParameterType.Float, (float)reset.Value));
+                }
+            }
+            catch (TaskCanceledException) { }
+            catch (Exception ex)
+            {
+                WriteLog($"Pulse restore for '{sourceRule.Name}' failed: {ex.Message}");
+            }
+        });
+    }
+
+    private ResolvedRuleAction ResolveGlitchyFloatSession(
+        TriggerRule sourceRule, double nextValue, string address, byte[] initialPacket)
+    {
+        // TODO: full implementation in Task 8 (GlitchyFloatRedeemSession).
+        return new ResolvedRuleAction(
+            packets: new[] { initialPacket },
+            resetPackets: Array.Empty<byte[]>(),
+            displayValue: FloatValueModeConverter.ToOscText(nextValue));
     }
 
     private async Task<ResolvedRuleAction> ResolveSetTriggerActionAsync(
