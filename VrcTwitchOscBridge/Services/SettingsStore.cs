@@ -1047,6 +1047,19 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             ParameterValue = rule.ParameterValue,
             FloatValueMode = rule.FloatValueMode,
             FloatTransitionSeconds = rule.FloatTransitionSeconds,
+            FloatActionMode = rule.FloatActionMode,
+            FloatRangeMin = rule.FloatRangeMin,
+            FloatRangeMax = rule.FloatRangeMax,
+            FloatCycleStep = rule.FloatCycleStep,
+            FloatAddAmount = rule.FloatAddAmount,
+            FloatSubtractAmount = rule.FloatSubtractAmount,
+            FloatAddSubtractAmount = rule.FloatAddSubtractAmount,
+            FloatMultiplyFactor = rule.FloatMultiplyFactor,
+            FloatToggleOnValue = rule.FloatToggleOnValue,
+            FloatToggleOffValue = rule.FloatToggleOffValue,
+            FloatGlitchyIntervalMs = rule.FloatGlitchyIntervalMs,
+            FloatPulseSeconds = rule.FloatPulseSeconds,
+            FloatClampMode = rule.FloatClampMode,
             AvatarChangeTargetId = rule.AvatarChangeTargetId,
             AvatarTargetName = rule.AvatarTargetName,
             ResetValue = rule.ResetValue,
@@ -1313,6 +1326,19 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             ParameterValue = migratedParameterValue,
             FloatValueMode = Enum.IsDefined(rule.FloatValueMode) ? rule.FloatValueMode : FloatValueMode.Decimal,
             FloatTransitionSeconds = Math.Clamp(rule.FloatTransitionSeconds, 0, 30),
+            FloatActionMode = Enum.IsDefined(rule.FloatActionMode) ? rule.FloatActionMode : FloatActionMode.Set,
+            FloatRangeMin = rule.FloatRangeMin,
+            FloatRangeMax = rule.FloatRangeMax,
+            FloatCycleStep = rule.FloatCycleStep,
+            FloatAddAmount = rule.FloatAddAmount,
+            FloatSubtractAmount = rule.FloatSubtractAmount,
+            FloatAddSubtractAmount = rule.FloatAddSubtractAmount,
+            FloatMultiplyFactor = rule.FloatMultiplyFactor,
+            FloatToggleOnValue = rule.FloatToggleOnValue,
+            FloatToggleOffValue = rule.FloatToggleOffValue,
+            FloatGlitchyIntervalMs = Math.Max(1, rule.FloatGlitchyIntervalMs),
+            FloatPulseSeconds = Math.Max(0.0, rule.FloatPulseSeconds),
+            FloatClampMode = Enum.IsDefined(rule.FloatClampMode) ? rule.FloatClampMode : FloatClampMode.ZeroToOne,
             AvatarChangeTargetId = migratedAvatarChangeTargetId ?? string.Empty,
             AvatarTargetName = rule.AvatarTargetName ?? string.Empty,
             ResetValue = migratedResetValue,
@@ -3262,6 +3288,32 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
         public FloatValueMode FloatValueMode { get; set; }
 
         public double FloatTransitionSeconds { get; set; }
+
+        public FloatActionMode FloatActionMode { get; set; } = FloatActionMode.Set;
+
+        public double FloatRangeMin { get; set; }
+
+        public double FloatRangeMax { get; set; } = 1.0;
+
+        public double FloatCycleStep { get; set; } = 0.1;
+
+        public double FloatAddAmount { get; set; } = 0.1;
+
+        public double FloatSubtractAmount { get; set; } = 0.1;
+
+        public double FloatAddSubtractAmount { get; set; } = 0.1;
+
+        public double FloatMultiplyFactor { get; set; } = 1.5;
+
+        public double FloatToggleOnValue { get; set; } = 1.0;
+
+        public double FloatToggleOffValue { get; set; }
+
+        public int FloatGlitchyIntervalMs { get; set; } = 200;
+
+        public double FloatPulseSeconds { get; set; } = 0.5;
+
+        public FloatClampMode FloatClampMode { get; set; } = FloatClampMode.ZeroToOne;
 
         public string? AvatarChangeTargetId { get; set; }
 
