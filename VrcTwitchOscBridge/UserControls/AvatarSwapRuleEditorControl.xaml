@@ -1414,11 +1414,11 @@
                                 </StackPanel>
                             </UniformGrid>
                         </StackPanel>
-                        <Border BorderBrush="#44FFFFFF" BorderThickness="1" CornerRadius="6" Padding="8" Margin="0,4,0,4"
+                        <Border Background="{DynamicResource NestedPanelBrush}" CornerRadius="4" Padding="10" Margin="0,4,0,4"
                                 Visibility="{Binding UsesFloatActionMode, Converter={StaticResource BoolToVisibilityConverter}}">
                             <StackPanel>
                                 <TextBlock Text="Float Action Mode" FontWeight="SemiBold" Margin="0,0,0,4" />
-                                <ComboBox SelectedValue="{Binding FloatActionMode}" SelectedValuePath="Tag">
+                                <ComboBox SelectedValue="{Binding FloatActionMode, UpdateSourceTrigger=PropertyChanged}" SelectedValuePath="Tag">
                                     <ComboBoxItem Content="Set" Tag="{x:Static models:FloatActionMode.Set}" />
                                     <ComboBoxItem Content="Random" Tag="{x:Static models:FloatActionMode.Random}" />
                                     <ComboBoxItem Content="Add" Tag="{x:Static models:FloatActionMode.Add}" />
