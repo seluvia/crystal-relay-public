@@ -1334,57 +1334,57 @@
                                           <Border Background="#22FFFFFF" CornerRadius="6" Padding="8" Margin="0,4,0,4"
                                                   Visibility="{Binding UsesFloatActionMode, Converter={StaticResource BoolToVisibilityConverter}}">
                                               <StackPanel>
-                                                  <TextBlock Text="Float Action Mode" FontWeight="SemiBold" Margin="0,0,0,4" />
+                                                  <TextBlock Text="{loc:Translate 'FloatActionModeHeader'}" FontWeight="SemiBold" Margin="0,0,0,4" />
                                                   <WrapPanel>
-                                                      <Button Content="Set" Style="{StaticResource ChipButtonStyle}" Click="OnFloatModeSetClicked" />
-                                                      <Button Content="Random" Style="{StaticResource ChipButtonStyle}" Click="OnFloatModeRandomClicked" />
-                                                      <Button Content="Add" Style="{StaticResource ChipButtonStyle}" Click="OnFloatModeAddClicked" />
-                                                      <Button Content="Subtract" Style="{StaticResource ChipButtonStyle}" Click="OnFloatModeSubtractClicked" />
+                                                      <Button Content="{loc:Translate 'FloatActionModeSet'}" Style="{StaticResource ChipButtonStyle}" Click="OnFloatModeSetClicked" />
+                                                      <Button Content="{loc:Translate 'FloatActionModeRandom'}" Style="{StaticResource ChipButtonStyle}" Click="OnFloatModeRandomClicked" />
+                                                      <Button Content="{loc:Translate 'FloatActionModeAdd'}" Style="{StaticResource ChipButtonStyle}" Click="OnFloatModeAddClicked" />
+                                                      <Button Content="{loc:Translate 'FloatActionModeSubtract'}" Style="{StaticResource ChipButtonStyle}" Click="OnFloatModeSubtractClicked" />
                                                       <Button Content="±" Style="{StaticResource ChipButtonStyle}" Click="OnFloatModeAddSubtractClicked" />
-                                                      <Button Content="Multiply" Style="{StaticResource ChipButtonStyle}" Click="OnFloatModeMultiplyClicked" />
-                                                      <Button Content="Toggle" Style="{StaticResource ChipButtonStyle}" Click="OnFloatModeToggleClicked" />
-                                                      <Button Content="Cycle" Style="{StaticResource ChipButtonStyle}" Click="OnFloatModeCycleClicked" />
-                                                      <Button Content="Glitchy" Style="{StaticResource ChipButtonStyle}" Click="OnFloatModeGlitchyClicked" />
-                                                      <Button Content="Pulse" Style="{StaticResource ChipButtonStyle}" Click="OnFloatModePulseClicked" />
+                                                      <Button Content="{loc:Translate 'FloatActionModeMultiply'}" Style="{StaticResource ChipButtonStyle}" Click="OnFloatModeMultiplyClicked" />
+                                                      <Button Content="{loc:Translate 'FloatActionModeToggle'}" Style="{StaticResource ChipButtonStyle}" Click="OnFloatModeToggleClicked" />
+                                                      <Button Content="{loc:Translate 'FloatActionModeCycle'}" Style="{StaticResource ChipButtonStyle}" Click="OnFloatModeCycleClicked" />
+                                                      <Button Content="{loc:Translate 'FloatActionModeGlitchy'}" Style="{StaticResource ChipButtonStyle}" Click="OnFloatModeGlitchyClicked" />
+                                                      <Button Content="{loc:Translate 'FloatActionModePulse'}" Style="{StaticResource ChipButtonStyle}" Click="OnFloatModePulseClicked" />
                                                   </WrapPanel>
 
-                                                  <Grid Margin="0,6,0,0" Visibility="{Binding UsesFloatRangeInputs, Converter={StaticResource BoolToVisibilityConverter}}">
-                                                      <Grid.ColumnDefinitions>
-                                                          <ColumnDefinition Width="*" />
-                                                          <ColumnDefinition Width="8" />
-                                                          <ColumnDefinition Width="*" />
-                                                      </Grid.ColumnDefinitions>
-                                                      <StackPanel Grid.Column="0">
-                                                          <TextBlock Text="Min" />
-                                                          <TextBox Text="{Binding FloatRangeMin, UpdateSourceTrigger=PropertyChanged}" />
-                                                      </StackPanel>
-                                                      <StackPanel Grid.Column="2">
-                                                          <TextBlock Text="Max" />
-                                                          <TextBox Text="{Binding FloatRangeMax, UpdateSourceTrigger=PropertyChanged}" />
-                                                      </StackPanel>
-                                                  </Grid>
+                                                   <Grid Margin="0,6,0,0" Visibility="{Binding UsesFloatRangeInputs, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                       <Grid.ColumnDefinitions>
+                                                           <ColumnDefinition Width="*" />
+                                                           <ColumnDefinition Width="8" />
+                                                           <ColumnDefinition Width="*" />
+                                                       </Grid.ColumnDefinitions>
+                                                       <StackPanel Grid.Column="0">
+                                                           <TextBlock Text="{loc:Translate 'FloatActionModeRangeMin'}" />
+                                                           <TextBox Text="{Binding FloatRangeMin, UpdateSourceTrigger=PropertyChanged}" />
+                                                       </StackPanel>
+                                                       <StackPanel Grid.Column="2">
+                                                           <TextBlock Text="{loc:Translate 'FloatActionModeRangeMax'}" />
+                                                           <TextBox Text="{Binding FloatRangeMax, UpdateSourceTrigger=PropertyChanged}" />
+                                                       </StackPanel>
+                                                   </Grid>
 
-                                                  <StackPanel Margin="0,6,0,0" Visibility="{Binding UsesFloatCycleStep, Converter={StaticResource BoolToVisibilityConverter}}">
-                                                      <TextBlock Text="Step" />
-                                                      <TextBox Text="{Binding FloatCycleStep, UpdateSourceTrigger=PropertyChanged}" />
-                                                  </StackPanel>
+                                                   <StackPanel Margin="0,6,0,0" Visibility="{Binding UsesFloatCycleStep, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                       <TextBlock Text="{loc:Translate 'FloatActionModeCycleStep'}" />
+                                                       <TextBox Text="{Binding FloatCycleStep, UpdateSourceTrigger=PropertyChanged}" />
+                                                   </StackPanel>
 
-                                                  <StackPanel Margin="0,6,0,0" Visibility="{Binding UsesFloatAddMode, Converter={StaticResource BoolToVisibilityConverter}}">
-                                                      <TextBlock Text="Add amount" />
-                                                      <TextBox Text="{Binding FloatAddAmount, UpdateSourceTrigger=PropertyChanged}" />
-                                                  </StackPanel>
-                                                  <StackPanel Margin="0,6,0,0" Visibility="{Binding UsesFloatSubtractMode, Converter={StaticResource BoolToVisibilityConverter}}">
-                                                      <TextBlock Text="Subtract amount" />
-                                                      <TextBox Text="{Binding FloatSubtractAmount, UpdateSourceTrigger=PropertyChanged}" />
-                                                  </StackPanel>
-                                                  <StackPanel Margin="0,6,0,0" Visibility="{Binding UsesFloatAddSubtractMode, Converter={StaticResource BoolToVisibilityConverter}}">
-                                                      <TextBlock Text="± value" />
-                                                      <TextBox Text="{Binding FloatAddSubtractAmount, UpdateSourceTrigger=PropertyChanged}" />
-                                                  </StackPanel>
-                                                  <StackPanel Margin="0,6,0,0" Visibility="{Binding UsesFloatMultiplyMode, Converter={StaticResource BoolToVisibilityConverter}}">
-                                                      <TextBlock Text="Multiply factor" />
-                                                      <TextBox Text="{Binding FloatMultiplyFactor, UpdateSourceTrigger=PropertyChanged}" />
-                                                  </StackPanel>
+                                                   <StackPanel Margin="0,6,0,0" Visibility="{Binding UsesFloatAddMode, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                       <TextBlock Text="{loc:Translate 'FloatActionModeAddAmount'}" />
+                                                       <TextBox Text="{Binding FloatAddAmount, UpdateSourceTrigger=PropertyChanged}" />
+                                                   </StackPanel>
+                                                   <StackPanel Margin="0,6,0,0" Visibility="{Binding UsesFloatSubtractMode, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                       <TextBlock Text="{loc:Translate 'FloatActionModeSubtractAmount'}" />
+                                                       <TextBox Text="{Binding FloatSubtractAmount, UpdateSourceTrigger=PropertyChanged}" />
+                                                   </StackPanel>
+                                                   <StackPanel Margin="0,6,0,0" Visibility="{Binding UsesFloatAddSubtractMode, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                       <TextBlock Text="{loc:Translate 'FloatActionModeAddSubtractValue'}" />
+                                                       <TextBox Text="{Binding FloatAddSubtractAmount, UpdateSourceTrigger=PropertyChanged}" />
+                                                   </StackPanel>
+                                                   <StackPanel Margin="0,6,0,0" Visibility="{Binding UsesFloatMultiplyMode, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                       <TextBlock Text="{loc:Translate 'FloatActionModeMultiplyFactor'}" />
+                                                       <TextBox Text="{Binding FloatMultiplyFactor, UpdateSourceTrigger=PropertyChanged}" />
+                                                   </StackPanel>
 
                                                   <Grid Margin="0,6,0,0" Visibility="{Binding UsesFloatToggleValues, Converter={StaticResource BoolToVisibilityConverter}}">
                                                       <Grid.ColumnDefinitions>
@@ -1392,34 +1392,34 @@
                                                           <ColumnDefinition Width="8" />
                                                           <ColumnDefinition Width="*" />
                                                       </Grid.ColumnDefinitions>
-                                                      <StackPanel Grid.Column="0">
-                                                          <TextBlock Text="On value" />
-                                                          <TextBox Text="{Binding FloatToggleOnValue, UpdateSourceTrigger=PropertyChanged}" />
-                                                      </StackPanel>
-                                                      <StackPanel Grid.Column="2">
-                                                          <TextBlock Text="Off value" />
-                                                          <TextBox Text="{Binding FloatToggleOffValue, UpdateSourceTrigger=PropertyChanged}" />
-                                                      </StackPanel>
+                                                       <StackPanel Grid.Column="0">
+                                                           <TextBlock Text="{loc:Translate 'FloatActionModeToggleOn'}" />
+                                                           <TextBox Text="{Binding FloatToggleOnValue, UpdateSourceTrigger=PropertyChanged}" />
+                                                       </StackPanel>
+                                                       <StackPanel Grid.Column="2">
+                                                           <TextBlock Text="{loc:Translate 'FloatActionModeToggleOff'}" />
+                                                           <TextBox Text="{Binding FloatToggleOffValue, UpdateSourceTrigger=PropertyChanged}" />
+                                                       </StackPanel>
                                                   </Grid>
 
-                                                  <StackPanel Margin="0,6,0,0" Visibility="{Binding UsesFloatGlitchyInterval, Converter={StaticResource BoolToVisibilityConverter}}">
-                                                      <TextBlock Text="Re-roll every (ms)" />
-                                                      <TextBox Text="{Binding FloatGlitchyIntervalMs, UpdateSourceTrigger=PropertyChanged}" />
-                                                  </StackPanel>
+                                                   <StackPanel Margin="0,6,0,0" Visibility="{Binding UsesFloatGlitchyInterval, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                       <TextBlock Text="{loc:Translate 'FloatActionModeGlitchyInterval'}" />
+                                                       <TextBox Text="{Binding FloatGlitchyIntervalMs, UpdateSourceTrigger=PropertyChanged}" />
+                                                   </StackPanel>
 
-                                                  <StackPanel Margin="0,6,0,0" Visibility="{Binding UsesFloatPulseSeconds, Converter={StaticResource BoolToVisibilityConverter}}">
-                                                      <TextBlock Text="Pulse seconds" />
-                                                      <TextBox Text="{Binding FloatPulseSeconds, UpdateSourceTrigger=PropertyChanged}" />
-                                                  </StackPanel>
+                                                   <StackPanel Margin="0,6,0,0" Visibility="{Binding UsesFloatPulseSeconds, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                       <TextBlock Text="{loc:Translate 'FloatActionModePulseSeconds'}" />
+                                                       <TextBox Text="{Binding FloatPulseSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                                                   </StackPanel>
 
-                                                  <StackPanel Margin="0,6,0,0" Visibility="{Binding UsesFloatClampMode, Converter={StaticResource BoolToVisibilityConverter}}">
-                                                      <TextBlock Text="Clamp result" />
-                                                      <ComboBox SelectedValue="{Binding FloatClampMode}" SelectedValuePath="Tag">
-                                                          <ComboBoxItem Content="No clamp" Tag="{x:Static models:FloatClampMode.None}" />
-                                                          <ComboBoxItem Content="Clamp 0..1" Tag="{x:Static models:FloatClampMode.ZeroToOne}" />
-                                                          <ComboBoxItem Content="Clamp to range" Tag="{x:Static models:FloatClampMode.MinToMax}" />
-                                                      </ComboBox>
-                                                  </StackPanel>
+                                                   <StackPanel Margin="0,6,0,0" Visibility="{Binding UsesFloatClampMode, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                       <TextBlock Text="{loc:Translate 'FloatActionModeClampLabel'}" />
+                                                       <ComboBox SelectedValue="{Binding FloatClampMode}" SelectedValuePath="Tag">
+                                                           <ComboBoxItem Content="{loc:Translate 'FloatActionModeClampNone'}" Tag="{x:Static models:FloatClampMode.None}" />
+                                                           <ComboBoxItem Content="{loc:Translate 'FloatActionModeClampZeroToOne'}" Tag="{x:Static models:FloatClampMode.ZeroToOne}" />
+                                                           <ComboBoxItem Content="{loc:Translate 'FloatActionModeClampMinToMax'}" Tag="{x:Static models:FloatClampMode.MinToMax}" />
+                                                       </ComboBox>
+                                                   </StackPanel>
                                               </StackPanel>
                                           </Border>
 
