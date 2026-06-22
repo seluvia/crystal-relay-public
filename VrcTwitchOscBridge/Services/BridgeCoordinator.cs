@@ -10079,7 +10079,7 @@ internal BridgeCoordinator(
         var (_, reset) = FloatActionDispatch.ComputeNext(sourceRule, currentValue: 0.0);
         var seconds = Math.Max(0.0, sourceRule.FloatPulseSeconds);
         var cts = new CancellationTokenSource();
-        cancellationTokensForPulse.Add(cts);
+        lock (stateGate) { cancellationTokensForPulse.Add(cts); }
         _ = Task.Run(async () =>
         {
             try
@@ -10102,7 +10102,7 @@ internal BridgeCoordinator(
             finally
             {
                 cts.Dispose();
-                cancellationTokensForPulse.Remove(cts);
+                lock (stateGate) { cancellationTokensForPulse.Remove(cts); }
             }
         });
     }
