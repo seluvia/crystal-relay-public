@@ -74,6 +74,19 @@ public sealed class AvatarSetsManagerWindowXamlTests
         Assert.Contains("{DynamicResource InputBrush}", styleBlock, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void CompactEditor_HasIntModeSelectorBoundToIntZeroDurationMode()
+    {
+        var xaml = File.ReadAllText(FindSourceFile("VrcTwitchOscBridge", "AvatarSetsManagerWindow.xaml"));
+        var parameterTypeIndex = xaml.IndexOf("SelectedItem=\"{Binding ParameterType, UpdateSourceTrigger=PropertyChanged}\"", StringComparison.Ordinal);
+        var intModeSelector = xaml.IndexOf("SelectedItem=\"{Binding IntZeroDurationMode, UpdateSourceTrigger=PropertyChanged}\"", StringComparison.Ordinal);
+        var intModeDataSource = xaml.IndexOf("DataContext.IntZeroDurationModes", StringComparison.Ordinal);
+
+        Assert.True(parameterTypeIndex >= 0, "ParameterType selector should exist in the compact editor.");
+        Assert.True(intModeSelector > parameterTypeIndex, "Int mode selector should appear after the Parameter Type selector.");
+        Assert.True(intModeDataSource >= 0, "Int mode selector should bind to DataContext.IntZeroDurationModes.");
+    }
+
     private static string FindSourceFile(params string[] relativeParts)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
