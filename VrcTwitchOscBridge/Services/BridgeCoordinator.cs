@@ -10116,12 +10116,16 @@ internal BridgeCoordinator(
             LeaseId = leaseId,
         };
 
-        if (activeGlitchyRedeemSessions.TryGetValue(rule.Rule.Id, out var prior))
+        lock (stateGate)
         {
-            prior.CompletionCancellation.Cancel();
-            activeGlitchyRedeemSessions.Remove(rule.Rule.Id);
+            if (activeGlitchyRedeemSessions.TryGetValue(rule.Rule.Id, out var prior))
+            {
+                prior.CompletionCancellation.Cancel();
+                prior.CompletionCancellation.Dispose();
+                activeGlitchyRedeemSessions.Remove(rule.Rule.Id);
+            }
+            activeGlitchyRedeemSessions[rule.Rule.Id] = session;
         }
-        activeGlitchyRedeemSessions[rule.Rule.Id] = session;
 
         _ = Task.Run(() => RunGlitchyLoopAsync(session));
         return new ResolvedRuleAction(
@@ -10173,11 +10177,15 @@ internal BridgeCoordinator(
         }
         finally
         {
-            if (activeGlitchyRedeemSessions.TryGetValue(session.Rule.Id, out var current)
-                && current.LeaseId == session.LeaseId)
+            lock (stateGate)
             {
-                activeGlitchyRedeemSessions.Remove(session.Rule.Id);
+                if (activeGlitchyRedeemSessions.TryGetValue(session.Rule.Id, out var current)
+                    && current.LeaseId == session.LeaseId)
+                {
+                    activeGlitchyRedeemSessions.Remove(session.Rule.Id);
+                }
             }
+            session.CompletionCancellation.Dispose();
         }
     }
 
@@ -17594,6 +17602,7 @@ internal BridgeCoordinator(
         CancellationTokenSource[] supporterGrowthCancellations;
         CancellationTokenSource[] activeFloatRedeemCancellations;
         SemaphoreSlim[] activeFloatRedeemGates;
+        CancellationTokenSource[] activeGlitchyRedeemCancellations;
         CancellationTokenSource? masterUnlockNotification;
         CancellationTokenSource? masterCooldownNotification;
         CancellationTokenSource[] movementLockCancellations;
@@ -17617,6 +17626,8 @@ internal BridgeCoordinator(
             activeFloatRedeemCancellations = [.. activeFloatRedeemSessions.Values.Select(session => session.CompletionCancellation)];
             activeFloatRedeemGates = [.. activeFloatRedeemSessions.Values.Select(session => session.SendGate)];
             activeFloatRedeemSessions.Clear();
+            activeGlitchyRedeemCancellations = [.. activeGlitchyRedeemSessions.Values.Select(session => session.CompletionCancellation)];
+            activeGlitchyRedeemSessions.Clear();
             recentMessageIds.Clear();
             nextRecentMessagePruneAt = DateTimeOffset.MinValue;
             avatarParameterValues.Clear();
@@ -17711,6 +17722,12 @@ internal BridgeCoordinator(
         foreach (var activeFloatRedeemGate in activeFloatRedeemGates)
         {
             activeFloatRedeemGate.Dispose();
+        }
+
+        foreach (var activeGlitchyRedeemCancellation in activeGlitchyRedeemCancellations)
+        {
+            activeGlitchyRedeemCancellation.Cancel();
+            activeGlitchyRedeemCancellation.Dispose();
         }
 
         foreach (var desktopLockCancellation in desktopLockCancellations)
