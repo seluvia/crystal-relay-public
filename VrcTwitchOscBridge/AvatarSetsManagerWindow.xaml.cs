@@ -179,6 +179,35 @@ public partial class AvatarSetsManagerWindow : Window
         }
     }
 
+    private void OnFloatModeSetClicked(object sender, RoutedEventArgs e)
+        => SetSelectedRuleFloatMode(Models.FloatActionMode.Set);
+    private void OnFloatModeRandomClicked(object sender, RoutedEventArgs e)
+        => SetSelectedRuleFloatMode(Models.FloatActionMode.Random);
+    private void OnFloatModeAddClicked(object sender, RoutedEventArgs e)
+        => SetSelectedRuleFloatMode(Models.FloatActionMode.Add);
+    private void OnFloatModeSubtractClicked(object sender, RoutedEventArgs e)
+        => SetSelectedRuleFloatMode(Models.FloatActionMode.Subtract);
+    private void OnFloatModeAddSubtractClicked(object sender, RoutedEventArgs e)
+        => SetSelectedRuleFloatMode(Models.FloatActionMode.AddSubtract);
+    private void OnFloatModeMultiplyClicked(object sender, RoutedEventArgs e)
+        => SetSelectedRuleFloatMode(Models.FloatActionMode.Multiply);
+    private void OnFloatModeToggleClicked(object sender, RoutedEventArgs e)
+        => SetSelectedRuleFloatMode(Models.FloatActionMode.Toggle);
+    private void OnFloatModeCycleClicked(object sender, RoutedEventArgs e)
+        => SetSelectedRuleFloatMode(Models.FloatActionMode.Cycle);
+    private void OnFloatModeGlitchyClicked(object sender, RoutedEventArgs e)
+        => SetSelectedRuleFloatMode(Models.FloatActionMode.Glitchy);
+    private void OnFloatModePulseClicked(object sender, RoutedEventArgs e)
+        => SetSelectedRuleFloatMode(Models.FloatActionMode.Pulse);
+
+    private void SetSelectedRuleFloatMode(Models.FloatActionMode mode)
+    {
+        if (Vm?.SelectedAvatarRule is Models.TriggerRule rule)
+        {
+            rule.FloatActionMode = mode;
+        }
+    }
+
     private void OnResetValueTrueClicked(object sender, RoutedEventArgs e)
     {
         if (sender is System.Windows.Controls.Button btn && btn.Tag is Models.TriggerRule rule)
