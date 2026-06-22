@@ -25,6 +25,7 @@ Pending Release Draft
 
 v3.1.9 beta 4 (in progress)
 Added:
+- Float action modes for channel point rewards with Float parameter type: Set (existing), Random, Add, Subtract, Add/Subtract, Multiply, Toggle, Cycle, Glitchy, and Pulse. Random picks a value in a configurable min/max range. Add and Subtract adjust the current avatar value by a configurable amount. Add/Subtract picks a direction each time. Multiply scales the current value by a factor (with optional clamp). Toggle switches between two user-defined values. Cycle increments by a step and wraps at max. Glitchy continuously re-rolls random values during the active time. Pulse sends the value and restores after a short configurable delay (independent of Active Time).
 Changed:
 - "Add amount to active time" now always adds Active Time + scaled amount on every matching Bits or Subs trigger instead of only on the first trigger; cap still limits total running time.
 - Renamed "Scale active time by amount" to "Add amount to active time" in the Bits and Subs override time-settings popup.
