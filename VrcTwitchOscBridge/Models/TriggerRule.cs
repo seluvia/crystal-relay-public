@@ -94,6 +94,19 @@ public sealed class TriggerRule : ObservableObject
     private string parameterValue = "1";
     private FloatValueMode floatValueMode = global::VrcTwitchOscBridge.Models.FloatValueMode.Decimal;
     private double floatTransitionSeconds;
+    private FloatActionMode floatActionMode = FloatActionMode.Set;
+    private double floatRangeMin = 0.0;
+    private double floatRangeMax = 1.0;
+    private double floatCycleStep = 0.1;
+    private double floatAddAmount = 0.1;
+    private double floatSubtractAmount = 0.1;
+    private double floatAddSubtractAmount = 0.1;
+    private double floatMultiplyFactor = 1.5;
+    private double floatToggleOnValue = 1.0;
+    private double floatToggleOffValue = 0.0;
+    private int floatGlitchyIntervalMs = 200;
+    private double floatPulseSeconds = 0.5;
+    private FloatClampMode floatClampMode = FloatClampMode.ZeroToOne;
     private string avatarChangeTargetId = string.Empty;
     private string avatarTargetName = string.Empty;
     private string resetValue = "0";
@@ -778,6 +791,177 @@ public sealed class TriggerRule : ObservableObject
             if (SetProperty(ref floatTransitionSeconds, normalizedValue))
             {
                 RaisePropertyChanged(nameof(UsesFloatTransition));
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public FloatActionMode FloatActionMode
+    {
+        get => floatActionMode;
+        set
+        {
+            var normalizedValue = Enum.IsDefined(value) ? value : FloatActionMode.Set;
+            if (SetProperty(ref floatActionMode, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public double FloatRangeMin
+    {
+        get => floatRangeMin;
+        set
+        {
+            var clamped = Math.Clamp(value, 0.0, 1.0);
+            if (clamped > floatRangeMax - 0.0001) clamped = floatRangeMax - 0.0001;
+            if (clamped < 0) clamped = 0;
+            if (SetProperty(ref floatRangeMin, clamped))
+            {
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public double FloatRangeMax
+    {
+        get => floatRangeMax;
+        set
+        {
+            var clamped = Math.Clamp(value, 0.0, 1.0);
+            if (clamped < floatRangeMin + 0.0001) clamped = floatRangeMin + 0.0001;
+            if (clamped > 1) clamped = 1;
+            if (SetProperty(ref floatRangeMax, clamped))
+            {
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public double FloatCycleStep
+    {
+        get => floatCycleStep;
+        set
+        {
+            var normalizedValue = Math.Max(0.0, value);
+            if (SetProperty(ref floatCycleStep, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public double FloatAddAmount
+    {
+        get => floatAddAmount;
+        set
+        {
+            var normalizedValue = Math.Max(0.0, value);
+            if (SetProperty(ref floatAddAmount, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public double FloatSubtractAmount
+    {
+        get => floatSubtractAmount;
+        set
+        {
+            var normalizedValue = Math.Max(0.0, value);
+            if (SetProperty(ref floatSubtractAmount, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public double FloatAddSubtractAmount
+    {
+        get => floatAddSubtractAmount;
+        set
+        {
+            if (SetProperty(ref floatAddSubtractAmount, value))
+            {
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public double FloatMultiplyFactor
+    {
+        get => floatMultiplyFactor;
+        set
+        {
+            if (SetProperty(ref floatMultiplyFactor, value))
+            {
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public double FloatToggleOnValue
+    {
+        get => floatToggleOnValue;
+        set
+        {
+            var normalizedValue = Math.Clamp(value, 0.0, 1.0);
+            if (SetProperty(ref floatToggleOnValue, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public double FloatToggleOffValue
+    {
+        get => floatToggleOffValue;
+        set
+        {
+            var normalizedValue = Math.Clamp(value, 0.0, 1.0);
+            if (SetProperty(ref floatToggleOffValue, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public int FloatGlitchyIntervalMs
+    {
+        get => floatGlitchyIntervalMs;
+        set
+        {
+            var normalizedValue = Math.Max(1, value);
+            if (SetProperty(ref floatGlitchyIntervalMs, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public double FloatPulseSeconds
+    {
+        get => floatPulseSeconds;
+        set
+        {
+            var normalizedValue = Math.Max(0.0, value);
+            if (SetProperty(ref floatPulseSeconds, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public FloatClampMode FloatClampMode
+    {
+        get => floatClampMode;
+        set
+        {
+            var normalizedValue = Enum.IsDefined(value) ? value : FloatClampMode.ZeroToOne;
+            if (SetProperty(ref floatClampMode, normalizedValue))
+            {
                 RaisePropertyChanged(nameof(TriggerSummary));
             }
         }
