@@ -87,6 +87,22 @@ public sealed class AvatarSetsManagerWindowXamlTests
         Assert.True(intModeDataSource >= 0, "Int mode selector should bind to DataContext.IntZeroDurationModes.");
     }
 
+    [Fact]
+    public void CompactEditor_IntInputs_BindToRangeAndWhenAfter()
+    {
+        var xaml = File.ReadAllText(FindSourceFile("VrcTwitchOscBridge", "AvatarSetsManagerWindow.xaml"));
+        var intModeIndex = xaml.IndexOf("SelectedItem=\"{Binding IntZeroDurationMode, UpdateSourceTrigger=PropertyChanged}\"", StringComparison.Ordinal);
+        Assert.True(intModeIndex >= 0, "Int mode selector must exist before Min/Max/When/After inputs.");
+
+        var minBinding = xaml.IndexOf("Text=\"{Binding RangeMinimum, UpdateSourceTrigger=PropertyChanged}\"", StringComparison.Ordinal);
+        var maxBinding = xaml.IndexOf("Text=\"{Binding RangeMaximum, UpdateSourceTrigger=PropertyChanged}\"", StringComparison.Ordinal);
+        var whenBinding = xaml.IndexOf("Text=\"{Binding ResetValue, UpdateSourceTrigger=PropertyChanged}\"", StringComparison.Ordinal);
+
+        Assert.True(minBinding > intModeIndex, "RangeMinimum text box should be in the Int section, after the Int mode selector.");
+        Assert.True(maxBinding > intModeIndex, "RangeMaximum text box should be in the Int section, after the Int mode selector.");
+        Assert.True(whenBinding > intModeIndex, "ResetValue (After Active Time) text box should be in the Int section, after the Int mode selector.");
+    }
+
     private static string FindSourceFile(params string[] relativeParts)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
