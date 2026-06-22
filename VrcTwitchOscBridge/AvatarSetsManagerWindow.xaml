@@ -109,6 +109,12 @@
             <Setter Property="Padding" Value="10,4" />
             <Setter Property="Cursor" Value="Hand" />
         </Style>
+        <Style x:Key="ComboBoxStyle" TargetType="ComboBox">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+            <Setter Property="Padding" Value="8,4" />
+        </Style>
         <Style x:Key="AccentButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
             <Setter Property="Foreground" Value="{DynamicResource ComboTextBrush}" />
