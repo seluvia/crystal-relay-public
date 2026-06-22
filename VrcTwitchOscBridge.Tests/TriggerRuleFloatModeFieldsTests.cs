@@ -122,3 +122,137 @@ public sealed class TriggerRuleFloatModeFieldsTests
         Assert.Equal(FloatClampMode.MinToMax, rule.FloatClampMode);
     }
 }
+
+public sealed class TriggerRuleFloatModeUsesTests
+{
+    [Fact]
+    public void UsesFloatActionMode_TrueOnlyWhenParameterTypeIsFloat()
+    {
+        var rule = new TriggerRule { ParameterType = OscParameterType.Float };
+        Assert.True(rule.UsesFloatActionMode);
+        rule.ParameterType = OscParameterType.Bool;
+        Assert.False(rule.UsesFloatActionMode);
+        rule.ParameterType = OscParameterType.Int;
+        Assert.False(rule.UsesFloatActionMode);
+        rule.ParameterType = OscParameterType.String;
+        Assert.False(rule.UsesFloatActionMode);
+    }
+
+    [Fact]
+    public void UsesFloatSetMode_TrueWhenActionModeIsSet()
+    {
+        var rule = new TriggerRule
+        {
+            ParameterType = OscParameterType.Float,
+            FloatActionMode = FloatActionMode.Set
+        };
+        Assert.True(rule.UsesFloatSetMode);
+        rule.FloatActionMode = FloatActionMode.Random;
+        Assert.False(rule.UsesFloatSetMode);
+    }
+
+    [Fact]
+    public void UsesFloatRangeInputs_TrueForRandomCycleGlitchy()
+    {
+        var rule = new TriggerRule { ParameterType = OscParameterType.Float };
+        foreach (var mode in new[] { FloatActionMode.Random, FloatActionMode.Cycle, FloatActionMode.Glitchy })
+        {
+            rule.FloatActionMode = mode;
+            Assert.True(rule.UsesFloatRangeInputs, $"expected true for {mode}");
+        }
+        rule.FloatActionMode = FloatActionMode.Add;
+        Assert.False(rule.UsesFloatRangeInputs);
+    }
+
+    [Fact]
+    public void UsesFloatCycleStep_TrueOnlyForCycle()
+    {
+        var rule = new TriggerRule
+        {
+            ParameterType = OscParameterType.Float,
+            FloatActionMode = FloatActionMode.Cycle
+        };
+        Assert.True(rule.UsesFloatCycleStep);
+        rule.FloatActionMode = FloatActionMode.Random;
+        Assert.False(rule.UsesFloatCycleStep);
+    }
+
+    [Fact]
+    public void UsesFloatToggleValues_TrueOnlyForToggle()
+    {
+        var rule = new TriggerRule
+        {
+            ParameterType = OscParameterType.Float,
+            FloatActionMode = FloatActionMode.Toggle
+        };
+        Assert.True(rule.UsesFloatToggleValues);
+        rule.FloatActionMode = FloatActionMode.Add;
+        Assert.False(rule.UsesFloatToggleValues);
+    }
+
+    [Fact]
+    public void UsesFloatGlitchyInterval_TrueOnlyForGlitchy()
+    {
+        var rule = new TriggerRule
+        {
+            ParameterType = OscParameterType.Float,
+            FloatActionMode = FloatActionMode.Glitchy
+        };
+        Assert.True(rule.UsesFloatGlitchyInterval);
+        rule.FloatActionMode = FloatActionMode.Random;
+        Assert.False(rule.UsesFloatGlitchyInterval);
+    }
+
+    [Fact]
+    public void UsesFloatPulseSeconds_TrueOnlyForPulse()
+    {
+        var rule = new TriggerRule
+        {
+            ParameterType = OscParameterType.Float,
+            FloatActionMode = FloatActionMode.Pulse
+        };
+        Assert.True(rule.UsesFloatPulseSeconds);
+        rule.FloatActionMode = FloatActionMode.Add;
+        Assert.False(rule.UsesFloatPulseSeconds);
+    }
+
+    [Fact]
+    public void UsesFloatClampMode_TrueForRelativeModes()
+    {
+        var rule = new TriggerRule { ParameterType = OscParameterType.Float };
+        foreach (var mode in new[]
+                 {
+                     FloatActionMode.Add, FloatActionMode.Subtract,
+                     FloatActionMode.AddSubtract, FloatActionMode.Multiply
+                 })
+        {
+            rule.FloatActionMode = mode;
+            Assert.True(rule.UsesFloatClampMode, $"expected true for {mode}");
+        }
+        rule.FloatActionMode = FloatActionMode.Random;
+        Assert.False(rule.UsesFloatClampMode);
+    }
+
+    [Fact]
+    public void UsesFloatActionMode_FalseWhenActionTypeIsNotAvatarParameter()
+    {
+        var rule = new TriggerRule
+        {
+            ParameterType = OscParameterType.Float,
+            ActionType = OscActionType.SetTrigger
+        };
+        Assert.False(rule.UsesFloatActionMode);
+
+        rule.ActionType = OscActionType.PlayerMovement;
+        Assert.False(rule.UsesFloatActionMode);
+
+        rule.ActionType = OscActionType.AvatarChange;
+        Assert.False(rule.UsesFloatActionMode);
+
+        rule.ActionType = OscActionType.AvatarRoulet;
+        Assert.False(rule.UsesFloatActionMode);
+
+        rule.ActionType = OscActionType.AvatarParameter;
+        Assert.True(rule.UsesFloatActionMode);
+    }
+}

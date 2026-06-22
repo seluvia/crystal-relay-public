@@ -1717,6 +1717,38 @@ public sealed class TriggerRule : ObservableObject
 
     public bool UsesIntRangeInputs => UsesIntParameter && UsesInstantAction && IntZeroDurationMode != global::VrcTwitchOscBridge.Models.IntZeroDurationMode.Fixed;
 
+    public bool UsesFloatActionMode => UsesAvatarParameter && ParameterType == OscParameterType.Float;
+
+    public bool UsesFloatSetMode => UsesFloatActionMode && FloatActionMode == FloatActionMode.Set;
+    public bool UsesFloatRandomMode => UsesFloatActionMode && FloatActionMode == FloatActionMode.Random;
+    public bool UsesFloatAddMode => UsesFloatActionMode && FloatActionMode == FloatActionMode.Add;
+    public bool UsesFloatSubtractMode => UsesFloatActionMode && FloatActionMode == FloatActionMode.Subtract;
+    public bool UsesFloatAddSubtractMode => UsesFloatActionMode && FloatActionMode == FloatActionMode.AddSubtract;
+    public bool UsesFloatMultiplyMode => UsesFloatActionMode && FloatActionMode == FloatActionMode.Multiply;
+    public bool UsesFloatToggleMode => UsesFloatActionMode && FloatActionMode == FloatActionMode.Toggle;
+    public bool UsesFloatCycleMode => UsesFloatActionMode && FloatActionMode == FloatActionMode.Cycle;
+    public bool UsesFloatGlitchyMode => UsesFloatActionMode && FloatActionMode == FloatActionMode.Glitchy;
+    public bool UsesFloatPulseMode => UsesFloatActionMode && FloatActionMode == FloatActionMode.Pulse;
+
+    public bool UsesFloatRangeInputs => UsesFloatActionMode &&
+        (FloatActionMode == FloatActionMode.Random
+         || FloatActionMode == FloatActionMode.Cycle
+         || FloatActionMode == FloatActionMode.Glitchy);
+
+    public bool UsesFloatCycleStep => UsesFloatActionMode && FloatActionMode == FloatActionMode.Cycle;
+
+    public bool UsesFloatToggleValues => UsesFloatActionMode && FloatActionMode == FloatActionMode.Toggle;
+
+    public bool UsesFloatGlitchyInterval => UsesFloatActionMode && FloatActionMode == FloatActionMode.Glitchy;
+
+    public bool UsesFloatPulseSeconds => UsesFloatActionMode && FloatActionMode == FloatActionMode.Pulse;
+
+    public bool UsesFloatClampMode => UsesFloatActionMode &&
+        (FloatActionMode == FloatActionMode.Add
+         || FloatActionMode == FloatActionMode.Subtract
+         || FloatActionMode == FloatActionMode.AddSubtract
+         || FloatActionMode == FloatActionMode.Multiply);
+
     public bool UsesIntTimedValues => UsesIntParameter && UsesTimedAction;
 
     public bool UsesDirectInstantValue => UsesTextOrFloatParameter && UsesInstantAction;
