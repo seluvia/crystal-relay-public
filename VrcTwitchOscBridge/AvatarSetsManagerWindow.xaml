@@ -1240,12 +1240,76 @@
                                          <ComboBox ItemsSource="{Binding DataContext.ParameterTypes, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue={x:Null}}"
                                                    SelectedItem="{Binding ParameterType, UpdateSourceTrigger=PropertyChanged}"
                                                    Style="{StaticResource ComboBoxStyle}"
-                                                   Margin="0,0,0,8" />
+                                                    Margin="0,0,0,8" />
 
-                                          <TextBlock Text="{loc:Translate 'Parameter List Filter'}"
-                                                     Foreground="{DynamicResource TextBrush}"
-                                                     FontSize="11"
-                                                     Margin="0,4,0,6" />
+                                            <!-- Int action inputs (mode selector + Min/Max or When/After) -->
+                                            <StackPanel Margin="0,0,0,8"
+                                                        Visibility="{Binding UsesIntParameter, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                <StackPanel Visibility="{Binding UsesIntInstantModeOptions, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                    <TextBlock Text="{loc:Translate 'Instant Int Action'}"
+                                                               Foreground="{DynamicResource TextBrush}"
+                                                               FontWeight="SemiBold"
+                                                               FontSize="11"
+                                                               Margin="0,0,0,4" />
+                                                    <ComboBox ItemsSource="{Binding DataContext.IntZeroDurationModes, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue={x:Null}}"
+                                                              SelectedItem="{Binding IntZeroDurationMode, UpdateSourceTrigger=PropertyChanged}"
+                                                              Style="{StaticResource ComboBoxStyle}"
+                                                              Margin="0,0,0,8" />
+                                                    <StackPanel Margin="0,0,0,8"
+                                                                Visibility="{Binding UsesIntFixedInstantValue, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                        <TextBlock Text="{loc:Translate 'Send This Number'}"
+                                                                   Foreground="{DynamicResource TextBrush}"
+                                                                   FontWeight="SemiBold"
+                                                                   FontSize="11"
+                                                                   Margin="0,0,0,4" />
+                                                        <TextBox Text="{Binding ParameterValue, UpdateSourceTrigger=PropertyChanged}" />
+                                                    </StackPanel>
+                                                    <UniformGrid Columns="2" Margin="0,0,0,8"
+                                                                 Visibility="{Binding UsesIntRangeInputs, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                        <StackPanel Margin="0,0,4,0">
+                                                            <TextBlock Text="{loc:Translate 'Minimum Number'}"
+                                                                       Foreground="{DynamicResource TextBrush}"
+                                                                       FontWeight="SemiBold"
+                                                                       FontSize="11"
+                                                                       Margin="0,0,0,4" />
+                                                            <TextBox Text="{Binding RangeMinimum, UpdateSourceTrigger=PropertyChanged}" />
+                                                        </StackPanel>
+                                                        <StackPanel Margin="4,0,0,0">
+                                                            <TextBlock Text="{loc:Translate 'Maximum Number'}"
+                                                                       Foreground="{DynamicResource TextBrush}"
+                                                                       FontWeight="SemiBold"
+                                                                       FontSize="11"
+                                                                       Margin="0,0,0,4" />
+                                                            <TextBox Text="{Binding RangeMaximum, UpdateSourceTrigger=PropertyChanged}" />
+                                                        </StackPanel>
+                                                    </UniformGrid>
+                                                </StackPanel>
+                                                <StackPanel Visibility="{Binding UsesIntTimedValues, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                    <UniformGrid Columns="2" Margin="0,0,0,8">
+                                                        <StackPanel Margin="0,0,4,0">
+                                                            <TextBlock Text="{loc:Translate 'When Triggered, Set To'}"
+                                                                       Foreground="{DynamicResource TextBrush}"
+                                                                       FontWeight="SemiBold"
+                                                                       FontSize="11"
+                                                                       Margin="0,0,0,4" />
+                                                            <TextBox Text="{Binding ParameterValue, UpdateSourceTrigger=PropertyChanged}" />
+                                                        </StackPanel>
+                                                        <StackPanel Margin="4,0,0,0">
+                                                            <TextBlock Text="{loc:Translate 'After Active Time Ends, Set Back To'}"
+                                                                       Foreground="{DynamicResource TextBrush}"
+                                                                       FontWeight="SemiBold"
+                                                                       FontSize="11"
+                                                                       Margin="0,0,0,4" />
+                                                            <TextBox Text="{Binding ResetValue, UpdateSourceTrigger=PropertyChanged}" />
+                                                        </StackPanel>
+                                                    </UniformGrid>
+                                                </StackPanel>
+                                            </StackPanel>
+
+                                           <TextBlock Text="{loc:Translate 'Parameter List Filter'}"
+                                                      Foreground="{DynamicResource TextBrush}"
+                                                      FontSize="11"
+                                                      Margin="0,4,0,6" />
                                          <UniformGrid Columns="4" Margin="0,0,0,8">
                                              <Button Margin="0,0,3,0" Padding="8,4" FontSize="10"
                                                      Command="{Binding DataContext.FilterAllCommand, RelativeSource={RelativeSource AncestorType=Window}}">
