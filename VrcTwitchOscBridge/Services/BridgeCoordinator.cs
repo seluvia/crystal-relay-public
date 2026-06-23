@@ -10296,9 +10296,22 @@ internal BridgeCoordinator(
             }
             if (!session.CompletionCancellation.IsCancellationRequested)
             {
-                await SendSingleFloatAvatarParameterValueAsync(
+                var outSeconds = Math.Clamp(session.Rule.FloatTransitionOutSeconds, 0, 30);
+                var currentValue = await TryGetCurrentAvatarFloatValueAsync(
                     session.Address, session.ResetValue, session.CompletionCancellation.Token)
                     .ConfigureAwait(false);
+                if (outSeconds <= 0 || Math.Abs(currentValue - session.ResetValue) < 0.000001d)
+                {
+                    await SendSingleFloatAvatarParameterValueAsync(
+                        session.Address, session.ResetValue, session.CompletionCancellation.Token)
+                        .ConfigureAwait(false);
+                }
+                else
+                {
+                    await SendFloatAvatarParameterValueAsync(
+                        session.Address, currentValue, session.ResetValue, outSeconds, session.CompletionCancellation.Token)
+                        .ConfigureAwait(false);
+                }
             }
         }
         catch (TaskCanceledException) { /* expected on stop */ }
