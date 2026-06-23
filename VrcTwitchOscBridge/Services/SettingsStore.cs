@@ -1046,7 +1046,8 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             IntZeroDurationMode = rule.IntZeroDurationMode,
             ParameterValue = rule.ParameterValue,
             FloatValueMode = rule.FloatValueMode,
-            FloatTransitionSeconds = rule.FloatTransitionSeconds,
+            FloatTransitionInSeconds = rule.FloatTransitionInSeconds,
+            FloatTransitionOutSeconds = rule.FloatTransitionOutSeconds,
             FloatActionMode = rule.FloatActionMode,
             FloatRangeMin = rule.FloatRangeMin,
             FloatRangeMax = rule.FloatRangeMax,
@@ -1258,6 +1259,17 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
 
     internal static TriggerRule ToRule(PersistedTriggerRule rule)
     {
+        // Migration: if the saved JSON has the old FloatTransitionSeconds key
+        // and the new In/Out keys are 0, copy the old value into both and clear it.
+        if (rule.FloatTransitionSeconds > 0
+            && rule.FloatTransitionInSeconds <= 0
+            && rule.FloatTransitionOutSeconds <= 0)
+        {
+            rule.FloatTransitionInSeconds = Math.Clamp(rule.FloatTransitionSeconds, 0, 30);
+            rule.FloatTransitionOutSeconds = Math.Clamp(rule.FloatTransitionSeconds, 0, 30);
+            rule.FloatTransitionSeconds = 0;
+        }
+
         var migratedAvatarChangeTargetId = !string.IsNullOrWhiteSpace(rule.AvatarChangeTargetId)
             ? rule.AvatarChangeTargetId
             : rule.ActionType == OscActionType.AvatarChange
@@ -1340,7 +1352,8 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             IntZeroDurationMode = rule.IntZeroDurationMode,
             ParameterValue = migratedParameterValue,
             FloatValueMode = Enum.IsDefined(rule.FloatValueMode) ? rule.FloatValueMode : FloatValueMode.Decimal,
-            FloatTransitionSeconds = Math.Clamp(rule.FloatTransitionSeconds, 0, 30),
+            FloatTransitionInSeconds = Math.Clamp(rule.FloatTransitionInSeconds, 0, 30),
+            FloatTransitionOutSeconds = Math.Clamp(rule.FloatTransitionOutSeconds, 0, 30),
             FloatActionMode = Enum.IsDefined(rule.FloatActionMode) ? rule.FloatActionMode : FloatActionMode.Set,
             FloatRangeMin = rule.FloatRangeMin,
             FloatRangeMax = rule.FloatRangeMax,
@@ -3324,6 +3337,11 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
 
         public FloatValueMode FloatValueMode { get; set; }
 
+        public double FloatTransitionInSeconds { get; set; }
+        public double FloatTransitionOutSeconds { get; set; }
+        // FloatTransitionSeconds is intentionally not read or written. Old saves
+        // carrying that key are migrated in the ToRule path (see ToRule body).
+        [System.Text.Json.Serialization.JsonIgnore]
         public double FloatTransitionSeconds { get; set; }
 
         public FloatActionMode FloatActionMode { get; set; } = FloatActionMode.Set;
