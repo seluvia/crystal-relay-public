@@ -52,7 +52,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         FireSaleChanged,
         ManualRefresh,
         ManualCleanup,
-        Maintenance
+        Maintenance,
+        AvatarScaleMasterRewardUnlocked
     }
 
     private sealed record BroadcasterRewardAccountSnapshot(
@@ -865,7 +866,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         OpenBotLoginCommand = new RelayCommand(OpenBotAuthPage);
         ConnectVrChatCommand = new AsyncRelayCommand(ConnectVrChatAsync);
         DisconnectVrChatCommand = new AsyncRelayCommand(DisconnectVrChatAsync, () => Settings.VrChat.IsConnected);
-        RefreshVrChatAvatarsCommand = new AsyncRelayCommand(RefreshVrChatAvatarsAsync, () => Settings.VrChat.IsConnected);
+        RefreshVrChatAvatarsCommand = new AsyncRelayCommand(RefreshVrChatAvatarsAsync, CanRefreshVrChatAvatars);
+        ClearVrChatCacheCommand = new AsyncRelayCommand(ClearVrChatCacheAsync, () => availableVrChatAvatars.Count > 0 || HasPersistedVrChatCache());
         OpenRuntimeConfigCommand = new RelayCommand(OpenRuntimeConfigFile);
         OpenRuntimeConfigFolderCommand = new RelayCommand(OpenRuntimeConfigFolder);
         OpenTwitchDeveloperConsoleCommand = new RelayCommand(OpenTwitchDeveloperConsole);
@@ -1028,6 +1030,14 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             RaisePropertyChanged(nameof(AvatarScaleMasterRewardStatusText));
         });
         bridgeCoordinator.RewardCooldownColorChanged += ruleId => _ = HandleRewardCooldownColorChangedAsync(ruleId);
+        bridgeCoordinator.AvatarScaleMasterRewardUnlockStateChanged += () => RunOnUi(() =>
+        {
+            // The master reward's unlock window just opened or closed, which is a
+            // Twitch-visible change for the child avatar-scale rewards: hidden while
+            // locked, visible while unlocked. Queue a managed-reward sync so the
+            // child rewards' desiredEnabled state actually reaches Twitch.
+            QueueManagedRewardSync(0, ManagedRewardSyncReason.AvatarScaleMasterRewardUnlocked);
+        });
         bridgeCoordinator.AvatarScaleStatusChanged += () => RunOnUi(HandleAvatarScaleStatusChanged);
         bridgeCoordinator.RewardFireSaleContributionReceived += contribution => RunOnUi(() => HandleRewardFireSaleContribution(contribution));
         bridgeCoordinator.DevFireSaleRequested += request => RunOnUi(() => HandleDevFireSaleRequest(request));
@@ -3034,6 +3044,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     public AsyncRelayCommand RefreshVrChatAvatarsCommand { get; }
 
+    public AsyncRelayCommand ClearVrChatCacheCommand { get; }
+
     public RelayCommand OpenTwitchDeveloperConsoleCommand { get; }
 
     public RelayCommand OpenSaveFolderCommand { get; }
@@ -3926,28 +3938,91 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     private async Task DisconnectVrChatAsync()
     {
         await SafeVrChatLogoutAsync(Settings.VrChat.AuthCookie);
-        await settingsStore.ClearVrChatAvatarCacheAsync(CancellationToken.None);
-        await settingsStore.ClearVrChatOscParameterCacheAsync(CancellationToken.None);
         ClearVrChatAccountPreservingCurrentAvatar();
         AvatarPickerService.SetVrChatAuthCookie(null);
+
+        // Keep the on-disk avatar + OSC parameter caches. They are LocalLow
+        // sourced and remain valid after a manual disconnect; deleting them
+        // would empty the Avatar Swap / Avatar Sets / Wardrobe reward pickers
+        // while the user is offline. Users who really want a fresh cache can
+        // use the dedicated "Clear VRChat cache" button instead.
+        var persistUserId = ResolveCurrentUserIdForCache();
+        if (!string.IsNullOrEmpty(persistUserId) && availableVrChatAvatars.Count > 0)
+        {
+            try
+            {
+                await settingsStore.SaveVrChatAvatarCacheAsync(
+                    persistUserId,
+                    availableVrChatAvatars,
+                    CancellationToken.None);
+            }
+            catch
+            {
+                // best-effort; do not block the disconnect flow
+            }
+        }
+
+        RaiseVrChatConnectionStateProperties();
+        VrChatStatus = T("VRChat avatar access is not connected.");
+        VrChatAvatarStatus = T("Showing cached avatars. Connect VRChat to refresh.");
+        SyncVrChatRuntimeState(queueManagedRewardSync: false);
+        ResetVrChatLocalRuntimeTracking();
+        // Restart the LocalLow watcher + scan so cached avatars keep
+        // refreshing from VRChat's local files even while disconnected.
+        StartOrRefreshVrChatLocalOscWatcher();
+        QueueLocalVrChatOscAvatarScan(0);
+        QueueSave();
+        RefreshCommandStates();
+        UpdateAvatarProfileActivityStates();
+        RefreshVrChatAvatarSelectionOptions();
+        RecomputeVrChatConnectionState();
+        AppendLog(T("Disconnected VRChat avatar access. Cached avatars remain available."));
+    }
+
+    // Manually wipes the cached VRChat avatar + OSC parameter lists. This is
+    // intentionally separate from the disconnect flow so a normal disconnect
+    // keeps the cached avatars around for offline editing of Avatar Swap /
+    // Avatar Sets / Wardrobe rewards.
+    private async Task ClearVrChatCacheAsync()
+    {
+        try
+        {
+            await settingsStore.ClearVrChatAvatarCacheAsync(CancellationToken.None);
+            await settingsStore.ClearVrChatOscParameterCacheAsync(CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            AppendLog(TF("Could not clear VRChat cache: {0}", ex.Message));
+            return;
+        }
+
         ClearAvailableVrChatAvatars();
         cachedVrChatParametersByAvatarId.Clear();
         AvatarParameterOptions.Clear();
         SetTriggerParameterOptions.Clear();
         SelectedAvatarParameterOption = null;
         SelectedSetTriggerParameterOption = null;
-        VrChatOscParameterStatus = T("Connect VRChat to load avatar parameters.");
-        RaiseVrChatConnectionStateProperties();
-        VrChatStatus = T("VRChat avatar access is not connected.");
-        VrChatAvatarStatus = T("Connect VRChat to load avatar choices.");
-        SyncVrChatRuntimeState();
-        ResetVrChatLocalRuntimeTracking();
-        DisposeVrChatLocalOscWatcher();
-        QueueSave();
-        RefreshCommandStates();
-        UpdateAvatarProfileActivityStates();
+        InvalidateInferredLocalLowUserId();
+        VrChatAvatarStatus = T("VRChat avatar cache cleared. Connect VRChat to reload.");
+        VrChatOscParameterStatus = T("VRChat OSC parameter cache cleared. Connect VRChat to reload.");
+        StartOrRefreshVrChatLocalOscWatcher();
+        QueueLocalVrChatOscAvatarScan(0);
         RefreshVrChatAvatarSelectionOptions();
-        AppendLog(T("Disconnected VRChat avatar access."));
+        RefreshCommandStates();
+        RecomputeVrChatConnectionState();
+        AppendLog(T("Cleared the cached VRChat avatar and OSC parameter lists."));
+    }
+
+    private bool HasPersistedVrChatCache()
+    {
+        // We don't want to hit the secure store on every command evaluation.
+        // Use the live in-memory avatar count as a fast proxy and let the
+        // secure store checks happen on click if needed. The button stays
+        // usable whenever the user has any in-memory cache, which is the
+        // realistic case for this command.
+        return availableVrChatAvatars.Count > 0
+            || !string.IsNullOrEmpty(Settings.VrChat.UserId)
+            || !string.IsNullOrEmpty(inferredLocalLowUserId);
     }
 
     private void SyncVrChatRuntimeState(bool queueManagedRewardSync = true)
@@ -3971,11 +4046,16 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     private void ClearVrChatAccountPreservingCurrentAvatar()
     {
         var currentAvatarId = GetBestKnownCurrentAvatarId();
+        var displayName = Settings.VrChat.DisplayName?.Trim() ?? string.Empty;
         Settings.VrChat.Clear();
         AvatarPickerService.SetVrChatAuthCookie(null);
         if (!string.IsNullOrWhiteSpace(currentAvatarId))
         {
             Settings.VrChat.CurrentAvatarId = currentAvatarId;
+        }
+        if (!string.IsNullOrWhiteSpace(displayName))
+        {
+            Settings.VrChat.DisplayName = displayName;
         }
     }
 
@@ -4154,7 +4234,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         if (!Settings.VrChat.IsConnected)
         {
             VrChatStatus = T("VRChat avatar access is not connected.");
-            VrChatAvatarStatus = T("Connect VRChat to load avatar choices.");
             VrChatOscParameterStatus = T("Connect VRChat to load avatar parameters.");
             ResetVrChatLocalRuntimeTracking();
 
@@ -4164,8 +4243,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
                 try
                 {
                     var localAvatars = await vrChatLocalOscCacheService
-                        .LoadKnownAvatarsAsync(inferredUserId, CancellationToken.None)
-                        .ConfigureAwait(false);
+                        .LoadKnownAvatarsAsync(inferredUserId, CancellationToken.None);
                     if (localAvatars.Count > 0)
                     {
                         RunOnUi(() => ApplyLocalVrChatOscAvatars(localAvatars));
@@ -4177,8 +4255,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
                 }
             }
 
+            await ScanLocalVrChatOscAvatarCacheAsync(CancellationToken.None);
+            QueueCurrentVrChatLocalStateRefresh(0);
+            UpdateAvatarProfileActivityStates();
+            VrChatAvatarStatus = availableVrChatAvatars.Count == 0
+                ? T("No cached avatars yet. Connect VRChat once to build the cache.")
+                : TF("Showing {0} cached avatars. Connect VRChat to refresh from the API.", availableVrChatAvatars.Count);
             RefreshVrChatAvatarSelectionOptions();
             RecomputeVrChatConnectionState();
+            RefreshCommandStates();
             return;
         }
 
@@ -4217,17 +4302,39 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         await RefreshVrChatAvatarsAsync(forceRemoteRefresh: true);
     }
 
+    private bool CanRefreshVrChatAvatars()
+    {
+        return Settings.VrChat.IsConnected
+            || VrChatConnectionState == VrChatConnectionState.Cached
+            || availableVrChatAvatars.Count > 0
+            || !string.IsNullOrWhiteSpace(Settings.VrChat.UserId)
+            || !string.IsNullOrWhiteSpace(inferredLocalLowUserId);
+    }
+
     private async Task RefreshVrChatAvatarsAsync(bool forceRemoteRefresh)
     {
         if (!Settings.VrChat.IsConnected)
         {
+            // Offline refresh: load the secure cache for the inferred userId,
+            // then let the LocalLow scan merge in any fresh names. This keeps
+            // the Avatar Swap / Avatar Sets / Wardrobe reward pickers usable
+            // after a disconnect instead of silently emptying them.
             AvatarPickerService.SetVrChatAuthCookie(null);
+            var offlineUserId = ResolveCurrentUserIdForCache();
+            if (!string.IsNullOrEmpty(offlineUserId))
+            {
+                var cachedAvatars = await settingsStore.LoadVrChatAvatarCacheAsync(offlineUserId, CancellationToken.None);
+                ReplaceAvailableVrChatAvatars(cachedAvatars);
+            }
+            StartOrRefreshVrChatLocalOscWatcher();
+            await ScanLocalVrChatOscAvatarCacheAsync(CancellationToken.None);
             VrChatStatus = T("VRChat avatar access is not connected.");
-            VrChatAvatarStatus = T("Connect VRChat to load avatar choices.");
-            ResetVrChatLocalRuntimeTracking();
-            DisposeVrChatLocalOscWatcher();
+            VrChatAvatarStatus = availableVrChatAvatars.Count == 0
+                ? T("No cached avatars yet. Connect VRChat once to build the cache.")
+                : TF("Showing {0} cached avatars. Connect VRChat to refresh from the API.", availableVrChatAvatars.Count);
             RefreshVrChatAvatarSelectionOptions();
             RefreshCommandStates();
+            RecomputeVrChatConnectionState();
             return;
         }
 
@@ -4298,19 +4405,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             if (ex is VrChatApiException apiException
                 && apiException.StatusCode == System.Net.HttpStatusCode.Unauthorized)
             {
-                await HandleVrChatUnauthorizedAsync(CancellationToken.None).ConfigureAwait(false);
-                AvatarParameterOptions.Clear();
-                SetTriggerParameterOptions.Clear();
-                SelectedAvatarParameterOption = null;
-                SelectedSetTriggerParameterOption = null;
+                await HandleVrChatUnauthorizedAsync(CancellationToken.None);
                 RaiseVrChatConnectionStateProperties();
                 SyncVrChatRuntimeState(queueManagedRewardSync: false);
-                VrChatStatus = T("Saved VRChat session expired. Connect again to reload avatars.");
-                VrChatAvatarStatus = T("VRChat avatar list is unavailable until you reconnect.");
-                VrChatOscParameterStatus = T("Reconnect VRChat to load avatar parameters again.");
-                ResetVrChatLocalRuntimeTracking();
-                DisposeVrChatLocalOscWatcher();
-                AppendLog(T("Saved VRChat avatar session expired and was cleared."));
+                VrChatStatus = T("VRChat avatar access is not connected.");
+                VrChatAvatarStatus = availableVrChatAvatars.Count == 0
+                    ? T("No cached avatars yet. Connect VRChat once to build the cache.")
+                    : TF("Showing {0} cached avatars. Connect VRChat to refresh from the API.", availableVrChatAvatars.Count);
+                VrChatOscParameterStatus = T("Pick an avatar set to load its saved OSC parameters.");
+                AppendLog(T("Disconnected VRChat avatar access. Cached avatars remain available."));
                 RecordSavedLoginRecoverySignal();
                 QueueSave();
             }
@@ -6571,7 +6674,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             }
         }
 
-        if (Settings?.VrChat?.UserId is not { } userId || string.IsNullOrWhiteSpace(userId))
+        var userId = ResolveCurrentUserIdForCache();
+        if (string.IsNullOrWhiteSpace(userId))
         {
             // Fall back to scanning OSC folder by avatar ID directly
             AppendLog("VRChat user ID is not set — signing in to VRChat via the main window's VRChat login enables parameter loading, OR Crystal Relay will scan the avatar OSC file directly.");
@@ -10992,7 +11096,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         ManagedRewardSyncReason.FireSaleChanged => "reward fire sale",
         ManagedRewardSyncReason.ManualRefresh => "manual refresh",
         ManagedRewardSyncReason.ManualCleanup => "manual cleanup",
-        ManagedRewardSyncReason.Maintenance => "maintenance",
+            ManagedRewardSyncReason.Maintenance => "maintenance",
+            ManagedRewardSyncReason.AvatarScaleMasterRewardUnlocked => "avatar scaling master reward unlock changed",
         _ => "settings edit"
     };
 
@@ -11159,6 +11264,20 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     {
         if (!Settings.VrChat.IsConnected)
         {
+            try
+            {
+                await RefreshCurrentVrChatAvatarFromLocalFilesAsync(
+                    cancellationToken,
+                    queueManagedRewardSync: false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                RunOnUi(() => AppendThrottledLog(
+                    "managed-reward-current-avatar-local-cache-refresh",
+                    $"Crystal Relay could not read the cached VRChat avatar state before reward sync: {ex.Message}",
+                    ThrottledRewardSyncLogWindow));
+            }
+
             await RecoverManagedRewardCurrentAvatarFromBridgeRuntimeAsync(cancellationToken);
             if (string.IsNullOrWhiteSpace(GetManagedRewardActivationAvatarId()))
             {
@@ -11263,9 +11382,14 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     private void QueueCurrentVrChatAvatarRefresh(int delayMilliseconds = 0)
     {
         if (!isInitialized
-            || isShuttingDown
-            || !Settings.VrChat.IsConnected)
+            || isShuttingDown)
         {
+            return;
+        }
+
+        if (!Settings.VrChat.IsConnected)
+        {
+            QueueCurrentVrChatLocalStateRefresh(delayMilliseconds);
             return;
         }
 
@@ -11307,7 +11431,13 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     private void QueueCurrentVrChatLocalStateRefresh(int delayMilliseconds = 0)
     {
-        if (!isInitialized || isShuttingDown || !Settings.VrChat.IsConnected)
+        if (!isInitialized || isShuttingDown)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(Settings.VrChat.DisplayName)
+            && string.IsNullOrWhiteSpace(ResolveCurrentUserIdForCache()))
         {
             return;
         }
@@ -11349,11 +11479,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         CancellationToken cancellationToken,
         bool queueManagedRewardSync = true)
     {
-        if (!Settings.VrChat.IsConnected)
-        {
-            return;
-        }
-
         var resolvedAvatarId = string.Empty;
         var detectedAvatarName = string.Empty;
         var localDisplayName = Settings.VrChat.DisplayName?.Trim() ?? string.Empty;
@@ -11373,6 +11498,21 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             if (!string.IsNullOrWhiteSpace(detectedAvatarName))
             {
                 resolvedAvatarId = ResolveVrChatAvatarIdByName(detectedAvatarName);
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(resolvedAvatarId))
+        {
+            var resolvedUserId = ResolveCurrentUserIdForCache();
+            if (!string.IsNullOrWhiteSpace(resolvedUserId))
+            {
+                var latestLocalAvatar = await vrChatLocalOscCacheService
+                    .LoadLatestKnownAvatarAsync(resolvedUserId, cancellationToken);
+                if (latestLocalAvatar is not null)
+                {
+                    resolvedAvatarId = latestLocalAvatar.AvatarId?.Trim() ?? string.Empty;
+                    detectedAvatarName = latestLocalAvatar.AvatarName?.Trim() ?? string.Empty;
+                }
             }
         }
 
@@ -11458,19 +11598,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         }
         catch (VrChatApiException apiException) when (apiException.StatusCode == System.Net.HttpStatusCode.Unauthorized)
         {
-            await HandleVrChatUnauthorizedAsync(cancellationToken).ConfigureAwait(false);
-            AvatarParameterOptions.Clear();
-            SetTriggerParameterOptions.Clear();
-            SelectedAvatarParameterOption = null;
-            SelectedSetTriggerParameterOption = null;
+            await HandleVrChatUnauthorizedAsync(cancellationToken);
             RaiseVrChatConnectionStateProperties();
             SyncVrChatRuntimeState(queueManagedRewardSync: false);
-            VrChatStatus = T("Saved VRChat session expired. Connect again to keep tracking your current avatar.");
-            VrChatAvatarStatus = T("VRChat avatar list is unavailable until you reconnect.");
-            VrChatOscParameterStatus = T("Reconnect VRChat to load avatar parameters again.");
-            ResetVrChatLocalRuntimeTracking();
-            DisposeVrChatLocalOscWatcher();
-            AppendLog(T("Saved VRChat avatar session expired and was cleared."));
+            VrChatStatus = T("VRChat avatar access is not connected.");
+            VrChatAvatarStatus = availableVrChatAvatars.Count == 0
+                ? T("No cached avatars yet. Connect VRChat once to build the cache.")
+                : TF("Showing {0} cached avatars. Connect VRChat to refresh from the API.", availableVrChatAvatars.Count);
+            VrChatOscParameterStatus = T("Pick an avatar set to load its saved OSC parameters.");
+            AppendLog(T("Disconnected VRChat avatar access. Cached avatars remain available."));
             RecordSavedLoginRecoverySignal();
             QueueSave();
         }
@@ -11478,13 +11614,19 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     private void StartOrRefreshVrChatLocalOscWatcher()
     {
-        if (!Settings.VrChat.IsConnected || string.IsNullOrWhiteSpace(Settings.VrChat.UserId))
+        // Allow the LocalLow watcher to run even while VRChat is disconnected,
+        // as long as we can resolve a userId from the live settings or the
+        // LocalLow folder. This keeps the cached avatar list and parameter
+        // cache fresh after a manual disconnect, so Avatar Swap / Avatar Sets /
+        // Wardrobe rewards still have a populated avatar list to pick from.
+        var resolvedUserId = ResolveCurrentUserIdForCache();
+        if (string.IsNullOrWhiteSpace(resolvedUserId))
         {
             DisposeVrChatLocalOscWatcher();
             return;
         }
 
-        var avatarFolderPath = VrChatLocalOscCacheService.GetAvatarOscFolderPath(Settings.VrChat.UserId);
+        var avatarFolderPath = VrChatLocalOscCacheService.GetAvatarOscFolderPath(resolvedUserId);
         if (string.IsNullOrWhiteSpace(avatarFolderPath) || !Directory.Exists(avatarFolderPath))
         {
             DisposeVrChatLocalOscWatcher();
@@ -11542,7 +11684,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     private void QueueLocalVrChatOscAvatarScan(int delayMilliseconds = 350)
     {
-        if (!isInitialized || isShuttingDown || !Settings.VrChat.IsConnected || string.IsNullOrWhiteSpace(Settings.VrChat.UserId))
+        if (!isInitialized || isShuttingDown || string.IsNullOrWhiteSpace(ResolveCurrentUserIdForCache()))
         {
             return;
         }
@@ -11577,12 +11719,17 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     private async Task ScanLocalVrChatOscAvatarCacheAsync(CancellationToken cancellationToken)
     {
-        if (!Settings.VrChat.IsConnected || string.IsNullOrWhiteSpace(Settings.VrChat.UserId))
+        // Allow the LocalLow scan to run after a VRChat disconnect by resolving
+        // the userId from Settings first, then from the cached LocalLow folder.
+        // This is what keeps the in-memory avatar list and the OSC parameter
+        // cache usable while the user is signed out (Cached state).
+        var resolvedUserId = ResolveCurrentUserIdForCache();
+        if (string.IsNullOrWhiteSpace(resolvedUserId))
         {
             return;
         }
 
-        var localAvatars = await vrChatLocalOscCacheService.LoadKnownAvatarsAsync(Settings.VrChat.UserId, cancellationToken);
+        var localAvatars = await vrChatLocalOscCacheService.LoadKnownAvatarsAsync(resolvedUserId, cancellationToken);
         if (localAvatars.Count == 0)
         {
             return;
@@ -11614,7 +11761,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             try
             {
                 var localParameters = await vrChatLocalOscCacheService.LoadAvatarParametersAsync(
-                    Settings.VrChat.UserId,
+                    resolvedUserId,
                     normalizedAvatarId,
                     cancellationToken);
 
@@ -11647,9 +11794,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         {
             try
             {
-                await settingsStore
-                    .SaveVrChatAvatarCacheAsync(persistUserId, availableVrChatAvatars, cancellationToken)
-                    .ConfigureAwait(false);
+                await settingsStore.SaveVrChatAvatarCacheAsync(
+                    persistUserId,
+                    availableVrChatAvatars,
+                    cancellationToken);
             }
             catch
             {
@@ -12428,7 +12576,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         var desiredEnabled = allowManagedRewardActivation
             && masterReward.IsEnabled
             && hasRewardIdentity;
-        var backgroundColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(masterReward.ManagedRewardReadyColor);
+        // The master reward is shown in its cooldown color while the unlock window is active
+        // OR while the redemption cooldown is active, so a full sync that runs mid-unlock does
+        // not reset the color back to the ready color and undo the per-reward PATCH.
+        var backgroundColor = isCooldownActive
+            ? ManagedRewardPresentation.NormalizeCooldownBackgroundColor(masterReward.ManagedRewardCooldownColor)
+            : ManagedRewardPresentation.NormalizeReadyBackgroundColor(masterReward.ManagedRewardReadyColor);
 
         return new ManagedRewardSyncTarget(
             AvatarScaleMasterRewardOwnerId,
@@ -12588,15 +12741,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         }
 
         var normalizedAvatarId = currentAvatarId?.Trim() ?? string.Empty;
-        if (!Settings.VrChat.IsConnected
-            || string.IsNullOrWhiteSpace(Settings.VrChat.UserId)
+        var resolvedUserId = ResolveCurrentUserIdForCache();
+        if (string.IsNullOrWhiteSpace(resolvedUserId)
             || string.IsNullOrWhiteSpace(normalizedAvatarId))
         {
             return;
         }
 
-        var avatarFolderPath = VrChatLocalOscCacheService.GetAvatarOscFolderPath(Settings.VrChat.UserId);
-        var avatarFilePath = VrChatLocalOscCacheService.GetAvatarOscFilePath(Settings.VrChat.UserId, normalizedAvatarId);
+        var avatarFolderPath = VrChatLocalOscCacheService.GetAvatarOscFolderPath(resolvedUserId);
+        var avatarFilePath = VrChatLocalOscCacheService.GetAvatarOscFilePath(resolvedUserId, normalizedAvatarId);
         var avatarFolderExists = !string.IsNullOrWhiteSpace(avatarFolderPath) && Directory.Exists(avatarFolderPath);
         var avatarFileExists = avatarFolderExists
             && !string.IsNullOrWhiteSpace(avatarFilePath)
@@ -12621,7 +12774,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             try
             {
                 var localParameters = await vrChatLocalOscCacheService.LoadAvatarParametersAsync(
-                    Settings.VrChat.UserId,
+                    resolvedUserId,
                     normalizedAvatarId,
                     cancellationToken);
 
@@ -13877,13 +14030,14 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     private bool CurrentAvatarLocalOscJsonExists(string currentAvatarId)
     {
         var normalizedAvatarId = currentAvatarId?.Trim() ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(Settings.VrChat.UserId)
+        var resolvedUserId = ResolveCurrentUserIdForCache();
+        if (string.IsNullOrWhiteSpace(resolvedUserId)
             || string.IsNullOrWhiteSpace(normalizedAvatarId))
         {
             return false;
         }
 
-        var avatarFilePath = VrChatLocalOscCacheService.GetAvatarOscFilePath(Settings.VrChat.UserId, normalizedAvatarId);
+        var avatarFilePath = VrChatLocalOscCacheService.GetAvatarOscFilePath(resolvedUserId, normalizedAvatarId);
         return !string.IsNullOrWhiteSpace(avatarFilePath) && File.Exists(avatarFilePath);
     }
 
@@ -17101,6 +17255,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         ConnectVrChatCommand.NotifyCanExecuteChanged();
         DisconnectVrChatCommand.NotifyCanExecuteChanged();
         RefreshVrChatAvatarsCommand.NotifyCanExecuteChanged();
+        ClearVrChatCacheCommand.NotifyCanExecuteChanged();
         RemoveSelectedRuleCommand.NotifyCanExecuteChanged();
         TestSelectedRuleCommand.NotifyCanExecuteChanged();
         RemoveSelectedMovementRedeemSetCommand.NotifyCanExecuteChanged();
@@ -17786,18 +17941,18 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     private string? ResolveCurrentUserIdForCache()
     {
+        var resolved = VrChatLocalOscCacheService.ResolveCacheUserId(
+            Settings.VrChat.UserId,
+            inferredLocalLowUserId);
         if (!string.IsNullOrWhiteSpace(Settings.VrChat.UserId))
         {
-            return Settings.VrChat.UserId;
+            return resolved;
         }
-        if (!string.IsNullOrWhiteSpace(inferredLocalLowUserId))
+        if (string.IsNullOrWhiteSpace(inferredLocalLowUserId))
         {
-            return inferredLocalLowUserId;
+            inferredLocalLowUserId = resolved;
         }
-        var inferred = VrChatLocalOscCacheService.TryInferUserIdFromLocalLowInRoot(
-            VrChatLocalClientStateService.GetVrChatRootPath());
-        inferredLocalLowUserId = inferred;
-        return inferred;
+        return resolved;
     }
 
     private void InvalidateInferredLocalLowUserId()
@@ -17807,42 +17962,37 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     private async Task HandleVrChatUnauthorizedAsync(CancellationToken ct)
     {
-        // 1. Filter the in-memory list to LocalLow-sourced entries only.
-        var localOnly = availableVrChatAvatars
-            .Where(a => string.Equals(a.SourceLabel, "Local OSC", StringComparison.Ordinal))
-            .ToList();
+        var cachedAvatars = SelectVrChatAvatarsForCachedModeAfterAuthFailure(availableVrChatAvatars);
+        ReplaceAvailableVrChatAvatars(cachedAvatars);
 
-        // 2. Replace the in-memory list.
-        ReplaceAvailableVrChatAvatars(localOnly);
-
-        // 3. Persist the filtered list (keeps LocalLow, drops API).
         var userId = ResolveCurrentUserIdForCache();
         if (!string.IsNullOrEmpty(userId))
         {
             try
             {
-                await settingsStore
-                    .SaveVrChatAvatarCacheAsync(userId, localOnly, ct)
-                    .ConfigureAwait(false);
+                await settingsStore.SaveVrChatAvatarCacheAsync(
+                    userId,
+                    cachedAvatars,
+                    ct);
             }
             catch
             {
-                // best-effort; do not break the 401 cleanup
+                // best-effort; do not break the cached-mode transition
             }
         }
 
-        // 4. Clear auth state. (Do NOT clear CurrentAvatarId — the bridge keeps
-        //    tracking the last known avatar until the next /avatar/change.)
-        Settings.VrChat.AuthCookie = string.Empty;
-        Settings.VrChat.UserId = string.Empty;
-        Settings.VrChat.DisplayName = string.Empty;
-
-        // 5. OSC parameter cache and in-memory parameter dict stay as-is —
-        //    they are LocalLow-sourced and remain valid.
-
-        // 6. Re-evaluate the connection state.
+        Settings.VrChat.Clear();
+        AvatarPickerService.SetVrChatAuthCookie(null);
+        StartOrRefreshVrChatLocalOscWatcher();
+        await ScanLocalVrChatOscAvatarCacheAsync(ct);
         RecomputeVrChatConnectionState();
-        InvalidateInferredLocalLowUserId();
+        QueueCurrentVrChatLocalStateRefresh(0);
+    }
+
+    internal static IReadOnlyList<VrChatAvatarSummary> SelectVrChatAvatarsForCachedModeAfterAuthFailure(
+        IEnumerable<VrChatAvatarSummary> avatars)
+    {
+        return avatars.ToList();
     }
 
     private void HandleIncomingOscAvatarChangeSync(string avatarId)
@@ -17867,12 +18017,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             var inferredUserId = await Task.Run(
                 () => VrChatLocalOscCacheService.TryInferUserIdFromLocalLowInRoot(
                     VrChatLocalClientStateService.GetVrChatRootPath()),
-                ct).ConfigureAwait(false);
+                ct);
             if (!string.IsNullOrEmpty(inferredUserId))
             {
                 var known = await vrChatLocalOscCacheService
-                    .LoadKnownAvatarsAsync(inferredUserId, ct)
-                    .ConfigureAwait(false);
+                    .LoadKnownAvatarsAsync(inferredUserId, ct);
                 var match = known.FirstOrDefault(a =>
                     string.Equals(a.AvatarId, avatarId, StringComparison.Ordinal));
                 if (match is not null &&
@@ -17896,9 +18045,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         {
             try
             {
-                await settingsStore
-                    .SaveVrChatAvatarCacheAsync(currentUserId, availableVrChatAvatars, ct)
-                    .ConfigureAwait(false);
+                await settingsStore.SaveVrChatAvatarCacheAsync(
+                    currentUserId,
+                    availableVrChatAvatars,
+                    ct);
             }
             catch
             {
@@ -19055,7 +19205,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     private async Task EnsureSelectedAvatarParameterCacheLoadedAsync()
     {
         var avatarId = GetSelectedParameterCacheAvatarId();
-        if (!Settings.VrChat.IsConnected || string.IsNullOrWhiteSpace(avatarId))
+        if (string.IsNullOrWhiteSpace(avatarId)
+            || string.IsNullOrWhiteSpace(ResolveCurrentUserIdForCache()))
         {
             RefreshAvatarParameterOptions();
             return;
@@ -19078,7 +19229,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     private async Task RefreshVrChatOscParametersAsync(bool suppressErrors)
     {
-        if (!Settings.VrChat.IsConnected)
+        if (string.IsNullOrWhiteSpace(ResolveCurrentUserIdForCache()))
         {
             VrChatOscParameterStatus = T("Connect VRChat to load avatar parameters.");
             return;
@@ -19243,7 +19394,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     private void UpdateVrChatOscParameterStatus(string selectedAvatarId)
     {
-        if (!Settings.VrChat.IsConnected)
+        if (string.IsNullOrWhiteSpace(ResolveCurrentUserIdForCache()))
         {
             VrChatOscParameterStatus = T("Connect VRChat to load avatar parameters.");
         }
@@ -19383,7 +19534,14 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
                 return;
             }
 
-            var isOnCooldown = bridgeCoordinator.GetRulesOnCooldownIds().Contains(ruleId);
+            // The avatar scale master reward tracks its cooldown in dedicated unlock/cooldown
+            // fields (not the shared per-rule cooldown dictionary) because the master reward is
+            // identified by a fixed Guid rather than a TriggerRule. Without this special case the
+            // per-reward PATCH would always see "ready" and never apply the cooldown color while
+            // the master reward is unlocked or cooling down.
+            var isOnCooldown = ruleId == AvatarScaleMasterRewardOwnerId
+                ? bridgeCoordinator.IsAvatarScaleMasterRewardOnCooldown()
+                : bridgeCoordinator.GetRulesOnCooldownIds().Contains(ruleId);
             var configuredColor = ResolveConfiguredRewardColor(ruleId, isOnCooldown);
             if (string.IsNullOrWhiteSpace(configuredColor))
             {
@@ -19673,13 +19831,14 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         string avatarId,
         CancellationToken cancellationToken)
     {
-        if (!Settings.VrChat.IsConnected || string.IsNullOrWhiteSpace(Settings.VrChat.UserId))
+        var resolvedUserId = ResolveCurrentUserIdForCache();
+        if (string.IsNullOrWhiteSpace(resolvedUserId))
         {
             return [];
         }
 
         var localParameters = await vrChatLocalOscCacheService.LoadAvatarParametersAsync(
-            Settings.VrChat.UserId,
+            resolvedUserId,
             avatarId,
             cancellationToken);
 
@@ -19699,7 +19858,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         }
 
         var cachedParameters = await settingsStore.LoadVrChatOscParameterCacheAsync(
-            Settings.VrChat.UserId,
+            ResolveCurrentUserIdForCache() ?? string.Empty,
             normalizedAvatarId,
             cancellationToken);
         if (cachedParameters.Count > 0)
@@ -19719,14 +19878,14 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     {
         lastWriteTimeUtc = DateTime.MinValue;
 
-        if (!Settings.VrChat.IsConnected
-            || string.IsNullOrWhiteSpace(Settings.VrChat.UserId)
+        var resolvedUserId = ResolveCurrentUserIdForCache();
+        if (string.IsNullOrWhiteSpace(resolvedUserId)
             || string.IsNullOrWhiteSpace(avatarId))
         {
             return false;
         }
 
-        var filePath = VrChatLocalOscCacheService.GetAvatarOscFilePath(Settings.VrChat.UserId, avatarId);
+        var filePath = VrChatLocalOscCacheService.GetAvatarOscFilePath(resolvedUserId, avatarId);
         if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
         {
             return false;
@@ -19743,8 +19902,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         bool queueManagedRewardSync = true)
     {
         var normalizedAvatarId = avatarId?.Trim() ?? string.Empty;
-        if (!Settings.VrChat.IsConnected
-            || string.IsNullOrWhiteSpace(Settings.VrChat.UserId)
+        var resolvedUserId = ResolveCurrentUserIdForCache();
+        if (string.IsNullOrWhiteSpace(resolvedUserId)
             || string.IsNullOrWhiteSpace(normalizedAvatarId))
         {
             return;
@@ -19752,7 +19911,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
         cachedVrChatParametersByAvatarId[normalizedAvatarId] = [.. parameters];
         await settingsStore.SaveVrChatOscParameterCacheAsync(
-            Settings.VrChat.UserId,
+            resolvedUserId,
             normalizedAvatarId,
             parameters,
             cancellationToken);
@@ -19768,7 +19927,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     private void QueueCurrentVrChatOscParameterRefresh(string avatarId, bool queueManagedRewardSync = true)
     {
-        if (!isInitialized || isShuttingDown || !Settings.VrChat.IsConnected)
+        if (!isInitialized || isShuttingDown || string.IsNullOrWhiteSpace(ResolveCurrentUserIdForCache()))
         {
             return;
         }

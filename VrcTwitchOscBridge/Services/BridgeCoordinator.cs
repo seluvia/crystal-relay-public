@@ -152,7 +152,6 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private readonly Dictionary<Guid, PendingResetState> pendingResets = [];
     private readonly Dictionary<Guid, ActiveFloatRedeemSessionState> activeFloatRedeemSessions = [];
     private readonly Dictionary<Guid, ActiveFloatGlitchyRedeemSessionState> activeGlitchyRedeemSessions = [];
-    private readonly HashSet<CancellationTokenSource> cancellationTokensForPulse = [];
     private readonly Dictionary<string, DateTimeOffset> recentMessageIds = [];
     private readonly Dictionary<string, OscObservedValue> avatarParameterValues = [];
     private readonly Dictionary<string, OscObservedValue> avatarScaleValues = new(StringComparer.Ordinal);
@@ -310,6 +309,12 @@ internal BridgeCoordinator(
     // master reward is identified by a fixed Guid (no TriggerRule behind it), so the
     // per-reward color PATCH path uses this to route events to the master reward.
     private static readonly Guid AvatarScaleMasterRewardOwnerGuid = new("c69a2537-6c74-450f-9c5a-b6d9f04a7d95");
+
+    // Fires only when the master reward's unlock window actually opens or closes
+    // (not on every cooldown tick). The view model listens to this to queue a full
+    // managed-reward sync so the child avatar-scale rewards become visible on Twitch
+    // when the master reward is unlocked and get re-hidden once the unlock window ends.
+    public event Action? AvatarScaleMasterRewardUnlockStateChanged;
 
     public event Action? AvatarScaleStatusChanged;
 
@@ -6255,6 +6260,7 @@ internal BridgeCoordinator(
         UniversalIncomingEvent incomingEvent)
     {
         var now = DateTimeOffset.UtcNow;
+        var wasUnlocked = false;
         DateTimeOffset unlockUntil;
         var cooldownUntil = masterReward.CooldownSeconds > 0
             ? now.AddSeconds(masterReward.CooldownSeconds)
@@ -6262,6 +6268,7 @@ internal BridgeCoordinator(
 
         lock (stateGate)
         {
+            wasUnlocked = avatarScaleMasterUnlockUntil > now;
             var unlockStart = avatarScaleMasterUnlockUntil > now
                 ? avatarScaleMasterUnlockUntil
                 : now;
@@ -6282,6 +6289,17 @@ internal BridgeCoordinator(
 
         WriteLog($"{incomingEvent.UserDisplayName} unlocked Avatar Scaling rewards for {DescribeDuration((unlockUntil - now).TotalSeconds)}.");
         ManagedRewardAvailabilityChanged?.Invoke();
+        // PATCH the master reward's background color to its cooldown color right away so
+        // the Twitch reward visibly changes the moment it is redeemed, matching the
+        // per-rule flow where NotifyRewardCooldownColorChanged fires immediately on trigger.
+        NotifyRewardCooldownColorChanged(AvatarScaleMasterRewardOwnerGuid);
+        // Only fire the unlock-state-changed event on a real transition (was locked, now
+        // unlocked). Re-redeeming while already unlocked just extends the window and should
+        // not trigger another full managed-reward sync.
+        if (!wasUnlocked)
+        {
+            AvatarScaleMasterRewardUnlockStateChanged?.Invoke();
+        }
     }
 
     private static bool SupporterGrowthEventMatches(
@@ -10032,39 +10050,41 @@ internal BridgeCoordinator(
         var address = VrChatOscClient.NormalizeAvatarParameterAddress(rule.ParameterName);
         var sourceRule = rule.Rule;
 
-        if (sourceRule.FloatActionMode == FloatActionMode.Pulse)
-        {
-            var (pulseValue, _) = FloatActionDispatch.ComputeNext(sourceRule, currentValue: 0.0);
-            var pulsePacket = vrChatOscClient.BuildAvatarParameterPacket(
-                address, OscParameterType.Float,
-                FloatValueModeConverter.ToOscText(pulseValue));
-            ScheduleFloatPulseRestore(sourceRule, address, pulsePacket);
-            return new ResolvedRuleAction(
-                packets: new[] { pulsePacket },
-                resetPackets: Array.Empty<byte[]>(),
-                displayValue: FloatValueModeConverter.ToOscText(pulseValue));
-        }
-
         var fallback = FloatValueModeConverter.TryParseNormalized(
             rule.FloatValueMode, rule.ParameterValue, out var fallbackValue) ? fallbackValue : 0.0;
         var currentValue = await TryGetCurrentAvatarFloatValueAsync(address, fallback, cancellationToken).ConfigureAwait(false);
 
-        var (nextValue, resetValue) = FloatActionDispatch.ComputeNext(sourceRule, currentValue);
+        var (nextValue, configuredReset) = FloatActionDispatch.ComputeNext(sourceRule, currentValue);
         var targetPacket = vrChatOscClient.BuildAvatarParameterPacket(
             address, OscParameterType.Float,
             FloatValueModeConverter.ToOscText(nextValue));
-        var resetPackets = resetValue.HasValue
+
+        if (sourceRule.FloatActionMode == FloatActionMode.Pulse)
+        {
+            var pulseReset = configuredReset ?? ClampAvatarFloatValue(currentValue);
+            var pulsePacket = vrChatOscClient.BuildAvatarParameterPacket(
+                address, OscParameterType.Float,
+                FloatValueModeConverter.ToOscText(nextValue));
+            ScheduleFloatPulseRestore(sourceRule, address, pulsePacket, pulseReset);
+            return new ResolvedRuleAction(
+                packets: new[] { pulsePacket },
+                resetPackets: Array.Empty<byte[]>(),
+                displayValue: FloatValueModeConverter.ToOscText(nextValue));
+        }
+
+        var effectiveReset = configuredReset ?? (sourceRule.DurationSeconds > 0 ? ClampAvatarFloatValue(currentValue) : (double?)null);
+        var resetPackets = effectiveReset.HasValue
             ? new[]
               {
                   vrChatOscClient.BuildAvatarParameterPacket(
                       address, OscParameterType.Float,
-                      FloatValueModeConverter.ToOscText(resetValue.Value))
+                      FloatValueModeConverter.ToOscText(effectiveReset.Value))
               }
             : Array.Empty<byte[]>();
 
         if (sourceRule.FloatActionMode == FloatActionMode.Glitchy && sourceRule.DurationSeconds > 0)
         {
-            return ResolveGlitchyFloatSession(rule, address, nextValue);
+            return ResolveGlitchyFloatSession(rule, address, nextValue, effectiveReset ?? ClampAvatarFloatValue(currentValue));
         }
 
         return new ResolvedRuleAction(
@@ -10073,45 +10093,39 @@ internal BridgeCoordinator(
             displayValue: FloatValueModeConverter.ToOscText(nextValue));
     }
 
-    private void ScheduleFloatPulseRestore(
-        TriggerRule sourceRule, string address, byte[] initialPacket)
+    private static double ClampAvatarFloatValue(double value)
     {
-        var (_, reset) = FloatActionDispatch.ComputeNext(sourceRule, currentValue: 0.0);
+        if (double.IsNaN(value) || double.IsInfinity(value)) return 0.0;
+        return Math.Clamp(value, 0.0, 1.0);
+    }
+
+    private void ScheduleFloatPulseRestore(
+        TriggerRule sourceRule, string address, byte[] initialPacket, double resetValue)
+    {
         var seconds = Math.Max(0.0, sourceRule.FloatPulseSeconds);
-        var cts = new CancellationTokenSource();
-        lock (stateGate) { cancellationTokensForPulse.Add(cts); }
         _ = Task.Run(async () =>
         {
             try
             {
-                await Task.Delay(TimeSpan.FromSeconds(seconds), cts.Token).ConfigureAwait(false);
-                if (reset.HasValue && !cts.IsCancellationRequested)
-                {
-                    var resetPacket = vrChatOscClient.BuildAvatarParameterPacket(
-                        address, OscParameterType.Float,
-                        FloatValueModeConverter.ToOscText(reset.Value));
-                    await oscRouterService.SendToVrChatAsync(resetPacket).ConfigureAwait(false);
-                    ObserveOscValue(new OscObservedValue(address, OscParameterType.Float, (float)reset.Value));
-                }
+                await Task.Delay(TimeSpan.FromSeconds(seconds)).ConfigureAwait(false);
+                var resetPacket = vrChatOscClient.BuildAvatarParameterPacket(
+                    address, OscParameterType.Float,
+                    FloatValueModeConverter.ToOscText(resetValue));
+                await oscRouterService.SendToVrChatAsync(resetPacket).ConfigureAwait(false);
+                ObserveOscValue(new OscObservedValue(address, OscParameterType.Float, (float)resetValue));
             }
-            catch (TaskCanceledException) { /* expected on stop or avatar change */ }
+            catch (TaskCanceledException) { }
             catch (Exception ex)
             {
                 WriteLog($"Pulse restore for '{sourceRule.Name}' failed: {ex.Message}");
-            }
-            finally
-            {
-                cts.Dispose();
-                lock (stateGate) { cancellationTokensForPulse.Remove(cts); }
             }
         });
     }
 
     private ResolvedRuleAction ResolveGlitchyFloatSession(
-        TriggerRuleSnapshot rule, string address, double nextValue)
+        TriggerRuleSnapshot rule, string address, double nextValue, double resetValue)
     {
         var leaseId = Guid.NewGuid();
-        var resetValue = ParseResetValueForGlitchy(rule.Rule);
         var session = new ActiveFloatGlitchyRedeemSessionState
         {
             Rule = rule,
@@ -10144,17 +10158,6 @@ internal BridgeCoordinator(
             displayValue: FloatValueModeConverter.ToOscText(nextValue));
     }
 
-    private static double ParseResetValueForGlitchy(TriggerRule rule)
-    {
-        if (string.IsNullOrWhiteSpace(rule.ResetValue)) return 0.0;
-        if (double.TryParse(rule.ResetValue, System.Globalization.NumberStyles.Float,
-            System.Globalization.CultureInfo.InvariantCulture, out var v))
-        {
-            return Math.Clamp(v, 0.0, 1.0);
-        }
-        return 0.0;
-    }
-
     private async Task RunGlitchyLoopAsync(ActiveFloatGlitchyRedeemSessionState session)
     {
         try
@@ -10170,8 +10173,7 @@ internal BridgeCoordinator(
                     session.Address, value, session.CompletionCancellation.Token)
                     .ConfigureAwait(false);
             }
-            if (!session.CompletionCancellation.IsCancellationRequested
-                && !string.IsNullOrWhiteSpace(session.Rule.ResetValue))
+            if (!session.CompletionCancellation.IsCancellationRequested)
             {
                 await SendSingleFloatAvatarParameterValueAsync(
                     session.Address, session.ResetValue, session.CompletionCancellation.Token)
@@ -11743,6 +11745,13 @@ internal BridgeCoordinator(
 
                 ManagedRewardAvailabilityChanged?.Invoke();
                 NotifyRewardCooldownColorChanged(AvatarScaleMasterRewardOwnerGuid);
+                if (isUnlockNotification)
+                {
+                    // The unlock window just closed, so the child avatar-scale rewards need
+                    // to be re-hidden on Twitch. The cooldown notification that follows does
+                    // not change the unlock state and must not queue another sync.
+                    AvatarScaleMasterRewardUnlockStateChanged?.Invoke();
+                }
             }
             catch (OperationCanceledException)
             {
@@ -17611,7 +17620,6 @@ internal BridgeCoordinator(
         CancellationTokenSource[] activeFloatRedeemCancellations;
         SemaphoreSlim[] activeFloatRedeemGates;
         CancellationTokenSource[] activeGlitchyRedeemCancellations;
-        CancellationTokenSource[] cancellationTokensForPulseSnapshot;
         CancellationTokenSource? masterUnlockNotification;
         CancellationTokenSource? masterCooldownNotification;
         CancellationTokenSource[] movementLockCancellations;
@@ -17637,8 +17645,6 @@ internal BridgeCoordinator(
             activeFloatRedeemSessions.Clear();
             activeGlitchyRedeemCancellations = [.. activeGlitchyRedeemSessions.Values.Select(session => session.CompletionCancellation)];
             activeGlitchyRedeemSessions.Clear();
-            cancellationTokensForPulseSnapshot = [.. cancellationTokensForPulse];
-            cancellationTokensForPulse.Clear();
             recentMessageIds.Clear();
             nextRecentMessagePruneAt = DateTimeOffset.MinValue;
             avatarParameterValues.Clear();
@@ -17739,16 +17745,6 @@ internal BridgeCoordinator(
         {
             activeGlitchyRedeemCancellation.Cancel();
             activeGlitchyRedeemCancellation.Dispose();
-        }
-
-        foreach (var pulseCancellation in cancellationTokensForPulseSnapshot)
-        {
-            try
-            {
-                pulseCancellation.Cancel();
-            }
-            catch (ObjectDisposedException) { /* already disposed */ }
-            pulseCancellation.Dispose();
         }
 
         foreach (var desktopLockCancellation in desktopLockCancellations)

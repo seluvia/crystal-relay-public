@@ -3101,18 +3101,13 @@
                                                         </Style>
                                                     </Button.Style>
                                                 </Button>
-                                                <Button Content="{loc:Translate 'Refresh Avatars'}" Command="{Binding RefreshVrChatAvatarsCommand}">
-                                                    <Button.Style>
-                                                        <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
-                                                            <Setter Property="Visibility" Value="Collapsed" />
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding IsVrChatConnected}" Value="True">
-                                                                    <Setter Property="Visibility" Value="Visible" />
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </Button.Style>
-                                                </Button>
+                                                 <Button Content="{loc:Translate 'Refresh Avatars'}" Command="{Binding RefreshVrChatAvatarsCommand}">
+                                                     <Button.Style>
+                                                         <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                                                             <Setter Property="Visibility" Value="Visible" />
+                                                         </Style>
+                                                     </Button.Style>
+                                                 </Button>
                                                 <Button Content="{loc:Translate 'Disconnect VRChat'}" Command="{Binding DisconnectVrChatCommand}">
                                                     <Button.Style>
                                                         <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
@@ -3125,6 +3120,9 @@
                                                         </Style>
                                                     </Button.Style>
                                                 </Button>
+                                                <Button Content="{loc:Translate 'Clear VRChat Cache'}" Command="{Binding ClearVrChatCacheCommand}"
+                                                        ToolTip="{loc:Translate 'Wipe the cached VRChat avatar list and OSC parameter cache. Disconnect keeps the cache by default; use this when you want a fresh start.'}"
+                                                        Style="{StaticResource SecondaryButtonStyle}" />
                                             </WrapPanel>
                                         </StackPanel>
                                     </Border>

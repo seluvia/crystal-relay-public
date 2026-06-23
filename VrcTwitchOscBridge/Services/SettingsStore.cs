@@ -1149,7 +1149,7 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             ParameterValue = action.ParameterValue
         };
 
-    private static PersistedAvatarSwapProfile ToPersistedAvatarSwapProfile(AvatarSwapProfile profile)
+    internal static PersistedAvatarSwapProfile ToPersistedAvatarSwapProfile(AvatarSwapProfile profile)
     {
         return new PersistedAvatarSwapProfile
         {
@@ -1163,11 +1163,14 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             TargetThumbnailUrl = profile.TargetThumbnailUrl,
             CreatedAt = profile.CreatedAt,
             UpdatedAt = profile.UpdatedAt,
-            ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)]
+            ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
+            BitsRules = [.. profile.BitsRules.Select(ToPersistedRule)],
+            SubsRules = [.. profile.SubsRules.Select(ToPersistedRule)],
+            PaymentRules = [.. profile.PaymentRules.Select(ToPersistedCashPaymentRule)]
         };
     }
 
-    private static AvatarSwapProfile ToAvatarSwapProfile(PersistedAvatarSwapProfile profile)
+    internal static AvatarSwapProfile ToAvatarSwapProfile(PersistedAvatarSwapProfile profile)
     {
         var legacyCap = false;
 #pragma warning disable CS0618
@@ -1189,6 +1192,18 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
         foreach (var rule in (profile.ChannelPointRules ?? []).Select(ToRule))
         {
             result.ChannelPointRules.Add(rule);
+        }
+        foreach (var rule in (profile.BitsRules ?? []).Select(ToRule))
+        {
+            result.BitsRules.Add(rule);
+        }
+        foreach (var rule in (profile.SubsRules ?? []).Select(ToRule))
+        {
+            result.SubsRules.Add(rule);
+        }
+        foreach (var paymentRule in (profile.PaymentRules ?? []).Select(ToCashPaymentRule))
+        {
+            result.PaymentRules.Add(paymentRule);
         }
         return result;
     }
@@ -2217,17 +2232,31 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
         }
 
         var authCookie = credentialStore.LoadSecret(VrChatAuthCookieCredential);
-        if (string.IsNullOrWhiteSpace(authCookie) || string.IsNullOrWhiteSpace(account.UserId))
+        return CreateVrChatAccountSettingsForLoad(
+            authCookie,
+            account.UserId,
+            account.DisplayName,
+            account.CurrentAvatarId);
+    }
+
+    internal static VrChatAccountSettings CreateVrChatAccountSettingsForLoad(
+        string? authCookie,
+        string? userId,
+        string? displayName,
+        string? currentAvatarId)
+    {
+        var normalizedUserId = userId?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(normalizedUserId))
         {
             return new VrChatAccountSettings();
         }
 
         return new VrChatAccountSettings
         {
-            AuthCookie = authCookie,
-            UserId = account.UserId ?? string.Empty,
-            DisplayName = account.DisplayName ?? string.Empty,
-            CurrentAvatarId = account.CurrentAvatarId ?? string.Empty
+            AuthCookie = authCookie ?? string.Empty,
+            UserId = normalizedUserId,
+            DisplayName = displayName?.Trim() ?? string.Empty,
+            CurrentAvatarId = currentAvatarId?.Trim() ?? string.Empty
         };
     }
 
@@ -2837,7 +2866,7 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
         public string? KoFiPublicWebhookUrl { get; set; }
     }
 
-    private sealed class PersistedCashPaymentRule
+    internal sealed class PersistedCashPaymentRule
     {
         public Guid Id { get; set; }
 
@@ -3137,9 +3166,17 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
 
         public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
 
+        public List<PersistedTriggerRule>? BitsRules { get; set; }
+
+        public List<PersistedTriggerRule>? SubsRules { get; set; }
+
+        public List<PersistedCashPaymentRule>? PaymentRules { get; set; }
+
+        [Obsolete("Migrated to BitsRules and SubsRules in V4. Kept for loading legacy saves.")]
         public List<PersistedTriggerRule>? BitsSubsRules { get; set; }
 
         [JsonPropertyName("rouletteRules")]
+        [Obsolete("Migrated to AvatarRouletteProfiles in V4. Kept for loading legacy saves.")]
         public List<PersistedTriggerRule>? RouletteRules { get; set; }
     }
 
@@ -3570,7 +3607,7 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
         public int DiscountPercent { get; set; }
     }
 
-    private sealed class PersistedAvatarScaleRule
+    internal sealed class PersistedAvatarScaleRule
     {
         public Guid Id { get; set; }
 
@@ -3701,7 +3738,7 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
         public List<PersistedAvatarScaleBitGrowthRange>? SupporterGrowthBitRanges { get; set; }
     }
 
-    private sealed class PersistedAvatarScaleBitGrowthRange
+    internal sealed class PersistedAvatarScaleBitGrowthRange
     {
         public int MinimumBits { get; set; }
 

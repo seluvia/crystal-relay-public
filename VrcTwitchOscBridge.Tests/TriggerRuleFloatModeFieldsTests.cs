@@ -255,4 +255,26 @@ public sealed class TriggerRuleFloatModeUsesTests
         rule.ActionType = OscActionType.AvatarParameter;
         Assert.True(rule.UsesFloatActionMode);
     }
+
+    [Fact]
+    public void FloatActionMode_RaisesVisibilityPropertyChanges()
+    {
+        var rule = new TriggerRule
+        {
+            ActionType = OscActionType.AvatarParameter,
+            ParameterType = OscParameterType.Float,
+            FloatActionMode = FloatActionMode.Set
+        };
+        var changed = new List<string>();
+        rule.PropertyChanged += (_, e) => changed.Add(e.PropertyName ?? string.Empty);
+
+        rule.FloatActionMode = FloatActionMode.Add;
+
+        Assert.Contains(nameof(TriggerRule.UsesFloatSetMode), changed);
+        Assert.Contains(nameof(TriggerRule.UsesFloatAddMode), changed);
+        Assert.Contains(nameof(TriggerRule.UsesFloatClampMode), changed);
+        Assert.Contains(nameof(TriggerRule.UsesFloatRangeInputs), changed);
+        Assert.Contains(nameof(TriggerRule.UsesFloatToggleValues), changed);
+        Assert.Contains(nameof(TriggerRule.UsesFloatPulseSeconds), changed);
+    }
 }

@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Threading.Tasks;
 using VrcTwitchOscBridge.Services;
 using Xunit;
 
@@ -32,6 +33,17 @@ public sealed class VrChatLocalOscCacheServiceUserIdInferenceTests : IDisposable
         return userId;
     }
 
+    private string CreateOscAvatarFile(string userId, string avatarId, string avatarName, DateTime lastWriteTimeUtc)
+    {
+        var dir = Path.Combine(tempRoot, "OSC", userId, "Avatars");
+        Directory.CreateDirectory(dir);
+        var filePath = Path.Combine(dir, avatarId + ".json");
+        File.WriteAllText(filePath, $"{{\"id\":\"{avatarId}\",\"name\":\"{avatarName}\",\"parameters\":[]}}");
+        File.SetLastWriteTimeUtc(filePath, lastWriteTimeUtc);
+        Directory.SetLastWriteTimeUtc(Path.Combine(tempRoot, "OSC", userId), lastWriteTimeUtc);
+        return filePath;
+    }
+
     [Fact]
     public void TryInferUserIdFromLocalLowInRoot_WhenNoOscFolder_ReturnsNull()
     {
@@ -56,5 +68,21 @@ public sealed class VrChatLocalOscCacheServiceUserIdInferenceTests : IDisposable
         var expected = CreateOscUser("usr_newer", newer);
         var result = VrChatLocalOscCacheService.TryInferUserIdFromLocalLowInRoot(tempRoot);
         Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public async Task LoadLatestKnownAvatarInRootAsync_WhenMultipleAvatarFiles_ReturnsNewestAvatar()
+    {
+        var older = DateTime.UtcNow.AddMinutes(-10);
+        var newer = DateTime.UtcNow.AddMinutes(-1);
+        CreateOscAvatarFile("usr_cached", "avtr_old", "Old Avatar", older);
+        CreateOscAvatarFile("usr_cached", "avtr_new", "New Avatar", newer);
+
+        var service = new VrChatLocalOscCacheService();
+        var latest = await service.LoadLatestKnownAvatarInRootAsync(tempRoot, "usr_cached");
+
+        Assert.NotNull(latest);
+        Assert.Equal("avtr_new", latest.AvatarId);
+        Assert.Equal("New Avatar", latest.AvatarName);
     }
 }

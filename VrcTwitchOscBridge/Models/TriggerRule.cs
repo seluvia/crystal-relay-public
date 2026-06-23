@@ -718,7 +718,7 @@ public sealed class TriggerRule : ObservableObject
                 else if (value == OscParameterType.Float)
                 {
                     ParameterValue = "0.0";
-                    ResetValue = "0.0";
+                    ResetValue = string.Empty;
                 }
 
                 RaiseActionVisibilityProperties();
@@ -804,6 +804,7 @@ public sealed class TriggerRule : ObservableObject
             var normalizedValue = Enum.IsDefined(value) ? value : FloatActionMode.Set;
             if (SetProperty(ref floatActionMode, normalizedValue))
             {
+                RaiseFloatActionModeVisibilityProperties();
                 RaisePropertyChanged(nameof(TriggerSummary));
             }
         }
@@ -1962,6 +1963,7 @@ public sealed class TriggerRule : ObservableObject
         RaisePropertyChanged(nameof(UsesActiveFloatBoostReward));
         RaisePropertyChanged(nameof(UsesSupporterFloatAdd));
         RaisePropertyChanged(nameof(UsesActiveSupporterFloatAdd));
+        RaiseFloatActionModeVisibilityProperties();
         RaisePropertyChanged(nameof(UsesBoolTimedValues));
         RaisePropertyChanged(nameof(UsesBoolToggleHint));
         RaisePropertyChanged(nameof(UsesIntInstantModeOptions));
@@ -1983,6 +1985,27 @@ public sealed class TriggerRule : ObservableObject
         RaiseSetTriggerRestoreModeProperties();
         RaisePropertyChanged(nameof(DurationHelpText));
         RaisePropertyChanged(nameof(IntModeHelpText));
+    }
+
+    private void RaiseFloatActionModeVisibilityProperties()
+    {
+        RaisePropertyChanged(nameof(UsesFloatActionMode));
+        RaisePropertyChanged(nameof(UsesFloatSetMode));
+        RaisePropertyChanged(nameof(UsesFloatRandomMode));
+        RaisePropertyChanged(nameof(UsesFloatAddMode));
+        RaisePropertyChanged(nameof(UsesFloatSubtractMode));
+        RaisePropertyChanged(nameof(UsesFloatAddSubtractMode));
+        RaisePropertyChanged(nameof(UsesFloatMultiplyMode));
+        RaisePropertyChanged(nameof(UsesFloatToggleMode));
+        RaisePropertyChanged(nameof(UsesFloatCycleMode));
+        RaisePropertyChanged(nameof(UsesFloatGlitchyMode));
+        RaisePropertyChanged(nameof(UsesFloatPulseMode));
+        RaisePropertyChanged(nameof(UsesFloatRangeInputs));
+        RaisePropertyChanged(nameof(UsesFloatCycleStep));
+        RaisePropertyChanged(nameof(UsesFloatToggleValues));
+        RaisePropertyChanged(nameof(UsesFloatGlitchyInterval));
+        RaisePropertyChanged(nameof(UsesFloatPulseSeconds));
+        RaisePropertyChanged(nameof(UsesFloatClampMode));
     }
 
     private static string DescribeMovementDirection(PlayerMovementDirection direction) => direction switch

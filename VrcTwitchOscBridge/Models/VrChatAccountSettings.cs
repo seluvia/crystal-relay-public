@@ -58,8 +58,5 @@ public sealed class VrChatAccountSettings : ObservableObject
     public void Clear()
     {
         AuthCookie = string.Empty;
-        UserId = string.Empty;
-        DisplayName = string.Empty;
-        CurrentAvatarId = string.Empty;
     }
 }
