@@ -1237,19 +1237,9 @@
                                                </UniformGrid>
                                            </StackPanel>
 
-                                           <TextBlock Text="{loc:Translate 'Value Type'}"
-                                                      Foreground="{DynamicResource TextBrush}"
-                                                      FontWeight="SemiBold"
-                                                      FontSize="11"
-                                                      Margin="0,12,0,6" />
-                                         <ComboBox ItemsSource="{Binding DataContext.ParameterTypes, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue={x:Null}}"
-                                                   SelectedItem="{Binding ParameterType, UpdateSourceTrigger=PropertyChanged}"
-                                                   Style="{StaticResource ComboBoxStyle}"
-                                                    Margin="0,0,0,8" />
-
-                                           <!-- Int action inputs (mode selector + Min/Max or When/After) -->
-                                           <StackPanel Margin="0,0,0,8"
-                                                       Visibility="{Binding UsesIntParameter, Converter={StaticResource BoolToVisibilityConverter}}">
+                                            <!-- Int action inputs (mode selector + Min/Max or When/After) -->
+                                            <StackPanel Margin="0,8,0,8"
+                                                        Visibility="{Binding UsesIntParameter, Converter={StaticResource BoolToVisibilityConverter}}">
                                                <StackPanel Visibility="{Binding UsesIntInstantModeOptions, Converter={StaticResource BoolToVisibilityConverter}}">
                                                    <TextBlock Text="{loc:Translate 'Instant Int Action'}"
                                                               Foreground="{DynamicResource TextBrush}"

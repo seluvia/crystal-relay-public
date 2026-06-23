@@ -8,16 +8,26 @@ namespace VrcTwitchOscBridge.Tests;
 public sealed class AvatarSetsManagerWindowXamlTests
 {
     [Fact]
-    public void RuleEditor_ExposesSelectedRuleParameterTypeSelectorBeforeParameterPicker()
+    public void RuleEditor_HidesValueTypeSelectorButKeepsParameterFilterAndPicker()
     {
         var xaml = File.ReadAllText(FindSourceFile("VrcTwitchOscBridge", "AvatarSetsManagerWindow.xaml"));
-        var parameterTypeLabelIndex = xaml.IndexOf("{loc:Translate 'Value Type'}", StringComparison.Ordinal);
+        var parameterListFilterIndex = xaml.IndexOf("Parameter List Filter", StringComparison.Ordinal);
         var pickerLabelIndex = xaml.IndexOf("Text=\"Search &amp; Pick Parameter\"", StringComparison.Ordinal);
-        var selectorIndex = xaml.IndexOf("SelectedItem=\"{Binding ParameterType, UpdateSourceTrigger=PropertyChanged}\"", StringComparison.Ordinal);
+        var filteredParametersIndex = xaml.IndexOf("ItemsSource=\"{Binding DataContext.FilteredParameters, RelativeSource={RelativeSource AncestorType=Window}}\"", StringComparison.Ordinal);
+        var pickerBlockEnd = filteredParametersIndex >= 0
+            ? xaml.IndexOf("</ItemsControl>", filteredParametersIndex, StringComparison.Ordinal)
+            : -1;
 
-        Assert.True(parameterTypeLabelIndex >= 0, "The rule editor should label the type selector as 'Value Type'.");
-        Assert.True(pickerLabelIndex > parameterTypeLabelIndex, "The parameter picker should follow the value type section.");
-        Assert.InRange(selectorIndex, parameterTypeLabelIndex, pickerLabelIndex);
+        Assert.DoesNotContain("{loc:Translate 'Value Type'}", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("DataContext.ParameterTypes", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("SelectedItem=\"{Binding ParameterType, UpdateSourceTrigger=PropertyChanged}\"", xaml, StringComparison.Ordinal);
+        Assert.True(parameterListFilterIndex >= 0, "The parameter list filter should remain visible for narrowing the picker list.");
+        Assert.True(pickerLabelIndex >= 0, "The Search & Pick Parameter label should remain visible.");
+        Assert.True(filteredParametersIndex > pickerLabelIndex, "The picker should continue binding to FilteredParameters.");
+        Assert.True(pickerBlockEnd > filteredParametersIndex, "The picker binding should be inside a bounded ItemsControl block.");
+        var pickerBlock = xaml.Substring(filteredParametersIndex, pickerBlockEnd - filteredParametersIndex);
+        Assert.Contains("Click=\"OnParameterItemClicked\"", pickerBlock, StringComparison.Ordinal);
+        Assert.Contains("Tag=\"{Binding}\"", pickerBlock, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -96,16 +106,16 @@ public sealed class AvatarSetsManagerWindowXamlTests
     }
 
     [Fact]
-    public void CompactEditor_HasIntModeSelectorBoundToIntZeroDurationMode()
+    public void CompactEditor_HasIntModeSelectorBeforeParameterListFilter()
     {
         var xaml = File.ReadAllText(FindSourceFile("VrcTwitchOscBridge", "AvatarSetsManagerWindow.xaml"));
-        var parameterTypeIndex = xaml.IndexOf("SelectedItem=\"{Binding ParameterType, UpdateSourceTrigger=PropertyChanged}\"", StringComparison.Ordinal);
         var intModeSelector = xaml.IndexOf("SelectedItem=\"{Binding IntZeroDurationMode, UpdateSourceTrigger=PropertyChanged}\"", StringComparison.Ordinal);
         var intModeDataSource = xaml.IndexOf("DataContext.IntZeroDurationModes", StringComparison.Ordinal);
+        var parameterListFilterIndex = xaml.IndexOf("Parameter List Filter", StringComparison.Ordinal);
 
-        Assert.True(parameterTypeIndex >= 0, "ParameterType selector should exist in the compact editor.");
-        Assert.True(intModeSelector > parameterTypeIndex, "Int mode selector should appear after the Parameter Type selector.");
+        Assert.True(intModeSelector >= 0, "Int mode selector should remain available for Int parameters.");
         Assert.True(intModeDataSource >= 0, "Int mode selector should bind to DataContext.IntZeroDurationModes.");
+        Assert.True(parameterListFilterIndex > intModeSelector, "The parameter list filter should appear after the Int action controls.");
     }
 
     [Fact]
@@ -125,16 +135,19 @@ public sealed class AvatarSetsManagerWindowXamlTests
     }
 
     [Fact]
-    public void RuleEditor_ValueTypeLabel_IsLocalizedAndDistinctFromFilter()
+    public void RuleEditor_ParameterPickerKeepsCodeBehindTypeAssignment()
     {
-        var xaml = File.ReadAllText(FindSourceFile("VrcTwitchOscBridge", "AvatarSetsManagerWindow.xaml"));
-        var valueTypeLabelIndex = xaml.IndexOf("{loc:Translate 'Value Type'}", StringComparison.Ordinal);
-        var parameterListFilterIndex = xaml.IndexOf("Parameter List Filter", StringComparison.Ordinal);
-        var selectorIndex = xaml.IndexOf("SelectedItem=\"{Binding ParameterType, UpdateSourceTrigger=PropertyChanged}\"", StringComparison.Ordinal);
+        var codeBehind = File.ReadAllText(FindSourceFile("VrcTwitchOscBridge", "AvatarSetsManagerWindow.xaml.cs"));
+        var handlerIndex = codeBehind.IndexOf("private void OnParameterItemClicked", StringComparison.Ordinal);
+        Assert.True(handlerIndex >= 0, "OnParameterItemClicked should exist.");
 
-        Assert.True(valueTypeLabelIndex >= 0, "The rule editor should label the type selector as 'Value Type' to distinguish it from the parameter list filter.");
-        Assert.True(parameterListFilterIndex > valueTypeLabelIndex, "'Parameter List Filter' should appear after the 'Value Type' selector.");
-        Assert.InRange(selectorIndex, valueTypeLabelIndex, parameterListFilterIndex);
+        var handlerEnd = codeBehind.IndexOf("private void OnWardrobeParameterItemClicked", handlerIndex, StringComparison.Ordinal);
+        Assert.True(handlerEnd > handlerIndex, "OnParameterItemClicked should be bounded by the wardrobe picker handler.");
+        var handlerBlock = codeBehind.Substring(handlerIndex, handlerEnd - handlerIndex);
+
+        Assert.Contains("rule.ParameterName = p.Name;", handlerBlock, StringComparison.Ordinal);
+        Assert.Contains("rule.ParameterType = p.ParameterType;", handlerBlock, StringComparison.Ordinal);
+        Assert.Contains("Vm.ParameterNameFilter = string.Empty;", handlerBlock, StringComparison.Ordinal);
     }
 
     [Fact]
