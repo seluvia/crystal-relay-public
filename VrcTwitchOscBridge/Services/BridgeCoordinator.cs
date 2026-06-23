@@ -7318,6 +7318,77 @@ internal BridgeCoordinator(
             return;
         }
 
+        if (executionRule.ActionType == OscActionType.AvatarParameter
+            && executionRule.ParameterType == OscParameterType.Float
+            && executionRule.DurationSeconds <= 0)
+        {
+            var floatLaneKeys = GetActionLaneKeys(executionRule);
+            var floatLaneLeaseId = floatLaneKeys.Count == 0 ? Guid.Empty : Guid.NewGuid();
+            var floatEffectiveActiveSeconds = Math.Max(1d, executionRule.DurationSeconds);
+            await ExecuteFloatAvatarParameterWithTransitionAsync(executionRule, cancellationToken);
+
+            if (!isTest)
+            {
+                UpdateActiveRuleLockoutState(executionRule);
+            }
+
+            lock (stateGate)
+            {
+                foreach (var laneKey in floatLaneKeys)
+                {
+                    actionLanes[laneKey] = new ActiveMovementLaneState(
+                        floatLaneLeaseId,
+                        DateTimeOffset.UtcNow.AddSeconds(floatEffectiveActiveSeconds),
+                        rule.Id,
+                        false);
+                }
+
+                if (!isTest && !isResuming)
+                {
+                    if (cooldownSeconds > 0)
+                    {
+                        cooldowns[rule.Id] = DateTimeOffset.UtcNow.AddSeconds(cooldownSeconds);
+                    }
+                    else
+                    {
+                        cooldowns.Remove(rule.Id);
+                    }
+                }
+            }
+
+            if (!isTest && !isResuming)
+            {
+                if (cooldownSeconds > 0)
+                {
+                    ScheduleCooldownStateNotification(rule.Id, TimeSpan.FromSeconds(cooldownSeconds));
+                }
+                else
+                {
+                    CancelCooldownStateNotification(rule.Id);
+                }
+            }
+
+            if (isTest)
+            {
+                WriteLog(queuedReplay
+                    ? $"Sent queued test trigger for '{rule.Name}'."
+                    : $"Sent a test trigger for '{rule.Name}'.");
+            }
+            else if (bridgeEvent is not null && !isResuming)
+            {
+                WriteLog(queuedReplay
+                    ? $"{bridgeEvent.UserDisplayName} triggered '{rule.Name}' from the queue."
+                    : $"{bridgeEvent.UserDisplayName} triggered '{rule.Name}'.");
+            }
+
+            if (!isTest && !isResuming && bridgeEvent is not null)
+            {
+                await TrySendBotMessageAsync(executionRule, bridgeEvent, string.Empty, cancellationToken);
+            }
+
+            return;
+        }
+
         var action = await ResolveActionAsync(
             executionRule,
             cancellationToken,
