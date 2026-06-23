@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Text.Json;
 using VrcTwitchOscBridge.Models;
 using VrcTwitchOscBridge.Services;
 using Xunit;
@@ -123,6 +124,22 @@ public sealed class TriggerRuleFloatModePersistenceTests
         var rule = SettingsStore.ToRule(persisted);
         Assert.Equal(0.5, rule.FloatTransitionInSeconds);
         Assert.Equal(1.5, rule.FloatTransitionOutSeconds);
+    }
+
+    [Fact]
+    public void ToRule_LegacyJson_DeserializesAndMigrates()
+    {
+        // End-to-end: build a JSON literal with the old FloatTransitionSeconds
+        // key, deserialize it through the real serializer, and confirm the
+        // migration fires. This guards the WhenWritingDefault JsonIgnore pattern
+        // and the production property name.
+        const string legacyJson = @"{""Id"":""7d5c7c2e-7c70-4d0e-9e7c-1a2b3c4d5e6f"",""ParameterType"":1,""FloatValueMode"":1,""FloatTransitionSeconds"":2.0}";
+        var persisted = JsonSerializer.Deserialize<SettingsStore.PersistedTriggerRule>(legacyJson);
+        Assert.NotNull(persisted);
+        Assert.Equal(2.0, persisted!.FloatTransitionSeconds);
+        var rule = SettingsStore.ToRule(persisted);
+        Assert.Equal(2.0, rule.FloatTransitionInSeconds);
+        Assert.Equal(2.0, rule.FloatTransitionOutSeconds);
     }
 
     // The ToPersistedRule method on SettingsStore is private. We invoke it
