@@ -87,6 +87,44 @@ public sealed class TriggerRuleFloatModePersistenceTests
         Assert.Equal(FloatActionMode.Set, rule.FloatActionMode);
     }
 
+    [Fact]
+    public void ToRule_OldFloatTransitionSeconds_MigratesToInAndOut()
+    {
+        // Simulates a JSON file written by a Crystal Relay that only had
+        // the single FloatTransitionSeconds field.
+        var persisted = new SettingsStore.PersistedTriggerRule
+        {
+            Id = Guid.NewGuid(),
+            ParameterType = OscParameterType.Float,
+            ParameterValue = "0.5",
+            ResetValue = "0",
+            FloatValueMode = FloatValueMode.Decimal,
+            FloatTransitionSeconds = 2.0,
+            // Intentionally do NOT set FloatTransitionInSeconds / FloatTransitionOutSeconds.
+        };
+        var rule = SettingsStore.ToRule(persisted);
+        Assert.Equal(2.0, rule.FloatTransitionInSeconds);
+        Assert.Equal(2.0, rule.FloatTransitionOutSeconds);
+    }
+
+    [Fact]
+    public void ToRule_NewFieldsAlreadySet_AreNotOverwrittenByMigration()
+    {
+        // If a newer save file already has the new fields populated, the
+        // migration must not overwrite them with the old value.
+        var persisted = new SettingsStore.PersistedTriggerRule
+        {
+            Id = Guid.NewGuid(),
+            ParameterType = OscParameterType.Float,
+            FloatTransitionSeconds = 2.0,
+            FloatTransitionInSeconds = 0.5,
+            FloatTransitionOutSeconds = 1.5,
+        };
+        var rule = SettingsStore.ToRule(persisted);
+        Assert.Equal(0.5, rule.FloatTransitionInSeconds);
+        Assert.Equal(1.5, rule.FloatTransitionOutSeconds);
+    }
+
     // The ToPersistedRule method on SettingsStore is private. We invoke it
     // via reflection so we can verify the writing side of the round-trip
     // without touching the real AppData folder.
