@@ -93,7 +93,8 @@ public sealed class TriggerRule : ObservableObject
     private IntZeroDurationMode intZeroDurationMode = global::VrcTwitchOscBridge.Models.IntZeroDurationMode.Fixed;
     private string parameterValue = "1";
     private FloatValueMode floatValueMode = global::VrcTwitchOscBridge.Models.FloatValueMode.Decimal;
-    private double floatTransitionSeconds;
+    private double floatTransitionInSeconds;
+    private double floatTransitionOutSeconds;
     private FloatActionMode floatActionMode = FloatActionMode.Set;
     private double floatRangeMin = 0.0;
     private double floatRangeMax = 1.0;
@@ -782,15 +783,29 @@ public sealed class TriggerRule : ObservableObject
         }
     }
 
-    public double FloatTransitionSeconds
+    public double FloatTransitionInSeconds
     {
-        get => floatTransitionSeconds;
+        get => floatTransitionInSeconds;
         set
         {
             var normalizedValue = Math.Clamp(value, 0, 30);
-            if (SetProperty(ref floatTransitionSeconds, normalizedValue))
+            if (SetProperty(ref floatTransitionInSeconds, normalizedValue))
             {
-                RaisePropertyChanged(nameof(UsesFloatTransition));
+                RaisePropertyChanged(nameof(UsesFloatInTransition));
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public double FloatTransitionOutSeconds
+    {
+        get => floatTransitionOutSeconds;
+        set
+        {
+            var normalizedValue = Math.Clamp(value, 0, 30);
+            if (SetProperty(ref floatTransitionOutSeconds, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(UsesFloatOutTransition));
                 RaisePropertyChanged(nameof(TriggerSummary));
             }
         }
@@ -1121,7 +1136,8 @@ public sealed class TriggerRule : ObservableObject
             {
                 RaiseActionVisibilityProperties();
                 RaisePropertyChanged(nameof(UsesFloatTimedValues));
-                RaisePropertyChanged(nameof(UsesFloatTransition));
+                RaisePropertyChanged(nameof(UsesFloatInTransition));
+                RaisePropertyChanged(nameof(UsesFloatOutTransition));
                 RaisePropertyChanged(nameof(UsesActiveFloatBoostReward));
                 RaisePropertyChanged(nameof(ActiveFloatBoostRewardStatusText));
                 RaisePropertyChanged(nameof(UsesSupporterFloatAdd));
@@ -1695,7 +1711,8 @@ public sealed class TriggerRule : ObservableObject
 
     public bool UsesFloatTimedValues => UsesFloatParameter && UsesTimedAction;
 
-    public bool UsesFloatTransition => UsesFloatTimedValues && FloatTransitionSeconds > 0;
+    public bool UsesFloatInTransition => UsesFloatParameter && FloatTransitionInSeconds > 0;
+    public bool UsesFloatOutTransition => UsesFloatParameter && FloatTransitionOutSeconds > 0;
 
     public bool UsesActiveFloatBoostReward => UsesFloatTimedValues && ActiveFloatBoostRewardEnabled;
 
@@ -1959,7 +1976,8 @@ public sealed class TriggerRule : ObservableObject
         RaisePropertyChanged(nameof(UsesTextOrFloatParameter));
         RaisePropertyChanged(nameof(UsesFloatParameter));
         RaisePropertyChanged(nameof(UsesFloatTimedValues));
-        RaisePropertyChanged(nameof(UsesFloatTransition));
+        RaisePropertyChanged(nameof(UsesFloatInTransition));
+        RaisePropertyChanged(nameof(UsesFloatOutTransition));
         RaisePropertyChanged(nameof(UsesActiveFloatBoostReward));
         RaisePropertyChanged(nameof(UsesSupporterFloatAdd));
         RaisePropertyChanged(nameof(UsesActiveSupporterFloatAdd));
