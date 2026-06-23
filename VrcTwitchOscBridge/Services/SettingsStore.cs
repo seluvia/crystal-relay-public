@@ -3339,9 +3339,12 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
 
         public double FloatTransitionInSeconds { get; set; }
         public double FloatTransitionOutSeconds { get; set; }
-        // FloatTransitionSeconds is intentionally not read or written. Old saves
-        // carrying that key are migrated in the ToRule path (see ToRule body).
-        [System.Text.Json.Serialization.JsonIgnore]
+        // Legacy field kept for migration. Read on deserialize so old saves with
+        // this key are picked up by the ToRule migration (which copies the value
+        // into FloatTransitionInSeconds and FloatTransitionOutSeconds and then
+        // clears it). Ignored on write once the value is the default 0.0, so new
+        // save files do not include this key.
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         public double FloatTransitionSeconds { get; set; }
 
         public FloatActionMode FloatActionMode { get; set; } = FloatActionMode.Set;
