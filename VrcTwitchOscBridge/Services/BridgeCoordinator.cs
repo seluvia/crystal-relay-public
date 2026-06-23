@@ -10278,9 +10278,21 @@ internal BridgeCoordinator(
                     .ConfigureAwait(false);
                 if (session.CompletionCancellation.IsCancellationRequested) break;
                 var value = Random.Shared.NextDouble() * (session.Max - session.Min) + session.Min;
-                await SendSingleFloatAvatarParameterValueAsync(
-                    session.Address, value, session.CompletionCancellation.Token)
-                    .ConfigureAwait(false);
+                var inSeconds = Math.Clamp(session.Rule.FloatTransitionInSeconds, 0, 30);
+                var currentValue = await TryGetCurrentAvatarFloatValueAsync(session.Address, value, session.CompletionCancellation.Token);
+                if (inSeconds <= 0 || Math.Abs(currentValue - value) < 0.000001d)
+                {
+                    await SendSingleFloatAvatarParameterValueAsync(
+                        session.Address, value, session.CompletionCancellation.Token)
+                        .ConfigureAwait(false);
+                }
+                else
+                {
+                    await SendFloatAvatarParameterValueAsync(
+                        session.Address, currentValue, value, inSeconds, session.CompletionCancellation.Token)
+                        .ConfigureAwait(false);
+                }
+                session.CurrentValue = value;
             }
             if (!session.CompletionCancellation.IsCancellationRequested)
             {
@@ -18685,6 +18697,7 @@ internal BridgeCoordinator(
         public int IntervalMs { get; init; }
         public DateTimeOffset ActiveUntil { get; init; }
         public double ResetValue { get; init; }
+        public double CurrentValue { get; set; }
         public CancellationTokenSource CompletionCancellation { get; init; } = new();
         public List<string> LaneKeys { get; init; } = new();
         public Guid LeaseId { get; init; }
