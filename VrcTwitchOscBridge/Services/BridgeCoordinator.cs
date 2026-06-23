@@ -7660,7 +7660,9 @@ internal BridgeCoordinator(
         rule.ActionType == OscActionType.AvatarParameter
         && rule.ParameterType == OscParameterType.Float
         && rule.DurationSeconds > 0
-        && (rule.FloatTransitionSeconds > 0 || rule.ActiveFloatBoostRewardEnabled);
+        && (rule.FloatTransitionInSeconds > 0
+            || rule.FloatTransitionOutSeconds > 0
+            || rule.ActiveFloatBoostRewardEnabled);
 
     private static bool IsActiveFloatBoostRule(TriggerRuleSnapshot rule) =>
         rule.TriggerType == TwitchTriggerType.ChannelPoints
@@ -7712,9 +7714,10 @@ internal BridgeCoordinator(
         var address = VrChatOscClient.NormalizeAvatarParameterAddress(rule.ParameterName);
         laneKeys ??= GetActionLaneKeys(rule);
         laneLeaseId = laneKeys.Count == 0 ? Guid.Empty : Guid.NewGuid();
-        var transitionSeconds = Math.Clamp(rule.FloatTransitionSeconds, 0, 30);
+        var inSeconds = Math.Clamp(rule.FloatTransitionInSeconds, 0, 30);
+        var outSeconds = Math.Clamp(rule.FloatTransitionOutSeconds, 0, 30);
         var activeSeconds = Math.Max(1, rule.DurationSeconds);
-        var totalActiveSeconds = transitionSeconds + activeSeconds + transitionSeconds;
+        var totalActiveSeconds = inSeconds + activeSeconds + outSeconds;
         var activeUntil = DateTimeOffset.UtcNow.AddSeconds(totalActiveSeconds);
         var completionCancellation = runtimeCancellation is null
             ? new CancellationTokenSource()
@@ -7793,7 +7796,7 @@ internal BridgeCoordinator(
                     address,
                     startValue,
                     targetValue,
-                    transitionSeconds,
+                    inSeconds,
                     cancellationToken);
                 session.CurrentValue = targetValue;
             }
@@ -7823,7 +7826,7 @@ internal BridgeCoordinator(
                 : $"{bridgeEvent.UserDisplayName} triggered '{rule.Name}'.");
         }
 
-        ScheduleActiveFloatRedeemCompletion(session, completionCancellation, activeSeconds, transitionSeconds);
+        ScheduleActiveFloatRedeemCompletion(session, completionCancellation, activeSeconds, outSeconds);
 
         if (!isTest && bridgeEvent is not null)
         {
@@ -7973,7 +7976,7 @@ internal BridgeCoordinator(
 
         var lowerBound = Math.Min(minimumValue, maximumValue);
         var upperBound = Math.Max(minimumValue, maximumValue);
-        var transitionSeconds = Math.Clamp(rule.FloatTransitionSeconds, 0, 30);
+        var transitionSeconds = Math.Clamp(rule.FloatTransitionOutSeconds, 0, 30);
         var activeSeconds = Math.Max(1, rule.DurationSeconds);
         var oldCompletionCancellation = session.CompletionCancellation;
         var newCompletionCancellation = runtimeCancellation is null
@@ -8146,6 +8149,41 @@ internal BridgeCoordinator(
             var value = startValue + ((targetValue - startValue) * easedProgress);
             await SendSingleFloatAvatarParameterValueAsync(address, value, cancellationToken);
         }
+    }
+
+    private async Task ExecuteFloatAvatarParameterWithTransitionAsync(
+        TriggerRuleSnapshot rule,
+        CancellationToken cancellationToken)
+    {
+        var address = VrChatOscClient.NormalizeAvatarParameterAddress(rule.ParameterName);
+        var sourceRule = rule.Rule;
+
+        // Resolve the target value: Set mode uses ParameterValue, all other
+        // action modes compute the next value from the current OSC reading.
+        double targetValue;
+        if (sourceRule.FloatActionMode == FloatActionMode.Set)
+        {
+            if (!FloatValueModeConverter.TryParseNormalized(rule.FloatValueMode, rule.ParameterValue, out targetValue))
+            {
+                return;
+            }
+        }
+        else
+        {
+            var currentForCompute = await TryGetCurrentAvatarFloatValueAsync(address, 0.0, cancellationToken);
+            targetValue = FloatActionDispatch.ComputeNext(sourceRule, currentForCompute).nextValue;
+        }
+
+        var inSeconds = Math.Clamp(rule.FloatTransitionInSeconds, 0, 30);
+        var currentValue = await TryGetCurrentAvatarFloatValueAsync(address, targetValue, cancellationToken);
+
+        if (inSeconds <= 0 || Math.Abs(currentValue - targetValue) < 0.000001d)
+        {
+            await SendSingleFloatAvatarParameterValueAsync(address, targetValue, cancellationToken);
+            return;
+        }
+
+        await SendFloatAvatarParameterValueAsync(address, currentValue, targetValue, inSeconds, cancellationToken);
     }
 
     private async Task SendSingleFloatAvatarParameterValueAsync(
