@@ -7320,7 +7320,8 @@ internal BridgeCoordinator(
 
         if (executionRule.ActionType == OscActionType.AvatarParameter
             && executionRule.ParameterType == OscParameterType.Float
-            && executionRule.DurationSeconds <= 0)
+            && executionRule.DurationSeconds <= 0
+            && executionRule.Rule.FloatActionMode != FloatActionMode.Pulse)
         {
             var floatLaneKeys = GetActionLaneKeys(executionRule);
             var floatLaneLeaseId = floatLaneKeys.Count == 0 ? Guid.Empty : Guid.NewGuid();
