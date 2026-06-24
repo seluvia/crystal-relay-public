@@ -7897,7 +7897,7 @@ internal BridgeCoordinator(
                 : $"{bridgeEvent.UserDisplayName} triggered '{rule.Name}'.");
         }
 
-        ScheduleActiveFloatRedeemCompletion(session, completionCancellation, activeSeconds, outSeconds);
+        ScheduleActiveFloatRedeemCompletion(session, completionCancellation, inSeconds, activeSeconds, outSeconds);
 
         if (!isTest && bridgeEvent is not null)
         {
@@ -7908,8 +7908,9 @@ internal BridgeCoordinator(
     private void ScheduleActiveFloatRedeemCompletion(
         ActiveFloatRedeemSessionState session,
         CancellationTokenSource completionCancellation,
+        double inSeconds,
         double activeSeconds,
-        double transitionSeconds)
+        double outSeconds)
     {
         _ = Task.Run(async () =>
         {
@@ -7924,7 +7925,7 @@ internal BridgeCoordinator(
                 {
                     var graceRemaining = AvatarChangeGracePeriod - (DateTimeOffset.UtcNow - lastAvatarChangeAt);
                     WriteLog($"Float redeem '{session.Rule.Name}' completion is deferred because the avatar recently changed. The reset will be retried after the grace period. ({DescribeDuration(graceRemaining.TotalSeconds)} remaining)");
-                    ScheduleActiveFloatRedeemCompletionAfterGracePeriod(session, completionCancellation, activeSeconds, transitionSeconds);
+                    ScheduleActiveFloatRedeemCompletionAfterGracePeriod(session, completionCancellation, inSeconds, activeSeconds, outSeconds);
                     return;
                 }
 
@@ -7935,7 +7936,7 @@ internal BridgeCoordinator(
                         session.Address,
                         session.CurrentValue,
                         session.ResetValue,
-                        transitionSeconds,
+                        outSeconds,
                         completionCancellation.Token);
                     session.CurrentValue = session.ResetValue;
                 }
@@ -7945,7 +7946,7 @@ internal BridgeCoordinator(
                 }
 
                 RememberAvatarParameterValue(session.Rule, FloatValueModeConverter.ToOscText(session.ResetValue));
-                WriteLog($"Reset '{session.Rule.Name}' after {DescribeDuration(activeSeconds + transitionSeconds + transitionSeconds)}.");
+                WriteLog($"Reset '{session.Rule.Name}' after {DescribeDuration(inSeconds + activeSeconds + outSeconds)}.");
             }
             catch (OperationCanceledException)
             {
@@ -7965,8 +7966,9 @@ internal BridgeCoordinator(
     private void ScheduleActiveFloatRedeemCompletionAfterGracePeriod(
         ActiveFloatRedeemSessionState session,
         CancellationTokenSource completionCancellation,
+        double inSeconds,
         double activeSeconds,
-        double transitionSeconds)
+        double outSeconds)
     {
         _ = Task.Run(async () =>
         {
@@ -7982,7 +7984,7 @@ internal BridgeCoordinator(
                 // If we're still in the grace period (avatar changed again), re-defer
                 if (IsInAvatarChangeGracePeriod())
                 {
-                    ScheduleActiveFloatRedeemCompletionAfterGracePeriod(session, completionCancellation, activeSeconds, transitionSeconds);
+                    ScheduleActiveFloatRedeemCompletionAfterGracePeriod(session, completionCancellation, inSeconds, activeSeconds, outSeconds);
                     return;
                 }
 
@@ -7993,7 +7995,7 @@ internal BridgeCoordinator(
                         session.Address,
                         session.CurrentValue,
                         session.ResetValue,
-                        transitionSeconds,
+                        outSeconds,
                         completionCancellation.Token);
                     session.CurrentValue = session.ResetValue;
                 }
@@ -8003,7 +8005,7 @@ internal BridgeCoordinator(
                 }
 
                 RememberAvatarParameterValue(session.Rule, FloatValueModeConverter.ToOscText(session.ResetValue));
-                WriteLog($"Reset '{session.Rule.Name}' after {DescribeDuration(activeSeconds + transitionSeconds + transitionSeconds)} (deferred completion after avatar change grace period).");
+                WriteLog($"Reset '{session.Rule.Name}' after {DescribeDuration(inSeconds + activeSeconds + outSeconds)} (deferred completion after avatar change grace period).");
             }
             catch (OperationCanceledException)
             {
@@ -8104,7 +8106,7 @@ internal BridgeCoordinator(
         }
 
         RememberAvatarParameterValue(rule, FloatValueModeConverter.ToOscText(boostedValue));
-        ScheduleActiveFloatRedeemCompletion(session, newCompletionCancellation, activeSeconds, transitionSeconds);
+        ScheduleActiveFloatRedeemCompletion(session, newCompletionCancellation, transitionSeconds, activeSeconds, transitionSeconds);
         WriteLog($"{bridgeEvent.UserDisplayName} boosted '{rule.Name}' to {FloatValueModeConverter.ToOscText(boostedValue)} and refreshed its active timer.");
     }
 
