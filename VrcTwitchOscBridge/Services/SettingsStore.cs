@@ -1061,6 +1061,8 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             FloatGlitchyIntervalMs = rule.FloatGlitchyIntervalMs,
             FloatPulseSeconds = rule.FloatPulseSeconds,
             FloatClampMode = rule.FloatClampMode,
+            HideRewardWhenFloatMaxReached = rule.HideRewardWhenFloatMaxReached,
+            HideRewardWhenFloatMinReached = rule.HideRewardWhenFloatMinReached,
             AvatarChangeTargetId = rule.AvatarChangeTargetId,
             AvatarTargetName = rule.AvatarTargetName,
             ResetValue = rule.ResetValue,
@@ -1367,6 +1369,8 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             FloatGlitchyIntervalMs = Math.Max(1, rule.FloatGlitchyIntervalMs),
             FloatPulseSeconds = Math.Max(0.0, rule.FloatPulseSeconds),
             FloatClampMode = Enum.IsDefined(rule.FloatClampMode) ? rule.FloatClampMode : FloatClampMode.ZeroToOne,
+            HideRewardWhenFloatMaxReached = rule.HideRewardWhenFloatMaxReached,
+            HideRewardWhenFloatMinReached = rule.HideRewardWhenFloatMinReached,
             AvatarChangeTargetId = migratedAvatarChangeTargetId ?? string.Empty,
             AvatarTargetName = rule.AvatarTargetName ?? string.Empty,
             ResetValue = migratedResetValue,
@@ -3372,6 +3376,10 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
         public double FloatPulseSeconds { get; set; } = 0.5;
 
         public FloatClampMode FloatClampMode { get; set; } = FloatClampMode.ZeroToOne;
+
+        public bool HideRewardWhenFloatMaxReached { get; set; }
+
+        public bool HideRewardWhenFloatMinReached { get; set; }
 
         public string? AvatarChangeTargetId { get; set; }
 

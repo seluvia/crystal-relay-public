@@ -37,6 +37,8 @@ public sealed class TriggerRuleFloatModePersistenceTests
         Assert.Equal(200, rule.FloatGlitchyIntervalMs);
         Assert.Equal(0.5, rule.FloatPulseSeconds);
         Assert.Equal(FloatClampMode.ZeroToOne, rule.FloatClampMode);
+        Assert.False(rule.HideRewardWhenFloatMaxReached);
+        Assert.False(rule.HideRewardWhenFloatMinReached);
     }
 
     [Fact]
@@ -74,6 +76,23 @@ public sealed class TriggerRuleFloatModePersistenceTests
         Assert.Equal(original.FloatGlitchyIntervalMs, roundTripped.FloatGlitchyIntervalMs);
         Assert.Equal(original.FloatPulseSeconds, roundTripped.FloatPulseSeconds);
         Assert.Equal(original.FloatClampMode, roundTripped.FloatClampMode);
+    }
+
+    [Fact]
+    public void RoundTrip_HideRewardWhenFloatLimit_Preserved()
+    {
+        var original = new TriggerRule
+        {
+            ParameterType = OscParameterType.Float,
+            FloatActionMode = FloatActionMode.Add,
+            DurationSeconds = 10,
+            HideRewardWhenFloatMaxReached = true,
+            HideRewardWhenFloatMinReached = true,
+        };
+        var persisted = ToPersistedViaReflection(original);
+        var roundTripped = SettingsStore.ToRule(persisted);
+        Assert.True(roundTripped.HideRewardWhenFloatMaxReached);
+        Assert.True(roundTripped.HideRewardWhenFloatMinReached);
     }
 
     [Fact]
