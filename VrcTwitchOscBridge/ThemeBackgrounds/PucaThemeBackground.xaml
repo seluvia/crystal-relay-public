@@ -1,0 +1,81 @@
+<Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid.Background>
+        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#0C0716" Offset="0" />
+            <GradientStop Color="#161028" Offset="0.42" />
+            <GradientStop Color="#100A20" Offset="0.78" />
+            <GradientStop Color="#080410" Offset="1" />
+        </LinearGradientBrush>
+    </Grid.Background>
+    <Canvas ClipToBounds="True">
+
+        <!-- Aurora ribbon wisps -->
+        <Path Data="M-20,90 Q120,40 240,100 T440,80" Stroke="#3F22D3EE" StrokeThickness="40" Fill="None" Opacity="0.55" />
+        <Path Data="M-20,300 Q140,260 280,310 T440,290" Stroke="#3FA78BFA" StrokeThickness="46" Fill="None" Opacity="0.55" />
+        <Path Data="M-20,350 Q160,330 320,370 T440,350" Stroke="#3FF5B8E0" StrokeThickness="34" Fill="None" Opacity="0.50" />
+        <Path Data="M-20,190 Q100,160 200,195 T420,180" Stroke="#3F22D3EE" StrokeThickness="22" Fill="None" Opacity="0.35" />
+
+        <!-- Central nebula glow -->
+        <Ellipse Width="300" Height="300" Canvas.Left="650" Canvas.Top="330" Fill="#336C28C8" Opacity="0.45" />
+
+        <!-- Orbiting small circles (outside the main circle) -->
+        <Ellipse Width="50" Height="50" Canvas.Left="60" Canvas.Top="80" Stroke="#9922D3EE" StrokeThickness="1.3" Fill="None" />
+        <Ellipse Width="30" Height="30" Canvas.Left="82" Canvas.Top="100" Stroke="#B3A78BFA" StrokeThickness="1" StrokeDashArray="2 2" Fill="None" />
+        <Ellipse Width="44" Height="44" Canvas.Left="1380" Canvas.Top="620" Stroke="#99F5B8E0" StrokeThickness="1.3" Fill="None" />
+        <Ellipse Width="26" Height="26" Canvas.Left="1390" Canvas.Top="636" Stroke="#9922D3EE" StrokeThickness="1" StrokeDashArray="2 2" Fill="None" />
+        <Ellipse Width="28" Height="28" Canvas.Left="80" Canvas.Top="680" Stroke="#8CA78BFA" StrokeThickness="1" Fill="None" />
+        <Ellipse Width="32" Height="32" Canvas.Left="1450" Canvas.Top="70" Stroke="#8022D3EE" StrokeThickness="1" Fill="None" />
+
+        <!-- Central arcane magic circle (3 concentric rings) -->
+        <Ellipse Width="220" Height="220" Canvas.Left="690" Canvas.Top="370" Stroke="#8C22D3EE" StrokeThickness="1.5" Fill="None" />
+        <Ellipse Width="176" Height="176" Canvas.Left="712" Canvas.Top="392" Stroke="#B3A78BFA" StrokeThickness="1.5" StrokeDashArray="4 4" Fill="None" />
+        <Ellipse Width="120" Height="120" Canvas.Left="740" Canvas.Top="420" Stroke="#99F5B8E0" StrokeThickness="1" Fill="None" />
+
+        <!-- Rune ticks (8 cardinal/diagonal marks around outer ring) -->
+        <Canvas>
+            <Line X1="800" Y1="366" X2="800" Y2="380" Stroke="#B322D3EE" StrokeThickness="1.6" />
+            <Line X1="800" Y1="594" X2="800" Y2="608" Stroke="#B322D3EE" StrokeThickness="1.6" />
+            <Line X1="686" Y1="480" X2="700" Y2="480" Stroke="#B322D3EE" StrokeThickness="1.6" />
+            <Line X1="900" Y1="480" X2="914" Y2="480" Stroke="#B322D3EE" StrokeThickness="1.6" />
+            <Line X1="719" Y1="399" X2="729" Y2="409" Stroke="#B322D3EE" StrokeThickness="1.6" />
+            <Line X1="871" Y1="551" X2="881" Y2="561" Stroke="#B322D3EE" StrokeThickness="1.6" />
+            <Line X1="719" Y1="561" X2="729" Y2="551" Stroke="#B322D3EE" StrokeThickness="1.6" />
+            <Line X1="871" Y1="409" X2="881" Y2="399" Stroke="#B322D3EE" StrokeThickness="1.6" />
+        </Canvas>
+
+        <!-- Crescent moon glow halo -->
+        <Ellipse Width="130" Height="130" Canvas.Left="735" Canvas.Top="415" Fill="#2622D3EE" Opacity="0.6" />
+
+        <!-- Crescent moon (centered, larger) -->
+        <Path Data="M 770,480 a 26,26 0 1 0 26,-26 a 19,19 0 1 1 -26,26 Z"
+              Fill="#EB22D3EE"
+              Stroke="#B37DEFFF"
+              StrokeThickness="1.5" />
+
+        <!-- Pink spark (off the moon, upper area) -->
+        <Ellipse Width="40" Height="40" Canvas.Left="540" Canvas.Top="150" Fill="#26F5B8E0" Opacity="0.5" />
+        <Ellipse Width="9" Height="9" Canvas.Left="555" Canvas.Top="165" Fill="#FFF5B8E0" />
+
+        <!-- Constellation lines -->
+        <Polyline Points="40,70 95,55 150,80 195,62" Stroke="#597DEFFF" StrokeThickness="0.8" Fill="None" />
+        <Polyline Points="285,690 340,675 378,705" Stroke="#597DEFFF" StrokeThickness="0.8" Fill="None" />
+        <Polyline Points="60,700 115,725 158,708" Stroke="#597DEFFF" StrokeThickness="0.8" Fill="None" />
+
+        <!-- Starfield -->
+        <Ellipse Width="4" Height="4" Canvas.Left="40" Canvas.Top="70" Fill="#7DEFFF" />
+        <Ellipse Width="3" Height="3" Canvas.Left="95" Canvas.Top="55" Fill="#FFFFFF" />
+        <Ellipse Width="4" Height="4" Canvas.Left="150" Canvas.Top="80" Fill="#7DEFFF" />
+        <Ellipse Width="3" Height="3" Canvas.Left="195" Canvas.Top="62" Fill="#A78BFA" />
+        <Ellipse Width="4" Height="4" Canvas.Left="285" Canvas.Top="690" Fill="#F5B8E0" />
+        <Ellipse Width="3" Height="3" Canvas.Left="340" Canvas.Top="675" Fill="#7DEFFF" />
+        <Ellipse Width="3" Height="3" Canvas.Left="378" Canvas.Top="705" Fill="#A78BFA" />
+        <Ellipse Width="4" Height="4" Canvas.Left="60" Canvas.Top="700" Fill="#7DEFFF" />
+        <Ellipse Width="3" Height="3" Canvas.Left="115" Canvas.Top="725" Fill="#F5B8E0" />
+        <Ellipse Width="3" Height="3" Canvas.Left="1395" Canvas.Top="55" Fill="#7DEFFF" />
+        <Ellipse Width="3" Height="3" Canvas.Left="1340" Canvas.Top="120" Fill="#FFFFFF" />
+        <Ellipse Width="4" Height="4" Canvas.Left="50" Canvas.Top="280" Fill="#F5B8E0" />
+        <Ellipse Width="3" Height="3" Canvas.Left="1430" Canvas.Top="340" Fill="#A78BFA" />
+
+    </Canvas>
+</Grid>
