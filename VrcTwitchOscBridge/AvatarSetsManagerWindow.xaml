@@ -1569,6 +1569,15 @@
                                                            <ComboBoxItem Content="{loc:Translate 'FloatActionModeClampMinToMax'}" Tag="{x:Static models:FloatClampMode.MinToMax}" />
                                                        </ComboBox>
                                                    </StackPanel>
+
+                                                   <StackPanel Margin="0,8,0,0"
+                                                               Visibility="{Binding UsesFloatHideOnLimit, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                       <CheckBox IsChecked="{Binding HideRewardWhenFloatMaxReached, UpdateSourceTrigger=PropertyChanged}"
+                                                                 Content="{loc:Translate 'Hide reward at maximum float'}" />
+                                                       <CheckBox Margin="0,4,0,0"
+                                                                 IsChecked="{Binding HideRewardWhenFloatMinReached, UpdateSourceTrigger=PropertyChanged}"
+                                                                 Content="{loc:Translate 'Hide reward at minimum float'}" />
+                                                   </StackPanel>
                                               </StackPanel>
                                           </Border>
 
