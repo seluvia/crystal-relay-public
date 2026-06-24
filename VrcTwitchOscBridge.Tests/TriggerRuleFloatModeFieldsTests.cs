@@ -121,6 +121,43 @@ public sealed class TriggerRuleFloatModeFieldsTests
         Assert.Equal(0.75, rule.FloatPulseSeconds);
         Assert.Equal(FloatClampMode.MinToMax, rule.FloatClampMode);
     }
+
+    [Fact]
+    public void UsesFloatInTransition_TrueOnlyWhenFloatAndInSecondsPositive()
+    {
+        var rule = new TriggerRule
+        {
+            ParameterType = OscParameterType.Float,
+            FloatTransitionInSeconds = 0.5,
+        };
+        Assert.True(rule.UsesFloatInTransition);
+        rule.FloatTransitionInSeconds = 0;
+        Assert.False(rule.UsesFloatInTransition);
+    }
+
+    [Fact]
+    public void UsesFloatInTransition_FalseWhenParameterTypeIsNotFloat()
+    {
+        var rule = new TriggerRule
+        {
+            ParameterType = OscParameterType.Bool,
+            FloatTransitionInSeconds = 0.5,
+        };
+        Assert.False(rule.UsesFloatInTransition);
+    }
+
+    [Fact]
+    public void UsesFloatOutTransition_TrueOnlyWhenFloatAndOutSecondsPositive()
+    {
+        var rule = new TriggerRule
+        {
+            ParameterType = OscParameterType.Float,
+            FloatTransitionOutSeconds = 0.5,
+        };
+        Assert.True(rule.UsesFloatOutTransition);
+        rule.FloatTransitionOutSeconds = 0;
+        Assert.False(rule.UsesFloatOutTransition);
+    }
 }
 
 public sealed class TriggerRuleFloatModeUsesTests
