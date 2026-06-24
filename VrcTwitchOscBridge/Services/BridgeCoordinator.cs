@@ -7815,6 +7815,12 @@ internal BridgeCoordinator(
         var boostMaximumReached = IsActiveFloatBoostRule(rule)
             && TryResolveActiveFloatBoostMaximum(rule, out var maximumBoostValue)
             && IsAtOrAboveActiveFloatBoostMaximum(targetValue, maximumBoostValue);
+        var (floatMaxReached, floatMinReached) = FloatLimitDetection.ComputeLimitState(
+            rule.Rule,
+            targetValue,
+            previousMaxReached: false,
+            previousMinReached: false,
+            featureEnabled: rule.Rule.HideRewardWhenFloatMaxReached || rule.Rule.HideRewardWhenFloatMinReached);
         var session = new ActiveFloatRedeemSessionState(
             rule,
             address,
@@ -7825,7 +7831,11 @@ internal BridgeCoordinator(
             laneKeys,
             laneLeaseId,
             isTest,
-            boostMaximumReached);
+            boostMaximumReached)
+        {
+            FloatMaxReached = floatMaxReached,
+            FloatMinReached = floatMinReached,
+        };
 
         ActiveFloatRedeemSessionState? previousSession = null;
         lock (stateGate)
@@ -7856,6 +7866,11 @@ internal BridgeCoordinator(
                     cooldowns.Remove(rule.Id);
                 }
             }
+        }
+
+        if (floatMaxReached || floatMinReached)
+        {
+            FloatLimitStatusChanged?.Invoke();
         }
 
         previousSession?.CompletionCancellation.Cancel();
@@ -8078,6 +8093,7 @@ internal BridgeCoordinator(
         var newActiveUntil = DateTimeOffset.UtcNow.AddSeconds(inSeconds + activeSeconds + outSeconds);
         double boostedValue;
         bool boostMaximumReached;
+        bool floatLimitChanged;
 
         lock (stateGate)
         {
@@ -8093,6 +8109,17 @@ internal BridgeCoordinator(
             session.ActiveUntil = newActiveUntil;
             session.CompletionCancellation = newCompletionCancellation;
             session.BoostMaximumReached = boostMaximumReached;
+            var (updatedFloatMax, updatedFloatMin) = FloatLimitDetection.ComputeLimitState(
+                session.Rule.Rule,
+                boostedValue,
+                previousMaxReached: session.FloatMaxReached,
+                previousMinReached: session.FloatMinReached,
+                featureEnabled: session.Rule.Rule.HideRewardWhenFloatMaxReached
+                    || session.Rule.Rule.HideRewardWhenFloatMinReached);
+            floatLimitChanged = updatedFloatMax != session.FloatMaxReached
+                || updatedFloatMin != session.FloatMinReached;
+            session.FloatMaxReached = updatedFloatMax;
+            session.FloatMinReached = updatedFloatMin;
             foreach (var laneKey in session.MovementLaneKeys)
             {
                 actionLanes[laneKey] = new ActiveMovementLaneState(
@@ -8126,6 +8153,10 @@ internal BridgeCoordinator(
         }
 
         RememberAvatarParameterValue(rule, FloatValueModeConverter.ToOscText(boostedValue));
+        if (floatLimitChanged)
+        {
+            FloatLimitStatusChanged?.Invoke();
+        }
         ScheduleActiveFloatRedeemCompletion(session, newCompletionCancellation, inSeconds, activeSeconds, outSeconds);
         WriteLog($"{bridgeEvent.UserDisplayName} boosted '{rule.Name}' to {FloatValueModeConverter.ToOscText(boostedValue)} and refreshed its active timer.");
     }
@@ -8136,6 +8167,7 @@ internal BridgeCoordinator(
         bool notifyManagedRewardState)
     {
         var releasedSession = false;
+        var hadFloatLimitReached = false;
         lock (stateGate)
         {
             if (activeFloatRedeemSessions.TryGetValue(session.Rule.Id, out var currentSession)
@@ -8144,6 +8176,7 @@ internal BridgeCoordinator(
             {
                 activeFloatRedeemSessions.Remove(session.Rule.Id);
                 releasedSession = true;
+                hadFloatLimitReached = session.FloatMaxReached || session.FloatMinReached;
             }
         }
 
@@ -8159,6 +8192,11 @@ internal BridgeCoordinator(
         if (notifyManagedRewardState)
         {
             ManagedRewardAvailabilityChanged?.Invoke();
+        }
+
+        if (hadFloatLimitReached)
+        {
+            FloatLimitStatusChanged?.Invoke();
         }
 
         foreach (var releasedLaneKey in releasedLaneKeys)
