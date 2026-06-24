@@ -368,6 +368,7 @@ None of these folders should be committed, public-synced, or treated as part of 
 - `Neon Borb`
 - `Stinky Online`
 - `Squishy Fox Plush`
+- `Púca`
 
 ## Theme System Notes
 - Built-in themes resolve through `ThemeManager` and `ThemePaletteFactory`.
