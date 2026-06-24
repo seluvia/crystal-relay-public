@@ -46,6 +46,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         AvatarChanged,
         RuntimeAvailability,
         AvatarScaleStatus,
+        FloatLimitStatus,
         TestMode,
         EmergencyStop,
         StreamStateChanged,
@@ -535,6 +536,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     private readonly Dictionary<string, DateTimeOffset> managedRewardCreateBackoffByTitle = new(StringComparer.OrdinalIgnoreCase);
     private readonly object avatarScaleLimitStateGate = new();
     private readonly Dictionary<Guid, bool> avatarScaleLimitInactiveStateByRuleId = [];
+    private readonly object floatLimitStateGate = new();
+    private readonly Dictionary<Guid, (bool MaxReached, bool MinReached)> floatLimitStateByRuleId = [];
     private readonly Dictionary<string, DateTimeOffset> throttledLogExpiryByKey = new(StringComparer.Ordinal);
     private readonly List<ActionTypeOption> allActionTypes;
     private string lastSuccessfulManagedRewardDesiredFingerprint = string.Empty;
@@ -1040,6 +1043,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             QueueManagedRewardSync(0, ManagedRewardSyncReason.AvatarScaleMasterRewardUnlocked);
         });
         bridgeCoordinator.AvatarScaleStatusChanged += () => RunOnUi(HandleAvatarScaleStatusChanged);
+        bridgeCoordinator.FloatLimitStatusChanged += () => RunOnUi(HandleFloatLimitStatusChanged);
         bridgeCoordinator.RewardFireSaleContributionReceived += contribution => RunOnUi(() => HandleRewardFireSaleContribution(contribution));
         bridgeCoordinator.DevFireSaleRequested += request => RunOnUi(() => HandleDevFireSaleRequest(request));
         bridgeCoordinator.PauseCommandRequested += () => RunOnUi(() => ToggleEmergencyRedeemStop());
@@ -9036,6 +9040,81 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             ThrottledRewardSyncLogWindow);
     }
 
+    private void HandleFloatLimitStatusChanged()
+    {
+        if (!isInitialized || isShuttingDown)
+        {
+            return;
+        }
+
+        var limitReachedRuleIds = bridgeCoordinator.GetActiveFloatLimitReachedRuleIds();
+        var currentStates = limitReachedRuleIds
+            .ToDictionary(id => id, id => (MaxReached: true, MinReached: true));
+
+        var shouldSync = false;
+        var activeRuleIds = new HashSet<Guid>();
+
+        foreach (var rule in EnumerateAllRules().Where(r => r.UsesFloatHideOnLimit))
+        {
+            activeRuleIds.Add(rule.Id);
+            var currentState = currentStates.TryGetValue(rule.Id, out var s)
+                ? s
+                : (MaxReached: false, MinReached: false);
+
+            bool hadPreviousState;
+            (bool PrevMax, bool PrevMin) previousState;
+            lock (floatLimitStateGate)
+            {
+                hadPreviousState = floatLimitStateByRuleId.TryGetValue(rule.Id, out previousState);
+            }
+
+            if (!hadPreviousState
+                || previousState.PrevMax != currentState.MaxReached
+                || previousState.PrevMin != currentState.MinReached)
+            {
+                lock (floatLimitStateGate)
+                {
+                    floatLimitStateByRuleId[rule.Id] = currentState;
+                }
+
+                if (hadPreviousState || currentState.MaxReached || currentState.MinReached)
+                {
+                    LogFloatLimitVisibilityChange(rule, currentState);
+                }
+
+                shouldSync = true;
+            }
+        }
+
+        lock (floatLimitStateGate)
+        {
+            foreach (var removedRuleId in floatLimitStateByRuleId.Keys.Except(activeRuleIds).ToArray())
+            {
+                floatLimitStateByRuleId.Remove(removedRuleId);
+            }
+        }
+
+        if (shouldSync)
+        {
+            QueueManagedRewardSync(
+                (int)AvatarScaleLimitRewardSyncDebounce.TotalMilliseconds,
+                ManagedRewardSyncReason.FloatLimitStatus);
+        }
+    }
+
+    private void LogFloatLimitVisibilityChange(TriggerRule rule, (bool MaxReached, bool MinReached) state)
+    {
+        var limitName = state.MaxReached ? "maximum" : "minimum";
+        var message = (state.MaxReached || state.MinReached)
+            ? $"Avatar set reward '{rule.DisplayTitle}' is hidden on Twitch because its float value reached the configured {limitName}."
+            : $"Avatar set reward '{rule.DisplayTitle}' can show on Twitch again because its float value left the configured limit.";
+
+        AppendThrottledLog(
+            $"float-limit-visibility:{rule.Id}:{limitName}:{state.MaxReached || state.MinReached}",
+            message,
+            ThrottledRewardSyncLogWindow);
+    }
+
     private void RefreshCurrentAvatarMoreOftenDuringActiveScale(AvatarScaleRuntimeStatus status)
     {
         if (!status.IsActive || !Settings.VrChat.IsConnected)
@@ -11051,7 +11130,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     }
 
     private static bool IsPassiveManagedRewardSyncReason(ManagedRewardSyncReason reason) =>
-        reason is ManagedRewardSyncReason.RuntimeAvailability or ManagedRewardSyncReason.AvatarScaleStatus;
+        reason is ManagedRewardSyncReason.RuntimeAvailability
+            or ManagedRewardSyncReason.AvatarScaleStatus
+            or ManagedRewardSyncReason.FloatLimitStatus;
 
     private static bool ShouldSkipUnchangedManagedRewardSync(ManagedRewardSyncReason reason) =>
         IsPassiveManagedRewardSyncReason(reason)
@@ -11091,6 +11172,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         ManagedRewardSyncReason.AvatarChanged => "avatar changed",
         ManagedRewardSyncReason.RuntimeAvailability => "runtime availability",
         ManagedRewardSyncReason.AvatarScaleStatus => "avatar scale status",
+        ManagedRewardSyncReason.FloatLimitStatus => "float limit status",
         ManagedRewardSyncReason.TestMode => "test mode",
         ManagedRewardSyncReason.EmergencyStop => "emergency stop",
         ManagedRewardSyncReason.StreamStateChanged => "stream state changed",
