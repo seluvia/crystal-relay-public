@@ -249,6 +249,20 @@ public sealed class AvatarSetsManagerWindowXamlTests
         }
     }
 
+    [Fact]
+    public void FloatModeCard_ContainsHideOnLimitCheckboxes()
+    {
+        var xaml = File.ReadAllText(FindSourceFile("VrcTwitchOscBridge", "AvatarSetsManagerWindow.xaml"));
+        var headerIndex = xaml.IndexOf("FloatActionModeHeader", StringComparison.Ordinal);
+        Assert.True(headerIndex >= 0, "Float Action Mode section should exist.");
+
+        Assert.Contains("HideRewardWhenFloatMaxReached", xaml, StringComparison.Ordinal);
+        Assert.Contains("HideRewardWhenFloatMinReached", xaml, StringComparison.Ordinal);
+        Assert.Contains("UsesFloatHideOnLimit", xaml, StringComparison.Ordinal);
+        Assert.Contains("Hide reward at maximum float", xaml, StringComparison.Ordinal);
+        Assert.Contains("Hide reward at minimum float", xaml, StringComparison.Ordinal);
+    }
+
     private static string FindSourceFile(params string[] relativeParts)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
