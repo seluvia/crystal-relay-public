@@ -584,6 +584,7 @@ public partial class MainWindow : Window
             AppTheme.NeonBorb => "ThemeBackgrounds/NeonBorbThemeBackground.xaml",
             AppTheme.StinkyOnline => "ThemeBackgrounds/StinkyOnlineThemeBackground.xaml",
             AppTheme.SquishyFoxPlush => "ThemeBackgrounds/SquishyFoxPlushThemeBackground.xaml",
+            AppTheme.Puca => "ThemeBackgrounds/PucaThemeBackground.xaml",
             _ => "ThemeBackgrounds/VoidCrystalThemeBackground.xaml"
         };
 
