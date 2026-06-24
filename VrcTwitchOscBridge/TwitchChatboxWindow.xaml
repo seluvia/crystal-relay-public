@@ -253,6 +253,43 @@
                           ShadowDepth="0"
                           Opacity="0.42"
                           Color="#E96100" />
+        <SolidColorBrush x:Key="FalxPlaysTextBrush" Color="#D8F5EE" />
+        <SolidColorBrush x:Key="FalxPlaysMutedBrush" Color="#6A8A8A" />
+        <SolidColorBrush x:Key="FalxPlaysInsetBrush" Color="#78061418" />
+        <SolidColorBrush x:Key="FalxPlaysInsetBorderBrush" Color="#8F00BFA5" />
+        <LinearGradientBrush x:Key="FalxPlaysCardBrush"
+                             StartPoint="0,0"
+                             EndPoint="1,1">
+            <GradientStop Color="#F0030608" Offset="0" />
+            <GradientStop Color="#EC0A1418" Offset="0.46" />
+            <GradientStop Color="#E9060C12" Offset="0.74" />
+            <GradientStop Color="#ED081018" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="FalxPlaysBorderBrush"
+                             StartPoint="0,0"
+                             EndPoint="1,1">
+            <GradientStop Color="#E000BFA5" Offset="0" />
+            <GradientStop Color="#E32979FF" Offset="0.5" />
+            <GradientStop Color="#D800BFA5" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="FalxPlaysRailBrush"
+                             StartPoint="0,0"
+                             EndPoint="0,1">
+            <GradientStop Color="#FFFFFF" Offset="0" />
+            <GradientStop Color="#00BFA5" Offset="0.5" />
+            <GradientStop Color="#2979FF" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="FalxPlaysBadgeBrush"
+                             StartPoint="0,0"
+                             EndPoint="1,1">
+            <GradientStop Color="#00BFA5" Offset="0" />
+            <GradientStop Color="#2979FF" Offset="1" />
+        </LinearGradientBrush>
+        <DropShadowEffect x:Key="FalxPlaysGlowEffect"
+                          BlurRadius="14"
+                          ShadowDepth="0"
+                          Opacity="0.34"
+                          Color="#00BFA5" />
         <SolidColorBrush x:Key="ChatboxRoleCardTextBrush" Color="#FFFDF7" />
         <SolidColorBrush x:Key="ChatboxRoleCardMutedBrush" Color="#F0E8FF" />
         <SolidColorBrush x:Key="ChatboxRoleBadgeTextBrush" Color="#150B18" />
