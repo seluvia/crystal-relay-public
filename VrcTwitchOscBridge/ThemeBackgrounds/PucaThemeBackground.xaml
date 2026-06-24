@@ -11,26 +11,26 @@
     <Canvas ClipToBounds="True">
 
         <!-- Aurora ribbon wisps -->
-        <Path Data="M-20,90 Q120,40 240,100 T440,80" Stroke="#3F22D3EE" StrokeThickness="40" Fill="None" Opacity="0.55" />
-        <Path Data="M-20,300 Q140,260 280,310 T440,290" Stroke="#3FA78BFA" StrokeThickness="46" Fill="None" Opacity="0.55" />
-        <Path Data="M-20,350 Q160,330 320,370 T440,350" Stroke="#3FF5B8E0" StrokeThickness="34" Fill="None" Opacity="0.50" />
-        <Path Data="M-20,190 Q100,160 200,195 T420,180" Stroke="#3F22D3EE" StrokeThickness="22" Fill="None" Opacity="0.35" />
+        <Path Data="M-20,90 Q120,40 240,100 T440,80" Stroke="#3F22D3EE" StrokeThickness="40" Opacity="0.55" />
+        <Path Data="M-20,300 Q140,260 280,310 T440,290" Stroke="#3FA78BFA" StrokeThickness="46" Opacity="0.55" />
+        <Path Data="M-20,350 Q160,330 320,370 T440,350" Stroke="#3FF5B8E0" StrokeThickness="34" Opacity="0.50" />
+        <Path Data="M-20,190 Q100,160 200,195 T420,180" Stroke="#3F22D3EE" StrokeThickness="22" Opacity="0.35" />
 
         <!-- Central nebula glow -->
         <Ellipse Width="300" Height="300" Canvas.Left="650" Canvas.Top="330" Fill="#336C28C8" Opacity="0.45" />
 
         <!-- Orbiting small circles (outside the main circle) -->
-        <Ellipse Width="50" Height="50" Canvas.Left="60" Canvas.Top="80" Stroke="#9922D3EE" StrokeThickness="1.3" Fill="None" />
-        <Ellipse Width="30" Height="30" Canvas.Left="82" Canvas.Top="100" Stroke="#B3A78BFA" StrokeThickness="1" StrokeDashArray="2 2" Fill="None" />
-        <Ellipse Width="44" Height="44" Canvas.Left="1380" Canvas.Top="620" Stroke="#99F5B8E0" StrokeThickness="1.3" Fill="None" />
-        <Ellipse Width="26" Height="26" Canvas.Left="1390" Canvas.Top="636" Stroke="#9922D3EE" StrokeThickness="1" StrokeDashArray="2 2" Fill="None" />
-        <Ellipse Width="28" Height="28" Canvas.Left="80" Canvas.Top="680" Stroke="#8CA78BFA" StrokeThickness="1" Fill="None" />
-        <Ellipse Width="32" Height="32" Canvas.Left="1450" Canvas.Top="70" Stroke="#8022D3EE" StrokeThickness="1" Fill="None" />
+        <Ellipse Width="50" Height="50" Canvas.Left="60" Canvas.Top="80" Stroke="#9922D3EE" StrokeThickness="1.3" />
+        <Ellipse Width="30" Height="30" Canvas.Left="82" Canvas.Top="100" Stroke="#B3A78BFA" StrokeThickness="1" StrokeDashArray="2 2" />
+        <Ellipse Width="44" Height="44" Canvas.Left="1380" Canvas.Top="620" Stroke="#99F5B8E0" StrokeThickness="1.3" />
+        <Ellipse Width="26" Height="26" Canvas.Left="1390" Canvas.Top="636" Stroke="#9922D3EE" StrokeThickness="1" StrokeDashArray="2 2" />
+        <Ellipse Width="28" Height="28" Canvas.Left="80" Canvas.Top="680" Stroke="#8CA78BFA" StrokeThickness="1" />
+        <Ellipse Width="32" Height="32" Canvas.Left="1450" Canvas.Top="70" Stroke="#8022D3EE" StrokeThickness="1" />
 
         <!-- Central arcane magic circle (3 concentric rings) -->
-        <Ellipse Width="220" Height="220" Canvas.Left="690" Canvas.Top="370" Stroke="#8C22D3EE" StrokeThickness="1.5" Fill="None" />
-        <Ellipse Width="176" Height="176" Canvas.Left="712" Canvas.Top="392" Stroke="#B3A78BFA" StrokeThickness="1.5" StrokeDashArray="4 4" Fill="None" />
-        <Ellipse Width="120" Height="120" Canvas.Left="740" Canvas.Top="420" Stroke="#99F5B8E0" StrokeThickness="1" Fill="None" />
+        <Ellipse Width="220" Height="220" Canvas.Left="690" Canvas.Top="370" Stroke="#8C22D3EE" StrokeThickness="1.5" />
+        <Ellipse Width="176" Height="176" Canvas.Left="712" Canvas.Top="392" Stroke="#B3A78BFA" StrokeThickness="1.5" StrokeDashArray="4 4" />
+        <Ellipse Width="120" Height="120" Canvas.Left="740" Canvas.Top="420" Stroke="#99F5B8E0" StrokeThickness="1" />
 
         <!-- Rune ticks (8 cardinal/diagonal marks around outer ring) -->
         <Canvas>
@@ -58,9 +58,9 @@
         <Ellipse Width="9" Height="9" Canvas.Left="555" Canvas.Top="165" Fill="#FFF5B8E0" />
 
         <!-- Constellation lines -->
-        <Polyline Points="40,70 95,55 150,80 195,62" Stroke="#597DEFFF" StrokeThickness="0.8" Fill="None" />
-        <Polyline Points="285,690 340,675 378,705" Stroke="#597DEFFF" StrokeThickness="0.8" Fill="None" />
-        <Polyline Points="60,700 115,725 158,708" Stroke="#597DEFFF" StrokeThickness="0.8" Fill="None" />
+        <Polyline Points="40,70 95,55 150,80 195,62" Stroke="#597DEFFF" StrokeThickness="0.8" />
+        <Polyline Points="285,690 340,675 378,705" Stroke="#597DEFFF" StrokeThickness="0.8" />
+        <Polyline Points="60,700 115,725 158,708" Stroke="#597DEFFF" StrokeThickness="0.8" />
 
         <!-- Starfield -->
         <Ellipse Width="4" Height="4" Canvas.Left="40" Canvas.Top="70" Fill="#7DEFFF" />
