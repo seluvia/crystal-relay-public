@@ -9104,13 +9104,19 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     private void LogFloatLimitVisibilityChange(TriggerRule rule, (bool MaxReached, bool MinReached) state)
     {
-        var limitName = state.MaxReached ? "maximum" : "minimum";
-        var message = (state.MaxReached || state.MinReached)
+        var limitName = (rule.HideRewardWhenFloatMaxReached, rule.HideRewardWhenFloatMinReached) switch
+        {
+            (true, false) => "maximum",
+            (false, true) => "minimum",
+            _ => "configured limit",
+        };
+        var isHidden = state.MaxReached || state.MinReached;
+        var message = isHidden
             ? $"Avatar set reward '{rule.DisplayTitle}' is hidden on Twitch because its float value reached the configured {limitName}."
             : $"Avatar set reward '{rule.DisplayTitle}' can show on Twitch again because its float value left the configured limit.";
 
         AppendThrottledLog(
-            $"float-limit-visibility:{rule.Id}:{limitName}:{state.MaxReached || state.MinReached}",
+            $"float-limit-visibility:{rule.Id}:{limitName}:{isHidden}",
             message,
             ThrottledRewardSyncLogWindow);
     }
