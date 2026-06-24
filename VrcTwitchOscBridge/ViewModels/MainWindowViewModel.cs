@@ -12158,7 +12158,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         bool allowManagedRewardActivation,
         IReadOnlyCollection<Guid> temporarilyDisabledRuleIds,
         IReadOnlyCollection<Guid> cooldownRuleIds,
-        IReadOnlyCollection<Guid> activeTimedRuleIds)
+        IReadOnlyCollection<Guid> activeTimedRuleIds,
+        IReadOnlyCollection<Guid> activeFloatLimitReachedRuleIds)
     {
         var ruleHasRuntimeReadyAction = HasRuntimeReadyAction(rule);
         var isOnLocalCooldown = cooldownRuleIds.Contains(rule.Id);
@@ -12189,6 +12190,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             avatarChangeTransitionActive: avatarChangeTransitionActive,
             avatarChangeCooldownOnlyModeEnabled: Settings.AvatarChangeCooldownOnlyModeEnabled);
         var isActiveFloatBoostParent = IsActiveFloatBoostParentRule(rule) && activeTimedRuleIds.Contains(rule.Id);
+        var floatLimitReached = activeFloatLimitReachedRuleIds.Contains(rule.Id)
+            && rule.UsesFloatHideOnLimit
+            && (rule.HideRewardWhenFloatMaxReached || rule.HideRewardWhenFloatMinReached);
         var ruleIsVisibleForCurrentAvatar = isCooldownOnlyDirectAvatarChange
             ? cooldownOnlyAvatarChangeVisible
             : profileIsEffectivelyActive;
@@ -12198,7 +12202,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             && rule.IsEnabled
             && !temporarilyDisabledRuleIds.Contains(rule.Id)
             && ruleIsVisibleForCurrentAvatar
-            && !isActiveFloatBoostParent;
+            && !isActiveFloatBoostParent
+            && !floatLimitReached;
         var backgroundColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(rule.ManagedRewardReadyColor);
 
         return new ManagedRewardSyncTarget(
@@ -12214,8 +12219,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             requireUserInput: false,
             desiredEnabled: desiredEnabled,
             isCooldownActive: isOnLocalCooldown,
-            deleteWhenInactive: rule.DeleteManagedRewardWhenInactive && !isCooldownOnlyDirectAvatarChange && !temporarilyDisabledRuleIds.Contains(rule.Id) && !isActiveFloatBoostParent,
-            protectFromCapReclaim: desiredEnabled || isOnLocalCooldown || temporarilyDisabledRuleIds.Contains(rule.Id) || isActiveFloatBoostParent || isCooldownOnlyDirectAvatarChange,
+            deleteWhenInactive: rule.DeleteManagedRewardWhenInactive && !isCooldownOnlyDirectAvatarChange && !temporarilyDisabledRuleIds.Contains(rule.Id) && !isActiveFloatBoostParent && !floatLimitReached,
+            protectFromCapReclaim: desiredEnabled || isOnLocalCooldown || temporarilyDisabledRuleIds.Contains(rule.Id) || isActiveFloatBoostParent || isCooldownOnlyDirectAvatarChange || floatLimitReached,
             applyRewardId: rewardId => rule.ChannelPointRewardId = rewardId);
     }
 
@@ -12999,6 +13004,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             var cooldownRuleIds = bridgeCoordinator.GetRulesOnCooldownIds();
             var activeTimedRuleIds = bridgeCoordinator.GetActiveTimedRuleIds();
             var activeFloatBoostMaximumReachedRuleIds = bridgeCoordinator.GetActiveFloatBoostMaximumReachedRuleIds();
+            var activeFloatLimitReachedRuleIds = bridgeCoordinator.GetActiveFloatLimitReachedRuleIds();
             var activeAvatarScaleEffectRuleIds = bridgeCoordinator.GetActiveAvatarScaleEffectRuleIds();
             var queuedAvatarScaleRuleIds = bridgeCoordinator.GetQueuedAvatarScaleRuleIds();
             var avatarChangeTransitionActive = bridgeCoordinator.IsAvatarChangeTransitionActive();
@@ -13103,7 +13109,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
                         allowManagedRewardActivation,
                         temporarilyDisabledRuleIds,
                         cooldownRuleIds,
-                        activeTimedRuleIds));
+                        activeTimedRuleIds,
+                        activeFloatLimitReachedRuleIds));
                     if (CreateManagedRewardTargetForActiveFloatBoostReward(
                             profile,
                             rule,
@@ -13146,7 +13153,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
                     allowManagedRewardActivation,
                     temporarilyDisabledRuleIds,
                     cooldownRuleIds,
-                    activeTimedRuleIds))
+                    activeTimedRuleIds,
+                    activeFloatLimitReachedRuleIds))
                 .ToArray();
             var universalTargets = managedUniversalTriggers
                 .Select(trigger => CreateManagedRewardTargetForUniversalTrigger(
