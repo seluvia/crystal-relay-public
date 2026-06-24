@@ -117,11 +117,11 @@ public sealed class FloatLimitDetectionTests
     }
 
     [Fact]
-    public void FeatureDisabled_WhenBothFlagsOff_ReturnsFalse()
+    public void FeatureDisabled_ReturnsFalseEvenWhenFlagsOn()
     {
         var rule = Rule(FloatActionMode.Add, FloatClampMode.ZeroToOne);
-        rule.HideRewardWhenFloatMaxReached = false;
-        rule.HideRewardWhenFloatMinReached = false;
+        rule.HideRewardWhenFloatMaxReached = true;
+        rule.HideRewardWhenFloatMinReached = true;
         var (max, min) = FloatLimitDetection.ComputeLimitState(
             rule, 1.0, previousMaxReached: false, previousMinReached: false,
             featureEnabled: false);
@@ -136,8 +136,24 @@ public sealed class FloatLimitDetectionTests
         rule.HideRewardWhenFloatMaxReached = true;
         rule.HideRewardWhenFloatMinReached = false;
         var (max, min) = FloatLimitDetection.ComputeLimitState(
-            rule, 0.0, previousMaxReached: false, previousMinReached: false,
+            rule, 1.0, previousMaxReached: false, previousMinReached: false,
             featureEnabled: true);
-        Assert.False(min);  // min checkbox is off, so min never reports
+        Assert.True(max);   // max is reached at 1.0 and max flag is on
+        Assert.False(min);  // min flag is off, so min never reports
+    }
+
+    [Fact]
+    public void Hysteresis_DoesNotEngagePrematurelyAtReleaseBand()
+    {
+        var rule = Rule(FloatActionMode.Add, FloatClampMode.ZeroToOne);
+        // 0.99999 is within the release tolerance (1.0 - 0.0001) but
+        // outside the engage tolerance (1.0 - 0.000001), so a fresh
+        // call with previousMaxReached=false should NOT engage.
+        var (max, _) = FloatLimitDetection.ComputeLimitState(rule, 0.99999, previousMaxReached: false);
+        Assert.False(max, "Max should not engage at 0.99999 without previous state.");
+
+        var rule2 = Rule(FloatActionMode.Subtract, FloatClampMode.ZeroToOne);
+        var (_, min) = FloatLimitDetection.ComputeLimitState(rule2, 0.00001, previousMinReached: false);
+        Assert.False(min, "Min should not engage at 0.00001 without previous state.");
     }
 }
