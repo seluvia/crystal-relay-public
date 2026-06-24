@@ -8049,13 +8049,14 @@ internal BridgeCoordinator(
 
         var lowerBound = Math.Min(minimumValue, maximumValue);
         var upperBound = Math.Max(minimumValue, maximumValue);
-        var transitionSeconds = Math.Clamp(rule.FloatTransitionOutSeconds, 0, 30);
+        var inSeconds = Math.Clamp(rule.FloatTransitionInSeconds, 0, 30);
+        var outSeconds = Math.Clamp(rule.FloatTransitionOutSeconds, 0, 30);
         var activeSeconds = Math.Max(1, rule.DurationSeconds);
         var oldCompletionCancellation = session.CompletionCancellation;
         var newCompletionCancellation = runtimeCancellation is null
             ? new CancellationTokenSource()
             : CancellationTokenSource.CreateLinkedTokenSource(runtimeCancellation.Token);
-        var newActiveUntil = DateTimeOffset.UtcNow.AddSeconds(transitionSeconds + activeSeconds + transitionSeconds);
+        var newActiveUntil = DateTimeOffset.UtcNow.AddSeconds(inSeconds + activeSeconds + outSeconds);
         double boostedValue;
         bool boostMaximumReached;
 
@@ -8096,7 +8097,7 @@ internal BridgeCoordinator(
                 session.Address,
                 session.CurrentValue,
                 boostedValue,
-                transitionSeconds,
+                inSeconds,
                 cancellationToken);
             session.CurrentValue = boostedValue;
         }
@@ -8106,7 +8107,7 @@ internal BridgeCoordinator(
         }
 
         RememberAvatarParameterValue(rule, FloatValueModeConverter.ToOscText(boostedValue));
-        ScheduleActiveFloatRedeemCompletion(session, newCompletionCancellation, transitionSeconds, activeSeconds, transitionSeconds);
+        ScheduleActiveFloatRedeemCompletion(session, newCompletionCancellation, inSeconds, activeSeconds, outSeconds);
         WriteLog($"{bridgeEvent.UserDisplayName} boosted '{rule.Name}' to {FloatValueModeConverter.ToOscText(boostedValue)} and refreshed its active timer.");
     }
 
