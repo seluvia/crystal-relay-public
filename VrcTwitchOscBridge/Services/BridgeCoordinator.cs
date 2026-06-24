@@ -7868,7 +7868,9 @@ internal BridgeCoordinator(
             }
         }
 
-        if (floatMaxReached || floatMinReached)
+        var previousHadFloatLimit = previousSession is not null
+            && (previousSession.FloatMaxReached || previousSession.FloatMinReached);
+        if (floatMaxReached || floatMinReached || previousHadFloatLimit)
         {
             FloatLimitStatusChanged?.Invoke();
         }
@@ -8135,6 +8137,10 @@ internal BridgeCoordinator(
 
         ApplyRuleLockoutUntil(rule, newActiveUntil);
         ManagedRewardAvailabilityChanged?.Invoke();
+        if (floatLimitChanged)
+        {
+            FloatLimitStatusChanged?.Invoke();
+        }
 
         await session.SendGate.WaitAsync(cancellationToken);
         try
@@ -8153,10 +8159,6 @@ internal BridgeCoordinator(
         }
 
         RememberAvatarParameterValue(rule, FloatValueModeConverter.ToOscText(boostedValue));
-        if (floatLimitChanged)
-        {
-            FloatLimitStatusChanged?.Invoke();
-        }
         ScheduleActiveFloatRedeemCompletion(session, newCompletionCancellation, inSeconds, activeSeconds, outSeconds);
         WriteLog($"{bridgeEvent.UserDisplayName} boosted '{rule.Name}' to {FloatValueModeConverter.ToOscText(boostedValue)} and refreshed its active timer.");
     }
