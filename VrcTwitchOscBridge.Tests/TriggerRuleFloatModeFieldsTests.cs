@@ -257,6 +257,54 @@ public sealed class TriggerRuleFloatModeFieldsTests
             Assert.False(rule.UsesFloatHideOnLimit, $"{mode} should not show hide-on-limit.");
         }
     }
+
+    [Fact]
+    public void UsesFloatHideOnLimit_RaisesNotificationWhenFloatActionModeChanges()
+    {
+        var rule = new TriggerRule
+        {
+            ParameterType = OscParameterType.Float,
+            RewardSyncMode = TwitchRewardSyncMode.CreateOrManage,
+            DurationSeconds = 10,
+            FloatActionMode = FloatActionMode.Set,
+        };
+        var fired = false;
+        rule.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(TriggerRule.UsesFloatHideOnLimit))
+            {
+                fired = true;
+            }
+        };
+        Assert.False(rule.UsesFloatHideOnLimit);
+        rule.FloatActionMode = FloatActionMode.Add;
+        Assert.True(rule.UsesFloatHideOnLimit);
+        Assert.True(fired, "UsesFloatHideOnLimit notification should fire when FloatActionMode changes to a cumulative mode.");
+    }
+
+    [Fact]
+    public void UsesFloatHideOnLimit_RaisesNotificationWhenRewardSyncModeChanges()
+    {
+        var rule = new TriggerRule
+        {
+            ParameterType = OscParameterType.Float,
+            RewardSyncMode = TwitchRewardSyncMode.LinkExisting,
+            DurationSeconds = 10,
+            FloatActionMode = FloatActionMode.Add,
+        };
+        var fired = false;
+        rule.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(TriggerRule.UsesFloatHideOnLimit))
+            {
+                fired = true;
+            }
+        };
+        Assert.False(rule.UsesFloatHideOnLimit);
+        rule.RewardSyncMode = TwitchRewardSyncMode.CreateOrManage;
+        Assert.True(rule.UsesFloatHideOnLimit);
+        Assert.True(fired, "UsesFloatHideOnLimit notification should fire when RewardSyncMode changes to CreateOrManage.");
+    }
 }
 
 public sealed class TriggerRuleFloatModeUsesTests

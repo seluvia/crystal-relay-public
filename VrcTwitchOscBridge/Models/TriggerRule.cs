@@ -292,6 +292,7 @@ public sealed class TriggerRule : ObservableObject
             {
                 RaisePropertyChanged(nameof(UsesCreateOrManageReward));
                 RaisePropertyChanged(nameof(UsesLinkedExistingReward));
+                RaisePropertyChanged(nameof(UsesFloatHideOnLimit));
                 RaisePropertyChanged(nameof(TriggerSummary));
             }
         }
@@ -2046,6 +2047,7 @@ public sealed class TriggerRule : ObservableObject
         RaisePropertyChanged(nameof(UsesFloatGlitchyInterval));
         RaisePropertyChanged(nameof(UsesFloatPulseSeconds));
         RaisePropertyChanged(nameof(UsesFloatClampMode));
+        RaisePropertyChanged(nameof(UsesFloatHideOnLimit));
     }
 
     private static string DescribeMovementDirection(PlayerMovementDirection direction) => direction switch
