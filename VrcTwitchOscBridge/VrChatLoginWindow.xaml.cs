@@ -71,6 +71,27 @@ public partial class VrChatLoginWindow : Window
 
     private void ApplyTheme(AppTheme theme)
     {
+        if (theme == AppTheme.Puca)
+        {
+            Resources["BodyFontFamily"] = new FontFamily("Verdana");
+            Resources["HeadingFontFamily"] = new FontFamily("Cambria");
+            SetBrushColor("WindowBackgroundBrush", "#0C0716");
+            SetBrushColor("PanelBrush", "#E6140C24");
+            SetBrushColor("BorderBrush", "#3A2868");
+            SetBrushColor("AccentBrush", "#22D3EE");
+            SetBrushColor("TextBrush", "#E8DEF8");
+            SetBrushColor("MutedBrush", "#A896C8");
+            SetBrushColor("InputBrush", "#E6080410");
+            SetBrushColor("InputBorderBrush", "#4A2D8A");
+            SetBrushColor("ComboSurfaceBrush", "#1A1030");
+            SetBrushColor("ComboTextBrush", "#E8DEF8");
+            SetBrushColor("ComboHighlightBrush", "#22D3EE");
+            SetBrushColor("StatusChipBrush", "#2CA78BFA");
+            SetBrushColor("SecondaryButtonBrush", "#2AF5B8E0");
+            SetBrushColor("SecondaryButtonBorderBrush", "#F5B8E0");
+            return;
+        }
+
         if (theme == AppTheme.Baked)
         {
             Resources["BodyFontFamily"] = new FontFamily("Cambria");
