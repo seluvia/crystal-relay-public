@@ -21229,6 +21229,7 @@ public sealed class TwitchChatMessageEntry : ObservableObject
     private static readonly LinearGradientBrush HypercraftiingNameBrush = CreateFrozenHypercraftiingNameBrush();
     private static readonly LinearGradientBrush KyouZakiraNameBrush = CreateFrozenKyouZakiraNameBrush();
     private static readonly LinearGradientBrush Phil13938NameBrush = CreateFrozenPhil13938NameBrush();
+    private static readonly LinearGradientBrush FalxPlaysNameBrush = CreateFrozenFalxPlaysNameBrush();
     private static readonly Color DarkCardReferenceColor = Color.FromRgb(40, 23, 60);
     private ChatTimestampFormat timestampFormat;
     private string suspiciousStatus = string.Empty;
@@ -21287,6 +21288,8 @@ public sealed class TwitchChatMessageEntry : ObservableObject
             ? TwitchChatRoleCardKind.KyouZakira
             : IsPhil13938
             ? TwitchChatRoleCardKind.Phil13938
+            : IsFalxPlays
+            ? TwitchChatRoleCardKind.Falx
             : ResolveRoleCardKind(Kind, normalizedSupportTier, BadgeSetIds);
         InlineFragments = inlineFragments.Count == 0
             ? [new TwitchChatInlineFragment(TwitchChatInlineFragmentKind.Text, messageText, string.Empty)]
@@ -21304,6 +21307,8 @@ public sealed class TwitchChatMessageEntry : ObservableObject
             ? KyouZakiraNameBrush
             : IsPhil13938
             ? Phil13938NameBrush
+            : IsFalxPlays
+            ? FalxPlaysNameBrush
             : ParseNameBrush(userColor, theme);
         RewardTitle = string.IsNullOrWhiteSpace(rewardTitle) ? MessageText.Trim() : rewardTitle.Trim();
         RewardCost = Math.Max(0, rewardCost);
@@ -21370,6 +21375,8 @@ public sealed class TwitchChatMessageEntry : ObservableObject
 
     public bool IsPhil13938RoleCard => RoleCardKind == TwitchChatRoleCardKind.Phil13938;
 
+    public bool IsFalxPlaysRoleCard => RoleCardKind == TwitchChatRoleCardKind.Falx;
+
     public bool IsTwitchStaffRoleCard => RoleCardKind == TwitchChatRoleCardKind.Staff;
 
     public bool IsLeadModeratorRoleCard => RoleCardKind == TwitchChatRoleCardKind.LeadModerator;
@@ -21394,6 +21401,7 @@ public sealed class TwitchChatMessageEntry : ObservableObject
         TwitchChatRoleCardKind.Hypercraftiing => "The Great Cuddly Synth",
         TwitchChatRoleCardKind.KyouZakira => "Chatoic Umbreon",
         TwitchChatRoleCardKind.Phil13938 => "The Canadian Bnuy",
+        TwitchChatRoleCardKind.Falx => "Awooey",
         TwitchChatRoleCardKind.Staff => "TWITCH STAFF",
         TwitchChatRoleCardKind.LeadModerator => "LEAD MOD",
         TwitchChatRoleCardKind.Moderator => "MOD",
@@ -21770,6 +21778,19 @@ public sealed class TwitchChatMessageEntry : ObservableObject
         brush.GradientStops.Add(new GradientStop(Color.FromRgb(214, 0, 0), 0d));
         brush.GradientStops.Add(new GradientStop(Color.FromRgb(233, 97, 0), 0.5d));
         brush.GradientStops.Add(new GradientStop(Color.FromRgb(68, 0, 0), 1d));
+        brush.Freeze();
+        return brush;
+    }
+
+    private static LinearGradientBrush CreateFrozenFalxPlaysNameBrush()
+    {
+        var brush = new LinearGradientBrush
+        {
+            StartPoint = new Point(0, 0.5),
+            EndPoint = new Point(1, 0.5)
+        };
+        brush.GradientStops.Add(new GradientStop(Color.FromRgb(0, 191, 165), 0d));
+        brush.GradientStops.Add(new GradientStop(Color.FromRgb(41, 121, 255), 1d));
         brush.Freeze();
         return brush;
     }
