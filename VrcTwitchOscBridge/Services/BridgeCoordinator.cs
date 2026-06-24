@@ -7369,6 +7369,12 @@ internal BridgeCoordinator(
                 }
             }
 
+            if (!isTest && !isResuming && cooldownSeconds > 0)
+            {
+                ManagedRewardAvailabilityChanged?.Invoke();
+                NotifyRewardCooldownColorChanged(rule.Id);
+            }
+
             if (isTest)
             {
                 WriteLog(queuedReplay
