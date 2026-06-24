@@ -465,6 +465,8 @@
   "CRYSTAL RELAY DEV": "CRYSTAL RELAY DEV",
   "Hide reward at minimum height": "Hide reward at minimum height",
   "Hide reward at maximum height": "Hide reward at maximum height",
+  "Hide reward at maximum float": "Hide reward at maximum float",
+  "Hide reward at minimum float": "Hide reward at minimum float",
   "When enabled, Crystal Relay hides this managed Twitch reward while the current height is at the effective minimum, then shows it again after height increases.": "When enabled, Crystal Relay hides this managed Twitch reward while the current height is at the effective minimum, then shows it again after height increases.",
   "When enabled, Crystal Relay hides this managed Twitch reward while the current height is at the effective maximum, then shows it again after height decreases.": "When enabled, Crystal Relay hides this managed Twitch reward while the current height is at the effective maximum, then shows it again after height decreases.",
   "Action Family": "Action Family",

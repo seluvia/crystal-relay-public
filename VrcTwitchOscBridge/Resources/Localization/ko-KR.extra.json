@@ -466,6 +466,8 @@
   "CRYSTAL RELAY DEV": "CRYSTAL RELAY DEV",
   "Hide reward at minimum height": "최소 키에서 리워드 숨기기",
   "Hide reward at maximum height": "최대 키에서 리워드 숨기기",
+  "Hide reward at maximum float": "float 값이 최대치에 도달하면 보상 숨기기",
+  "Hide reward at minimum float": "float 값이 최소치에 도달하면 보상 숨기기",
   "When enabled, Crystal Relay hides this managed Twitch reward while the current height is at the effective minimum, then shows it again after height increases.": "이 옵션을 켜면 Crystal Relay가 현재 키가 유효 최솟값에 있는 동안 이 관리 Twitch 리워드를 숨기고, 키가 증가한 후 다시 표시해요.",
   "When enabled, Crystal Relay hides this managed Twitch reward while the current height is at the effective maximum, then shows it again after height decreases.": "이 옵션을 켜면 Crystal Relay가 현재 키가 유효 최댓값에 있는 동안 이 관리 Twitch 리워드를 숨기고, 키가 감소한 후 다시 표시해요.",
   "Action Family": "동작 계열",

@@ -466,6 +466,8 @@
   "CRYSTAL RELAY DEV": "CRYSTAL RELAY DEV",
   "Hide reward at minimum height": "ซ่อนรีวาร์ดเมื่ออยู่ที่ความสูงต่ำสุด",
   "Hide reward at maximum height": "ซ่อนรีวาร์ดเมื่ออยู่ที่ความสูงสูงสุด",
+  "Hide reward at maximum float": "ซ่อนรางวัลเมื่อ float ถึงค่าสูงสุด",
+  "Hide reward at minimum float": "ซ่อนรางวัลเมื่อ float ถึงค่าต่ำสุด",
   "When enabled, Crystal Relay hides this managed Twitch reward while the current height is at the effective minimum, then shows it again after height increases.": "เมื่อเปิดใช้ Crystal Relay จะซ่อนรีวาร์ด Twitch ที่จัดการนี้ขณะที่ความสูงปัจจุบันอยู่ที่ค่าต่ำสุดที่ใช้งานได้ครับ แล้วแสดงอีกครั้งหลังความสูงเพิ่มขึ้น",
   "When enabled, Crystal Relay hides this managed Twitch reward while the current height is at the effective maximum, then shows it again after height decreases.": "เมื่อเปิดใช้ Crystal Relay จะซ่อนรีวาร์ด Twitch ที่จัดการนี้ขณะที่ความสูงปัจจุบันอยู่ที่ค่าสูงสุดที่ใช้งานได้ครับ แล้วแสดงอีกครั้งหลังความสูงลดลง",
   "Action Family": "กลุ่มแอ็คชัน",

@@ -466,6 +466,8 @@
   "CRYSTAL RELAY DEV": "CRYSTAL RELAY 開發",
   "Hide reward at minimum height": "在最小身高時隱藏獎勵",
   "Hide reward at maximum height": "在最大身高時隱藏獎勵",
+  "Hide reward at maximum float": "float 達到最大值時隱藏獎勵",
+  "Hide reward at minimum float": "float 達到最小值時隱藏獎勵",
   "When enabled, Crystal Relay hides this managed Twitch reward while the current height is at the effective minimum, then shows it again after height increases.": "啟用時,當目前身高處於有效最小值時,Crystal Relay 會隱藏此受管的 Twitch 獎勵,然後在身高增加後再次顯示。",
   "When enabled, Crystal Relay hides this managed Twitch reward while the current height is at the effective maximum, then shows it again after height decreases.": "啟用時,當目前身高處於有效最大值時,Crystal Relay 會隱藏此受管的 Twitch 獎勵,然後在身高減少後再次顯示。",
   "Action Family": "動作系列",
