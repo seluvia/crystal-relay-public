@@ -20,5 +20,6 @@ public enum AppTheme
     Bratwurst,
     NeonBorb,
     StinkyOnline,
-    SquishyFoxPlush
+    SquishyFoxPlush,
+    Puca
 }
