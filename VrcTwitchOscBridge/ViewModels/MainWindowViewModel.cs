@@ -21202,6 +21202,7 @@ public enum TwitchChatRoleCardKind
     Hypercraftiing,
     KyouZakira,
     Phil13938,
+    Falx,
     Staff,
     LeadModerator,
     Moderator,
@@ -21220,6 +21221,7 @@ public sealed class TwitchChatMessageEntry : ObservableObject
     private const string HypercraftiingLogin = "hypercraftiing";
     private const string KyouZakiraLogin = "kyou_zakira";
     private const string Phil13938Login = "phil13938";
+    private const string FalxPlaysLogin = "falxplays";
     private static readonly SolidColorBrush DefaultNameBrush = CreateFrozenBrush("#F5EEFF");
     private static readonly SolidColorBrush BubblegumNameBrush = CreateFrozenBrush("#5A426B");
     private static readonly LinearGradientBrush CrystalRelayDeveloperNameBrush = CreateFrozenDeveloperNameBrush();
@@ -21271,6 +21273,7 @@ public sealed class TwitchChatMessageEntry : ObservableObject
         IsHypercraftiing = IsHypercraftiingAccount(UserDisplayName, UserLogin);
         IsKyouZakira = IsKyouZakiraAccount(UserDisplayName, UserLogin);
         IsPhil13938 = IsPhil13938Account(UserDisplayName, UserLogin);
+        IsFalxPlays = IsFalxPlaysAccount(UserDisplayName, UserLogin);
         MessageText = messageText;
         BadgeImageUrls = badgeImageUrls;
         BadgeSetIds = badgeSetIds;
@@ -21346,6 +21349,8 @@ public sealed class TwitchChatMessageEntry : ObservableObject
     public bool IsKyouZakira { get; }
 
     public bool IsPhil13938 { get; }
+
+    public bool IsFalxPlays { get; }
 
     public string MessageText { get; }
 
@@ -21812,6 +21817,15 @@ public sealed class TwitchChatMessageEntry : ObservableObject
     {
         var normalized = NormalizeTwitchName(value);
         return string.Equals(normalized, Phil13938Login, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsFalxPlaysAccount(string displayName, string login) =>
+        IsFalxPlaysName(displayName) || IsFalxPlaysName(login);
+
+    private static bool IsFalxPlaysName(string value)
+    {
+        var normalized = NormalizeTwitchName(value);
+        return string.Equals(normalized, FalxPlaysLogin, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string NormalizeTwitchName(string value) =>
