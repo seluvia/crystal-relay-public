@@ -318,6 +318,8 @@ internal BridgeCoordinator(
 
     public event Action? AvatarScaleStatusChanged;
 
+    public event Action? FloatLimitStatusChanged;
+
     public event Action<string>? VrChatOscAvatarChangeReceived;
 
     public event Func<RewardFireSaleContribution, bool>? RewardFireSaleContributionReceived;
@@ -391,6 +393,16 @@ internal BridgeCoordinator(
         {
             return [.. activeFloatRedeemSessions
                 .Where(session => session.Value.BoostMaximumReached)
+                .Select(session => session.Key)];
+        }
+    }
+
+    public IReadOnlyCollection<Guid> GetActiveFloatLimitReachedRuleIds()
+    {
+        lock (stateGate)
+        {
+            return [.. activeFloatRedeemSessions
+                .Where(session => session.Value.FloatMaxReached || session.Value.FloatMinReached)
                 .Select(session => session.Key)];
         }
     }
@@ -18772,6 +18784,10 @@ internal BridgeCoordinator(
         public bool IsTest { get; }
 
         public bool BoostMaximumReached { get; set; }
+
+        public bool FloatMaxReached { get; set; }
+
+        public bool FloatMinReached { get; set; }
 
         public SemaphoreSlim SendGate { get; } = new(1, 1);
     }
