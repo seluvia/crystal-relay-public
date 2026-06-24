@@ -30,6 +30,7 @@ v3.1.9 beta 4
 - Renamed: the per-avatar Subs trigger toggle from "Add bits time to swap" to "Add sub time to swap".
 - Added: a shared max-time cap on the per-avatar Avatar Swap manager. The cap is stored on the avatar profile and is shown in both the Bits and Subs rule editors. Editing one updates the other. The T1/T2/T3 inputs in the Subs editor are now hidden when the new toggle is off.
 - Added a new Float Action Mode section to float channel point rewards with 10 modes: Set, Random, Add, Subtract, Add/Subtract, Multiply, Toggle, Cycle, Glitchy, and Pulse. Pick a random value in a range, add or subtract from the current value, multiply by a factor, toggle between two values, cycle through a range, glitch with rapid random re-rolls, or send a one-shot pulse. The new section appears in the rule editor when the parameter type is Float.
+- Split the Float Smooth Transition into separate Transition In and Transition Out values. The transition now applies to every Float avatar parameter redeem (timed, instant, and all action modes), so values smoothly glide to and from the target instead of snapping.
 
 v3.1.9 beta 3
 - Rebuilt the Universal Triggers manager as its own themed window with a search bar, type/status/source filters, and per-section collapse controls.

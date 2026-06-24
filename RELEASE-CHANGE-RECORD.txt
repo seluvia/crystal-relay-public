@@ -33,6 +33,7 @@ Changed:
 - Renamed the per-avatar Subs trigger toggle from "Add bits time to swap" to "Add sub time to swap".
 - Added a shared max-time cap on the per-avatar Avatar Swap manager. The cap is stored on the avatar profile and is shown in both the Bits and Subs rule editors. Editing one updates the other. The T1/T2/T3 inputs in the Subs editor are now hidden when the new toggle is off.
 - Renamed "Scale active time by amount" to "Add amount to active time" in the Bits and Subs override time-settings popup.
+- Avatar Set Float redeem: split the single `FloatTransitionSeconds` field into `FloatTransitionInSeconds` and `FloatTransitionOutSeconds`. The transition now applies to every Float avatar parameter redeem (timed, instant, and all action modes including Glitchy), so values smoothly glide to and from the target. Old saves migrate: the legacy `FloatTransitionSeconds` value copies into both new fields on first load and is then dropped from the save file.
 Removed:
 
 v3.1.9 beta 3 (already shipped)
