@@ -170,6 +170,93 @@ public sealed class TriggerRuleFloatModeFieldsTests
         rule.FloatTransitionOutSeconds = 0;
         Assert.False(rule.UsesFloatOutTransition);
     }
+
+    [Fact]
+    public void HideRewardWhenFloatLimit_DefaultsToFalse()
+    {
+        var rule = new TriggerRule();
+        Assert.False(rule.HideRewardWhenFloatMaxReached);
+        Assert.False(rule.HideRewardWhenFloatMinReached);
+    }
+
+    [Fact]
+    public void HideRewardWhenFloatLimit_RoundTripsThroughPublicProperties()
+    {
+        var rule = new TriggerRule
+        {
+            HideRewardWhenFloatMaxReached = true,
+            HideRewardWhenFloatMinReached = true,
+        };
+        Assert.True(rule.HideRewardWhenFloatMaxReached);
+        Assert.True(rule.HideRewardWhenFloatMinReached);
+    }
+
+    [Fact]
+    public void UsesFloatHideOnLimit_TrueForManagedTimedCumulativeFloat()
+    {
+        var rule = new TriggerRule
+        {
+            ParameterType = OscParameterType.Float,
+            RewardSyncMode = TwitchRewardSyncMode.CreateOrManage,
+            DurationSeconds = 10,
+            FloatActionMode = FloatActionMode.Add,
+        };
+        Assert.True(rule.UsesFloatHideOnLimit);
+
+        rule.FloatActionMode = FloatActionMode.Subtract;
+        Assert.True(rule.UsesFloatHideOnLimit);
+
+        rule.FloatActionMode = FloatActionMode.AddSubtract;
+        Assert.True(rule.UsesFloatHideOnLimit);
+
+        rule.FloatActionMode = FloatActionMode.Multiply;
+        Assert.True(rule.UsesFloatHideOnLimit);
+    }
+
+    [Fact]
+    public void UsesFloatHideOnLimit_FalseForLinkExisting()
+    {
+        var rule = new TriggerRule
+        {
+            ParameterType = OscParameterType.Float,
+            RewardSyncMode = TwitchRewardSyncMode.LinkExisting,
+            DurationSeconds = 10,
+            FloatActionMode = FloatActionMode.Add,
+        };
+        Assert.False(rule.UsesFloatHideOnLimit);
+    }
+
+    [Fact]
+    public void UsesFloatHideOnLimit_FalseWhenInstant()
+    {
+        var rule = new TriggerRule
+        {
+            ParameterType = OscParameterType.Float,
+            RewardSyncMode = TwitchRewardSyncMode.CreateOrManage,
+            DurationSeconds = 0,
+            FloatActionMode = FloatActionMode.Add,
+        };
+        Assert.False(rule.UsesFloatHideOnLimit);
+    }
+
+    [Fact]
+    public void UsesFloatHideOnLimit_FalseForNonCumulativeModes()
+    {
+        var rule = new TriggerRule
+        {
+            ParameterType = OscParameterType.Float,
+            RewardSyncMode = TwitchRewardSyncMode.CreateOrManage,
+            DurationSeconds = 10,
+        };
+
+        foreach (var mode in new[] { FloatActionMode.Set, FloatActionMode.Random,
+                                     FloatActionMode.Toggle, FloatActionMode.Cycle,
+                                     FloatActionMode.Glitchy, FloatActionMode.Pulse })
+        {
+            rule.FloatActionMode = mode;
+            Assert.False(rule.UsesFloatHideOnLimit, $"{mode} should not show hide-on-limit.");
+        }
+    }
 }
 
 public sealed class TriggerRuleFloatModeUsesTests

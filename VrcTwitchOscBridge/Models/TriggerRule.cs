@@ -108,6 +108,8 @@ public sealed class TriggerRule : ObservableObject
     private int floatGlitchyIntervalMs = 200;
     private double floatPulseSeconds = 0.5;
     private FloatClampMode floatClampMode = FloatClampMode.ZeroToOne;
+    private bool hideRewardWhenFloatMaxReached;
+    private bool hideRewardWhenFloatMinReached;
     private string avatarChangeTargetId = string.Empty;
     private string avatarTargetName = string.Empty;
     private string resetValue = "0";
@@ -983,6 +985,18 @@ public sealed class TriggerRule : ObservableObject
         }
     }
 
+    public bool HideRewardWhenFloatMaxReached
+    {
+        get => hideRewardWhenFloatMaxReached;
+        set => SetProperty(ref hideRewardWhenFloatMaxReached, value);
+    }
+
+    public bool HideRewardWhenFloatMinReached
+    {
+        get => hideRewardWhenFloatMinReached;
+        set => SetProperty(ref hideRewardWhenFloatMinReached, value);
+    }
+
     public string AvatarTargetName
     {
         get => avatarTargetName;
@@ -1766,6 +1780,14 @@ public sealed class TriggerRule : ObservableObject
          || FloatActionMode == FloatActionMode.Subtract
          || FloatActionMode == FloatActionMode.AddSubtract
          || FloatActionMode == FloatActionMode.Multiply);
+
+    public bool UsesFloatHideOnLimit => UsesFloatActionMode
+        && RewardSyncMode == TwitchRewardSyncMode.CreateOrManage
+        && DurationSeconds > 0
+        && (FloatActionMode == FloatActionMode.Add
+            || FloatActionMode == FloatActionMode.Subtract
+            || FloatActionMode == FloatActionMode.AddSubtract
+            || FloatActionMode == FloatActionMode.Multiply);
 
     public bool UsesIntTimedValues => UsesIntParameter && UsesTimedAction;
 
