@@ -1179,11 +1179,28 @@
                                    Foreground="{DynamicResource MutedBrush}"
                                    TextWrapping="Wrap" />
                         <StackPanel Margin="0,12,0,0"
+                                    Visibility="{Binding UsesFloatParameter, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <UniformGrid Columns="2">
+                                <StackPanel Margin="0,0,8,0">
+                                    <TextBlock Text="{loc:Translate 'Transition In (seconds)'}"
+                                               Foreground="{DynamicResource TextBrush}"
+                                               FontWeight="SemiBold" />
+                                    <TextBox Text="{Binding FloatTransitionInSeconds, UpdateSourceTrigger=LostFocus}" />
+                                </StackPanel>
+                                <StackPanel Margin="8,0,0,0">
+                                    <TextBlock Text="{loc:Translate 'Transition Out (seconds)'}"
+                                               Foreground="{DynamicResource TextBrush}"
+                                               FontWeight="SemiBold" />
+                                    <TextBox Text="{Binding FloatTransitionOutSeconds, UpdateSourceTrigger=LostFocus}" />
+                                </StackPanel>
+                            </UniformGrid>
+                            <TextBlock Margin="0,6,0,0"
+                                       Text="{loc:Translate '0 = snap instantly. Higher values glide the value smoothly to and from the target.'}"
+                                       Foreground="{DynamicResource MutedBrush}"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                        <StackPanel Margin="0,12,0,0"
                                     Visibility="{Binding UsesFloatTimedValues, Converter={StaticResource BoolToVisibilityConverter}}">
-                            <TextBlock Text="{loc:Translate 'Smooth Transition (seconds)'}"
-                                       Foreground="{DynamicResource TextBrush}"
-                                       FontWeight="SemiBold" />
-                            <TextBox Text="{Binding FloatTransitionSeconds, UpdateSourceTrigger=LostFocus}" />
                             <Button Margin="0,12,0,0"
                                     HorizontalAlignment="Left"
                                     Style="{StaticResource SecondaryButtonStyle}"
