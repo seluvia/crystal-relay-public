@@ -147,6 +147,18 @@ public sealed class TriggerRuleFloatModeFieldsTests
     }
 
     [Fact]
+    public void UsesFloatOutTransition_FalseWhenParameterTypeIsNotFloat()
+    {
+        var rule = new TriggerRule();
+        foreach (var type in new[] { OscParameterType.Bool, OscParameterType.Int, OscParameterType.String })
+        {
+            rule.ParameterType = type;
+            rule.FloatTransitionOutSeconds = 0.5;
+            Assert.False(rule.UsesFloatOutTransition, $"expected false for {type}");
+        }
+    }
+
+    [Fact]
     public void UsesFloatOutTransition_TrueOnlyWhenFloatAndOutSecondsPositive()
     {
         var rule = new TriggerRule
