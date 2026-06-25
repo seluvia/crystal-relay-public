@@ -35,6 +35,7 @@
     <Page Include="ActiveFloatBoostRewardWindow.xaml" />
     <Page Include="BuiltInCommandsWindow.xaml" />
     <Page Include="BugReportWindow.xaml" />
+    <Page Include="BugReportPreviewWindow.xaml" />
     <Page Include="DebugLogWindow.xaml" />
     <Page Include="SupporterOverrideTimeSettingsWindow.xaml" />
     <Page Include="ThemeBackgrounds\*.xaml" />
@@ -84,6 +85,9 @@
     <Compile Include="AssemblyInfo.cs" />
     <Compile Include="BuiltInCommandsWindow.xaml.cs" />
     <Compile Include="BugReportWindow.xaml.cs" />
+    <Compile Include="BugReportPreviewWindow.xaml.cs">
+      <DependentUpon>BugReportPreviewWindow.xaml</DependentUpon>
+    </Compile>
     <Compile Include="DebugLogWindow.xaml.cs" />
     <Compile Include="ComboBoxInteraction.cs" />
     <Compile Include="MainWindow.xaml.cs" />
