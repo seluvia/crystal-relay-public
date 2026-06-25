@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using VrcTwitchOscBridge.Models;
@@ -9,12 +10,60 @@ namespace VrcTwitchOscBridge;
 
 public partial class BugReportWindow : Window
 {
-    public BugReportWindow(AppTheme theme)
+    private static readonly string[] CategoryKeys =
+        ["connection", "rewards", "scaling", "movement", "ui-theme", "crash", "other"];
+
+    private readonly string snapshot;
+    private readonly string? activityLogSection;
+    private readonly string? debugLogSection;
+    private readonly string? crashLogSection;
+    private readonly string appVersion;
+    private readonly AppTheme currentTheme;
+
+    public BugReportWindow(
+        AppTheme theme,
+        bool hasCrashLog = true,
+        string? presetCategory = null,
+        string? presetTitle = null,
+        string snapshot = "",
+        string? activityLogSection = null,
+        string? debugLogSection = null,
+        string? crashLogSection = null,
+        string? appVersion = null)
     {
+        this.snapshot = snapshot;
+        this.activityLogSection = activityLogSection;
+        this.debugLogSection = debugLogSection;
+        this.crashLogSection = crashLogSection;
+        this.appVersion = appVersion ?? string.Empty;
+        currentTheme = theme;
+
         InitializeComponent();
         ThemeManager.ApplyToResources(Resources, theme);
         ThemeManager.ThemeChanged += OnThemeManagerThemeChanged;
         Closed += OnWindowClosed;
+
+        SnapshotTextBox.Text = snapshot;
+
+        if (!hasCrashLog)
+        {
+            CrashLogCheckBox.Visibility = Visibility.Collapsed;
+        }
+
+        if (!string.IsNullOrEmpty(presetCategory))
+        {
+            var index = Array.IndexOf(CategoryKeys, presetCategory);
+            if (index >= 0)
+            {
+                CategoryComboBox.SelectedIndex = index;
+            }
+        }
+
+        if (!string.IsNullOrEmpty(presetTitle))
+        {
+            TitleTextBox.Text = presetTitle;
+        }
+
         Loaded += (_, _) =>
         {
             TitleTextBox.Focus();
@@ -32,7 +81,15 @@ public partial class BugReportWindow : Window
 
     public string ContactName => ContactTextBox.Text.Trim();
 
-    public bool IncludeSanitizedLogs => IncludeLogsCheckBox.IsChecked == true;
+    public string Category => (CategoryComboBox.SelectedItem is ComboBoxItem item ? item.Tag?.ToString() : null) ?? "other";
+
+    public string Severity => (SeverityComboBox.SelectedItem is ComboBoxItem item ? item.Tag?.ToString() : null) ?? "normal";
+
+    public bool IncludeActivityLog => ActivityLogCheckBox.IsChecked == true;
+
+    public bool IncludeDebugLog => DebugLogCheckBox.IsChecked == true;
+
+    public bool IncludeCrashLog => CrashLogCheckBox.IsChecked == true && CrashLogCheckBox.Visibility == Visibility.Visible;
 
     private void OnWindowClosed(object? sender, EventArgs e)
     {
@@ -60,6 +117,29 @@ public partial class BugReportWindow : Window
     private void OnCancelClicked(object sender, RoutedEventArgs e) => DialogResult = false;
 
     private void OnCloseButtonClicked(object sender, RoutedEventArgs e) => DialogResult = false;
+
+    private void OnPreviewClicked(object sender, RoutedEventArgs e)
+    {
+        var preview = BugReportPreviewBuilder.Build(
+            BugTitle,
+            Category,
+            Severity,
+            WhatHappened,
+            ExpectedBehavior,
+            StepsToReproduce,
+            ContactName,
+            appVersion,
+            snapshot,
+            IncludeActivityLog ? activityLogSection : null,
+            IncludeDebugLog ? debugLogSection : null,
+            IncludeCrashLog ? crashLogSection : null);
+
+        var previewWindow = new BugReportPreviewWindow(preview, currentTheme)
+        {
+            Owner = this
+        };
+        previewWindow.ShowDialog();
+    }
 
     private void OnTitleBarMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {

@@ -6,9 +6,9 @@
         Title="{loc:Translate 'Report Bug | Crystal Relay'}"
         Icon="Assets/crystal-relay-icon.ico"
         Width="720"
-        Height="760"
+        Height="860"
         MinWidth="620"
-        MinHeight="640"
+        MinHeight="680"
         WindowStyle="None"
         ResizeMode="CanResize"
         WindowStartupLocation="CenterOwner"
@@ -519,6 +519,45 @@
                                            TextWrapping="Wrap" />
                             </Border>
 
+                            <Grid Margin="0,16,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="18" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="{loc:Translate 'Category'}"
+                                               Foreground="{DynamicResource TextBrush}"
+                                               FontWeight="SemiBold" />
+                                    <ComboBox x:Name="CategoryComboBox"
+                                              Margin="0,7,0,0"
+                                              SelectedIndex="6">
+                                        <ComboBoxItem Tag="connection" Content="{loc:Translate 'Connection'}" />
+                                        <ComboBoxItem Tag="rewards" Content="{loc:Translate 'Rewards &amp; Avatar Sets'}" />
+                                        <ComboBoxItem Tag="scaling" Content="{loc:Translate 'Avatar Scaling'}" />
+                                        <ComboBoxItem Tag="movement" Content="{loc:Translate 'Movement'}" />
+                                        <ComboBoxItem Tag="ui-theme" Content="{loc:Translate 'UI / Theme'}" />
+                                        <ComboBoxItem Tag="crash" Content="{loc:Translate 'Crash'}" />
+                                        <ComboBoxItem Tag="other" Content="{loc:Translate 'Other'}" />
+                                    </ComboBox>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="{loc:Translate 'Severity'}"
+                                               Foreground="{DynamicResource TextBrush}"
+                                               FontWeight="SemiBold" />
+                                    <ComboBox x:Name="SeverityComboBox"
+                                              Margin="0,7,0,0"
+                                              SelectedIndex="1">
+                                        <ComboBoxItem Tag="low" Content="{loc:Translate 'Low'}" />
+                                        <ComboBoxItem Tag="normal" Content="{loc:Translate 'Normal'}" />
+                                        <ComboBoxItem Tag="high" Content="{loc:Translate 'High'}" />
+                                        <ComboBoxItem Tag="crash" Content="{loc:Translate 'Crash'}" />
+                                    </ComboBox>
+                                </StackPanel>
+                            </Grid>
+
                             <TextBlock Margin="0,18,0,0"
                                        Text="{loc:Translate 'Bug Title'}"
                                        Foreground="{DynamicResource TextBrush}"
@@ -550,39 +589,85 @@
                                      Style="{StaticResource MultiLineTextBoxStyle}"
                                      MaxLength="5000" />
 
-                            <Grid Margin="0,16,0,0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="18" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
+                            <StackPanel Margin="0,16,0,0">
+                                <TextBlock Text="{loc:Translate 'Contact name (optional)'}"
+                                           Foreground="{DynamicResource TextBrush}"
+                                           FontWeight="SemiBold" />
+                                <TextBox x:Name="ContactTextBox"
+                                         MaxLength="120" />
+                            </StackPanel>
 
-                                <StackPanel Grid.Column="0">
-                                    <TextBlock Text="{loc:Translate 'Contact name (optional)'}"
+                            <Border Margin="0,16,0,0"
+                                    Padding="16"
+                                    Background="{DynamicResource PanelSecondaryBrush}"
+                                    BorderBrush="{DynamicResource InputBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="14">
+                                <StackPanel>
+                                    <TextBlock Text="{loc:Translate 'Diagnostics'}"
                                                Foreground="{DynamicResource TextBrush}"
-                                               FontWeight="SemiBold" />
-                                    <TextBox x:Name="ContactTextBox"
-                                             MaxLength="120" />
-                                </StackPanel>
+                                               FontWeight="SemiBold"
+                                               FontSize="14" />
 
-                                <Border Grid.Column="2"
-                                        Margin="0,24,0,0"
-                                        Padding="12,10"
-                                        Background="{DynamicResource PanelSecondaryBrush}"
-                                        BorderBrush="{DynamicResource InputBorderBrush}"
-                                        BorderThickness="1"
-                                        CornerRadius="14">
-                                    <StackPanel>
-                                        <CheckBox x:Name="IncludeLogsCheckBox"
-                                                  Content="{loc:Translate 'Include sanitized logs'}" />
-                                        <TextBlock Margin="0,8,0,0"
-                                                   Text="{loc:Translate 'Logs are optional and Crystal Relay redacts known tokens, cookies, and local user paths before sending.'}"
-                                                   Foreground="{DynamicResource MutedBrush}"
-                                                   FontSize="12"
-                                                   TextWrapping="Wrap" />
-                                    </StackPanel>
-                                </Border>
-                            </Grid>
+                                    <TextBlock Margin="0,8,0,0"
+                                               Text="{loc:Translate 'Live status snapshot (always included)'}"
+                                               Foreground="{DynamicResource MutedBrush}"
+                                               FontSize="12" />
+
+                                    <Border Margin="0,8,0,0"
+                                            Padding="10,8"
+                                            Background="{DynamicResource InputBrush}"
+                                            BorderBrush="{DynamicResource InputBorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="10">
+                                        <TextBox x:Name="SnapshotTextBox"
+                                                 FontFamily="Consolas"
+                                                 FontSize="11"
+                                                 IsReadOnly="True"
+                                                 TextWrapping="Wrap"
+                                                 Background="Transparent"
+                                                 Foreground="{DynamicResource TextBrush}"
+                                                 BorderThickness="0"
+                                                 CaretBrush="{DynamicResource TextBrush}"
+                                                 Padding="0"
+                                                 MaxHeight="120"
+                                                 VerticalScrollBarVisibility="Auto" />
+                                    </Border>
+
+                                    <CheckBox x:Name="CrashLogCheckBox"
+                                              Margin="0,12,0,0"
+                                              Content="{loc:Translate 'Include crash log'}" />
+                                    <TextBlock Margin="0,4,0,0"
+                                               Text="{loc:Translate 'Crash logs are sanitized before sending.'}"
+                                               Foreground="{DynamicResource MutedBrush}"
+                                               FontSize="12"
+                                               TextWrapping="Wrap" />
+
+                                    <CheckBox x:Name="ActivityLogCheckBox"
+                                              Margin="0,8,0,0"
+                                              Content="{loc:Translate 'Include activity log'}" />
+                                    <TextBlock Margin="0,4,0,0"
+                                               Text="{loc:Translate 'Recent activity log entries, sanitized before sending.'}"
+                                               Foreground="{DynamicResource MutedBrush}"
+                                               FontSize="12"
+                                               TextWrapping="Wrap" />
+
+                                    <CheckBox x:Name="DebugLogCheckBox"
+                                              Margin="0,8,0,0"
+                                              Content="{loc:Translate 'Include debug logs'}" />
+                                    <TextBlock Margin="0,4,0,0"
+                                               Text="{loc:Translate 'Recent debug log lines, sanitized before sending.'}"
+                                               Foreground="{DynamicResource MutedBrush}"
+                                               FontSize="12"
+                                               TextWrapping="Wrap" />
+
+                                    <Button Margin="0,12,0,0"
+                                            Content="{loc:Translate 'Preview sanitized report'}"
+                                            Style="{StaticResource SecondaryButtonStyle}"
+                                            HorizontalAlignment="Left"
+                                            Click="OnPreviewClicked" />
+                                </StackPanel>
+                            </Border>
 
                             <TextBlock x:Name="ValidationTextBlock"
                                        Margin="0,14,0,0"

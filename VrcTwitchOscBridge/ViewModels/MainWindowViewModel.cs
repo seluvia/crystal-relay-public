@@ -17743,7 +17743,35 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     private async Task OpenBugReportAsync()
     {
-        var dialog = new VrcTwitchOscBridge.BugReportWindow(SelectedTheme)
+        var latestCrashPath = System.IO.Path.Combine(AppDataPaths.CrashLogFolder, "latest-crash.txt");
+        var hasCrashLog = System.IO.File.Exists(latestCrashPath);
+
+        var snapshot = BugReportSnapshotService.Build(new BugReportSnapshotData(
+            IsBroadcasterConnected,
+            IsBotConnected,
+            IsVrChatConnected,
+            OscStatusDetail,
+            ResolveVrChatAvatarName(CurrentVrChatAvatarId),
+            CurrentVrChatAvatarId,
+            CurrentAvatarHeightMeters,
+            SelectedTheme,
+            GetThemeDisplayName(),
+            GetAppVersionDisplay()));
+
+        var activityLogSection = bugReportService.BuildActivityLogSection(LogEntries.ToArray());
+        var debugLogSection = bugReportService.BuildDebugLogSection();
+        var crashLogSection = hasCrashLog ? bugReportService.BuildCrashLogSection() : null;
+
+        var dialog = new VrcTwitchOscBridge.BugReportWindow(
+            SelectedTheme,
+            hasCrashLog,
+            null,
+            null,
+            snapshot,
+            activityLogSection,
+            debugLogSection,
+            crashLogSection,
+            GetAppVersionDisplay())
         {
             Owner = Application.Current?.MainWindow
         };
@@ -17753,6 +17781,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             return;
         }
 
+        string? activityLog = dialog.IncludeActivityLog ? activityLogSection : null;
+        string? debugLog = dialog.IncludeDebugLog ? debugLogSection : null;
+        string? crashLog = dialog.IncludeCrashLog ? crashLogSection : null;
+
         var submission = new BugReportSubmission(
             dialog.BugTitle,
             dialog.WhatHappened,
@@ -17760,12 +17792,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             dialog.StepsToReproduce,
             dialog.ContactName,
             GetAppVersionDisplay(),
-            "other",
-            "normal",
-            string.Empty,
-            null,
-            null,
-            null);
+            dialog.Category,
+            dialog.Severity,
+            snapshot,
+            activityLog,
+            debugLog,
+            crashLog);
 
         AppendLog("Sending bug report to Crystal Relay's bug report service.");
         var result = await bugReportService.SubmitAsync(submission);
@@ -17802,6 +17834,19 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         {
             OpenUri(BugReportService.GitHubIssuesUrl);
         }
+    }
+
+    private string GetThemeDisplayName()
+    {
+        foreach (var option in ThemeOptions)
+        {
+            if (option.Value == SelectedTheme)
+            {
+                return option.Label;
+            }
+        }
+
+        return Enum.GetName(SelectedTheme) ?? "Unknown";
     }
 
     private void OpenBroadcasterAuthPage()
