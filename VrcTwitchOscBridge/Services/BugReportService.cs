@@ -2,7 +2,6 @@ using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
-using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -16,10 +15,10 @@ internal sealed class BugReportService : IDisposable
     private const string DesktopClientHeaderName = "X-Crystal-Relay-Client";
     private const string DesktopClientHeaderValue = "CrystalRelayDesktop";
     private const string AppVersionHeaderName = "X-Crystal-Relay-Version";
-    private const int MaxDiagnosticLogLength = 11 * 1024;
-    private const int MaxPayloadLength = 20 * 1024;
-    private const int MaxActivityLogLines = 80;
-    private const int MaxDebugLogLines = 160;
+    private const int MaxDiagnosticLogLength = 40 * 1024;
+    private const int MaxPayloadLength = 56 * 1024;
+    private const int MaxActivityLogLines = 200;
+    private const int MaxDebugLogLines = 400;
     private const string TrimmedMarker = "[trimmed]";
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(15);
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -48,6 +47,17 @@ internal sealed class BugReportService : IDisposable
         BugReportSubmission submission,
         CancellationToken cancellationToken = default)
     {
+        var snapshotTrimmed = TrimToUtf8Length(submission.Snapshot, 2 * 1024);
+        var activityTrimmed = submission.ActivityLog is null
+            ? null
+            : TrimToUtf8Length(submission.ActivityLog, 16 * 1024);
+        var debugTrimmed = submission.DebugLog is null
+            ? null
+            : TrimToUtf8Length(submission.DebugLog, 16 * 1024);
+        var crashTrimmed = submission.CrashLog is null
+            ? null
+            : TrimToUtf8Length(submission.CrashLog, 12 * 1024);
+
         var payload = new BugReportPayload(
             TrimForTransport(submission.Title, 120),
             TrimForTransport(submission.WhatHappened, 5000),
@@ -55,25 +65,36 @@ internal sealed class BugReportService : IDisposable
             TrimForTransport(submission.StepsToReproduce, 5000),
             TrimForTransport(submission.ContactName, 120),
             TrimForTransport(submission.AppVersion, 80),
-            DateTimeOffset.UtcNow,
-            submission.Diagnostics);
+            TrimForTransport(submission.Category, 40),
+            TrimForTransport(submission.Severity, 40),
+            snapshotTrimmed,
+            activityTrimmed,
+            debugTrimmed,
+            crashTrimmed,
+            DateTimeOffset.UtcNow);
 
         var json = JsonSerializer.Serialize(payload, JsonOptions);
         if (Encoding.UTF8.GetByteCount(json) > MaxPayloadLength)
         {
-            payload = payload with
-            {
-                Diagnostics = TrimToUtf8Length(payload.Diagnostics, 4 * 1024)
-            };
+            payload = payload with { DebugLog = null };
             json = JsonSerializer.Serialize(payload, JsonOptions);
         }
 
         if (Encoding.UTF8.GetByteCount(json) > MaxPayloadLength)
         {
-            payload = payload with
-            {
-                Diagnostics = string.Empty
-            };
+            payload = payload with { ActivityLog = null };
+            json = JsonSerializer.Serialize(payload, JsonOptions);
+        }
+
+        if (Encoding.UTF8.GetByteCount(json) > MaxPayloadLength)
+        {
+            payload = payload with { CrashLog = null };
+            json = JsonSerializer.Serialize(payload, JsonOptions);
+        }
+
+        if (Encoding.UTF8.GetByteCount(json) > MaxPayloadLength)
+        {
+            payload = payload with { Snapshot = TrimToUtf8Length(payload.Snapshot, 1 * 1024) };
         }
 
         try
@@ -120,55 +141,62 @@ internal sealed class BugReportService : IDisposable
         }
     }
 
-    public string BuildSanitizedDiagnostics(string appVersion, IEnumerable<string> activityLogEntries)
+    public string BuildActivityLogSection(IEnumerable<string> activityLogEntries)
     {
-        var builder = new StringBuilder();
-        builder.AppendLine("Crystal Relay Diagnostics");
-        builder.AppendLine($"TimestampUtc: {DateTimeOffset.UtcNow:O}");
-        builder.AppendLine($"AppVersion: {appVersion}");
-        builder.AppendLine($"AssemblyVersion: {Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "Unknown"}");
-        builder.AppendLine($"OS: {Environment.OSVersion}");
-        builder.AppendLine($"Runtime: {Environment.Version}");
-        builder.AppendLine();
-
         var recentEntries = activityLogEntries
             .Where(entry => !string.IsNullOrWhiteSpace(entry))
             .Take(MaxActivityLogLines)
             .Reverse()
             .ToArray();
-        if (recentEntries.Length > 0)
+        if (recentEntries.Length == 0)
         {
-            builder.AppendLine("Recent Activity Log");
-            builder.AppendLine(new string('-', 40));
-            foreach (var entry in recentEntries)
-            {
-                builder.AppendLine(entry);
-            }
-
-            builder.AppendLine();
+            return string.Empty;
         }
 
-        var latestCrashLog = TryReadLatestCrashLog();
-        if (!string.IsNullOrWhiteSpace(latestCrashLog))
+        var builder = new StringBuilder();
+        builder.AppendLine("Recent Activity Log");
+        builder.AppendLine(new string('-', 40));
+        foreach (var entry in recentEntries)
         {
-            builder.AppendLine("Latest Crash Log");
-            builder.AppendLine(new string('-', 40));
-            builder.AppendLine(latestCrashLog);
+            builder.AppendLine(entry);
         }
 
+        return TrimToUtf8Length(SensitiveTextSanitizer.Sanitize(builder.ToString()), 16 * 1024);
+    }
+
+    public string BuildDebugLogSection()
+    {
         var recentDebugLogLines = DebugLogService.ReadRecentLines(MaxDebugLogLines);
-        if (recentDebugLogLines.Count > 0)
+        if (recentDebugLogLines.Count == 0)
         {
-            builder.AppendLine();
-            builder.AppendLine("Recent Debug Logs");
-            builder.AppendLine(new string('-', 40));
-            foreach (var line in recentDebugLogLines)
-            {
-                builder.AppendLine(line);
-            }
+            return string.Empty;
         }
 
-        return TrimToUtf8Length(SensitiveTextSanitizer.Sanitize(builder.ToString()), MaxDiagnosticLogLength);
+        var builder = new StringBuilder();
+        builder.AppendLine("Recent Debug Logs");
+        builder.AppendLine(new string('-', 40));
+        foreach (var line in recentDebugLogLines)
+        {
+            builder.AppendLine(line);
+        }
+
+        return TrimToUtf8Length(SensitiveTextSanitizer.Sanitize(builder.ToString()), 16 * 1024);
+    }
+
+    public string BuildCrashLogSection()
+    {
+        var latestCrashLog = TryReadLatestCrashLog();
+        if (string.IsNullOrWhiteSpace(latestCrashLog))
+        {
+            return string.Empty;
+        }
+
+        var builder = new StringBuilder();
+        builder.AppendLine("Latest Crash Log");
+        builder.AppendLine(new string('-', 40));
+        builder.AppendLine(latestCrashLog);
+
+        return TrimToUtf8Length(SensitiveTextSanitizer.Sanitize(builder.ToString()), 12 * 1024);
     }
 
     public void Dispose() => httpClient.Dispose();
@@ -311,8 +339,13 @@ internal sealed class BugReportService : IDisposable
         string StepsToReproduce,
         string ContactName,
         string AppVersion,
-        DateTimeOffset SubmittedAtUtc,
-        string Diagnostics);
+        string Category,
+        string Severity,
+        string Snapshot,
+        string? ActivityLog,
+        string? DebugLog,
+        string? CrashLog,
+        DateTimeOffset SubmittedAtUtc);
 
     private sealed class BugReportResponse
     {
@@ -334,7 +367,12 @@ internal sealed record BugReportSubmission(
     string StepsToReproduce,
     string ContactName,
     string AppVersion,
-    string Diagnostics);
+    string Category,
+    string Severity,
+    string Snapshot,
+    string? ActivityLog,
+    string? DebugLog,
+    string? CrashLog);
 
 internal sealed record BugReportSubmitResult(bool Succeeded, string? IssueUrl, string? ErrorMessage)
 {

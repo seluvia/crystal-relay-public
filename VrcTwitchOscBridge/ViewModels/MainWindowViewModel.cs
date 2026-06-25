@@ -17753,10 +17753,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             return;
         }
 
-        var diagnostics = dialog.IncludeSanitizedLogs
-            ? bugReportService.BuildSanitizedDiagnostics(AppVersion, LogEntries.ToArray())
-            : string.Empty;
-
         var submission = new BugReportSubmission(
             dialog.BugTitle,
             dialog.WhatHappened,
@@ -17764,7 +17760,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             dialog.StepsToReproduce,
             dialog.ContactName,
             GetAppVersionDisplay(),
-            diagnostics);
+            "other",
+            "normal",
+            string.Empty,
+            null,
+            null,
+            null);
 
         AppendLog("Sending bug report to Crystal Relay's bug report service.");
         var result = await bugReportService.SubmitAsync(submission);
