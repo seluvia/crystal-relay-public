@@ -208,6 +208,7 @@
     <Compile Include="Services\BridgeRuntimeConfiguration.cs" />
     <Compile Include="Services\BugReportService.cs" />
     <Compile Include="Services\BugReportSnapshotService.cs" />
+    <Compile Include="Services\BugReportPreviewBuilder.cs" />
     <Compile Include="Services\CashPaymentProviderService.cs" />
     <Compile Include="Services\ChatboxRelayModerationFilter.cs" />
     <Compile Include="Services\CrashLogService.cs" />
