@@ -881,7 +881,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         OpenKoFiSupportCommand = new RelayCommand(OpenKoFiSupportPage);
         OpenKoFiWebhooksCommand = new RelayCommand(OpenKoFiWebhooksPage);
         OpenDiscordInviteCommand = new RelayCommand(OpenDiscordInvite);
-        OpenBugReportCommand = new AsyncRelayCommand(OpenBugReportAsync);
+        OpenBugReportCommand = new AsyncRelayCommand(() => OpenBugReportAsync());
         RefreshTwitchRewardsCommand = new AsyncRelayCommand(RefreshTwitchRewardsAsync);
         UnlinkTwitchRewardCommand = new RelayCommand(UnlinkTwitchReward);
         UnlinkWardrobeMasterRewardCommand = new RelayCommand(UnlinkWardrobeMasterReward);
@@ -17741,7 +17741,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         }
     }
 
-    private async Task OpenBugReportAsync()
+    private async Task OpenBugReportAsync(
+        string? presetCategory = null,
+        string? presetTitle = null)
     {
         var latestCrashPath = System.IO.Path.Combine(AppDataPaths.CrashLogFolder, "latest-crash.txt");
         var hasCrashLog = System.IO.File.Exists(latestCrashPath);
@@ -17765,8 +17767,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         var dialog = new VrcTwitchOscBridge.BugReportWindow(
             SelectedTheme,
             hasCrashLog,
-            null,
-            null,
+            presetCategory,
+            presetTitle,
             snapshot,
             activityLogSection,
             debugLogSection,
@@ -17816,6 +17818,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
                 OpenUri(result.IssueUrl);
             }
 
+            if (dialog.IncludeCrashLog)
+            {
+                MarkCrashReportSeen();
+            }
+
             return;
         }
 
@@ -17847,6 +17854,74 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         }
 
         return Enum.GetName(SelectedTheme) ?? "Unknown";
+    }
+
+    internal async Task CheckForPendingCrashReportAsync()
+    {
+        var latestCrashPath = Path.Combine(AppDataPaths.CrashLogFolder, "latest-crash.txt");
+        var seenMarkerPath = Path.Combine(AppDataPaths.CrashLogFolder, "crash-report-seen.marker");
+
+        if (!File.Exists(latestCrashPath))
+        {
+            return;
+        }
+
+        DateTime crashTime;
+        try
+        {
+            crashTime = File.GetLastWriteTimeUtc(latestCrashPath);
+        }
+        catch
+        {
+            return;
+        }
+
+        DateTime seenTime = DateTime.MinValue;
+        if (File.Exists(seenMarkerPath))
+        {
+            try
+            {
+                seenTime = File.GetLastWriteTimeUtc(seenMarkerPath);
+            }
+            catch
+            {
+            }
+        }
+
+        if (crashTime <= seenTime)
+        {
+            return;
+        }
+
+        var shouldReport = ThemedDialogWindow.ShowYesNo(
+            Application.Current?.MainWindow,
+            SelectedTheme,
+            T("Crystal Relay crashed last time"),
+            T("Crystal Relay closed unexpectedly during your last session. Send a bug report with the crash log attached?"),
+            T("Send crash report"),
+            T("Not now"));
+
+        if (!shouldReport)
+        {
+            MarkCrashReportSeen(seenMarkerPath);
+            return;
+        }
+
+        await OpenBugReportAsync(
+            presetCategory: "crash",
+            presetTitle: TF("Crash on {0}", crashTime.ToLocalTime().ToString("g")));
+    }
+
+    private void MarkCrashReportSeen(string? seenMarkerPath = null)
+    {
+        seenMarkerPath ??= Path.Combine(AppDataPaths.CrashLogFolder, "crash-report-seen.marker");
+        try
+        {
+            File.WriteAllText(seenMarkerPath, DateTimeOffset.UtcNow.ToString("O"));
+        }
+        catch
+        {
+        }
     }
 
     private void OpenBroadcasterAuthPage()
