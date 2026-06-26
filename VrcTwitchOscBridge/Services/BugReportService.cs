@@ -164,9 +164,9 @@ internal sealed class BugReportService : IDisposable
     {
         var payload = new BugReportPayload(
             SanitizeAndTrimForTransport(submission.Title, 120),
-            SanitizeAndTrimForTransport(submission.WhatHappened, 5000),
-            SanitizeAndTrimForTransport(submission.ExpectedBehavior, 5000),
-            SanitizeAndTrimForTransport(submission.StepsToReproduce, 5000),
+            SanitizeAndTrimRequiredForTransport(submission.WhatHappened, 5000, 20),
+            SanitizeAndTrimRequiredForTransport(submission.ExpectedBehavior, 5000, 20),
+            SanitizeAndTrimRequiredForTransport(submission.StepsToReproduce, 5000, 20),
             SanitizeAndTrimForTransport(submission.ContactName, 120),
             SanitizeAndTrimForTransport(submission.AppVersion, 80),
             TrimForTransport(submission.Category, 40),
@@ -377,6 +377,20 @@ internal sealed class BugReportService : IDisposable
     {
         var characterTrimmed = TrimForTransport(SensitiveTextSanitizer.Sanitize(value ?? string.Empty), maxCharacters);
         return TrimToUtf8Length(characterTrimmed, maxCharacters);
+    }
+
+    private static string SanitizeAndTrimRequiredForTransport(string? value, int maxCharacters, int minCharacters)
+    {
+        var sanitized = SanitizeAndTrimForTransport(value, maxCharacters);
+        if (sanitized.Length >= minCharacters)
+        {
+            return sanitized;
+        }
+
+        var expanded = string.IsNullOrWhiteSpace(sanitized)
+            ? "[redacted sensitive details]"
+            : $"{sanitized} [redacted details]";
+        return SanitizeAndTrimForTransport(expanded, maxCharacters);
     }
 
     private static string SanitizeAndTrimUtf8(string? value, int maxBytes) =>

@@ -34,3 +34,19 @@ test("readPayloadFromRequest rejects oversized bodies without content length", a
   assert.equal(result.ok, false);
   assert.equal(result.status, 413);
 });
+
+test("buildGitHubIssue sanitizes single-segment absolute paths", () => {
+  const issue = buildGitHubIssue({
+    title: "Single path leak",
+    whatHappened: "The project folder was D:\\PrivateProject during setup.",
+    expectedBehavior: "The local folder path should be redacted before publishing.",
+    stepsToReproduce: "Open Crystal Relay, submit the report, inspect the GitHub issue.",
+    contactName: "",
+    appVersion: "3.1.9",
+    category: "other",
+    severity: "normal"
+  });
+
+  assert.doesNotMatch(issue.body, /D:\\PrivateProject/i);
+  assert.match(issue.body, /<local path>/);
+});

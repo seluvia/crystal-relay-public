@@ -27,4 +27,15 @@ public sealed class SensitiveTextSanitizerTests
         Assert.DoesNotContain("secret.json", result);
         Assert.Contains("<local path>", result);
     }
+
+    [Fact]
+    public void Sanitize_RedactsSingleSegmentAbsoluteWindowsPaths()
+    {
+        const string input = "Project folder is D:\\PrivateProject";
+
+        var result = SensitiveTextSanitizer.Sanitize(input);
+
+        Assert.DoesNotContain("D:\\PrivateProject", result);
+        Assert.Contains("<local path>", result);
+    }
 }

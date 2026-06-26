@@ -29,7 +29,7 @@ internal static class SensitiveTextSanitizer
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     private static readonly Regex AbsoluteWindowsPathRegex = new(
-        @"(?i)\b[A-Z]:\\(?!Users\\<user>)(?:[^\\/:*?""<>|\r\n]+\\)+[^\\/:*?""<>|\r\n]+",
+        @"(?i)\b[A-Z]:\\(?!Users\\<user>)(?:[^\\/:*?""<>|\r\n]+\\)*[^\\/:*?""<>|\s\r\n.]+(?:\.[^\\/:*?""<>|\s\r\n.]+)?",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     private static readonly Regex TwitchLoginCodeRegex = new(

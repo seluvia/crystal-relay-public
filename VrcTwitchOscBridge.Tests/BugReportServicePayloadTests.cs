@@ -36,6 +36,31 @@ public sealed class BugReportServicePayloadTests
     }
 
     [Fact]
+    public void PreparePayloadJson_KeepsSanitizedRequiredFieldsLongEnoughForWorkerValidation()
+    {
+        var json = BugReportService.PreparePayloadJson(new BugReportSubmission(
+            Title: "Path-only report title",
+            WhatHappened: "D:\\StreamTools\\CrystalRelay\\secret.json",
+            ExpectedBehavior: "D:\\StreamTools\\CrystalRelay\\secret.json",
+            StepsToReproduce: "D:\\StreamTools\\CrystalRelay\\secret.json",
+            ContactName: string.Empty,
+            AppVersion: "3.1.9",
+            Category: "other",
+            Severity: "normal",
+            Snapshot: "snapshot",
+            ActivityLog: null,
+            DebugLog: null,
+            CrashLog: null));
+
+        using var document = JsonDocument.Parse(json);
+        var root = document.RootElement;
+
+        Assert.True(root.GetProperty("whatHappened").GetString()?.Length >= 20);
+        Assert.True(root.GetProperty("expectedBehavior").GetString()?.Length >= 20);
+        Assert.True(root.GetProperty("stepsToReproduce").GetString()?.Length >= 20);
+    }
+
+    [Fact]
     public void PreparePayloadJson_KeepsCombinedDiagnosticsWithinClientBudget()
     {
         var largeSection = new string('x', 24 * 1024);
