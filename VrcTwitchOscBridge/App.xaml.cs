@@ -8,7 +8,6 @@ using System.Windows;
 using System.Windows.Threading;
 using VrcTwitchOscBridge.Models;
 using VrcTwitchOscBridge.Services;
-using VrcTwitchOscBridge.ViewModels;
 using Application = System.Windows.Application;
 
 namespace VrcTwitchOscBridge;
@@ -91,7 +90,6 @@ public partial class App : Application
 
         MainWindow = new MainWindow(restartRestoreState);
         MainWindow.Show();
-        _ = (MainWindow.DataContext as MainWindowViewModel)?.CheckForPendingCrashReportAsync();
     }
 
     /// <summary>

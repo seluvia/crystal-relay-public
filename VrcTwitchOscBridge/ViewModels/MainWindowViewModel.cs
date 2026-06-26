@@ -17899,7 +17899,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             T("Crystal Relay crashed last time"),
             T("Crystal Relay closed unexpectedly during your last session. Send a bug report with the crash log attached?"),
             T("Send crash report"),
-            T("Not now"));
+            T("Not Now"));
 
         if (!shouldReport)
         {

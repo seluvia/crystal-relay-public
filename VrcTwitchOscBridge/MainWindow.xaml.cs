@@ -143,6 +143,7 @@ public partial class MainWindow : Window
         RestoreRestartSessionWindows();
         QueueApplicationUpdateCheck();
         ShowAvatarSwapMigrationNoticeIfNeeded();
+        _ = viewModel.CheckForPendingCrashReportAsync();
     }
 
     private void ShowAvatarSwapMigrationNoticeIfNeeded()
