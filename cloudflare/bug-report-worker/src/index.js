@@ -207,7 +207,7 @@ function buildGitHubIssue(payload) {
   const labels = categoryLabel ? [...baseLabels, categoryLabel] : baseLabels;
 
   return {
-    title: `[Bug] ${severityPrefix} ${title}`.trim(),
+    title: `[Bug] ${severityPrefix} ${title}`.replace(/\s+/g, " ").trim(),
     body,
     labels
   };
