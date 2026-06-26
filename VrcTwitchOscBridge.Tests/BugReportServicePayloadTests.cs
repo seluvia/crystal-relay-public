@@ -88,6 +88,30 @@ public sealed class BugReportServicePayloadTests
         Assert.True(payloadBytes <= 56 * 1024, $"Payload used {payloadBytes} bytes.");
     }
 
+    [Fact]
+    public void PreparePayloadJson_KeepsTotalPayloadWithinTransportBudgetForJsonEscapedText()
+    {
+        var escapedText = new string('\u0001', 5000);
+
+        var json = BugReportService.PreparePayloadJson(new BugReportSubmission(
+            Title: "Large escaped report title",
+            WhatHappened: escapedText,
+            ExpectedBehavior: escapedText,
+            StepsToReproduce: escapedText,
+            ContactName: string.Empty,
+            AppVersion: "3.1.9",
+            Category: "other",
+            Severity: "normal",
+            Snapshot: new string('x', 2 * 1024),
+            ActivityLog: new string('x', 16 * 1024),
+            DebugLog: new string('x', 16 * 1024),
+            CrashLog: new string('x', 12 * 1024)));
+
+        var payloadBytes = Encoding.UTF8.GetByteCount(json);
+
+        Assert.True(payloadBytes <= 56 * 1024, $"Payload used {payloadBytes} bytes.");
+    }
+
     private static int Utf8Bytes(string? value) =>
         string.IsNullOrEmpty(value) ? 0 : Encoding.UTF8.GetByteCount(value);
 }

@@ -314,8 +314,9 @@ function sanitize(value) {
   return value
     .replace(/\b(access[_-]?token|refresh[_-]?token|client[_-]?secret|device[_-]?code|user[_-]?code|authorization|set-cookie|authcookie|twofactorauth|vrchat[-_ ]?auth|cookie)\b\s*[:=]\s*([^\r\n;]+)/gi, "$1=[redacted]")
     .replace(/\bBearer\s+[A-Za-z0-9._~+/=-]+/gi, "Bearer [redacted]")
-    .replace(/C:\\Users\\[^\\\r\n]+/gi, "C:\\Users\\<user>")
     .replace(/(\s+in\s+)[A-Z]:\\[^\r\n]*\\([^\\\r\n:]+(?:\.cs|\.xaml|\.js|\.ts|\.json|\.xml|\.ps1|\.txt))(:line\s+\d+)/gi, "$1<local path>\\$2$3")
+    .replace(/C:\\Users\\[^\\\r\n]+/gi, "C:\\Users\\<user>")
+    .replace(/\b[A-Z]:\\(?!Users\\<user>)(?:[^\\/:*?"<>|\r\n]+\\)+[^\\/:*?"<>|\r\n]+/gi, "<local path>")
     .replace(/(asks for a code,\s*use\s+)[A-Z0-9-]{4,}/gi, "$1[redacted]")
     .replace(/(use\s+)[A-Z0-9-]{4,}(\s+when\s+it\s+asks\s+for\s+a\s+code)/gi, "$1[redacted]$2");
 }

@@ -207,7 +207,84 @@ internal sealed class BugReportService : IDisposable
             json = JsonSerializer.Serialize(payload, JsonOptions);
         }
 
+        if (Encoding.UTF8.GetByteCount(json) > MaxPayloadLength)
+        {
+            payload = TrimReportTextFieldsToPayloadLimit(payload);
+            json = JsonSerializer.Serialize(payload, JsonOptions);
+        }
+
         return json;
+    }
+
+    private static BugReportPayload TrimReportTextFieldsToPayloadLimit(BugReportPayload payload)
+    {
+        var current = payload;
+        var json = JsonSerializer.Serialize(current, JsonOptions);
+        var previousBytes = int.MaxValue;
+
+        while (Encoding.UTF8.GetByteCount(json) > MaxPayloadLength
+            && TryTrimLargestReportTextField(current, out var trimmed))
+        {
+            current = trimmed;
+            json = JsonSerializer.Serialize(current, JsonOptions);
+            var currentBytes = Encoding.UTF8.GetByteCount(json);
+            if (currentBytes >= previousBytes)
+            {
+                break;
+            }
+
+            previousBytes = currentBytes;
+        }
+
+        return current;
+    }
+
+    private static bool TryTrimLargestReportTextField(BugReportPayload payload, out BugReportPayload trimmed)
+    {
+        var titleBytes = Encoding.UTF8.GetByteCount(payload.Title);
+        var whatHappenedBytes = Encoding.UTF8.GetByteCount(payload.WhatHappened);
+        var expectedBehaviorBytes = Encoding.UTF8.GetByteCount(payload.ExpectedBehavior);
+        var stepsToReproduceBytes = Encoding.UTF8.GetByteCount(payload.StepsToReproduce);
+        var contactNameBytes = Encoding.UTF8.GetByteCount(payload.ContactName);
+
+        var fieldName = string.Empty;
+        var maxBytes = 0;
+        var minBytes = 0;
+        ConsiderField(nameof(payload.Title), titleBytes, 8);
+        ConsiderField(nameof(payload.WhatHappened), whatHappenedBytes, 20);
+        ConsiderField(nameof(payload.ExpectedBehavior), expectedBehaviorBytes, 20);
+        ConsiderField(nameof(payload.StepsToReproduce), stepsToReproduceBytes, 20);
+        ConsiderField(nameof(payload.ContactName), contactNameBytes, 0);
+
+        if (string.IsNullOrEmpty(fieldName))
+        {
+            trimmed = payload;
+            return false;
+        }
+
+        var targetBytes = Math.Max(minBytes, maxBytes / 2);
+        trimmed = fieldName switch
+        {
+            nameof(payload.Title) => payload with { Title = TrimToUtf8Length(payload.Title, targetBytes) },
+            nameof(payload.WhatHappened) => payload with { WhatHappened = TrimToUtf8Length(payload.WhatHappened, targetBytes) },
+            nameof(payload.ExpectedBehavior) => payload with { ExpectedBehavior = TrimToUtf8Length(payload.ExpectedBehavior, targetBytes) },
+            nameof(payload.StepsToReproduce) => payload with { StepsToReproduce = TrimToUtf8Length(payload.StepsToReproduce, targetBytes) },
+            nameof(payload.ContactName) => payload with { ContactName = TrimToUtf8Length(payload.ContactName, targetBytes) },
+            _ => payload
+        };
+        return !ReferenceEquals(trimmed, payload);
+
+        void ConsiderField(string candidateName, int candidateBytes, int candidateMinBytes)
+        {
+            if (candidateBytes <= candidateMinBytes || candidateBytes <= maxBytes)
+            {
+                return;
+            }
+
+            fieldName = candidateName;
+            maxBytes = candidateBytes;
+            minBytes = candidateMinBytes;
+        }
     }
 
     private static BugReportPayload TrimDiagnosticsToTotalBudget(BugReportPayload payload)
