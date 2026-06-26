@@ -316,7 +316,7 @@ function sanitize(value) {
     .replace(/\bBearer\s+[A-Za-z0-9._~+/=-]+/gi, "Bearer [redacted]")
     .replace(/(\s+in\s+)[A-Z]:\\[^\r\n]*\\([^\\\r\n:]+(?:\.cs|\.xaml|\.js|\.ts|\.json|\.xml|\.ps1|\.txt))(:line\s+\d+)/gi, "$1<local path>\\$2$3")
     .replace(/C:\\Users\\[^\\\r\n]+/gi, "C:\\Users\\<user>")
-    .replace(/\b[A-Z]:\\(?!Users\\<user>)(?:[^\\/:*?"<>|\r\n]+\\)*[^\\/:*?"<>|\s\r\n.]+(?:\.[^\\/:*?"<>|\s\r\n.]+)?/gi, "<local path>")
+    .replace(/\b[A-Z]:\\(?!Users\\<user>)[^\r\n]+/gi, "<local path>")
     .replace(/(asks for a code,\s*use\s+)[A-Z0-9-]{4,}/gi, "$1[redacted]")
     .replace(/(use\s+)[A-Z0-9-]{4,}(\s+when\s+it\s+asks\s+for\s+a\s+code)/gi, "$1[redacted]$2");
 }

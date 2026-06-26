@@ -38,4 +38,15 @@ public sealed class SensitiveTextSanitizerTests
         Assert.DoesNotContain("D:\\PrivateProject", result);
         Assert.Contains("<local path>", result);
     }
+
+    [Fact]
+    public void Sanitize_RedactsAbsoluteWindowsPathsWithSpacesInFinalSegment()
+    {
+        const string input = "Config file was loaded from D:\\StreamTools\\CrystalRelay\\secret file.json";
+
+        var result = SensitiveTextSanitizer.Sanitize(input);
+
+        Assert.DoesNotContain("secret file.json", result);
+        Assert.Contains("<local path>", result);
+    }
 }

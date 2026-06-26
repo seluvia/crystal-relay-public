@@ -50,3 +50,19 @@ test("buildGitHubIssue sanitizes single-segment absolute paths", () => {
   assert.doesNotMatch(issue.body, /D:\\PrivateProject/i);
   assert.match(issue.body, /<local path>/);
 });
+
+test("buildGitHubIssue sanitizes absolute paths with spaces", () => {
+  const issue = buildGitHubIssue({
+    title: "Spaced path leak",
+    whatHappened: "The config file was D:\\StreamTools\\CrystalRelay\\secret file.json.",
+    expectedBehavior: "The local file path should be redacted before publishing.",
+    stepsToReproduce: "Open Crystal Relay, submit the report, inspect the GitHub issue.",
+    contactName: "",
+    appVersion: "3.1.9",
+    category: "other",
+    severity: "normal"
+  });
+
+  assert.doesNotMatch(issue.body, /secret file\.json/i);
+  assert.match(issue.body, /<local path>/);
+});
