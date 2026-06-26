@@ -28,3 +28,31 @@ https://crystal-relay-bug-report.screminpal-animation.workers.dev/report
 ```
 
 If the deployed Worker uses a different URL, update `BugReportService` before releasing.
+
+## Category and severity labels
+
+The desktop app sends a `category` and `severity` with each report. The worker maps
+category to a GitHub label on the created issue:
+
+| Category   | GitHub label  |
+|------------|---------------|
+| connection | `connection`  |
+| rewards    | `rewards`     |
+| scaling    | `scaling`     |
+| movement   | `movement`    |
+| ui-theme   | `ui-theme`    |
+| crash      | `crash`       |
+| other      | (no label)    |
+
+Severity adds a prefix to the issue title (`[Low]`, `[High]`, `[Crash]`; `normal` has no prefix).
+
+Create these labels in `seluvia/crystal-relay-public` before deploying:
+`connection`, `rewards`, `scaling`, `movement`, `ui-theme`, `crash`.
+
+If a label is missing, the worker retries without labels so the report still succeeds.
+
+## Payload caps
+
+- Max payload: 56 KB
+- Max diagnostics: 44 KB
+- Snapshot: 2 KB, Activity log: 16 KB, Debug log: 16 KB, Crash log: 12 KB

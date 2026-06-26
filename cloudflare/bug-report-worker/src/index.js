@@ -1,14 +1,31 @@
 const GITHUB_OWNER = "seluvia";
 const GITHUB_REPO = "crystal-relay-public";
 const ISSUE_LABELS = ["bug", "from-crystal-relay", "needs-triage"];
-const MAX_PAYLOAD_BYTES = 20 * 1024;
-const MAX_DIAGNOSTICS_LENGTH = 12 * 1024;
+const MAX_PAYLOAD_BYTES = 56 * 1024;
+const MAX_DIAGNOSTICS_LENGTH = 44 * 1024;
 const TRIMMED_MARKER = "[trimmed]";
 const HOUR_LIMIT = 10;
 const DAY_LIMIT = 30;
 const DESKTOP_CLIENT_HEADER = "X-Crystal-Relay-Client";
 const DESKTOP_CLIENT_VALUE = "CrystalRelayDesktop";
 const APP_VERSION_HEADER = "X-Crystal-Relay-Version";
+
+const CATEGORY_LABELS = {
+  "connection": "connection",
+  "rewards": "rewards",
+  "scaling": "scaling",
+  "movement": "movement",
+  "ui-theme": "ui-theme",
+  "crash": "crash",
+  "other": null
+};
+
+const SEVERITY_PREFIX = {
+  "low": "[Low]",
+  "normal": "",
+  "high": "[High]",
+  "crash": "[Crash]"
+};
 
 export default {
   async fetch(request, env) {
@@ -86,6 +103,8 @@ function validatePayload(payload) {
   const whatHappened = normalize(payload.whatHappened);
   const expectedBehavior = normalize(payload.expectedBehavior);
   const stepsToReproduce = normalize(payload.stepsToReproduce);
+  const category = normalize(payload.category) || "other";
+  const severity = normalize(payload.severity) || "normal";
 
   if (!isInRange(title, 8, 120)) {
     return { ok: false, message: "Bug title must be 8 to 120 characters." };
@@ -101,6 +120,14 @@ function validatePayload(payload) {
 
   if (!isInRange(stepsToReproduce, 20, 5000)) {
     return { ok: false, message: "Steps to reproduce must be 20 to 5000 characters." };
+  }
+
+  if (!isInRange(category, 1, 40)) {
+    return { ok: false, message: "Category is missing." };
+  }
+
+  if (!isInRange(severity, 1, 40)) {
+    return { ok: false, message: "Severity is missing." };
   }
 
   return { ok: true };
@@ -129,11 +156,19 @@ function buildGitHubIssue(payload) {
   const appVersion = normalize(payload.appVersion) || "Unknown";
   const contactName = normalize(payload.contactName) || "Not provided";
   const submittedAtUtc = normalize(payload.submittedAtUtc) || new Date().toISOString();
-  const diagnostics = trimUtf8(sanitize(normalize(payload.diagnostics)), MAX_DIAGNOSTICS_LENGTH);
+  const category = normalize(payload.category) || "other";
+  const severity = normalize(payload.severity) || "normal";
+  const severityPrefix = SEVERITY_PREFIX[severity] ?? "";
+  const snapshot = trimUtf8(sanitize(normalize(payload.snapshot)), 2 * 1024);
+  const activityLog = payload.activityLog ? trimUtf8(sanitize(normalize(payload.activityLog)), 16 * 1024) : null;
+  const debugLog = payload.debugLog ? trimUtf8(sanitize(normalize(payload.debugLog)), 16 * 1024) : null;
+  const crashLog = payload.crashLog ? trimUtf8(sanitize(normalize(payload.crashLog)), 12 * 1024) : null;
 
   const body = [
     "## Bug Report",
     "",
+    `**Category:** ${category}`,
+    `**Severity:** ${severity}`,
     `**App version:** ${appVersion}`,
     `**Submitted at:** ${submittedAtUtc}`,
     `**Contact:** ${contactName}`,
@@ -150,15 +185,31 @@ function buildGitHubIssue(payload) {
     "",
     sanitize(normalize(payload.stepsToReproduce)),
     "",
-    "## Sanitized diagnostics",
+    "## Live status snapshot",
     "",
-    diagnostics.length > 0 ? `\`\`\`text\n${diagnostics}\n\`\`\`` : "Not included."
+    snapshot.length > 0 ? `\`\`\`text\n${snapshot}\n\`\`\`` : "Not included.",
+    "",
+    "## Activity log",
+    "",
+    activityLog && activityLog.length > 0 ? `\`\`\`text\n${activityLog}\n\`\`\`` : "Not included.",
+    "",
+    "## Debug logs",
+    "",
+    debugLog && debugLog.length > 0 ? `\`\`\`text\n${debugLog}\n\`\`\`` : "Not included.",
+    "",
+    "## Crash log",
+    "",
+    crashLog && crashLog.length > 0 ? `\`\`\`text\n${crashLog}\n\`\`\`` : "Not included."
   ].join("\n");
 
+  const baseLabels = ISSUE_LABELS;
+  const categoryLabel = CATEGORY_LABELS[category] ?? null;
+  const labels = categoryLabel ? [...baseLabels, categoryLabel] : baseLabels;
+
   return {
-    title: `[Bug] ${title}`,
+    title: `[Bug] ${severityPrefix} ${title}`.trim(),
     body,
-    labels: ISSUE_LABELS
+    labels
   };
 }
 
