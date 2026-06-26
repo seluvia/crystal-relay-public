@@ -152,7 +152,7 @@ public sealed class BugReportSnapshotServiceTests
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `dotnet test "E:\!!!Program to work on\Proper Crystal Relay\VrcTwitchOscBridge.Tests\VrcTwitchOscBridge.Tests.csproj" --filter "FullyQualifiedName~BugReportSnapshotServiceTests"`
+Run: `dotnet test "<repo>\VrcTwitchOscBridge.Tests\VrcTwitchOscBridge.Tests.csproj" --filter "FullyQualifiedName~BugReportSnapshotServiceTests"`
 Expected: FAIL — `BugReportSnapshotService` not found / `BugReportSnapshotData` not found.
 
 - [ ] **Step 3: Write minimal implementation**
@@ -230,18 +230,18 @@ And add after the existing test compile entries in `VrcTwitchOscBridge.Tests/Vrc
 
 - [ ] **Step 5: Run test to verify it passes**
 
-Run: `dotnet test "E:\!!!Program to work on\Proper Crystal Relay\VrcTwitchOscBridge.Tests\VrcTwitchOscBridge.Tests.csproj" --filter "FullyQualifiedName~BugReportSnapshotServiceTests"`
+Run: `dotnet test "<repo>\VrcTwitchOscBridge.Tests\VrcTwitchOscBridge.Tests.csproj" --filter "FullyQualifiedName~BugReportSnapshotServiceTests"`
 Expected: PASS — 4 tests.
 
 - [ ] **Step 6: Build the app project to verify no compile errors**
 
-Run: `dotnet build "E:\!!!Program to work on\Proper Crystal Relay\VrcTwitchOscBridge\VrcTwitchOscBridge.csproj" --no-restore`
+Run: `dotnet build "<repo>\VrcTwitchOscBridge\VrcTwitchOscBridge.csproj" --no-restore`
 Expected: Build succeeded.
 
 - [ ] **Step 7: Commit**
 
 ```powershell
-cd "E:\!!!Program to work on\Proper Crystal Relay"
+cd "<repo>"
 git add VrcTwitchOscBridge/Services/BugReportSnapshotService.cs VrcTwitchOscBridge.Tests/BugReportSnapshotServiceTests.cs VrcTwitchOscBridge/VrcTwitchOscBridge.csproj
 git commit -m "Add BugReportSnapshotService with lean live-status snapshot"
 ```
@@ -369,7 +369,7 @@ public sealed class BugReportPreviewBuilderTests
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `dotnet test "E:\!!!Program to work on\Proper Crystal Relay\VrcTwitchOscBridge.Tests\VrcTwitchOscBridge.Tests.csproj" --filter "FullyQualifiedName~BugReportPreviewBuilderTests"`
+Run: `dotnet test "<repo>\VrcTwitchOscBridge.Tests\VrcTwitchOscBridge.Tests.csproj" --filter "FullyQualifiedName~BugReportPreviewBuilderTests"`
 Expected: FAIL — `BugReportPreviewBuilder` not found.
 
 - [ ] **Step 3: Write minimal implementation**
@@ -466,18 +466,18 @@ In `VrcTwitchOscBridge/VrcTwitchOscBridge.csproj`, add after the `BugReportSnaps
 
 - [ ] **Step 5: Run test to verify it passes**
 
-Run: `dotnet test "E:\!!!Program to work on\Proper Crystal Relay\VrcTwitchOscBridge.Tests\VrcTwitchOscBridge.Tests.csproj" --filter "FullyQualifiedName~BugReportPreviewBuilderTests"`
+Run: `dotnet test "<repo>\VrcTwitchOscBridge.Tests\VrcTwitchOscBridge.Tests.csproj" --filter "FullyQualifiedName~BugReportPreviewBuilderTests"`
 Expected: PASS — 4 tests.
 
 - [ ] **Step 6: Build the app project**
 
-Run: `dotnet build "E:\!!!Program to work on\Proper Crystal Relay\VrcTwitchOscBridge\VrcTwitchOscBridge.csproj" --no-restore`
+Run: `dotnet build "<repo>\VrcTwitchOscBridge\VrcTwitchOscBridge.csproj" --no-restore`
 Expected: Build succeeded.
 
 - [ ] **Step 7: Commit**
 
 ```powershell
-cd "E:\!!!Program to work on\Proper Crystal Relay"
+cd "<repo>"
 git add VrcTwitchOscBridge/Services/BugReportPreviewBuilder.cs VrcTwitchOscBridge.Tests/BugReportPreviewBuilderTests.cs VrcTwitchOscBridge/VrcTwitchOscBridge.csproj
 git commit -m "Add BugReportPreviewBuilder for client-side preview rendering"
 ```
@@ -565,7 +565,7 @@ public sealed class BugReportServiceDiagnosticSectionTests
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `dotnet test "E:\!!!Program to work on\Proper Crystal Relay\VrcTwitchOscBridge.Tests\VrcTwitchOscBridge.Tests.csproj" --filter "FullyQualifiedName~BugReportServiceDiagnosticSectionTests"`
+Run: `dotnet test "<repo>\VrcTwitchOscBridge.Tests\VrcTwitchOscBridge.Tests.csproj" --filter "FullyQualifiedName~BugReportServiceDiagnosticSectionTests"`
 Expected: FAIL — `BuildActivityLogSection` not found.
 
 - [ ] **Step 3: Modify BugReportService.cs — raise caps**
@@ -753,18 +753,18 @@ The rest of `SubmitAsync` (the HTTP send, response handling, rate-limit logic) s
 
 - [ ] **Step 8: Run tests to verify they pass**
 
-Run: `dotnet test "E:\!!!Program to work on\Proper Crystal Relay\VrcTwitchOscBridge.Tests\VrcTwitchOscBridge.Tests.csproj" --filter "FullyQualifiedName~BugReportServiceDiagnosticSectionTests"`
+Run: `dotnet test "<repo>\VrcTwitchOscBridge.Tests\VrcTwitchOscBridge.Tests.csproj" --filter "FullyQualifiedName~BugReportServiceDiagnosticSectionTests"`
 Expected: PASS — 5 tests.
 
 - [ ] **Step 9: Build the app project**
 
-Run: `dotnet build "E:\!!!Program to work on\Proper Crystal Relay\VrcTwitchOscBridge\VrcTwitchOscBridge.csproj" --no-restore`
+Run: `dotnet build "<repo>\VrcTwitchOscBridge\VrcTwitchOscBridge.csproj" --no-restore`
 Expected: Build succeeded. If the old `BuildSanitizedDiagnostics` call site in `MainWindowViewModel.cs` breaks, that's expected — it will be fixed in Task 6. To get the build green now, temporarily comment out the body of `OpenBugReportAsync` lines 17908-17919 and replace with `var diagnostics = string.Empty;`. This is a temporary bridge; Task 6 replaces the whole method.
 
 - [ ] **Step 10: Commit**
 
 ```powershell
-cd "E:\!!!Program to work on\Proper Crystal Relay"
+cd "<repo>"
 git add VrcTwitchOscBridge/Services/BugReportService.cs VrcTwitchOscBridge.Tests/BugReportServiceDiagnosticSectionTests.cs VrcTwitchOscBridge/ViewModels/MainWindowViewModel.cs
 git commit -m "Raise bug report caps and split diagnostic builders into per-section methods"
 ```
@@ -1211,13 +1211,13 @@ And add after line 86 (`<Compile Include="BugReportWindow.xaml.cs" />`):
 
 - [ ] **Step 4: Build the app project**
 
-Run: `dotnet build "E:\!!!Program to work on\Proper Crystal Relay\VrcTwitchOscBridge\VrcTwitchOscBridge.csproj" --no-restore`
+Run: `dotnet build "<repo>\VrcTwitchOscBridge\VrcTwitchOscBridge.csproj" --no-restore`
 Expected: Build succeeded.
 
 - [ ] **Step 5: Commit**
 
 ```powershell
-cd "E:\!!!Program to work on\Proper Crystal Relay"
+cd "<repo>"
 git add VrcTwitchOscBridge/BugReportPreviewWindow.xaml VrcTwitchOscBridge/BugReportPreviewWindow.xaml.cs VrcTwitchOscBridge/VrcTwitchOscBridge.csproj
 git commit -m "Add BugReportPreviewWindow themed read-only preview modal"
 ```
@@ -1376,7 +1376,7 @@ Find the `Grid` that contains the `IncludeLogsCheckBox` and its helper text (lin
 
 - [ ] **Step 4: Build the app project**
 
-Run: `dotnet build "E:\!!!Program to work on\Proper Crystal Relay\VrcTwitchOscBridge\VrcTwitchOscBridge.csproj" --no-restore`
+Run: `dotnet build "<repo>\VrcTwitchOscBridge\VrcTwitchOscBridge.csproj" --no-restore`
 Expected: Build may show warnings about missing event handler `OnPreviewClicked` — that's fixed in Task 6. If the build fails due to the missing handler, proceed to Task 6 Step 1 first, then build.
 
 - [ ] **Step 5: Commit (after Task 6 makes it build)**
@@ -1611,13 +1611,13 @@ public partial class BugReportWindow : Window
 
 - [ ] **Step 2: Build the app project**
 
-Run: `dotnet build "E:\!!!Program to work on\Proper Crystal Relay\VrcTwitchOscBridge\VrcTwitchOscBridge.csproj" --no-restore`
+Run: `dotnet build "<repo>\VrcTwitchOscBridge\VrcTwitchOscBridge.csproj" --no-restore`
 Expected: Build succeeded (the `OpenBugReportAsync` call site in the VM still needs updating — that's Task 7. If the build fails because the old call site passes the wrong constructor args, proceed to Task 7 and build after that).
 
 - [ ] **Step 3: Commit (combined with Task 5 XAML changes)**
 
 ```powershell
-cd "E:\!!!Program to work on\Proper Crystal Relay"
+cd "<repo>"
 git add VrcTwitchOscBridge/BugReportWindow.xaml VrcTwitchOscBridge/BugReportWindow.xaml.cs
 git commit -m "Extend BugReportWindow with category, severity, diagnostics panel, and preview"
 ```
@@ -1842,18 +1842,18 @@ In `VrcTwitchOscBridge/App.xaml.cs`, find line 92 (`MainWindow.Show();`) and rep
 
 - [ ] **Step 5: Build the app project**
 
-Run: `dotnet build "E:\!!!Program to work on\Proper Crystal Relay\VrcTwitchOscBridge\VrcTwitchOscBridge.csproj" --no-restore`
+Run: `dotnet build "<repo>\VrcTwitchOscBridge\VrcTwitchOscBridge.csproj" --no-restore`
 Expected: Build succeeded.
 
 - [ ] **Step 6: Run all tests**
 
-Run: `dotnet test "E:\!!!Program to work on\Proper Crystal Relay\VrcTwitchOscBridge.Tests\VrcTwitchOscBridge.Tests.csproj"`
+Run: `dotnet test "<repo>\VrcTwitchOscBridge.Tests\VrcTwitchOscBridge.Tests.csproj"`
 Expected: All tests pass (including the new snapshot, preview builder, and diagnostic section tests).
 
 - [ ] **Step 7: Commit**
 
 ```powershell
-cd "E:\!!!Program to work on\Proper Crystal Relay"
+cd "<repo>"
 git add VrcTwitchOscBridge/ViewModels/MainWindowViewModel.cs VrcTwitchOscBridge/App.xaml.cs
 git commit -m "Add crash-prompt on startup and extend OpenBugReportAsync with snapshot, diagnostics, and presets"
 ```
@@ -2051,7 +2051,7 @@ If a label is missing, the worker retries without labels so the report still suc
 - [ ] **Step 6: Commit**
 
 ```powershell
-cd "E:\!!!Program to work on\Proper Crystal Relay"
+cd "<repo>"
 git add cloudflare/bug-report-worker/src/index.js cloudflare/bug-report-worker/README.md
 git commit -m "Extend bug-report-worker with category labels, severity prefix, and raised caps"
 ```
@@ -2110,13 +2110,13 @@ Insert each key at the correct alphabetical position. The file is sorted alphabe
 
 - [ ] **Step 2: Build and run localization audit**
 
-Run: `dotnet run --project "E:\!!!Program to work on\Proper Crystal Relay\LocalizationAudit\LocalizationAudit.csproj" -- "E:\!!!Program to work on\Proper Crystal Relay\VrcTwitchOscBridge\Resources\Localization"`
+Run: `dotnet run --project "<repo>\LocalizationAudit\LocalizationAudit.csproj" -- "<repo>\VrcTwitchOscBridge\Resources\Localization"`
 Expected: No failures for missing en-US keys. (There may be pre-existing failures unrelated to this change.)
 
 - [ ] **Step 3: Commit**
 
 ```powershell
-cd "E:\!!!Program to work on\Proper Crystal Relay"
+cd "<repo>"
 git add VrcTwitchOscBridge/Resources/Localization/en-US.extra.json
 git commit -m "Add en-US localization keys for bug report redesign"
 ```
@@ -2181,13 +2181,13 @@ Repeat for all 13 languages with natural, conversational translations.
 
 - [ ] **Step 2: Run localization audit**
 
-Run: `dotnet run --project "E:\!!!Program to work on\Proper Crystal Relay\LocalizationAudit\LocalizationAudit.csproj" -- "E:\!!!Program to work on\Proper Crystal Relay\VrcTwitchOscBridge\Resources\Localization"`
+Run: `dotnet run --project "<repo>\LocalizationAudit\LocalizationAudit.csproj" -- "<repo>\VrcTwitchOscBridge\Resources\Localization"`
 Expected: No new failures. All new keys present in all languages with no empty values.
 
 - [ ] **Step 3: Commit**
 
 ```powershell
-cd "E:\!!!Program to work on\Proper Crystal Relay"
+cd "<repo>"
 git add VrcTwitchOscBridge/Resources/Localization/*.extra.json
 git commit -m "Add translations for bug report redesign in all non-English languages"
 ```
@@ -2200,22 +2200,22 @@ git commit -m "Add translations for bug report redesign in all non-English langu
 
 - [ ] **Step 1: Full build**
 
-Run: `dotnet build "E:\!!!Program to work on\Proper Crystal Relay\VrcTwitchOscBridge\VrcTwitchOscBridge.csproj" --no-restore`
+Run: `dotnet build "<repo>\VrcTwitchOscBridge\VrcTwitchOscBridge.csproj" --no-restore`
 Expected: Build succeeded with no errors.
 
 - [ ] **Step 2: Run all tests**
 
-Run: `dotnet test "E:\!!!Program to work on\Proper Crystal Relay\VrcTwitchOscBridge.Tests\VrcTwitchOscBridge.Tests.csproj"`
+Run: `dotnet test "<repo>\VrcTwitchOscBridge.Tests\VrcTwitchOscBridge.Tests.csproj"`
 Expected: All tests pass.
 
 - [ ] **Step 3: Run localization audit**
 
-Run: `dotnet run --project "E:\!!!Program to work on\Proper Crystal Relay\LocalizationAudit\LocalizationAudit.csproj" -- "E:\!!!Program to work on\Proper Crystal Relay\VrcTwitchOscBridge\Resources\Localization"`
+Run: `dotnet run --project "<repo>\LocalizationAudit\LocalizationAudit.csproj" -- "<repo>\VrcTwitchOscBridge\Resources\Localization"`
 Expected: No new failures related to bug report keys.
 
 - [ ] **Step 4: Manual smoke test via debug launcher**
 
-Launch: `E:\!!!Program to work on\Proper Crystal Relay\Launch-Crystal-Relay-Debug.bat`
+Launch: `<repo>\Launch-Crystal-Relay-Debug.bat`
 
 Verify:
 1. Open Report Bug window — category and severity dropdowns appear, diagnostics panel shows snapshot.

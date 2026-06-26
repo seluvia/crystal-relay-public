@@ -29,7 +29,8 @@ public partial class BugReportWindow : Window
         string? activityLogSection = null,
         string? debugLogSection = null,
         string? crashLogSection = null,
-        string? appVersion = null)
+        string? appVersion = null,
+        bool includeCrashLogByDefault = false)
     {
         this.snapshot = snapshot;
         this.activityLogSection = activityLogSection;
@@ -48,6 +49,10 @@ public partial class BugReportWindow : Window
         if (!hasCrashLog)
         {
             CrashLogCheckBox.Visibility = Visibility.Collapsed;
+        }
+        else if (includeCrashLogByDefault || string.Equals(presetCategory, "crash", StringComparison.OrdinalIgnoreCase))
+        {
+            CrashLogCheckBox.IsChecked = true;
         }
 
         if (!string.IsNullOrEmpty(presetCategory))

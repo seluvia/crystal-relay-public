@@ -605,7 +605,7 @@ The worker's 422-fallback retry means a missing label won't block reports, but t
 
 ## Verification
 
-- Build: `dotnet build "E:\!!!Program to work on\Proper Crystal Relay\VrcTwitchOscBridge\VrcTwitchOscBridge.csproj" --no-restore`
+- Build: `dotnet build "<repo>\VrcTwitchOscBridge\VrcTwitchOscBridge.csproj" --no-restore`
 - Localization audit (run via the build scripts' audit step, or directly during implementation).
 - Worker: deploy via `wrangler deploy` from `cloudflare\bug-report-worker` (manual, user-initiated).
 - Manual smoke test: open Report Bug, verify snapshot populates, toggle each diagnostic, open preview, send a test report, confirm GitHub issue renders all sections and the category label applies.

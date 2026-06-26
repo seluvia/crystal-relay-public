@@ -50,17 +50,12 @@ export default {
       return jsonResponse({ message: "Bug report rate limit storage is not configured." }, 503);
     }
 
-    const contentLength = Number(request.headers.get("content-length") ?? "0");
-    if (contentLength > MAX_PAYLOAD_BYTES) {
-      return jsonResponse({ message: "Bug report is too large." }, 413);
+    const payloadRead = await readPayloadFromRequest(request);
+    if (!payloadRead.ok) {
+      return jsonResponse({ message: payloadRead.message }, payloadRead.status);
     }
 
-    let payload;
-    try {
-      payload = await request.json();
-    } catch {
-      return jsonResponse({ message: "Bug report payload was not valid JSON." }, 400);
-    }
+    const payload = payloadRead.payload;
 
     const validation = validatePayload(payload);
     if (!validation.ok) {
@@ -151,17 +146,44 @@ function validateDesktopClientRequest(request) {
   return { ok: true };
 }
 
-function buildGitHubIssue(payload) {
-  const title = normalize(payload.title);
-  const appVersion = normalize(payload.appVersion) || "Unknown";
-  const contactName = normalize(payload.contactName) || "Not provided";
+export async function readPayloadFromRequest(request) {
+  const contentLength = Number(request.headers.get("content-length") ?? "0");
+  if (Number.isFinite(contentLength) && contentLength > MAX_PAYLOAD_BYTES) {
+    return { ok: false, status: 413, message: "Bug report is too large." };
+  }
+
+  let rawBody;
+  try {
+    rawBody = await request.text();
+  } catch {
+    return { ok: false, status: 400, message: "Bug report payload could not be read." };
+  }
+
+  if (utf8ByteLength(rawBody) > MAX_PAYLOAD_BYTES) {
+    return { ok: false, status: 413, message: "Bug report is too large." };
+  }
+
+  try {
+    return { ok: true, payload: JSON.parse(rawBody) };
+  } catch {
+    return { ok: false, status: 400, message: "Bug report payload was not valid JSON." };
+  }
+}
+
+export function buildGitHubIssue(payload) {
+  const title = sanitizeIssueTitle(normalize(payload.title));
+  const appVersion = sanitize(normalize(payload.appVersion)) || "Unknown";
+  const contactName = sanitize(normalize(payload.contactName)) || "Not provided";
   const submittedAtUtc = normalize(payload.submittedAtUtc) || new Date().toISOString();
   const category = normalize(payload.category) || "other";
   const severity = normalize(payload.severity) || "normal";
   const severityPrefix = SEVERITY_PREFIX[severity] ?? "";
   const snapshot = trimUtf8(sanitize(normalize(payload.snapshot)), 2 * 1024);
   const activityLog = payload.activityLog ? trimUtf8(sanitize(normalize(payload.activityLog)), 16 * 1024) : null;
-  const debugLog = payload.debugLog ? trimUtf8(sanitize(normalize(payload.debugLog)), 16 * 1024) : null;
+  const legacyDiagnostics = payload.diagnostics ? trimUtf8(sanitize(normalize(payload.diagnostics)), MAX_DIAGNOSTICS_LENGTH) : null;
+  const debugLog = payload.debugLog
+    ? trimUtf8(sanitize(normalize(payload.debugLog)), 16 * 1024)
+    : legacyDiagnostics;
   const crashLog = payload.crashLog ? trimUtf8(sanitize(normalize(payload.crashLog)), 12 * 1024) : null;
 
   const body = [
@@ -294,7 +316,13 @@ function sanitize(value) {
     .replace(/\bBearer\s+[A-Za-z0-9._~+/=-]+/gi, "Bearer [redacted]")
     .replace(/C:\\Users\\[^\\\r\n]+/gi, "C:\\Users\\<user>")
     .replace(/(\s+in\s+)[A-Z]:\\[^\r\n]*\\([^\\\r\n:]+(?:\.cs|\.xaml|\.js|\.ts|\.json|\.xml|\.ps1|\.txt))(:line\s+\d+)/gi, "$1<local path>\\$2$3")
-    .replace(/(asks for a code,\s*use\s+)[A-Z0-9-]{4,}/gi, "$1[redacted]");
+    .replace(/(asks for a code,\s*use\s+)[A-Z0-9-]{4,}/gi, "$1[redacted]")
+    .replace(/(use\s+)[A-Z0-9-]{4,}(\s+when\s+it\s+asks\s+for\s+a\s+code)/gi, "$1[redacted]$2");
+}
+
+function sanitizeIssueTitle(value) {
+  return sanitize(value)
+    .replace(/\b(?:access[_-]?token|refresh[_-]?token|client[_-]?secret|device[_-]?code|user[_-]?code|authorization|set-cookie|authcookie|twofactorauth|vrchat[-_ ]?auth|cookie)\b\s*[:=]\s*\[redacted\]/gi, "[redacted]");
 }
 
 function trimUtf8(value, maxBytes) {

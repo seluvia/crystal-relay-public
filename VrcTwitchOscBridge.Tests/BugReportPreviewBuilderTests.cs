@@ -102,4 +102,29 @@ public sealed class BugReportPreviewBuilderTests
 
         Assert.Contains("**Contact:** Not provided", result);
     }
+
+    [Fact]
+    public void Build_SanitizesUserEnteredFields()
+    {
+        var result = BugReportPreviewBuilder.Build(
+            title: "Token leak",
+            category: "other",
+            severity: "normal",
+            whatHappened: "access_token=super-secret and C:\\Users\\secretuser\\crystal-relay\\settings.json",
+            expectedBehavior: "Bearer abc123secret should not be shown",
+            stepsToReproduce: "Open the app, use ABCD-EFGH when it asks for a code, use the feature.",
+            contactName: "C:\\Users\\secretuser\\contact.txt",
+            appVersion: "3.1.9",
+            snapshot: "snapshot",
+            activityLogSection: null,
+            debugLogSection: null,
+            crashLogSection: null);
+
+        Assert.DoesNotContain("super-secret", result);
+        Assert.DoesNotContain("abc123secret", result);
+        Assert.DoesNotContain("secretuser", result);
+        Assert.DoesNotContain("ABCD-EFGH", result);
+        Assert.Contains("[redacted]", result);
+        Assert.Contains("<user>", result);
+    }
 }

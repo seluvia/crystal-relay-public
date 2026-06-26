@@ -47,64 +47,17 @@ internal sealed class BugReportService : IDisposable
         BugReportSubmission submission,
         CancellationToken cancellationToken = default)
     {
-        var snapshotTrimmed = TrimToUtf8Length(submission.Snapshot, 2 * 1024);
-        var activityTrimmed = submission.ActivityLog is null
-            ? null
-            : TrimToUtf8Length(submission.ActivityLog, 16 * 1024);
-        var debugTrimmed = submission.DebugLog is null
-            ? null
-            : TrimToUtf8Length(submission.DebugLog, 16 * 1024);
-        var crashTrimmed = submission.CrashLog is null
-            ? null
-            : TrimToUtf8Length(submission.CrashLog, 12 * 1024);
-
-        var payload = new BugReportPayload(
-            TrimForTransport(submission.Title, 120),
-            TrimForTransport(submission.WhatHappened, 5000),
-            TrimForTransport(submission.ExpectedBehavior, 5000),
-            TrimForTransport(submission.StepsToReproduce, 5000),
-            TrimForTransport(submission.ContactName, 120),
-            TrimForTransport(submission.AppVersion, 80),
-            TrimForTransport(submission.Category, 40),
-            TrimForTransport(submission.Severity, 40),
-            snapshotTrimmed,
-            activityTrimmed,
-            debugTrimmed,
-            crashTrimmed,
-            DateTimeOffset.UtcNow);
-
-        var json = JsonSerializer.Serialize(payload, JsonOptions);
-        if (Encoding.UTF8.GetByteCount(json) > MaxPayloadLength)
-        {
-            payload = payload with { DebugLog = null };
-            json = JsonSerializer.Serialize(payload, JsonOptions);
-        }
-
-        if (Encoding.UTF8.GetByteCount(json) > MaxPayloadLength)
-        {
-            payload = payload with { ActivityLog = null };
-            json = JsonSerializer.Serialize(payload, JsonOptions);
-        }
-
-        if (Encoding.UTF8.GetByteCount(json) > MaxPayloadLength)
-        {
-            payload = payload with { CrashLog = null };
-            json = JsonSerializer.Serialize(payload, JsonOptions);
-        }
-
-        if (Encoding.UTF8.GetByteCount(json) > MaxPayloadLength)
-        {
-            payload = payload with { Snapshot = TrimToUtf8Length(payload.Snapshot, 1 * 1024) };
-        }
+        var json = PreparePayloadJson(submission);
+        var appVersion = SanitizeAndTrimForTransport(submission.AppVersion, 80);
 
         try
         {
             using var request = new HttpRequestMessage(HttpMethod.Post, BugReportEndpoint)
             {
-                Content = JsonContent.Create(payload, options: JsonOptions)
+                Content = new StringContent(json, Encoding.UTF8, "application/json")
             };
             request.Headers.TryAddWithoutValidation(DesktopClientHeaderName, DesktopClientHeaderValue);
-            request.Headers.TryAddWithoutValidation(AppVersionHeaderName, payload.AppVersion);
+            request.Headers.TryAddWithoutValidation(AppVersionHeaderName, appVersion);
 
             using var response = await httpClient.SendAsync(request, cancellationToken);
             var responsePayload = await ReadResponsePayloadAsync(response, cancellationToken);
@@ -201,6 +154,93 @@ internal sealed class BugReportService : IDisposable
 
     public void Dispose() => httpClient.Dispose();
 
+    internal static string PreparePayloadJson(BugReportSubmission submission)
+    {
+        var payload = CreatePayload(submission);
+        return SerializeWithinPayloadLimit(payload);
+    }
+
+    private static BugReportPayload CreatePayload(BugReportSubmission submission)
+    {
+        var payload = new BugReportPayload(
+            SanitizeAndTrimForTransport(submission.Title, 120),
+            SanitizeAndTrimForTransport(submission.WhatHappened, 5000),
+            SanitizeAndTrimForTransport(submission.ExpectedBehavior, 5000),
+            SanitizeAndTrimForTransport(submission.StepsToReproduce, 5000),
+            SanitizeAndTrimForTransport(submission.ContactName, 120),
+            SanitizeAndTrimForTransport(submission.AppVersion, 80),
+            TrimForTransport(submission.Category, 40),
+            TrimForTransport(submission.Severity, 40),
+            SanitizeAndTrimUtf8(submission.Snapshot, 2 * 1024),
+            SanitizeAndTrimOptionalUtf8(submission.ActivityLog, 16 * 1024),
+            SanitizeAndTrimOptionalUtf8(submission.DebugLog, 16 * 1024),
+            SanitizeAndTrimOptionalUtf8(submission.CrashLog, 12 * 1024),
+            DateTimeOffset.UtcNow);
+
+        return TrimDiagnosticsToTotalBudget(payload);
+    }
+
+    private static string SerializeWithinPayloadLimit(BugReportPayload payload)
+    {
+        var json = JsonSerializer.Serialize(payload, JsonOptions);
+        if (Encoding.UTF8.GetByteCount(json) > MaxPayloadLength)
+        {
+            payload = payload with { DebugLog = null };
+            json = JsonSerializer.Serialize(payload, JsonOptions);
+        }
+
+        if (Encoding.UTF8.GetByteCount(json) > MaxPayloadLength)
+        {
+            payload = payload with { ActivityLog = null };
+            json = JsonSerializer.Serialize(payload, JsonOptions);
+        }
+
+        if (Encoding.UTF8.GetByteCount(json) > MaxPayloadLength)
+        {
+            payload = payload with { CrashLog = null };
+            json = JsonSerializer.Serialize(payload, JsonOptions);
+        }
+
+        if (Encoding.UTF8.GetByteCount(json) > MaxPayloadLength)
+        {
+            payload = payload with { Snapshot = TrimToUtf8Length(payload.Snapshot, 1 * 1024) };
+            json = JsonSerializer.Serialize(payload, JsonOptions);
+        }
+
+        return json;
+    }
+
+    private static BugReportPayload TrimDiagnosticsToTotalBudget(BugReportPayload payload)
+    {
+        var remainingBytes = MaxDiagnosticLogLength;
+        var snapshot = TrimToUtf8Length(payload.Snapshot, Math.Min(2 * 1024, remainingBytes));
+        remainingBytes -= Encoding.UTF8.GetByteCount(snapshot);
+
+        var crashLog = TrimOptionalToRemaining(payload.CrashLog, 12 * 1024, ref remainingBytes);
+        var activityLog = TrimOptionalToRemaining(payload.ActivityLog, 16 * 1024, ref remainingBytes);
+        var debugLog = TrimOptionalToRemaining(payload.DebugLog, 16 * 1024, ref remainingBytes);
+
+        return payload with
+        {
+            Snapshot = snapshot,
+            ActivityLog = activityLog,
+            DebugLog = debugLog,
+            CrashLog = crashLog
+        };
+    }
+
+    private static string? TrimOptionalToRemaining(string? value, int sectionMaxBytes, ref int remainingBytes)
+    {
+        if (string.IsNullOrEmpty(value) || remainingBytes <= 0)
+        {
+            return null;
+        }
+
+        var trimmed = TrimToUtf8Length(value, Math.Min(sectionMaxBytes, remainingBytes));
+        remainingBytes -= Encoding.UTF8.GetByteCount(trimmed);
+        return trimmed;
+    }
+
     private static async Task<BugReportResponse?> ReadResponsePayloadAsync(
         HttpResponseMessage response,
         CancellationToken cancellationToken)
@@ -255,6 +295,18 @@ internal sealed class BugReportService : IDisposable
             ? trimmed
             : trimmed[..maxCharacters];
     }
+
+    private static string SanitizeAndTrimForTransport(string? value, int maxCharacters)
+    {
+        var characterTrimmed = TrimForTransport(SensitiveTextSanitizer.Sanitize(value ?? string.Empty), maxCharacters);
+        return TrimToUtf8Length(characterTrimmed, maxCharacters);
+    }
+
+    private static string SanitizeAndTrimUtf8(string? value, int maxBytes) =>
+        TrimToUtf8Length(SensitiveTextSanitizer.Sanitize(value ?? string.Empty), maxBytes);
+
+    private static string? SanitizeAndTrimOptionalUtf8(string? value, int maxBytes) =>
+        string.IsNullOrEmpty(value) ? null : SanitizeAndTrimUtf8(value, maxBytes);
 
     private static string TrimToUtf8Length(string value, int maxBytes)
     {

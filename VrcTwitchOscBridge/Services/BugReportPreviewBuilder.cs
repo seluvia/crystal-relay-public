@@ -18,8 +18,12 @@ internal static class BugReportPreviewBuilder
         string? debugLogSection,
         string? crashLogSection)
     {
-        var contact = string.IsNullOrWhiteSpace(contactName) ? "Not provided" : contactName;
-        var appVer = string.IsNullOrWhiteSpace(appVersion) ? "Unknown" : appVersion;
+        var contact = string.IsNullOrWhiteSpace(contactName)
+            ? "Not provided"
+            : SensitiveTextSanitizer.Sanitize(contactName);
+        var appVer = string.IsNullOrWhiteSpace(appVersion)
+            ? "Unknown"
+            : SensitiveTextSanitizer.Sanitize(appVersion);
 
         var builder = new StringBuilder();
         builder.AppendLine("## Bug Report");
@@ -31,15 +35,15 @@ internal static class BugReportPreviewBuilder
         builder.AppendLine();
         builder.AppendLine("## What happened");
         builder.AppendLine();
-        builder.AppendLine(whatHappened);
+        builder.AppendLine(SensitiveTextSanitizer.Sanitize(whatHappened));
         builder.AppendLine();
         builder.AppendLine("## Expected behavior");
         builder.AppendLine();
-        builder.AppendLine(expectedBehavior);
+        builder.AppendLine(SensitiveTextSanitizer.Sanitize(expectedBehavior));
         builder.AppendLine();
         builder.AppendLine("## Steps to reproduce");
         builder.AppendLine();
-        builder.AppendLine(stepsToReproduce);
+        builder.AppendLine(SensitiveTextSanitizer.Sanitize(stepsToReproduce));
         builder.AppendLine();
         builder.AppendLine("## Live status snapshot");
         builder.AppendLine();

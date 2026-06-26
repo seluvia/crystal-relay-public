@@ -32,6 +32,10 @@ internal static class SensitiveTextSanitizer
         @"(?i)(asks for a code,\s*use\s+)[A-Z0-9-]{4,}",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
+    private static readonly Regex TwitchLoginCodeBeforePromptRegex = new(
+        @"(?i)(use\s+)[A-Z0-9-]{4,}(\s+when\s+it\s+asks\s+for\s+a\s+code)",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
     private static readonly Regex QuerySecretRegex = new(
         @"(?i)([?&](?:access_token|refresh_token|token|code|client_secret|secret|jwt|signature)=)([^&#\s]+)",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
@@ -52,6 +56,7 @@ internal static class SensitiveTextSanitizer
         sanitized = StackTraceSourcePathRegex.Replace(sanitized, match =>
             $"{match.Groups["prefix"].Value}<local path>\\{match.Groups["file"].Value}{match.Groups["suffix"].Value}");
         sanitized = TwitchLoginCodeRegex.Replace(sanitized, "$1[redacted]");
+        sanitized = TwitchLoginCodeBeforePromptRegex.Replace(sanitized, "$1[redacted]$2");
         return sanitized;
     }
 }
