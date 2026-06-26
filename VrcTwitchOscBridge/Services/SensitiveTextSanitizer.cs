@@ -24,6 +24,10 @@ internal static class SensitiveTextSanitizer
         @"(?i)\b[A-Z]:\\Users\\[^\\\r\n]+",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
+    private static readonly Regex StackTraceSourcePathRegex = new(
+        @"(?i)(?<prefix>\s+in\s+)[A-Z]:\\[^\r\n]*\\(?<file>[^\\\r\n:]+(?:\.cs|\.xaml|\.js|\.ts|\.json|\.xml|\.ps1|\.txt))(?<suffix>:line\s+\d+)",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
     private static readonly Regex TwitchLoginCodeRegex = new(
         @"(?i)(asks for a code,\s*use\s+)[A-Z0-9-]{4,}",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
@@ -45,6 +49,8 @@ internal static class SensitiveTextSanitizer
         sanitized = OAuthTokenRegex.Replace(sanitized, "OAuth [redacted]");
         sanitized = QuerySecretRegex.Replace(sanitized, "$1[redacted]");
         sanitized = WindowsUserPathRegex.Replace(sanitized, match => $"{match.Value[..3]}Users\\<user>");
+        sanitized = StackTraceSourcePathRegex.Replace(sanitized, match =>
+            $"{match.Groups["prefix"].Value}<local path>\\{match.Groups["file"].Value}{match.Groups["suffix"].Value}");
         sanitized = TwitchLoginCodeRegex.Replace(sanitized, "$1[redacted]");
         return sanitized;
     }
