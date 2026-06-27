@@ -28,6 +28,11 @@ public sealed class AppSettings : ObservableObject
     private CashPaymentConnectionSettings cashPayments = new();
     private ObservableCollection<CashPaymentRule> cashPaymentRules = [];
     private ObservableCollection<TriggerRule> rules = [];
+    private ObservableCollection<AvatarSwapProfile> avatarSwapProfiles = [];
+    private string? masterAvatarSwapReturnId;
+    private string? masterAvatarSwapReturnName;
+    private int avatarChangeToAvatarSwapMigrationVersion;
+
     private int interfaceOpacityPercent = 88;
     private int chatTextSize = 20;
     private int chatOpacityPercent = 90;
@@ -210,6 +215,51 @@ public sealed class AppSettings : ObservableObject
         get => rules;
         set => SetProperty(ref rules, value ?? []);
     }
+
+    public ObservableCollection<AvatarSwapProfile> AvatarSwapProfiles
+    {
+        get => avatarSwapProfiles;
+        set => SetProperty(ref avatarSwapProfiles, value ?? []);
+    }
+
+    public ObservableCollection<AvatarRouletteProfile> AvatarRouletteProfiles { get; set; } = new();
+
+    public string? MasterAvatarSwapReturnId
+    {
+        get => masterAvatarSwapReturnId;
+        set
+        {
+            if (SetProperty(ref masterAvatarSwapReturnId, value))
+            {
+                RaisePropertyChanged(nameof(HasMasterAvatarSwapReturn));
+                RaisePropertyChanged(nameof(MasterAvatarSwapReturnDisplayName));
+            }
+        }
+    }
+
+    public string? MasterAvatarSwapReturnName
+    {
+        get => masterAvatarSwapReturnName;
+        set
+        {
+            if (SetProperty(ref masterAvatarSwapReturnName, value))
+            {
+                RaisePropertyChanged(nameof(MasterAvatarSwapReturnDisplayName));
+            }
+        }
+    }
+
+    public int AvatarChangeToAvatarSwapMigrationVersion
+    {
+        get => avatarChangeToAvatarSwapMigrationVersion;
+        set => SetProperty(ref avatarChangeToAvatarSwapMigrationVersion, value);
+    }
+
+    public bool HasMasterAvatarSwapReturn => !string.IsNullOrWhiteSpace(MasterAvatarSwapReturnId);
+
+    public string MasterAvatarSwapReturnDisplayName => string.IsNullOrWhiteSpace(MasterAvatarSwapReturnName)
+        ? (string.IsNullOrWhiteSpace(MasterAvatarSwapReturnId) ? "(no return avatar picked)" : MasterAvatarSwapReturnId)
+        : MasterAvatarSwapReturnName;
 
     public AppTheme Theme
     {
@@ -426,6 +476,9 @@ public sealed class AppSettings : ObservableObject
         get => avatarChangeCooldownOnlyModeEnabled;
         set => SetProperty(ref avatarChangeCooldownOnlyModeEnabled, value);
     }
+
+    public bool AvatarSwapManagerUseFullRuleEditor { get; set; } = true;
+    public bool AvatarSwapMigrationNoticeShown { get; set; }
 
     public bool EmergencyRedeemStopEnabled
     {

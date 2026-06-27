@@ -18,7 +18,8 @@ public sealed class SettingsStore
 {
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
-        WriteIndented = true
+        WriteIndented = true,
+        Converters = { new CashPaymentRuleJsonConverter() }
     };
 
     private const string BroadcasterAccessTokenCredential = "CrystalRelay:Twitch:Broadcaster:AccessToken";
@@ -406,6 +407,8 @@ public sealed class SettingsStore
                     : settings.WorldCommandPermission;
             settings.ChannelPointRewardTestModeEnabled = profile.ChannelPointRewardTestModeEnabled ?? settings.ChannelPointRewardTestModeEnabled;
             settings.AvatarChangeCooldownOnlyModeEnabled = profile.AvatarChangeCooldownOnlyModeEnabled ?? settings.AvatarChangeCooldownOnlyModeEnabled;
+            settings.AvatarSwapManagerUseFullRuleEditor = profile.AvatarSwapManagerUseFullRuleEditor ?? settings.AvatarSwapManagerUseFullRuleEditor;
+            settings.AvatarSwapMigrationNoticeShown = profile.AvatarSwapMigrationNoticeShown ?? settings.AvatarSwapMigrationNoticeShown;
             settings.EmergencyRedeemStopEnabled = profile.EmergencyRedeemStopEnabled ?? settings.EmergencyRedeemStopEnabled;
             settings.DesktopModeInputLockEnabled = profile.DesktopModeInputLockEnabled ?? settings.DesktopModeInputLockEnabled;
             settings.RestartVrChatInDesktopMode = profile.RestartVrChatInDesktopMode ?? settings.RestartVrChatInDesktopMode;
@@ -452,6 +455,13 @@ public sealed class SettingsStore
             settings.CashPaymentRules = new ObservableCollection<CashPaymentRule>(
                 (profile.CashPaymentRules ?? []).Select(ToCashPaymentRule));
             settings.Rules = new ObservableCollection<TriggerRule>((profile.Rules ?? []).Select(ToRule));
+            settings.MasterAvatarSwapReturnId = profile.MasterAvatarSwapReturnId;
+            settings.MasterAvatarSwapReturnName = profile.MasterAvatarSwapReturnName;
+            settings.AvatarChangeToAvatarSwapMigrationVersion = profile.AvatarChangeToAvatarSwapMigrationVersion;
+            settings.AvatarSwapProfiles = new ObservableCollection<AvatarSwapProfile>(
+                (profile.AvatarSwapProfiles ?? []).Select(ToAvatarSwapProfile));
+            settings.AvatarRouletteProfiles = new ObservableCollection<AvatarRouletteProfile>(
+                (profile.AvatarRouletteProfiles ?? new()).Select(ToAvatarRouletteProfile));
         }
 
         var secureMetadata = await LoadProtectedJsonAsync<PersistedSecureMetadataSettings>(
@@ -506,6 +516,8 @@ public sealed class SettingsStore
         {
             MigrateLegacyRulesIntoNewCollections(settings, settings.Rules);
         }
+
+        AvatarSwapMigrationService.Migrate(settings, profile?.AvatarSwapProfiles);
 
         if (needsMetadataRewrite || legacyPlainSecure is not null || migratedSecrets)
         {
@@ -570,6 +582,8 @@ public sealed class SettingsStore
             WorldCommandPermission = settings.WorldCommandPermission,
             ChannelPointRewardTestModeEnabled = settings.ChannelPointRewardTestModeEnabled,
             AvatarChangeCooldownOnlyModeEnabled = settings.AvatarChangeCooldownOnlyModeEnabled,
+            AvatarSwapManagerUseFullRuleEditor = settings.AvatarSwapManagerUseFullRuleEditor,
+            AvatarSwapMigrationNoticeShown = settings.AvatarSwapMigrationNoticeShown,
             EmergencyRedeemStopEnabled = settings.EmergencyRedeemStopEnabled,
             DesktopModeInputLockEnabled = settings.DesktopModeInputLockEnabled,
             RestartVrChatInDesktopMode = settings.RestartVrChatInDesktopMode,
@@ -600,7 +614,12 @@ public sealed class SettingsStore
             PowerUpRules = [.. settings.PowerUpRules.Select(ToPersistedPowerUpRule)],
             RewardFireSale = ToPersistedRewardFireSaleSettings(settings.RewardFireSale),
             CashPayments = ToPersistedCashPaymentConnectionSettings(settings.CashPayments),
-            CashPaymentRules = [.. settings.CashPaymentRules.Select(ToPersistedCashPaymentRule)]
+            CashPaymentRules = [.. settings.CashPaymentRules.Select(ToPersistedCashPaymentRule)],
+            MasterAvatarSwapReturnId = settings.MasterAvatarSwapReturnId,
+            MasterAvatarSwapReturnName = settings.MasterAvatarSwapReturnName,
+            AvatarChangeToAvatarSwapMigrationVersion = settings.AvatarChangeToAvatarSwapMigrationVersion,
+            AvatarSwapProfiles = [.. settings.AvatarSwapProfiles.Select(ToPersistedAvatarSwapProfile)],
+            AvatarRouletteProfiles = [.. settings.AvatarRouletteProfiles.Select(ToPersistedAvatarRouletteProfile)]
         };
 
         await SaveTextFileAtomicallyAsync(
@@ -894,7 +913,9 @@ public sealed class SettingsStore
             AvatarScaleSets = new ObservableCollection<AvatarScaleSet>(),
             CashPayments = new CashPaymentConnectionSettings(),
             CashPaymentRules = new ObservableCollection<CashPaymentRule>(),
-            Rules = new ObservableCollection<TriggerRule>()
+            Rules = new ObservableCollection<TriggerRule>(),
+            AvatarSwapProfiles = new ObservableCollection<AvatarSwapProfile>(),
+            AvatarRouletteProfiles = new ObservableCollection<AvatarRouletteProfile>()
         };
     }
 
@@ -1003,6 +1024,7 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             ChatCommandPermission = rule.ChatCommandPermission,
             MinimumAmount = rule.MinimumAmount,
             AmountScaledDurationEnabled = rule.AmountScaledDurationEnabled,
+            AddBitsToSwapTime = rule.AddBitsToSwapTime,
             AmountUnitsPerDuration = rule.AmountUnitsPerDuration,
             SecondsPerAmountUnit = rule.SecondsPerAmountUnit,
             BitsAmountUnitsPerDuration = rule.BitsAmountUnitsPerDuration,
@@ -1012,6 +1034,9 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             SubscriptionTier1SecondsPerSub = rule.SubscriptionTier1SecondsPerSub,
             SubscriptionTier2SecondsPerSub = rule.SubscriptionTier2SecondsPerSub,
             SubscriptionTier3SecondsPerSub = rule.SubscriptionTier3SecondsPerSub,
+            SubscriptionTier1Enabled = rule.SubscriptionTier1Enabled,
+            SubscriptionTier2Enabled = rule.SubscriptionTier2Enabled,
+            SubscriptionTier3Enabled = rule.SubscriptionTier3Enabled,
             MaxAccumulatedDurationEnabled = rule.MaxAccumulatedDurationEnabled,
             MaxAccumulatedDurationSeconds = rule.MaxAccumulatedDurationSeconds,
             ActionType = rule.ActionType,
@@ -1021,7 +1046,23 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             IntZeroDurationMode = rule.IntZeroDurationMode,
             ParameterValue = rule.ParameterValue,
             FloatValueMode = rule.FloatValueMode,
-            FloatTransitionSeconds = rule.FloatTransitionSeconds,
+            FloatTransitionInSeconds = rule.FloatTransitionInSeconds,
+            FloatTransitionOutSeconds = rule.FloatTransitionOutSeconds,
+            FloatActionMode = rule.FloatActionMode,
+            FloatRangeMin = rule.FloatRangeMin,
+            FloatRangeMax = rule.FloatRangeMax,
+            FloatCycleStep = rule.FloatCycleStep,
+            FloatAddAmount = rule.FloatAddAmount,
+            FloatSubtractAmount = rule.FloatSubtractAmount,
+            FloatAddSubtractAmount = rule.FloatAddSubtractAmount,
+            FloatMultiplyFactor = rule.FloatMultiplyFactor,
+            FloatToggleOnValue = rule.FloatToggleOnValue,
+            FloatToggleOffValue = rule.FloatToggleOffValue,
+            FloatGlitchyIntervalMs = rule.FloatGlitchyIntervalMs,
+            FloatPulseSeconds = rule.FloatPulseSeconds,
+            FloatClampMode = rule.FloatClampMode,
+            HideRewardWhenFloatMaxReached = rule.HideRewardWhenFloatMaxReached,
+            HideRewardWhenFloatMinReached = rule.HideRewardWhenFloatMinReached,
             AvatarChangeTargetId = rule.AvatarChangeTargetId,
             AvatarTargetName = rule.AvatarTargetName,
             ResetValue = rule.ResetValue,
@@ -1037,6 +1078,7 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             SharedRewardChoiceNumber = rule.SharedRewardChoiceNumber,
             SharedRewardHelpText = rule.SharedRewardHelpText,
             SupporterKeywordText = rule.SupporterKeywordText,
+            BitsKeywordEnabled = rule.BitsKeywordEnabled,
             ActiveFloatBoostRewardOwnerId = rule.ActiveFloatBoostRewardOwnerId,
             ActiveFloatBoostRewardEnabled = rule.ActiveFloatBoostRewardEnabled,
             ActiveFloatBoostRewardId = rule.ActiveFloatBoostRewardId,
@@ -1110,8 +1152,126 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             ParameterValue = action.ParameterValue
         };
 
-    private static TriggerRule ToRule(PersistedTriggerRule rule)
+    internal static PersistedAvatarSwapProfile ToPersistedAvatarSwapProfile(AvatarSwapProfile profile)
     {
+        return new PersistedAvatarSwapProfile
+        {
+            Id = profile.Id,
+            IsEnabled = profile.IsEnabled,
+            BitsMaxSwapTimeEnabled = profile.BitsMaxSwapTimeEnabled,
+            SubsMaxSwapTimeEnabled = profile.SubsMaxSwapTimeEnabled,
+            MaxSwapTimeSeconds = profile.MaxSwapTimeSeconds,
+            TargetAvatarId = profile.TargetAvatarId,
+            TargetAvatarName = profile.TargetAvatarName,
+            TargetThumbnailUrl = profile.TargetThumbnailUrl,
+            CreatedAt = profile.CreatedAt,
+            UpdatedAt = profile.UpdatedAt,
+            ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
+            BitsRules = [.. profile.BitsRules.Select(ToPersistedRule)],
+            SubsRules = [.. profile.SubsRules.Select(ToPersistedRule)],
+            PaymentRules = [.. profile.PaymentRules.Select(ToPersistedCashPaymentRule)]
+        };
+    }
+
+    internal static AvatarSwapProfile ToAvatarSwapProfile(PersistedAvatarSwapProfile profile)
+    {
+        var legacyCap = false;
+#pragma warning disable CS0618
+        legacyCap = profile.LegacyMaxSwapTimeEnabled ?? false;
+#pragma warning restore CS0618
+        var result = new AvatarSwapProfile
+        {
+            Id = profile.Id,
+            IsEnabled = profile.IsEnabled,
+            BitsMaxSwapTimeEnabled = profile.BitsMaxSwapTimeEnabled || legacyCap,
+            SubsMaxSwapTimeEnabled = profile.SubsMaxSwapTimeEnabled || legacyCap,
+            MaxSwapTimeSeconds = profile.MaxSwapTimeSeconds <= 0 ? 1800 : profile.MaxSwapTimeSeconds,
+            TargetAvatarId = profile.TargetAvatarId ?? string.Empty,
+            TargetAvatarName = profile.TargetAvatarName ?? string.Empty,
+            TargetThumbnailUrl = profile.TargetThumbnailUrl,
+            CreatedAt = profile.CreatedAt == default ? DateTime.UtcNow : profile.CreatedAt,
+            UpdatedAt = profile.UpdatedAt == default ? DateTime.UtcNow : profile.UpdatedAt
+        };
+        foreach (var rule in (profile.ChannelPointRules ?? []).Select(ToRule))
+        {
+            result.ChannelPointRules.Add(rule);
+        }
+        foreach (var rule in (profile.BitsRules ?? []).Select(ToRule))
+        {
+            result.BitsRules.Add(rule);
+        }
+        foreach (var rule in (profile.SubsRules ?? []).Select(ToRule))
+        {
+            result.SubsRules.Add(rule);
+        }
+        foreach (var paymentRule in (profile.PaymentRules ?? []).Select(ToCashPaymentRule))
+        {
+            result.PaymentRules.Add(paymentRule);
+        }
+        return result;
+    }
+
+    private static AvatarRouletteProfile ToAvatarRouletteProfile(PersistedAvatarRouletteProfile p)
+    {
+        var profile = new AvatarRouletteProfile
+        {
+            Id = p.Id == Guid.Empty ? Guid.NewGuid() : p.Id,
+            Name = p.Name ?? "Roulette",
+            IsEnabled = p.IsEnabled,
+            CreatedAt = NormalizeTimestamp(p.CreatedAt),
+            UpdatedAt = NormalizeTimestamp(p.UpdatedAt),
+            ReturnAvatarId = p.ReturnAvatarId,
+            ReturnAvatarName = p.ReturnAvatarName,
+        };
+        foreach (var entry in p.Pool ?? new())
+            profile.Pool.Add(new RouletteAvatarEntry
+            {
+                AvatarId = entry.AvatarId,
+                AvatarName = entry.AvatarName,
+                ThumbnailUrl = entry.ThumbnailUrl,
+            });
+        foreach (var t in p.Triggers ?? new())
+            profile.Triggers.Add(ToRule(t));
+        return profile;
+    }
+
+    private static PersistedAvatarRouletteProfile ToPersistedAvatarRouletteProfile(AvatarRouletteProfile p)
+    {
+        return new PersistedAvatarRouletteProfile
+        {
+            Id = p.Id,
+            Name = p.Name,
+            IsEnabled = p.IsEnabled,
+            CreatedAt = p.CreatedAt,
+            UpdatedAt = p.UpdatedAt,
+            ReturnAvatarId = p.ReturnAvatarId,
+            ReturnAvatarName = p.ReturnAvatarName,
+            Pool = p.Pool.Select(e => new PersistedRouletteAvatarEntry
+            {
+                AvatarId = e.AvatarId,
+                AvatarName = e.AvatarName,
+                ThumbnailUrl = e.ThumbnailUrl,
+            }).ToList(),
+            Triggers = p.Triggers.Select(ToPersistedRule).ToList(),
+        };
+    }
+
+    private static DateTime NormalizeTimestamp(DateTime value) =>
+        value == default ? DateTime.UtcNow : value;
+
+    internal static TriggerRule ToRule(PersistedTriggerRule rule)
+    {
+        // Migration: if the saved JSON has the old FloatTransitionSeconds key
+        // and the new In/Out keys are 0, copy the old value into both and clear it.
+        if (rule.FloatTransitionSeconds > 0
+            && rule.FloatTransitionInSeconds <= 0
+            && rule.FloatTransitionOutSeconds <= 0)
+        {
+            rule.FloatTransitionInSeconds = Math.Clamp(rule.FloatTransitionSeconds, 0, 30);
+            rule.FloatTransitionOutSeconds = Math.Clamp(rule.FloatTransitionSeconds, 0, 30);
+            rule.FloatTransitionSeconds = 0;
+        }
+
         var migratedAvatarChangeTargetId = !string.IsNullOrWhiteSpace(rule.AvatarChangeTargetId)
             ? rule.AvatarChangeTargetId
             : rule.ActionType == OscActionType.AvatarChange
@@ -1158,6 +1318,7 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
                 : ChatCommandPermission.Moderators,
             MinimumAmount = rule.MinimumAmount <= 0 ? 1 : rule.MinimumAmount,
             AmountScaledDurationEnabled = rule.AmountScaledDurationEnabled,
+            AddBitsToSwapTime = rule.AddBitsToSwapTime,
             AmountUnitsPerDuration = rule.AmountUnitsPerDuration <= 0 ? 1 : rule.AmountUnitsPerDuration,
             SecondsPerAmountUnit = rule.SecondsPerAmountUnit <= 0 ? 1 : rule.SecondsPerAmountUnit,
             BitsAmountUnitsPerDuration = rule.BitsAmountUnitsPerDuration <= 0
@@ -1179,6 +1340,9 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             SubscriptionTier3SecondsPerSub = rule.SubscriptionTier3SecondsPerSub <= 0
                 ? migratedSubscriptionSecondsPerAmountUnit
                 : rule.SubscriptionTier3SecondsPerSub,
+            SubscriptionTier1Enabled = rule.SubscriptionTier1Enabled,
+            SubscriptionTier2Enabled = rule.SubscriptionTier2Enabled,
+            SubscriptionTier3Enabled = rule.SubscriptionTier3Enabled,
             MaxAccumulatedDurationEnabled = rule.MaxAccumulatedDurationEnabled,
             MaxAccumulatedDurationSeconds = rule.MaxAccumulatedDurationSeconds <= 0
                 ? 1800
@@ -1190,7 +1354,23 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             IntZeroDurationMode = rule.IntZeroDurationMode,
             ParameterValue = migratedParameterValue,
             FloatValueMode = Enum.IsDefined(rule.FloatValueMode) ? rule.FloatValueMode : FloatValueMode.Decimal,
-            FloatTransitionSeconds = Math.Clamp(rule.FloatTransitionSeconds, 0, 30),
+            FloatTransitionInSeconds = Math.Clamp(rule.FloatTransitionInSeconds, 0, 30),
+            FloatTransitionOutSeconds = Math.Clamp(rule.FloatTransitionOutSeconds, 0, 30),
+            FloatActionMode = Enum.IsDefined(rule.FloatActionMode) ? rule.FloatActionMode : FloatActionMode.Set,
+            FloatRangeMin = rule.FloatRangeMin,
+            FloatRangeMax = rule.FloatRangeMax,
+            FloatCycleStep = rule.FloatCycleStep,
+            FloatAddAmount = rule.FloatAddAmount,
+            FloatSubtractAmount = rule.FloatSubtractAmount,
+            FloatAddSubtractAmount = rule.FloatAddSubtractAmount,
+            FloatMultiplyFactor = rule.FloatMultiplyFactor,
+            FloatToggleOnValue = rule.FloatToggleOnValue,
+            FloatToggleOffValue = rule.FloatToggleOffValue,
+            FloatGlitchyIntervalMs = Math.Max(1, rule.FloatGlitchyIntervalMs),
+            FloatPulseSeconds = Math.Max(0.0, rule.FloatPulseSeconds),
+            FloatClampMode = Enum.IsDefined(rule.FloatClampMode) ? rule.FloatClampMode : FloatClampMode.ZeroToOne,
+            HideRewardWhenFloatMaxReached = rule.HideRewardWhenFloatMaxReached,
+            HideRewardWhenFloatMinReached = rule.HideRewardWhenFloatMinReached,
             AvatarChangeTargetId = migratedAvatarChangeTargetId ?? string.Empty,
             AvatarTargetName = rule.AvatarTargetName ?? string.Empty,
             ResetValue = migratedResetValue,
@@ -1568,7 +1748,6 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             FixedFloatAddValue = rule.FixedFloatAddValue,
             FixedFloatAddMinimumValue = rule.FixedFloatAddMinimumValue,
             FixedFloatAddMaximumValue = rule.FixedFloatAddMaximumValue,
-            PermanentAvatarChange = rule.PermanentAvatarChange,
             ActionKind = rule.ActionKind,
             ActionRule = ToPersistedRule(rule.ActionRule),
             ScaleAction = ToPersistedAvatarScaleRule(rule.ScaleAction)
@@ -1595,7 +1774,6 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             FixedFloatAddValue = string.IsNullOrWhiteSpace(rule.FixedFloatAddValue) ? "0.05" : rule.FixedFloatAddValue.Trim(),
             FixedFloatAddMinimumValue = string.IsNullOrWhiteSpace(rule.FixedFloatAddMinimumValue) ? "0" : rule.FixedFloatAddMinimumValue.Trim(),
             FixedFloatAddMaximumValue = string.IsNullOrWhiteSpace(rule.FixedFloatAddMaximumValue) ? "1" : rule.FixedFloatAddMaximumValue.Trim(),
-            PermanentAvatarChange = rule.PermanentAvatarChange,
             ActionKind = Enum.IsDefined(rule.ActionKind) ? rule.ActionKind : PowerUpActionKind.TriggerAction,
             ActionRule = rule.ActionRule is null ? PowerUpRule.CreateDefaultTriggerAction() : ToRule(rule.ActionRule),
             ScaleAction = rule.ScaleAction is null ? PowerUpRule.CreateDefaultScaleAction() : ToAvatarScaleRule(rule.ScaleAction)
@@ -2071,17 +2249,31 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
         }
 
         var authCookie = credentialStore.LoadSecret(VrChatAuthCookieCredential);
-        if (string.IsNullOrWhiteSpace(authCookie) || string.IsNullOrWhiteSpace(account.UserId))
+        return CreateVrChatAccountSettingsForLoad(
+            authCookie,
+            account.UserId,
+            account.DisplayName,
+            account.CurrentAvatarId);
+    }
+
+    internal static VrChatAccountSettings CreateVrChatAccountSettingsForLoad(
+        string? authCookie,
+        string? userId,
+        string? displayName,
+        string? currentAvatarId)
+    {
+        var normalizedUserId = userId?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(normalizedUserId))
         {
             return new VrChatAccountSettings();
         }
 
         return new VrChatAccountSettings
         {
-            AuthCookie = authCookie,
-            UserId = account.UserId ?? string.Empty,
-            DisplayName = account.DisplayName ?? string.Empty,
-            CurrentAvatarId = account.CurrentAvatarId ?? string.Empty
+            AuthCookie = authCookie ?? string.Empty,
+            UserId = normalizedUserId,
+            DisplayName = displayName?.Trim() ?? string.Empty,
+            CurrentAvatarId = currentAvatarId?.Trim() ?? string.Empty
         };
     }
 
@@ -2540,6 +2732,12 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
 
         public bool? AvatarChangeCooldownOnlyModeEnabled { get; set; }
 
+        [JsonPropertyName("avatarSwapManagerUseFullRuleEditor")]
+        public bool? AvatarSwapManagerUseFullRuleEditor { get; set; }
+
+        [JsonPropertyName("avatarSwapMigrationNoticeShown")]
+        public bool? AvatarSwapMigrationNoticeShown { get; set; }
+
         public bool? EmergencyRedeemStopEnabled { get; set; }
 
         public bool? DesktopModeInputLockEnabled { get; set; }
@@ -2606,6 +2804,16 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
         public List<PersistedAvatarScaleRule>? AvatarScaleRules { get; set; }
 
         public List<PersistedTriggerRule>? Rules { get; set; }
+
+        public string? MasterAvatarSwapReturnId { get; set; }
+
+        public string? MasterAvatarSwapReturnName { get; set; }
+
+        public int AvatarChangeToAvatarSwapMigrationVersion { get; set; }
+
+        public List<PersistedAvatarSwapProfile>? AvatarSwapProfiles { get; set; }
+
+        public List<PersistedAvatarRouletteProfile> AvatarRouletteProfiles { get; set; } = new();
     }
 
     private sealed class PersistedRedeemGroup
@@ -2675,7 +2883,7 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
         public string? KoFiPublicWebhookUrl { get; set; }
     }
 
-    private sealed class PersistedCashPaymentRule
+    internal sealed class PersistedCashPaymentRule
     {
         public Guid Id { get; set; }
 
@@ -2735,8 +2943,6 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
         public string? FixedFloatAddMinimumValue { get; set; }
 
         public string? FixedFloatAddMaximumValue { get; set; }
-
-        public bool PermanentAvatarChange { get; set; }
 
         public PowerUpActionKind ActionKind { get; set; }
 
@@ -2949,6 +3155,68 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
         public string? WardrobeMasterRewardCooldownColor { get; set; }
     }
 
+    internal sealed class PersistedAvatarSwapProfile
+    {
+        public Guid Id { get; set; }
+
+        public bool IsEnabled { get; set; }
+
+        public bool BitsMaxSwapTimeEnabled { get; set; }
+
+        public bool SubsMaxSwapTimeEnabled { get; set; }
+
+        public int MaxSwapTimeSeconds { get; set; } = 1800;
+
+        [JsonPropertyName("MaxSwapTimeEnabled")]
+        [Obsolete("Migrated to BitsMaxSwapTimeEnabled and SubsMaxSwapTimeEnabled. Kept for one release to preserve saved cap settings.")]
+        public bool? LegacyMaxSwapTimeEnabled { get; set; }
+
+        public string TargetAvatarId { get; set; } = string.Empty;
+
+        public string TargetAvatarName { get; set; } = string.Empty;
+
+        public string? TargetThumbnailUrl { get; set; }
+
+        public DateTime CreatedAt { get; set; }
+
+        public DateTime UpdatedAt { get; set; }
+
+        public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
+
+        public List<PersistedTriggerRule>? BitsRules { get; set; }
+
+        public List<PersistedTriggerRule>? SubsRules { get; set; }
+
+        public List<PersistedCashPaymentRule>? PaymentRules { get; set; }
+
+        [Obsolete("Migrated to BitsRules and SubsRules in V4. Kept for loading legacy saves.")]
+        public List<PersistedTriggerRule>? BitsSubsRules { get; set; }
+
+        [JsonPropertyName("rouletteRules")]
+        [Obsolete("Migrated to AvatarRouletteProfiles in V4. Kept for loading legacy saves.")]
+        public List<PersistedTriggerRule>? RouletteRules { get; set; }
+    }
+
+    internal sealed class PersistedAvatarRouletteProfile
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public bool IsEnabled { get; set; } = true;
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
+        public List<PersistedRouletteAvatarEntry> Pool { get; set; } = new();
+        public string? ReturnAvatarId { get; set; }
+        public string? ReturnAvatarName { get; set; }
+        public List<PersistedTriggerRule> Triggers { get; set; } = new();
+    }
+
+    internal sealed class PersistedRouletteAvatarEntry
+    {
+        public string AvatarId { get; set; } = string.Empty;
+        public string AvatarName { get; set; } = string.Empty;
+        public string? ThumbnailUrl { get; set; }
+    }
+
     private sealed class PersistedWardrobeOutfit
     {
         public Guid Id { get; set; }
@@ -2991,7 +3259,7 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
         public string? SetValue { get; set; }
     }
 
-    private sealed class PersistedTriggerRule
+    internal sealed class PersistedTriggerRule
     {
         public Guid Id { get; set; }
 
@@ -3029,6 +3297,8 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
 
         public bool AmountScaledDurationEnabled { get; set; }
 
+        public bool AddBitsToSwapTime { get; set; }
+
         public int AmountUnitsPerDuration { get; set; }
 
         public int SecondsPerAmountUnit { get; set; }
@@ -3046,6 +3316,12 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
         public int SubscriptionTier2SecondsPerSub { get; set; }
 
         public int SubscriptionTier3SecondsPerSub { get; set; }
+
+        public bool SubscriptionTier1Enabled { get; set; } = true;
+
+        public bool SubscriptionTier2Enabled { get; set; } = true;
+
+        public bool SubscriptionTier3Enabled { get; set; } = true;
 
         public bool MaxAccumulatedDurationEnabled { get; set; }
 
@@ -3065,7 +3341,45 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
 
         public FloatValueMode FloatValueMode { get; set; }
 
+        public double FloatTransitionInSeconds { get; set; }
+        public double FloatTransitionOutSeconds { get; set; }
+        // Legacy field kept for migration. Read on deserialize so old saves with
+        // this key are picked up by the ToRule migration (which copies the value
+        // into FloatTransitionInSeconds and FloatTransitionOutSeconds and then
+        // clears it). Ignored on write once the value is the default 0.0, so new
+        // save files do not include this key.
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         public double FloatTransitionSeconds { get; set; }
+
+        public FloatActionMode FloatActionMode { get; set; } = FloatActionMode.Set;
+
+        public double FloatRangeMin { get; set; }
+
+        public double FloatRangeMax { get; set; } = 1.0;
+
+        public double FloatCycleStep { get; set; } = 0.1;
+
+        public double FloatAddAmount { get; set; } = 0.1;
+
+        public double FloatSubtractAmount { get; set; } = 0.1;
+
+        public double FloatAddSubtractAmount { get; set; } = 0.1;
+
+        public double FloatMultiplyFactor { get; set; } = 1.5;
+
+        public double FloatToggleOnValue { get; set; } = 1.0;
+
+        public double FloatToggleOffValue { get; set; }
+
+        public int FloatGlitchyIntervalMs { get; set; } = 200;
+
+        public double FloatPulseSeconds { get; set; } = 0.5;
+
+        public FloatClampMode FloatClampMode { get; set; } = FloatClampMode.ZeroToOne;
+
+        public bool HideRewardWhenFloatMaxReached { get; set; }
+
+        public bool HideRewardWhenFloatMinReached { get; set; }
 
         public string? AvatarChangeTargetId { get; set; }
 
@@ -3096,6 +3410,8 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
         public string? SharedRewardHelpText { get; set; }
 
         public string? SupporterKeywordText { get; set; }
+
+        public bool BitsKeywordEnabled { get; set; }
 
         public Guid ActiveFloatBoostRewardOwnerId { get; set; }
 
@@ -3140,7 +3456,7 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
         public string? BotMessageTemplate { get; set; }
     }
 
-    private sealed class PersistedSupporterFloatAddRange
+    internal sealed class PersistedSupporterFloatAddRange
     {
         public int MinimumAmount { get; set; }
 
@@ -3149,7 +3465,7 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
         public string? AddValue { get; set; }
     }
 
-    private sealed class PersistedSetTriggerAction
+    internal sealed class PersistedSetTriggerAction
     {
         public Guid Id { get; set; }
 
@@ -3320,7 +3636,7 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
         public int DiscountPercent { get; set; }
     }
 
-    private sealed class PersistedAvatarScaleRule
+    internal sealed class PersistedAvatarScaleRule
     {
         public Guid Id { get; set; }
 
@@ -3451,7 +3767,7 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
         public List<PersistedAvatarScaleBitGrowthRange>? SupporterGrowthBitRanges { get; set; }
     }
 
-    private sealed class PersistedAvatarScaleBitGrowthRange
+    internal sealed class PersistedAvatarScaleBitGrowthRange
     {
         public int MinimumBits { get; set; }
 

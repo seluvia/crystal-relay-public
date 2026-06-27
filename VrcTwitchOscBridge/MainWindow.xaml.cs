@@ -142,6 +142,25 @@ public partial class MainWindow : Window
         StopLoadingAnimations();
         RestoreRestartSessionWindows();
         QueueApplicationUpdateCheck();
+        ShowAvatarSwapMigrationNoticeIfNeeded();
+        _ = viewModel.CheckForPendingCrashReportAsync();
+    }
+
+    private void ShowAvatarSwapMigrationNoticeIfNeeded()
+    {
+        if (!viewModel.ShowMigrationNotice)
+        {
+            return;
+        }
+
+        MessageBox.Show(
+            this,
+            LocalizationService.Translate(
+                "Avatar Swap has been reworked! Avatar Roulette is now its own card type, and Bits / Subs / Payment each have their own section. The per-avatar 'Return Avatar' is gone — all swaps now return to the global Return Avatar at the top of the window. This notice will not appear again."),
+            LocalizationService.Translate("Avatar Swap Manager"),
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
+        viewModel.DismissMigrationNoticeCommand.Execute(null);
     }
 
     private async void OnClosing(object? sender, CancelEventArgs e)
@@ -392,10 +411,6 @@ public partial class MainWindow : Window
                 : fireSale.FundingRewardReadyColor,
             _ => string.Empty
         };
-        if (string.IsNullOrWhiteSpace(initialColor))
-        {
-            return;
-        }
 
         using var dialog = new WinForms.ColorDialog
         {
@@ -569,6 +584,8 @@ public partial class MainWindow : Window
             AppTheme.Baked => "ThemeBackgrounds/BakedThemeBackground.xaml",
             AppTheme.NeonBorb => "ThemeBackgrounds/NeonBorbThemeBackground.xaml",
             AppTheme.StinkyOnline => "ThemeBackgrounds/StinkyOnlineThemeBackground.xaml",
+            AppTheme.SquishyFoxPlush => "ThemeBackgrounds/SquishyFoxPlushThemeBackground.xaml",
+            AppTheme.Puca => "ThemeBackgrounds/PucaThemeBackground.xaml",
             _ => "ThemeBackgrounds/VoidCrystalThemeBackground.xaml"
         };
 

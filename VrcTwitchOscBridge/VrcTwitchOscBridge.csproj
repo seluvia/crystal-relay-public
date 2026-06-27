@@ -35,6 +35,7 @@
     <Page Include="ActiveFloatBoostRewardWindow.xaml" />
     <Page Include="BuiltInCommandsWindow.xaml" />
     <Page Include="BugReportWindow.xaml" />
+    <Page Include="BugReportPreviewWindow.xaml" />
     <Page Include="DebugLogWindow.xaml" />
     <Page Include="SupporterOverrideTimeSettingsWindow.xaml" />
     <Page Include="ThemeBackgrounds\*.xaml" />
@@ -47,9 +48,19 @@
     <Page Include="AvatarLibraryManagerWindow.xaml" />
     <Page Include="AvatarSetsManagerWindow.xaml" />
     <Page Include="UniversalTriggersManagerWindow.xaml" />
+    <Page Include="AvatarSwapManagerWindow.xaml" />
     <Page Include="VrChatLoginWindow.xaml" />
     <Page Include="VrChatTwoFactorWindow.xaml" />
     <Page Include="RedeemGroupEditorDialog.xaml" />
+    <Page Include="UserControls\AvatarSwapRuleEditorControl.xaml" />
+    <Page Include="UserControls\InlineBitsRuleRowControl.xaml" />
+    <Page Include="UserControls\InlineCashPaymentRuleEditorControl.xaml" />
+    <Page Include="UserControls\InlineChannelPointRuleRowControl.xaml" />
+    <Page Include="UserControls\InlinePaymentRuleRowControl.xaml" />
+    <Page Include="UserControls\InlineRouletteRuleRowControl.xaml" />
+    <Page Include="UserControls\InlineRuleEditorControl.xaml" />
+    <Page Include="UserControls\InlineSubsRuleRowControl.xaml" />
+    <Page Include="UserControls\RouletteRewardSettingsControl.xaml" />
 
     <Resource Include="Assets\crystal-relay-icon.ico" />
     <Resource Include="Assets\crystal-relay-icon.png" />
@@ -74,6 +85,9 @@
     <Compile Include="AssemblyInfo.cs" />
     <Compile Include="BuiltInCommandsWindow.xaml.cs" />
     <Compile Include="BugReportWindow.xaml.cs" />
+    <Compile Include="BugReportPreviewWindow.xaml.cs">
+      <DependentUpon>BugReportPreviewWindow.xaml</DependentUpon>
+    </Compile>
     <Compile Include="DebugLogWindow.xaml.cs" />
     <Compile Include="ComboBoxInteraction.cs" />
     <Compile Include="MainWindow.xaml.cs" />
@@ -90,15 +104,50 @@
     <Compile Include="UniversalTriggersManagerWindow.xaml.cs">
       <DependentUpon>UniversalTriggersManagerWindow.xaml</DependentUpon>
     </Compile>
+    <Compile Include="AvatarSwapManagerWindow.xaml.cs">
+      <DependentUpon>AvatarSwapManagerWindow.xaml</DependentUpon>
+    </Compile>
     <Compile Include="ViewModels\UniversalTriggersManagerViewModel.cs" />
     <Compile Include="ViewModels\UniversalTriggerCardViewModel.cs" />
     <Compile Include="ViewModels\AvatarSetsManagerViewModel.cs" />
     <Compile Include="ViewModels\AvatarSetCardViewModel.cs" />
     <Compile Include="Converters.cs" />
     <Compile Include="Converters\UniversalTriggerValueConverters.cs" />
+    <Compile Include="Converters\AvatarSwapConverters.cs" />
     <Compile Include="VrChatLoginWindow.xaml.cs" />
     <Compile Include="VrChatTwoFactorWindow.xaml.cs" />
     <Compile Include="RedeemGroupEditorDialog.xaml.cs" />
+    <Compile Include="UserControls\AvatarSwapRuleEditorControl.xaml.cs">
+      <DependentUpon>AvatarSwapRuleEditorControl.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="UserControls\EnumToBoolConverter.cs" />
+    <Compile Include="UserControls\InlineBitsRuleRowControl.xaml.cs">
+      <DependentUpon>InlineBitsRuleRowControl.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="UserControls\InlineCashPaymentRuleEditorControl.xaml.cs">
+      <DependentUpon>InlineCashPaymentRuleEditorControl.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="UserControls\InlineChannelPointRuleRowControl.xaml.cs">
+      <DependentUpon>InlineChannelPointRuleRowControl.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="UserControls\InlinePaymentRuleRowControl.xaml.cs">
+      <DependentUpon>InlinePaymentRuleRowControl.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="UserControls\InlineRouletteRuleRowControl.xaml.cs">
+      <DependentUpon>InlineRouletteRuleRowControl.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="UserControls\InlineRuleEditorControl.xaml.cs">
+      <DependentUpon>InlineRuleEditorControl.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="UserControls\InlineSubsRuleRowControl.xaml.cs">
+      <DependentUpon>InlineSubsRuleRowControl.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="UserControls\RouletteRewardSettingsControl.xaml.cs">
+      <DependentUpon>RouletteRewardSettingsControl.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="UserControls\RouletteRewardSettingsControl.xaml.cs">
+      <DependentUpon>RouletteRewardSettingsControl.xaml</DependentUpon>
+    </Compile>
 
     <Compile Include="Infrastructure\AsyncRelayCommand.cs" />
     <Compile Include="Infrastructure\ObservableObject.cs" />
@@ -109,12 +158,17 @@
     <Compile Include="Models\AppLanguage.cs" />
     <Compile Include="Models\AppSettings.cs" />
     <Compile Include="Models\AvatarTriggerProfile.cs" />
+    <Compile Include="Models\TriggerRuleSource.cs" />
+    <Compile Include="Models\AvatarSwapProfile.cs" />
+    <Compile Include="Models\AvatarRouletteProfile.cs" />
     <Compile Include="Models\AvatarSetsFilterMode.cs" />
     <Compile Include="Models\AvatarSetsSortMode.cs" />
     <Compile Include="Models\AvatarScaleRule.cs" />
     <Compile Include="Models\CashPaymentRule.cs" />
     <Compile Include="Models\ChatCommandPermission.cs" />
     <Compile Include="Models\ChatCommandUtility.cs" />
+    <Compile Include="Models\FloatActionMode.cs" />
+    <Compile Include="Models\FloatClampMode.cs" />
     <Compile Include="Models\FloatValueMode.cs" />
     <Compile Include="Models\IntZeroDurationMode.cs" />
     <Compile Include="Models\MovementRedeemSet.cs" />
@@ -137,6 +191,7 @@
     <Compile Include="Models\UniversalTriggerValueKind.cs" />
     <Compile Include="Models\VrChatAccountSettings.cs" />
     <Compile Include="Models\VrChatAvatarSummary.cs" />
+    <Compile Include="Models\VrChatConnectionState.cs" />
     <Compile Include="Models\AvatarLibrary.cs" />
     <Compile Include="Models\AvatarPickerViewMode.cs" />
     <Compile Include="Models\VrChatOscParameterSummary.cs" />
@@ -150,10 +205,14 @@
     <Compile Include="Services\ApplicationRestartService.cs" />
     <Compile Include="Services\ApplicationSelfUpdateService.cs" />
     <Compile Include="Services\ApplicationUpdateService.cs" />
+    <Compile Include="Services\AvatarSwapMigrationService.cs" />
+    <Compile Include="Services\CashPaymentRuleJsonConverter.cs" />
     <Compile Include="Services\BridgeAccountRole.cs" />
     <Compile Include="Services\BridgeCoordinator.cs" />
     <Compile Include="Services\BridgeRuntimeConfiguration.cs" />
     <Compile Include="Services\BugReportService.cs" />
+    <Compile Include="Services\BugReportSnapshotService.cs" />
+    <Compile Include="Services\BugReportPreviewBuilder.cs" />
     <Compile Include="Services\CashPaymentProviderService.cs" />
     <Compile Include="Services\ChatboxRelayModerationFilter.cs" />
     <Compile Include="Services\CrashLogService.cs" />
@@ -162,10 +221,13 @@
     <Compile Include="Services\DesktopInputLockService.cs" />
     <Compile Include="Services\EmbeddedMediaCacheService.cs" />
     <Compile Include="Services\FoomaInteractionConfigImporter.cs" />
+    <Compile Include="Services\FloatActionDispatch.cs" />
+    <Compile Include="Services\FloatLimitDetection.cs" />
     <Compile Include="Services\FloatValueModeConverter.cs" />
     <Compile Include="Services\LocalizationService.cs" />
     <Compile Include="Services\LiveFeedbackHeartbeatService.cs" />
     <Compile Include="Services\ManagedRewardPresentation.cs" />
+    <Compile Include="Services\OscAvatarChangeMerger.cs" />
     <Compile Include="Services\OscRouterService.cs" />
     <Compile Include="Services\RuntimeConfig.cs" />
     <Compile Include="Services\RuntimeConfigStore.cs" />
@@ -173,6 +235,8 @@
     <Compile Include="Services\ShutdownRecoveryStateStore.cs" />
     <Compile Include="Services\SettingsStore.cs" />
     <Compile Include="Services\SensitiveTextSanitizer.cs" />
+    <Compile Include="Services\Support\SupportOverrideCapMath.cs" />
+    <Compile Include="Services\Support\SupportOverrideDurationMath.cs" />
     <Compile Include="Services\TwitchApiClient.cs" />
     <Compile Include="Services\TwitchApiException.cs" />
     <Compile Include="Services\ThemeManager.cs" />
@@ -196,6 +260,18 @@
     <Compile Include="ViewModels\MainWindowViewModel.cs" />
     <Compile Include="ViewModels\AvatarPickerViewModel.cs" />
     <Compile Include="ViewModels\AvatarLibraryManagerViewModel.cs" />
+    <Compile Include="UserControls\InlineBitsRuleRowViewModel.cs" />
+    <Compile Include="UserControls\InlineChannelPointRuleRowViewModel.cs" />
+    <Compile Include="UserControls\InlinePaymentRuleRowViewModel.cs" />
+    <Compile Include="UserControls\InlineRouletteRuleRowViewModel.cs" />
+    <Compile Include="UserControls\InlineSubsRuleRowViewModel.cs" />
+    <Compile Include="UserControls\IRuleRowViewModel.cs" />
+    <Compile Include="UserControls\RuleListPaneViewModel.cs" />
+    <Compile Include="ViewModels\AvatarRouletteCardViewModel.cs" />
+    <Compile Include="ViewModels\AvatarSwapCardViewModel.cs" />
+    <Compile Include="ViewModels\AvatarSwapRuleEditorViewModel.cs" />
+    <Compile Include="ViewModels\AvatarSwapManagerViewModel.cs" />
+    <Compile Include="ViewModels\ITwitchRewardSource.cs" />
 
   </ItemGroup>
   <ItemGroup>

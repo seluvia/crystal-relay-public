@@ -3,6 +3,33 @@ Crystal Relay Changelog
 
 Newest updates appear first. This changelog focuses on the changes users will notice most.
 
+v3.1.9 beta 4
+- Reworked the Avatar Swap window: the right-side editor is now split into four clean sections (Channel Points, Bits, Subs, Payment) with per-section add buttons.
+- Made Avatar Roulette its own first-class card type with a gold-bordered style and a pool thumbnail strip.
+- The per-avatar "Return Avatar" mode is gone. All swaps and roulettes return to the single global Return Avatar at the top of the window.
+- Rule rows can be expanded inline in the section to edit cost, duration, cooldown, and other common fields.
+- Chat Command, Follow, and Power-up are now first-class trigger sources in the Avatar Swap editor.
+- Avatar Swap cards are smaller and use a 3-column grid.
+- Legacy "Avatar Change Setup" tab and related controls are removed from the main window.
+- A one-time migration notice is shown on first run after upgrading from v3.1.9.
+- Overhauled the Avatar Swap manager window to use the shared theme palette, so it now matches the rest of the app across every built-in theme (Void Crystal, Custom, Dream Scape, etc.).
+- Added a status stripe, empty-state hint, rule-count pill, and hover state to each Avatar Swap card so enabled/disabled state, rule totals, and missing avatars are visible at a glance.
+- Fixed the right editor's "Power-up" advanced trigger button so it wraps cleanly when the column is narrow instead of clipping at the edge.
+- Bumped the inline rule row and the swap card subtitle font sizes from 9pt to 10pt for better readability.
+- Added a new Avatar Swap manager window in the Redeem Library with per-target-avatar cards showing the avatar image and name.
+- Added a Return Avatar header banner with a global picker at the top of the manager.
+- Added Channel Point Swaps and Bits + Subs Swaps sections inside the manager so each target avatar groups its own redeems.
+- Renamed "Avatar Change" to "Avatar Swap" in the Redeem Library user-facing strings.
+- Improved avatar selection in the new manager by showing the picked avatar's image and name together on each card.
+- Kept the existing Avatar Change action type and TriggerRule fields internal so existing saves, Fooma imports, Power-ups, Universal Triggers, and Avatar Roulette continue to work without any rewrites.
+- Changed: the "Add amount to active time" toggle on Bits and Subs overrides now always adds Active Time + the scaled amount to the current timer on every matching trigger, instead of only adding the base time on the first trigger. Cap max accumulated duration still limits the total running time.
+- Renamed: "Scale active time by amount" -> "Add amount to active time" in the Bits and Subs override time-settings popup.
+- Added: an "Add bits time to swap" option on Bits and Subs triggers inside the Avatar Swap manager. When enabled, every matching trigger extends the current avatar swap by Active Time + the scaled amount. When disabled, only the fixed Active Time runs. The option is independent of the existing "Add amount to active time" toggle and works with or without a required chat keyword.
+- Renamed: the per-avatar Subs trigger toggle from "Add bits time to swap" to "Add sub time to swap".
+- Added: a shared max-time cap on the per-avatar Avatar Swap manager. The cap is stored on the avatar profile and is shown in both the Bits and Subs rule editors. Editing one updates the other. The T1/T2/T3 inputs in the Subs editor are now hidden when the new toggle is off.
+- Added a new Float Action Mode section to float channel point rewards with 10 modes: Set, Random, Add, Subtract, Add/Subtract, Multiply, Toggle, Cycle, Glitchy, and Pulse. Pick a random value in a range, add or subtract from the current value, multiply by a factor, toggle between two values, cycle through a range, glitch with rapid random re-rolls, or send a one-shot pulse. The new section appears in the rule editor when the parameter type is Float.
+- Split the Float Smooth Transition into separate Transition In and Transition Out values. The transition now applies to every Float avatar parameter redeem (timed, instant, and all action modes), so values smoothly glide to and from the target instead of snapping.
+
 v3.1.9 beta 3
 - Rebuilt the Universal Triggers manager as its own themed window with a search bar, type/status/source filters, and per-section collapse controls.
 - Added a slide-out editor panel for editing triggers without leaving the manager, including trigger type, Twitch reward, avatar readiness check, and OSC action list.
@@ -42,30 +69,6 @@ v3.1.9 beta 1
 - Added a Twitch Chatbox XSOverlay compatibility mode and remembered chatbox placement so overlay capture can keep a stable target between launches and restarts.
 - Fixed Wardrobe setup so Test Outfit sends configured OSC parameters, parameter removal enables correctly, and individual outfit rewards can be created from the outfit name.
 - Improved avatar-scaling height carryover around queued avatar swaps and interrupted height changes.
-
-v3.1.8
-- Added a Power Up Redeem Library for Twitch Custom Power-ups paid with Bits. Power Ups can link existing Twitch Custom Power-ups, stay separate from normal cheers, and run OSC actions, Set Trigger, Avatar Change, Avatar Roulette, movement, or Avatar Scaling actions.
-- Added Power Up settings for avatar scope, timed or permanent avatar changes, local cooldowns, fixed float-add behavior, and listen-only linked Power-up details.
-- Power Up redemptions now add their Bits amount to Reward Fire Sale progress when Bits counting is enabled, while linked Power Ups remain listen-only and are never edited or repriced.
-- Improved Power Up avatar and parameter pickers so Avatar Change targets and Avatar Parameter options can use saved VRChat avatars, the current avatar, saved avatar profiles, Power Up targets, and local OSC avatar data.
-- Added an Activity + Mod drawer to the Twitch Chatbox with recent Twitch activity, quick timeouts, ban, purge, message delete, and suspicious-user controls when the broadcaster account has the needed Twitch scopes.
-- Added suspicious/restricted chatter badges in the Twitch Chatbox and activity entries for follows, support events, rewards, chat clears, deleted messages, and moderation results.
-- Added Bits/Subs Add for float avatar-parameter supporter rules, letting Bits or Subs add to the current float value by amount ranges while clamping to a configured maximum.
-- Improved Avatar Supporter Trigger setup so a new supporter rule can be drafted before the VRChat avatar list is available.
-- Rebuilt the Protected World Guard system to be always-on and managed through a secure web admin panel with date pickers, search, and name labels for guarded worlds and creators. The old checkbox and file-format UI have been removed.
-- Fixed repeated unfollow/refollow cycles from re-triggering Follow-type Avatar Scale rules by tracking which users have already triggered each follow scale rule.
-
-v3.1.8
-- Added a Power Up Redeem Library for Twitch Custom Power-ups paid with Bits. Power Ups can link existing Twitch Custom Power-ups, stay separate from normal cheers, and run OSC actions, Set Trigger, Avatar Change, Avatar Roulette, movement, or Avatar Scaling actions.
-- Added Power Up settings for avatar scope, timed or permanent avatar changes, local cooldowns, fixed float-add behavior, and listen-only linked Power-up details.
-- Power Up redemptions now add their Bits amount to Reward Fire Sale progress when Bits counting is enabled, while linked Power Ups remain listen-only and are never edited or repriced.
-- Improved Power Up avatar and parameter pickers so Avatar Change targets and Avatar Parameter options can use saved VRChat avatars, the current avatar, saved avatar profiles, Power Up targets, and local OSC avatar data.
-- Added an Activity + Mod drawer to the Twitch Chatbox with recent Twitch activity, quick timeouts, ban, purge, message delete, and suspicious-user controls when the broadcaster account has the needed Twitch scopes.
-- Added suspicious/restricted chatter badges in the Twitch Chatbox and activity entries for follows, support events, rewards, chat clears, deleted messages, and moderation results.
-- Added Bits/Subs Add for float avatar-parameter supporter rules, letting Bits or Subs add to the current float value by amount ranges while clamping to a configured maximum.
-- Improved Avatar Supporter Trigger setup so a new supporter rule can be drafted before the VRChat avatar list is available.
-- Rebuilt the Protected World Guard system to be always-on and managed through a secure web admin panel with date pickers, search, and name labels for guarded worlds and creators. The old checkbox and file-format UI have been removed.
-- Fixed repeated unfollow/refollow cycles from re-triggering Follow-type Avatar Scale rules by tracking which users have already triggered each follow scale rule.
 
 v3.1.8
 - Added a Power Up Redeem Library for Twitch Custom Power-ups paid with Bits. Power Ups can link existing Twitch Custom Power-ups, stay separate from normal cheers, and run OSC actions, Set Trigger, Avatar Change, Avatar Roulette, movement, or Avatar Scaling actions.

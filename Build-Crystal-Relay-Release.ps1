@@ -300,7 +300,13 @@ catch {
 Copy-Item -Path $readmePath -Destination (Join-Path $publishDir 'README.md') -Force
 Copy-Item -Path $changelogPath -Destination (Join-Path $publishDir 'CHANGELOG.txt') -Force
 if (Test-Path $docsPath) {
-    Copy-Item -Path $docsPath -Destination (Join-Path $publishDir 'docs') -Recurse -Force
+    $packagedDocsPath = Join-Path $publishDir 'docs'
+    Copy-Item -Path $docsPath -Destination $packagedDocsPath -Recurse -Force
+    $internalDocsPath = Join-Path $packagedDocsPath 'superpowers'
+    if (Test-Path $internalDocsPath) {
+        Assert-SafeBuildPath -Path $internalDocsPath -RequiredParent $packagedDocsPath -Pattern 'superpowers'
+        Remove-Item -Path $internalDocsPath -Recurse -Force
+    }
 }
 
 $entryExecutableName = Split-Path -Path $versionedExe -Leaf

@@ -1,0 +1,54 @@
+<UserControl x:Class="VrcTwitchOscBridge.UserControls.RouletteRewardSettingsControl"
+         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+         xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+         xmlns:loc="clr-namespace:VrcTwitchOscBridge.Services"
+         mc:Ignorable="d" 
+         d:DesignHeight="300" d:DesignWidth="400">
+    <UserControl.Resources>
+        <Style x:Key="SettingLabelStyle" TargetType="Label">
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+        </Style>
+        
+        <Style x:Key="SettingControlStyle" TargetType="Control">
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
+        </Style>
+    </UserControl.Resources>
+    
+    <Border Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource InputBorderBrush}" 
+             BorderThickness="1" Padding="12" CornerRadius="4">
+        <StackPanel>
+            <!-- Reward Name -->
+            <DockPanel Margin="0,0,0,8">
+                <Label Content="{loc:Translate 'Reward Name'}" Style="{StaticResource SettingLabelStyle}" Width="100"/>
+                <TextBox Text="{Binding RewardName, UpdateSourceTrigger=PropertyChanged}" 
+                        Style="{StaticResource SettingControlStyle}" />
+            </DockPanel>
+            
+            <!-- Active Time -->
+            <DockPanel Margin="0,0,0,8">
+                <Label Content="{loc:Translate 'Active Time (seconds)'}" Style="{StaticResource SettingLabelStyle}" Width="120"/>
+                <TextBox Text="{Binding ActiveTimeSeconds, UpdateSourceTrigger=PropertyChanged}" 
+                       Style="{StaticResource SettingControlStyle}" />
+            </DockPanel>
+            
+            <!-- Cooldown -->
+            <DockPanel Margin="0,0,0,8">
+                <Label Content="{loc:Translate 'Cooldown (seconds)'}" Style="{StaticResource SettingLabelStyle}" Width="120"/>
+                <TextBox Text="{Binding CooldownSeconds, UpdateSourceTrigger=PropertyChanged}" 
+                          Style="{StaticResource SettingControlStyle}" />
+            </DockPanel>
+            
+            <!-- Add validation error display -->
+            <TextBlock Text="{Binding ValidationErrors}" Foreground="{DynamicResource ErrorBrush}" 
+                         Visibility="{Binding HasValidationErrors, Converter={StaticResource BooleanToVisibilityConverter}}"
+                         TextWrapping="Wrap" Margin="0,4,0,0"/>
+        </StackPanel>
+    </Border>
+</UserControl>

@@ -1,5 +1,8 @@
 using System.IO;
+using System.Linq;
 using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using VrcTwitchOscBridge.Models;
 
 namespace VrcTwitchOscBridge.Services;
@@ -17,6 +20,7 @@ internal sealed class VrChatLocalOscCacheService
 
     private readonly Dictionary<string, CachedAvatarFileEntry> cachedAvatarFilesByPath = new(StringComparer.OrdinalIgnoreCase);
     private string cachedAvatarFolderPath = string.Empty;
+    private readonly SemaphoreSlim cacheMutationLock = new(1, 1);
 
     // Loads the local list of avatar JSON files written by VRChat's OSC system.
     public async Task<IReadOnlyList<LocalVrChatOscAvatarSummary>> LoadKnownAvatarsAsync(
@@ -24,46 +28,70 @@ internal sealed class VrChatLocalOscCacheService
         CancellationToken cancellationToken = default)
     {
         var folderPath = GetAvatarOscFolderPath(vrChatUserId);
+        return await LoadKnownAvatarsFromFolderPathAsync(folderPath, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<LocalVrChatOscAvatarSummary>> LoadKnownAvatarsInRootAsync(
+        string rootPath,
+        string vrChatUserId,
+        CancellationToken cancellationToken = default)
+    {
+        var folderPath = GetAvatarOscFolderPathInRoot(rootPath, vrChatUserId);
+        return await LoadKnownAvatarsFromFolderPathAsync(folderPath, cancellationToken);
+    }
+
+    private async Task<IReadOnlyList<LocalVrChatOscAvatarSummary>> LoadKnownAvatarsFromFolderPathAsync(
+        string folderPath,
+        CancellationToken cancellationToken)
+    {
         if (string.IsNullOrWhiteSpace(folderPath) || !Directory.Exists(folderPath))
         {
             return [];
         }
 
-        var normalizedFolderPath = Path.GetFullPath(folderPath);
-        if (!string.Equals(cachedAvatarFolderPath, normalizedFolderPath, StringComparison.OrdinalIgnoreCase))
+        await cacheMutationLock.WaitAsync(cancellationToken);
+        try
         {
-            cachedAvatarFolderPath = normalizedFolderPath;
-            cachedAvatarFilesByPath.Clear();
-        }
-
-        var avatarFiles = Directory.GetFiles(folderPath, "*.json", SearchOption.TopDirectoryOnly);
-        var knownAvatarFilePaths = new HashSet<string>(avatarFiles, StringComparer.OrdinalIgnoreCase);
-        RemoveMissingAvatarFileEntries(knownAvatarFilePaths);
-
-        foreach (var avatarFilePath in avatarFiles)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var lastWriteTimeUtc = File.GetLastWriteTimeUtc(avatarFilePath);
-            if (cachedAvatarFilesByPath.TryGetValue(avatarFilePath, out var cachedEntry)
-                && cachedEntry.LastWriteTimeUtc == lastWriteTimeUtc)
+            var normalizedFolderPath = Path.GetFullPath(folderPath);
+            if (!string.Equals(cachedAvatarFolderPath, normalizedFolderPath, StringComparison.OrdinalIgnoreCase))
             {
-                continue;
+                cachedAvatarFolderPath = normalizedFolderPath;
+                cachedAvatarFilesByPath.Clear();
             }
 
-            cachedAvatarFilesByPath[avatarFilePath] = await LoadAvatarFileEntryAsync(
-                avatarFilePath,
-                lastWriteTimeUtc,
-                cancellationToken);
-        }
+            var avatarFiles = Directory.GetFiles(folderPath, "*.json", SearchOption.TopDirectoryOnly);
+            var knownAvatarFilePaths = new HashSet<string>(avatarFiles, StringComparer.OrdinalIgnoreCase);
+            RemoveMissingAvatarFileEntries(knownAvatarFilePaths);
 
-        return cachedAvatarFilesByPath.Values
-            .Where(entry => entry.Avatar is not null)
-            .Select(entry => entry.Avatar!)
-            .GroupBy(avatar => avatar.AvatarId, StringComparer.Ordinal)
-            .Select(group => group.OrderByDescending(avatar => avatar.LastWriteTimeUtc).First())
-            .OrderByDescending(avatar => avatar.LastWriteTimeUtc)
-            .ToList();
+            foreach (var avatarFilePath in avatarFiles)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var lastWriteTimeUtc = File.GetLastWriteTimeUtc(avatarFilePath);
+                if (cachedAvatarFilesByPath.TryGetValue(avatarFilePath, out var cachedEntry)
+                    && cachedEntry.LastWriteTimeUtc == lastWriteTimeUtc)
+                {
+                    continue;
+                }
+
+                cachedAvatarFilesByPath[avatarFilePath] = await LoadAvatarFileEntryAsync(
+                    avatarFilePath,
+                    lastWriteTimeUtc,
+                    cancellationToken);
+            }
+
+            return cachedAvatarFilesByPath.Values
+                .Where(entry => entry.Avatar is not null)
+                .Select(entry => entry.Avatar!)
+                .GroupBy(avatar => avatar.AvatarId, StringComparer.Ordinal)
+                .Select(group => group.OrderByDescending(avatar => avatar.LastWriteTimeUtc).First())
+                .OrderByDescending(avatar => avatar.LastWriteTimeUtc)
+                .ToList();
+        }
+        finally
+        {
+            cacheMutationLock.Release();
+        }
     }
 
     public async Task<LocalVrChatOscAvatarSummary?> LoadLatestKnownAvatarAsync(
@@ -71,6 +99,15 @@ internal sealed class VrChatLocalOscCacheService
         CancellationToken cancellationToken = default)
     {
         var avatars = await LoadKnownAvatarsAsync(vrChatUserId, cancellationToken);
+        return avatars.FirstOrDefault();
+    }
+
+    public async Task<LocalVrChatOscAvatarSummary?> LoadLatestKnownAvatarInRootAsync(
+        string rootPath,
+        string vrChatUserId,
+        CancellationToken cancellationToken = default)
+    {
+        var avatars = await LoadKnownAvatarsInRootAsync(rootPath, vrChatUserId, cancellationToken);
         return avatars.FirstOrDefault();
     }
 
@@ -165,8 +202,21 @@ internal sealed class VrChatLocalOscCacheService
             return string.Empty;
         }
 
+        return GetAvatarOscFolderPathInRoot(rootPath, normalizedUserId);
+    }
+
+    public static string GetAvatarOscFolderPathInRoot(string rootPath, string vrChatUserId)
+    {
+        var normalizedRootPath = rootPath?.Trim() ?? string.Empty;
+        var normalizedUserId = vrChatUserId?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(normalizedRootPath)
+            || string.IsNullOrWhiteSpace(normalizedUserId))
+        {
+            return string.Empty;
+        }
+
         return Path.Combine(
-            rootPath,
+            normalizedRootPath,
             "OSC",
             normalizedUserId,
             "Avatars");
@@ -234,6 +284,90 @@ internal sealed class VrChatLocalOscCacheService
         }
 
         return null;
+    }
+
+    // Resolves the most likely VRChat user id by looking at the OSC user folders
+    // under a given LocalLow-style root. Returns the single folder name when
+    // there is one, the most-recently-modified folder when there are several,
+    // or null when there are none (or the root is unreadable). The test-friendly
+    // overload accepts an explicit root path; the public no-arg overload uses
+    // %USERPROFILE%\AppData\LocalLow\VRChat\VRChat.
+    // The returned value is the raw `usr_*` folder name (e.g. `usr_abc123...`)
+    // and is meant to be passed to GetAvatarOscFolderPath and similar helpers.
+    public static string? TryInferUserIdFromLocalLowInRoot(string rootPath)
+    {
+        if (string.IsNullOrWhiteSpace(rootPath) || !Directory.Exists(rootPath))
+        {
+            return null;
+        }
+
+        var oscRoot = Path.Combine(rootPath, "OSC");
+        if (!Directory.Exists(oscRoot))
+        {
+            return null;
+        }
+
+        string[] userDirs;
+        try
+        {
+            userDirs = Directory.GetDirectories(oscRoot, "usr_*");
+        }
+        catch
+        {
+            return null;
+        }
+
+        if (userDirs.Length == 0) return null;
+        if (userDirs.Length == 1) return Path.GetFileName(userDirs[0]);
+
+        // multiple — pick the most recently modified
+        var newest = userDirs
+            .OrderByDescending(d =>
+            {
+                try { return Directory.GetLastWriteTimeUtc(d); }
+                catch { return DateTime.MinValue; }
+            })
+            .First();
+        return Path.GetFileName(newest);
+    }
+
+    public static Task<string?> TryInferUserIdFromLocalLowAsync(CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        var root = VrChatLocalClientStateService.GetVrChatRootPath();
+        return Task.FromResult(TryInferUserIdFromLocalLowInRoot(root));
+    }
+
+    // Resolves the userId Crystal Relay should use for VRChat cache and LocalLow
+    // operations. Prefers the live Settings.VrChat.UserId, then a previously
+    // inferred LocalLow userId, and finally asks the LocalLow scanner. This is
+    // what lets the app keep reading LocalLow data after the user disconnects
+    // VRChat (no AuthCookie / UserId) so cached avatars and parameters still
+    // populate the reward editors.
+    public static string? ResolveCacheUserId(string? settingsUserId, string? lastInferredUserId)
+    {
+        return ResolveCacheUserId(
+            settingsUserId,
+            lastInferredUserId,
+            static () => TryInferUserIdFromLocalLowInRoot(VrChatLocalClientStateService.GetVrChatRootPath()));
+    }
+
+    // Test-friendly overload: callers can supply a custom scanner so unit
+    // tests can drive the resolution without touching the real LocalLow folder.
+    public static string? ResolveCacheUserId(
+        string? settingsUserId,
+        string? lastInferredUserId,
+        Func<string?>? localLowScanner)
+    {
+        if (!string.IsNullOrWhiteSpace(settingsUserId))
+        {
+            return settingsUserId.Trim();
+        }
+        if (!string.IsNullOrWhiteSpace(lastInferredUserId))
+        {
+            return lastInferredUserId.Trim();
+        }
+        return localLowScanner is null ? null : localLowScanner();
     }
 
     // VRChat parameter files can contain separate input/output endpoints.

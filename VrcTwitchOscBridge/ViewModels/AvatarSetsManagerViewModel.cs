@@ -78,6 +78,8 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
 
     public IReadOnlyList<TwitchRewardSyncModeOption> RewardSyncModeOptions => _mainVm.RewardSyncModeOptions;
 
+    public IReadOnlyList<Models.IntZeroDurationMode> IntZeroDurationModes => _mainVm.IntZeroDurationModes;
+
     private string _parameterNameFilter = string.Empty;
     public string ParameterNameFilter
     {

@@ -57,6 +57,7 @@ public sealed class TriggerRule : ObservableObject
     private bool isEnabled = true;
     private string name = "New Twitch trigger";
     private TwitchTriggerType triggerType = TwitchTriggerType.ChannelPoints;
+    private TriggerRuleSource source = TriggerRuleSource.None;
     private string channelPointRewardId = string.Empty;
     private string channelPointRewardTitle = string.Empty;
     private string channelPointRewardDescription = string.Empty;
@@ -70,6 +71,7 @@ public sealed class TriggerRule : ObservableObject
     private ChatCommandPermission chatCommandPermission = ChatCommandPermission.Moderators;
     private int minimumAmount = 1;
     private bool amountScaledDurationEnabled;
+    private bool addBitsToSwapTime;
     private int amountUnitsPerDuration = 1;
     private int secondsPerAmountUnit = 1;
     private int bitsAmountUnitsPerDuration = 1;
@@ -79,6 +81,9 @@ public sealed class TriggerRule : ObservableObject
     private int subscriptionTier1SecondsPerSub = 1;
     private int subscriptionTier2SecondsPerSub = 1;
     private int subscriptionTier3SecondsPerSub = 1;
+    private bool subscriptionTier1Enabled = true;
+    private bool subscriptionTier2Enabled = true;
+    private bool subscriptionTier3Enabled = true;
     private bool maxAccumulatedDurationEnabled;
     private int maxAccumulatedDurationSeconds = 1800;
     private OscActionType actionType = OscActionType.AvatarParameter;
@@ -88,7 +93,23 @@ public sealed class TriggerRule : ObservableObject
     private IntZeroDurationMode intZeroDurationMode = global::VrcTwitchOscBridge.Models.IntZeroDurationMode.Fixed;
     private string parameterValue = "1";
     private FloatValueMode floatValueMode = global::VrcTwitchOscBridge.Models.FloatValueMode.Decimal;
-    private double floatTransitionSeconds;
+    private double floatTransitionInSeconds;
+    private double floatTransitionOutSeconds;
+    private FloatActionMode floatActionMode = FloatActionMode.Set;
+    private double floatRangeMin = 0.0;
+    private double floatRangeMax = 1.0;
+    private double floatCycleStep = 0.1;
+    private double floatAddAmount = 0.1;
+    private double floatSubtractAmount = 0.1;
+    private double floatAddSubtractAmount = 0.1;
+    private double floatMultiplyFactor = 1.5;
+    private double floatToggleOnValue = 1.0;
+    private double floatToggleOffValue = 0.0;
+    private int floatGlitchyIntervalMs = 200;
+    private double floatPulseSeconds = 0.5;
+    private FloatClampMode floatClampMode = FloatClampMode.ZeroToOne;
+    private bool hideRewardWhenFloatMaxReached;
+    private bool hideRewardWhenFloatMinReached;
     private string avatarChangeTargetId = string.Empty;
     private string avatarTargetName = string.Empty;
     private string resetValue = "0";
@@ -108,6 +129,7 @@ public sealed class TriggerRule : ObservableObject
     private int sharedRewardChoiceNumber;
     private string sharedRewardHelpText = string.Empty;
     private string supporterKeywordText = string.Empty;
+    private bool bitsKeywordEnabled;
     private Guid activeFloatBoostRewardOwnerId = Guid.NewGuid();
     private bool activeFloatBoostRewardEnabled;
     private string activeFloatBoostRewardId = string.Empty;
@@ -189,6 +211,30 @@ public sealed class TriggerRule : ObservableObject
         }
     }
 
+    public TriggerRuleSource Source
+    {
+        get => source;
+        set
+        {
+            if (SetProperty(ref source, value))
+            {
+                RaisePropertyChanged(nameof(SourceDisplayName));
+            }
+        }
+    }
+
+    public string SourceDisplayName => Source switch
+    {
+        TriggerRuleSource.Native => "Native",
+        TriggerRuleSource.AvatarSet => "From Avatar Set",
+        TriggerRuleSource.GlobalOverride => "From Supporter Override",
+        TriggerRuleSource.PowerUp => "From Power-up",
+        TriggerRuleSource.CashPayment => "From Cash Payment",
+        _ => string.Empty
+    };
+
+    public bool HasSourceBadge => Source != TriggerRuleSource.None && Source != TriggerRuleSource.Native;
+
     public string ChannelPointRewardId
     {
         get => channelPointRewardId;
@@ -246,6 +292,7 @@ public sealed class TriggerRule : ObservableObject
             {
                 RaisePropertyChanged(nameof(UsesCreateOrManageReward));
                 RaisePropertyChanged(nameof(UsesLinkedExistingReward));
+                RaisePropertyChanged(nameof(UsesFloatHideOnLimit));
                 RaisePropertyChanged(nameof(TriggerSummary));
             }
         }
@@ -278,6 +325,24 @@ public sealed class TriggerRule : ObservableObject
             {
                 RaisePropertyChanged(nameof(ManagedRewardCooldownColorBrush));
             }
+        }
+    }
+
+    public System.Windows.Media.Brush ManagedRewardReadyBrush => HexToBrush(ManagedRewardReadyColor);
+
+    public System.Windows.Media.Brush ManagedRewardCooldownBrush => HexToBrush(ManagedRewardCooldownColor);
+
+    private static System.Windows.Media.Brush HexToBrush(string? hex)
+    {
+        if (string.IsNullOrWhiteSpace(hex)) return System.Windows.Media.Brushes.Transparent;
+        try
+        {
+            var converter = new System.Windows.Media.BrushConverter();
+            return (System.Windows.Media.Brush?)converter.ConvertFromString(hex) ?? System.Windows.Media.Brushes.Transparent;
+        }
+        catch
+        {
+            return System.Windows.Media.Brushes.Transparent;
         }
     }
 
@@ -358,6 +423,12 @@ public sealed class TriggerRule : ObservableObject
                 RaisePropertyChanged(nameof(TriggerSummary));
             }
         }
+    }
+
+    public bool AddBitsToSwapTime
+    {
+        get => addBitsToSwapTime;
+        set => SetProperty(ref addBitsToSwapTime, value);
     }
 
     public int AmountUnitsPerDuration
@@ -480,6 +551,42 @@ public sealed class TriggerRule : ObservableObject
             {
                 RaisePropertyChanged(nameof(TriggerSummary));
                 RaisePropertyChanged(nameof(SupporterTimeSettingsSummary));
+            }
+        }
+    }
+
+    public bool SubscriptionTier1Enabled
+    {
+        get => subscriptionTier1Enabled;
+        set
+        {
+            if (SetProperty(ref subscriptionTier1Enabled, value))
+            {
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public bool SubscriptionTier2Enabled
+    {
+        get => subscriptionTier2Enabled;
+        set
+        {
+            if (SetProperty(ref subscriptionTier2Enabled, value))
+            {
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public bool SubscriptionTier3Enabled
+    {
+        get => subscriptionTier3Enabled;
+        set
+        {
+            if (SetProperty(ref subscriptionTier3Enabled, value))
+            {
+                RaisePropertyChanged(nameof(TriggerSummary));
             }
         }
     }
@@ -615,7 +722,7 @@ public sealed class TriggerRule : ObservableObject
                 else if (value == OscParameterType.Float)
                 {
                     ParameterValue = "0.0";
-                    ResetValue = "0.0";
+                    ResetValue = string.Empty;
                 }
 
                 RaiseActionVisibilityProperties();
@@ -679,18 +786,216 @@ public sealed class TriggerRule : ObservableObject
         }
     }
 
-    public double FloatTransitionSeconds
+    public double FloatTransitionInSeconds
     {
-        get => floatTransitionSeconds;
+        get => floatTransitionInSeconds;
         set
         {
             var normalizedValue = Math.Clamp(value, 0, 30);
-            if (SetProperty(ref floatTransitionSeconds, normalizedValue))
+            if (SetProperty(ref floatTransitionInSeconds, normalizedValue))
             {
-                RaisePropertyChanged(nameof(UsesFloatTransition));
+                RaisePropertyChanged(nameof(UsesFloatInTransition));
                 RaisePropertyChanged(nameof(TriggerSummary));
             }
         }
+    }
+
+    public double FloatTransitionOutSeconds
+    {
+        get => floatTransitionOutSeconds;
+        set
+        {
+            var normalizedValue = Math.Clamp(value, 0, 30);
+            if (SetProperty(ref floatTransitionOutSeconds, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(UsesFloatOutTransition));
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public FloatActionMode FloatActionMode
+    {
+        get => floatActionMode;
+        set
+        {
+            var normalizedValue = Enum.IsDefined(value) ? value : FloatActionMode.Set;
+            if (SetProperty(ref floatActionMode, normalizedValue))
+            {
+                RaiseFloatActionModeVisibilityProperties();
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public double FloatRangeMin
+    {
+        get => floatRangeMin;
+        set
+        {
+            var clamped = Math.Clamp(value, 0.0, 1.0);
+            if (clamped > floatRangeMax - 0.0001) clamped = floatRangeMax - 0.0001;
+            if (clamped < 0) clamped = 0;
+            if (SetProperty(ref floatRangeMin, clamped))
+            {
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public double FloatRangeMax
+    {
+        get => floatRangeMax;
+        set
+        {
+            var clamped = Math.Clamp(value, 0.0, 1.0);
+            if (clamped < floatRangeMin + 0.0001) clamped = floatRangeMin + 0.0001;
+            if (clamped > 1) clamped = 1;
+            if (SetProperty(ref floatRangeMax, clamped))
+            {
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public double FloatCycleStep
+    {
+        get => floatCycleStep;
+        set
+        {
+            var normalizedValue = Math.Max(0.0, value);
+            if (SetProperty(ref floatCycleStep, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public double FloatAddAmount
+    {
+        get => floatAddAmount;
+        set
+        {
+            var normalizedValue = Math.Max(0.0, value);
+            if (SetProperty(ref floatAddAmount, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public double FloatSubtractAmount
+    {
+        get => floatSubtractAmount;
+        set
+        {
+            var normalizedValue = Math.Max(0.0, value);
+            if (SetProperty(ref floatSubtractAmount, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public double FloatAddSubtractAmount
+    {
+        get => floatAddSubtractAmount;
+        set
+        {
+            if (SetProperty(ref floatAddSubtractAmount, value))
+            {
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public double FloatMultiplyFactor
+    {
+        get => floatMultiplyFactor;
+        set
+        {
+            if (SetProperty(ref floatMultiplyFactor, value))
+            {
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public double FloatToggleOnValue
+    {
+        get => floatToggleOnValue;
+        set
+        {
+            var normalizedValue = Math.Clamp(value, 0.0, 1.0);
+            if (SetProperty(ref floatToggleOnValue, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public double FloatToggleOffValue
+    {
+        get => floatToggleOffValue;
+        set
+        {
+            var normalizedValue = Math.Clamp(value, 0.0, 1.0);
+            if (SetProperty(ref floatToggleOffValue, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public int FloatGlitchyIntervalMs
+    {
+        get => floatGlitchyIntervalMs;
+        set
+        {
+            var normalizedValue = Math.Max(1, value);
+            if (SetProperty(ref floatGlitchyIntervalMs, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public double FloatPulseSeconds
+    {
+        get => floatPulseSeconds;
+        set
+        {
+            var normalizedValue = Math.Max(0.0, value);
+            if (SetProperty(ref floatPulseSeconds, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public FloatClampMode FloatClampMode
+    {
+        get => floatClampMode;
+        set
+        {
+            var normalizedValue = Enum.IsDefined(value) ? value : FloatClampMode.ZeroToOne;
+            if (SetProperty(ref floatClampMode, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    public bool HideRewardWhenFloatMaxReached
+    {
+        get => hideRewardWhenFloatMaxReached;
+        set => SetProperty(ref hideRewardWhenFloatMaxReached, value);
+    }
+
+    public bool HideRewardWhenFloatMinReached
+    {
+        get => hideRewardWhenFloatMinReached;
+        set => SetProperty(ref hideRewardWhenFloatMinReached, value);
     }
 
     public string AvatarTargetName
@@ -757,6 +1062,12 @@ public sealed class TriggerRule : ObservableObject
             }
         }
     }
+
+    public string? PowerUpId { get; set; }
+    public string? CashPaymentRuleId { get; set; }
+    public bool IsGiftSubscription { get; set; }
+    public bool PermanentAvatarChange { get; set; }
+    public bool CooldownOnlyAvatarChange { get; set; }
 
     public ObservableCollection<string> AvatarRouletAvatarIds
     {
@@ -840,7 +1151,8 @@ public sealed class TriggerRule : ObservableObject
             {
                 RaiseActionVisibilityProperties();
                 RaisePropertyChanged(nameof(UsesFloatTimedValues));
-                RaisePropertyChanged(nameof(UsesFloatTransition));
+                RaisePropertyChanged(nameof(UsesFloatInTransition));
+                RaisePropertyChanged(nameof(UsesFloatOutTransition));
                 RaisePropertyChanged(nameof(UsesActiveFloatBoostReward));
                 RaisePropertyChanged(nameof(ActiveFloatBoostRewardStatusText));
                 RaisePropertyChanged(nameof(UsesSupporterFloatAdd));
@@ -962,6 +1274,7 @@ public sealed class TriggerRule : ObservableObject
         set
         {
             var normalizedValue = string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
+            BitsKeywordEnabled = !string.IsNullOrEmpty(normalizedValue);
             if (SetProperty(ref supporterKeywordText, normalizedValue))
             {
                 RaisePropertyChanged(nameof(UsesForceMovementBitsTrigger));
@@ -969,6 +1282,23 @@ public sealed class TriggerRule : ObservableObject
             }
         }
     }
+
+    public bool BitsKeywordEnabled
+    {
+        get => bitsKeywordEnabled;
+        set
+        {
+            if (SetProperty(ref bitsKeywordEnabled, value))
+            {
+                RaisePropertyChanged(nameof(UsesBitsKeyword));
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
+    [JsonIgnore]
+    public bool UsesBitsKeyword
+        => BitsKeywordEnabled && !string.IsNullOrWhiteSpace(SupporterKeywordText);
 
     public Guid ActiveFloatBoostRewardOwnerId
     {
@@ -1231,6 +1561,8 @@ public sealed class TriggerRule : ObservableObject
 
     public bool UsesAmountScaledDuration => UsesAmountThreshold && AmountScaledDurationEnabled;
 
+    public bool UsesAddBitsToSwapTime => UsesAmountThreshold && AddBitsToSwapTime;
+
     public string SupporterTimeSettingsSummary
     {
         get
@@ -1394,7 +1726,8 @@ public sealed class TriggerRule : ObservableObject
 
     public bool UsesFloatTimedValues => UsesFloatParameter && UsesTimedAction;
 
-    public bool UsesFloatTransition => UsesFloatTimedValues && FloatTransitionSeconds > 0;
+    public bool UsesFloatInTransition => UsesFloatParameter && FloatTransitionInSeconds > 0;
+    public bool UsesFloatOutTransition => UsesFloatParameter && FloatTransitionOutSeconds > 0;
 
     public bool UsesActiveFloatBoostReward => UsesFloatTimedValues && ActiveFloatBoostRewardEnabled;
 
@@ -1416,6 +1749,46 @@ public sealed class TriggerRule : ObservableObject
     public bool UsesIntFixedInstantValue => UsesIntParameter && UsesInstantAction && IntZeroDurationMode == global::VrcTwitchOscBridge.Models.IntZeroDurationMode.Fixed;
 
     public bool UsesIntRangeInputs => UsesIntParameter && UsesInstantAction && IntZeroDurationMode != global::VrcTwitchOscBridge.Models.IntZeroDurationMode.Fixed;
+
+    public bool UsesFloatActionMode => UsesAvatarParameter && ParameterType == OscParameterType.Float;
+
+    public bool UsesFloatSetMode => UsesFloatActionMode && FloatActionMode == FloatActionMode.Set;
+    public bool UsesFloatRandomMode => UsesFloatActionMode && FloatActionMode == FloatActionMode.Random;
+    public bool UsesFloatAddMode => UsesFloatActionMode && FloatActionMode == FloatActionMode.Add;
+    public bool UsesFloatSubtractMode => UsesFloatActionMode && FloatActionMode == FloatActionMode.Subtract;
+    public bool UsesFloatAddSubtractMode => UsesFloatActionMode && FloatActionMode == FloatActionMode.AddSubtract;
+    public bool UsesFloatMultiplyMode => UsesFloatActionMode && FloatActionMode == FloatActionMode.Multiply;
+    public bool UsesFloatToggleMode => UsesFloatActionMode && FloatActionMode == FloatActionMode.Toggle;
+    public bool UsesFloatCycleMode => UsesFloatActionMode && FloatActionMode == FloatActionMode.Cycle;
+    public bool UsesFloatGlitchyMode => UsesFloatActionMode && FloatActionMode == FloatActionMode.Glitchy;
+    public bool UsesFloatPulseMode => UsesFloatActionMode && FloatActionMode == FloatActionMode.Pulse;
+
+    public bool UsesFloatRangeInputs => UsesFloatActionMode &&
+        (FloatActionMode == FloatActionMode.Random
+         || FloatActionMode == FloatActionMode.Cycle
+         || FloatActionMode == FloatActionMode.Glitchy);
+
+    public bool UsesFloatCycleStep => UsesFloatActionMode && FloatActionMode == FloatActionMode.Cycle;
+
+    public bool UsesFloatToggleValues => UsesFloatActionMode && FloatActionMode == FloatActionMode.Toggle;
+
+    public bool UsesFloatGlitchyInterval => UsesFloatActionMode && FloatActionMode == FloatActionMode.Glitchy;
+
+    public bool UsesFloatPulseSeconds => UsesFloatActionMode && FloatActionMode == FloatActionMode.Pulse;
+
+    public bool UsesFloatClampMode => UsesFloatActionMode &&
+        (FloatActionMode == FloatActionMode.Add
+         || FloatActionMode == FloatActionMode.Subtract
+         || FloatActionMode == FloatActionMode.AddSubtract
+         || FloatActionMode == FloatActionMode.Multiply);
+
+    public bool UsesFloatHideOnLimit => UsesFloatActionMode
+        && RewardSyncMode == TwitchRewardSyncMode.CreateOrManage
+        && DurationSeconds > 0
+        && (FloatActionMode == FloatActionMode.Add
+            || FloatActionMode == FloatActionMode.Subtract
+            || FloatActionMode == FloatActionMode.AddSubtract
+            || FloatActionMode == FloatActionMode.Multiply);
 
     public bool UsesIntTimedValues => UsesIntParameter && UsesTimedAction;
 
@@ -1516,7 +1889,7 @@ public sealed class TriggerRule : ObservableObject
         : UsesAvatarRoulet
             ? T("Use whole seconds. Avatar Roulette is always a timed temporary switch, so 0 is not used here. Crystal Relay stays on the rolled avatar for this long, then returns to the shared return avatar.")
             : UsesAmountScaledDuration
-                ? T("Amount-scaled timer is enabled, so Active Time is the starting time. Bits and subs add time on top when the override first starts; later same-rule triggers extend the current timer by the amount only.")
+                ? T("Active time and amount both add on top. Each matching trigger extends the current timer by Active Time + the scaled amount.")
                 : UsesAvatarChange
                     ? T("Use whole seconds. Set this to 0 if you want the avatar change to stay active and become the new shared return avatar. Any value above 0 makes it a temporary switch that returns to the shared return avatar when the timer ends.")
                     : T("Use whole seconds. Set this to 0 for an instant one-shot action, or use a higher value when you want Crystal Relay to hold the parameter active for a timed redeem.");
@@ -1548,11 +1921,11 @@ public sealed class TriggerRule : ObservableObject
                     ? TF("Bits >= {0} + movement word needed", Math.Max(1, MinimumAmount))
                     : TF("Bits >= {0} + Word: {1}", Math.Max(1, MinimumAmount), SupporterKeywordText.Trim()),
                 TwitchTriggerType.Bits when UsesActiveSupporterFloatAdd => SupporterFloatAddSummary,
-                TwitchTriggerType.Bits => AmountScaledDurationEnabled
+                TwitchTriggerType.Bits => (AmountScaledDurationEnabled || AddBitsToSwapTime)
                     ? TF("Bits >= {0} ({1}s per {2} bits)", Math.Max(1, MinimumAmount), Math.Max(1, BitsSecondsPerAmountUnit), Math.Max(1, BitsAmountUnitsPerDuration))
                     : TF("Bits >= {0}", Math.Max(1, MinimumAmount)),
                 TwitchTriggerType.Subscriptions when UsesActiveSupporterFloatAdd => SupporterFloatAddSummary,
-                TwitchTriggerType.Subscriptions => AmountScaledDurationEnabled
+                TwitchTriggerType.Subscriptions => (AmountScaledDurationEnabled || AddBitsToSwapTime)
                     ? TF("Subs >= {0} (T1 {1}s, T2 {2}s, T3 {3}s)", Math.Max(1, MinimumAmount), Math.Max(1, SubscriptionTier1SecondsPerSub), Math.Max(1, SubscriptionTier2SecondsPerSub), Math.Max(1, SubscriptionTier3SecondsPerSub))
                     : TF("Subs >= {0}", Math.Max(1, MinimumAmount)),
                 TwitchTriggerType.PowerUp => T("Power Up"),
@@ -1626,10 +1999,12 @@ public sealed class TriggerRule : ObservableObject
         RaisePropertyChanged(nameof(UsesTextOrFloatParameter));
         RaisePropertyChanged(nameof(UsesFloatParameter));
         RaisePropertyChanged(nameof(UsesFloatTimedValues));
-        RaisePropertyChanged(nameof(UsesFloatTransition));
+        RaisePropertyChanged(nameof(UsesFloatInTransition));
+        RaisePropertyChanged(nameof(UsesFloatOutTransition));
         RaisePropertyChanged(nameof(UsesActiveFloatBoostReward));
         RaisePropertyChanged(nameof(UsesSupporterFloatAdd));
         RaisePropertyChanged(nameof(UsesActiveSupporterFloatAdd));
+        RaiseFloatActionModeVisibilityProperties();
         RaisePropertyChanged(nameof(UsesBoolTimedValues));
         RaisePropertyChanged(nameof(UsesBoolToggleHint));
         RaisePropertyChanged(nameof(UsesIntInstantModeOptions));
@@ -1651,6 +2026,28 @@ public sealed class TriggerRule : ObservableObject
         RaiseSetTriggerRestoreModeProperties();
         RaisePropertyChanged(nameof(DurationHelpText));
         RaisePropertyChanged(nameof(IntModeHelpText));
+    }
+
+    private void RaiseFloatActionModeVisibilityProperties()
+    {
+        RaisePropertyChanged(nameof(UsesFloatActionMode));
+        RaisePropertyChanged(nameof(UsesFloatSetMode));
+        RaisePropertyChanged(nameof(UsesFloatRandomMode));
+        RaisePropertyChanged(nameof(UsesFloatAddMode));
+        RaisePropertyChanged(nameof(UsesFloatSubtractMode));
+        RaisePropertyChanged(nameof(UsesFloatAddSubtractMode));
+        RaisePropertyChanged(nameof(UsesFloatMultiplyMode));
+        RaisePropertyChanged(nameof(UsesFloatToggleMode));
+        RaisePropertyChanged(nameof(UsesFloatCycleMode));
+        RaisePropertyChanged(nameof(UsesFloatGlitchyMode));
+        RaisePropertyChanged(nameof(UsesFloatPulseMode));
+        RaisePropertyChanged(nameof(UsesFloatRangeInputs));
+        RaisePropertyChanged(nameof(UsesFloatCycleStep));
+        RaisePropertyChanged(nameof(UsesFloatToggleValues));
+        RaisePropertyChanged(nameof(UsesFloatGlitchyInterval));
+        RaisePropertyChanged(nameof(UsesFloatPulseSeconds));
+        RaisePropertyChanged(nameof(UsesFloatClampMode));
+        RaisePropertyChanged(nameof(UsesFloatHideOnLimit));
     }
 
     private static string DescribeMovementDirection(PlayerMovementDirection direction) => direction switch

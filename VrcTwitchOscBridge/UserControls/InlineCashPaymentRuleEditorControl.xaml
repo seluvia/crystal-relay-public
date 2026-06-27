@@ -1,0 +1,97 @@
+<UserControl x:Class="VrcTwitchOscBridge.UserControls.InlineCashPaymentRuleEditorControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:loc="clr-namespace:VrcTwitchOscBridge.Services"
+             xmlns:models="clr-namespace:VrcTwitchOscBridge.Models">
+    <UserControl.Resources>
+        <Style x:Key="HeadingTextStyle" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{DynamicResource HeadingFontFamily}" />
+        </Style>
+
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+        </Style>
+
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CaretBrush" Value="{DynamicResource TextBrush}" />
+            <Setter Property="Padding" Value="6,4" />
+        </Style>
+
+        <Style x:Key="SecondaryButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="{DynamicResource SecondaryButtonBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SecondaryButtonBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="8,3" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+    </UserControl.Resources>
+
+    <Border Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="14">
+        <StackPanel>
+            <Button Content="← Back"
+                    Command="{Binding DataContext.BackToListCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                    Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Left" Margin="0,0,0,12" />
+
+            <TextBlock Text="Edit Cash Payment Trigger" Style="{StaticResource HeadingTextStyle}" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,12" />
+
+            <Border Background="{DynamicResource NestedPanelBrush}" CornerRadius="4" Padding="10" Margin="0,0,0,10">
+                <StackPanel>
+                    <TextBlock Text="Payment Match" Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" Margin="0,0,0,8" />
+                    <UniformGrid Columns="2">
+                        <StackPanel Margin="0,0,8,0">
+                            <TextBlock Text="{loc:Translate 'Rule Name'}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
+                            <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                        <StackPanel Margin="8,0,0,0">
+                            <TextBlock Text="{loc:Translate 'Provider'}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
+                            <ComboBox SelectedValuePath="Tag" SelectedValue="{Binding Provider, UpdateSourceTrigger=PropertyChanged}">
+                                <ComboBoxItem Content="StreamElements" Tag="StreamElements" />
+                                <ComboBoxItem Content="Streamlabs" Tag="Streamlabs" />
+                                <ComboBoxItem Content="Ko-fi" Tag="KoFi" />
+                            </ComboBox>
+                        </StackPanel>
+                    </UniformGrid>
+                    <UniformGrid Columns="3" Margin="0,10,0,0">
+                        <StackPanel Margin="0,0,8,0">
+                            <TextBlock Text="{loc:Translate 'Minimum Amount'}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
+                            <TextBox Text="{Binding MinimumAmount, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                        <StackPanel Margin="8,0,8,0">
+                            <TextBlock Text="{loc:Translate 'Maximum Amount'}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
+                            <TextBox Text="{Binding MaximumAmount, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                        <StackPanel Margin="8,0,0,0">
+                            <TextBlock Text="{loc:Translate 'Currency'}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
+                            <TextBox Text="{Binding CurrencyCode, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                    </UniformGrid>
+                    <UniformGrid Columns="2" Margin="0,10,0,0">
+                        <StackPanel Margin="0,0,8,0">
+                            <TextBlock Text="{loc:Translate 'Message Contains'}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
+                            <TextBox Text="{Binding MessageContains, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                        <StackPanel Margin="8,0,0,0">
+                            <TextBlock Text="{loc:Translate 'Cooldown Seconds'}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
+                            <TextBox Text="{Binding CooldownSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                    </UniformGrid>
+                </StackPanel>
+            </Border>
+
+            <Border Background="{DynamicResource NestedPanelBrush}" CornerRadius="4" Padding="10">
+                <StackPanel>
+                    <TextBlock Text="Action" Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" Margin="0,0,0,8" />
+                    <TextBlock Text="The action runs when this cash payment rule matches. Use the main Cash Payments tab to edit the full action details (avatar change, OSC, scaling)." Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" FontSize="11" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </Border>
+</UserControl>

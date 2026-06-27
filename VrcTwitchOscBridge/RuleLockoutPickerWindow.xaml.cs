@@ -171,6 +171,33 @@ public partial class RuleLockoutPickerWindow : Window
 
     private void ApplyTheme(AppTheme theme)
     {
+        if (theme == AppTheme.Puca)
+        {
+            Resources["BodyFontFamily"] = new FontFamily("Verdana");
+            Resources["HeadingFontFamily"] = new FontFamily("Cambria");
+            SetBrushColor("WindowBackgroundBrush", "#0C0716");
+            SetBrushColor("PanelBrush", "#E6140C24");
+            SetBrushColor("PanelSecondaryBrush", "#D910081A");
+            SetBrushColor("BorderBrush", "#3A2868");
+            SetBrushColor("AccentBrush", "#22D3EE");
+            SetBrushColor("TextBrush", "#E8DEF8");
+            SetBrushColor("MutedBrush", "#A896C8");
+            SetBrushColor("InputBrush", "#E6080410");
+            SetBrushColor("InputBorderBrush", "#4A2D8A");
+            SetBrushColor("StatusChipBrush", "#2CA78BFA");
+            SetBrushColor("SecondaryButtonBrush", "#2AF5B8E0");
+            SetBrushColor("SecondaryButtonBorderBrush", "#F5B8E0");
+            SetBrushColor("TitleBarBrush", "#1A0E2E");
+            SetBrushColor("TitleBarTextBrush", "#7DEFFF");
+            SetBrushColor("TitleBarSubTextBrush", "#F5B8E0");
+            SetBrushColor("TitleBarButtonBrush", "#00000000");
+            SetBrushColor("TitleBarButtonHoverBrush", "#3A2868");
+            SetBrushColor("TitleBarButtonPressedBrush", "#4A3878");
+            SetBrushColor("TitleBarCloseHoverBrush", "#C0395F");
+            SetBrushColor("TitleBarClosePressedBrush", "#8C2648");
+            return;
+        }
+
         if (theme == AppTheme.Baked)
         {
             Resources["BodyFontFamily"] = new FontFamily("Cambria");

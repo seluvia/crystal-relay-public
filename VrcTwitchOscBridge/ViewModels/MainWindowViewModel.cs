@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
@@ -9,6 +10,7 @@ using System.Reflection;
 using System.Text;
 using System.Windows;
 using System.Windows.Data;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using Microsoft.Win32;
@@ -25,7 +27,7 @@ namespace VrcTwitchOscBridge.ViewModels;
 /// This file ties the window to saved settings, Twitch and VRChat setup,
 /// rule editing, managed rewards, chatbox state, and About-page data.
 /// </summary>
-public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
+public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, ITwitchRewardSource
 {
     // Internal result used by reward-sync callers so unsupported broadcaster accounts
     // can be handled as a normal limitation instead of a fatal error.
@@ -45,13 +47,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         AvatarChanged,
         RuntimeAvailability,
         AvatarScaleStatus,
+        FloatLimitStatus,
         TestMode,
         EmergencyStop,
         StreamStateChanged,
         FireSaleChanged,
         ManualRefresh,
         ManualCleanup,
-        Maintenance
+        Maintenance,
+        AvatarScaleMasterRewardUnlocked
     }
 
     private sealed record BroadcasterRewardAccountSnapshot(
@@ -195,7 +199,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         nameof(TriggerRule.IntZeroDurationMode),
         nameof(TriggerRule.ParameterValue),
         nameof(TriggerRule.FloatValueMode),
-        nameof(TriggerRule.FloatTransitionSeconds),
+        nameof(TriggerRule.FloatTransitionInSeconds),
+        nameof(TriggerRule.FloatTransitionOutSeconds),
         nameof(TriggerRule.ResetValue),
         nameof(TriggerRule.AvatarChangeTargetId),
         nameof(TriggerRule.AvatarChangeResetId),
@@ -521,16 +526,19 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private string testModeCashMessage = string.Empty;
     private string testModeSimulationStatusText = T("Choose a simulated event and Crystal Relay will run it through the same matching path as a real stream event.");
     private FileSystemWatcher? vrChatLocalOscWatcher;
+    private string? inferredLocalLowUserId;
     private readonly List<VrChatAvatarSummary> availableVrChatAvatars = [];
     private readonly Dictionary<string, string> availableVrChatAvatarNamesById = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, List<VrChatOscParameterSummary>> cachedVrChatParametersByAvatarId = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, DateTime> vrChatLocalOscAvatarWriteTimes = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, List<VrChatOscParameterSummary>> cachedVrChatParametersByAvatarId = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, DateTime> vrChatLocalOscAvatarWriteTimes = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> chatSuspiciousStatusesByUserId = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> chatSuspiciousStatusesByLogin = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> retiredManagedRewardIds = new(StringComparer.Ordinal);
     private readonly Dictionary<string, DateTimeOffset> managedRewardCreateBackoffByTitle = new(StringComparer.OrdinalIgnoreCase);
     private readonly object avatarScaleLimitStateGate = new();
     private readonly Dictionary<Guid, bool> avatarScaleLimitInactiveStateByRuleId = [];
+    private readonly object floatLimitStateGate = new();
+    private readonly Dictionary<Guid, (bool MaxReached, bool MinReached)> floatLimitStateByRuleId = [];
     private readonly Dictionary<string, DateTimeOffset> throttledLogExpiryByKey = new(StringComparer.Ordinal);
     private readonly List<ActionTypeOption> allActionTypes;
     private string lastSuccessfulManagedRewardDesiredFingerprint = string.Empty;
@@ -737,7 +745,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             new ThemeOption(AppTheme.DreadNightBar, "Dread Night Bar"),
             new ThemeOption(AppTheme.Baked, "Baked"),
             new ThemeOption(AppTheme.NeonBorb, "Neon Borb"),
-            new ThemeOption(AppTheme.StinkyOnline, "Stinky Online")
+            new ThemeOption(AppTheme.StinkyOnline, "Stinky Online"),
+            new ThemeOption(AppTheme.SquishyFoxPlush, "Squishy Fox Plush"),
+            new ThemeOption(AppTheme.Puca, "Púca")
         ];
         LanguageOptions =
         [
@@ -862,7 +872,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         OpenBotLoginCommand = new RelayCommand(OpenBotAuthPage);
         ConnectVrChatCommand = new AsyncRelayCommand(ConnectVrChatAsync);
         DisconnectVrChatCommand = new AsyncRelayCommand(DisconnectVrChatAsync, () => Settings.VrChat.IsConnected);
-        RefreshVrChatAvatarsCommand = new AsyncRelayCommand(RefreshVrChatAvatarsAsync, () => Settings.VrChat.IsConnected);
+        RefreshVrChatAvatarsCommand = new AsyncRelayCommand(RefreshVrChatAvatarsAsync, CanRefreshVrChatAvatars);
+        ClearVrChatCacheCommand = new AsyncRelayCommand(ClearVrChatCacheAsync, () => availableVrChatAvatars.Count > 0 || HasPersistedVrChatCache());
         OpenRuntimeConfigCommand = new RelayCommand(OpenRuntimeConfigFile);
         OpenRuntimeConfigFolderCommand = new RelayCommand(OpenRuntimeConfigFolder);
         OpenTwitchDeveloperConsoleCommand = new RelayCommand(OpenTwitchDeveloperConsole);
@@ -871,7 +882,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         OpenKoFiSupportCommand = new RelayCommand(OpenKoFiSupportPage);
         OpenKoFiWebhooksCommand = new RelayCommand(OpenKoFiWebhooksPage);
         OpenDiscordInviteCommand = new RelayCommand(OpenDiscordInvite);
-        OpenBugReportCommand = new AsyncRelayCommand(OpenBugReportAsync);
+        OpenBugReportCommand = new AsyncRelayCommand(() => OpenBugReportAsync());
         RefreshTwitchRewardsCommand = new AsyncRelayCommand(RefreshTwitchRewardsAsync);
         UnlinkTwitchRewardCommand = new RelayCommand(UnlinkTwitchReward);
         UnlinkWardrobeMasterRewardCommand = new RelayCommand(UnlinkWardrobeMasterReward);
@@ -901,18 +912,22 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ClearSelectedChatUserSuspiciousStatusCommand = new AsyncRelayCommand(ClearSelectedChatUserSuspiciousStatusAsync, CanManageSelectedChatUserSuspiciousStatus);
         OpenBuiltInCommandsCommand = new RelayCommand(OpenBuiltInCommands);
         RefreshWorldCommandBlacklistCommand = new AsyncRelayCommand(RefreshWorldCommandBlacklistManuallyAsync);
+        DismissMigrationNoticeCommand = new RelayCommand(DismissMigrationNotice);
         ShowSettingsTwitchSectionCommand = new RelayCommand(() => SetActiveSettingsSection(SettingsSectionView.Twitch));
         ShowSettingsVrChatSectionCommand = new RelayCommand(() => SetActiveSettingsSection(SettingsSectionView.VrChat));
         ShowSettingsAppSectionCommand = new RelayCommand(() => SetActiveSettingsSection(SettingsSectionView.App));
         ShowSettingsVisualsSectionCommand = new RelayCommand(() => SetActiveSettingsSection(SettingsSectionView.Visuals));
         ShowSettingsSafetySectionCommand = new RelayCommand(() => SetActiveSettingsSection(SettingsSectionView.Safety));
         ShowAvatarTriggerRulesCommand = new RelayCommand(ShowAvatarTriggerRules);
-        ShowMasterAvatarTabCommand = new RelayCommand(ShowMasterAvatarTab);
         ShowMovementRedeemsCommand = new RelayCommand(ShowMovementRedeems);
         ShowSupporterOverridesCommand = new RelayCommand(ShowSupporterOverrides);
         ShowPowerUpsCommand = new RelayCommand(ShowPowerUps);
         OpenUniversalTriggersManagerCommand = new RelayCommand(OpenUniversalTriggersManager);
         OpenAvatarSetsManagerCommand = new RelayCommand(OpenAvatarSetsManager);
+        OpenAvatarSwapManagerCommand = new RelayCommand(OpenAvatarSwapManager);
+        PickReturnAvatarCommand = new RelayCommand(PickReturnAvatar);
+        UseCurrentAvatarForReturnCommand = new RelayCommand(UseCurrentAvatarForReturn);
+        ClearReturnAvatarCommand = new RelayCommand(ClearReturnAvatar);
         ShowAvatarScalingCommand = new RelayCommand(ShowAvatarScaling);
         ShowCashPaymentsCommand = new RelayCommand(ShowCashPayments);
         ShowRewardFireSaleCommand = new RelayCommand(ShowRewardFireSale);
@@ -930,9 +945,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         UseCurrentAvatarForSupporterRuleCommand = new RelayCommand(
             UseCurrentAvatarForSupporterRule,
             () => CanUseCurrentAvatarForSupporterRule());
-        UseCurrentAvatarForAvatarChangeRuleCommand = new RelayCommand(
-            UseCurrentAvatarForAvatarChangeRule,
-            () => CanUseCurrentAvatarForAvatarChangeRule());
         OpenAvatarPickerCommand = new RelayCommand(OpenAvatarPicker);
         AddRuleCommand = new RelayCommand(AddRule);
         AddOutfitChoiceCommand = new RelayCommand(AddOutfitChoice, () => IsViewingAvatarTriggers && SelectedAvatarProfile is not null);
@@ -942,7 +954,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
         SelectRuleCommand = new RelayCommand(SelectRule, target => target is TriggerRule);
         AddAvatarSupporterTriggerCommand = new RelayCommand(AddAvatarSupporterTrigger);
-        AddAvatarChangeOverrideCommand = new RelayCommand(AddAvatarChangeOverride);
         AddForceMovementOverrideCommand = new RelayCommand(AddForceMovementOverride);
         RemoveSelectedRuleCommand = new RelayCommand(RemoveSelectedRule, () => SelectedRule is not null);
         EnableAllRulesCommand = new RelayCommand(EnableAllRules, () => GetCurrentEditableRuleCollection().Count > 0);
@@ -1025,14 +1036,25 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             RaisePropertyChanged(nameof(AvatarScaleMasterRewardStatusText));
         });
         bridgeCoordinator.RewardCooldownColorChanged += ruleId => _ = HandleRewardCooldownColorChangedAsync(ruleId);
+        bridgeCoordinator.AvatarScaleMasterRewardUnlockStateChanged += () => RunOnUi(() =>
+        {
+            // The master reward's unlock window just opened or closed, which is a
+            // Twitch-visible change for the child avatar-scale rewards: hidden while
+            // locked, visible while unlocked. Queue a managed-reward sync so the
+            // child rewards' desiredEnabled state actually reaches Twitch.
+            QueueManagedRewardSync(0, ManagedRewardSyncReason.AvatarScaleMasterRewardUnlocked);
+        });
         bridgeCoordinator.AvatarScaleStatusChanged += () => RunOnUi(HandleAvatarScaleStatusChanged);
+        bridgeCoordinator.FloatLimitStatusChanged += () => RunOnUi(HandleFloatLimitStatusChanged);
         bridgeCoordinator.RewardFireSaleContributionReceived += contribution => RunOnUi(() => HandleRewardFireSaleContribution(contribution));
         bridgeCoordinator.DevFireSaleRequested += request => RunOnUi(() => HandleDevFireSaleRequest(request));
         bridgeCoordinator.PauseCommandRequested += () => RunOnUi(() => ToggleEmergencyRedeemStop());
         bridgeCoordinator.GroupToggleRequested += groupName => RunOnUi(() => ToggleRedeemGroupByName(groupName));
         bridgeCoordinator.RedeemControlRequested += (redeemName, enable) => RunOnUi(() => ToggleRedeemByName(redeemName, enable));
+        bridgeCoordinator.VrChatOscAvatarChangeReceived += avatarId => RunOnUi(() => HandleIncomingOscAvatarChangeSync(avatarId));
         liveFeedbackHeartbeatService.DiagnosticLogged += message => RunOnUi(() => AppendLog(message));
 
+        RecomputeVrChatConnectionState();
     }
 
     public AppSettings Settings
@@ -1356,6 +1378,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public string LanguageRestartNoticeText => T("Language changes apply after you restart Crystal Relay.");
 
+    public bool ShowMigrationNotice =>
+        !Settings.AvatarSwapMigrationNoticeShown
+        && Settings.AvatarChangeToAvatarSwapMigrationVersion >= AvatarSwapMigrationService.CurrentMigrationVersion;
+
     public string UiOpacityStatusText => TF("UI Opacity: {0}%", Settings.InterfaceOpacityPercent);
 
     public AppTheme SelectedTheme
@@ -1516,17 +1542,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         .Where(IsSupporterForceMovementOverride)
         .ToArray();
 
-    public IReadOnlyList<TriggerRule> AvatarChangeOverrideRules => Settings.GlobalOverrideRules
-        .Where(IsSupporterAvatarChangeOverride)
-        .ToArray();
-
     public IReadOnlyList<TriggerRule> GlobalSupporterRules => [];
 
     public bool HasSelectedAvatarSupporterRules => SelectedAvatarSupporterRules.Count > 0;
 
     public bool HasForceMovementOverrideRules => ForceMovementOverrideRules.Count > 0;
-
-    public bool HasAvatarChangeOverrideRules => AvatarChangeOverrideRules.Count > 0;
 
     public bool HasGlobalSupporterRules => GlobalSupporterRules.Count > 0;
 
@@ -2506,7 +2526,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 TestSelectedPowerUpRuleCommand.NotifyCanExecuteChanged();
                 UnlinkPowerUpCommand.NotifyCanExecuteChanged();
                 UseCurrentAvatarForPowerUpRuleCommand.NotifyCanExecuteChanged();
-                UseCurrentAvatarForAvatarChangeRuleCommand.NotifyCanExecuteChanged();
                 RaisePropertyChanged(nameof(SelectedPowerUpRule));
                 RaisePropertyChanged(nameof(PowerUpRuleStatusText));
                 RaisePropertyChanged(nameof(PowerUpActionEditorHelpText));
@@ -2650,6 +2669,44 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         private set => SetProperty(ref vrChatStatus, value);
     }
 
+    private VrChatConnectionState vrChatConnectionState = VrChatConnectionState.NoData;
+    public VrChatConnectionState VrChatConnectionState
+    {
+        get => vrChatConnectionState;
+        private set
+        {
+            if (vrChatConnectionState != value)
+            {
+                vrChatConnectionState = value;
+                RaisePropertyChanged();
+                RaisePropertyChanged(nameof(VrChatConnectionStateLabel));
+                RaisePropertyChanged(nameof(VrChatConnectionStateTooltip));
+                RaisePropertyChanged(nameof(VrChatConnectionStateBrush));
+            }
+        }
+    }
+
+    public string VrChatConnectionStateLabel => VrChatConnectionState switch
+    {
+        VrChatConnectionState.LoggedIn => T("VRChat: Logged in"),
+        VrChatConnectionState.Cached => T("VRChat: Cached"),
+        _ => T("VRChat: No data"),
+    };
+
+    public string VrChatConnectionStateTooltip => VrChatConnectionState switch
+    {
+        VrChatConnectionState.LoggedIn => T("Connected to VRChat. Avatar names and current avatar are fetched from the live API."),
+        VrChatConnectionState.Cached => T("VRChat login is unavailable. Crystal Relay is using the cached avatar list and detecting the current avatar via OSC and LocalLow files."),
+        _ => T("No avatar data is available. Log in to VRChat or visit an avatar in VRChat to build the cache."),
+    };
+
+    public Brush VrChatConnectionStateBrush => VrChatConnectionState switch
+    {
+        VrChatConnectionState.LoggedIn => Brushes.LimeGreen,
+        VrChatConnectionState.Cached => Brushes.Goldenrod,
+        _ => Brushes.Gray,
+    };
+
     public string VrChatAvatarStatus
     {
         get => vrChatAvatarStatus;
@@ -2764,6 +2821,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     public bool IsNeonBorbThemeSelected => SelectedTheme == AppTheme.NeonBorb;
 
     public bool IsStinkyOnlineThemeSelected => SelectedTheme == AppTheme.StinkyOnline;
+
+    public bool IsSquishyFoxPlushThemeSelected => SelectedTheme == AppTheme.SquishyFoxPlush;
+
+    public bool IsPucaThemeSelected => SelectedTheme == AppTheme.Puca;
 
     public bool HasCustomThemeBackgroundImage => !string.IsNullOrWhiteSpace(Settings.CustomTheme.BackgroundImageRelativePath);
 
@@ -2992,6 +3053,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public AsyncRelayCommand RefreshVrChatAvatarsCommand { get; }
 
+    public AsyncRelayCommand ClearVrChatCacheCommand { get; }
+
     public RelayCommand OpenTwitchDeveloperConsoleCommand { get; }
 
     public RelayCommand OpenSaveFolderCommand { get; }
@@ -3008,7 +3071,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public AsyncRelayCommand RefreshTwitchRewardsCommand { get; }
 
+    ICommand ITwitchRewardSource.RefreshTwitchRewardsCommand => RefreshTwitchRewardsCommand;
+
     public RelayCommand UnlinkTwitchRewardCommand { get; }
+
+    ICommand ITwitchRewardSource.UnlinkTwitchRewardCommand => UnlinkTwitchRewardCommand;
 
     public RelayCommand UnlinkWardrobeMasterRewardCommand { get; }
 
@@ -3064,6 +3131,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public AsyncRelayCommand RefreshWorldCommandBlacklistCommand { get; }
 
+    public RelayCommand DismissMigrationNoticeCommand { get; }
+
     public RelayCommand ShowSettingsTwitchSectionCommand { get; }
 
     public RelayCommand ShowSettingsVrChatSectionCommand { get; }
@@ -3075,8 +3144,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     public RelayCommand ShowSettingsSafetySectionCommand { get; }
 
     public RelayCommand ShowAvatarTriggerRulesCommand { get; }
-
-    public RelayCommand ShowMasterAvatarTabCommand { get; }
 
     public RelayCommand ShowMovementRedeemsCommand { get; }
 
@@ -3112,8 +3179,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public RelayCommand UseCurrentAvatarForSupporterRuleCommand { get; }
 
-    public RelayCommand UseCurrentAvatarForAvatarChangeRuleCommand { get; }
-
     public RelayCommand OpenAvatarPickerCommand { get; }
 
     public RelayCommand AddRuleCommand { get; }
@@ -3125,8 +3190,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     public RelayCommand SelectRuleCommand { get; }
 
     public RelayCommand AddAvatarSupporterTriggerCommand { get; }
-
-    public RelayCommand AddAvatarChangeOverrideCommand { get; }
 
     public RelayCommand AddForceMovementOverrideCommand { get; }
 
@@ -3216,6 +3279,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     public RelayCommand ResetRewardFireSaleProgressCommand { get; }
 
+    public RelayCommand PickReturnAvatarCommand { get; }
+
+    public RelayCommand UseCurrentAvatarForReturnCommand { get; }
+
+    public RelayCommand ClearReturnAvatarCommand { get; }
+
     // Startup flow for the main window. This loads saved data, rebuilds editor state,
     // restores helper caches, and runs cleanup recovery if the previous launch ended badly.
     public async Task InitializeAsync()
@@ -3266,6 +3335,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         UpdateAccountStatuses();
         isInitialized = true;
         ScheduleRewardFireSaleExpirationIfNeeded();
+        LoadMasterAvatarReturnImage();
         if (normalizedChatCommandFallbacks || fusedUniversalCommandFallbacks > 0 || normalizedSupporterAvatarScopes || normalizedRewardFireSale)
         {
             QueueSave(0);
@@ -3700,6 +3770,17 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         dialog.ShowDialog();
     }
 
+    private void DismissMigrationNotice()
+    {
+        if (Settings.AvatarSwapMigrationNoticeShown)
+        {
+            return;
+        }
+
+        Settings.AvatarSwapMigrationNoticeShown = true;
+        _ = SaveSettingsAsync();
+    }
+
     private void OnTwitchChatboxClosed(object? sender, EventArgs e)
     {
         if (twitchChatboxWindow is not null)
@@ -3738,6 +3819,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RaisePropertyChanged(nameof(IsBakedThemeSelected));
         RaisePropertyChanged(nameof(IsNeonBorbThemeSelected));
         RaisePropertyChanged(nameof(IsStinkyOnlineThemeSelected));
+        RaisePropertyChanged(nameof(IsSquishyFoxPlushThemeSelected));
+        RaisePropertyChanged(nameof(IsPucaThemeSelected));
         RaisePropertyChanged(nameof(HasCustomThemeBackgroundImage));
         RaisePropertyChanged(nameof(CustomThemeBackgroundImageStatusText));
     }
@@ -3812,6 +3895,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             QueueLocalVrChatOscAvatarScan(0);
             QueueCurrentVrChatLocalStateRefresh(0);
             await RefreshVrChatAvatarsAsync(forceRemoteRefresh: true);
+            RecomputeVrChatConnectionState();
         }
         catch (Exception ex)
         {
@@ -3823,6 +3907,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             VrChatAvatarStatus = T("VRChat avatar list is unavailable until login succeeds.");
             AppendLog(VrChatStatus);
             QueueSave();
+            RecomputeVrChatConnectionState();
         }
         finally
         {
@@ -3863,28 +3948,91 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private async Task DisconnectVrChatAsync()
     {
         await SafeVrChatLogoutAsync(Settings.VrChat.AuthCookie);
-        await settingsStore.ClearVrChatAvatarCacheAsync(CancellationToken.None);
-        await settingsStore.ClearVrChatOscParameterCacheAsync(CancellationToken.None);
         ClearVrChatAccountPreservingCurrentAvatar();
         AvatarPickerService.SetVrChatAuthCookie(null);
+
+        // Keep the on-disk avatar + OSC parameter caches. They are LocalLow
+        // sourced and remain valid after a manual disconnect; deleting them
+        // would empty the Avatar Swap / Avatar Sets / Wardrobe reward pickers
+        // while the user is offline. Users who really want a fresh cache can
+        // use the dedicated "Clear VRChat cache" button instead.
+        var persistUserId = ResolveCurrentUserIdForCache();
+        if (!string.IsNullOrEmpty(persistUserId) && availableVrChatAvatars.Count > 0)
+        {
+            try
+            {
+                await settingsStore.SaveVrChatAvatarCacheAsync(
+                    persistUserId,
+                    availableVrChatAvatars,
+                    CancellationToken.None);
+            }
+            catch
+            {
+                // best-effort; do not block the disconnect flow
+            }
+        }
+
+        RaiseVrChatConnectionStateProperties();
+        VrChatStatus = T("VRChat avatar access is not connected.");
+        VrChatAvatarStatus = T("Showing cached avatars. Connect VRChat to refresh.");
+        SyncVrChatRuntimeState(queueManagedRewardSync: false);
+        ResetVrChatLocalRuntimeTracking();
+        // Restart the LocalLow watcher + scan so cached avatars keep
+        // refreshing from VRChat's local files even while disconnected.
+        StartOrRefreshVrChatLocalOscWatcher();
+        QueueLocalVrChatOscAvatarScan(0);
+        QueueSave();
+        RefreshCommandStates();
+        UpdateAvatarProfileActivityStates();
+        RefreshVrChatAvatarSelectionOptions();
+        RecomputeVrChatConnectionState();
+        AppendLog(T("Disconnected VRChat avatar access. Cached avatars remain available."));
+    }
+
+    // Manually wipes the cached VRChat avatar + OSC parameter lists. This is
+    // intentionally separate from the disconnect flow so a normal disconnect
+    // keeps the cached avatars around for offline editing of Avatar Swap /
+    // Avatar Sets / Wardrobe rewards.
+    private async Task ClearVrChatCacheAsync()
+    {
+        try
+        {
+            await settingsStore.ClearVrChatAvatarCacheAsync(CancellationToken.None);
+            await settingsStore.ClearVrChatOscParameterCacheAsync(CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            AppendLog(TF("Could not clear VRChat cache: {0}", ex.Message));
+            return;
+        }
+
         ClearAvailableVrChatAvatars();
         cachedVrChatParametersByAvatarId.Clear();
         AvatarParameterOptions.Clear();
         SetTriggerParameterOptions.Clear();
         SelectedAvatarParameterOption = null;
         SelectedSetTriggerParameterOption = null;
-        VrChatOscParameterStatus = T("Connect VRChat to load avatar parameters.");
-        RaiseVrChatConnectionStateProperties();
-        VrChatStatus = T("VRChat avatar access is not connected.");
-        VrChatAvatarStatus = T("Connect VRChat to load avatar choices.");
-        SyncVrChatRuntimeState();
-        ResetVrChatLocalRuntimeTracking();
-        DisposeVrChatLocalOscWatcher();
-        QueueSave();
-        RefreshCommandStates();
-        UpdateAvatarProfileActivityStates();
+        InvalidateInferredLocalLowUserId();
+        VrChatAvatarStatus = T("VRChat avatar cache cleared. Connect VRChat to reload.");
+        VrChatOscParameterStatus = T("VRChat OSC parameter cache cleared. Connect VRChat to reload.");
+        StartOrRefreshVrChatLocalOscWatcher();
+        QueueLocalVrChatOscAvatarScan(0);
         RefreshVrChatAvatarSelectionOptions();
-        AppendLog(T("Disconnected VRChat avatar access."));
+        RefreshCommandStates();
+        RecomputeVrChatConnectionState();
+        AppendLog(T("Cleared the cached VRChat avatar and OSC parameter lists."));
+    }
+
+    private bool HasPersistedVrChatCache()
+    {
+        // We don't want to hit the secure store on every command evaluation.
+        // Use the live in-memory avatar count as a fast proxy and let the
+        // secure store checks happen on click if needed. The button stays
+        // usable whenever the user has any in-memory cache, which is the
+        // realistic case for this command.
+        return availableVrChatAvatars.Count > 0
+            || !string.IsNullOrEmpty(Settings.VrChat.UserId)
+            || !string.IsNullOrEmpty(inferredLocalLowUserId);
     }
 
     private void SyncVrChatRuntimeState(bool queueManagedRewardSync = true)
@@ -3908,11 +4056,16 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private void ClearVrChatAccountPreservingCurrentAvatar()
     {
         var currentAvatarId = GetBestKnownCurrentAvatarId();
+        var displayName = Settings.VrChat.DisplayName?.Trim() ?? string.Empty;
         Settings.VrChat.Clear();
         AvatarPickerService.SetVrChatAuthCookie(null);
         if (!string.IsNullOrWhiteSpace(currentAvatarId))
         {
             Settings.VrChat.CurrentAvatarId = currentAvatarId;
+        }
+        if (!string.IsNullOrWhiteSpace(displayName))
+        {
+            Settings.VrChat.DisplayName = displayName;
         }
     }
 
@@ -4072,37 +4225,76 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         if (!Settings.VrChat.IsConnected)
         {
             AvatarPickerService.SetVrChatAuthCookie(null);
+        }
+        else
+        {
+            AvatarPickerService.SetVrChatAuthCookie(Settings.VrChat.AuthCookie);
+        }
+
+        var startupUserId = ResolveCurrentUserIdForCache();
+        if (!string.IsNullOrEmpty(startupUserId))
+        {
+            var cachedAvatars = await settingsStore.LoadVrChatAvatarCacheAsync(startupUserId, CancellationToken.None);
+            ReplaceAvailableVrChatAvatars(cachedAvatars);
+        }
+
+        StartOrRefreshVrChatLocalOscWatcher();
+        QueueLocalVrChatOscAvatarScan(0);
+
+        if (!Settings.VrChat.IsConnected)
+        {
             VrChatStatus = T("VRChat avatar access is not connected.");
-            VrChatAvatarStatus = T("Connect VRChat to load avatar choices.");
             VrChatOscParameterStatus = T("Connect VRChat to load avatar parameters.");
             ResetVrChatLocalRuntimeTracking();
-            DisposeVrChatLocalOscWatcher();
+
+            var inferredUserId = ResolveCurrentUserIdForCache();
+            if (!string.IsNullOrEmpty(inferredUserId))
+            {
+                try
+                {
+                    var localAvatars = await vrChatLocalOscCacheService
+                        .LoadKnownAvatarsAsync(inferredUserId, CancellationToken.None);
+                    if (localAvatars.Count > 0)
+                    {
+                        RunOnUi(() => ApplyLocalVrChatOscAvatars(localAvatars));
+                    }
+                }
+                catch
+                {
+                    // best-effort; the watcher and managed-reward sync handle the persistent case
+                }
+            }
+
+            await ScanLocalVrChatOscAvatarCacheAsync(CancellationToken.None);
+            QueueCurrentVrChatLocalStateRefresh(0);
+            UpdateAvatarProfileActivityStates();
+            VrChatAvatarStatus = availableVrChatAvatars.Count == 0
+                ? T("No cached avatars yet. Connect VRChat once to build the cache.")
+                : TF("Showing {0} cached avatars. Connect VRChat to refresh from the API.", availableVrChatAvatars.Count);
             RefreshVrChatAvatarSelectionOptions();
+            RecomputeVrChatConnectionState();
+            RefreshCommandStates();
             return;
         }
 
-        AvatarPickerService.SetVrChatAuthCookie(Settings.VrChat.AuthCookie);
-        var cachedAvatars = await settingsStore.LoadVrChatAvatarCacheAsync(Settings.VrChat.UserId, CancellationToken.None);
-        ReplaceAvailableVrChatAvatars(cachedAvatars);
         if (NormalizeSupporterAvatarScopes())
         {
             QueueSave(0);
             QueueBridgeRefresh();
         }
-        StartOrRefreshVrChatLocalOscWatcher();
         await ScanLocalVrChatOscAvatarCacheAsync(CancellationToken.None);
         QueueCurrentVrChatLocalStateRefresh(0);
         UpdateAvatarProfileActivityStates();
 
-        if (cachedAvatars.Count > 0)
+        if (availableVrChatAvatars.Count > 0)
         {
             VrChatStatus = TF("Connected to VRChat as {0}.", Settings.VrChat.DisplayName);
-            VrChatAvatarStatus = TF("Loaded {0} saved avatars. Checking VRChat once for updates...", cachedAvatars.Count);
+            VrChatAvatarStatus = TF("Loaded {0} saved avatars. Checking VRChat once for updates...", availableVrChatAvatars.Count);
             SyncVrChatAvatarRuleLabels();
             RefreshVrChatAvatarSelectionOptions();
         }
 
-        if (cachedAvatars.Count == 0)
+        if (availableVrChatAvatars.Count == 0)
         {
             VrChatStatus = TF("Connected to VRChat as {0}.", Settings.VrChat.DisplayName);
             VrChatAvatarStatus = T("Pulling your VRChat avatar list...");
@@ -4112,6 +4304,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
         await EnsureSelectedAvatarParameterCacheLoadedAsync();
         await RefreshVrChatAvatarsAsync(forceRemoteRefresh: true);
+        RecomputeVrChatConnectionState();
     }
 
     private async Task RefreshVrChatAvatarsAsync()
@@ -4119,17 +4312,39 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         await RefreshVrChatAvatarsAsync(forceRemoteRefresh: true);
     }
 
+    private bool CanRefreshVrChatAvatars()
+    {
+        return Settings.VrChat.IsConnected
+            || VrChatConnectionState == VrChatConnectionState.Cached
+            || availableVrChatAvatars.Count > 0
+            || !string.IsNullOrWhiteSpace(Settings.VrChat.UserId)
+            || !string.IsNullOrWhiteSpace(inferredLocalLowUserId);
+    }
+
     private async Task RefreshVrChatAvatarsAsync(bool forceRemoteRefresh)
     {
         if (!Settings.VrChat.IsConnected)
         {
+            // Offline refresh: load the secure cache for the inferred userId,
+            // then let the LocalLow scan merge in any fresh names. This keeps
+            // the Avatar Swap / Avatar Sets / Wardrobe reward pickers usable
+            // after a disconnect instead of silently emptying them.
             AvatarPickerService.SetVrChatAuthCookie(null);
+            var offlineUserId = ResolveCurrentUserIdForCache();
+            if (!string.IsNullOrEmpty(offlineUserId))
+            {
+                var cachedAvatars = await settingsStore.LoadVrChatAvatarCacheAsync(offlineUserId, CancellationToken.None);
+                ReplaceAvailableVrChatAvatars(cachedAvatars);
+            }
+            StartOrRefreshVrChatLocalOscWatcher();
+            await ScanLocalVrChatOscAvatarCacheAsync(CancellationToken.None);
             VrChatStatus = T("VRChat avatar access is not connected.");
-            VrChatAvatarStatus = T("Connect VRChat to load avatar choices.");
-            ResetVrChatLocalRuntimeTracking();
-            DisposeVrChatLocalOscWatcher();
+            VrChatAvatarStatus = availableVrChatAvatars.Count == 0
+                ? T("No cached avatars yet. Connect VRChat once to build the cache.")
+                : TF("Showing {0} cached avatars. Connect VRChat to refresh from the API.", availableVrChatAvatars.Count);
             RefreshVrChatAvatarSelectionOptions();
             RefreshCommandStates();
+            RecomputeVrChatConnectionState();
             return;
         }
 
@@ -4153,6 +4368,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             RefreshVrChatAvatarSelectionOptions();
             await EnsureSelectedAvatarParameterCacheLoadedAsync();
             RefreshCommandStates();
+            RecomputeVrChatConnectionState();
             return;
         }
 
@@ -4192,29 +4408,22 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 ? TF("Connected VRChat avatar access as {0}, but no avatars were returned.", account.DisplayName)
                 : TF("Loaded {0} VRChat avatars for {1}.", avatars.Count, account.DisplayName));
             await RefreshVrChatOscParametersAsync(suppressErrors: true);
+            RecomputeVrChatConnectionState();
         }
         catch (Exception ex)
         {
             if (ex is VrChatApiException apiException
                 && apiException.StatusCode == System.Net.HttpStatusCode.Unauthorized)
             {
-                ClearVrChatAccountPreservingCurrentAvatar();
-                ClearAvailableVrChatAvatars();
-                await settingsStore.ClearVrChatAvatarCacheAsync(CancellationToken.None);
-                await settingsStore.ClearVrChatOscParameterCacheAsync(CancellationToken.None);
-                cachedVrChatParametersByAvatarId.Clear();
-                AvatarParameterOptions.Clear();
-                SetTriggerParameterOptions.Clear();
-                SelectedAvatarParameterOption = null;
-                SelectedSetTriggerParameterOption = null;
+                await HandleVrChatUnauthorizedAsync(CancellationToken.None);
                 RaiseVrChatConnectionStateProperties();
                 SyncVrChatRuntimeState(queueManagedRewardSync: false);
-                VrChatStatus = T("Saved VRChat session expired. Connect again to reload avatars.");
-                VrChatAvatarStatus = T("VRChat avatar list is unavailable until you reconnect.");
-                VrChatOscParameterStatus = T("Reconnect VRChat to load avatar parameters again.");
-                ResetVrChatLocalRuntimeTracking();
-                DisposeVrChatLocalOscWatcher();
-                AppendLog(T("Saved VRChat avatar session expired and was cleared."));
+                VrChatStatus = T("VRChat avatar access is not connected.");
+                VrChatAvatarStatus = availableVrChatAvatars.Count == 0
+                    ? T("No cached avatars yet. Connect VRChat once to build the cache.")
+                    : TF("Showing {0} cached avatars. Connect VRChat to refresh from the API.", availableVrChatAvatars.Count);
+                VrChatOscParameterStatus = T("Pick an avatar set to load its saved OSC parameters.");
+                AppendLog(T("Disconnected VRChat avatar access. Cached avatars remain available."));
                 RecordSavedLoginRecoverySignal();
                 QueueSave();
             }
@@ -4518,7 +4727,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         return entries;
     }
 
-    private string ResolveVrChatAvatarName(string? avatarId)
+    public string ResolveVrChatAvatarName(string? avatarId)
     {
         var normalizedId = avatarId?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(normalizedId))
@@ -5060,15 +5269,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         SwitchRuleView(RuleListView.AvatarTriggers, profile, rule);
     }
 
-    private void ShowMasterAvatarTab()
-    {
-        EnsureMasterAvatarProfileExists();
-        var profile = MasterAvatarProfile;
-        ApplyMasterAvatarDefaults(profile);
-        var rule = GetRememberedMasterRule();
-        SwitchRuleView(RuleListView.MasterAvatar, profile, rule);
-    }
-
     private void ShowMovementRedeems()
     {
         EnsureSelectedMovementRedeemSet();
@@ -5092,6 +5292,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private UniversalTriggersManagerWindow? _universalTriggersManagerWindow;
 
     private AvatarSetsManagerWindow? _avatarSetsManagerWindow;
+
+    private AvatarSwapManagerWindow? _avatarSwapManagerWindow;
+
+    private readonly AvatarImageService _masterAvatarReturnImageService = new();
+    private System.Windows.Media.ImageSource? _masterAvatarReturnImage;
+    private System.Threading.CancellationTokenSource? _masterAvatarReturnImageCts;
 
     private void OpenUniversalTriggersManager()
     {
@@ -5132,6 +5338,126 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             IsAvatarSetsManagerOpen = false;
         };
         _avatarSetsManagerWindow.Show();
+    }
+
+    public RelayCommand OpenAvatarSwapManagerCommand { get; }
+
+    public void OpenAvatarSwapManager()
+    {
+        if (_avatarSwapManagerWindow is { IsVisible: true })
+        {
+            _avatarSwapManagerWindow.Activate();
+            return;
+        }
+
+        var managerVm = new AvatarSwapManagerViewModel(
+            Settings,
+            this,
+            TryGetVrChatAvatarThumbnailUrl,
+            () =>
+            {
+                QueueSave(0);
+                QueueBridgeRefresh();
+                QueueManagedRewardSync(0, ManagedRewardSyncReason.SettingsEdit);
+            });
+        _avatarSwapManagerWindow = new AvatarSwapManagerWindow(managerVm)
+        {
+            Owner = System.Windows.Application.Current?.MainWindow,
+        };
+        _avatarSwapManagerWindow.Closed += (_, _) => _avatarSwapManagerWindow = null;
+        _avatarSwapManagerWindow.Show();
+    }
+
+    public System.Windows.Media.ImageSource? MasterAvatarReturnImage
+    {
+        get => _masterAvatarReturnImage;
+        private set
+        {
+            if (SetProperty(ref _masterAvatarReturnImage, value))
+            {
+                RaisePropertyChanged(nameof(HasMasterAvatarReturnImage));
+            }
+        }
+    }
+
+    public bool HasMasterAvatarReturnImage => _masterAvatarReturnImage is not null;
+
+    private void PickReturnAvatar()
+    {
+        var avatars = GetAllVrChatAvatars();
+        var result = AvatarPickerService.OpenSingle(
+            ThemeManager.CurrentTheme,
+            avatars,
+            Settings.AvatarLibrary,
+            Settings.MasterAvatarSwapReturnId,
+            Application.Current?.MainWindow);
+        if (result is null) return;
+        ApplySharedReturnAvatarSelection(result.AvatarId, result.AvatarName, saveImmediately: true);
+        AppendLog($"Picked return avatar '{result.AvatarName}'.");
+    }
+
+    private void UseCurrentAvatarForReturn()
+    {
+        var currentId = Settings.VrChat.CurrentAvatarId;
+        if (string.IsNullOrWhiteSpace(currentId)) return;
+        var resolvedName = ResolveVrChatAvatarName(currentId);
+        ApplySharedReturnAvatarSelection(currentId, resolvedName, saveImmediately: true);
+        AppendLog($"Set return avatar to current avatar '{resolvedName}'.");
+    }
+
+    private void ClearReturnAvatar()
+    {
+        Settings.MasterAvatarSwapReturnId = null;
+        Settings.MasterAvatarSwapReturnName = null;
+        QueueSave();
+        QueueBridgeRefresh();
+        AppendLog("Cleared the return avatar.");
+    }
+
+    private void LoadMasterAvatarReturnImage()
+    {
+        _masterAvatarReturnImageCts?.Cancel();
+        _masterAvatarReturnImageCts?.Dispose();
+        _masterAvatarReturnImageCts = new System.Threading.CancellationTokenSource();
+        var avatarId = Settings.MasterAvatarSwapReturnId;
+        var thumbnailUrl = TryGetVrChatAvatarThumbnailUrl(avatarId);
+        var ct = _masterAvatarReturnImageCts.Token;
+
+        if (string.IsNullOrWhiteSpace(avatarId))
+        {
+            MasterAvatarReturnImage = null;
+            return;
+        }
+
+        var syncImage = _masterAvatarReturnImageService.GetAvatarImage(avatarId, null, thumbnailUrl);
+        if (syncImage is not null && !ct.IsCancellationRequested)
+        {
+            System.Windows.Application.Current?.Dispatcher.InvokeAsync(() => MasterAvatarReturnImage = syncImage);
+            return;
+        }
+
+        _ = System.Threading.Tasks.Task.Run(async () =>
+        {
+            try
+            {
+                var asyncImage = await _masterAvatarReturnImageService.GetAvatarImageAsync(avatarId, null, thumbnailUrl, ct);
+                if (asyncImage is not null && !ct.IsCancellationRequested)
+                {
+                    System.Windows.Application.Current?.Dispatcher.InvokeAsync(() => MasterAvatarReturnImage = asyncImage);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch
+            {
+                if (!ct.IsCancellationRequested)
+                {
+                    var placeholder = _masterAvatarReturnImageService.GetPlaceholderImage();
+                    System.Windows.Application.Current?.Dispatcher.InvokeAsync(() => MasterAvatarReturnImage = placeholder);
+                }
+            }
+        }, ct);
     }
 
     private bool _isAvatarSetsManagerOpen;
@@ -6058,7 +6384,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             "Profile" => SelectedAvatarProfile?.AvatarId,
             "PowerUp" => SelectedPowerUpRule?.AvatarId,
             "Supporter" => SelectedRule?.SupporterAvatarId,
-            "AvatarChange" => SelectedRule?.AvatarChangeTargetId,
             _ => SelectedAvatarProfile?.AvatarId,
         };
 
@@ -6095,13 +6420,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 {
                     SelectedRule.SupporterAvatarId = result.AvatarId;
                     SelectedRule.SupporterAvatarName = result.AvatarName;
-                }
-                break;
-            case "AvatarChange":
-                if (SelectedRule is not null)
-                {
-                    SelectedRule.AvatarChangeTargetId = result.AvatarId;
-                    SelectedRule.AvatarTargetName = result.AvatarName;
                 }
                 break;
         }
@@ -6143,40 +6461,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         AppendLog($"Set supporter trigger '{SelectedRule.DisplayTitle}' to current avatar '{GetSafeVrChatAvatarDisplayName(resolvedName, currentAvatarId)}'.");
     }
 
-    private bool CanUseCurrentAvatarForAvatarChangeRule()
-    {
-        return (IsViewingSupporterOverrides || IsViewingPowerUps)
-            && SelectedRule?.ActionType == OscActionType.AvatarChange
-            && !string.IsNullOrWhiteSpace(Settings.VrChat.CurrentAvatarId);
-    }
-
-    private void UseCurrentAvatarForAvatarChangeRule()
-    {
-        if (!CanUseCurrentAvatarForAvatarChangeRule() || SelectedRule is null)
-        {
-            return;
-        }
-
-        var currentAvatarId = Settings.VrChat.CurrentAvatarId?.Trim() ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(currentAvatarId))
-        {
-            VrChatAvatarStatus = T("Crystal Relay does not know the current avatar yet. Refresh avatars first.");
-            return;
-        }
-
-        var resolvedName = ResolveVrChatAvatarName(currentAvatarId);
-        SelectedRule.AvatarChangeTargetId = currentAvatarId;
-        SelectedRule.AvatarTargetName = resolvedName;
-        RefreshVrChatAvatarSelectionOptions();
-        QueueSave();
-        QueueBridgeRefresh();
-        var currentAvatarName = GetSafeVrChatAvatarDisplayName(resolvedName, currentAvatarId);
-        AppendLog(IsViewingPowerUps
-            ? $"Set Power Up avatar change '{SelectedRule.DisplayTitle}' target to current avatar '{currentAvatarName}'."
-            : $"Set avatar change override '{SelectedRule.DisplayTitle}' target to current avatar '{currentAvatarName}'.");
-    }
-
-    private void ApplySharedReturnAvatarSelection(string avatarId, string? avatarName, bool saveImmediately)
+    internal void ApplySharedReturnAvatarSelection(string avatarId, string? avatarName, bool saveImmediately)
     {
         var normalizedAvatarId = avatarId?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(normalizedAvatarId))
@@ -6196,10 +6481,14 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             : avatarName.Trim();
 
         var changed = !string.Equals(masterProfile.AvatarId?.Trim() ?? string.Empty, normalizedAvatarId, StringComparison.Ordinal)
-            || !string.Equals(masterProfile.AvatarName?.Trim() ?? string.Empty, resolvedName, StringComparison.Ordinal);
+            || !string.Equals(masterProfile.AvatarName?.Trim() ?? string.Empty, resolvedName, StringComparison.Ordinal)
+            || !string.Equals(Settings.MasterAvatarSwapReturnId?.Trim() ?? string.Empty, normalizedAvatarId, StringComparison.Ordinal)
+            || !string.Equals(Settings.MasterAvatarSwapReturnName?.Trim() ?? string.Empty, resolvedName, StringComparison.Ordinal);
 
         masterProfile.AvatarId = normalizedAvatarId;
         masterProfile.AvatarName = resolvedName;
+        Settings.MasterAvatarSwapReturnId = normalizedAvatarId;
+        Settings.MasterAvatarSwapReturnName = resolvedName;
 
         ApplyMasterAvatarDefaults(masterProfile);
         UpdateAvatarProfileActivityStates();
@@ -6403,7 +6692,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             }
         }
 
-        if (Settings?.VrChat?.UserId is not { } userId || string.IsNullOrWhiteSpace(userId))
+        var userId = ResolveCurrentUserIdForCache();
+        if (string.IsNullOrWhiteSpace(userId))
         {
             // Fall back to scanning OSC folder by avatar ID directly
             AppendLog("VRChat user ID is not set — signing in to VRChat via the main window's VRChat login enables parameter loading, OR Crystal Relay will scan the avatar OSC file directly.");
@@ -6469,6 +6759,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
     }
 
+    public IReadOnlyList<VrChatAvatarSummary> GetAllVrChatAvatars()
+        => availableVrChatAvatars
+            .Select(a => new VrChatAvatarSummary(a.Id, a.Name, a.SourceLabel, a.IsCurrentAvatar, a.ThumbnailUrl))
+            .ToList();
+
     public string? TryGetVrChatAvatarThumbnailUrl(string? avatarId)
     {
         if (string.IsNullOrWhiteSpace(avatarId)) return null;
@@ -6530,17 +6825,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         QueueBridgeRefresh();
         RaiseSupporterRuleGroupProperties();
         AppendLog($"Added avatar supporter trigger '{rule.DisplayTitle}' for '{FormatSupporterAvatarScopeLabel(avatarId, avatarName)}'.");
-    }
-
-    private void AddAvatarChangeOverride()
-    {
-        var rule = CreateDefaultAvatarChangeOverrideRule();
-        Settings.GlobalOverrideRules.Add(rule);
-        SelectedRule = rule;
-        QueueSave();
-        QueueBridgeRefresh();
-        RaiseSupporterRuleGroupProperties();
-        AppendLog($"Added avatar change override '{rule.DisplayTitle}'.");
     }
 
     private void AddForceMovementOverride()
@@ -8549,7 +8833,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         OpenSupporterOverrideTimeSettingsCommand.NotifyCanExecuteChanged();
         AddSetTriggerActionCommand.NotifyCanExecuteChanged();
         RemoveSelectedSetTriggerActionCommand.NotifyCanExecuteChanged();
-        UseCurrentAvatarForAvatarChangeRuleCommand.NotifyCanExecuteChanged();
         RefreshAvatarParameterPathCommandStates();
     }
 
@@ -8766,6 +9049,87 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
         AppendThrottledLog(
             $"avatar-scale-limit-visibility:{rule.Id}:{limitName}:{limitState.IsAtLimit}",
+            message,
+            ThrottledRewardSyncLogWindow);
+    }
+
+    private void HandleFloatLimitStatusChanged()
+    {
+        if (!isInitialized || isShuttingDown)
+        {
+            return;
+        }
+
+        var limitReachedRuleIds = bridgeCoordinator.GetActiveFloatLimitReachedRuleIds();
+        var currentStates = limitReachedRuleIds
+            .ToDictionary(id => id, id => (MaxReached: true, MinReached: true));
+
+        var shouldSync = false;
+        var activeRuleIds = new HashSet<Guid>();
+
+        foreach (var rule in EnumerateAllRules().Where(r => r.UsesFloatHideOnLimit))
+        {
+            activeRuleIds.Add(rule.Id);
+            var currentState = currentStates.TryGetValue(rule.Id, out var s)
+                ? s
+                : (MaxReached: false, MinReached: false);
+
+            bool hadPreviousState;
+            (bool PrevMax, bool PrevMin) previousState;
+            lock (floatLimitStateGate)
+            {
+                hadPreviousState = floatLimitStateByRuleId.TryGetValue(rule.Id, out previousState);
+            }
+
+            if (!hadPreviousState
+                || previousState.PrevMax != currentState.MaxReached
+                || previousState.PrevMin != currentState.MinReached)
+            {
+                lock (floatLimitStateGate)
+                {
+                    floatLimitStateByRuleId[rule.Id] = currentState;
+                }
+
+                if (hadPreviousState || currentState.MaxReached || currentState.MinReached)
+                {
+                    LogFloatLimitVisibilityChange(rule, currentState);
+                }
+
+                shouldSync = true;
+            }
+        }
+
+        lock (floatLimitStateGate)
+        {
+            foreach (var removedRuleId in floatLimitStateByRuleId.Keys.Except(activeRuleIds).ToArray())
+            {
+                floatLimitStateByRuleId.Remove(removedRuleId);
+            }
+        }
+
+        if (shouldSync)
+        {
+            QueueManagedRewardSync(
+                (int)AvatarScaleLimitRewardSyncDebounce.TotalMilliseconds,
+                ManagedRewardSyncReason.FloatLimitStatus);
+        }
+    }
+
+    private void LogFloatLimitVisibilityChange(TriggerRule rule, (bool MaxReached, bool MinReached) state)
+    {
+        var limitName = (rule.HideRewardWhenFloatMaxReached, rule.HideRewardWhenFloatMinReached) switch
+        {
+            (true, false) => "maximum",
+            (false, true) => "minimum",
+            _ => "configured limit",
+        };
+        var isHidden = state.MaxReached || state.MinReached;
+        var message = isHidden
+            ? $"Avatar set reward '{rule.DisplayTitle}' is hidden on Twitch because its float value reached the configured {limitName}."
+            : $"Avatar set reward '{rule.DisplayTitle}' can show on Twitch again because its float value left the configured limit.";
+
+        AppendThrottledLog(
+            $"float-limit-visibility:{rule.Id}:{limitName}:{isHidden}",
             message,
             ThrottledRewardSyncLogWindow);
     }
@@ -9300,6 +9664,14 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             RaiseRuleSelectionStateProperties();
             RaisePropertyChanged(nameof(MasterAvatarReturnText));
             RaisePropertyChanged(nameof(SelectedAvatarProfileStatusText));
+            QueueBridgeRefresh();
+            QueueManagedRewardSync(0);
+        }
+
+        if (sender is AppSettings
+            && e.PropertyName is nameof(AppSettings.MasterAvatarSwapReturnId) or nameof(AppSettings.MasterAvatarSwapReturnName))
+        {
+            LoadMasterAvatarReturnImage();
             QueueBridgeRefresh();
             QueueManagedRewardSync(0);
         }
@@ -9910,7 +10282,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             await EnsureBridgeStateAsync(CancellationToken.None, allowOscOnly: true);
 
             var (isGlobalOverride, profile) = ResolveRuleRuntimeContext(rule);
-            var ruleSnapshot = BridgeRuntimeConfiguration.CreateManualTestSnapshot(rule, isGlobalOverride, profile);
+            var rouletteProfile = Settings.AvatarRouletteProfiles.FirstOrDefault(candidate => candidate.Triggers.Contains(rule));
+            var ruleSnapshot = BridgeRuntimeConfiguration.CreateManualTestSnapshot(rule, isGlobalOverride, profile, rouletteProfile);
             await bridgeCoordinator.SendTestRuleAsync(ruleSnapshot, CancellationToken.None);
 
             BridgeStatus = $"Sent test for '{ruleSnapshot.Name}'.";
@@ -10779,7 +11152,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     }
 
     private static bool IsPassiveManagedRewardSyncReason(ManagedRewardSyncReason reason) =>
-        reason is ManagedRewardSyncReason.RuntimeAvailability or ManagedRewardSyncReason.AvatarScaleStatus;
+        reason is ManagedRewardSyncReason.RuntimeAvailability
+            or ManagedRewardSyncReason.AvatarScaleStatus
+            or ManagedRewardSyncReason.FloatLimitStatus;
 
     private static bool ShouldSkipUnchangedManagedRewardSync(ManagedRewardSyncReason reason) =>
         IsPassiveManagedRewardSyncReason(reason)
@@ -10819,13 +11194,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ManagedRewardSyncReason.AvatarChanged => "avatar changed",
         ManagedRewardSyncReason.RuntimeAvailability => "runtime availability",
         ManagedRewardSyncReason.AvatarScaleStatus => "avatar scale status",
+        ManagedRewardSyncReason.FloatLimitStatus => "float limit status",
         ManagedRewardSyncReason.TestMode => "test mode",
         ManagedRewardSyncReason.EmergencyStop => "emergency stop",
         ManagedRewardSyncReason.StreamStateChanged => "stream state changed",
         ManagedRewardSyncReason.FireSaleChanged => "reward fire sale",
         ManagedRewardSyncReason.ManualRefresh => "manual refresh",
         ManagedRewardSyncReason.ManualCleanup => "manual cleanup",
-        ManagedRewardSyncReason.Maintenance => "maintenance",
+            ManagedRewardSyncReason.Maintenance => "maintenance",
+            ManagedRewardSyncReason.AvatarScaleMasterRewardUnlocked => "avatar scaling master reward unlock changed",
         _ => "settings edit"
     };
 
@@ -10992,6 +11369,20 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     {
         if (!Settings.VrChat.IsConnected)
         {
+            try
+            {
+                await RefreshCurrentVrChatAvatarFromLocalFilesAsync(
+                    cancellationToken,
+                    queueManagedRewardSync: false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                RunOnUi(() => AppendThrottledLog(
+                    "managed-reward-current-avatar-local-cache-refresh",
+                    $"Crystal Relay could not read the cached VRChat avatar state before reward sync: {ex.Message}",
+                    ThrottledRewardSyncLogWindow));
+            }
+
             await RecoverManagedRewardCurrentAvatarFromBridgeRuntimeAsync(cancellationToken);
             if (string.IsNullOrWhiteSpace(GetManagedRewardActivationAvatarId()))
             {
@@ -11096,9 +11487,14 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private void QueueCurrentVrChatAvatarRefresh(int delayMilliseconds = 0)
     {
         if (!isInitialized
-            || isShuttingDown
-            || !Settings.VrChat.IsConnected)
+            || isShuttingDown)
         {
+            return;
+        }
+
+        if (!Settings.VrChat.IsConnected)
+        {
+            QueueCurrentVrChatLocalStateRefresh(delayMilliseconds);
             return;
         }
 
@@ -11140,7 +11536,13 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     private void QueueCurrentVrChatLocalStateRefresh(int delayMilliseconds = 0)
     {
-        if (!isInitialized || isShuttingDown || !Settings.VrChat.IsConnected)
+        if (!isInitialized || isShuttingDown)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(Settings.VrChat.DisplayName)
+            && string.IsNullOrWhiteSpace(ResolveCurrentUserIdForCache()))
         {
             return;
         }
@@ -11182,11 +11584,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         CancellationToken cancellationToken,
         bool queueManagedRewardSync = true)
     {
-        if (!Settings.VrChat.IsConnected)
-        {
-            return;
-        }
-
         var resolvedAvatarId = string.Empty;
         var detectedAvatarName = string.Empty;
         var localDisplayName = Settings.VrChat.DisplayName?.Trim() ?? string.Empty;
@@ -11211,6 +11608,21 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
         if (string.IsNullOrWhiteSpace(resolvedAvatarId))
         {
+            var resolvedUserId = ResolveCurrentUserIdForCache();
+            if (!string.IsNullOrWhiteSpace(resolvedUserId))
+            {
+                var latestLocalAvatar = await vrChatLocalOscCacheService
+                    .LoadLatestKnownAvatarAsync(resolvedUserId, cancellationToken);
+                if (latestLocalAvatar is not null)
+                {
+                    resolvedAvatarId = latestLocalAvatar.AvatarId?.Trim() ?? string.Empty;
+                    detectedAvatarName = latestLocalAvatar.AvatarName?.Trim() ?? string.Empty;
+                }
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(resolvedAvatarId))
+        {
             return;
         }
 
@@ -11218,6 +11630,21 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         if (string.Equals(lastDetectedVrChatAvatarId, resolvedAvatarId, StringComparison.Ordinal)
             && string.Equals(currentAvatarId, resolvedAvatarId, StringComparison.Ordinal))
         {
+            return;
+        }
+
+        // When VRChat is connected, the VRChat API is the authoritative source for the
+        // current avatar. The local output-log + OSC-cache fallback can return a stale
+        // avatar (e.g. the previously worn avatar whose OSC JSON file has a more recent
+        // write time). Letting the 2-second local state poll override the API-corrected
+        // avatar creates a feedback loop: local detection sets avatar A → managed reward
+        // sync's API refresh corrects to avatar B → 2s later local detection sets A again.
+        // Skip the override when connected and the API has already set a current avatar.
+        if (Settings.VrChat.IsConnected
+            && !string.IsNullOrWhiteSpace(currentAvatarId)
+            && !string.Equals(currentAvatarId, resolvedAvatarId, StringComparison.Ordinal))
+        {
+            lastDetectedVrChatAvatarId = resolvedAvatarId;
             return;
         }
 
@@ -11291,23 +11718,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
         catch (VrChatApiException apiException) when (apiException.StatusCode == System.Net.HttpStatusCode.Unauthorized)
         {
-            ClearVrChatAccountPreservingCurrentAvatar();
-            ClearAvailableVrChatAvatars();
-            await settingsStore.ClearVrChatAvatarCacheAsync(CancellationToken.None);
-            await settingsStore.ClearVrChatOscParameterCacheAsync(CancellationToken.None);
-            cachedVrChatParametersByAvatarId.Clear();
-            AvatarParameterOptions.Clear();
-            SetTriggerParameterOptions.Clear();
-            SelectedAvatarParameterOption = null;
-            SelectedSetTriggerParameterOption = null;
+            await HandleVrChatUnauthorizedAsync(cancellationToken);
             RaiseVrChatConnectionStateProperties();
             SyncVrChatRuntimeState(queueManagedRewardSync: false);
-            VrChatStatus = T("Saved VRChat session expired. Connect again to keep tracking your current avatar.");
-            VrChatAvatarStatus = T("VRChat avatar list is unavailable until you reconnect.");
-            VrChatOscParameterStatus = T("Reconnect VRChat to load avatar parameters again.");
-            ResetVrChatLocalRuntimeTracking();
-            DisposeVrChatLocalOscWatcher();
-            AppendLog(T("Saved VRChat avatar session expired and was cleared."));
+            VrChatStatus = T("VRChat avatar access is not connected.");
+            VrChatAvatarStatus = availableVrChatAvatars.Count == 0
+                ? T("No cached avatars yet. Connect VRChat once to build the cache.")
+                : TF("Showing {0} cached avatars. Connect VRChat to refresh from the API.", availableVrChatAvatars.Count);
+            VrChatOscParameterStatus = T("Pick an avatar set to load its saved OSC parameters.");
+            AppendLog(T("Disconnected VRChat avatar access. Cached avatars remain available."));
             RecordSavedLoginRecoverySignal();
             QueueSave();
         }
@@ -11315,13 +11734,19 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     private void StartOrRefreshVrChatLocalOscWatcher()
     {
-        if (!Settings.VrChat.IsConnected || string.IsNullOrWhiteSpace(Settings.VrChat.UserId))
+        // Allow the LocalLow watcher to run even while VRChat is disconnected,
+        // as long as we can resolve a userId from the live settings or the
+        // LocalLow folder. This keeps the cached avatar list and parameter
+        // cache fresh after a manual disconnect, so Avatar Swap / Avatar Sets /
+        // Wardrobe rewards still have a populated avatar list to pick from.
+        var resolvedUserId = ResolveCurrentUserIdForCache();
+        if (string.IsNullOrWhiteSpace(resolvedUserId))
         {
             DisposeVrChatLocalOscWatcher();
             return;
         }
 
-        var avatarFolderPath = VrChatLocalOscCacheService.GetAvatarOscFolderPath(Settings.VrChat.UserId);
+        var avatarFolderPath = VrChatLocalOscCacheService.GetAvatarOscFolderPath(resolvedUserId);
         if (string.IsNullOrWhiteSpace(avatarFolderPath) || !Directory.Exists(avatarFolderPath))
         {
             DisposeVrChatLocalOscWatcher();
@@ -11379,7 +11804,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     private void QueueLocalVrChatOscAvatarScan(int delayMilliseconds = 350)
     {
-        if (!isInitialized || isShuttingDown || !Settings.VrChat.IsConnected || string.IsNullOrWhiteSpace(Settings.VrChat.UserId))
+        if (!isInitialized || isShuttingDown || string.IsNullOrWhiteSpace(ResolveCurrentUserIdForCache()))
         {
             return;
         }
@@ -11414,12 +11839,17 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     private async Task ScanLocalVrChatOscAvatarCacheAsync(CancellationToken cancellationToken)
     {
-        if (!Settings.VrChat.IsConnected || string.IsNullOrWhiteSpace(Settings.VrChat.UserId))
+        // Allow the LocalLow scan to run after a VRChat disconnect by resolving
+        // the userId from Settings first, then from the cached LocalLow folder.
+        // This is what keeps the in-memory avatar list and the OSC parameter
+        // cache usable while the user is signed out (Cached state).
+        var resolvedUserId = ResolveCurrentUserIdForCache();
+        if (string.IsNullOrWhiteSpace(resolvedUserId))
         {
             return;
         }
 
-        var localAvatars = await vrChatLocalOscCacheService.LoadKnownAvatarsAsync(Settings.VrChat.UserId, cancellationToken);
+        var localAvatars = await vrChatLocalOscCacheService.LoadKnownAvatarsAsync(resolvedUserId, cancellationToken);
         if (localAvatars.Count == 0)
         {
             return;
@@ -11451,7 +11881,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             try
             {
                 var localParameters = await vrChatLocalOscCacheService.LoadAvatarParametersAsync(
-                    Settings.VrChat.UserId,
+                    resolvedUserId,
                     normalizedAvatarId,
                     cancellationToken);
 
@@ -11478,6 +11908,24 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 RefreshAvatarParameterOptions();
             }
         });
+
+        var persistUserId = ResolveCurrentUserIdForCache();
+        if (!string.IsNullOrEmpty(persistUserId))
+        {
+            try
+            {
+                await settingsStore.SaveVrChatAvatarCacheAsync(
+                    persistUserId,
+                    availableVrChatAvatars,
+                    cancellationToken);
+            }
+            catch
+            {
+                // best-effort; do not break the OSC flow
+            }
+        }
+
+        RecomputeVrChatConnectionState();
     }
 
     private void ApplyLocalVrChatOscAvatars(IReadOnlyList<LocalVrChatOscAvatarSummary> localAvatars)
@@ -11695,6 +12143,18 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 rule.RewardSyncMode);
         }
 
+        foreach (var swapProfile in Settings.AvatarSwapProfiles)
+        {
+            foreach (var rule in swapProfile.ChannelPointRules)
+            {
+                yield return new ManagedRewardOwnershipEntry(
+                    rule.Id,
+                    rule.ChannelPointRewardId,
+                    rule.ChannelPointRewardTitle,
+                    rule.RewardSyncMode);
+            }
+        }
+
         foreach (var trigger in managedUniversalTriggers)
         {
             yield return new ManagedRewardOwnershipEntry(
@@ -11733,6 +12193,21 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
     }
 
+    private string GetEffectiveRequiredAvatarIdForProfile(AvatarTriggerProfile? profile)
+    {
+        if (profile is null)
+        {
+            return string.Empty;
+        }
+
+        if (profile.IsMasterProfile && !string.IsNullOrWhiteSpace(Settings.MasterAvatarSwapReturnId))
+        {
+            return Settings.MasterAvatarSwapReturnId.Trim();
+        }
+
+        return profile.AvatarId?.Trim() ?? string.Empty;
+    }
+
     private ManagedRewardSyncTarget CreateManagedRewardTargetForRule(
         AvatarTriggerProfile? profile,
         TriggerRule rule,
@@ -11741,7 +12216,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         bool allowManagedRewardActivation,
         IReadOnlyCollection<Guid> temporarilyDisabledRuleIds,
         IReadOnlyCollection<Guid> cooldownRuleIds,
-        IReadOnlyCollection<Guid> activeTimedRuleIds)
+        IReadOnlyCollection<Guid> activeTimedRuleIds,
+        IReadOnlyCollection<Guid> activeFloatLimitReachedRuleIds)
     {
         var ruleHasRuntimeReadyAction = HasRuntimeReadyAction(rule);
         var isOnLocalCooldown = cooldownRuleIds.Contains(rule.Id);
@@ -11767,11 +12243,14 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             belongsToMasterAvatarProfile: profile?.IsMasterProfile ?? false,
             actionType: rule.ActionType,
             avatarChangeTargetId: rule.AvatarChangeTargetId,
-            requiredAvatarId: profile?.AvatarId,
+            requiredAvatarId: GetEffectiveRequiredAvatarIdForProfile(profile),
             currentAvatarId: currentAvatarId,
             avatarChangeTransitionActive: avatarChangeTransitionActive,
             avatarChangeCooldownOnlyModeEnabled: Settings.AvatarChangeCooldownOnlyModeEnabled);
         var isActiveFloatBoostParent = IsActiveFloatBoostParentRule(rule) && activeTimedRuleIds.Contains(rule.Id);
+        var floatLimitReached = activeFloatLimitReachedRuleIds.Contains(rule.Id)
+            && rule.UsesFloatHideOnLimit
+            && (rule.HideRewardWhenFloatMaxReached || rule.HideRewardWhenFloatMinReached);
         var ruleIsVisibleForCurrentAvatar = isCooldownOnlyDirectAvatarChange
             ? cooldownOnlyAvatarChangeVisible
             : profileIsEffectivelyActive;
@@ -11781,7 +12260,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             && rule.IsEnabled
             && !temporarilyDisabledRuleIds.Contains(rule.Id)
             && ruleIsVisibleForCurrentAvatar
-            && !isActiveFloatBoostParent;
+            && !isActiveFloatBoostParent
+            && !floatLimitReached;
         var backgroundColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(rule.ManagedRewardReadyColor);
 
         return new ManagedRewardSyncTarget(
@@ -11797,8 +12277,82 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             requireUserInput: false,
             desiredEnabled: desiredEnabled,
             isCooldownActive: isOnLocalCooldown,
-            deleteWhenInactive: rule.DeleteManagedRewardWhenInactive && !isCooldownOnlyDirectAvatarChange && !temporarilyDisabledRuleIds.Contains(rule.Id) && !isActiveFloatBoostParent,
-            protectFromCapReclaim: desiredEnabled || isOnLocalCooldown || temporarilyDisabledRuleIds.Contains(rule.Id) || isActiveFloatBoostParent || isCooldownOnlyDirectAvatarChange,
+            deleteWhenInactive: rule.DeleteManagedRewardWhenInactive && !isCooldownOnlyDirectAvatarChange && !temporarilyDisabledRuleIds.Contains(rule.Id) && !isActiveFloatBoostParent && !floatLimitReached,
+            protectFromCapReclaim: desiredEnabled || isOnLocalCooldown || temporarilyDisabledRuleIds.Contains(rule.Id) || isActiveFloatBoostParent || isCooldownOnlyDirectAvatarChange || floatLimitReached,
+            applyRewardId: rewardId => rule.ChannelPointRewardId = rewardId);
+    }
+
+    private ManagedRewardSyncTarget CreateManagedRewardTargetForAvatarSwapRule(
+        AvatarSwapProfile swapProfile,
+        TriggerRule rule,
+        string currentAvatarId,
+        string returnAvatarId,
+        bool avatarChangeTransitionActive,
+        bool allowManagedRewardActivation,
+        IReadOnlyCollection<Guid> temporarilyDisabledRuleIds,
+        IReadOnlyCollection<Guid> cooldownRuleIds,
+        IReadOnlyCollection<Guid> activeTimedRuleIds,
+        IReadOnlyCollection<Guid> activeFloatLimitReachedRuleIds)
+    {
+        var ruleHasRuntimeReadyAction = HasRuntimeReadyAction(rule);
+        var isOnLocalCooldown = cooldownRuleIds.Contains(rule.Id);
+        var normalizedCurrentAvatarId = currentAvatarId?.Trim() ?? string.Empty;
+        var normalizedAvatarChangeTargetId = rule.AvatarChangeTargetId?.Trim() ?? string.Empty;
+        var isCooldownOnlyDirectAvatarChange = Settings.AvatarChangeCooldownOnlyModeEnabled
+            && rule.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet;
+        var isCurrentAvatarChangeTarget = isCooldownOnlyDirectAvatarChange
+            && rule.ActionType == OscActionType.AvatarChange
+            && !string.IsNullOrWhiteSpace(normalizedCurrentAvatarId)
+            && !string.IsNullOrWhiteSpace(normalizedAvatarChangeTargetId)
+            && string.Equals(normalizedAvatarChangeTargetId, normalizedCurrentAvatarId, StringComparison.Ordinal);
+        var anyCooldownOnlyAvatarChangeOnCooldown = isCooldownOnlyDirectAvatarChange
+            && swapProfile.ChannelPointRules.Any(candidate =>
+                candidate.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet
+                && cooldownRuleIds.Contains(candidate.Id));
+        var cooldownOnlyAvatarChangeVisible = isCooldownOnlyDirectAvatarChange
+            && !string.IsNullOrWhiteSpace(normalizedCurrentAvatarId)
+            && (isOnLocalCooldown || (!anyCooldownOnlyAvatarChangeOnCooldown && !isCurrentAvatarChangeTarget));
+        var profileIsEffectivelyActive = AvatarRuleActivationPolicy.IsRuleActiveForCurrentAvatar(
+            isGlobalOverride: false,
+            belongsToMasterAvatarProfile: true,
+            actionType: rule.ActionType,
+            avatarChangeTargetId: rule.AvatarChangeTargetId,
+            requiredAvatarId: returnAvatarId,
+            currentAvatarId: currentAvatarId,
+            avatarChangeTransitionActive: avatarChangeTransitionActive,
+            avatarChangeCooldownOnlyModeEnabled: Settings.AvatarChangeCooldownOnlyModeEnabled);
+        var isActiveFloatBoostParent = IsActiveFloatBoostParentRule(rule) && activeTimedRuleIds.Contains(rule.Id);
+        var floatLimitReached = activeFloatLimitReachedRuleIds.Contains(rule.Id)
+            && rule.UsesFloatHideOnLimit
+            && (rule.HideRewardWhenFloatMaxReached || rule.HideRewardWhenFloatMinReached);
+        var ruleIsVisibleForCurrentAvatar = isCooldownOnlyDirectAvatarChange
+            ? cooldownOnlyAvatarChangeVisible
+            : profileIsEffectivelyActive;
+        var desiredEnabled = allowManagedRewardActivation
+            && ruleHasRuntimeReadyAction
+            && swapProfile.IsEnabled
+            && rule.IsEnabled
+            && !temporarilyDisabledRuleIds.Contains(rule.Id)
+            && ruleIsVisibleForCurrentAvatar
+            && !isActiveFloatBoostParent
+            && !floatLimitReached;
+        var backgroundColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(rule.ManagedRewardReadyColor);
+
+        return new ManagedRewardSyncTarget(
+            rule.Id,
+            rule.DisplayTitle,
+            rule.ChannelPointRewardId,
+            rule.ChannelPointRewardTitle,
+            ApplyRewardFireSaleDiscount(rule.ChannelPointRewardCost, rule.RewardSyncMode),
+            rule.RewardSyncMode,
+            rule.CooldownSeconds,
+            backgroundColor,
+            prompt: BuildManagedRewardPrompt(rule.ChannelPointRewardDescription),
+            requireUserInput: false,
+            desiredEnabled: desiredEnabled,
+            isCooldownActive: isOnLocalCooldown,
+            deleteWhenInactive: rule.DeleteManagedRewardWhenInactive && !isCooldownOnlyDirectAvatarChange && !temporarilyDisabledRuleIds.Contains(rule.Id) && !isActiveFloatBoostParent && !floatLimitReached,
+            protectFromCapReclaim: desiredEnabled || isOnLocalCooldown || temporarilyDisabledRuleIds.Contains(rule.Id) || isActiveFloatBoostParent || isCooldownOnlyDirectAvatarChange || floatLimitReached,
             applyRewardId: rewardId => rule.ChannelPointRewardId = rewardId);
     }
 
@@ -11910,7 +12464,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             belongsToMasterAvatarProfile: profile.IsMasterProfile,
             actionType: rule.ActionType,
             avatarChangeTargetId: rule.AvatarChangeTargetId,
-            requiredAvatarId: profile.AvatarId,
+            requiredAvatarId: GetEffectiveRequiredAvatarIdForProfile(profile),
             currentAvatarId: currentAvatarId,
             avatarChangeTransitionActive: avatarChangeTransitionActive);
         var parentIsActive = activeTimedRuleIds.Contains(rule.Id);
@@ -11963,7 +12517,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             belongsToMasterAvatarProfile: profile.IsMasterProfile,
             actionType: owner.ActionType,
             avatarChangeTargetId: owner.AvatarChangeTargetId,
-            requiredAvatarId: profile.AvatarId,
+            requiredAvatarId: GetEffectiveRequiredAvatarIdForProfile(profile),
             currentAvatarId: currentAvatarId,
             avatarChangeTransitionActive: avatarChangeTransitionActive);
         var activeChoices = group.Rules
@@ -12217,6 +12771,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             && HasRuntimeReadyUniversalTriggerAction(trigger)
             && IsUniversalTriggerReadyForCurrentAvatarJson(trigger, currentAvatarId);
         var rewardTitle = triggerIsConfigured ? trigger.RewardTitle : string.Empty;
+        var shouldDeleteWhenInactive = trigger.DeleteManagedRewardWhenInactive
+            || (!triggerIsConfigured && !string.IsNullOrWhiteSpace(trigger.RewardId));
 
         return new ManagedRewardSyncTarget(
             trigger.Id,
@@ -12231,7 +12787,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             requireUserInput: false,
             desiredEnabled: desiredEnabled,
             isCooldownActive: false,
-            deleteWhenInactive: trigger.DeleteManagedRewardWhenInactive,
+            deleteWhenInactive: shouldDeleteWhenInactive,
             protectFromCapReclaim: desiredEnabled,
             applyRewardId: rewardId => trigger.RewardId = rewardId);
     }
@@ -12248,7 +12804,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         var desiredEnabled = allowManagedRewardActivation
             && masterReward.IsEnabled
             && hasRewardIdentity;
-        var backgroundColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(masterReward.ManagedRewardReadyColor);
+        // The master reward is shown in its cooldown color while the unlock window is active
+        // OR while the redemption cooldown is active, so a full sync that runs mid-unlock does
+        // not reset the color back to the ready color and undo the per-reward PATCH.
+        var backgroundColor = isCooldownActive
+            ? ManagedRewardPresentation.NormalizeCooldownBackgroundColor(masterReward.ManagedRewardCooldownColor)
+            : ManagedRewardPresentation.NormalizeReadyBackgroundColor(masterReward.ManagedRewardReadyColor);
 
         return new ManagedRewardSyncTarget(
             AvatarScaleMasterRewardOwnerId,
@@ -12408,15 +12969,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
 
         var normalizedAvatarId = currentAvatarId?.Trim() ?? string.Empty;
-        if (!Settings.VrChat.IsConnected
-            || string.IsNullOrWhiteSpace(Settings.VrChat.UserId)
+        var resolvedUserId = ResolveCurrentUserIdForCache();
+        if (string.IsNullOrWhiteSpace(resolvedUserId)
             || string.IsNullOrWhiteSpace(normalizedAvatarId))
         {
             return;
         }
 
-        var avatarFolderPath = VrChatLocalOscCacheService.GetAvatarOscFolderPath(Settings.VrChat.UserId);
-        var avatarFilePath = VrChatLocalOscCacheService.GetAvatarOscFilePath(Settings.VrChat.UserId, normalizedAvatarId);
+        var avatarFolderPath = VrChatLocalOscCacheService.GetAvatarOscFolderPath(resolvedUserId);
+        var avatarFilePath = VrChatLocalOscCacheService.GetAvatarOscFilePath(resolvedUserId, normalizedAvatarId);
         var avatarFolderExists = !string.IsNullOrWhiteSpace(avatarFolderPath) && Directory.Exists(avatarFolderPath);
         var avatarFileExists = avatarFolderExists
             && !string.IsNullOrWhiteSpace(avatarFilePath)
@@ -12441,7 +13002,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             try
             {
                 var localParameters = await vrChatLocalOscCacheService.LoadAvatarParametersAsync(
-                    Settings.VrChat.UserId,
+                    resolvedUserId,
                     normalizedAvatarId,
                     cancellationToken);
 
@@ -12473,7 +13034,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         {
             var hadParameters = cachedVrChatParametersByAvatarId.TryGetValue(normalizedAvatarId, out var cachedParameters)
                 && cachedParameters.Count > 0;
-            vrChatLocalOscAvatarWriteTimes.Remove(normalizedAvatarId);
+            vrChatLocalOscAvatarWriteTimes.TryRemove(normalizedAvatarId, out _);
 
             if (hadParameters || !cachedVrChatParametersByAvatarId.ContainsKey(normalizedAvatarId))
             {
@@ -12492,7 +13053,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             return;
         }
 
-        vrChatLocalOscAvatarWriteTimes.Remove(normalizedAvatarId);
+        vrChatLocalOscAvatarWriteTimes.TryRemove(normalizedAvatarId, out _);
         if (!cachedVrChatParametersByAvatarId.TryGetValue(normalizedAvatarId, out var existingParameters)
             || existingParameters.Count > 0)
         {
@@ -12577,6 +13138,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             var cooldownRuleIds = bridgeCoordinator.GetRulesOnCooldownIds();
             var activeTimedRuleIds = bridgeCoordinator.GetActiveTimedRuleIds();
             var activeFloatBoostMaximumReachedRuleIds = bridgeCoordinator.GetActiveFloatBoostMaximumReachedRuleIds();
+            var activeFloatLimitReachedRuleIds = bridgeCoordinator.GetActiveFloatLimitReachedRuleIds();
             var activeAvatarScaleEffectRuleIds = bridgeCoordinator.GetActiveAvatarScaleEffectRuleIds();
             var queuedAvatarScaleRuleIds = bridgeCoordinator.GetQueuedAvatarScaleRuleIds();
             var avatarChangeTransitionActive = bridgeCoordinator.IsAvatarChangeTransitionActive();
@@ -12681,7 +13243,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                         allowManagedRewardActivation,
                         temporarilyDisabledRuleIds,
                         cooldownRuleIds,
-                        activeTimedRuleIds));
+                        activeTimedRuleIds,
+                        activeFloatLimitReachedRuleIds));
                     if (CreateManagedRewardTargetForActiveFloatBoostReward(
                             profile,
                             rule,
@@ -12715,6 +13278,28 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 }
             }
 
+            var avatarSwapReturnAvatarId = !string.IsNullOrWhiteSpace(Settings.MasterAvatarSwapReturnId)
+                ? Settings.MasterAvatarSwapReturnId.Trim()
+                : (MasterAvatarProfile?.AvatarId?.Trim() ?? string.Empty);
+            var avatarSwapTargets = new List<ManagedRewardSyncTarget>();
+            foreach (var swapProfile in Settings.AvatarSwapProfiles)
+            {
+                foreach (var rule in swapProfile.ChannelPointRules)
+                {
+                    avatarSwapTargets.Add(CreateManagedRewardTargetForAvatarSwapRule(
+                        swapProfile,
+                        rule,
+                        currentAvatarId,
+                        avatarSwapReturnAvatarId,
+                        avatarChangeTransitionActive,
+                        allowManagedRewardActivation,
+                        temporarilyDisabledRuleIds,
+                        cooldownRuleIds,
+                        activeTimedRuleIds,
+                        activeFloatLimitReachedRuleIds));
+                }
+            }
+
             var movementTargets = supportedMovementRules
                 .Select(rule => CreateManagedRewardTargetForRule(
                     profile: null,
@@ -12724,7 +13309,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                     allowManagedRewardActivation,
                     temporarilyDisabledRuleIds,
                     cooldownRuleIds,
-                    activeTimedRuleIds))
+                    activeTimedRuleIds,
+                    activeFloatLimitReachedRuleIds))
                 .ToArray();
             var universalTargets = managedUniversalTriggers
                 .Select(trigger => CreateManagedRewardTargetForUniversalTrigger(
@@ -12754,6 +13340,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             }
 
             allSyncTargets.AddRange(avatarProfileTargets);
+            allSyncTargets.AddRange(avatarSwapTargets);
             allSyncTargets.AddRange(movementTargets);
             allSyncTargets.AddRange(universalTargets);
             allSyncTargets.AddRange(avatarScaleTargets);
@@ -13697,13 +14284,14 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private bool CurrentAvatarLocalOscJsonExists(string currentAvatarId)
     {
         var normalizedAvatarId = currentAvatarId?.Trim() ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(Settings.VrChat.UserId)
+        var resolvedUserId = ResolveCurrentUserIdForCache();
+        if (string.IsNullOrWhiteSpace(resolvedUserId)
             || string.IsNullOrWhiteSpace(normalizedAvatarId))
         {
             return false;
         }
 
-        var avatarFilePath = VrChatLocalOscCacheService.GetAvatarOscFilePath(Settings.VrChat.UserId, normalizedAvatarId);
+        var avatarFilePath = VrChatLocalOscCacheService.GetAvatarOscFilePath(resolvedUserId, normalizedAvatarId);
         return !string.IsNullOrWhiteSpace(avatarFilePath) && File.Exists(avatarFilePath);
     }
 
@@ -16921,6 +17509,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ConnectVrChatCommand.NotifyCanExecuteChanged();
         DisconnectVrChatCommand.NotifyCanExecuteChanged();
         RefreshVrChatAvatarsCommand.NotifyCanExecuteChanged();
+        ClearVrChatCacheCommand.NotifyCanExecuteChanged();
         RemoveSelectedRuleCommand.NotifyCanExecuteChanged();
         TestSelectedRuleCommand.NotifyCanExecuteChanged();
         RemoveSelectedMovementRedeemSetCommand.NotifyCanExecuteChanged();
@@ -16952,7 +17541,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         AddOutfitChoiceCommand.NotifyCanExecuteChanged();
         RemoveSelectedOutfitChoiceCommand.NotifyCanExecuteChanged();
         AddAvatarSupporterTriggerCommand.NotifyCanExecuteChanged();
-        AddAvatarChangeOverrideCommand.NotifyCanExecuteChanged();
         AddForceMovementOverrideCommand.NotifyCanExecuteChanged();
         AddAvatarProfileCommand.NotifyCanExecuteChanged();
         RemoveSelectedRuleCommand.NotifyCanExecuteChanged();
@@ -16996,7 +17584,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         ToggleSelectedAvatarRewardTestOverrideCommand.NotifyCanExecuteChanged();
         UseCurrentVrChatAvatarForProfileCommand.NotifyCanExecuteChanged();
         UseCurrentAvatarForSupporterRuleCommand.NotifyCanExecuteChanged();
-        UseCurrentAvatarForAvatarChangeRuleCommand.NotifyCanExecuteChanged();
         StopRewardFireSaleCommand.NotifyCanExecuteChanged();
         ResetRewardFireSaleProgressCommand.NotifyCanExecuteChanged();
         RemoveRewardFireSaleTierCommand.NotifyCanExecuteChanged();
@@ -17307,9 +17894,39 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
     }
 
-    private async Task OpenBugReportAsync()
+    private async Task OpenBugReportAsync(
+        string? presetCategory = null,
+        string? presetTitle = null)
     {
-        var dialog = new VrcTwitchOscBridge.BugReportWindow(SelectedTheme)
+        var latestCrashPath = System.IO.Path.Combine(AppDataPaths.CrashLogFolder, "latest-crash.txt");
+        var hasCrashLog = System.IO.File.Exists(latestCrashPath);
+
+        var snapshot = BugReportSnapshotService.Build(new BugReportSnapshotData(
+            IsBroadcasterConnected,
+            IsBotConnected,
+            IsVrChatConnected,
+            OscStatusDetail,
+            ResolveVrChatAvatarName(CurrentVrChatAvatarId),
+            CurrentVrChatAvatarId,
+            CurrentAvatarHeightMeters,
+            SelectedTheme,
+            GetThemeDisplayName(),
+            GetAppVersionDisplay()));
+
+        var activityLogSection = bugReportService.BuildActivityLogSection(LogEntries.ToArray());
+        var debugLogSection = bugReportService.BuildDebugLogSection();
+        var crashLogSection = hasCrashLog ? bugReportService.BuildCrashLogSection() : null;
+
+        var dialog = new VrcTwitchOscBridge.BugReportWindow(
+            SelectedTheme,
+            hasCrashLog,
+            presetCategory,
+            presetTitle,
+            snapshot,
+            activityLogSection,
+            debugLogSection,
+            crashLogSection,
+            GetAppVersionDisplay())
         {
             Owner = Application.Current?.MainWindow
         };
@@ -17319,9 +17936,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             return;
         }
 
-        var diagnostics = dialog.IncludeSanitizedLogs
-            ? bugReportService.BuildSanitizedDiagnostics(AppVersion, LogEntries.ToArray())
-            : string.Empty;
+        string? activityLog = dialog.IncludeActivityLog ? activityLogSection : null;
+        string? debugLog = dialog.IncludeDebugLog ? debugLogSection : null;
+        string? crashLog = dialog.IncludeCrashLog ? crashLogSection : null;
 
         var submission = new BugReportSubmission(
             dialog.BugTitle,
@@ -17330,7 +17947,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             dialog.StepsToReproduce,
             dialog.ContactName,
             GetAppVersionDisplay(),
-            diagnostics);
+            dialog.Category,
+            dialog.Severity,
+            snapshot,
+            activityLog,
+            debugLog,
+            crashLog);
 
         AppendLog("Sending bug report to Crystal Relay's bug report service.");
         var result = await bugReportService.SubmitAsync(submission);
@@ -17347,6 +17969,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             if (shouldOpenIssue)
             {
                 OpenUri(result.IssueUrl);
+            }
+
+            if (dialog.IncludeCrashLog)
+            {
+                MarkCrashReportSeen();
             }
 
             return;
@@ -17366,6 +17993,87 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         if (shouldOpenFallback)
         {
             OpenUri(BugReportService.GitHubIssuesUrl);
+        }
+    }
+
+    private string GetThemeDisplayName()
+    {
+        foreach (var option in ThemeOptions)
+        {
+            if (option.Value == SelectedTheme)
+            {
+                return option.Label;
+            }
+        }
+
+        return Enum.GetName(SelectedTheme) ?? "Unknown";
+    }
+
+    internal async Task CheckForPendingCrashReportAsync()
+    {
+        var latestCrashPath = Path.Combine(AppDataPaths.CrashLogFolder, "latest-crash.txt");
+        var seenMarkerPath = Path.Combine(AppDataPaths.CrashLogFolder, "crash-report-seen.marker");
+
+        if (!File.Exists(latestCrashPath))
+        {
+            return;
+        }
+
+        DateTime crashTime;
+        try
+        {
+            crashTime = File.GetLastWriteTimeUtc(latestCrashPath);
+        }
+        catch
+        {
+            return;
+        }
+
+        DateTime seenTime = DateTime.MinValue;
+        if (File.Exists(seenMarkerPath))
+        {
+            try
+            {
+                seenTime = File.GetLastWriteTimeUtc(seenMarkerPath);
+            }
+            catch
+            {
+            }
+        }
+
+        if (crashTime <= seenTime)
+        {
+            return;
+        }
+
+        var shouldReport = ThemedDialogWindow.ShowYesNo(
+            Application.Current?.MainWindow,
+            SelectedTheme,
+            T("Crystal Relay crashed last time"),
+            T("Crystal Relay closed unexpectedly during your last session. Send a bug report with the crash log attached?"),
+            T("Send crash report"),
+            T("Not Now"));
+
+        if (!shouldReport)
+        {
+            MarkCrashReportSeen(seenMarkerPath);
+            return;
+        }
+
+        await OpenBugReportAsync(
+            presetCategory: "crash",
+            presetTitle: TF("Crash on {0}", crashTime.ToLocalTime().ToString("g")));
+    }
+
+    private void MarkCrashReportSeen(string? seenMarkerPath = null)
+    {
+        seenMarkerPath ??= Path.Combine(AppDataPaths.CrashLogFolder, "crash-report-seen.marker");
+        try
+        {
+            File.WriteAllText(seenMarkerPath, DateTimeOffset.UtcNow.ToString("O"));
+        }
+        catch
+        {
         }
     }
 
@@ -17586,6 +18294,150 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     {
         RaisePropertyChanged(nameof(IsVrChatConnected));
         RaisePropertyChanged(nameof(IsVrChatDisconnected));
+    }
+
+    private void RecomputeVrChatConnectionState()
+    {
+        VrChatConnectionState newState;
+        if (!string.IsNullOrWhiteSpace(Settings.VrChat.AuthCookie))
+        {
+            newState = VrChatConnectionState.LoggedIn;
+        }
+        else if (availableVrChatAvatars.Count > 0)
+        {
+            newState = VrChatConnectionState.Cached;
+        }
+        else
+        {
+            newState = VrChatConnectionState.NoData;
+        }
+        VrChatConnectionState = newState;
+    }
+
+    private string? ResolveCurrentUserIdForCache()
+    {
+        var resolved = VrChatLocalOscCacheService.ResolveCacheUserId(
+            Settings.VrChat.UserId,
+            inferredLocalLowUserId);
+        if (!string.IsNullOrWhiteSpace(Settings.VrChat.UserId))
+        {
+            return resolved;
+        }
+        if (string.IsNullOrWhiteSpace(inferredLocalLowUserId))
+        {
+            inferredLocalLowUserId = resolved;
+        }
+        return resolved;
+    }
+
+    private void InvalidateInferredLocalLowUserId()
+    {
+        inferredLocalLowUserId = null;
+    }
+
+    private async Task HandleVrChatUnauthorizedAsync(CancellationToken ct)
+    {
+        var cachedAvatars = SelectVrChatAvatarsForCachedModeAfterAuthFailure(availableVrChatAvatars);
+        ReplaceAvailableVrChatAvatars(cachedAvatars);
+
+        var userId = ResolveCurrentUserIdForCache();
+        if (!string.IsNullOrEmpty(userId))
+        {
+            try
+            {
+                await settingsStore.SaveVrChatAvatarCacheAsync(
+                    userId,
+                    cachedAvatars,
+                    ct);
+            }
+            catch
+            {
+                // best-effort; do not break the cached-mode transition
+            }
+        }
+
+        Settings.VrChat.Clear();
+        AvatarPickerService.SetVrChatAuthCookie(null);
+        StartOrRefreshVrChatLocalOscWatcher();
+        await ScanLocalVrChatOscAvatarCacheAsync(ct);
+        RecomputeVrChatConnectionState();
+        QueueCurrentVrChatLocalStateRefresh(0);
+    }
+
+    internal static IReadOnlyList<VrChatAvatarSummary> SelectVrChatAvatarsForCachedModeAfterAuthFailure(
+        IEnumerable<VrChatAvatarSummary> avatars)
+    {
+        return avatars.ToList();
+    }
+
+    private void HandleIncomingOscAvatarChangeSync(string avatarId)
+    {
+        _ = HandleIncomingOscAvatarChangeAsync(avatarId, CancellationToken.None);
+    }
+
+    private async Task HandleIncomingOscAvatarChangeAsync(string avatarId, CancellationToken ct)
+    {
+        if (!avatarId.StartsWith("avtr_", StringComparison.Ordinal)) return;
+
+        string? resolvedName = null;
+        if (availableVrChatAvatarNamesById.TryGetValue(avatarId, out var existingName) &&
+            !string.IsNullOrWhiteSpace(existingName) &&
+            !string.Equals(existingName, avatarId, StringComparison.Ordinal))
+        {
+            resolvedName = existingName;
+        }
+
+        if (resolvedName is null)
+        {
+            var inferredUserId = await Task.Run(
+                () => VrChatLocalOscCacheService.TryInferUserIdFromLocalLowInRoot(
+                    VrChatLocalClientStateService.GetVrChatRootPath()),
+                ct);
+            if (!string.IsNullOrEmpty(inferredUserId))
+            {
+                var known = await vrChatLocalOscCacheService
+                    .LoadKnownAvatarsAsync(inferredUserId, ct);
+                var match = known.FirstOrDefault(a =>
+                    string.Equals(a.AvatarId, avatarId, StringComparison.Ordinal));
+                if (match is not null &&
+                    !string.IsNullOrWhiteSpace(match.AvatarName) &&
+                    !string.Equals(match.AvatarName, avatarId, StringComparison.Ordinal))
+                {
+                    resolvedName = match.AvatarName;
+                }
+            }
+        }
+
+        var merged = OscAvatarChangeMerger.MergeIntoList(
+            availableVrChatAvatars,
+            avatarId,
+            resolvedName ?? string.Empty,
+            "Local OSC");
+        ReplaceAvailableVrChatAvatars(merged);
+
+        var currentUserId = ResolveCurrentUserIdForCache();
+        if (!string.IsNullOrEmpty(currentUserId))
+        {
+            try
+            {
+                await settingsStore.SaveVrChatAvatarCacheAsync(
+                    currentUserId,
+                    availableVrChatAvatars,
+                    ct);
+            }
+            catch
+            {
+                // best-effort; do not break the OSC flow
+            }
+        }
+
+        // Synchronous: HandleVrChatAvatarChangedByBridge is void and mutates UI-bound
+        // state (Settings.VrChat.CurrentAvatarId, in-memory list, managed reward sync)
+        // that the following RecomputeVrChatConnectionState reads. Must run before
+        // RecomputeVrChatConnectionState so the connection state reflects the change.
+        HandleVrChatAvatarChangedByBridge(avatarId, queueManagedRewardSync: true);
+
+        RecomputeVrChatConnectionState();
     }
 
     private void EnsureRuleCollectionsHaveStarterContent()
@@ -18473,11 +19325,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         RefreshSupporterRuleScopeLabels();
         RaisePropertyChanged(nameof(SelectedAvatarSupporterRules));
         RaisePropertyChanged(nameof(ForceMovementOverrideRules));
-        RaisePropertyChanged(nameof(AvatarChangeOverrideRules));
         RaisePropertyChanged(nameof(GlobalSupporterRules));
         RaisePropertyChanged(nameof(HasSelectedAvatarSupporterRules));
         RaisePropertyChanged(nameof(HasForceMovementOverrideRules));
-        RaisePropertyChanged(nameof(HasAvatarChangeOverrideRules));
         RaisePropertyChanged(nameof(HasGlobalSupporterRules));
     }
 
@@ -18676,19 +19526,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         return rule;
     }
 
-    private static TriggerRule CreateDefaultAvatarChangeOverrideRule()
-    {
-        var rule = CreateBaseRule("New Avatar Change Override", TwitchTriggerType.Bits);
-        rule.ActionType = OscActionType.AvatarChange;
-        rule.SupporterAvatarProfileId = Guid.Empty;
-        rule.SupporterAvatarId = string.Empty;
-        rule.SupporterAvatarName = string.Empty;
-        rule.MinimumAmount = 100;
-        rule.DurationSeconds = 20;
-        rule.CooldownSeconds = 30;
-        return rule;
-    }
-
     private static TriggerRule CreateDefaultForceMovementOverrideRule()
     {
         var rule = CreateBaseRule("New Force Movement", TwitchTriggerType.Bits);
@@ -18743,7 +19580,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     private async Task EnsureSelectedAvatarParameterCacheLoadedAsync()
     {
         var avatarId = GetSelectedParameterCacheAvatarId();
-        if (!Settings.VrChat.IsConnected || string.IsNullOrWhiteSpace(avatarId))
+        if (string.IsNullOrWhiteSpace(avatarId)
+            || string.IsNullOrWhiteSpace(ResolveCurrentUserIdForCache()))
         {
             RefreshAvatarParameterOptions();
             return;
@@ -18766,7 +19604,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     private async Task RefreshVrChatOscParametersAsync(bool suppressErrors)
     {
-        if (!Settings.VrChat.IsConnected)
+        if (string.IsNullOrWhiteSpace(ResolveCurrentUserIdForCache()))
         {
             VrChatOscParameterStatus = T("Connect VRChat to load avatar parameters.");
             return;
@@ -18931,7 +19769,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     private void UpdateVrChatOscParameterStatus(string selectedAvatarId)
     {
-        if (!Settings.VrChat.IsConnected)
+        if (string.IsNullOrWhiteSpace(ResolveCurrentUserIdForCache()))
         {
             VrChatOscParameterStatus = T("Connect VRChat to load avatar parameters.");
         }
@@ -19029,7 +19867,16 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         QueueSave();
         if (queueManagedRewardSync)
         {
-            QueueManagedRewardSync(0, ManagedRewardSyncReason.AvatarChanged);
+            // Delay the avatar-changed sync so the OSC parameter refresh (which starts
+            // after VrChatOscParameterAutoRefreshInitialDelay) has a chance to load
+            // parameters for the new avatar before the sync fires. When parameters
+            // finish loading, the RuntimeAvailability sync cancels this pending
+            // AvatarChanged sync and fires with the correct parameter-availability
+            // state — coalescing two syncs into one and halving the Twitch API calls.
+            // If parameters are not available after the refresh, this sync fires with
+            // rewards disabled (parameter-dependent rewards stay hidden), which is the
+            // correct fallback behavior.
+            QueueManagedRewardSync((int)VrChatOscParameterAutoRefreshInitialDelay.TotalMilliseconds, ManagedRewardSyncReason.AvatarChanged);
         }
 
         _ = EnsureSelectedAvatarParameterCacheLoadedAsync();
@@ -19071,7 +19918,14 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 return;
             }
 
-            var isOnCooldown = bridgeCoordinator.GetRulesOnCooldownIds().Contains(ruleId);
+            // The avatar scale master reward tracks its cooldown in dedicated unlock/cooldown
+            // fields (not the shared per-rule cooldown dictionary) because the master reward is
+            // identified by a fixed Guid rather than a TriggerRule. Without this special case the
+            // per-reward PATCH would always see "ready" and never apply the cooldown color while
+            // the master reward is unlocked or cooling down.
+            var isOnCooldown = ruleId == AvatarScaleMasterRewardOwnerId
+                ? bridgeCoordinator.IsAvatarScaleMasterRewardOnCooldown()
+                : bridgeCoordinator.GetRulesOnCooldownIds().Contains(ruleId);
             var configuredColor = ResolveConfiguredRewardColor(ruleId, isOnCooldown);
             if (string.IsNullOrWhiteSpace(configuredColor))
             {
@@ -19166,6 +20020,16 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
                 return rule.ChannelPointRewardId.Trim();
             }
         }
+        foreach (var swapProfile in Settings.AvatarSwapProfiles)
+        {
+            foreach (var rule in swapProfile.ChannelPointRules)
+            {
+                if (rule.Id == ruleId && !string.IsNullOrWhiteSpace(rule.ChannelPointRewardId))
+                {
+                    return rule.ChannelPointRewardId.Trim();
+                }
+            }
+        }
         foreach (var trigger in Settings.UniversalTriggers)
         {
             if (trigger.Id == ruleId && !string.IsNullOrWhiteSpace(trigger.RewardId))
@@ -19242,6 +20106,17 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
             {
                 return ManagedRewardPresentation.NormalizeReadyBackgroundColor(
                     isOnCooldown ? rule.ManagedRewardCooldownColor : rule.ManagedRewardReadyColor);
+            }
+        }
+        foreach (var swapProfile in Settings.AvatarSwapProfiles)
+        {
+            foreach (var rule in swapProfile.ChannelPointRules)
+            {
+                if (rule.Id == ruleId)
+                {
+                    return ManagedRewardPresentation.NormalizeReadyBackgroundColor(
+                        isOnCooldown ? rule.ManagedRewardCooldownColor : rule.ManagedRewardReadyColor);
+                }
             }
         }
         foreach (var set in Settings.AvatarScaleSets)
@@ -19361,13 +20236,14 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         string avatarId,
         CancellationToken cancellationToken)
     {
-        if (!Settings.VrChat.IsConnected || string.IsNullOrWhiteSpace(Settings.VrChat.UserId))
+        var resolvedUserId = ResolveCurrentUserIdForCache();
+        if (string.IsNullOrWhiteSpace(resolvedUserId))
         {
             return [];
         }
 
         var localParameters = await vrChatLocalOscCacheService.LoadAvatarParametersAsync(
-            Settings.VrChat.UserId,
+            resolvedUserId,
             avatarId,
             cancellationToken);
 
@@ -19387,7 +20263,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         }
 
         var cachedParameters = await settingsStore.LoadVrChatOscParameterCacheAsync(
-            Settings.VrChat.UserId,
+            ResolveCurrentUserIdForCache() ?? string.Empty,
             normalizedAvatarId,
             cancellationToken);
         if (cachedParameters.Count > 0)
@@ -19407,14 +20283,14 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
     {
         lastWriteTimeUtc = DateTime.MinValue;
 
-        if (!Settings.VrChat.IsConnected
-            || string.IsNullOrWhiteSpace(Settings.VrChat.UserId)
+        var resolvedUserId = ResolveCurrentUserIdForCache();
+        if (string.IsNullOrWhiteSpace(resolvedUserId)
             || string.IsNullOrWhiteSpace(avatarId))
         {
             return false;
         }
 
-        var filePath = VrChatLocalOscCacheService.GetAvatarOscFilePath(Settings.VrChat.UserId, avatarId);
+        var filePath = VrChatLocalOscCacheService.GetAvatarOscFilePath(resolvedUserId, avatarId);
         if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
         {
             return false;
@@ -19431,8 +20307,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
         bool queueManagedRewardSync = true)
     {
         var normalizedAvatarId = avatarId?.Trim() ?? string.Empty;
-        if (!Settings.VrChat.IsConnected
-            || string.IsNullOrWhiteSpace(Settings.VrChat.UserId)
+        var resolvedUserId = ResolveCurrentUserIdForCache();
+        if (string.IsNullOrWhiteSpace(resolvedUserId)
             || string.IsNullOrWhiteSpace(normalizedAvatarId))
         {
             return;
@@ -19440,7 +20316,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
         cachedVrChatParametersByAvatarId[normalizedAvatarId] = [.. parameters];
         await settingsStore.SaveVrChatOscParameterCacheAsync(
-            Settings.VrChat.UserId,
+            resolvedUserId,
             normalizedAvatarId,
             parameters,
             cancellationToken);
@@ -19456,7 +20332,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable
 
     private void QueueCurrentVrChatOscParameterRefresh(string avatarId, bool queueManagedRewardSync = true)
     {
-        if (!isInitialized || isShuttingDown || !Settings.VrChat.IsConnected)
+        if (!isInitialized || isShuttingDown || string.IsNullOrWhiteSpace(ResolveCurrentUserIdForCache()))
         {
             return;
         }
@@ -20630,6 +21506,7 @@ public enum TwitchChatRoleCardKind
     Hypercraftiing,
     KyouZakira,
     Phil13938,
+    Falx,
     Staff,
     LeadModerator,
     Moderator,
@@ -20648,6 +21525,7 @@ public sealed class TwitchChatMessageEntry : ObservableObject
     private const string HypercraftiingLogin = "hypercraftiing";
     private const string KyouZakiraLogin = "kyou_zakira";
     private const string Phil13938Login = "phil13938";
+    private const string FalxPlaysLogin = "falxplays";
     private static readonly SolidColorBrush DefaultNameBrush = CreateFrozenBrush("#F5EEFF");
     private static readonly SolidColorBrush BubblegumNameBrush = CreateFrozenBrush("#5A426B");
     private static readonly LinearGradientBrush CrystalRelayDeveloperNameBrush = CreateFrozenDeveloperNameBrush();
@@ -20655,6 +21533,7 @@ public sealed class TwitchChatMessageEntry : ObservableObject
     private static readonly LinearGradientBrush HypercraftiingNameBrush = CreateFrozenHypercraftiingNameBrush();
     private static readonly LinearGradientBrush KyouZakiraNameBrush = CreateFrozenKyouZakiraNameBrush();
     private static readonly LinearGradientBrush Phil13938NameBrush = CreateFrozenPhil13938NameBrush();
+    private static readonly LinearGradientBrush FalxPlaysNameBrush = CreateFrozenFalxPlaysNameBrush();
     private static readonly Color DarkCardReferenceColor = Color.FromRgb(40, 23, 60);
     private ChatTimestampFormat timestampFormat;
     private string suspiciousStatus = string.Empty;
@@ -20699,6 +21578,7 @@ public sealed class TwitchChatMessageEntry : ObservableObject
         IsHypercraftiing = IsHypercraftiingAccount(UserDisplayName, UserLogin);
         IsKyouZakira = IsKyouZakiraAccount(UserDisplayName, UserLogin);
         IsPhil13938 = IsPhil13938Account(UserDisplayName, UserLogin);
+        IsFalxPlays = IsFalxPlaysAccount(UserDisplayName, UserLogin);
         MessageText = messageText;
         BadgeImageUrls = badgeImageUrls;
         BadgeSetIds = badgeSetIds;
@@ -20712,6 +21592,8 @@ public sealed class TwitchChatMessageEntry : ObservableObject
             ? TwitchChatRoleCardKind.KyouZakira
             : IsPhil13938
             ? TwitchChatRoleCardKind.Phil13938
+            : IsFalxPlays
+            ? TwitchChatRoleCardKind.Falx
             : ResolveRoleCardKind(Kind, normalizedSupportTier, BadgeSetIds);
         InlineFragments = inlineFragments.Count == 0
             ? [new TwitchChatInlineFragment(TwitchChatInlineFragmentKind.Text, messageText, string.Empty)]
@@ -20729,6 +21611,8 @@ public sealed class TwitchChatMessageEntry : ObservableObject
             ? KyouZakiraNameBrush
             : IsPhil13938
             ? Phil13938NameBrush
+            : IsFalxPlays
+            ? FalxPlaysNameBrush
             : ParseNameBrush(userColor, theme);
         RewardTitle = string.IsNullOrWhiteSpace(rewardTitle) ? MessageText.Trim() : rewardTitle.Trim();
         RewardCost = Math.Max(0, rewardCost);
@@ -20775,6 +21659,8 @@ public sealed class TwitchChatMessageEntry : ObservableObject
 
     public bool IsPhil13938 { get; }
 
+    public bool IsFalxPlays { get; }
+
     public string MessageText { get; }
 
     public IReadOnlyList<string> BadgeImageUrls { get; }
@@ -20792,6 +21678,8 @@ public sealed class TwitchChatMessageEntry : ObservableObject
     public bool IsKyouZakiraRoleCard => RoleCardKind == TwitchChatRoleCardKind.KyouZakira;
 
     public bool IsPhil13938RoleCard => RoleCardKind == TwitchChatRoleCardKind.Phil13938;
+
+    public bool IsFalxPlaysRoleCard => RoleCardKind == TwitchChatRoleCardKind.Falx;
 
     public bool IsTwitchStaffRoleCard => RoleCardKind == TwitchChatRoleCardKind.Staff;
 
@@ -20817,6 +21705,7 @@ public sealed class TwitchChatMessageEntry : ObservableObject
         TwitchChatRoleCardKind.Hypercraftiing => "The Great Cuddly Synth",
         TwitchChatRoleCardKind.KyouZakira => "Chatoic Umbreon",
         TwitchChatRoleCardKind.Phil13938 => "The Canadian Bnuy",
+        TwitchChatRoleCardKind.Falx => "Awooey",
         TwitchChatRoleCardKind.Staff => "TWITCH STAFF",
         TwitchChatRoleCardKind.LeadModerator => "LEAD MOD",
         TwitchChatRoleCardKind.Moderator => "MOD",
@@ -21197,6 +22086,19 @@ public sealed class TwitchChatMessageEntry : ObservableObject
         return brush;
     }
 
+    private static LinearGradientBrush CreateFrozenFalxPlaysNameBrush()
+    {
+        var brush = new LinearGradientBrush
+        {
+            StartPoint = new Point(0, 0.5),
+            EndPoint = new Point(1, 0.5)
+        };
+        brush.GradientStops.Add(new GradientStop(Color.FromRgb(0, 191, 165), 0d));
+        brush.GradientStops.Add(new GradientStop(Color.FromRgb(41, 121, 255), 1d));
+        brush.Freeze();
+        return brush;
+    }
+
     private static bool IsCrystalRelayDeveloperAccount(string displayName, string login) =>
         IsCrystalRelayDeveloperName(displayName) || IsCrystalRelayDeveloperName(login);
 
@@ -21240,6 +22142,15 @@ public sealed class TwitchChatMessageEntry : ObservableObject
     {
         var normalized = NormalizeTwitchName(value);
         return string.Equals(normalized, Phil13938Login, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsFalxPlaysAccount(string displayName, string login) =>
+        IsFalxPlaysName(displayName) || IsFalxPlaysName(login);
+
+    private static bool IsFalxPlaysName(string value)
+    {
+        var normalized = NormalizeTwitchName(value);
+        return string.Equals(normalized, FalxPlaysLogin, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string NormalizeTwitchName(string value) =>

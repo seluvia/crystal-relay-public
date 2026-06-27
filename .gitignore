@@ -3,6 +3,7 @@
 .idea/
 .opencode/
 .superpowers/
+opencode.json
 
 .appdata/
 .dotnet/
@@ -12,6 +13,7 @@
 **/.wrangler/
 
 Backups/
+Backup-Crystal-Relay-Source/
 Releases/
 TestBuilds/
 Code Review/
@@ -23,6 +25,9 @@ docs/superpowers/
 
 \!open-opencode.bat
 \!start-opencode Server.bat
+\!start-server.sh - Shortcut.lnk
+\!stop-server.sh - Shortcut.lnk
+Launch-Crystal-Relay-Debug.bat
 *.user
 *.suo
 *.cache

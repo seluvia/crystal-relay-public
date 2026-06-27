@@ -65,7 +65,12 @@ public sealed class InverseBooleanConverter : IValueConverter
 public sealed class NullToVisibilityConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-        => value is null ? Visibility.Collapsed : Visibility.Visible;
+    {
+        var inverted = parameter is string s && s.Equals("Inverted", StringComparison.OrdinalIgnoreCase);
+        var isNull = value is null;
+        if (inverted) isNull = !isNull;
+        return isNull ? Visibility.Collapsed : Visibility.Visible;
+    }
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         => throw new NotSupportedException();
@@ -324,6 +329,19 @@ public sealed class IsSelectedRuleThicknessMultiConverter : IMultiValueConverter
         return ReferenceEquals(selected, item)
             ? new System.Windows.Thickness(2)
             : new System.Windows.Thickness(1);
+    }
+    public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
+[ValueConversion(typeof(object[]), typeof(bool))]
+public sealed class EqualsBoolMultiConverter : IMultiValueConverter
+{
+    public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (values is null || values.Length < 2) return false;
+        if (values[0] is null || values[1] is null) return false;
+        return values[0].Equals(values[1]);
     }
     public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
         => throw new NotSupportedException();

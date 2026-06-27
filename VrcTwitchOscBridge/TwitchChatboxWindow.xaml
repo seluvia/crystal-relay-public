@@ -253,6 +253,43 @@
                           ShadowDepth="0"
                           Opacity="0.42"
                           Color="#E96100" />
+        <SolidColorBrush x:Key="FalxPlaysTextBrush" Color="#D8F5EE" />
+        <SolidColorBrush x:Key="FalxPlaysMutedBrush" Color="#6A8A8A" />
+        <SolidColorBrush x:Key="FalxPlaysInsetBrush" Color="#78061418" />
+        <SolidColorBrush x:Key="FalxPlaysInsetBorderBrush" Color="#8F00BFA5" />
+        <LinearGradientBrush x:Key="FalxPlaysCardBrush"
+                             StartPoint="0,0"
+                             EndPoint="1,1">
+            <GradientStop Color="#F0030608" Offset="0" />
+            <GradientStop Color="#EC0A1418" Offset="0.46" />
+            <GradientStop Color="#E9060C12" Offset="0.74" />
+            <GradientStop Color="#ED081018" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="FalxPlaysBorderBrush"
+                             StartPoint="0,0"
+                             EndPoint="1,1">
+            <GradientStop Color="#E000BFA5" Offset="0" />
+            <GradientStop Color="#E32979FF" Offset="0.5" />
+            <GradientStop Color="#D800BFA5" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="FalxPlaysRailBrush"
+                             StartPoint="0,0"
+                             EndPoint="0,1">
+            <GradientStop Color="#FFFFFF" Offset="0" />
+            <GradientStop Color="#00BFA5" Offset="0.5" />
+            <GradientStop Color="#2979FF" Offset="1" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="FalxPlaysBadgeBrush"
+                             StartPoint="0,0"
+                             EndPoint="1,1">
+            <GradientStop Color="#00BFA5" Offset="0" />
+            <GradientStop Color="#2979FF" Offset="1" />
+        </LinearGradientBrush>
+        <DropShadowEffect x:Key="FalxPlaysGlowEffect"
+                          BlurRadius="14"
+                          ShadowDepth="0"
+                          Opacity="0.34"
+                          Color="#00BFA5" />
         <SolidColorBrush x:Key="ChatboxRoleCardTextBrush" Color="#FFFDF7" />
         <SolidColorBrush x:Key="ChatboxRoleCardMutedBrush" Color="#F0E8FF" />
         <SolidColorBrush x:Key="ChatboxRoleBadgeTextBrush" Color="#150B18" />
@@ -651,6 +688,11 @@
                                     BorderThickness="{TemplateBinding BorderThickness}"
                                     CornerRadius="12">
                                 <Grid>
+                                    <Grid.Resources>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{DynamicResource ComboTextBrush}" />
+                                        </Style>
+                                    </Grid.Resources>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="40" />
@@ -705,6 +747,11 @@
                         <Border x:Name="ComboItemBorder"
                                 Background="{TemplateBinding Background}"
                                 CornerRadius="8">
+                            <Border.Resources>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{DynamicResource ComboTextBrush}" />
+                                </Style>
+                            </Border.Resources>
                             <ContentPresenter />
                         </Border>
                         <ControlTemplate.Triggers>
@@ -1031,6 +1078,12 @@
                     <Setter Property="BorderThickness" Value="1.5" />
                     <Setter Property="Effect" Value="{StaticResource Phil13938GlowEffect}" />
                 </DataTrigger>
+                <DataTrigger Binding="{Binding IsFalxPlaysRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource FalxPlaysCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource FalxPlaysBorderBrush}" />
+                    <Setter Property="BorderThickness" Value="1.5" />
+                    <Setter Property="Effect" Value="{StaticResource FalxPlaysGlowEffect}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Background" Value="{StaticResource CrystalRelayDevCardBrush}" />
                     <Setter Property="BorderBrush" Value="{StaticResource CrystalRelayDevBorderBrush}" />
@@ -1112,6 +1165,12 @@
                     <Setter Property="BorderThickness" Value="1.5" />
                     <Setter Property="Effect" Value="{StaticResource Phil13938GlowEffect}" />
                 </DataTrigger>
+                <DataTrigger Binding="{Binding IsFalxPlaysRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource FalxPlaysCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource FalxPlaysBorderBrush}" />
+                    <Setter Property="BorderThickness" Value="1.5" />
+                    <Setter Property="Effect" Value="{StaticResource FalxPlaysGlowEffect}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Background" Value="{StaticResource CrystalRelayDevCardBrush}" />
                     <Setter Property="BorderBrush" Value="{StaticResource CrystalRelayDevBorderBrush}" />
@@ -1192,6 +1251,12 @@
                     <Setter Property="BorderThickness" Value="1.5" />
                     <Setter Property="Effect" Value="{StaticResource Phil13938GlowEffect}" />
                 </DataTrigger>
+                <DataTrigger Binding="{Binding IsFalxPlaysRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource FalxPlaysCardBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource FalxPlaysBorderBrush}" />
+                    <Setter Property="BorderThickness" Value="1.5" />
+                    <Setter Property="Effect" Value="{StaticResource FalxPlaysGlowEffect}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Background" Value="{StaticResource CrystalRelayDevCardBrush}" />
                     <Setter Property="BorderBrush" Value="{StaticResource CrystalRelayDevBorderBrush}" />
@@ -1232,6 +1297,9 @@
                 <DataTrigger Binding="{Binding IsPhil13938RoleCard}" Value="True">
                     <Setter Property="Foreground" Value="{StaticResource Phil13938MutedBrush}" />
                 </DataTrigger>
+                <DataTrigger Binding="{Binding IsFalxPlaysRoleCard}" Value="True">
+                    <Setter Property="Foreground" Value="{StaticResource FalxPlaysMutedBrush}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Foreground" Value="{StaticResource CrystalRelayDevMutedBrush}" />
                 </DataTrigger>
@@ -1255,6 +1323,9 @@
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsPhil13938RoleCard}" Value="True">
                     <Setter Property="Foreground" Value="{StaticResource Phil13938TextBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsFalxPlaysRoleCard}" Value="True">
+                    <Setter Property="Foreground" Value="{StaticResource FalxPlaysTextBrush}" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Foreground" Value="{StaticResource CrystalRelayDevTextBrush}" />
@@ -1280,6 +1351,9 @@
                 <DataTrigger Binding="{Binding IsPhil13938RoleCard}" Value="True">
                     <Setter Property="Foreground" Value="{StaticResource Phil13938TextBrush}" />
                 </DataTrigger>
+                <DataTrigger Binding="{Binding IsFalxPlaysRoleCard}" Value="True">
+                    <Setter Property="Foreground" Value="{StaticResource FalxPlaysTextBrush}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Foreground" Value="{StaticResource CrystalRelayDevTextBrush}" />
                 </DataTrigger>
@@ -1303,6 +1377,9 @@
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsPhil13938RoleCard}" Value="True">
                     <Setter Property="Foreground" Value="{StaticResource Phil13938MutedBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsFalxPlaysRoleCard}" Value="True">
+                    <Setter Property="Foreground" Value="{StaticResource FalxPlaysMutedBrush}" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Foreground" Value="{StaticResource CrystalRelayDevMutedBrush}" />
@@ -1334,6 +1411,10 @@
                     <Setter Property="Background" Value="{StaticResource Phil13938InsetBrush}" />
                     <Setter Property="BorderBrush" Value="{StaticResource Phil13938InsetBorderBrush}" />
                 </DataTrigger>
+                <DataTrigger Binding="{Binding IsFalxPlaysRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource FalxPlaysInsetBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource FalxPlaysInsetBorderBrush}" />
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Background" Value="{StaticResource CrystalRelayDevInsetBrush}" />
                     <Setter Property="BorderBrush" Value="{StaticResource CrystalRelayDevInsetBorderBrush}" />
@@ -1364,6 +1445,10 @@
                 <DataTrigger Binding="{Binding IsPhil13938RoleCard}" Value="True">
                     <Setter Property="Background" Value="{StaticResource Phil13938InsetBrush}" />
                     <Setter Property="BorderBrush" Value="{StaticResource Phil13938InsetBorderBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsFalxPlaysRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource FalxPlaysInsetBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource FalxPlaysInsetBorderBrush}" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Background" Value="{StaticResource CrystalRelayDevInsetBrush}" />
@@ -1413,6 +1498,9 @@
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsPhil13938RoleCard}" Value="True">
                     <Setter Property="Background" Value="{StaticResource Phil13938RailBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsFalxPlaysRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource FalxPlaysRailBrush}" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Background" Value="{StaticResource CrystalRelayDevRailBrush}" />
@@ -1475,6 +1563,10 @@
                 <DataTrigger Binding="{Binding IsPhil13938RoleCard}" Value="True">
                     <Setter Property="Visibility" Value="Visible" />
                     <Setter Property="Background" Value="{StaticResource Phil13938RailBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsFalxPlaysRoleCard}" Value="True">
+                    <Setter Property="Visibility" Value="Visible" />
+                    <Setter Property="Background" Value="{StaticResource FalxPlaysRailBrush}" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsCrystalRelayDeveloper}" Value="True">
                     <Setter Property="Visibility" Value="Visible" />
@@ -1539,6 +1631,10 @@
                 <DataTrigger Binding="{Binding IsPhil13938RoleCard}" Value="True">
                     <Setter Property="Background" Value="{StaticResource Phil13938BadgeBrush}" />
                     <Setter Property="BorderBrush" Value="{StaticResource Phil13938BorderBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsFalxPlaysRoleCard}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource FalxPlaysBadgeBrush}" />
+                    <Setter Property="BorderBrush" Value="{StaticResource FalxPlaysBorderBrush}" />
                 </DataTrigger>
             </Style.Triggers>
         </Style>
@@ -1635,6 +1731,13 @@
                                                     <Setter Property="Effect">
                                                         <Setter.Value>
                                                             <DropShadowEffect ShadowDepth="0" BlurRadius="3" Color="White" Opacity="0.95" />
+                                                        </Setter.Value>
+                                                    </Setter>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding IsFalxPlaysRoleCard}" Value="True">
+                                                    <Setter Property="Effect">
+                                                        <Setter.Value>
+                                                            <DropShadowEffect ShadowDepth="0" BlurRadius="3" Color="#00BFA5" Opacity="0.9" />
                                                         </Setter.Value>
                                                     </Setter>
                                                 </DataTrigger>
