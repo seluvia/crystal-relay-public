@@ -79,12 +79,14 @@ public sealed class BugReportSnapshotServiceTests
     [Fact]
     public void Build_SanitizesAvatarNameContainingPath()
     {
+        var avatarName = TestWindowsPaths.From('C', "Users", "secret", "avatar");
+
         var data = new BugReportSnapshotData(
             IsBroadcasterConnected: false,
             IsBotConnected: false,
             IsVrChatConnected: false,
             OscStatusDetail: string.Empty,
-            CurrentAvatarName: "C:\\Users\\secret\\avatar",
+            CurrentAvatarName: avatarName,
             CurrentAvatarId: "avtr_123",
             CurrentAvatarHeightMeters: 1.0,
             SelectedTheme: AppTheme.VoidCrystal,

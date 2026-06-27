@@ -53,7 +53,7 @@ public sealed class BugReportServiceDiagnosticSectionTests
     public void BuildActivityLogSection_SanitizesUserPaths()
     {
         var service = new BugReportService();
-        var entries = new[] { "Loaded C:\\Users\\secretuser\\config.json" };
+        var entries = new[] { $"Loaded {TestWindowsPaths.From('C', "Users", "secretuser", "config.json")}" };
 
         var result = service.BuildActivityLogSection(entries);
 

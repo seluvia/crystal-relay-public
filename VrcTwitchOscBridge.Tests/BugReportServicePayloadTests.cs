@@ -10,12 +10,15 @@ public sealed class BugReportServicePayloadTests
     [Fact]
     public void PreparePayloadJson_SanitizesUserEnteredFieldsBeforeTransport()
     {
+        var settingsPath = TestWindowsPaths.From('C', "Users", "secretuser", "crystal-relay", "settings.json");
+        var contactPath = TestWindowsPaths.From('C', "Users", "secretuser", "contact.txt");
+
         var json = BugReportService.PreparePayloadJson(new BugReportSubmission(
             Title: "access_token=title-secret leak",
-            WhatHappened: "access_token=body-secret and C:\\Users\\secretuser\\crystal-relay\\settings.json",
+            WhatHappened: $"access_token=body-secret and {settingsPath}",
             ExpectedBehavior: "Bearer abc123secret should not be shown",
             StepsToReproduce: "Open the app, use ABCD-EFGH when it asks for a code, use the feature.",
-            ContactName: "C:\\Users\\secretuser\\contact.txt",
+            ContactName: contactPath,
             AppVersion: "3.1.9",
             Category: "other",
             Severity: "normal",
@@ -38,11 +41,13 @@ public sealed class BugReportServicePayloadTests
     [Fact]
     public void PreparePayloadJson_KeepsSanitizedRequiredFieldsLongEnoughForWorkerValidation()
     {
+        var pathOnlyReportText = TestWindowsPaths.From('D', "StreamTools", "CrystalRelay", "secret.json");
+
         var json = BugReportService.PreparePayloadJson(new BugReportSubmission(
             Title: "Path-only report title",
-            WhatHappened: "D:\\StreamTools\\CrystalRelay\\secret.json",
-            ExpectedBehavior: "D:\\StreamTools\\CrystalRelay\\secret.json",
-            StepsToReproduce: "D:\\StreamTools\\CrystalRelay\\secret.json",
+            WhatHappened: pathOnlyReportText,
+            ExpectedBehavior: pathOnlyReportText,
+            StepsToReproduce: pathOnlyReportText,
             ContactName: string.Empty,
             AppVersion: "3.1.9",
             Category: "other",

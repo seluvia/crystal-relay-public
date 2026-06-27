@@ -106,14 +106,17 @@ public sealed class BugReportPreviewBuilderTests
     [Fact]
     public void Build_SanitizesUserEnteredFields()
     {
+        var settingsPath = TestWindowsPaths.From('C', "Users", "secretuser", "crystal-relay", "settings.json");
+        var contactPath = TestWindowsPaths.From('C', "Users", "secretuser", "contact.txt");
+
         var result = BugReportPreviewBuilder.Build(
             title: "Token leak",
             category: "other",
             severity: "normal",
-            whatHappened: "access_token=super-secret and C:\\Users\\secretuser\\crystal-relay\\settings.json",
+            whatHappened: $"access_token=super-secret and {settingsPath}",
             expectedBehavior: "Bearer abc123secret should not be shown",
             stepsToReproduce: "Open the app, use ABCD-EFGH when it asks for a code, use the feature.",
-            contactName: "C:\\Users\\secretuser\\contact.txt",
+            contactName: contactPath,
             appVersion: "3.1.9",
             snapshot: "snapshot",
             activityLogSection: null,
