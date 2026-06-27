@@ -1430,7 +1430,7 @@
                                                   Visibility="{Binding UsesFloatActionMode, Converter={StaticResource BoolToVisibilityConverter}}">
                                               <StackPanel>
                                                     <TextBlock Text="{loc:Translate 'FloatActionModeHeader'}" Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" Margin="0,0,0,4" />
-                                                     <WrapPanel>
+                                                      <UniformGrid Columns="5">
                                                         <Button Content="{loc:Translate 'FloatActionModeSet'}" Click="OnFloatModeSetClicked" Tag="{x:Static models:FloatActionMode.Set}">
                                                             <Button.Style>
                                                                 <Style TargetType="Button" BasedOn="{StaticResource FloatModeChipButtonStyle}">
@@ -1551,7 +1551,7 @@
                                                                 </Style>
                                                             </Button.Style>
                                                         </Button>
-                                                    </WrapPanel>
+                                                    </UniformGrid>
 
                                                     <UniformGrid Columns="2" Margin="0,8,0,0">
                                                         <StackPanel Margin="0,0,8,0">

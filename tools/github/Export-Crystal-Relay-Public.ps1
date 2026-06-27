@@ -23,6 +23,7 @@ function Write-SharedGitIgnore {
 .idea/
 .opencode/
 .superpowers/
+opencode.json
 
 .appdata/
 .dotnet/
@@ -32,6 +33,7 @@ function Write-SharedGitIgnore {
 **/.wrangler/
 
 Backups/
+Backup-Crystal-Relay-Source/
 Releases/
 TestBuilds/
 Code Review/
@@ -43,6 +45,9 @@ docs/superpowers/
 
 \!open-opencode.bat
 \!start-opencode Server.bat
+\!start-server.sh - Shortcut.lnk
+\!stop-server.sh - Shortcut.lnk
+Launch-Crystal-Relay-Debug.bat
 *.user
 *.suo
 *.cache
@@ -71,6 +76,7 @@ function Assert-PublicExportClean {
         '.vs',
         '.wrangler',
         'Backups',
+        'Backup-Crystal-Relay-Source',
         'Releases',
         'TestBuilds',
         'Code Review',
@@ -93,13 +99,18 @@ function Assert-PublicExportClean {
         'Backup-Crystal-Relay-AppData.ps1',
         '!open-opencode.bat',
         '!start-opencode Server.bat',
+        '!start-server.sh - Shortcut.lnk',
+        '!stop-server.sh - Shortcut.lnk',
+        'Launch-Crystal-Relay-Debug.bat',
         'Open-Crystal-Relay-GitHub-Desktop-Workflow.ps1',
         'Prepare-Crystal-Relay-GitHub-Uploads.ps1',
         'Sync-Crystal-Relay-GitHub-Repos.ps1',
         'Create-Crystal-Relay-Debug-Shortcut.ps1',
         'Launch-Crystal-Relay-Dev Build.bat',
         'GITHUB-UPLOAD-NOTES.txt',
-        'RELEASE-CHANGE-RECORD.txt'
+        'RELEASE-CHANGE-RECORD.txt',
+        'opencode.json',
+        'test_write.txt'
     )
 
     foreach ($blockedPath in $blockedPaths) {
@@ -197,6 +208,7 @@ $excludedDirs = @(
     '.vs',
     '.wrangler',
     'Backups',
+    'Backup-Crystal-Relay-Source',
     'Releases',
     'TestBuilds',
     'Code Review',
@@ -217,6 +229,8 @@ $excludedFiles = @(
     'Backup-Crystal-Relay-Project.ps1',
     '!open-opencode.bat',
     '!start-opencode Server.bat',
+    '!start-server.sh - Shortcut.lnk',
+    '!stop-server.sh - Shortcut.lnk',
     'GITHUB-UPLOAD-NOTES.txt',
     'RELEASE-CHANGE-RECORD.txt',
     'Backup-Crystal-Relay-AppData.ps1',
@@ -224,7 +238,10 @@ $excludedFiles = @(
     'Prepare-Crystal-Relay-GitHub-Uploads.ps1',
     'Sync-Crystal-Relay-GitHub-Repos.ps1',
     'Create-Crystal-Relay-Debug-Shortcut.ps1',
+    'Launch-Crystal-Relay-Debug.bat',
     'Launch-Crystal-Relay-Dev Build.bat',
+    'opencode.json',
+    'test_write.txt',
     '*.user',
     '*.suo',
     '*.tmp',

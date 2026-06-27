@@ -169,6 +169,7 @@ Assert-NoBlockedPaths `
         '.vs',
         '.wrangler',
         'Backups',
+        'Backup-Crystal-Relay-Source',
         'Releases',
         'TestBuilds',
         'Code Review',
@@ -187,11 +188,16 @@ Assert-NoBlockedPaths `
         'Backup-Crystal-Relay-AppData.ps1',
         '!open-opencode.bat',
         '!start-opencode Server.bat',
+        '!start-server.sh - Shortcut.lnk',
+        '!stop-server.sh - Shortcut.lnk',
+        'Launch-Crystal-Relay-Debug.bat',
         'Open-Crystal-Relay-GitHub-Desktop-Workflow.ps1',
         'Prepare-Crystal-Relay-GitHub-Uploads.ps1',
         'Sync-Crystal-Relay-GitHub-Repos.ps1',
         'GITHUB-UPLOAD-NOTES.txt',
-        'RELEASE-CHANGE-RECORD.txt'
+        'RELEASE-CHANGE-RECORD.txt',
+        'opencode.json',
+        'test_write.txt'
     )
 
 Assert-NoContentMatches `

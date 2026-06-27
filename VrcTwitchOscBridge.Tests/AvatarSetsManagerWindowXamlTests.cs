@@ -83,7 +83,7 @@ public sealed class AvatarSetsManagerWindowXamlTests
         Assert.True(styleIndex >= 0, "ComboBoxStyle should be defined as a resource.");
         Assert.True(styleIndex > implicitStyleIndex, "ComboBoxStyle should be defined after the implicit ComboBox style so BasedOn can inherit the themed template.");
 
-        var implicitStyleEnd = xaml.IndexOf("</Style>", implicitStyleIndex, StringComparison.Ordinal);
+        var implicitStyleEnd = xaml.IndexOf("<Style x:Key=\"ComboBoxStyle\"", implicitStyleIndex, StringComparison.Ordinal);
         var implicitStyleBlock = xaml.Substring(implicitStyleIndex, implicitStyleEnd - implicitStyleIndex);
         Assert.Contains("{DynamicResource ComboTextBrush}", implicitStyleBlock, StringComparison.Ordinal);
         Assert.Contains("{DynamicResource ComboSurfaceBrush}", implicitStyleBlock, StringComparison.Ordinal);
@@ -99,7 +99,7 @@ public sealed class AvatarSetsManagerWindowXamlTests
 
         var comboBoxItemStyleIndex = xaml.IndexOf("<Style TargetType=\"ComboBoxItem\">", styleIndex, StringComparison.Ordinal);
         Assert.True(comboBoxItemStyleIndex > styleIndex, "ComboBoxItem style should be defined after ComboBoxStyle.");
-        var comboBoxItemStyleEnd = xaml.IndexOf("</Style>", comboBoxItemStyleIndex, StringComparison.Ordinal);
+        var comboBoxItemStyleEnd = xaml.IndexOf("<Style TargetType=\"CheckBox\">", comboBoxItemStyleIndex, StringComparison.Ordinal);
         var comboBoxItemStyleBlock = xaml.Substring(comboBoxItemStyleIndex, comboBoxItemStyleEnd - comboBoxItemStyleIndex);
         Assert.Contains("{DynamicResource ComboTextBrush}", comboBoxItemStyleBlock, StringComparison.Ordinal);
         Assert.Contains("{DynamicResource ComboHighlightBrush}", comboBoxItemStyleBlock, StringComparison.Ordinal);
@@ -187,13 +187,15 @@ public sealed class AvatarSetsManagerWindowXamlTests
         Assert.Contains("BoolToVisibilityConverter", boolPanelTag, StringComparison.Ordinal);
 
         // The free-form reset text box is for Float/String (Int has its own After Active Time input).
-        var resetTextBoxIndex = xaml.IndexOf("Text=\"{Binding ResetValue, UpdateSourceTrigger=PropertyChanged}\"", resetTrueChipIndex, StringComparison.Ordinal);
+        var nonBoolPanelStart = xaml.IndexOf("UsesTextOrFloatParameter", resetTrueChipIndex, StringComparison.Ordinal);
+        Assert.True(nonBoolPanelStart >= 0, "The non-bool reset text box should be wrapped in a Float/String visibility panel.");
+        var resetTextBoxIndex = xaml.IndexOf("Text=\"{Binding ResetValue, UpdateSourceTrigger=PropertyChanged}\"", nonBoolPanelStart, StringComparison.Ordinal);
         Assert.True(resetTextBoxIndex >= 0, "A text box bound to ResetValue should exist for float/string types.");
         var textBoxStart = xaml.LastIndexOf("<TextBox", resetTextBoxIndex, StringComparison.Ordinal);
-        var nonBoolPanelStart = xaml.LastIndexOf("<StackPanel", textBoxStart, StringComparison.Ordinal);
-        Assert.True(nonBoolPanelStart >= 0, "The non-bool reset text box should be wrapped in a StackPanel.");
-        var nonBoolPanelEnd = xaml.IndexOf(">", nonBoolPanelStart, StringComparison.Ordinal);
-        var nonBoolPanelTag = xaml.Substring(nonBoolPanelStart, nonBoolPanelEnd - nonBoolPanelStart + 1);
+        var nonBoolStackPanelStart = xaml.LastIndexOf("<StackPanel", textBoxStart, StringComparison.Ordinal);
+        Assert.True(nonBoolStackPanelStart >= 0, "The non-bool reset text box should be wrapped in a StackPanel.");
+        var nonBoolPanelEnd = xaml.IndexOf(">", nonBoolStackPanelStart, StringComparison.Ordinal);
+        var nonBoolPanelTag = xaml.Substring(nonBoolStackPanelStart, nonBoolPanelEnd - nonBoolStackPanelStart + 1);
         Assert.Contains("UsesTextOrFloatParameter", nonBoolPanelTag, StringComparison.Ordinal);
         Assert.Contains("BoolToVisibilityConverter", nonBoolPanelTag, StringComparison.Ordinal);
     }

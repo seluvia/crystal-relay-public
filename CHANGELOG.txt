@@ -3,7 +3,7 @@ Crystal Relay Changelog
 
 Newest updates appear first. This changelog focuses on the changes users will notice most.
 
-v3.1.10 beta 1
+v3.1.9 beta 4
 - Reworked the Avatar Swap window: the right-side editor is now split into four clean sections (Channel Points, Bits, Subs, Payment) with per-section add buttons.
 - Made Avatar Roulette its own first-class card type with a gold-bordered style and a pool thumbnail strip.
 - The per-avatar "Return Avatar" mode is gone. All swaps and roulettes return to the single global Return Avatar at the top of the window.
@@ -16,8 +16,6 @@ v3.1.10 beta 1
 - Added a status stripe, empty-state hint, rule-count pill, and hover state to each Avatar Swap card so enabled/disabled state, rule totals, and missing avatars are visible at a glance.
 - Fixed the right editor's "Power-up" advanced trigger button so it wraps cleanly when the column is narrow instead of clipping at the edge.
 - Bumped the inline rule row and the swap card subtitle font sizes from 9pt to 10pt for better readability.
-
-v3.1.9 beta 4
 - Added a new Avatar Swap manager window in the Redeem Library with per-target-avatar cards showing the avatar image and name.
 - Added a Return Avatar header banner with a global picker at the top of the manager.
 - Added Channel Point Swaps and Bits + Subs Swaps sections inside the manager so each target avatar groups its own redeems.
