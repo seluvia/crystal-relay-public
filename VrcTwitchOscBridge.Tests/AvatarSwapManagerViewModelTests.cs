@@ -423,6 +423,102 @@ public sealed class AvatarSwapManagerViewModelTests
     }
 
     [Fact]
+    public void OpenRouletteEditor_ClearsSelectedSwapCard()
+    {
+        var settings = new AppSettings();
+        settings.AvatarSwapProfiles.Add(new AvatarSwapProfile { TargetAvatarId = "avtr_a", TargetAvatarName = "Avatar A" });
+        settings.AvatarRouletteProfiles.Add(new AvatarRouletteProfile { Name = "My Roulette" });
+
+        var vm = new AvatarSwapManagerViewModel(settings, new StubTwitchRewardSource());
+        vm.OpenSwapEditorCommand.Execute(vm.SwapCards.Single());
+        Assert.NotNull(vm.SelectedSwapCard);
+
+        vm.OpenRouletteEditorCommand.Execute(vm.RouletteCards.Single());
+
+        Assert.Null(vm.SelectedSwapCard);
+        Assert.NotNull(vm.SelectedRouletteCard);
+    }
+
+    [Fact]
+    public void SetRoulettePoolSelection_ReplacesPoolWithSelectedAvatarDetails()
+    {
+        var settings = new AppSettings();
+        var roulette = new AvatarRouletteProfile { Name = "My Roulette" };
+        roulette.Pool.Add(new RouletteAvatarEntry { AvatarId = "old", AvatarName = "Old" });
+        settings.AvatarRouletteProfiles.Add(roulette);
+
+        var vm = new AvatarSwapManagerViewModel(settings, new StubTwitchRewardSource());
+        vm.OpenRouletteEditorCommand.Execute(vm.RouletteCards.Single());
+
+        vm.SetRoulettePoolSelection(
+            new[] { "avtr_b", "avtr_a", "avtr_b", "" },
+            new[]
+            {
+                new VrChatAvatarSummary("avtr_a", "Avatar A", "VRChat", false, "thumb-a"),
+                new VrChatAvatarSummary("avtr_b", "Avatar B", "VRChat", false, "thumb-b")
+            });
+
+        Assert.Collection(
+            roulette.Pool,
+            entry =>
+            {
+                Assert.Equal("avtr_b", entry.AvatarId);
+                Assert.Equal("Avatar B", entry.AvatarName);
+                Assert.Equal("thumb-b", entry.ThumbnailUrl);
+            },
+            entry =>
+            {
+                Assert.Equal("avtr_a", entry.AvatarId);
+                Assert.Equal("Avatar A", entry.AvatarName);
+                Assert.Equal("thumb-a", entry.ThumbnailUrl);
+            });
+    }
+
+    [Fact]
+    public void SetRoulettePoolSelection_BuildsImageRowsForSelectedAvatars()
+    {
+        var settings = new AppSettings();
+        var roulette = new AvatarRouletteProfile { Name = "My Roulette" };
+        settings.AvatarRouletteProfiles.Add(roulette);
+
+        var vm = new AvatarSwapManagerViewModel(settings, new StubTwitchRewardSource());
+        vm.OpenRouletteEditorCommand.Execute(vm.RouletteCards.Single());
+
+        vm.SetRoulettePoolSelection(
+            new[] { "avtr_a" },
+            new[] { new VrChatAvatarSummary("avtr_a", "Avatar A", "VRChat", false, "thumb-a") });
+
+        var row = Assert.Single(vm.RoulettePoolRows);
+        Assert.Equal("Avatar A", row.AvatarName);
+        Assert.Equal("thumb-a", row.ThumbnailUrl);
+        Assert.True(row.HasImage);
+        Assert.NotNull(row.Image);
+    }
+
+    [Fact]
+    public void AddAdvancedTriggerCommand_ForRouletteCreatesAvatarRouletRuleAndOpensEditor()
+    {
+        var settings = new AppSettings();
+        var roulette = new AvatarRouletteProfile { Name = "My Roulette" };
+        settings.AvatarRouletteProfiles.Add(roulette);
+
+        var vm = new AvatarSwapManagerViewModel(settings, new StubTwitchRewardSource());
+        vm.OpenRouletteEditorCommand.Execute(vm.RouletteCards.Single());
+
+        vm.AddAdvancedTriggerCommand.Execute("ChatCommand");
+
+        var rule = Assert.Single(roulette.Triggers);
+        Assert.Equal(TwitchTriggerType.ChatCommand, rule.TriggerType);
+        Assert.Equal(OscActionType.AvatarRoulet, rule.ActionType);
+        Assert.True(rule.ChatCommandEnabled);
+
+        var row = Assert.IsType<InlineRouletteRuleRowViewModel>(Assert.Single(vm.RouletteAdvancedRows));
+        Assert.Same(rule, row.Rule);
+        Assert.Same(row, vm.SelectedRule);
+        Assert.Same(row, vm.RightPaneContent);
+    }
+
+    [Fact]
     public void RuleListPaneViewModel_StoresKindAndTitle()
     {
         var pane = new RuleListPaneViewModel(RuleListPaneKind.Swap, "Avatar Name");

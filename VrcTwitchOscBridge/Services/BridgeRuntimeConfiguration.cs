@@ -451,6 +451,12 @@ public sealed record BridgeRuntimeConfiguration(
         }
 
         var avatarSwapProfiles = new List<AvatarSwapProfileSnapshot>();
+        var returnAvatarIdForSwap = !string.IsNullOrWhiteSpace(settings.MasterAvatarSwapReturnId)
+            ? settings.MasterAvatarSwapReturnId.Trim()
+            : (masterProfile?.AvatarId.Trim() ?? string.Empty);
+        var returnAvatarNameForSwap = !string.IsNullOrWhiteSpace(settings.MasterAvatarSwapReturnName)
+            ? settings.MasterAvatarSwapReturnName.Trim()
+            : (masterProfile?.AvatarName.Trim() ?? string.Empty);
         foreach (var swapProfile in settings.AvatarSwapProfiles)
         {
             // Avatar-swap rules are snapshotted into the per-profile snapshot AND added to the
@@ -458,10 +464,25 @@ public sealed record BridgeRuntimeConfiguration(
             // index never matches them, so the avatar swap never fires. When a rule matches, the
             // coordinator routes it through FindAvatarSwapProfileForRule to use the profile's
             // target avatar (ReferenceEquals on the same TriggerRule instance).
+            //
+            // Channel-point swap rules use a transient master-profile proxy so the runtime
+            // activation policy (AvatarRuleActivationPolicy.IsRuleActiveForCurrentAvatar) treats
+            // them like master-profile avatar-change rules: active only while on the return
+            // avatar, hidden during a timed transition, and hidden when already on the target.
+            // Bits/Subs swap rules are snapshotted as global overrides so they fire regardless
+            // of the current avatar (paid priority).
+            var swapMasterProxy = new AvatarTriggerProfile
+            {
+                IsMasterProfile = true,
+                IsEnabled = swapProfile.IsEnabled,
+                AvatarId = returnAvatarIdForSwap,
+                AvatarName = returnAvatarNameForSwap,
+            };
+
             var channelPointSnapshots = new List<TriggerRuleSnapshot>();
             foreach (var rule in swapProfile.ChannelPointRules)
             {
-                if (TryToSnapshot(rule, isGlobalOverride: false, profile: null, linkedRewardCooldownSecondsById, out var snapshot))
+                if (TryToSnapshot(rule, isGlobalOverride: false, swapMasterProxy, linkedRewardCooldownSecondsById, out var snapshot))
                 {
                     channelPointSnapshots.Add(snapshot);
                     rules.Add(snapshot);
@@ -534,7 +555,13 @@ public sealed record BridgeRuntimeConfiguration(
             var triggerSnapshots = new List<TriggerRuleSnapshot>();
             foreach (var rule in rouletteProfile.Triggers)
             {
-                if (TryToSnapshot(rule, isGlobalOverride: true, profile: null, linkedRewardCooldownSecondsById, out var snapshot))
+                if (TryToSnapshot(
+                    rule,
+                    isGlobalOverride: true,
+                    profile: null,
+                    linkedRewardCooldownSecondsById: linkedRewardCooldownSecondsById,
+                    snapshot: out var snapshot,
+                    rouletteProfile: rouletteProfile))
                 {
                     triggerSnapshots.Add(snapshot);
                 }
@@ -672,9 +699,10 @@ public sealed record BridgeRuntimeConfiguration(
     public static TriggerRuleSnapshot CreateManualTestSnapshot(
         TriggerRule rule,
         bool isGlobalOverride,
-        AvatarTriggerProfile? profile)
+        AvatarTriggerProfile? profile,
+        AvatarRouletteProfile? rouletteProfile = null)
     {
-        if (!IsManualTestReady(rule))
+        if (!IsManualTestReady(rule, rouletteProfile))
         {
             throw new InvalidOperationException(GetManualTestReadinessError(rule));
         }
@@ -799,11 +827,12 @@ public sealed record BridgeRuntimeConfiguration(
         bool isGlobalOverride,
         AvatarTriggerProfile? profile,
         IReadOnlyDictionary<string, int>? linkedRewardCooldownSecondsById,
-        out TriggerRuleSnapshot snapshot)
+        out TriggerRuleSnapshot snapshot,
+        AvatarRouletteProfile? rouletteProfile = null)
     {
         snapshot = default!;
 
-        if (!IsLiveRuntimeReady(rule, profile, isGlobalOverride))
+        if (!IsLiveRuntimeReady(rule, profile, isGlobalOverride, rouletteProfile))
         {
             return false;
         }
@@ -1345,7 +1374,11 @@ public sealed record BridgeRuntimeConfiguration(
             Math.Max(0, range.HeightAddedMeters));
     }
 
-    private static bool IsLiveRuntimeReady(TriggerRule rule, AvatarTriggerProfile? profile, bool isGlobalOverride)
+    private static bool IsLiveRuntimeReady(
+        TriggerRule rule,
+        AvatarTriggerProfile? profile,
+        bool isGlobalOverride,
+        AvatarRouletteProfile? rouletteProfile = null)
     {
         var hasChatCommandFallback = rule.ChatCommandEnabled && ChatCommandUtility.IsConfigured(rule.ChatCommandText);
         var usesSharedSetTriggerReward = !isGlobalOverride
@@ -1384,7 +1417,7 @@ public sealed record BridgeRuntimeConfiguration(
             return false;
         }
 
-        return IsManualTestReady(rule);
+        return IsManualTestReady(rule, rouletteProfile);
     }
 
     private static bool IsUniversalTriggerFilterReady(UniversalTriggerRule rule)
@@ -1450,14 +1483,15 @@ public sealed record BridgeRuntimeConfiguration(
         return Math.Clamp(value, -limit, limit);
     }
 
-    private static bool IsManualTestReady(TriggerRule rule)
+    private static bool IsManualTestReady(TriggerRule rule, AvatarRouletteProfile? rouletteProfile = null)
     {
         return rule.ActionType switch
         {
             OscActionType.AvatarParameter => IsAvatarParameterRuleReady(rule),
             OscActionType.SetTrigger => IsSetTriggerRuleReady(rule),
             OscActionType.AvatarChange => !string.IsNullOrWhiteSpace(rule.AvatarChangeTargetId),
-            OscActionType.AvatarRoulet => rule.AvatarRouletAvatarIds.Any(avatarId => !string.IsNullOrWhiteSpace(avatarId)),
+            OscActionType.AvatarRoulet => rule.AvatarRouletAvatarIds.Any(avatarId => !string.IsNullOrWhiteSpace(avatarId))
+                || rouletteProfile?.Pool.Any(entry => !string.IsNullOrWhiteSpace(entry.AvatarId)) == true,
             OscActionType.PlayerMovement => IsSupportedMovementDirection(rule.MovementDirection),
             _ => false
         };

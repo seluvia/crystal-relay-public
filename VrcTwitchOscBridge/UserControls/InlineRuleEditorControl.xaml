@@ -62,6 +62,38 @@
                 </StackPanel>
             </UniformGrid>
 
+            <StackPanel Margin="0,8,0,0">
+                <StackPanel.Style>
+                    <Style TargetType="StackPanel">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Rule.TriggerType}" Value="ChatCommand">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </StackPanel.Style>
+                <Border Background="{DynamicResource NestedPanelBrush}" CornerRadius="4" Padding="10" Margin="0,0,0,8">
+                    <StackPanel>
+                        <TextBlock Text="{loc:Translate 'Chat Command'}" Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" Margin="0,0,0,8" />
+                        <UniformGrid Columns="2">
+                            <StackPanel Margin="0,0,8,0">
+                                <TextBlock Text="{loc:Translate 'Exact Command'}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
+                                <TextBox Text="{Binding Rule.ChatCommandText, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+                            <StackPanel Margin="8,0,0,0">
+                                <TextBlock Text="{loc:Translate 'Who Can Use It'}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
+                                <ComboBox ItemsSource="{Binding DataContext.ChatCommandPermissionOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                          SelectedItem="{Binding Rule.ChatCommandPermission, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+                        </UniformGrid>
+                        <TextBlock Text="{loc:Translate 'Crystal Relay matches the whole chat message exactly. Example: !wave'}"
+                                   Foreground="{DynamicResource MutedBrush}" FontSize="10"
+                                   FontStyle="Italic" TextWrapping="Wrap" Margin="0,6,0,0" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
             <!-- Channel Points reward config -->
             <StackPanel Margin="0,8,0,0">
                 <StackPanel.Style>

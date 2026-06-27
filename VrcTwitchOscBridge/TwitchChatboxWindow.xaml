@@ -688,6 +688,11 @@
                                     BorderThickness="{TemplateBinding BorderThickness}"
                                     CornerRadius="12">
                                 <Grid>
+                                    <Grid.Resources>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{DynamicResource ComboTextBrush}" />
+                                        </Style>
+                                    </Grid.Resources>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="40" />
@@ -742,6 +747,11 @@
                         <Border x:Name="ComboItemBorder"
                                 Background="{TemplateBinding Background}"
                                 CornerRadius="8">
+                            <Border.Resources>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{DynamicResource ComboTextBrush}" />
+                                </Style>
+                            </Border.Resources>
                             <ContentPresenter />
                         </Border>
                         <ControlTemplate.Triggers>

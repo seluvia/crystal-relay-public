@@ -209,11 +209,15 @@ public sealed class AvatarSetsManagerWindowXamlTests
         var parameterNameLabelIndex = xaml.IndexOf("Parameter Name (selected)", headerIndex, StringComparison.Ordinal);
         var cardBlock = xaml.Substring(headerIndex, parameterNameLabelIndex - headerIndex);
 
-        // Every TextBlock label in the card should explicitly use the theme foreground.
+        // Every TextBlock in the card should explicitly use a theme foreground brush.
+        // Labels use TextBrush; help/descriptive text uses MutedBrush.
         var labelMatches = System.Text.RegularExpressions.Regex.Matches(cardBlock, @"<TextBlock\b[^>]*>");
         Assert.All(labelMatches, match =>
         {
-            Assert.Contains("Foreground=\"{DynamicResource TextBrush}\"", match.Value, StringComparison.Ordinal);
+            var hasTextBrush = match.Value.Contains("Foreground=\"{DynamicResource TextBrush}\"", StringComparison.Ordinal);
+            var hasMutedBrush = match.Value.Contains("Foreground=\"{DynamicResource MutedBrush}\"", StringComparison.Ordinal);
+            Assert.True(hasTextBrush || hasMutedBrush,
+                $"TextBlock should use an explicit theme foreground (TextBrush or MutedBrush): {match.Value}");
         });
     }
 

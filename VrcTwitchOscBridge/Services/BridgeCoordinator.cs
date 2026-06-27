@@ -3844,6 +3844,7 @@ internal BridgeCoordinator(
     private static bool IsTimedSupporterOverrideRule(TriggerRuleSnapshot rule) =>
         (IsSupporterOverrideRule(rule) || IsPowerUpFixedFloatAddRule(rule))
         && rule.ActionType != OscActionType.SetTrigger
+        && rule.ActionType != OscActionType.PlayerMovement
         && (rule.AmountScaledDurationEnabled || rule.DurationSeconds > 0);
 
     private static bool IsSupporterFloatAddRule(TriggerRuleSnapshot rule) =>
@@ -3901,7 +3902,8 @@ internal BridgeCoordinator(
         activeConfiguration?.AvatarChangeCooldownOnlyModeEnabled == true
         && !rule.IsGlobalOverride
         && rule.BelongsToMasterAvatarProfile
-        && rule.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet;
+        && rule.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet
+        && activeConfiguration?.FindAvatarSwapProfileForRule(rule.Rule) is null;
 
     private bool IsAvatarScalingActiveForAvatarChangeBlock()
     {
@@ -11054,12 +11056,36 @@ internal BridgeCoordinator(
                 if (!isTest && IsInAvatarChangeGracePeriod())
                 {
                     var graceRemaining = AvatarChangeGracePeriod - (DateTimeOffset.UtcNow - lastAvatarChangeAt);
-                    keepPendingReset = MarkPendingResetWaitingForSourceAvatarReturn(pendingReset);
-                    if (keepPendingReset)
+                    if (string.IsNullOrWhiteSpace(pendingReset.SourceAvatarId))
                     {
-                        var resetLabel = rule.ActionType == OscActionType.SetTrigger ? "Set Trigger restore" : "Timed reset";
-                        WriteLog($"{resetLabel} for '{rule.Name}' is deferred because the avatar recently changed. Waiting for the grace period to end. ({DescribeDuration(graceRemaining.TotalSeconds)} remaining)");
-                        return;
+                        // Avatar-change resets have no source-avatar constraint, so the
+                        // MarkPendingResetWaitingForSourceAvatarReturn deferral would strand
+                        // them forever (nobody can resume a reset with an empty SourceAvatarId).
+                        // Instead, wait for the grace period to end, then fire the reset
+                        // regardless. This prevents a perpetually oscillating avatar (e.g.
+                        // OSCQuery reporting two avatars) from blocking the swap-back forever.
+                        if (graceRemaining > TimeSpan.Zero)
+                        {
+                            WriteLog($"Timed reset for '{rule.Name}' is waiting {DescribeDuration(graceRemaining.TotalSeconds)} for the avatar change grace period to end before sending the swap-back.");
+                            try
+                            {
+                                await Task.Delay(graceRemaining, cancellation.Token);
+                            }
+                            catch (OperationCanceledException)
+                            {
+                                return;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        keepPendingReset = MarkPendingResetWaitingForSourceAvatarReturn(pendingReset);
+                        if (keepPendingReset)
+                        {
+                            var resetLabel = rule.ActionType == OscActionType.SetTrigger ? "Set Trigger restore" : "Timed reset";
+                            WriteLog($"{resetLabel} for '{rule.Name}' is deferred because the avatar recently changed. Waiting for the grace period to end. ({DescribeDuration(graceRemaining.TotalSeconds)} remaining)");
+                            return;
+                        }
                     }
                 }
 

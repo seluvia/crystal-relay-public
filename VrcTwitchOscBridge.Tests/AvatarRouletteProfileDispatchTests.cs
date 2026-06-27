@@ -6,7 +6,7 @@ namespace VrcTwitchOscBridge.Tests;
 
 public sealed class AvatarRouletteProfileDispatchTests
 {
-    [Fact(Skip = "v4 design moved roulette pool to AvatarRouletteProfile.Pool, but IsManualTestReady still checks rule.AvatarRouletAvatarIds. Follow-up bug: update IsManualTestReady to accept the parent roulette profile and check its Pool.")]
+    [Fact]
     public void FromSettings_BuildsAvatarRouletteSnapshots()
     {
         var s = new AppSettings();
@@ -18,7 +18,6 @@ public sealed class AvatarRouletteProfileDispatchTests
             ActionType = OscActionType.AvatarRoulet,
             ChannelPointRewardId = "rew_1",
         };
-        trigger.AvatarRouletAvatarIds.Add("a1");
         roulette.Triggers.Add(trigger);
         s.AvatarRouletteProfiles.Add(roulette);
 
@@ -30,6 +29,29 @@ public sealed class AvatarRouletteProfileDispatchTests
         Assert.Single(snap.Pool);
         Assert.Equal("a1", snap.Pool[0].AvatarId);
         Assert.Single(snap.Triggers);
+    }
+
+    [Fact]
+    public void CreateManualTestSnapshot_AllowsRouletteProfilePool()
+    {
+        var roulette = new AvatarRouletteProfile { Name = "Demo" };
+        roulette.Pool.Add(new RouletteAvatarEntry { AvatarId = "a1", AvatarName = "One" });
+        var trigger = new TriggerRule
+        {
+            TriggerType = TwitchTriggerType.ChannelPoints,
+            ActionType = OscActionType.AvatarRoulet,
+            ChannelPointRewardId = "rew_1",
+        };
+        roulette.Triggers.Add(trigger);
+
+        var snapshot = BridgeRuntimeConfiguration.CreateManualTestSnapshot(
+            trigger,
+            isGlobalOverride: true,
+            profile: null,
+            rouletteProfile: roulette);
+
+        Assert.Equal(OscActionType.AvatarRoulet, snapshot.ActionType);
+        Assert.Same(trigger, snapshot.Rule);
     }
 
     [Fact]

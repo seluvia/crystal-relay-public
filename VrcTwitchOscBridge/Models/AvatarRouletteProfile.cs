@@ -7,8 +7,18 @@ namespace VrcTwitchOscBridge.Models;
 public partial class AvatarRouletteProfile : ObservableObject
 {
     public Guid Id { get; set; } = Guid.NewGuid();
-    public string Name { get; set; } = "New Roulette";
-    public bool IsEnabled { get; set; } = true;
+    private string name = "New Roulette";
+    public string Name
+    {
+        get => name;
+        set => SetProperty(ref name, value);
+    }
+    private bool isEnabled = true;
+    public bool IsEnabled
+    {
+        get => isEnabled;
+        set => SetProperty(ref isEnabled, value);
+    }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

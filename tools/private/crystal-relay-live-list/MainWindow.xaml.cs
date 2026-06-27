@@ -7,22 +7,24 @@ using System.Media;
 using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Shell;
 using System.Windows.Threading;
-using Microsoft.Web.WebView2.Core;
+using CrystalRelayLiveList.Services;
+using CrystalRelayLiveList.ViewModels;
 
 namespace CrystalRelayLiveList;
 
 public partial class MainWindow : Window, INotifyPropertyChanged
 {
-    private static readonly TimeSpan RefreshInterval = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan SlowPollInterval = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan FastPollInterval = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(12);
-    private static readonly TimeSpan HistoryWindow = TimeSpan.FromHours(24);
     private const int WmNcHitTest = 0x0084;
     private const int HtLeft = 10;
     private const int HtRight = 11;
@@ -33,23 +35,26 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private const int HtBottomLeft = 16;
     private const int HtBottomRight = 17;
     private const double ResizeHitTestThickness = 16d;
-    private const string TwitchViewerHost = "crystal-relay-live-feedback.test";
-    private const string StreamViewerPageName = "stream-viewer.html";
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         PropertyNameCaseInsensitive = true
     };
 
-    private readonly HttpClient httpClient = new()
-    {
-        Timeout = RequestTimeout
-    };
-    private readonly DispatcherTimer refreshTimer = new()
-    {
-        Interval = RefreshInterval
-    };
+    private readonly HttpClient httpClient = new() { Timeout = RequestTimeout };
+    private readonly DispatcherTimer refreshTimer = new();
+    private readonly DispatcherTimer retryTimer = new();
     private readonly List<MediaPlayer> activeAlertPlayers = [];
-    private readonly Dictionary<string, LiveHistoryEntryRecord> liveHistory = new(StringComparer.OrdinalIgnoreCase);
+    private readonly LiveHistoryStore historyStore = new();
+    private readonly LiveStatsTracker stats = new();
+    private readonly RetryPolicy retryPolicy = new(TimeSpan.FromSeconds(5), TimeSpan.FromMinutes(2));
+    private readonly ObservableCollection<string> presetNames = [];
+    private readonly ObservableCollection<string> copyHistory = [];
+
+    private LiveListConfigCache? configCache;
+    private TrayService? tray;
+    private StreamWatcherService? streamWatcher;
+    private DevCommandService? devCommands;
+    private FavoritesStore? favorites;
 
     private string statusText = "Loading live users...";
     private string endpointText = "Endpoint not loaded yet.";
@@ -62,15 +67,21 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string currentStreamChannelSlug = string.Empty;
     private string streamViewerVersionBadgeText = string.Empty;
     private string streamViewerChannelBadgeText = string.Empty;
+    private string searchText = string.Empty;
+    private string statsText = string.Empty;
+    private string selectedPresetName = string.Empty;
+    private string newPresetName = string.Empty;
     private bool streamViewerHasVersionBadge;
     private bool streamViewerHasChannelBadge;
     private bool canRefresh = true;
     private bool soundAlertsEnabled = true;
+    private bool fastPollEnabled;
     private bool isShowingHistory;
     private bool isShowingStream;
     private bool hasLoadedLiveSnapshot;
-    private bool hasInitializedStreamWebView;
-    private readonly HashSet<string> knownLiveUserKeys = new(StringComparer.OrdinalIgnoreCase);
+    private bool favoritesOnly;
+    private HashSet<string> knownLiveUserKeys = new(StringComparer.OrdinalIgnoreCase);
+    private int unreadLiveCount;
     private HwndSource? hwndSource;
 
     public MainWindow()
@@ -79,9 +90,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         DataContext = this;
         SourceInitialized += OnSourceInitialized;
         refreshTimer.Tick += async (_, _) => await RefreshAsync();
+        retryTimer.Tick += async (_, _) =>
+        {
+            retryTimer.Stop();
+            await RefreshAsync();
+        };
         Loaded += async (_, _) =>
         {
+            InitializeServices();
             LoadLiveHistory();
+            UpdateTimerInterval();
             refreshTimer.Start();
             await RefreshAsync();
         };
@@ -90,15 +108,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             hwndSource?.RemoveHook(WndProc);
             hwndSource = null;
             refreshTimer.Stop();
+            retryTimer.Stop();
             foreach (var player in activeAlertPlayers)
             {
                 player.Close();
             }
-
             activeAlertPlayers.Clear();
-            CloseStreamWebView();
+            streamWatcher?.Dispose();
+            tray?.Dispose();
             httpClient.Dispose();
         };
+        Activated += (_, _) => ClearUnreadBadge();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -107,15 +127,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     public ObservableCollection<LiveHistoryEntryViewModel> HistoryEntries { get; } = [];
 
+    public ObservableCollection<string> PresetNames => presetNames;
+
+    public ObservableCollection<string> CopyHistory => copyHistory;
+
     public string StatusText
     {
         get => statusText;
         private set
         {
             if (SetProperty(ref statusText, value))
-            {
                 RaisePropertyChanged(nameof(ViewPrimaryStatusText));
-            }
         }
     }
 
@@ -131,9 +153,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         private set
         {
             if (SetProperty(ref lastUpdatedText, value))
-            {
                 RaisePropertyChanged(nameof(ViewSecondaryStatusText));
-            }
         }
     }
 
@@ -143,9 +163,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         private set
         {
             if (SetProperty(ref historyStatusText, value))
-            {
                 RaisePropertyChanged(nameof(ViewPrimaryStatusText));
-            }
         }
     }
 
@@ -161,9 +179,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         private set
         {
             if (SetProperty(ref streamViewerTitleText, value))
-            {
                 RaisePropertyChanged(nameof(ViewTitleText));
-            }
         }
     }
 
@@ -173,9 +189,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         private set
         {
             if (SetProperty(ref streamViewerStatusText, value))
-            {
                 RaisePropertyChanged(nameof(ViewPrimaryStatusText));
-            }
         }
     }
 
@@ -185,9 +199,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         private set
         {
             if (SetProperty(ref currentStreamTwitchUrl, value))
-            {
                 RaisePropertyChanged(nameof(ViewSecondaryStatusText));
-            }
         }
     }
 
@@ -227,6 +239,60 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         set => SetProperty(ref soundAlertsEnabled, value);
     }
 
+    public bool FastPollEnabled
+    {
+        get => fastPollEnabled;
+        set
+        {
+            if (SetProperty(ref fastPollEnabled, value))
+            {
+                UpdateTimerInterval();
+            }
+        }
+    }
+
+    public bool FavoritesOnly
+    {
+        get => favoritesOnly;
+        set
+        {
+            if (SetProperty(ref favoritesOnly, value))
+            {
+                ApplySearchFilter();
+            }
+        }
+    }
+
+    public string SearchText
+    {
+        get => searchText;
+        set
+        {
+            if (SetProperty(ref searchText, value))
+            {
+                ApplySearchFilter();
+            }
+        }
+    }
+
+    public string StatsText
+    {
+        get => statsText;
+        private set => SetProperty(ref statsText, value);
+    }
+
+    public string SelectedPresetName
+    {
+        get => selectedPresetName;
+        set => SetProperty(ref selectedPresetName, value);
+    }
+
+    public string NewPresetName
+    {
+        get => newPresetName;
+        set => SetProperty(ref newPresetName, value);
+    }
+
     public bool IsEmpty => Users.Count == 0;
 
     public bool IsLiveViewVisible => !isShowingHistory && !isShowingStream;
@@ -253,22 +319,63 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         ? CurrentStreamTwitchUrl
         : isShowingHistory ? "Saved locally in AppData." : LastUpdatedText;
 
+    private void InitializeServices()
+    {
+        var basePath = AppContext.BaseDirectory;
+        var candidates = new[]
+        {
+            Path.Combine(basePath, "live-list.local.json"),
+            Path.Combine(Environment.CurrentDirectory, "live-list.local.json"),
+            Path.GetFullPath(Path.Combine(basePath, "..", "..", "..", "live-list.local.json")),
+            Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "CrystalRelay",
+                "bridge.runtime.json")
+        };
+        configCache = new LiveListConfigCache(candidates);
+
+        var dataRoot = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "CrystalRelay",
+            "DevTools",
+            "LiveList");
+
+        favorites = new FavoritesStore(Path.Combine(dataRoot, "favorites.json"));
+        devCommands = new DevCommandService(Path.Combine(dataRoot, "command-presets.json"));
+        streamWatcher = new StreamWatcherService(StreamWebView);
+        tray = new TrayService(this, ShowFromTray, () => _ = RefreshAsync());
+
+        RefreshPresetNames();
+        RefreshCopyHistory();
+    }
+
+    private void ShowFromTray()
+    {
+        Show();
+        WindowState = WindowState.Normal;
+        Activate();
+    }
+
+    private void UpdateTimerInterval()
+    {
+        refreshTimer.Interval = fastPollEnabled ? FastPollInterval : SlowPollInterval;
+    }
+
     private async Task RefreshAsync()
     {
         if (!CanRefresh)
-        {
             return;
-        }
 
         CanRefresh = false;
         StatusText = "Refreshing live list...";
         try
         {
-            var endpoint = ResolveLiveApiEndpoint();
+            var resolved = configCache?.Resolve() ?? new LiveListResolvedConfig(null, string.Empty, string.Empty);
+            var endpoint = resolved.Endpoint;
             if (endpoint is null)
             {
                 Users.Clear();
-                knownLiveUserKeys.Clear();
+                knownLiveUserKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 hasLoadedLiveSnapshot = false;
                 RaiseLiveViewPropertiesChanged();
                 EndpointText = "Endpoint not configured. Create live-list.local.json beside this app, or set liveFeedbackHeartbeatEndpoint in Crystal Relay runtime config.";
@@ -279,66 +386,77 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
             EndpointText = $"Endpoint: {endpoint}";
             using var response = await httpClient.GetAsync(endpoint);
-            if (!response.IsSuccessStatusCode)
-            {
-                StatusText = $"Live list returned HTTP {(int)response.StatusCode}.";
-                LastUpdatedText = $"Last attempt: {DateTimeOffset.Now:g}";
-                return;
-            }
-
+            response.EnsureSuccessStatusCode();
             await using var stream = await response.Content.ReadAsStreamAsync();
             var payload = await JsonSerializer.DeserializeAsync<LiveListResponse>(stream, JsonOptions);
-            var liveUsers = new List<LiveUserViewModel>();
-            var currentLiveUserKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            Users.Clear();
-            foreach (var user in payload?.Users ?? [])
+
+            var incoming = BuildIncomingUsers(payload);
+            var incomingKeys = incoming
+                .Select(u => LiveUserKey.Normalize(u.TwitchUrl, u.DisplayName))
+                .Where(k => !string.IsNullOrWhiteSpace(k))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var shouldAlert = hasLoadedLiveSnapshot && incomingKeys.Any(k => !knownLiveUserKeys.Contains(k));
+            var newFavoriteNames = hasLoadedLiveSnapshot
+                ? incoming.Where(u => favorites is not null
+                    && favorites.IsFavorite(LiveUserKey.Normalize(u.TwitchUrl, u.DisplayName))
+                    && !knownLiveUserKeys.Contains(LiveUserKey.Normalize(u.TwitchUrl, u.DisplayName)))
+                    .Select(u => u.DisplayName)
+                    .ToList()
+                : new List<string>();
+
+            // #1: Diff the live list (no Clear/re-add churn).
+            var diff = LiveListDiffer.Diff(Users, incoming,
+                u => LiveUserKey.Normalize(u.TwitchUrl, u.DisplayName),
+                (a, b) => string.Equals(a.RelayVersion, b.RelayVersion, StringComparison.Ordinal)
+                         && string.Equals(a.BuildChannel, b.BuildChannel, StringComparison.Ordinal)
+                         && a.LastPingAt == b.LastPingAt);
+            LiveListDiffer.Apply(Users, diff, u => LiveUserKey.Normalize(u.TwitchUrl, u.DisplayName));
+
+            // #2,#3,#7: History — upsert + dirty-flag save + single sort.
+            historyStore.Upsert(incoming, DateTimeOffset.UtcNow);
+            historyStore.Prune(DateTimeOffset.UtcNow);
+            var sorted = historyStore.SortedSnapshot();
+            var histIncoming = sorted.Select(r => new LiveHistoryEntryViewModel(r)).ToList();
+            var histDiff = LiveListDiffer.Diff(HistoryEntries, histIncoming,
+                h => LiveUserKey.Normalize(h.TwitchUrl, h.DisplayName),
+                (a, b) => a.LastSeenLiveAt == b.LastSeenLiveAt
+                         && string.Equals(a.DetailText, b.DetailText, StringComparison.Ordinal));
+            LiveListDiffer.Apply(HistoryEntries, histDiff, h => LiveUserKey.Normalize(h.TwitchUrl, h.DisplayName));
+            HistoryStatusText = HistoryEntries.Count == 1
+                ? "1 streamer observed live in the last 24 hours."
+                : $"{HistoryEntries.Count} streamers observed live in the last 24 hours.";
+            if (historyStore.IsDirty)
             {
-                if (string.IsNullOrWhiteSpace(user.DisplayName) || string.IsNullOrWhiteSpace(user.TwitchUrl))
+                SaveLiveHistory(sorted);
+                historyStore.MarkClean();
+            }
+
+            // #17: Stats.
+            stats.RecordSnapshot(Users.Count, incomingKeys);
+            UpdateStatsText();
+
+            // #8: key-set swap.
+            knownLiveUserKeys = incomingKeys;
+
+            // Alerts + badges + tray.
+            if (shouldAlert)
+            {
+                var newlyLiveCount = incomingKeys.Count(k => !knownLiveUserKeys.Contains(k));
+                unreadLiveCount += newlyLiveCount;
+                UpdateUnreadBadge();
+                if (SoundAlertsEnabled)
+                    PlayLiveSoundAlert();
+                tray?.ShowBalloon("Crystal Relay live", Users.Count == 1
+                    ? $"{Users[0].DisplayName} is live."
+                    : $"{Users.Count} Crystal Relay users are live.");
+                foreach (var name in newFavoriteNames)
                 {
-                    continue;
-                }
-
-                var liveUser = new LiveUserViewModel(
-                    user.DisplayName,
-                    user.TwitchUrl,
-                    user.RelayVersion,
-                    user.BuildChannel,
-                    user.LastPingAt);
-                liveUsers.Add(liveUser);
-                currentLiveUserKeys.Add(CreateLiveUserKey(liveUser));
-            }
-
-            var shouldPlayLiveAlert = false;
-            if (hasLoadedLiveSnapshot)
-            {
-                foreach (var userKey in currentLiveUserKeys)
-                {
-                    if (!knownLiveUserKeys.Contains(userKey))
-                    {
-                        shouldPlayLiveAlert = true;
-                        break;
-                    }
+                    tray?.ShowBalloon("Favorite live", $"{name} just went live.");
                 }
             }
 
-            foreach (var liveUser in liveUsers)
-            {
-                Users.Add(liveUser);
-            }
-
-            UpdateLiveHistory(liveUsers, DateTimeOffset.UtcNow);
-            RaiseLiveViewPropertiesChanged();
-            if (shouldPlayLiveAlert && SoundAlertsEnabled)
-            {
-                PlayLiveSoundAlert();
-            }
-
-            knownLiveUserKeys.Clear();
-            foreach (var userKey in currentLiveUserKeys)
-            {
-                knownLiveUserKeys.Add(userKey);
-            }
-
+            retryPolicy.Reset();
             hasLoadedLiveSnapshot = true;
             var updatedAt = payload?.UpdatedAt is { } value
                 ? value.ToLocalTime().ToString("g")
@@ -347,11 +465,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 ? "1 Crystal Relay user is live."
                 : $"{Users.Count} Crystal Relay users are live.";
             LastUpdatedText = $"Last updated: {updatedAt}.";
+            ApplySearchFilter();
+            RaiseLiveViewPropertiesChanged();
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or IOException or InvalidOperationException)
+        catch (Exception ex)
         {
+            WriteCrashLogSafe("RefreshAsync", ex);
             StatusText = $"Could not load the live list: {ex.Message}";
             LastUpdatedText = $"Last attempt: {DateTimeOffset.Now:g}";
+            // #19: retry with backoff.
+            var delay = retryPolicy.NextDelay();
+            retryTimer.Interval = delay;
+            retryTimer.Start();
         }
         finally
         {
@@ -359,166 +484,121 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
-    private static string CreateLiveUserKey(LiveUserViewModel user)
+    private static List<LiveUserViewModel> BuildIncomingUsers(LiveListResponse? payload)
     {
-        return NormalizeLiveUserKey(user.TwitchUrl, user.DisplayName);
+        var result = new List<LiveUserViewModel>();
+        foreach (var user in payload?.Users ?? [])
+        {
+            if (string.IsNullOrWhiteSpace(user.DisplayName) || string.IsNullOrWhiteSpace(user.TwitchUrl))
+            {
+                continue;
+            }
+            result.Add(new LiveUserViewModel(
+                user.DisplayName,
+                user.TwitchUrl,
+                user.RelayVersion,
+                user.BuildChannel,
+                user.LastPingAt));
+        }
+        return result;
+    }
+
+    private void UpdateStatsText()
+    {
+        StatsText = $"Peak: {stats.PeakLive}  |  Unique seen: {stats.UniqueStreamersSeen}  |  Current: {stats.CurrentLive}  |  Session: {(int)stats.SessionDuration.TotalMinutes}m";
+    }
+
+    private void UpdateUnreadBadge()
+    {
+        if (TaskbarBadge is null) return;
+        if (unreadLiveCount > 0)
+        {
+            TaskbarBadge.ProgressState = TaskbarItemProgressState.Normal;
+            TaskbarBadge.ProgressValue = Math.Min(unreadLiveCount / 10.0, 1.0);
+        }
+    }
+
+    private void ClearUnreadBadge()
+    {
+        unreadLiveCount = 0;
+        if (TaskbarBadge is null) return;
+        TaskbarBadge.ProgressState = TaskbarItemProgressState.None;
+        TaskbarBadge.ProgressValue = 0;
+    }
+
+    private void ApplySearchFilter()
+    {
+        var liveView = CollectionViewSource.GetDefaultView(Users);
+        liveView.Filter = FilterUser;
+        liveView.Refresh();
+        var historyView = CollectionViewSource.GetDefaultView(HistoryEntries);
+        historyView.Filter = FilterHistoryEntry;
+        historyView.Refresh();
+    }
+
+    private bool FilterUser(object item)
+    {
+        if (item is not LiveUserViewModel user) return false;
+        if (favoritesOnly && favorites is not null
+            && !favorites.IsFavorite(LiveUserKey.Normalize(user.TwitchUrl, user.DisplayName)))
+        {
+            return false;
+        }
+        if (string.IsNullOrWhiteSpace(searchText)) return true;
+        return user.DisplayName.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+            || user.TwitchUrl.Contains(searchText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool FilterHistoryEntry(object item)
+    {
+        if (item is not LiveHistoryEntryViewModel entry) return false;
+        if (string.IsNullOrWhiteSpace(searchText)) return true;
+        return entry.DisplayName.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+            || entry.TwitchUrl.Contains(searchText, StringComparison.OrdinalIgnoreCase);
     }
 
     private void LoadLiveHistory()
     {
-        liveHistory.Clear();
         var historyPath = GetLiveHistoryPath();
         if (File.Exists(historyPath))
         {
             try
             {
                 var json = File.ReadAllText(historyPath);
-                var store = JsonSerializer.Deserialize<LiveHistoryStore>(json, JsonOptions);
-                foreach (var entry in store?.Entries ?? [])
-                {
-                    UpsertLoadedHistoryEntry(entry);
-                }
+                var store = JsonSerializer.Deserialize<LiveHistoryStorePayload>(json, JsonOptions);
+                historyStore.Load(store?.Entries ?? []);
             }
-            catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException or NotSupportedException)
+            catch (Exception ex)
             {
                 HistoryStatusText = "Could not load 24h history; starting fresh.";
+                WriteCrashLogSafe("LoadLiveHistory", ex);
             }
         }
-
-        PruneLiveHistory(DateTimeOffset.UtcNow);
+        historyStore.Prune(DateTimeOffset.UtcNow);
         RefreshLiveHistoryView();
-        SaveLiveHistory();
-    }
-
-    private void UpdateLiveHistory(IEnumerable<LiveUserViewModel> liveUsers, DateTimeOffset observedAt)
-    {
-        foreach (var user in liveUsers)
+        if (historyStore.IsDirty)
         {
-            var key = NormalizeLiveUserKey(user.TwitchUrl, user.DisplayName);
-            if (string.IsNullOrWhiteSpace(key))
-            {
-                continue;
-            }
-
-            var lastSeenAt = (user.LastPingAt ?? observedAt).ToUniversalTime();
-            if (liveHistory.TryGetValue(key, out var existing))
-            {
-                existing.DisplayName = user.DisplayName;
-                existing.TwitchUrl = user.TwitchUrl;
-                existing.RelayVersion = user.RelayVersion;
-                existing.BuildChannel = user.BuildChannel;
-                existing.LastSeenLiveAt = lastSeenAt > existing.LastSeenLiveAt
-                    ? lastSeenAt
-                    : existing.LastSeenLiveAt;
-                if (existing.LastSeenLiveAt < existing.FirstSeenLiveAt)
-                {
-                    existing.LastSeenLiveAt = observedAt.ToUniversalTime();
-                }
-
-                continue;
-            }
-
-            var firstSeenAt = observedAt.ToUniversalTime();
-            liveHistory[key] = new LiveHistoryEntryRecord
-            {
-                Key = key,
-                DisplayName = user.DisplayName,
-                TwitchUrl = user.TwitchUrl,
-                RelayVersion = user.RelayVersion,
-                BuildChannel = user.BuildChannel,
-                FirstSeenLiveAt = firstSeenAt,
-                LastSeenLiveAt = lastSeenAt < firstSeenAt ? firstSeenAt : lastSeenAt
-            };
-        }
-
-        PruneLiveHistory(observedAt);
-        RefreshLiveHistoryView();
-        SaveLiveHistory();
-    }
-
-    private void UpsertLoadedHistoryEntry(LiveHistoryEntryRecord entry)
-    {
-        var key = NormalizeLiveUserKey(entry.TwitchUrl, entry.DisplayName);
-        if (string.IsNullOrWhiteSpace(key))
-        {
-            key = entry.Key?.Trim() ?? string.Empty;
-        }
-
-        if (string.IsNullOrWhiteSpace(key))
-        {
-            return;
-        }
-
-        var cleanEntry = new LiveHistoryEntryRecord
-        {
-            Key = key,
-            DisplayName = entry.DisplayName?.Trim() ?? string.Empty,
-            TwitchUrl = entry.TwitchUrl?.Trim() ?? string.Empty,
-            RelayVersion = entry.RelayVersion?.Trim() ?? string.Empty,
-            BuildChannel = entry.BuildChannel?.Trim() ?? string.Empty,
-            FirstSeenLiveAt = entry.FirstSeenLiveAt.ToUniversalTime(),
-            LastSeenLiveAt = entry.LastSeenLiveAt.ToUniversalTime()
-        };
-        if (cleanEntry.FirstSeenLiveAt == default)
-        {
-            cleanEntry.FirstSeenLiveAt = cleanEntry.LastSeenLiveAt == default
-                ? DateTimeOffset.UtcNow
-                : cleanEntry.LastSeenLiveAt;
-        }
-
-        if (cleanEntry.LastSeenLiveAt == default || cleanEntry.LastSeenLiveAt < cleanEntry.FirstSeenLiveAt)
-        {
-            cleanEntry.LastSeenLiveAt = cleanEntry.FirstSeenLiveAt;
-        }
-
-        if (liveHistory.TryGetValue(key, out var existing))
-        {
-            existing.DisplayName = string.IsNullOrWhiteSpace(cleanEntry.DisplayName) ? existing.DisplayName : cleanEntry.DisplayName;
-            existing.TwitchUrl = string.IsNullOrWhiteSpace(cleanEntry.TwitchUrl) ? existing.TwitchUrl : cleanEntry.TwitchUrl;
-            existing.RelayVersion = string.IsNullOrWhiteSpace(cleanEntry.RelayVersion) ? existing.RelayVersion : cleanEntry.RelayVersion;
-            existing.BuildChannel = string.IsNullOrWhiteSpace(cleanEntry.BuildChannel) ? existing.BuildChannel : cleanEntry.BuildChannel;
-            existing.FirstSeenLiveAt = cleanEntry.FirstSeenLiveAt < existing.FirstSeenLiveAt
-                ? cleanEntry.FirstSeenLiveAt
-                : existing.FirstSeenLiveAt;
-            existing.LastSeenLiveAt = cleanEntry.LastSeenLiveAt > existing.LastSeenLiveAt
-                ? cleanEntry.LastSeenLiveAt
-                : existing.LastSeenLiveAt;
-            return;
-        }
-
-        liveHistory[key] = cleanEntry;
-    }
-
-    private void PruneLiveHistory(DateTimeOffset now)
-    {
-        var cutoff = now.ToUniversalTime() - HistoryWindow;
-        var staleKeys = liveHistory
-            .Where(pair => pair.Value.LastSeenLiveAt.ToUniversalTime() < cutoff)
-            .Select(pair => pair.Key)
-            .ToList();
-        foreach (var key in staleKeys)
-        {
-            liveHistory.Remove(key);
+            SaveLiveHistory(historyStore.SortedSnapshot());
+            historyStore.MarkClean();
         }
     }
 
     private void RefreshLiveHistoryView()
     {
-        HistoryEntries.Clear();
-        foreach (var entry in liveHistory.Values
-            .OrderByDescending(entry => entry.LastSeenLiveAt)
-            .ThenBy(entry => entry.DisplayName, StringComparer.OrdinalIgnoreCase))
-        {
-            HistoryEntries.Add(new LiveHistoryEntryViewModel(entry));
-        }
-
+        var sorted = historyStore.SortedSnapshot();
+        var histIncoming = sorted.Select(r => new LiveHistoryEntryViewModel(r)).ToList();
+        var histDiff = LiveListDiffer.Diff(HistoryEntries, histIncoming,
+            h => LiveUserKey.Normalize(h.TwitchUrl, h.DisplayName),
+            (a, b) => a.LastSeenLiveAt == b.LastSeenLiveAt
+                     && string.Equals(a.DetailText, b.DetailText, StringComparison.Ordinal));
+        LiveListDiffer.Apply(HistoryEntries, histDiff, h => LiveUserKey.Normalize(h.TwitchUrl, h.DisplayName));
         HistoryStatusText = HistoryEntries.Count == 1
             ? "1 streamer observed live in the last 24 hours."
             : $"{HistoryEntries.Count} streamers observed live in the last 24 hours.";
         RaiseHistoryViewPropertiesChanged();
     }
 
-    private void SaveLiveHistory()
+    private void SaveLiveHistory(IReadOnlyList<LiveHistoryEntryRecord> sorted)
     {
         var historyPath = GetLiveHistoryPath();
         var tempPath = $"{historyPath}.tmp";
@@ -530,18 +610,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 Directory.CreateDirectory(directory);
             }
 
-            var store = new LiveHistoryStore
+            var store = new LiveHistoryStorePayload
             {
                 UpdatedAt = DateTimeOffset.UtcNow,
-                Entries = liveHistory.Values
-                    .OrderByDescending(entry => entry.LastSeenLiveAt)
-                    .ThenBy(entry => entry.DisplayName, StringComparer.OrdinalIgnoreCase)
-                    .ToList()
+                Entries = sorted.ToList()
             };
-            var writeOptions = new JsonSerializerOptions(JsonOptions)
-            {
-                WriteIndented = true
-            };
+            var writeOptions = new JsonSerializerOptions(JsonOptions) { WriteIndented = true };
             File.WriteAllText(tempPath, JsonSerializer.Serialize(store, writeOptions));
             if (File.Exists(historyPath))
             {
@@ -558,13 +632,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             try
             {
                 if (File.Exists(tempPath))
-                {
                     File.Delete(tempPath);
-                }
             }
             catch
             {
-                // A failed cleanup should not interrupt live-list refreshes.
             }
         }
     }
@@ -579,72 +650,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             "live-history.json");
     }
 
-    private static string NormalizeLiveUserKey(string? twitchUrl, string? displayName)
-    {
-        if (TryGetTwitchChannelSlug(twitchUrl, out var channelSlug))
-        {
-            return $"https://www.twitch.tv/{channelSlug.ToLowerInvariant()}";
-        }
-
-        if (!string.IsNullOrWhiteSpace(twitchUrl))
-        {
-            return twitchUrl.Trim();
-        }
-
-        return displayName?.Trim() ?? string.Empty;
-    }
-
-    private static string BuildTwitchVodUrl(string? twitchUrl)
-    {
-        return TryGetTwitchChannelSlug(twitchUrl, out var channelSlug)
-            ? $"https://www.twitch.tv/{channelSlug}/videos?filter=archives&sort=time"
-            : twitchUrl ?? string.Empty;
-    }
-
-    private static bool TryGetTwitchChannelSlug(string? twitchUrl, out string channelSlug)
-    {
-        channelSlug = string.Empty;
-        if (string.IsNullOrWhiteSpace(twitchUrl)
-            || !Uri.TryCreate(twitchUrl.Trim(), UriKind.Absolute, out var uri)
-            || (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp)
-            || !IsTwitchHost(uri.Host))
-        {
-            return false;
-        }
-
-        var slug = uri.AbsolutePath
-            .Split('/', StringSplitOptions.RemoveEmptyEntries)
-            .FirstOrDefault();
-        if (string.IsNullOrWhiteSpace(slug) || !IsTwitchChannelSlug(slug))
-        {
-            return false;
-        }
-
-        channelSlug = slug;
-        return true;
-    }
-
-    private static bool IsTwitchHost(string host)
-    {
-        return host.Equals("twitch.tv", StringComparison.OrdinalIgnoreCase)
-            || host.EndsWith(".twitch.tv", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool IsTwitchChannelSlug(string slug)
-    {
-        return slug.All(character => char.IsLetterOrDigit(character) || character == '_');
-    }
-
     private void PlayLiveSoundAlert()
     {
-        var alertSoundPath = ResolveLiveAlertSoundPath();
+        var resolved = configCache?.Resolve();
+        var alertSoundPath = resolved?.AlertSoundPath ?? string.Empty;
         if (!string.IsNullOrWhiteSpace(alertSoundPath)
             && File.Exists(alertSoundPath)
             && TryPlayConfiguredLiveSoundAlert(alertSoundPath))
         {
             return;
         }
-
         PlayFallbackLiveSoundAlert();
     }
 
@@ -658,11 +673,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
             void Cleanup()
             {
-                if (player is null)
-                {
-                    return;
-                }
-
+                if (player is null) return;
                 player.MediaEnded -= OnMediaEnded;
                 player.MediaFailed -= OnMediaFailed;
                 player.Close();
@@ -670,11 +681,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 player = null;
             }
 
-            void OnMediaEnded(object? sender, EventArgs e)
-            {
-                Cleanup();
-            }
-
+            void OnMediaEnded(object? sender, EventArgs e) => Cleanup();
             void OnMediaFailed(object? sender, ExceptionEventArgs e)
             {
                 Cleanup();
@@ -694,7 +701,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 player.Close();
                 activeAlertPlayers.Remove(player);
             }
-
             return false;
         }
     }
@@ -707,138 +713,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
         catch
         {
-            // System sounds can be unavailable on some Windows audio setups.
         }
-    }
-
-    private string ResolveLiveAlertSoundPath()
-    {
-        foreach (var (path, config) in ReadConfigCandidates())
-        {
-            var baseDirectory = Path.GetDirectoryName(path) ?? AppContext.BaseDirectory;
-            var alertSoundPath = ResolveConfiguredPath(config.LiveAlertSoundPath, baseDirectory);
-            if (!string.IsNullOrWhiteSpace(alertSoundPath))
-            {
-                return alertSoundPath;
-            }
-        }
-
-        return string.Empty;
-    }
-
-    private Uri? ResolveLiveApiEndpoint()
-    {
-        foreach (var (_, config) in ReadConfigCandidates())
-        {
-            var endpoint = !string.IsNullOrWhiteSpace(config.LiveApiEndpoint)
-                ? config.LiveApiEndpoint
-                : config.LiveFeedbackHeartbeatEndpoint;
-            if (BuildLiveApiUri(endpoint ?? string.Empty) is { } uri)
-            {
-                return uri;
-            }
-        }
-
-        return null;
-    }
-
-    private static IEnumerable<string> GetConfigCandidates()
-    {
-        yield return Path.Combine(AppContext.BaseDirectory, "live-list.local.json");
-        yield return Path.Combine(Environment.CurrentDirectory, "live-list.local.json");
-        yield return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "live-list.local.json"));
-        yield return Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "CrystalRelay",
-            "bridge.runtime.json");
-    }
-
-    private static IEnumerable<(string Path, LiveListConfig Config)> ReadConfigCandidates()
-    {
-        foreach (var path in GetConfigCandidates())
-        {
-            if (TryReadConfig(path) is { } config)
-            {
-                yield return (path, config);
-            }
-        }
-    }
-
-    private static LiveListConfig? TryReadConfig(string path)
-    {
-        if (!File.Exists(path))
-        {
-            return null;
-        }
-
-        try
-        {
-            var json = File.ReadAllText(path);
-            return JsonSerializer.Deserialize<LiveListConfig>(json, JsonOptions);
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
-    private static string ResolveConfiguredPath(string configuredPath, string baseDirectory)
-    {
-        if (string.IsNullOrWhiteSpace(configuredPath))
-        {
-            return string.Empty;
-        }
-
-        try
-        {
-            var expandedPath = Environment.ExpandEnvironmentVariables(configuredPath.Trim());
-            return Path.IsPathRooted(expandedPath)
-                ? expandedPath
-                : Path.GetFullPath(Path.Combine(baseDirectory, expandedPath));
-        }
-        catch (Exception ex) when (ex is ArgumentException or IOException or NotSupportedException)
-        {
-            return string.Empty;
-        }
-    }
-
-    private static Uri? BuildLiveApiUri(string endpoint)
-    {
-        if (string.IsNullOrWhiteSpace(endpoint)
-            || !Uri.TryCreate(endpoint.Trim(), UriKind.Absolute, out var uri)
-            || uri.UserInfo.Length > 0
-            || (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp))
-        {
-            return null;
-        }
-
-        var builder = new UriBuilder(uri)
-        {
-            Query = string.Empty,
-            Fragment = string.Empty
-        };
-
-        var path = builder.Path.TrimEnd('/');
-        if (path.EndsWith("/api/live", StringComparison.OrdinalIgnoreCase))
-        {
-            builder.Path = path;
-        }
-        else if (path.EndsWith("/api/ping", StringComparison.OrdinalIgnoreCase))
-        {
-            builder.Path = string.Concat(path.AsSpan(0, path.Length - "/api/ping".Length), "/api/live");
-        }
-        else
-        {
-            builder.Path = string.IsNullOrWhiteSpace(path) || path == "/"
-                ? "/api/live"
-                : $"{path}/api/live";
-        }
-
-        return builder.Uri;
     }
 
     private void OnRefreshClicked(object sender, RoutedEventArgs e)
     {
+        configCache?.Invalidate();
         _ = RefreshAsync();
     }
 
@@ -855,70 +735,60 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void SetLiveListView()
     {
         if (!isShowingHistory && !isShowingStream)
-        {
             return;
-        }
-
         if (isShowingStream)
-        {
             StopStreamViewer();
-        }
-
         isShowingHistory = false;
         isShowingStream = false;
         RaiseViewModePropertiesChanged();
+        UpdateStoryboardState();
     }
 
     private void SetHistoryView(bool showHistory)
     {
         if (isShowingHistory == showHistory && !isShowingStream)
-        {
             return;
-        }
-
         if (isShowingStream)
-        {
             StopStreamViewer();
-        }
-
         isShowingHistory = showHistory;
         isShowingStream = false;
         RaiseViewModePropertiesChanged();
+        UpdateStoryboardState();
     }
 
     private void OnViewStreamClicked(object sender, RoutedEventArgs e)
     {
         if (sender is not Button { Tag: string twitchUrl } || string.IsNullOrWhiteSpace(twitchUrl))
-        {
             return;
-        }
-
         _ = ViewStreamAsync(twitchUrl);
     }
 
     private void OnOpenStreamClicked(object sender, RoutedEventArgs e)
     {
         if (sender is not Button { Tag: string twitchUrl } || string.IsNullOrWhiteSpace(twitchUrl))
-        {
             return;
-        }
-
         OpenTwitchUrl(twitchUrl, "Could not open the Twitch stream link.");
     }
 
     private void OnOpenVodsClicked(object sender, RoutedEventArgs e)
     {
         if (sender is not Button { Tag: string twitchUrl } || string.IsNullOrWhiteSpace(twitchUrl))
-        {
             return;
-        }
-
         OpenTwitchUrl(twitchUrl, "Could not open the Twitch VOD link.");
+    }
+
+    private void OnToggleFavoriteClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: string twitchUrl } || favorites is null)
+            return;
+        var key = LiveUserKey.Normalize(twitchUrl, null);
+        favorites.Toggle(key);
+        ApplySearchFilter();
     }
 
     private async Task ViewStreamAsync(string twitchUrl)
     {
-        if (!TryGetTwitchChannelSlug(twitchUrl, out var channelSlug))
+        if (!LiveUserKey.TryGetChannelSlug(twitchUrl, out var channelSlug))
         {
             StatusText = "Could not read the Twitch channel from that live user.";
             return;
@@ -949,11 +819,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         isShowingHistory = false;
         isShowingStream = true;
         RaiseViewModePropertiesChanged();
+        UpdateStoryboardState();
 
         try
         {
-            await EnsureStreamWebViewReadyAsync();
-            StreamWebView.CoreWebView2.Navigate(BuildStreamViewerUri(channelSlug).ToString());
+            if (streamWatcher is null) return;
+            await streamWatcher.EnsureReadyAsync();
+            streamWatcher.Navigate(channelSlug);
             StreamViewerStatusText = "Twitch video and chat are loading inside Crystal Relay Live Feedback.";
         }
         catch (Exception ex)
@@ -962,67 +834,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
-    private async Task EnsureStreamWebViewReadyAsync()
-    {
-        if (hasInitializedStreamWebView && StreamWebView.CoreWebView2 is not null)
-        {
-            return;
-        }
-
-        var userDataFolder = GetStreamWebViewUserDataFolder();
-        Directory.CreateDirectory(userDataFolder);
-        var environment = await CoreWebView2Environment.CreateAsync(null, userDataFolder);
-        await StreamWebView.EnsureCoreWebView2Async(environment);
-        var coreWebView = StreamWebView.CoreWebView2
-            ?? throw new InvalidOperationException("WebView2 did not finish initializing.");
-        coreWebView.SetVirtualHostNameToFolderMapping(
-            TwitchViewerHost,
-            AppContext.BaseDirectory,
-            CoreWebView2HostResourceAccessKind.DenyCors);
-        coreWebView.NewWindowRequested += OnStreamWebViewNewWindowRequested;
-        coreWebView.Settings.IsStatusBarEnabled = false;
-        hasInitializedStreamWebView = true;
-    }
-
-    private static Uri BuildStreamViewerUri(string channelSlug)
-    {
-        var builder = new UriBuilder(Uri.UriSchemeHttps, TwitchViewerHost)
-        {
-            Path = StreamViewerPageName,
-            Query = $"channel={Uri.EscapeDataString(channelSlug)}"
-        };
-
-        return builder.Uri;
-    }
-
-    private static string GetStreamWebViewUserDataFolder()
-    {
-        return Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "CrystalRelay",
-            "DevTools",
-            "LiveList",
-            "WebView2");
-    }
-
-    private void OnStreamWebViewNewWindowRequested(object? sender, CoreWebView2NewWindowRequestedEventArgs e)
-    {
-        e.Handled = true;
-        if (StreamWebView.CoreWebView2 is null || string.IsNullOrWhiteSpace(e.Uri))
-        {
-            return;
-        }
-
-        StreamWebView.CoreWebView2.Navigate(e.Uri);
-    }
-
     private void OnBackToLiveListClicked(object sender, RoutedEventArgs e)
     {
         if (LiveNowModeButton is not null)
-        {
             LiveNowModeButton.IsChecked = true;
-        }
-
         SetLiveListView();
     }
 
@@ -1030,14 +845,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         try
         {
-            await EnsureStreamWebViewReadyAsync();
-            StreamWebView.CoreWebView2.CookieManager.DeleteAllCookies();
-            await StreamWebView.CoreWebView2.Profile.ClearBrowsingDataAsync(CoreWebView2BrowsingDataKinds.AllProfile);
+            if (streamWatcher is null) return;
+            await streamWatcher.EnsureReadyAsync();
+            await streamWatcher.ClearLoginAsync(currentStreamChannelSlug);
             StreamViewerStatusText = "Cleared the Twitch login data for this dev tool viewer.";
-            if (!string.IsNullOrWhiteSpace(currentStreamChannelSlug))
-            {
-                StreamWebView.CoreWebView2.Navigate(BuildStreamViewerUri(currentStreamChannelSlug).ToString());
-            }
         }
         catch (Exception ex)
         {
@@ -1047,12 +858,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void StopStreamViewer()
     {
-        if (hasInitializedStreamWebView && StreamWebView is not null && StreamWebView.CoreWebView2 is not null)
-        {
-            StreamWebView.CoreWebView2.Stop();
-            StreamWebView.CoreWebView2.Navigate("about:blank");
-        }
-
+        streamWatcher?.Stop();
         CurrentStreamTwitchUrl = string.Empty;
         currentStreamChannelSlug = string.Empty;
         StreamViewerStatusText = "Choose a live user to view their stream here.";
@@ -1062,32 +868,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         StreamViewerHasChannelBadge = false;
     }
 
-    private void CloseStreamWebView()
-    {
-        try
-        {
-            if (hasInitializedStreamWebView && StreamWebView is not null && StreamWebView.CoreWebView2 is not null)
-            {
-                StreamWebView.CoreWebView2.NewWindowRequested -= OnStreamWebViewNewWindowRequested;
-                StreamWebView.CoreWebView2.Stop();
-                StreamWebView.CoreWebView2.Navigate("about:blank");
-            }
-
-            StreamWebView?.Dispose();
-        }
-        catch (Exception)
-        {
-        }
-    }
-
     private void OpenTwitchUrl(string twitchUrl, string failureStatusText)
     {
         try
         {
-            Process.Start(new ProcessStartInfo(twitchUrl)
-            {
-                UseShellExecute = true
-            });
+            Process.Start(new ProcessStartInfo(twitchUrl) { UseShellExecute = true });
         }
         catch
         {
@@ -1097,51 +882,120 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void OnCopyDevCommandClicked(object sender, RoutedEventArgs e)
     {
-        if (sender is not Button { Tag: string commandKind })
-        {
+        if (devCommands is null || sender is not Button { Tag: string commandKind })
             return;
-        }
 
         var command = commandKind switch
         {
-            "grow" => BuildGrowCommand("grow"),
-            "shrink" => BuildGrowCommand("shrink"),
-            "scalerandom" => string.Format(
-                CultureInfo.InvariantCulture,
-                "!screm scalerandom {0:0.###}-{1:0.###} {2}",
+            "grow" => devCommands.BuildGrow(
+                ClampReadDouble(GrowMetersBox, 0.001, 5.0, 0.25),
+                ClampReadInt(GrowSecondsBox, 1, 300, 30),
+                ClampReadDouble(GrowTransitionBox, 0, 30, 1)),
+            "shrink" => devCommands.BuildShrink(
+                ClampReadDouble(GrowMetersBox, 0.001, 5.0, 0.25),
+                ClampReadInt(GrowSecondsBox, 1, 300, 30),
+                ClampReadDouble(GrowTransitionBox, 0, 30, 1)),
+            "scalerandom" => devCommands.BuildScaleRandom(
                 ClampReadDouble(ScaleRandomMinBox, 0.1, 5.0, 0.8),
                 ClampReadDouble(ScaleRandomMaxBox, 0.1, 5.0, 2.0),
                 ClampReadInt(ScaleRandomSecondsBox, 1, 300, 20)),
-            "move" => string.Format(
-                CultureInfo.InvariantCulture,
-                "!screm move {0} {1}",
+            "move" => devCommands.BuildMove(
                 GetSelectedMoveDirection(),
                 ClampReadInt(MoveSecondsBox, 1, 60, 5)),
-            "moverandom" => string.Format(
-                CultureInfo.InvariantCulture,
-                "!screm moverandom {0}",
+            "moverandom" => devCommands.BuildMoveRandom(
                 ClampReadInt(MoveRandomSecondsBox, 1, 120, 12)),
-            "firesale" => string.Format(
-                CultureInfo.InvariantCulture,
-                "!screm firesale {0} {1}",
+            "firesale" => devCommands.BuildFireSale(
                 ClampReadInt(FireSalePercentBox, 1, 100, 25),
                 ClampReadInt(FireSaleSecondsBox, 1, 3600, 120)),
             _ => string.Empty
         };
 
         if (string.IsNullOrWhiteSpace(command))
-        {
             return;
-        }
 
+        CopyCommand(command);
+    }
+
+    private void CopyCommand(string command)
+    {
         try
         {
             Clipboard.SetText(command);
             CommandCopyStatus = $"Copied: {command}";
+            devCommands?.RecordCopy(command);
+            RefreshCopyHistory();
         }
         catch (Exception ex)
         {
             CommandCopyStatus = $"Could not copy command: {ex.Message}";
+        }
+    }
+
+    private void OnCopyHistoryItemClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: string command } || string.IsNullOrWhiteSpace(command))
+            return;
+        CopyCommand(command);
+    }
+
+    private void OnSavePresetClicked(object sender, RoutedEventArgs e)
+    {
+        if (devCommands is null || string.IsNullOrWhiteSpace(NewPresetName))
+            return;
+        var command = CommandCopyStatus.StartsWith("Copied: ")
+            ? CommandCopyStatus["Copied: ".Length..]
+            : string.Empty;
+        if (string.IsNullOrWhiteSpace(command))
+        {
+            CommandCopyStatus = "Copy a command first, then save it as a preset.";
+            return;
+        }
+        devCommands.SavePreset(NewPresetName, command);
+        CommandCopyStatus = $"Saved preset '{NewPresetName}'.";
+        NewPresetName = string.Empty;
+        RefreshPresetNames();
+    }
+
+    private void OnDeletePresetClicked(object sender, RoutedEventArgs e)
+    {
+        if (devCommands is null || string.IsNullOrWhiteSpace(SelectedPresetName))
+            return;
+        if (devCommands.DeletePreset(SelectedPresetName))
+        {
+            CommandCopyStatus = $"Deleted preset '{SelectedPresetName}'.";
+            SelectedPresetName = string.Empty;
+        }
+        RefreshPresetNames();
+    }
+
+    private void OnLoadPresetClicked(object sender, RoutedEventArgs e)
+    {
+        if (devCommands is null || string.IsNullOrWhiteSpace(SelectedPresetName))
+            return;
+        var presets = devCommands.LoadPresets();
+        if (presets.TryGetValue(SelectedPresetName, out var command))
+        {
+            CopyCommand(command);
+        }
+    }
+
+    private void RefreshPresetNames()
+    {
+        presetNames.Clear();
+        if (devCommands is null) return;
+        foreach (var name in devCommands.LoadPresets().Keys.OrderBy(n => n, StringComparer.OrdinalIgnoreCase))
+        {
+            presetNames.Add(name);
+        }
+    }
+
+    private void RefreshCopyHistory()
+    {
+        copyHistory.Clear();
+        if (devCommands is null) return;
+        foreach (var cmd in devCommands.CopyHistory())
+        {
+            copyHistory.Add(cmd);
         }
     }
 
@@ -1162,15 +1016,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         CommandCopyStatus = "Randomized command values.";
     }
 
-    private string BuildGrowCommand(string commandName)
+    private string GetSelectedMoveDirection()
     {
-        return string.Format(
-            CultureInfo.InvariantCulture,
-            "!screm {0} {1:0.###} {2} {3:0.###}",
-            commandName,
-            ClampReadDouble(GrowMetersBox, 0.001, 5.0, 0.25),
-            ClampReadInt(GrowSecondsBox, 1, 300, 30),
-            ClampReadDouble(GrowTransitionBox, 0, 30, 1));
+        return MoveDirectionBox.SelectedItem is ComboBoxItem item
+            && item.Content is string direction
+            && !string.IsNullOrWhiteSpace(direction)
+                ? direction.Trim()
+                : "forward";
     }
 
     private static double ClampReadDouble(TextBox textBox, double minimum, double maximum, double fallback)
@@ -1181,7 +1033,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             value = fallback;
         }
-
         value = Math.Clamp(value, minimum, maximum);
         textBox.Text = value.ToString("0.###", CultureInfo.InvariantCulture);
         return value;
@@ -1193,19 +1044,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             value = fallback;
         }
-
         value = Math.Clamp(value, minimum, maximum);
         textBox.Text = value.ToString(CultureInfo.InvariantCulture);
         return value;
-    }
-
-    private string GetSelectedMoveDirection()
-    {
-        return MoveDirectionBox.SelectedItem is ComboBoxItem item
-            && item.Content is string direction
-            && !string.IsNullOrWhiteSpace(direction)
-                ? direction.Trim()
-                : "forward";
     }
 
     private static string RandomDoubleText(double minimum, double maximum)
@@ -1223,25 +1064,57 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         return Random.Shared.Next(low, high + 1).ToString(CultureInfo.InvariantCulture);
     }
 
+    private void UpdateStoryboardState()
+    {
+        // #4: pause the decorative storyboard when hidden or minimized.
+        try
+        {
+            if (DecorativeStoryboard is null) return;
+            if (IsDecorativeBackdropVisible && WindowState != WindowState.Minimized)
+            {
+                DecorativeStoryboard.Begin(this, isControllable: true);
+            }
+            else
+            {
+                DecorativeStoryboard.Pause(this);
+            }
+        }
+        catch
+        {
+        }
+    }
+
+    protected override void OnStateChanged(EventArgs e)
+    {
+        base.OnStateChanged(e);
+        UpdateStoryboardState();
+    }
+
     private void OnTitleBarMouseDown(object sender, MouseButtonEventArgs e)
     {
         if (e.ChangedButton != MouseButton.Left)
-        {
             return;
-        }
-
         if (e.ClickCount == 2)
         {
-            WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+            ToggleMaximizeRestore();
             return;
         }
-
         DragMove();
+    }
+
+    private void ToggleMaximizeRestore()
+    {
+        WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
     }
 
     private void OnMinimizeClicked(object sender, RoutedEventArgs e)
     {
         WindowState = WindowState.Minimized;
+    }
+
+    private void OnMaximizeRestoreClicked(object sender, RoutedEventArgs e)
+    {
+        ToggleMaximizeRestore();
     }
 
     private void OnCloseClicked(object sender, RoutedEventArgs e)
@@ -1258,18 +1131,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
         if (msg != WmNcHitTest || WindowState == WindowState.Maximized)
-        {
             return IntPtr.Zero;
-        }
-
         var screenPoint = GetScreenPoint(lParam);
         var windowPoint = PointFromScreen(screenPoint);
         var hitTest = GetResizeHitTest(windowPoint);
         if (hitTest == 0)
-        {
             return IntPtr.Zero;
-        }
-
         handled = true;
         return new IntPtr(hitTest);
     }
@@ -1277,50 +1144,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private int GetResizeHitTest(Point point)
     {
         if (ActualWidth <= 0 || ActualHeight <= 0)
-        {
             return 0;
-        }
-
         var nearLeft = point.X >= 0 && point.X <= ResizeHitTestThickness;
         var nearRight = point.X >= ActualWidth - ResizeHitTestThickness && point.X <= ActualWidth;
         var nearTop = point.Y >= 0 && point.Y <= ResizeHitTestThickness;
         var nearBottom = point.Y >= ActualHeight - ResizeHitTestThickness && point.Y <= ActualHeight;
-
-        if (nearTop && nearLeft)
-        {
-            return HtTopLeft;
-        }
-
-        if (nearTop && nearRight)
-        {
-            return HtTopRight;
-        }
-
-        if (nearBottom && nearLeft)
-        {
-            return HtBottomLeft;
-        }
-
-        if (nearBottom && nearRight)
-        {
-            return HtBottomRight;
-        }
-
-        if (nearLeft)
-        {
-            return HtLeft;
-        }
-
-        if (nearRight)
-        {
-            return HtRight;
-        }
-
-        if (nearTop)
-        {
-            return HtTop;
-        }
-
+        if (nearTop && nearLeft) return HtTopLeft;
+        if (nearTop && nearRight) return HtTopRight;
+        if (nearBottom && nearLeft) return HtBottomLeft;
+        if (nearBottom && nearRight) return HtBottomRight;
+        if (nearLeft) return HtLeft;
+        if (nearRight) return HtRight;
+        if (nearTop) return HtTop;
         return nearBottom ? HtBottom : 0;
     }
 
@@ -1335,10 +1170,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool SetProperty<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
     {
         if (EqualityComparer<T>.Default.Equals(field, value))
-        {
             return false;
-        }
-
         field = value;
         RaisePropertyChanged(propertyName);
         return true;
@@ -1373,148 +1205,44 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         RaisePropertyChanged(nameof(ViewSecondaryStatusText));
     }
 
-    private sealed class LiveListConfig
+    private static void WriteCrashLogSafe(string source, Exception ex)
     {
-        public string LiveFeedbackHeartbeatEndpoint { get; set; } = string.Empty;
-
-        public string LiveApiEndpoint { get; set; } = string.Empty;
-
-        public string LiveAlertSoundPath { get; set; } = string.Empty;
+        try
+        {
+            var folder = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "CrystalRelay",
+                "DevTools",
+                "LiveList",
+                "CrashLogs");
+            Directory.CreateDirectory(folder);
+            var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
+            var path = Path.Combine(folder, $"livelist-{stamp}-{Guid.NewGuid():N}.txt");
+            File.WriteAllText(path, $"{source}:{Environment.NewLine}{ex}{Environment.NewLine}");
+        }
+        catch
+        {
+        }
     }
 
     private sealed class LiveListResponse
     {
         public DateTimeOffset? UpdatedAt { get; set; }
-
         public List<LiveUserResponse> Users { get; set; } = [];
     }
 
     private sealed class LiveUserResponse
     {
         public string DisplayName { get; set; } = string.Empty;
-
         public string TwitchUrl { get; set; } = string.Empty;
-
         public string RelayVersion { get; set; } = string.Empty;
-
         public string BuildChannel { get; set; } = string.Empty;
-
         public DateTimeOffset? LastPingAt { get; set; }
     }
 
-    private sealed class LiveHistoryStore
+    private sealed class LiveHistoryStorePayload
     {
         public DateTimeOffset UpdatedAt { get; set; }
-
         public List<LiveHistoryEntryRecord> Entries { get; set; } = [];
-    }
-
-    public sealed class LiveHistoryEntryRecord
-    {
-        public string Key { get; set; } = string.Empty;
-
-        public string DisplayName { get; set; } = string.Empty;
-
-        public string TwitchUrl { get; set; } = string.Empty;
-
-        public string RelayVersion { get; set; } = string.Empty;
-
-        public string BuildChannel { get; set; } = string.Empty;
-
-        public DateTimeOffset FirstSeenLiveAt { get; set; }
-
-        public DateTimeOffset LastSeenLiveAt { get; set; }
-    }
-
-    public sealed class LiveUserViewModel
-    {
-        public LiveUserViewModel(
-            string displayName,
-            string twitchUrl,
-            string relayVersion,
-            string buildChannel,
-            DateTimeOffset? lastPingAt)
-        {
-            DisplayName = displayName.Trim();
-            TwitchUrl = twitchUrl.Trim();
-            RelayVersion = relayVersion.Trim();
-            BuildChannel = buildChannel.Trim();
-            LastPingAt = lastPingAt?.ToUniversalTime();
-            VersionBadgeText = RelayVersion;
-            ChannelBadgeText = BuildChannel;
-            HasVersionBadge = !string.IsNullOrWhiteSpace(RelayVersion);
-            HasChannelBadge = !string.IsNullOrWhiteSpace(BuildChannel);
-
-            DetailText = LastPingAt is { } lastPing
-                ? $"Last heartbeat {lastPing.ToLocalTime():g}"
-                : "Live heartbeat active.";
-        }
-
-        public string DisplayName { get; }
-
-        public string TwitchUrl { get; }
-
-        public string RelayVersion { get; }
-
-        public string BuildChannel { get; }
-
-        public DateTimeOffset? LastPingAt { get; }
-
-        public string DetailText { get; }
-
-        public string VersionBadgeText { get; }
-
-        public string ChannelBadgeText { get; }
-
-        public bool HasVersionBadge { get; }
-
-        public bool HasChannelBadge { get; }
-    }
-
-    public sealed class LiveHistoryEntryViewModel
-    {
-        internal LiveHistoryEntryViewModel(LiveHistoryEntryRecord entry)
-        {
-            DisplayName = string.IsNullOrWhiteSpace(entry.DisplayName)
-                ? "Unknown streamer"
-                : entry.DisplayName.Trim();
-            TwitchUrl = entry.TwitchUrl?.Trim() ?? string.Empty;
-            RelayVersion = entry.RelayVersion?.Trim() ?? string.Empty;
-            BuildChannel = entry.BuildChannel?.Trim() ?? string.Empty;
-            FirstSeenLiveAt = entry.FirstSeenLiveAt.ToLocalTime();
-            LastSeenLiveAt = entry.LastSeenLiveAt.ToLocalTime();
-            VodUrl = BuildTwitchVodUrl(TwitchUrl);
-
-            var details = new List<string>();
-            if (!string.IsNullOrWhiteSpace(RelayVersion))
-            {
-                details.Add($"Crystal Relay {RelayVersion}");
-            }
-
-            if (!string.IsNullOrWhiteSpace(BuildChannel))
-            {
-                details.Add(BuildChannel);
-            }
-
-            details.Add($"First seen live {FirstSeenLiveAt:g}");
-            details.Add($"Last heartbeat {LastSeenLiveAt:g}");
-            DetailText = string.Join(Environment.NewLine, details);
-        }
-
-        public string DisplayName { get; }
-
-        public string TwitchUrl { get; }
-
-        public string VodUrl { get; }
-
-        public string RelayVersion { get; }
-
-        public string BuildChannel { get; }
-
-        public DateTimeOffset FirstSeenLiveAt { get; }
-
-        public DateTimeOffset LastSeenLiveAt { get; }
-
-        public string DetailText { get; }
     }
 }

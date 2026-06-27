@@ -64,6 +64,7 @@ public partial class AvatarSwapManagerWindow : Window
             mainVm.Settings.MasterAvatarSwapReturnId,
             this);
         if (result is null) return;
+        mainVm.ApplySharedReturnAvatarSelection(result.AvatarId, result.AvatarName, saveImmediately: true);
         _viewModel.SetGlobalReturnAvatar(result.AvatarId, result.AvatarName);
     }
 
@@ -74,6 +75,7 @@ public partial class AvatarSwapManagerWindow : Window
         var currentId = mainVm.Settings.VrChat.CurrentAvatarId;
         if (string.IsNullOrWhiteSpace(currentId)) return;
         var name = mainVm.ResolveVrChatAvatarName(currentId);
+        mainVm.ApplySharedReturnAvatarSelection(currentId, name, saveImmediately: true);
         _viewModel.SetGlobalReturnAvatar(currentId, name);
     }
 
@@ -101,6 +103,35 @@ public partial class AvatarSwapManagerWindow : Window
         if (string.IsNullOrWhiteSpace(currentId)) return;
         var name = mainVm.ResolveVrChatAvatarName(currentId);
         _viewModel.SetTargetAvatar(currentId, name);
+    }
+
+    private void OnPickRoulettePoolClicked(object sender, RoutedEventArgs e)
+    {
+        var mainVm = GetMainWindowViewModel();
+        var roulette = _viewModel.SelectedRouletteCard?.Roulette;
+        if (mainVm is null || roulette is null) return;
+
+        var avatars = mainVm.GetAllVrChatAvatars();
+        var currentPool = roulette.Pool
+            .Select(entry => entry.AvatarId?.Trim() ?? string.Empty)
+            .Where(avatarId => !string.IsNullOrWhiteSpace(avatarId))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        var selectedIds = AvatarPickerService.OpenMulti(
+            ThemeManager.CurrentTheme,
+            avatars,
+            mainVm.Settings.AvatarLibrary,
+            currentPool,
+            this);
+
+        _viewModel.SetRoulettePoolSelection(selectedIds, avatars);
+    }
+
+    private void OnOpenPowerUpLibraryClicked(object sender, RoutedEventArgs e)
+    {
+        var mainVm = GetMainWindowViewModel();
+        mainVm?.ShowPowerUpsCommand.Execute(null);
     }
 
     private static MainWindowViewModel? GetMainWindowViewModel()

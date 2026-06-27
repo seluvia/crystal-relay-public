@@ -310,7 +310,22 @@
                                             </Style>
                                         </Border.Style>
                                         <StackPanel>
-                                            <Border Height="64" Background="{DynamicResource NestedPanelBrush}" CornerRadius="4" ClipToBounds="True" />
+                                            <Border Height="64" Background="{DynamicResource NestedPanelBrush}" CornerRadius="4" ClipToBounds="True">
+                                                <ItemsControl ItemsSource="{Binding PreviewRows}">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate>
+                                                            <UniformGrid Rows="2" Columns="2" />
+                                                        </ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Border Margin="1" Background="{DynamicResource NestedPanelBrush}" ClipToBounds="True">
+                                                                <Image Source="{Binding Image}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
+                                                            </Border>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </Border>
                                             <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="12" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" Foreground="{DynamicResource TextBrush}" />
                                             <TextBlock Text="{Binding Subtitle}" Foreground="{DynamicResource WarnTextBrush}" FontSize="10" TextTrimming="CharacterEllipsis" ToolTip="{Binding Subtitle}" />
                                         </StackPanel>
@@ -417,15 +432,14 @@
                                             Visibility="{Binding Kind, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter=Roulette}">
                                         <ScrollViewer VerticalScrollBarVisibility="Auto">
                                             <StackPanel>
+                                                <TextBlock Text="Roulette Name" Foreground="{DynamicResource MutedBrush}" FontSize="10" Margin="0,0,0,2" />
                                                 <TextBox Text="{Binding DataContext.SelectedRouletteCard.Roulette.Name, RelativeSource={RelativeSource AncestorType=Window}, UpdateSourceTrigger=PropertyChanged}"
-                                                         FontWeight="SemiBold" FontSize="13" Margin="0,0,0,8"
-                                                         Foreground="{DynamicResource TextBrush}" Background="Transparent"
-                                                         BorderThickness="0" Padding="0" />
+                                                         FontWeight="SemiBold" FontSize="13" Margin="0,0,0,8" />
 
                                                 <Border Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2,0,0,0" CornerRadius="0,3,3,0" Padding="6,3" Margin="0,0,0,4">
                                                     <TextBlock Text="🎲 Pool" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextBrush}" />
                                                 </Border>
-                                                <ItemsControl ItemsSource="{Binding DataContext.SelectedRouletteCard.Roulette.Pool, RelativeSource={RelativeSource AncestorType=Window}}">
+                                                <ItemsControl ItemsSource="{Binding DataContext.RoulettePoolRows, RelativeSource={RelativeSource AncestorType=Window}}">
                                                     <ItemsControl.ItemsPanel>
                                                         <ItemsPanelTemplate>
                                                             <WrapPanel />
@@ -434,12 +448,18 @@
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
                                                             <Border Width="60" Height="60" Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="4" Margin="0,0,4,4" ClipToBounds="True">
-                                                                <TextBlock Text="{Binding AvatarName}" FontSize="9" Foreground="{DynamicResource MutedBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Bottom" Margin="2" />
+                                                                <Grid>
+                                                                    <Image Source="{Binding Image}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality"
+                                                                           Visibility="{Binding HasImage, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                                                    <Border Background="{DynamicResource NestedPanelBrush}" Opacity="0.86" VerticalAlignment="Bottom">
+                                                                        <TextBlock Text="{Binding AvatarName}" FontSize="9" Foreground="{DynamicResource TextBrush}" TextTrimming="CharacterEllipsis" Margin="2" />
+                                                                    </Border>
+                                                                </Grid>
                                                             </Border>
                                                         </DataTemplate>
                                                     </ItemsControl.ItemTemplate>
                                                 </ItemsControl>
-                                                <Button Content="+ Add Avatar to Pool" Command="{Binding DataContext.AddRoulettePoolEntryCommand, RelativeSource={RelativeSource AncestorType=Window}}" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Left" Margin="0,4,0,10" />
+                                                <Button Content="+ Add Avatar to Pool" Click="OnPickRoulettePoolClicked" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Left" Margin="0,4,0,10" />
 
                                                 <Border Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2,0,0,0" CornerRadius="0,3,3,0" Padding="6,3" Margin="0,0,0,4">
                                                     <TextBlock Text="🏆 Channel Points" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextBrush}" />
@@ -478,10 +498,17 @@
                                                 <Button Content="+ Add Sub Trigger" Command="{Binding DataContext.AddAdvancedTriggerCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="Subscriptions" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Left" Margin="0,4,0,8" />
 
                                                 <TextBlock Text="Advanced triggers (open full editor)" Foreground="{DynamicResource MutedBrush}" FontSize="10" Margin="0,4,0,4" />
+                                                <ItemsControl ItemsSource="{Binding DataContext.RouletteAdvancedRows, RelativeSource={RelativeSource AncestorType=Window}}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <uc:InlineRouletteRuleRowControl />
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
                                                 <WrapPanel Orientation="Horizontal">
                                                     <Button Content="💬 Chat Command" Command="{Binding DataContext.AddAdvancedTriggerCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="ChatCommand" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,4,4" />
                                                     <Button Content="👥 Follow" Command="{Binding DataContext.AddAdvancedTriggerCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="Follow" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,4,4" />
-                                                    <Button Content="⚡ Power-up" Command="{Binding DataContext.AddAdvancedTriggerCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="PowerUp" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,4,4" />
+                                                    <Button Content="{loc:Translate 'Power Up'}" Click="OnOpenPowerUpLibraryClicked" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,4,4" />
                                                 </WrapPanel>
 
                                                 <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
