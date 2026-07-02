@@ -981,6 +981,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         DeleteAllCashPaymentRulesCommand = new RelayCommand(DeleteAllCashPaymentRules, () => Settings.CashPaymentRules.Count > 0);
         TestSelectedCashPaymentRuleCommand = new AsyncRelayCommand(TestSelectedCashPaymentRuleAsync, () => SelectedCashPaymentRule is not null);
         AddPowerUpRuleCommand = new RelayCommand(AddPowerUpRule);
+        AddAvatarScalingPowerUpRuleCommand = new RelayCommand(AddAvatarScalingPowerUpRule);
         RemoveSelectedPowerUpRuleCommand = new RelayCommand(RemoveSelectedPowerUpRule, () => SelectedPowerUpRule is not null);
         EnableAllPowerUpRulesCommand = new RelayCommand(EnableAllPowerUpRules, () => Settings.PowerUpRules.Count > 0);
         DisableAllPowerUpRulesCommand = new RelayCommand(DisableAllPowerUpRules, () => Settings.PowerUpRules.Count > 0);
@@ -3248,6 +3249,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     public AsyncRelayCommand TestSelectedCashPaymentRuleCommand { get; }
 
     public RelayCommand AddPowerUpRuleCommand { get; }
+
+    public RelayCommand AddAvatarScalingPowerUpRuleCommand { get; }
 
     public RelayCommand RemoveSelectedPowerUpRuleCommand { get; }
 
@@ -7323,6 +7326,21 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         return rule;
     }
 
+    private static PowerUpRule CreateDefaultAvatarScalingPowerUpRule()
+    {
+        var rule = new PowerUpRule
+        {
+            Name = "New Power Up Scale",
+            SourceMode = TwitchRewardSyncMode.LinkExisting,
+            BitsCost = 100,
+            CooldownSeconds = 30,
+            ActionKind = PowerUpActionKind.AvatarScaling
+        };
+        rule.ScaleAction = PowerUpRule.CreateDefaultScaleAction();
+        rule.ScaleAction.Name = rule.Name;
+        return rule;
+    }
+
     private void AddPowerUpRule()
     {
         var rule = CreateDefaultPowerUpRule();
@@ -7331,6 +7349,16 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         QueueSave();
         QueueBridgeRefresh();
         AppendLog($"Added Power Up rule '{rule.DisplayTitle}'.");
+    }
+
+    private void AddAvatarScalingPowerUpRule()
+    {
+        var rule = CreateDefaultAvatarScalingPowerUpRule();
+        Settings.PowerUpRules.Add(rule);
+        SelectedPowerUpRule = rule;
+        QueueSave();
+        QueueBridgeRefresh();
+        AppendLog($"Added Power Up scaling rule '{rule.DisplayTitle}'.");
     }
 
     private void RemoveSelectedPowerUpRule()
@@ -17698,6 +17726,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         DeleteAllCashPaymentRulesCommand.NotifyCanExecuteChanged();
         TestSelectedCashPaymentRuleCommand.NotifyCanExecuteChanged();
         AddPowerUpRuleCommand.NotifyCanExecuteChanged();
+        AddAvatarScalingPowerUpRuleCommand.NotifyCanExecuteChanged();
         RemoveSelectedPowerUpRuleCommand.NotifyCanExecuteChanged();
         EnableAllPowerUpRulesCommand.NotifyCanExecuteChanged();
         DisableAllPowerUpRulesCommand.NotifyCanExecuteChanged();

@@ -823,6 +823,21 @@ public sealed class AvatarScalingManagerViewModelTests
         Assert.Same(rule, parent.SelectedCashPaymentRule);
     }
 
+    [Fact]
+    public async Task AddAvatarScalingPowerUpRuleCommand_CreatesRuleWithAvatarScalingActionKind()
+    {
+        await using var parent = new MainWindowViewModel();
+
+        Assert.Empty(parent.Settings.PowerUpRules);
+
+        parent.AddAvatarScalingPowerUpRuleCommand.Execute(null);
+
+        var rule = Assert.Single(parent.Settings.PowerUpRules);
+        Assert.Equal(PowerUpActionKind.AvatarScaling, rule.ActionKind);
+        Assert.True(rule.UsesAvatarScaling);
+        Assert.Same(rule, parent.SelectedPowerUpRule);
+    }
+
     private static bool GetRequiredBoolProperty(object target, string propertyName)
     {
         return Assert.IsType<bool>(GetRequiredPropertyValue(target, propertyName));
