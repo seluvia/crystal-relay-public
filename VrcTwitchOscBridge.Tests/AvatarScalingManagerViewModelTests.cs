@@ -849,4 +849,23 @@ public sealed class AvatarScalingManagerViewModelTests
         Assert.NotNull(property);
         return property!.GetValue(target);
     }
+
+    [Fact]
+    public async Task Constructor_WithParentMainWindow_ExposesAvatarScalingCashAndPowerUpAddCommands()
+    {
+        await using var parent = new MainWindowViewModel();
+        using var vm = new AvatarScalingManagerViewModel(parent.Settings, parent);
+
+        Assert.Same(parent.AddAvatarScalingCashPaymentRuleCommand, vm.AddAvatarScalingCashPaymentRuleCommand);
+        Assert.Same(parent.AddAvatarScalingPowerUpRuleCommand, vm.AddAvatarScalingPowerUpRuleCommand);
+    }
+
+    [Fact]
+    public void PassThroughs_AvatarScalingCashAndPowerUpAddCommands_NullWhenParentMissing()
+    {
+        using var vm = new AvatarScalingManagerViewModel(new AppSettings(), null);
+
+        Assert.Null(vm.AddAvatarScalingCashPaymentRuleCommand);
+        Assert.Null(vm.AddAvatarScalingPowerUpRuleCommand);
+    }
 }
