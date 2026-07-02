@@ -75,13 +75,12 @@ The existing `DeleteCardCommand` already handles all four card kinds (`TwitchRew
 
 ### Localization
 
-New keys added to `en-US.extra.json` and translated in all non-English `*.extra.json` files:
+Two new keys added to `en-US.extra.json` and translated in all non-English `*.extra.json` files (14 files total):
 
-- `"Add Supporter Growth"` (replaces the generic "Add Reward Growth" placement)
+- `"Add Supporter Growth"` (the dedicated section button; the existing `"Add Reward Growth"` key is kept for compatibility but no longer bound in the manager)
 - `"Add Cash Payment"`
-- `"Add Power Up"`
 
-The existing `"Add Reward Growth"` key is kept (it may still be referenced elsewhere or retained for compatibility), but the button in the Pay System header is removed.
+Note: `"Add Power Up"` already exists in all 14 localization files and is reused by the Power Ups section Add button — no new key needed for it.
 
 Brand/technical terms stay in English across all languages: `Bits`, `Subs`, `Cash Payment`, `Power Up`, `Supporter Growth`.
 
@@ -104,6 +103,6 @@ Brand/technical terms stay in English across all languages: `Bits`, `Subs`, `Cas
 - `VrcTwitchOscBridge\ViewModels\MainWindowViewModel.cs` — 2 new factory methods, 2 new commands, 2 new command fields
 - `VrcTwitchOscBridge\ViewModels\AvatarScalingManagerViewModel.cs` — 2 new pass-through properties
 - `VrcTwitchOscBridge\AvatarScalingManagerWindow.xaml` — rework section headers (3 sections get Add buttons, shared header button removed)
-- `VrcTwitchOscBridge\Resources\Localization\*.extra.json` (14 files) — 3 new keys
+- `VrcTwitchOscBridge\Resources\Localization\*.extra.json` (14 files) — 2 new keys
 - `VrcTwitchOscBridge.Tests\AvatarScalingManagerViewModelTests.cs` — new command exposure + creation tests
 - `VrcTwitchOscBridge.Tests\AvatarScalingManagerWindowXamlTests.cs` — section header button tests
