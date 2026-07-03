@@ -860,6 +860,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
         RefreshUserClassification(key);
         ApplySearchFilter();
+        RaiseViewModePropertiesChanged();
     }
 
     private void OnToggleDislikedClicked(object sender, RoutedEventArgs e)
@@ -874,6 +875,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
         RefreshUserClassification(key);
         ApplySearchFilter();
+        RaiseViewModePropertiesChanged();
     }
 
     private void RefreshUserClassification(string key)
