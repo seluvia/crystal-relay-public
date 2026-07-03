@@ -55,6 +55,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private StreamWatcherService? streamWatcher;
     private DevCommandService? devCommands;
     private FavoritesStore? favorites;
+    private DislikedStore? disliked;
 
     private string statusText = "Loading live users...";
     private string endpointText = "Endpoint not loaded yet.";
@@ -341,6 +342,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             "LiveList");
 
         favorites = new FavoritesStore(Path.Combine(dataRoot, "favorites.json"));
+        disliked = new DislikedStore(Path.Combine(dataRoot, "disliked.json"));
         devCommands = new DevCommandService(Path.Combine(dataRoot, "command-presets.json"));
         streamWatcher = new StreamWatcherService(StreamWebView);
         tray = new TrayService(this, ShowFromTray, () => _ = RefreshAsync());
@@ -484,7 +486,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
-    private static List<LiveUserViewModel> BuildIncomingUsers(LiveListResponse? payload)
+    private List<LiveUserViewModel> BuildIncomingUsers(LiveListResponse? payload)
     {
         var result = new List<LiveUserViewModel>();
         foreach (var user in payload?.Users ?? [])
@@ -493,14 +495,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             {
                 continue;
             }
+            var key = LiveUserKey.Normalize(user.TwitchUrl, user.DisplayName);
+            var isFavorite = favorites is not null && favorites.IsFavorite(key);
+            var isDisliked = disliked is not null && disliked.IsDisliked(key);
             result.Add(new LiveUserViewModel(
                 user.DisplayName,
                 user.TwitchUrl,
                 user.RelayVersion,
                 user.BuildChannel,
                 user.LastPingAt,
-                false,
-                false));
+                isFavorite,
+                isDisliked));
         }
         return result;
     }
@@ -784,8 +789,41 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (sender is not Button { Tag: string twitchUrl } || favorites is null)
             return;
         var key = LiveUserKey.Normalize(twitchUrl, null);
-        favorites.Toggle(key);
+        var nowFavorite = favorites.Toggle(key);
+        if (nowFavorite && disliked is not null && disliked.IsDisliked(key))
+        {
+            disliked.Toggle(key);
+        }
+        RefreshUserClassification(key);
         ApplySearchFilter();
+    }
+
+    private void OnToggleDislikedClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: string twitchUrl } || disliked is null)
+            return;
+        var key = LiveUserKey.Normalize(twitchUrl, null);
+        var nowDisliked = disliked.Toggle(key);
+        if (nowDisliked && favorites is not null && favorites.IsFavorite(key))
+        {
+            favorites.Toggle(key);
+        }
+        RefreshUserClassification(key);
+        ApplySearchFilter();
+    }
+
+    private void RefreshUserClassification(string key)
+    {
+        if (string.IsNullOrWhiteSpace(key)) return;
+        var isFavorite = favorites is not null && favorites.IsFavorite(key);
+        var isDisliked = disliked is not null && disliked.IsDisliked(key);
+        foreach (var u in Users)
+        {
+            if (string.Equals(LiveUserKey.Normalize(u.TwitchUrl, u.DisplayName), key, StringComparison.OrdinalIgnoreCase))
+            {
+                u.RefreshClassification(isFavorite, isDisliked);
+            }
+        }
     }
 
     private async Task ViewStreamAsync(string twitchUrl)
