@@ -1447,6 +1447,51 @@
                         </StackPanel>
                     </ScrollViewer>
 
+                    <Border Padding="28"
+                            Background="{StaticResource PanelBrush}"
+                            BorderBrush="{StaticResource SubtleBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="16"
+                            Visibility="{Binding IsDislikedEmptyVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <Grid Grid.Row="1"
+                                  Width="96"
+                                  Height="96"
+                                  HorizontalAlignment="Center"
+                                  Effect="{StaticResource CyanGlowEffect}">
+                                <Polygon Points="48,4 84,32 72,84 24,84 12,32"
+                                         Fill="#33202A46"
+                                         Stroke="{StaticResource CrystalBorderBrush}"
+                                         StrokeThickness="1.4" />
+                                <Polygon Points="48,12 68,34 48,76 28,34"
+                                         Fill="#44436A93"
+                                         Stroke="#777DF9FF"
+                                         StrokeThickness="1" />
+                            </Grid>
+                            <StackPanel Grid.Row="2"
+                                        Margin="0,18,0,0"
+                                        HorizontalAlignment="Center">
+                                <TextBlock Text="No disliked streamers are live right now"
+                                           Foreground="{StaticResource TextBrush}"
+                                           FontSize="18"
+                                           FontWeight="Bold"
+                                           TextAlignment="Center"
+                                           TextWrapping="Wrap" />
+                                <TextBlock Margin="0,7,0,0"
+                                           Text="{Binding DislikedStatusText}"
+                                           Foreground="{StaticResource MutedBrush}"
+                                           TextAlignment="Center"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
                     <ScrollViewer VerticalScrollBarVisibility="Auto"
                                   HorizontalScrollBarVisibility="Disabled"
                                   Style="{StaticResource ThemedScrollViewerStyle}"
