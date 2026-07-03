@@ -61,6 +61,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string endpointText = "Endpoint not loaded yet.";
     private string lastUpdatedText = "Not refreshed yet.";
     private string historyStatusText = "History covers live users observed by this tool in the last 24 hours.";
+    private string dislikedStatusText = "Streamers you've marked disliked. They won't trigger notifications.";
     private string commandCopyStatus = "No command copied yet.";
     private string streamViewerTitleText = "Stream Viewer";
     private string streamViewerStatusText = "Choose a live user to view their stream here.";
@@ -165,6 +166,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         private set
         {
             if (SetProperty(ref historyStatusText, value))
+                RaisePropertyChanged(nameof(ViewPrimaryStatusText));
+        }
+    }
+
+    public string DislikedStatusText
+    {
+        get => dislikedStatusText;
+        private set
+        {
+            if (SetProperty(ref dislikedStatusText, value))
                 RaisePropertyChanged(nameof(ViewPrimaryStatusText));
         }
     }
@@ -297,9 +308,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     public bool IsEmpty => Users.Count == 0;
 
-    public bool IsLiveViewVisible => !isShowingHistory && !isShowingStream;
+    public bool IsLiveViewVisible => !isShowingHistory && !isShowingStream && !isShowingDisliked;
 
     public bool IsHistoryViewVisible => isShowingHistory && !isShowingStream;
+
+    public bool IsDislikedViewVisible => isShowingDisliked && !isShowingStream;
 
     public bool IsStreamViewVisible => isShowingStream;
 
@@ -309,13 +322,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     public bool IsHistoryEmptyVisible => IsHistoryViewVisible && HistoryEntries.Count == 0;
 
+    public bool IsDislikedEmptyVisible => IsDislikedViewVisible && Users.All(u => !u.IsDisliked);
+
     public string ViewTitleText => isShowingStream
         ? StreamViewerTitleText
-        : isShowingHistory ? "24h Live History" : "Live Crystal Relay Users";
+        : isShowingHistory ? "24h Live History"
+        : isShowingDisliked ? "Disliked Crystal Relay Users" : "Live Crystal Relay Users";
 
     public string ViewPrimaryStatusText => isShowingStream
         ? StreamViewerStatusText
-        : isShowingHistory ? HistoryStatusText : StatusText;
+        : isShowingHistory ? HistoryStatusText
+        : isShowingDisliked ? DislikedStatusText : StatusText;
 
     public string ViewSecondaryStatusText => isShowingStream
         ? CurrentStreamTwitchUrl
@@ -766,26 +783,48 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void SetLiveListView()
     {
-        if (!isShowingHistory && !isShowingStream)
+        if (!isShowingHistory && !isShowingStream && !isShowingDisliked)
             return;
         if (isShowingStream)
             StopStreamViewer();
         isShowingHistory = false;
         isShowingStream = false;
+        isShowingDisliked = false;
         RaiseViewModePropertiesChanged();
         UpdateStoryboardState();
+        ApplySearchFilter();
     }
 
     private void SetHistoryView(bool showHistory)
     {
-        if (isShowingHistory == showHistory && !isShowingStream)
+        if (isShowingHistory == showHistory && !isShowingStream && !isShowingDisliked)
             return;
         if (isShowingStream)
             StopStreamViewer();
         isShowingHistory = showHistory;
         isShowingStream = false;
+        isShowingDisliked = false;
         RaiseViewModePropertiesChanged();
         UpdateStoryboardState();
+    }
+
+    private void SetDislikedView()
+    {
+        if (isShowingDisliked && !isShowingStream)
+            return;
+        if (isShowingStream)
+            StopStreamViewer();
+        isShowingHistory = false;
+        isShowingStream = false;
+        isShowingDisliked = true;
+        RaiseViewModePropertiesChanged();
+        UpdateStoryboardState();
+        ApplySearchFilter();
+    }
+
+    private void OnShowDislikedClicked(object sender, RoutedEventArgs e)
+    {
+        SetDislikedView();
     }
 
     private void OnViewStreamClicked(object sender, RoutedEventArgs e)
@@ -1261,10 +1300,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         RaisePropertyChanged(nameof(IsLiveViewVisible));
         RaisePropertyChanged(nameof(IsHistoryViewVisible));
+        RaisePropertyChanged(nameof(IsDislikedViewVisible));
         RaisePropertyChanged(nameof(IsStreamViewVisible));
         RaisePropertyChanged(nameof(IsDecorativeBackdropVisible));
         RaisePropertyChanged(nameof(IsLiveEmptyVisible));
         RaisePropertyChanged(nameof(IsHistoryEmptyVisible));
+        RaisePropertyChanged(nameof(IsDislikedEmptyVisible));
         RaisePropertyChanged(nameof(ViewTitleText));
         RaisePropertyChanged(nameof(ViewPrimaryStatusText));
         RaisePropertyChanged(nameof(ViewSecondaryStatusText));
