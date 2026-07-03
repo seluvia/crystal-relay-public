@@ -81,6 +81,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool isShowingStream;
     private bool hasLoadedLiveSnapshot;
     private bool favoritesOnly;
+    private bool isShowingDisliked;
     private HashSet<string> knownLiveUserKeys = new(StringComparer.OrdinalIgnoreCase);
     private int unreadLiveCount;
     private HwndSource? hwndSource;
@@ -398,10 +399,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 .Where(k => !string.IsNullOrWhiteSpace(k))
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-            var shouldAlert = hasLoadedLiveSnapshot && incomingKeys.Any(k => !knownLiveUserKeys.Contains(k));
+            var dislikedKeys = disliked is null
+                ? new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                : disliked.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var alertableIncomingKeys = incomingKeys.Except(dislikedKeys).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var shouldAlert = hasLoadedLiveSnapshot && alertableIncomingKeys.Any(k => !knownLiveUserKeys.Contains(k));
             var newFavoriteNames = hasLoadedLiveSnapshot
                 ? incoming.Where(u => favorites is not null
                     && favorites.IsFavorite(LiveUserKey.Normalize(u.TwitchUrl, u.DisplayName))
+                    && !dislikedKeys.Contains(LiveUserKey.Normalize(u.TwitchUrl, u.DisplayName))
                     && !knownLiveUserKeys.Contains(LiveUserKey.Normalize(u.TwitchUrl, u.DisplayName)))
                     .Select(u => u.DisplayName)
                     .ToList()
@@ -444,14 +450,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             // Alerts + badges + tray.
             if (shouldAlert)
             {
-                var newlyLiveCount = incomingKeys.Count(k => !knownLiveUserKeys.Contains(k));
+                var newlyLiveCount = alertableIncomingKeys.Count(k => !knownLiveUserKeys.Contains(k));
                 unreadLiveCount += newlyLiveCount;
                 UpdateUnreadBadge();
                 if (SoundAlertsEnabled)
                     PlayLiveSoundAlert();
-                tray?.ShowBalloon("Crystal Relay live", Users.Count == 1
-                    ? $"{Users[0].DisplayName} is live."
-                    : $"{Users.Count} Crystal Relay users are live.");
+                var alertableUsers = Users.Where(u => !dislikedKeys.Contains(LiveUserKey.Normalize(u.TwitchUrl, u.DisplayName))).ToList();
+                tray?.ShowBalloon("Crystal Relay live", alertableUsers.Count == 1
+                    ? $"{alertableUsers[0].DisplayName} is live."
+                    : $"{alertableUsers.Count} Crystal Relay users are live.");
                 foreach (var name in newFavoriteNames)
                 {
                     tray?.ShowBalloon("Favorite live", $"{name} just went live.");
@@ -536,7 +543,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void ApplySearchFilter()
     {
         var liveView = CollectionViewSource.GetDefaultView(Users);
-        liveView.Filter = FilterUser;
+        liveView.Filter = isShowingDisliked ? FilterDislikedUser : FilterUser;
         liveView.Refresh();
         var historyView = CollectionViewSource.GetDefaultView(HistoryEntries);
         historyView.Filter = FilterHistoryEntry;
@@ -546,8 +553,26 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool FilterUser(object item)
     {
         if (item is not LiveUserViewModel user) return false;
+        var key = LiveUserKey.Normalize(user.TwitchUrl, user.DisplayName);
+        if (disliked is not null && disliked.IsDisliked(key))
+        {
+            return false;
+        }
         if (favoritesOnly && favorites is not null
-            && !favorites.IsFavorite(LiveUserKey.Normalize(user.TwitchUrl, user.DisplayName)))
+            && !favorites.IsFavorite(key))
+        {
+            return false;
+        }
+        if (string.IsNullOrWhiteSpace(searchText)) return true;
+        return user.DisplayName.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+            || user.TwitchUrl.Contains(searchText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool FilterDislikedUser(object item)
+    {
+        if (item is not LiveUserViewModel user) return false;
+        if (disliked is null) return false;
+        if (!disliked.IsDisliked(LiveUserKey.Normalize(user.TwitchUrl, user.DisplayName)))
         {
             return false;
         }
