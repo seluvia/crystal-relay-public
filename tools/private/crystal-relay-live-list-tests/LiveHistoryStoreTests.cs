@@ -7,7 +7,7 @@ namespace CrystalRelayLiveList.Tests;
 public sealed class LiveHistoryStoreTests
 {
     private static LiveUserViewModel User(string name, string url, DateTimeOffset first, DateTimeOffset last) =>
-        new(name, url, "1.0", "stable", last);
+        new(name, url, "1.0", "stable", last, false, false);
 
     private static LiveHistoryEntryRecord Entry(string name, string url, DateTimeOffset first, DateTimeOffset last) =>
         new()

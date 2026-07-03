@@ -498,7 +498,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 user.TwitchUrl,
                 user.RelayVersion,
                 user.BuildChannel,
-                user.LastPingAt));
+                user.LastPingAt,
+                false,
+                false));
         }
         return result;
     }

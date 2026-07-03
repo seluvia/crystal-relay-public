@@ -8,7 +8,7 @@ namespace CrystalRelayLiveList.Tests;
 public sealed class LiveListDifferTests
 {
     private static LiveUserViewModel User(string name, string url, string ver = "1.0") =>
-        new(name, url, ver, "stable", DateTimeOffset.UtcNow);
+        new(name, url, ver, "stable", DateTimeOffset.UtcNow, false, false);
 
     private static string Key(LiveUserViewModel u) => LiveUserKey.Normalize(u.TwitchUrl, u.DisplayName);
 
