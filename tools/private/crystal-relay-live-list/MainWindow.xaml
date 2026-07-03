@@ -1164,6 +1164,7 @@
                                                     <ColumnDefinition Width="Auto" />
                                                     <ColumnDefinition Width="Auto" />
                                                     <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="Auto" />
                                                 </Grid.ColumnDefinitions>
                                                 <TextBlock Grid.Column="0"
                                                            Text="{Binding DisplayName}"
@@ -1211,12 +1212,51 @@
                                                         Background="Transparent"
                                                         BorderBrush="Transparent"
                                                         Cursor="Hand"
-                                                        ToolTip="Toggle favorite"
                                                         Tag="{Binding TwitchUrl}"
                                                         Click="OnToggleFavoriteClicked">
                                                     <TextBlock Text="&#x2605;"
-                                                               FontSize="16"
-                                                               Foreground="{StaticResource PinkBrush}" />
+                                                               FontSize="16">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+                                                                <Setter Property="Opacity" Value="0.4" />
+                                                                <Setter Property="ToolTip" Value="Toggle favorite" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsFavorite}" Value="True">
+                                                                        <Setter Property="Foreground" Value="{StaticResource PinkBrush}" />
+                                                                        <Setter Property="Opacity" Value="1.0" />
+                                                                        <Setter Property="ToolTip" Value="Unfavorite" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </Button>
+                                                <Button Grid.Column="4"
+                                                        Margin="6,0,0,0"
+                                                        Padding="4,2"
+                                                        Background="Transparent"
+                                                        BorderBrush="Transparent"
+                                                        Cursor="Hand"
+                                                        Tag="{Binding TwitchUrl}"
+                                                        Click="OnToggleDislikedClicked">
+                                                    <TextBlock Text="&#x1F44E;"
+                                                               FontSize="14">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+                                                                <Setter Property="Opacity" Value="0.4" />
+                                                                <Setter Property="ToolTip" Value="Toggle disliked" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsDisliked}" Value="True">
+                                                                        <Setter Property="Foreground" Value="{StaticResource PinkBrush}" />
+                                                                        <Setter Property="Opacity" Value="1.0" />
+                                                                        <Setter Property="ToolTip" Value="Remove from disliked" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
                                                 </Button>
                                             </Grid>
 
