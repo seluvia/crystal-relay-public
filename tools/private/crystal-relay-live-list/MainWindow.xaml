@@ -1044,6 +1044,11 @@
                                              Style="{StaticResource ViewModeRadioStyle}"
                                              Content="24h History"
                                              Checked="OnShowHistoryClicked" />
+                                <RadioButton x:Name="DislikedModeButton"
+                                             GroupName="LiveListMode"
+                                             Style="{StaticResource ViewModeRadioStyle}"
+                                             Content="Disliked"
+                                             Checked="OnShowDislikedClicked" />
                             </StackPanel>
                             <WrapPanel Margin="0,6,0,0">
                                 <TextBlock Margin="0,0,16,0"
@@ -1433,6 +1438,131 @@
                                                             Content="Open VODs"
                                                             Tag="{Binding VodUrl}"
                                                             Click="OnOpenVodsClicked" />
+                                                </WrapPanel>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  Style="{StaticResource ThemedScrollViewerStyle}"
+                                  Visibility="{Binding IsDislikedViewVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <StackPanel>
+                            <TextBlock Margin="0,0,0,12"
+                                       Text="{Binding DislikedStatusText}"
+                                       Foreground="{StaticResource MutedBrush}"
+                                       FontWeight="SemiBold"
+                                       TextWrapping="Wrap" />
+                            <ItemsControl ItemsSource="{Binding Users}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Width="284"
+                                                MinHeight="178"
+                                                Margin="0,0,14,14"
+                                                Padding="16"
+                                                Background="{StaticResource PanelStrongBrush}"
+                                                BorderBrush="{StaticResource CrystalBorderBrush}"
+                                                BorderThickness="1"
+                                                CornerRadius="14">
+                                            <Grid>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="*" />
+                                                    <RowDefinition Height="Auto" />
+                                                </Grid.RowDefinitions>
+
+                                                <Grid Grid.Row="0">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0"
+                                                               Text="{Binding DisplayName}"
+                                                               Foreground="{StaticResource TextBrush}"
+                                                               FontSize="19"
+                                                               FontWeight="Black"
+                                                               TextWrapping="Wrap" />
+                                                    <Border Grid.Column="1"
+                                                            Margin="10,0,0,0"
+                                                            Padding="8,4"
+                                                            VerticalAlignment="Top"
+                                                            Background="{StaticResource LivePillBrush}"
+                                                            CornerRadius="999">
+                                                        <TextBlock Text="LIVE"
+                                                                   Foreground="{StaticResource ButtonTextBrush}"
+                                                                   FontSize="10"
+                                                                   FontWeight="Bold" />
+                                                    </Border>
+                                                    <Button Grid.Column="2"
+                                                            Margin="6,0,0,0"
+                                                            Padding="4,2"
+                                                            Background="Transparent"
+                                                            BorderBrush="Transparent"
+                                                            Cursor="Hand"
+                                                            Tag="{Binding TwitchUrl}"
+                                                            Click="OnToggleDislikedClicked">
+                                                        <TextBlock Text="&#x1F44E;"
+                                                                   FontSize="14">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+                                                                    <Setter Property="Opacity" Value="0.4" />
+                                                                    <Setter Property="ToolTip" Value="Toggle disliked" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsDisliked}" Value="True">
+                                                                            <Setter Property="Foreground" Value="{StaticResource PinkBrush}" />
+                                                                            <Setter Property="Opacity" Value="1.0" />
+                                                                            <Setter Property="ToolTip" Value="Remove from disliked" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                    </Button>
+                                                </Grid>
+
+                                                <Border Grid.Row="1"
+                                                        Margin="0,12,0,0"
+                                                        Padding="10,7"
+                                                        Background="{StaticResource PanelInsetBrush}"
+                                                        BorderBrush="{StaticResource SubtleBorderBrush}"
+                                                        BorderThickness="1"
+                                                        CornerRadius="10">
+                                                    <TextBlock Text="{Binding TwitchUrl}"
+                                                               Foreground="{StaticResource CyanBrush}"
+                                                               FontWeight="SemiBold"
+                                                               TextWrapping="Wrap" />
+                                                </Border>
+
+                                                <TextBlock Grid.Row="2"
+                                                           Margin="0,12,0,14"
+                                                           Text="{Binding DetailText}"
+                                                           Foreground="{StaticResource MutedBrush}"
+                                                           TextWrapping="Wrap" />
+
+                                                <WrapPanel Grid.Row="3">
+                                                    <Button Width="88"
+                                                            Margin="0,0,8,0"
+                                                            Style="{StaticResource ActionButtonStyle}"
+                                                            Content="View"
+                                                            Tag="{Binding TwitchUrl}"
+                                                            Click="OnViewStreamClicked" />
+                                                    <Button Width="126"
+                                                            Style="{StaticResource GhostButtonStyle}"
+                                                            Content="Open Stream"
+                                                            Tag="{Binding TwitchUrl}"
+                                                            Click="OnOpenStreamClicked" />
                                                 </WrapPanel>
                                             </Grid>
                                         </Border>
