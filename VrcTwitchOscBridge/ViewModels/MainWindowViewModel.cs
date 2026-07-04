@@ -1054,8 +1054,17 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         bridgeCoordinator.VrChatOscAvatarChangeReceived += avatarId => RunOnUi(() => HandleIncomingOscAvatarChangeSync(avatarId));
         liveFeedbackHeartbeatService.DiagnosticLogged += message => RunOnUi(() => AppendLog(message));
 
+        LoadingService.DefinePhases(
+            ("settings", "Loading Settings"),
+            ("vrchat", "Connecting to VRChat"),
+            ("twitch", "Syncing Twitch Rewards"),
+            ("bridge", "Starting OSC Bridge"),
+            ("finalizing", "Finalizing")
+        );
         RecomputeVrChatConnectionState();
     }
+
+    public LoadingPhaseService LoadingService { get; } = new();
 
     public AppSettings Settings
     {
@@ -3301,6 +3310,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         var previousSessionNeedsRecovery = ShutdownRecoveryStateStore.BeginSession();
         previousSessionWasClean = !previousSessionNeedsRecovery;
         ReplaceSettings(await settingsStore.LoadAsync());
+        LoadingService.ReportProgress("settings", PhaseStatus.Completed);
+        LoadingService.ReportProgress("vrchat", PhaseStatus.Active);
         var savedLoginRecoveryResult = SavedLoginStateRecoveryService.TryConsumeRecoveryResult();
         activeLanguageAtStartup = Settings.Language;
         ResetStartupSectionState();
@@ -3380,12 +3391,19 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         }
         await activityResumeService.LoadPendingAsync();
         await RefreshWorldCommandBlacklistOnStartupAsync();
+        LoadingService.ReportProgress("vrchat", PhaseStatus.Completed);
+        LoadingService.ReportProgress("twitch", PhaseStatus.Active);
         await InitializeVrChatAsync();
+        LoadingService.ReportProgress("twitch", PhaseStatus.Completed);
+        LoadingService.ReportProgress("bridge", PhaseStatus.Active);
         await QueueRewardRefreshAsync();
         QueueManagedRewardSync(reason: ManagedRewardSyncReason.Startup);
         await aboutProfilesRefreshTask;
+        LoadingService.ReportProgress("bridge", PhaseStatus.Completed);
+        LoadingService.ReportProgress("finalizing", PhaseStatus.Active);
         QueueBridgeRefresh();
         QueueLiveFeedbackHeartbeatEvaluation();
+        LoadingService.CompleteAll();
     }
 
     public async ValueTask DisposeAsync()
