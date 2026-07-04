@@ -351,10 +351,10 @@ public sealed class AvatarPickerViewModel : ObservableObject
             if (!string.IsNullOrWhiteSpace(search))
             {
                 var entry = avatarLibrary?.GetEntry(avatar.Id);
-                var groupNames = entry?.GroupIds
-                    .Select(id => avatarLibrary?.Groups.FirstOrDefault(g => g.Id == id)?.Name)
-                    .Where(n => n is not null)
-                    .Select(n => n!.ToLowerInvariant())
+                var groupId = entry?.GroupId;
+                var groupNames = avatarLibrary?.Groups
+                    .Where(g => g.Id == groupId)
+                    .Select(g => g.Name.ToLowerInvariant())
                     .ToList() ?? [];
                 var tagNames = entry?.TagIds
                     .Select(id => avatarLibrary?.Tags.FirstOrDefault(t => t.Id == id)?.Name)
@@ -372,7 +372,7 @@ public sealed class AvatarPickerViewModel : ObservableObject
             if (!string.IsNullOrWhiteSpace(selectedFilterGroupId))
             {
                 var entry = avatarLibrary?.GetEntry(avatar.Id);
-                if (entry?.GroupIds.Contains(selectedFilterGroupId) != true) continue;
+                if (entry?.GroupId != selectedFilterGroupId) continue;
             }
 
             if (!string.IsNullOrWhiteSpace(selectedFilterTagId))

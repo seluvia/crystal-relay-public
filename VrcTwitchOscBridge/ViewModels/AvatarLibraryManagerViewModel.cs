@@ -83,7 +83,7 @@ public sealed class AvatarLibraryManagerViewModel : ObservableObject
         Groups.Remove(SelectedGroup);
         foreach (var entry in Entries)
         {
-            entry.GroupIds.Remove(id);
+            if (entry.GroupId == id) entry.GroupId = string.Empty;
         }
         SelectedGroup = Groups.FirstOrDefault();
     }

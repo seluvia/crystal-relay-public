@@ -137,11 +137,9 @@
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*" />
                                                     <ColumnDefinition Width="60" />
-                                                    <ColumnDefinition Width="Auto" />
                                                 </Grid.ColumnDefinitions>
                                                 <TextBox Grid.Column="0" Text="{Binding Name, UpdateSourceTrigger=LostFocus}" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource TextBrush}" Margin="0,0,8,0" />
                                                 <TextBox Grid.Column="1" Text="{Binding SortOrder}" Background="{DynamicResource InputBrush}" BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1" Foreground="{DynamicResource TextBrush}" TextAlignment="Center" Padding="2" />
-                                                <CheckBox Grid.Column="2" IsChecked="{Binding IsCollapsed}" Content="{loc:Translate 'Hide'}" Foreground="{DynamicResource MutedBrush}" Margin="8,0,0,0" />
                                             </Grid>
                                         </DataTemplate>
                                     </ListBox.ItemTemplate>
