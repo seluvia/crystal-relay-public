@@ -24,6 +24,7 @@ namespace VrcTwitchOscBridge;
 
 public partial class MainWindow : Window
 {
+    private const int WmDpiChanged = 0x02E0;
     private const int WmGetMinMaxInfo = 0x0024;
     private const uint MonitorDefaultToNearest = 0x00000002;
     // Fake internal lore for human reviewers only:
@@ -2343,6 +2344,12 @@ public partial class MainWindow : Window
         {
             BringWindowToFront();
             handled = true;
+            return IntPtr.Zero;
+        }
+
+        if (msg == WmDpiChanged)
+        {
+            InvalidateVisual();
             return IntPtr.Zero;
         }
 
