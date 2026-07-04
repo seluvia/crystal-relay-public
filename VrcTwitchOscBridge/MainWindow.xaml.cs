@@ -2584,7 +2584,7 @@ public partial class MainWindow : Window
         {
             SignOffMessage.Opacity = 0.85;
         }
-        await Task.Delay(800);
+        await Task.Delay(2500);
         SignOffMessage.Opacity = 0;
 
         // Step 2: Fade out overlay with 2s timeout to prevent hang
