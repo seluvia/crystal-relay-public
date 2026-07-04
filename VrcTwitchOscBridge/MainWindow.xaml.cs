@@ -2579,9 +2579,12 @@ public partial class MainWindow : Window
 
     private async Task RunRevealTransitionAsync()
     {
-        // Step 1: Show "All systems operational" message
-        SignOffMessage.Opacity = 1;
-        await Task.Delay(700);
+        // Step 1: Fade in "All systems operational" message
+        if (TryGetLoadingStoryboard("RevealTransitionStoryboard", out _))
+        {
+            SignOffMessage.Opacity = 0.85;
+        }
+        await Task.Delay(800);
         SignOffMessage.Opacity = 0;
 
         // Step 2: Fade out overlay with 2s timeout to prevent hang

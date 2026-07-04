@@ -7480,12 +7480,13 @@
     <TextBlock x:Name="SignOffMessage"
                Text="All systems operational."
                FontFamily="Consolas"
-               FontSize="11"
+               FontSize="12"
+               FontWeight="SemiBold"
                Foreground="{DynamicResource AccentBrush}"
                Opacity="0"
                HorizontalAlignment="Center"
-               VerticalAlignment="Center"
-               Margin="0,230,0,0" />
+               VerticalAlignment="Bottom"
+               Margin="0,0,0,60" />
 
     <!-- Bottom-right version info -->
     <TextBlock x:Name="VersionInfoText"
