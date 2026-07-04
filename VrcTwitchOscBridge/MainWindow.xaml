@@ -7232,210 +7232,259 @@
                   Panel.ZIndex="999"
                   Background="{DynamicResource WindowBackgroundBrush}">
                 <Grid.Resources>
-                    <Storyboard x:Key="CrystalRotateStoryboard">
-                        <DoubleAnimation Storyboard.TargetName="CrystalRotateTransform"
-                                         Storyboard.TargetProperty="Angle"
-                                         From="0" To="360" Duration="0:0:4"
-                                         RepeatBehavior="Forever" />
-                    </Storyboard>
-                    <Storyboard x:Key="CrystalPulseStoryboard">
-                        <DoubleAnimationUsingKeyFrames Storyboard.TargetName="CrystalScaleTransform"
-                                                       Storyboard.TargetProperty="ScaleX"
-                                                       RepeatBehavior="Forever">
-                            <LinearDoubleKeyFrame KeyTime="0:0:0" Value="1" />
-                            <LinearDoubleKeyFrame KeyTime="0:0:1" Value="1.1" />
-                            <LinearDoubleKeyFrame KeyTime="0:0:2" Value="1" />
-                        </DoubleAnimationUsingKeyFrames>
-                        <DoubleAnimationUsingKeyFrames Storyboard.TargetName="CrystalScaleTransform"
-                                                       Storyboard.TargetProperty="ScaleY"
-                                                       RepeatBehavior="Forever">
-                            <LinearDoubleKeyFrame KeyTime="0:0:0" Value="1" />
-                            <LinearDoubleKeyFrame KeyTime="0:0:1" Value="1.1" />
-                            <LinearDoubleKeyFrame KeyTime="0:0:2" Value="1" />
-                        </DoubleAnimationUsingKeyFrames>
-                    </Storyboard>
-                    <Storyboard x:Key="GlowPulseStoryboard">
-                        <DoubleAnimationUsingKeyFrames Storyboard.TargetName="GlowEllipse"
-                                                       Storyboard.TargetProperty="Opacity"
-                                                       RepeatBehavior="Forever">
-                            <LinearDoubleKeyFrame KeyTime="0:0:0" Value="0.25" />
-                            <LinearDoubleKeyFrame KeyTime="0:0:1" Value="0.7" />
-                            <LinearDoubleKeyFrame KeyTime="0:0:2" Value="0.25" />
-                        </DoubleAnimationUsingKeyFrames>
-                    </Storyboard>
-                    <Storyboard x:Key="OrbitStoryboard">
-                        <DoubleAnimation Storyboard.TargetName="OrbitRingRotateTransform"
-                                         Storyboard.TargetProperty="Angle"
-                                         From="0" To="360" Duration="0:0:7"
-                                         RepeatBehavior="Forever" />
-                        <DoubleAnimation Storyboard.TargetName="SparkOrbitOneRotateTransform"
-                                         Storyboard.TargetProperty="Angle"
-                                         From="360" To="0" Duration="0:0:5"
-                                         RepeatBehavior="Forever" />
-                        <DoubleAnimation Storyboard.TargetName="SparkOrbitTwoRotateTransform"
-                                         Storyboard.TargetProperty="Angle"
-                                         From="0" To="360" Duration="0:0:6.5"
-                                         RepeatBehavior="Forever" />
-                    </Storyboard>
-                    <Storyboard x:Key="ShimmerStoryboard">
-                        <DoubleAnimation Storyboard.TargetName="CrystalShimmerTransform"
-                                         Storyboard.TargetProperty="X"
-                                         From="-86" To="86" Duration="0:0:2.4"
-                                         BeginTime="0:0:0.3"
-                                         RepeatBehavior="Forever" />
-                        <DoubleAnimationUsingKeyFrames Storyboard.TargetName="CrystalShimmer"
-                                                       Storyboard.TargetProperty="Opacity"
-                                                       RepeatBehavior="Forever">
-                            <LinearDoubleKeyFrame KeyTime="0:0:0" Value="0" />
-                            <LinearDoubleKeyFrame KeyTime="0:0:0.45" Value="0.58" />
-                            <LinearDoubleKeyFrame KeyTime="0:0:1.05" Value="0" />
-                            <LinearDoubleKeyFrame KeyTime="0:0:2.4" Value="0" />
-                        </DoubleAnimationUsingKeyFrames>
-                    </Storyboard>
-                    <Storyboard x:Key="TextFadeStoryboard">
-                        <DoubleAnimationUsingKeyFrames Storyboard.TargetName="LoadingTextBlock"
-                                                       Storyboard.TargetProperty="Opacity"
-                                                       RepeatBehavior="Forever">
-                            <LinearDoubleKeyFrame KeyTime="0:0:0" Value="0.65" />
-                            <LinearDoubleKeyFrame KeyTime="0:0:0.75" Value="1" />
-                            <LinearDoubleKeyFrame KeyTime="0:0:1.5" Value="0.65" />
-                        </DoubleAnimationUsingKeyFrames>
-                    </Storyboard>
-                </Grid.Resources>
+        <!-- Crystal hologram animation: slow rotation + gentle pulse + glow breathing -->
+        <Storyboard x:Key="HologramIdleStoryboard">
+            <DoubleAnimation Storyboard.TargetName="HologramRotateTransform"
+                             Storyboard.TargetProperty="Angle"
+                             From="0" To="360" Duration="0:0:8"
+                             RepeatBehavior="Forever" />
+            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="HologramScaleTransform"
+                                           Storyboard.TargetProperty="ScaleX"
+                                           RepeatBehavior="Forever">
+                <LinearDoubleKeyFrame KeyTime="0:0:0" Value="1" />
+                <LinearDoubleKeyFrame KeyTime="0:0:2" Value="1.05" />
+                <LinearDoubleKeyFrame KeyTime="0:0:4" Value="1" />
+            </DoubleAnimationUsingKeyFrames>
+            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="HologramScaleTransform"
+                                           Storyboard.TargetProperty="ScaleY"
+                                           RepeatBehavior="Forever">
+                <LinearDoubleKeyFrame KeyTime="0:0:0" Value="1" />
+                <LinearDoubleKeyFrame KeyTime="0:0:2" Value="1.05" />
+                <LinearDoubleKeyFrame KeyTime="0:0:4" Value="1" />
+            </DoubleAnimationUsingKeyFrames>
+            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="HologramGlowEllipse"
+                                           Storyboard.TargetProperty="Opacity"
+                                           RepeatBehavior="Forever">
+                <LinearDoubleKeyFrame KeyTime="0:0:0" Value="0.25" />
+                <LinearDoubleKeyFrame KeyTime="0:0:2" Value="0.55" />
+                <LinearDoubleKeyFrame KeyTime="0:0:4" Value="0.25" />
+            </DoubleAnimationUsingKeyFrames>
+        </Storyboard>
 
-                <!-- Glow behind crystal -->
-                <Ellipse x:Name="GlowEllipse"
-                         Width="180"
-                         Height="180"
-                         Fill="{DynamicResource AccentBrush}"
-                         Opacity="0.45"
-                         HorizontalAlignment="Center"
-                         VerticalAlignment="Center"
-                         Margin="0,0,0,40">
-                    <Ellipse.Effect>
-                        <BlurEffect Radius="45" />
-                    </Ellipse.Effect>
-                </Ellipse>
+        <!-- Scanning line sweeping top to bottom -->
+        <Storyboard x:Key="ScanLineStoryboard">
+            <DoubleAnimation Storyboard.TargetName="ScanLineTranslateTransform"
+                             Storyboard.TargetProperty="Y"
+                             From="-400" To="600" Duration="0:0:3"
+                             RepeatBehavior="Forever" />
+        </Storyboard>
 
-                <Canvas Width="220"
-                        Height="220"
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
-                        Margin="0,0,0,42"
-                        IsHitTestVisible="False"
-                        RenderTransformOrigin="0.5,0.5">
-                    <Canvas.RenderTransform>
-                        <RotateTransform x:Name="OrbitRingRotateTransform" Angle="0" />
-                    </Canvas.RenderTransform>
-                    <Ellipse Canvas.Left="37"
-                             Canvas.Top="37"
-                             Width="146"
-                             Height="146"
-                             Stroke="{DynamicResource AccentBrush}"
-                             StrokeThickness="1.4"
-                             StrokeDashArray="6 8"
-                             Opacity="0.42" />
-                    <Ellipse Canvas.Left="106"
-                             Canvas.Top="22"
-                             Width="8"
-                             Height="8"
-                             Fill="{DynamicResource AccentBrush}"
-                             Opacity="0.82">
-                        <Ellipse.Effect>
-                            <BlurEffect Radius="1.5" />
-                        </Ellipse.Effect>
-                    </Ellipse>
-                </Canvas>
+        <!-- Phase pulse: subtle full-overlay accent pulse -->
+        <Storyboard x:Key="PhasePulseStoryboard">
+            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="PhasePulseGlow"
+                                           Storyboard.TargetProperty="Opacity"
+                                           RepeatBehavior="Forever">
+                <LinearDoubleKeyFrame KeyTime="0:0:0" Value="0.3" />
+                <LinearDoubleKeyFrame KeyTime="0:0:0.8" Value="0.7" />
+                <LinearDoubleKeyFrame KeyTime="0:0:1.6" Value="0.3" />
+            </DoubleAnimationUsingKeyFrames>
+        </Storyboard>
 
-                <Canvas Width="220"
-                        Height="220"
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
-                        Margin="0,0,0,42"
-                        IsHitTestVisible="False"
-                        RenderTransformOrigin="0.5,0.5">
-                    <Canvas.RenderTransform>
-                        <RotateTransform x:Name="SparkOrbitOneRotateTransform" Angle="0" />
-                    </Canvas.RenderTransform>
-                    <Ellipse Canvas.Left="54"
-                             Canvas.Top="44"
-                             Width="5"
-                             Height="5"
-                             Fill="{DynamicResource TextBrush}"
-                             Opacity="0.72" />
-                </Canvas>
+        <!-- HUD entrance: power-on flicker + header slide-down + HUD panel slide-up -->
+        <Storyboard x:Key="HudEntranceStoryboard">
+            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="CrystalHeaderText"
+                                           Storyboard.TargetProperty="Opacity">
+                <DiscreteDoubleKeyFrame KeyTime="0:0:0" Value="0" />
+                <DiscreteDoubleKeyFrame KeyTime="0:0:0.05" Value="0.4" />
+                <DiscreteDoubleKeyFrame KeyTime="0:0:0.1" Value="0" />
+                <DiscreteDoubleKeyFrame KeyTime="0:0:0.15" Value="0.8" />
+                <DiscreteDoubleKeyFrame KeyTime="0:0:0.2" Value="0" />
+                <DiscreteDoubleKeyFrame KeyTime="0:0:0.35" Value="0.6" />
+                <DiscreteDoubleKeyFrame KeyTime="0:0:0.5" Value="1" />
+            </DoubleAnimationUsingKeyFrames>
+            <DoubleAnimation Storyboard.TargetName="CrystalHeaderTransform"
+                             Storyboard.TargetProperty="Y"
+                             From="-60" To="-120" Duration="0:0:0.5"
+                             BeginTime="0:0:0.3" />
+            <DoubleAnimation Storyboard.TargetName="HudPanelBorder"
+                             Storyboard.TargetProperty="Opacity"
+                             From="0" To="1" Duration="0:0:0.6"
+                             BeginTime="0:0:0.3" />
+            <ThicknessAnimation Storyboard.TargetName="HudPanelBorder"
+                                Storyboard.TargetProperty="Margin"
+                                From="0,40,0,0" To="0,160,0,0"
+                                Duration="0:0:0.6"
+                                BeginTime="0:0:0.3" />
+        </Storyboard>
 
-                <Canvas Width="180"
-                        Height="180"
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
-                        Margin="0,0,0,42"
-                        IsHitTestVisible="False"
-                        RenderTransformOrigin="0.5,0.5">
-                    <Canvas.RenderTransform>
-                        <RotateTransform x:Name="SparkOrbitTwoRotateTransform" Angle="0" />
-                    </Canvas.RenderTransform>
-                    <Ellipse Canvas.Left="132"
-                             Canvas.Top="118"
-                             Width="6"
-                             Height="6"
-                             Fill="{DynamicResource MutedBrush}"
-                             Opacity="0.64" />
-                </Canvas>
+        <!-- Reveal transition: fade out overlay -->
+        <Storyboard x:Key="RevealTransitionStoryboard">
+            <DoubleAnimation Storyboard.TargetName="HologramGlowEllipse"
+                             Storyboard.TargetProperty="Opacity"
+                             To="0" Duration="0:0:0.3" />
+            <DoubleAnimation Storyboard.TargetName="LoadingOverlay"
+                             Storyboard.TargetProperty="Opacity"
+                             From="1" To="0" Duration="0:0:0.5"
+                             BeginTime="0:0:0.3" />
+        </Storyboard>
+    </Grid.Resources>
 
-                <!-- Crystal with animations -->
-                <StackPanel HorizontalAlignment="Center"
-                            VerticalAlignment="Center">
-                    <Grid Width="106"
-                          Height="106"
-                          Margin="0,0,0,24"
-                          ClipToBounds="True"
-                          RenderTransformOrigin="0.5,0.5">
-                        <Grid.RenderTransform>
-                            <TransformGroup>
-                                <RotateTransform x:Name="CrystalRotateTransform" Angle="0" />
-                                <ScaleTransform x:Name="CrystalScaleTransform" ScaleX="1" ScaleY="1" />
-                            </TransformGroup>
-                        </Grid.RenderTransform>
-                        <Image Source="Assets/crystal-relay-icon.png"
-                               Width="96"
-                               Height="96"
-                               Stretch="Uniform"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center" />
-                        <Rectangle x:Name="CrystalShimmer"
-                                   Width="24"
-                                   Height="118"
-                                   Opacity="0"
-                                   RenderTransformOrigin="0.5,0.5">
-                            <Rectangle.Fill>
-                                <LinearGradientBrush StartPoint="0,0"
-                                                     EndPoint="1,0">
-                                    <GradientStop Color="#00FFFFFF" Offset="0" />
-                                    <GradientStop Color="#A8FFFFFF" Offset="0.5" />
-                                    <GradientStop Color="#00FFFFFF" Offset="1" />
-                                </LinearGradientBrush>
-                            </Rectangle.Fill>
-                            <Rectangle.RenderTransform>
-                                <TransformGroup>
-                                    <RotateTransform Angle="24" />
-                                    <TranslateTransform x:Name="CrystalShimmerTransform" X="-86" />
-                                </TransformGroup>
-                            </Rectangle.RenderTransform>
-                        </Rectangle>
-                    </Grid>
-                    <TextBlock x:Name="LoadingTextBlock"
-                               Text="{loc:Translate 'Loading Crystal Relay...'}"
-                               FontSize="20"
-                               FontWeight="SemiBold"
-                               Foreground="{DynamicResource TextBrush}"
-                               HorizontalAlignment="Center" />
-                    <TextBlock Text="{loc:Translate 'Preparing your workspace...'}"
-                               FontSize="13"
-                               Foreground="{DynamicResource MutedBrush}"
-                               HorizontalAlignment="Center"
-                               Margin="0,8,0,0" />
-                </StackPanel>
+    <!-- Subtle overlay pulse glow for phase transitions -->
+    <Rectangle x:Name="PhasePulseGlow"
+               Grid.RowSpan="2"
+               Fill="{DynamicResource AccentBrush}"
+               Opacity="0"
+               IsHitTestVisible="False" />
+
+    <!-- Thin scan line bar at the very top -->
+    <Rectangle Height="1"
+               VerticalAlignment="Top"
+               Fill="{DynamicResource AccentBrush}"
+               Opacity="0.3"
+               Margin="40,0,40,0" />
+
+    <!-- CRYSTAL RELAY header text -->
+    <TextBlock x:Name="CrystalHeaderText"
+               Text="CRYSTAL RELAY"
+               FontFamily="Consolas"
+               FontSize="13"
+               FontWeight="SemiBold"
+               Foreground="{DynamicResource AccentBrush}"
+               Opacity="0.45"
+               HorizontalAlignment="Center"
+               VerticalAlignment="Center"
+               Margin="0,36,0,0"
+               RenderTransformOrigin="0.5,0.5">
+        <TextBlock.RenderTransform>
+            <TranslateTransform x:Name="CrystalHeaderTransform" Y="-120" />
+        </TextBlock.RenderTransform>
+    </TextBlock>
+
+    <!-- Holographic crystal projection area -->
+    <Grid Width="106" Height="106"
+          HorizontalAlignment="Center"
+          VerticalAlignment="Center"
+          RenderTransformOrigin="0.5,0.5"
+          Margin="0,0,0,60">
+        <Grid.RenderTransform>
+            <TransformGroup>
+                <RotateTransform x:Name="HologramRotateTransform" Angle="0" />
+                <ScaleTransform x:Name="HologramScaleTransform" ScaleX="1" ScaleY="1" />
+            </TransformGroup>
+        </Grid.RenderTransform>
+
+        <!-- Glow behind crystal -->
+        <Ellipse x:Name="HologramGlowEllipse"
+                 Width="140" Height="140"
+                 Fill="{DynamicResource AccentBrush}"
+                 Opacity="0.35"
+                 HorizontalAlignment="Center"
+                 VerticalAlignment="Center">
+            <Ellipse.Effect>
+                <BlurEffect Radius="40" />
+            </Ellipse.Effect>
+        </Ellipse>
+
+        <!-- Crystal icon -->
+        <Image Source="Assets/crystal-relay-icon.png"
+               Width="80" Height="80"
+               Stretch="Uniform"
+               HorizontalAlignment="Center"
+               VerticalAlignment="Center"
+               Opacity="0.85" />
+    </Grid>
+
+    <!-- Scanning line sweep -->
+    <Rectangle x:Name="ScanLineRectangle"
+               Width="200" Height="1"
+               Fill="{DynamicResource AccentBrush}"
+               HorizontalAlignment="Center"
+               VerticalAlignment="Top"
+               Opacity="0.5"
+               IsHitTestVisible="False"
+               RenderTransformOrigin="0.5,0.5">
+        <Rectangle.RenderTransform>
+            <TranslateTransform x:Name="ScanLineTranslateTransform" Y="-400" />
+        </Rectangle.RenderTransform>
+        <Rectangle.Effect>
+            <BlurEffect Radius="3" />
+        </Rectangle.Effect>
+    </Rectangle>
+
+    <!-- HUD Status Panel -->
+    <Border x:Name="HudPanelBorder"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Margin="0,160,0,0"
+            Opacity="0"
+            BorderThickness="1"
+            BorderBrush="{DynamicResource AccentBrush}"
+            Background="#0A000000"
+            CornerRadius="4"
+            MinWidth="320">
+        <StackPanel Margin="16,12,16,12">
+            <TextBlock Text="INITIALIZATION SEQUENCE"
+                       FontFamily="Consolas"
+                       FontSize="10"
+                       Foreground="{DynamicResource AccentBrush}"
+                       Opacity="0.4"
+                       Margin="0,0,0,10" />
+
+            <ItemsControl ItemsSource="{Binding LoadingService.Phases}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="36" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Status tag -->
+                            <TextBlock Text="{Binding StatusTag}"
+                                       FontFamily="Consolas"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource AccentBrush}"
+                                       Opacity="{Binding RowOpacity}"
+                                       VerticalAlignment="Center" />
+
+                            <!-- Active pulsing glow dot -->
+                            <Ellipse Grid.Column="1"
+                                     Width="6" Height="6"
+                                     Fill="{DynamicResource AccentBrush}"
+                                     HorizontalAlignment="Center"
+                                     VerticalAlignment="Center"
+                                     Margin="0,0,8,0"
+                                     Opacity="0.7"
+                                     Visibility="{Binding ShowActiveIndicator, Converter={StaticResource BoolToVisibilityConverter}}">
+                                <Ellipse.Effect>
+                                    <BlurEffect Radius="3" />
+                                </Ellipse.Effect>
+                            </Ellipse>
+
+                            <!-- Completed checkmark -->
+                            <TextBlock Grid.Column="1"
+                                       Text="✓"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource AccentBrush}"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,8,0"
+                                       Visibility="{Binding ShowCheckmark, Converter={StaticResource BoolToVisibilityConverter}}" />
+
+                            <!-- Phase label -->
+                            <TextBlock Grid.Column="2"
+                                       Text="{Binding Label}"
+                                       FontFamily="Consolas"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource AccentBrush}"
+                                       Opacity="{Binding RowOpacity}"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+    </Border>
+
+    <!-- Bottom-right version info -->
+    <TextBlock x:Name="VersionInfoText"
+               FontFamily="Consolas"
+               FontSize="10"
+               Foreground="{DynamicResource AccentBrush}"
+               Opacity="0.2"
+               HorizontalAlignment="Right"
+               VerticalAlignment="Bottom"
+               Margin="0,0,16,12" />
             </Grid>
             <Grid x:Name="AdvertisementOverlay"
                   Grid.RowSpan="2"
