@@ -1585,11 +1585,11 @@
                                                                    TextWrapping="Wrap" />
                                                         <UniformGrid Columns="2" Margin="0,10,0,0">
                                                             <StackPanel Margin="0,0,6,0">
-                                                                <TextBlock Text="{loc:Translate 'Normal Height'}" FontWeight="SemiBold" />
+                                                                <TextBlock Text="{loc:Translate 'Normal Height'}" FontWeight="SemiBold" TextWrapping="Wrap" />
                                                                 <TextBox Text="{Binding SupporterGrowthNormalHeightMeters, UpdateSourceTrigger=LostFocus}" />
                                                             </StackPanel>
                                                             <StackPanel Margin="6,0,0,0">
-                                                                <TextBlock Text="{loc:Translate 'Max Added Height'}" FontWeight="SemiBold" />
+                                                                <TextBlock Text="{loc:Translate 'Max Added Height'}" FontWeight="SemiBold" TextWrapping="Wrap" />
                                                                 <TextBox Text="{Binding SupporterGrowthMaxAddedHeightMeters, UpdateSourceTrigger=LostFocus}" />
                                                                 <TextBlock Margin="0,6,0,0"
                                                                            Text="{loc:Translate 'Use 0 for unlimited added height until VRChat or safe range clamps it.'}"
@@ -1606,25 +1606,25 @@
                                                                    TextWrapping="Wrap" />
                                                         <UniformGrid Columns="3" Margin="0,8,0,0">
                                                             <StackPanel Margin="0,0,6,0">
-                                                                <TextBlock Text="{loc:Translate 'Bits Timer Unit'}" FontWeight="SemiBold" />
+                                                                <TextBlock Text="{loc:Translate 'Bits Timer Unit'}" FontWeight="SemiBold" TextWrapping="Wrap" />
                                                                 <TextBox Text="{Binding SupporterGrowthBitsTimerUnit, UpdateSourceTrigger=PropertyChanged}" />
                                                             </StackPanel>
                                                             <StackPanel Margin="6,0,6,0">
-                                                                <TextBlock Text="{loc:Translate 'Seconds Per Bits Unit'}" FontWeight="SemiBold" />
+                                                                <TextBlock Text="{loc:Translate 'Seconds Per Bits Unit'}" FontWeight="SemiBold" TextWrapping="Wrap" />
                                                                 <TextBox Text="{Binding SupporterGrowthSecondsPerBitsUnit, UpdateSourceTrigger=PropertyChanged}" />
                                                             </StackPanel>
                                                             <StackPanel Margin="6,0,0,0">
-                                                                <TextBlock Text="{loc:Translate 'Soft Cap Seconds'}" FontWeight="SemiBold" />
+                                                                <TextBlock Text="{loc:Translate 'Soft Cap Seconds'}" FontWeight="SemiBold" TextWrapping="Wrap" />
                                                                 <TextBox Text="{Binding SupporterGrowthSoftCapSeconds, UpdateSourceTrigger=PropertyChanged}" />
                                                             </StackPanel>
                                                         </UniformGrid>
                                                         <UniformGrid Columns="3" Margin="0,8,0,0">
                                                             <StackPanel Margin="0,0,6,0">
-                                                                <TextBlock Text="{loc:Translate 'Soft Cap Multiplier Percent'}" FontWeight="SemiBold" />
+                                                                <TextBlock Text="{loc:Translate 'Soft Cap Multiplier Percent'}" FontWeight="SemiBold" TextWrapping="Wrap" />
                                                                 <TextBox Text="{Binding SupporterGrowthSoftCapMultiplierPercent, UpdateSourceTrigger=PropertyChanged}" />
                                                             </StackPanel>
                                                             <StackPanel Margin="6,0,6,0">
-                                                                <TextBlock Text="{loc:Translate 'Max Paid Time Seconds'}" FontWeight="SemiBold" />
+                                                                <TextBlock Text="{loc:Translate 'Max Paid Time Seconds'}" FontWeight="SemiBold" TextWrapping="Wrap" />
                                                                 <TextBox Text="{Binding SupporterGrowthMaxPaidTimeSeconds, UpdateSourceTrigger=PropertyChanged}" />
                                                             </StackPanel>
                                                             <StackPanel Margin="6,0,0,0" />
@@ -1638,28 +1638,35 @@
                                                                    TextWrapping="Wrap" />
                                                         <UniformGrid Columns="2" Margin="0,8,0,0">
                                                             <StackPanel Margin="0,0,6,0">
-                                                                <TextBlock Text="{loc:Translate 'Grow Keyword'}" FontWeight="SemiBold" />
+                                                                <TextBlock Text="{loc:Translate 'Grow Keyword'}" FontWeight="SemiBold" TextWrapping="Wrap" />
                                                                 <TextBox Text="{Binding SupporterGrowthGrowKeyword, UpdateSourceTrigger=PropertyChanged}" />
                                                             </StackPanel>
                                                             <StackPanel Margin="6,0,0,0">
-                                                                <TextBlock Text="{loc:Translate 'Shrink Keyword'}" FontWeight="SemiBold" />
+                                                                <TextBlock Text="{loc:Translate 'Shrink Keyword'}" FontWeight="SemiBold" TextWrapping="Wrap" />
                                                                 <TextBox Text="{Binding SupporterGrowthShrinkKeyword, UpdateSourceTrigger=PropertyChanged}" />
                                                             </StackPanel>
                                                         </UniformGrid>
+                                                        <CheckBox Margin="0,10,0,0"
+                                                                  Content="{loc:Translate 'Require grow or shrink keyword for height changes'}"
+                                                                  IsChecked="{Binding SupporterGrowthRequireCheerKeyword, UpdateSourceTrigger=PropertyChanged}" />
+                                                        <TextBlock Margin="26,6,0,0"
+                                                                   Text="{loc:Translate 'When enabled, bits only change height if the cheer message says your grow or shrink keyword. Bits without a keyword still add paid time, but do not grow or shrink the avatar.'}"
+                                                                   Foreground="{DynamicResource TitleBarSubTextBrush}"
+                                                                   TextWrapping="Wrap" />
                                                         <TextBlock Margin="0,14,0,0"
                                                                    Text="{loc:Translate 'Subscription Growth'}"
                                                                    FontWeight="SemiBold" />
                                                         <UniformGrid Columns="3" Margin="0,8,0,0">
                                                             <StackPanel Margin="0,0,6,0">
-                                                                <TextBlock Text="{loc:Translate 'Tier 1 Height Add'}" FontWeight="SemiBold" />
+                                                                <TextBlock Text="{loc:Translate 'Tier 1 Height Add'}" FontWeight="SemiBold" TextWrapping="Wrap" />
                                                                 <TextBox Text="{Binding SupporterGrowthTier1HeightMeters, UpdateSourceTrigger=LostFocus}" />
                                                             </StackPanel>
                                                             <StackPanel Margin="6,0,6,0">
-                                                                <TextBlock Text="{loc:Translate 'Tier 2 Height Add'}" FontWeight="SemiBold" />
+                                                                <TextBlock Text="{loc:Translate 'Tier 2 Height Add'}" FontWeight="SemiBold" TextWrapping="Wrap" />
                                                                 <TextBox Text="{Binding SupporterGrowthTier2HeightMeters, UpdateSourceTrigger=LostFocus}" />
                                                             </StackPanel>
                                                             <StackPanel Margin="6,0,0,0">
-                                                                <TextBlock Text="{loc:Translate 'Tier 3 Height Add'}" FontWeight="SemiBold" />
+                                                                <TextBlock Text="{loc:Translate 'Tier 3 Height Add'}" FontWeight="SemiBold" TextWrapping="Wrap" />
                                                                 <TextBox Text="{Binding SupporterGrowthTier3HeightMeters, UpdateSourceTrigger=LostFocus}" />
                                                             </StackPanel>
                                                         </UniformGrid>
@@ -1668,15 +1675,15 @@
                                                                    FontWeight="SemiBold" />
                                                         <UniformGrid Columns="3" Margin="0,8,0,0">
                                                             <StackPanel Margin="0,0,6,0">
-                                                                <TextBlock Text="{loc:Translate 'Tier 1 Seconds'}" FontWeight="SemiBold" />
+                                                                <TextBlock Text="{loc:Translate 'Tier 1 Seconds'}" FontWeight="SemiBold" TextWrapping="Wrap" />
                                                                 <TextBox Text="{Binding SupporterGrowthTier1Seconds, UpdateSourceTrigger=PropertyChanged}" />
                                                             </StackPanel>
                                                             <StackPanel Margin="6,0,6,0">
-                                                                <TextBlock Text="{loc:Translate 'Tier 2 Seconds'}" FontWeight="SemiBold" />
+                                                                <TextBlock Text="{loc:Translate 'Tier 2 Seconds'}" FontWeight="SemiBold" TextWrapping="Wrap" />
                                                                 <TextBox Text="{Binding SupporterGrowthTier2Seconds, UpdateSourceTrigger=PropertyChanged}" />
                                                             </StackPanel>
                                                             <StackPanel Margin="6,0,0,0">
-                                                                <TextBlock Text="{loc:Translate 'Tier 3 Seconds'}" FontWeight="SemiBold" />
+                                                                <TextBlock Text="{loc:Translate 'Tier 3 Seconds'}" FontWeight="SemiBold" TextWrapping="Wrap" />
                                                                 <TextBox Text="{Binding SupporterGrowthTier3Seconds, UpdateSourceTrigger=PropertyChanged}" />
                                                             </StackPanel>
                                                         </UniformGrid>
