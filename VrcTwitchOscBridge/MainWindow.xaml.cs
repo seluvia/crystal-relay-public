@@ -2459,48 +2459,35 @@ private static readonly string[] LoadingStoryboardKeys =
     {
         var random = new Random();
         var canvas = StarFieldCanvas;
+        var w = Math.Max(800, (int)ActualWidth) + 200;
+        var h = Math.Max(600, (int)ActualHeight) + 200;
 
         // Deep galaxy nebula clouds
-        var nebulaData = new[]
+        for (var n = 0; n < 12; n++)
         {
-            (color: System.Windows.Media.Color.FromArgb(35, 74, 158, 255), width: 450, height: 300),
-            (color: System.Windows.Media.Color.FromArgb(25, 124, 92, 255), width: 350, height: 250),
-            (color: System.Windows.Media.Color.FromArgb(20, 255, 92, 135), width: 300, height: 200),
-            (color: System.Windows.Media.Color.FromArgb(18, 60, 180, 220), width: 400, height: 280),
-            (color: System.Windows.Media.Color.FromArgb(22, 180, 120, 255), width: 320, height: 220),
-            (color: System.Windows.Media.Color.FromArgb(15, 200, 160, 100), width: 250, height: 180),
-            (color: System.Windows.Media.Color.FromArgb(28, 100, 180, 255), width: 380, height: 260),
-            (color: System.Windows.Media.Color.FromArgb(20, 200, 100, 180), width: 280, height: 200),
-            (color: System.Windows.Media.Color.FromArgb(16, 140, 200, 220), width: 350, height: 240),
-            (color: System.Windows.Media.Color.FromArgb(30, 80, 140, 255), width: 400, height: 280),
-            (color: System.Windows.Media.Color.FromArgb(22, 220, 140, 180), width: 300, height: 210),
-            (color: System.Windows.Media.Color.FromArgb(18, 160, 200, 240), width: 330, height: 230),
-            (color: System.Windows.Media.Color.FromArgb(25, 120, 160, 255), width: 420, height: 290),
-            (color: System.Windows.Media.Color.FromArgb(20, 180, 80, 160), width: 270, height: 190),
-            (color: System.Windows.Media.Color.FromArgb(15, 80, 200, 200), width: 310, height: 220),
-            (color: System.Windows.Media.Color.FromArgb(28, 160, 100, 220), width: 360, height: 250),
-            (color: System.Windows.Media.Color.FromArgb(22, 240, 160, 120), width: 290, height: 200),
-            (color: System.Windows.Media.Color.FromArgb(18, 100, 220, 255), width: 370, height: 260)
-        };
-
-        foreach (var (color, width, height) in nebulaData)
-        {
+            var hue = random.Next(4) switch
+            {
+                0 => System.Windows.Media.Color.FromArgb(30, 74, 158, 255),
+                1 => System.Windows.Media.Color.FromArgb(22, 124, 92, 255),
+                2 => System.Windows.Media.Color.FromArgb(25, 180, 120, 255),
+                _ => System.Windows.Media.Color.FromArgb(18, 255, 92, 135)
+            };
             var nebula = new System.Windows.Shapes.Ellipse
             {
-                Width = width,
-                Height = height,
-                Fill = new System.Windows.Media.SolidColorBrush(color),
+                Width = random.Next(250, 450),
+                Height = random.Next(180, 300),
+                Fill = new System.Windows.Media.SolidColorBrush(hue),
                 Opacity = 0.9
             };
             nebula.Effect = new System.Windows.Media.Effects.BlurEffect { Radius = 80 };
-            Canvas.SetLeft(nebula, random.Next(-100, 750));
-            Canvas.SetTop(nebula, random.Next(-100, 550));
+            Canvas.SetLeft(nebula, random.Next(-100, w - 200));
+            Canvas.SetTop(nebula, random.Next(-100, h - 200));
             canvas.Children.Add(nebula);
 
             var driftX = new System.Windows.Media.Animation.DoubleAnimation
             {
                 From = Canvas.GetLeft(nebula),
-                To = Canvas.GetLeft(nebula) + random.Next(-40, 40),
+                To = Canvas.GetLeft(nebula) + random.Next(-60, 60),
                 Duration = new Duration(TimeSpan.FromSeconds(random.Next(20, 35))),
                 AutoReverse = true,
                 RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever
@@ -2508,7 +2495,7 @@ private static readonly string[] LoadingStoryboardKeys =
             var driftY = new System.Windows.Media.Animation.DoubleAnimation
             {
                 From = Canvas.GetTop(nebula),
-                To = Canvas.GetTop(nebula) + random.Next(-30, 30),
+                To = Canvas.GetTop(nebula) + random.Next(-40, 40),
                 Duration = new Duration(TimeSpan.FromSeconds(random.Next(25, 40))),
                 AutoReverse = true,
                 RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever
@@ -2530,34 +2517,30 @@ private static readonly string[] LoadingStoryboardKeys =
         {
             new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(40, 74, 158, 255)),
             new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(30, 255, 160, 200)),
-            new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(35, 180, 120, 255)),
-            new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(28, 100, 200, 220)),
-            new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(32, 200, 140, 255)),
-            new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(25, 255, 200, 150))
+            new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(35, 180, 120, 255))
         };
         foreach (var b in crystalBrushes) b.Freeze();
 
-        for (var c = 0; c < 21; c++)
+        for (var c = 0; c < 12; c++)
         {
             var size = random.Next(10, 22);
             var crystal = new System.Windows.Shapes.Path
             {
                 Data = System.Windows.Media.Geometry.Parse($"M0,-{size * 0.7} L{size * 0.4},0 L0,{size * 0.7} L-{size * 0.4},0 Z"),
                 Fill = crystalBrushes[c % crystalBrushes.Length],
-                Opacity = 0.7,
+                Opacity = 0.6,
                 RenderTransformOrigin = new System.Windows.Point(0.5, 0.5),
                 RenderTransform = new System.Windows.Media.RotateTransform(0)
             };
 
-            Canvas.SetLeft(crystal, random.Next(-30, 850));
-            Canvas.SetTop(crystal, random.Next(-30, 650));
+            Canvas.SetLeft(crystal, random.Next(0, w - 100));
+            Canvas.SetTop(crystal, random.Next(0, h - 100));
             canvas.Children.Add(crystal);
 
-            // Slow drift
             var crystalDriftX = new System.Windows.Media.Animation.DoubleAnimation
             {
                 From = Canvas.GetLeft(crystal),
-                To = Canvas.GetLeft(crystal) + random.Next(-50, 50),
+                To = Canvas.GetLeft(crystal) + random.Next(-80, 80),
                 Duration = new Duration(TimeSpan.FromSeconds(random.Next(25, 40))),
                 AutoReverse = true,
                 RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever
@@ -2565,17 +2548,14 @@ private static readonly string[] LoadingStoryboardKeys =
             var crystalDriftY = new System.Windows.Media.Animation.DoubleAnimation
             {
                 From = Canvas.GetTop(crystal),
-                To = Canvas.GetTop(crystal) + random.Next(-30, 30),
+                To = Canvas.GetTop(crystal) + random.Next(-50, 50),
                 Duration = new Duration(TimeSpan.FromSeconds(random.Next(30, 45))),
                 AutoReverse = true,
                 RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever
             };
-
-            // Slow rotation
             var crystalRotate = new System.Windows.Media.Animation.DoubleAnimation
             {
-                From = 0,
-                To = 360,
+                From = 0, To = 360,
                 Duration = new Duration(TimeSpan.FromSeconds(random.Next(30, 60))),
                 RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever
             };
@@ -2597,7 +2577,7 @@ private static readonly string[] LoadingStoryboardKeys =
         // Distant halo rings
         var ringBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(15, 74, 158, 255));
         ringBrush.Freeze();
-        for (var r = 0; r < 5; r++)
+        for (var r = 0; r < 3; r++)
         {
             var ringSize = random.Next(60, 140);
             var ring = new System.Windows.Shapes.Ellipse
@@ -2606,19 +2586,18 @@ private static readonly string[] LoadingStoryboardKeys =
                 Height = ringSize * random.NextDouble() * 0.4 + ringSize * 0.3,
                 Stroke = ringBrush,
                 StrokeThickness = 0.5,
-                Opacity = 0.6,
+                Opacity = 0.5,
                 RenderTransformOrigin = new System.Windows.Point(0.5, 0.5),
                 RenderTransform = new System.Windows.Media.RotateTransform(random.Next(0, 360))
             };
 
-            Canvas.SetLeft(ring, random.Next(-50, 850));
-            Canvas.SetTop(ring, random.Next(-50, 650));
+            Canvas.SetLeft(ring, random.Next(0, w - 100));
+            Canvas.SetTop(ring, random.Next(0, h - 100));
             canvas.Children.Add(ring);
 
             var ringRotate = new System.Windows.Media.Animation.DoubleAnimation
             {
-                From = 0,
-                To = 360,
+                From = 0, To = 360,
                 Duration = new Duration(TimeSpan.FromSeconds(random.Next(40, 80))),
                 RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever
             };
@@ -2629,7 +2608,7 @@ private static readonly string[] LoadingStoryboardKeys =
             ringStoryboard.Begin(this, true);
         }
 
-        // Star colors for variety
+        // Star colors
         var starBrushes = new[]
         {
             System.Windows.Media.Brushes.White,
@@ -2640,45 +2619,42 @@ private static readonly string[] LoadingStoryboardKeys =
             System.Windows.Media.Brushes.PaleTurquoise
         };
 
-        for (var i = 0; i < 100; i++)
+        for (var i = 0; i < 60; i++)
         {
-            var isBeacon = i % 20 == 0;
+            var isBeacon = i % 15 == 0;
             var star = new System.Windows.Shapes.Ellipse
             {
-                Width = isBeacon ? random.Next(2, 4) : random.Next(1, 3),
-                Height = isBeacon ? random.Next(2, 4) : random.Next(1, 3),
+                Width = isBeacon ? random.Next(2, 3) : 1,
+                Height = isBeacon ? random.Next(2, 3) : 1,
                 Fill = starBrushes[random.Next(starBrushes.Length)],
-                Opacity = isBeacon
-                    ? random.NextDouble() * 0.3 + 0.5
-                    : random.NextDouble() * 0.35 + 0.1
+                Opacity = isBeacon ? random.NextDouble() * 0.3 + 0.4 : random.NextDouble() * 0.3 + 0.1
             };
 
-            Canvas.SetLeft(star, random.Next(0, 900));
-            Canvas.SetTop(star, random.Next(0, 700));
+            Canvas.SetLeft(star, random.Next(0, w));
+            Canvas.SetTop(star, random.Next(0, h));
             canvas.Children.Add(star);
 
             var twinkleAnimation = new System.Windows.Media.Animation.DoubleAnimation
             {
                 From = star.Opacity * 0.15,
                 To = star.Opacity,
-                Duration = new Duration(TimeSpan.FromSeconds(isBeacon ? random.Next(3, 7) : random.Next(2, 5))),
+                Duration = new Duration(TimeSpan.FromSeconds(random.Next(3, 7))),
                 AutoReverse = true,
                 RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever,
                 BeginTime = TimeSpan.FromSeconds(random.NextDouble() * 5)
             };
-
             System.Windows.Media.Animation.Storyboard.SetTarget(twinkleAnimation, star);
             System.Windows.Media.Animation.Storyboard.SetTargetProperty(twinkleAnimation, new PropertyPath("Opacity"));
             var starStoryboard = new System.Windows.Media.Animation.Storyboard();
             starStoryboard.Children.Add(twinkleAnimation);
 
-            if (i % 3 == 0)
+            if (i % 5 == 0)
             {
                 var driftX = new System.Windows.Media.Animation.DoubleAnimation
                 {
                     From = Canvas.GetLeft(star),
-                    To = Canvas.GetLeft(star) + random.Next(-15, 15),
-                    Duration = new Duration(TimeSpan.FromSeconds(random.Next(30, 50))),
+                    To = Canvas.GetLeft(star) + random.Next(-20, 20),
+                    Duration = new Duration(TimeSpan.FromSeconds(random.Next(40, 60))),
                     AutoReverse = true,
                     RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever
                 };
