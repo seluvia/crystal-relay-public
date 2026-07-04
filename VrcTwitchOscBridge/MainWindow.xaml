@@ -7304,7 +7304,7 @@
             HorizontalAlignment="Stretch"
             VerticalAlignment="Stretch"
             IsHitTestVisible="False"
-            Opacity="0.6" />
+            Opacity="0.85" />
 
     <!-- Thin scan line bar at the very top -->
     <Rectangle Height="1"

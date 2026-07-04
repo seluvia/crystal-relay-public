@@ -2467,10 +2467,10 @@ private static readonly string[] LoadingStoryboardKeys =
         {
             var hue = random.Next(4) switch
             {
-                0 => System.Windows.Media.Color.FromArgb(30, 74, 158, 255),
-                1 => System.Windows.Media.Color.FromArgb(22, 124, 92, 255),
-                2 => System.Windows.Media.Color.FromArgb(25, 180, 120, 255),
-                _ => System.Windows.Media.Color.FromArgb(18, 255, 92, 135)
+                0 => System.Windows.Media.Color.FromArgb(50, 74, 158, 255),
+                1 => System.Windows.Media.Color.FromArgb(40, 124, 92, 255),
+                2 => System.Windows.Media.Color.FromArgb(42, 180, 120, 255),
+                _ => System.Windows.Media.Color.FromArgb(35, 255, 92, 135)
             };
             var nebula = new System.Windows.Shapes.Ellipse
             {
@@ -2515,9 +2515,9 @@ private static readonly string[] LoadingStoryboardKeys =
         // Floating void crystals
         var crystalBrushes = new[]
         {
-            new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(40, 74, 158, 255)),
-            new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(30, 255, 160, 200)),
-            new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(35, 180, 120, 255))
+            new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(60, 74, 158, 255)),
+            new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(50, 255, 160, 200)),
+            new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(55, 180, 120, 255))
         };
         foreach (var b in crystalBrushes) b.Freeze();
 
@@ -2528,7 +2528,7 @@ private static readonly string[] LoadingStoryboardKeys =
             {
                 Data = System.Windows.Media.Geometry.Parse($"M0,-{size * 0.7} L{size * 0.4},0 L0,{size * 0.7} L-{size * 0.4},0 Z"),
                 Fill = crystalBrushes[c % crystalBrushes.Length],
-                Opacity = 0.6,
+                Opacity = 0.85,
                 RenderTransformOrigin = new System.Windows.Point(0.5, 0.5),
                 RenderTransform = new System.Windows.Media.RotateTransform(0)
             };
@@ -2575,7 +2575,7 @@ private static readonly string[] LoadingStoryboardKeys =
         }
 
         // Distant halo rings
-        var ringBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(15, 74, 158, 255));
+        var ringBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(25, 74, 158, 255));
         ringBrush.Freeze();
         for (var r = 0; r < 3; r++)
         {
@@ -2586,7 +2586,7 @@ private static readonly string[] LoadingStoryboardKeys =
                 Height = ringSize * random.NextDouble() * 0.4 + ringSize * 0.3,
                 Stroke = ringBrush,
                 StrokeThickness = 0.5,
-                Opacity = 0.5,
+                Opacity = 0.7,
                 RenderTransformOrigin = new System.Windows.Point(0.5, 0.5),
                 RenderTransform = new System.Windows.Media.RotateTransform(random.Next(0, 360))
             };
@@ -2627,7 +2627,7 @@ private static readonly string[] LoadingStoryboardKeys =
                 Width = isBeacon ? random.Next(2, 3) : 1,
                 Height = isBeacon ? random.Next(2, 3) : 1,
                 Fill = starBrushes[random.Next(starBrushes.Length)],
-                Opacity = isBeacon ? random.NextDouble() * 0.3 + 0.4 : random.NextDouble() * 0.3 + 0.1
+                Opacity = isBeacon ? random.NextDouble() * 0.2 + 0.6 : random.NextDouble() * 0.3 + 0.25
             };
 
             Canvas.SetLeft(star, random.Next(0, w));
