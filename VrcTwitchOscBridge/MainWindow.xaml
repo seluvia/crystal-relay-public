@@ -7265,16 +7265,7 @@
                              RepeatBehavior="Forever" />
         </Storyboard>
 
-        <!-- Phase pulse: subtle full-overlay accent pulse -->
-        <Storyboard x:Key="PhasePulseStoryboard">
-            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="PhasePulseGlow"
-                                           Storyboard.TargetProperty="Opacity"
-                                           RepeatBehavior="Forever">
-                <LinearDoubleKeyFrame KeyTime="0:0:0" Value="0.08" />
-                <LinearDoubleKeyFrame KeyTime="0:0:0.8" Value="0.2" />
-                <LinearDoubleKeyFrame KeyTime="0:0:1.6" Value="0.08" />
-            </DoubleAnimationUsingKeyFrames>
-        </Storyboard>
+
 
         <!-- HUD entrance: power-on flicker + header slide-down + HUD panel slide-up -->
         <Storyboard x:Key="HudEntranceStoryboard">
@@ -7321,13 +7312,6 @@
             VerticalAlignment="Stretch"
             IsHitTestVisible="False"
             Opacity="0.6" />
-
-    <!-- Subtle overlay pulse glow for phase transitions -->
-    <Rectangle x:Name="PhasePulseGlow"
-               Grid.RowSpan="2"
-               Fill="{DynamicResource AccentBrush}"
-               Opacity="0"
-               IsHitTestVisible="False" />
 
     <!-- Thin scan line bar at the very top -->
     <Rectangle Height="1"

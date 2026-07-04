@@ -42,13 +42,12 @@ public partial class MainWindow : Window
     private static readonly TimeSpan PeekabooEasterEggCooldown = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan TeapotShakeSampleWindow = TimeSpan.FromMilliseconds(1250);
     private static readonly TimeSpan TeapotShakeCooldown = TimeSpan.FromSeconds(30);
-    private static readonly string[] LoadingStoryboardKeys =
-    [
-        "HologramIdleStoryboard",
-        "ScanLineStoryboard",
-        "PhasePulseStoryboard",
-        "HudEntranceStoryboard"
-    ];
+private static readonly string[] LoadingStoryboardKeys =
+[
+    "HologramIdleStoryboard",
+    "ScanLineStoryboard",
+    "HudEntranceStoryboard"
+];
     private const int PeekabooRequiredToggleCount = 6;
     private const int TeapotShakeRequiredDirectionChanges = 5;
     private const double TeapotShakeRequiredTravelDistance = 320d;
