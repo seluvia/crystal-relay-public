@@ -197,6 +197,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private ActiveAvatarScaleOperationState? activeAvatarScaleOperation;
     private ActiveAvatarScaleCarryoverState? activeAvatarScaleCarryover;
     private ActiveAvatarScaleRestoreSequenceState? activeAvatarScaleRestoreSequence;
+    private double currentScaleWindowHighestSeenActiveTimeSeconds;
+    private bool currentScaleWindowIsPaySystemTier;
     private PausedAvatarScaleTimerSnapshot? pausedDevAvatarScaleTimerSnapshot;
     private CancellationTokenSource? avatarScaleRestoreSequenceCancellation;
     private CancellationTokenSource? pendingStreamOfflineConfirmation;
@@ -1289,7 +1291,8 @@ internal BridgeCoordinator(
         TimeSpan duration,
         double maximumSmoothTransitionSeconds,
         Action? afterFirstSuccessfulSend,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        AvatarScaleRuleSnapshot? rule = null)
     {
         var endAt = DateTimeOffset.UtcNow.Add(duration);
         Action? firstSendCallback = afterFirstSuccessfulSend;
@@ -1317,7 +1320,8 @@ internal BridgeCoordinator(
                         maximumHeightMeters,
                         endAt,
                         RunAfterFirstSuccessfulSend,
-                        cancellationToken))
+                        cancellationToken,
+                        rule))
                 {
                     return;
                 }
@@ -1339,7 +1343,8 @@ internal BridgeCoordinator(
                     targetHeight,
                     transitionSeconds,
                     cancellationToken,
-                    RunAfterFirstSuccessfulSend))
+                    RunAfterFirstSuccessfulSend,
+                    rule))
             {
                 return;
             }
@@ -1357,7 +1362,8 @@ internal BridgeCoordinator(
         double maximumHeightMeters,
         DateTimeOffset endAt,
         Action afterFirstSuccessfulSend,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        AvatarScaleRuleSnapshot? rule = null)
     {
         var range = maximumHeightMeters - minimumHeightMeters;
         var baseHeight = PickDevRandomAvatarScaleHeight(minimumHeightMeters, maximumHeightMeters);
@@ -1378,7 +1384,8 @@ internal BridgeCoordinator(
                     targetHeight,
                     0,
                     cancellationToken,
-                    afterFirstSuccessfulSend))
+                    afterFirstSuccessfulSend,
+                    rule))
             {
                 return false;
             }
@@ -1696,7 +1703,8 @@ internal BridgeCoordinator(
                         operation,
                         snapshot.CarriedHeightMeters,
                         0,
-                        cancellationToken))
+                        cancellationToken,
+                        rule: snapshot.Rule))
                 {
                     return;
                 }
@@ -1863,7 +1871,8 @@ internal BridgeCoordinator(
                 snapshot.SourceRuleName,
                 snapshot.RestoreSmoothTransitionSeconds,
                 snapshot.RestoreToPaidGrowthIfActive,
-                snapshot.IsTest);
+                snapshot.IsTest,
+                snapshot.Rule);
             avatarScaleRestoreSequenceCancellation = newCancellation;
             activeAvatarScaleRestoreSequence = sequence;
 
@@ -2252,6 +2261,14 @@ internal BridgeCoordinator(
         if (configuredScaleRule is not null)
         {
             return configuredScaleRule;
+        }
+
+        var powerUpScaleRule = activeConfiguration.PowerUpRules
+            .Select(rule => rule.ScaleAction)
+            .FirstOrDefault(rule => rule?.Id == ruleId);
+        if (powerUpScaleRule is not null)
+        {
+            return powerUpScaleRule;
         }
 
         return activeConfiguration.CashPaymentRules
@@ -3477,6 +3494,11 @@ internal BridgeCoordinator(
 
         foreach (var rule in matchingRules)
         {
+            if (rule.ExtendCurrentActivity && rule.ExtendSeconds > 0)
+            {
+                ExtendActiveActivityTimers(TimeSpan.FromSeconds(rule.ExtendSeconds), bridgeEvent.TriggerLabel);
+                continue;
+            }
             await ExecuteRuleAsync(rule, bridgeEvent, cancellationToken);
         }
     }
@@ -3560,6 +3582,12 @@ internal BridgeCoordinator(
                 RewardUserInput = paymentEvent.Message
             };
 
+            if (rule.TriggerAction is { ExtendCurrentActivity: true, ExtendSeconds: > 0 })
+            {
+                ExtendActiveActivityTimers(TimeSpan.FromSeconds(rule.TriggerAction.ExtendSeconds), bridgeEvent.TriggerLabel);
+                continue;
+            }
+
             WriteLog($"{bridgeEvent.UserDisplayName} triggered cash payment rule '{rule.Name}' through {DescribeCashPaymentProvider(paymentEvent.Provider)}.");
             await ExecuteRuleAsync(rule.TriggerAction, bridgeEvent, cancellationToken);
         }
@@ -3619,6 +3647,11 @@ internal BridgeCoordinator(
 
             if (rule.TriggerAction is not null)
             {
+                if (rule.TriggerAction is { ExtendCurrentActivity: true, ExtendSeconds: > 0 })
+                {
+                    ExtendActiveActivityTimers(TimeSpan.FromSeconds(rule.TriggerAction.ExtendSeconds), bridgeEvent.TriggerLabel);
+                    continue;
+                }
                 await ExecuteRuleAsync(rule.TriggerAction, bridgeEvent, cancellationToken);
             }
         }
@@ -4077,9 +4110,65 @@ internal BridgeCoordinator(
         }
 
         return normalizedAddress.StartsWith("/", StringComparison.Ordinal)
-            ? vrChatOscClient.BuildPacketForAddress(normalizedAddress, parameterType, rawValue)
-            : vrChatOscClient.BuildAvatarParameterPacket(normalizedAddress, parameterType, rawValue);
+            ? BuildOscPacketForAddressWithAvatarScaleSafety(normalizedAddress, parameterType, rawValue)
+            : BuildAvatarParameterPacketWithAvatarScaleSafety(normalizedAddress, parameterType, rawValue);
     }
+
+    private byte[] BuildOscPacketForAddressWithAvatarScaleSafety(
+        string address,
+        OscParameterType parameterType,
+        string rawValue)
+    {
+        var normalizedAddress = VrChatOscClient.NormalizeOscAddress(address);
+        var normalizedRawValue = ClampAvatarEyeHeightRawValueIfNeeded(normalizedAddress, parameterType, rawValue);
+        return vrChatOscClient.BuildPacketForAddress(normalizedAddress, parameterType, normalizedRawValue);
+    }
+
+    private byte[] BuildAvatarParameterPacketWithAvatarScaleSafety(
+        string parameterName,
+        OscParameterType parameterType,
+        string rawValue)
+    {
+        var normalizedAddress = VrChatOscClient.NormalizeAvatarParameterAddress(parameterName);
+        var normalizedRawValue = ClampAvatarEyeHeightRawValueIfNeeded(normalizedAddress, parameterType, rawValue);
+        return vrChatOscClient.BuildPacketForAddress(normalizedAddress, parameterType, normalizedRawValue);
+    }
+
+    private string ClampAvatarEyeHeightRawValueIfNeeded(
+        string address,
+        OscParameterType parameterType,
+        string rawValue)
+    {
+        if (parameterType != OscParameterType.Float || !IsAvatarEyeHeightAddress(address))
+        {
+            return rawValue;
+        }
+
+        if (!double.TryParse(rawValue, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out var heightMeters))
+        {
+            return rawValue;
+        }
+
+        var clampedHeight = ClampAvatarScaleHeightToActiveSafety(heightMeters);
+        return ((float)clampedHeight).ToString("G9", CultureInfo.InvariantCulture);
+    }
+
+    private double ClampAvatarFloatValueForAddress(string address, double value)
+    {
+        return IsAvatarEyeHeightAddress(address)
+            ? ClampAvatarScaleHeightToActiveSafety(value)
+            : ClampAvatarFloatValue(value);
+    }
+
+    private double ClampAvatarEyeHeightValueIfNeeded(string address, double value)
+    {
+        return IsAvatarEyeHeightAddress(address)
+            ? ClampAvatarScaleHeightToActiveSafety(value)
+            : value;
+    }
+
+    private static bool IsAvatarEyeHeightAddress(string address) =>
+        string.Equals(address?.Trim(), "/avatar/eyeheight", StringComparison.Ordinal);
 
     private SemaphoreSlim GetUniversalTriggerQueueGate(Guid triggerId)
     {
@@ -4571,6 +4660,14 @@ internal BridgeCoordinator(
         CancellationToken cancellationToken,
         bool isResuming = false)
     {
+        if (!isTest && !isResuming && rule.ExtendCurrentActivity && rule.ExtendSeconds > 0)
+        {
+            ExtendActiveActivityTimers(
+                TimeSpan.FromSeconds(rule.ExtendSeconds),
+                $"{incomingEvent.UserDisplayName} scale extend");
+            return true;
+        }
+
         if (rule.TriggerType == AvatarScaleTriggerType.SupporterGrowth)
         {
             await ExecuteSupporterGrowthAvatarScaleRuleAsync(rule, incomingEvent, isTest, cancellationToken);
@@ -4757,7 +4854,8 @@ internal BridgeCoordinator(
                     targetHeight,
                     rule.SmoothTransitionSeconds,
                     cancellationToken,
-                    StartRewardStateAfterFirstScaleSend))
+                    StartRewardStateAfterFirstScaleSend,
+                    rule: rule))
             {
                 return firstScaleSendStarted;
             }
@@ -4929,7 +5027,8 @@ internal BridgeCoordinator(
                 duration,
                 Math.Clamp(rule.SmoothTransitionSeconds, 0, 30),
                 StartRewardStateAfterFirstScaleSend,
-                cancellationToken);
+                cancellationToken,
+                rule);
 
             if (!firstScaleSendStarted)
             {
@@ -4955,7 +5054,8 @@ internal BridgeCoordinator(
         double targetHeight,
         double smoothSeconds,
         CancellationToken cancellationToken,
-        Action? afterFirstSuccessfulSend = null)
+        Action? afterFirstSuccessfulSend = null,
+        AvatarScaleRuleSnapshot? rule = null)
     {
         if (!IsAvatarScaleOperationCurrent(operation))
         {
@@ -4971,7 +5071,8 @@ internal BridgeCoordinator(
                 smoothSeconds,
                 cancellationToken,
                 afterFirstSuccessfulSend,
-                () => IsAvatarScaleOperationCurrent(operation));
+                () => IsAvatarScaleOperationCurrent(operation),
+                rule);
             if (!completed)
             {
                 WriteLog($"Avatar scale '{operation.RuleName}' stopped because a newer or higher-priority scale effect took over.");
@@ -4990,7 +5091,8 @@ internal BridgeCoordinator(
         double smoothSeconds,
         CancellationToken cancellationToken,
         Action? afterFirstSuccessfulSend = null,
-        Func<bool>? shouldContinue = null)
+        Func<bool>? shouldContinue = null,
+        AvatarScaleRuleSnapshot? rule = null)
     {
         var currentHeight = await TryGetCurrentAvatarHeightAsync(cancellationToken);
         if (smoothSeconds <= 0 || currentHeight is null)
@@ -5000,7 +5102,7 @@ internal BridgeCoordinator(
                 return false;
             }
 
-            await SendAvatarHeightValueAsync(targetHeight, cancellationToken);
+            await SendAvatarHeightValueAsync(targetHeight, cancellationToken, rule);
             afterFirstSuccessfulSend?.Invoke();
             return true;
         }
@@ -5032,7 +5134,7 @@ internal BridgeCoordinator(
                 : Math.Clamp(stopwatch.Elapsed.TotalSeconds / duration.TotalSeconds, 0, 1);
             var easedProgress = SmoothStep(linearProgress);
             var value = startHeight + ((targetHeight - startHeight) * easedProgress);
-            await SendAvatarHeightValueAsync(value, cancellationToken);
+            await SendAvatarHeightValueAsync(value, cancellationToken, rule);
             afterFirstSuccessfulSend?.Invoke();
             afterFirstSuccessfulSend = null;
         }
@@ -5211,18 +5313,62 @@ internal BridgeCoordinator(
         CancellationTokenSource? previousCancellation = null;
         ActiveAvatarScaleRestoreSequenceState? sequence = null;
 
+        var isPaySystem = rule.IsPaySystemTrigger;
+        var ruleActiveTime = Math.Max(0.001, rule.ActiveTimeSeconds);
+        double effectiveActiveTime = ruleActiveTime;
+        double newHighestSeen = ruleActiveTime;
+
         lock (stateGate)
         {
+            if (isPaySystem)
+            {
+                // Tier 2 (pay): always reset to own ActiveTimeSeconds, reset highest-seen.
+                effectiveActiveTime = ruleActiveTime;
+                newHighestSeen = ruleActiveTime;
+                currentScaleWindowHighestSeenActiveTimeSeconds = newHighestSeen;
+                currentScaleWindowIsPaySystemTier = true;
+            }
+            else if (currentScaleWindowIsPaySystemTier)
+            {
+                // Tier 1 after a Tier 2 window: check whether the Tier-2 window is still active.
+                if (activeAvatarScaleRestoreSequence is { } existing
+                    && existing.IsPaySystemTier
+                    && existing.ActiveUntil > now)
+                {
+                    // Tier-2 still running — Tier-1 cannot preempt. Do not reschedule.
+                    newCancellation.Dispose();
+                    WriteLog($"Avatar scale '{sourceRuleName}' height changed but restore timer stays on the active pay-system schedule.");
+                    return;
+                }
+
+                // Tier-2 expired — start a fresh Tier-1 window.
+                effectiveActiveTime = ruleActiveTime;
+                newHighestSeen = ruleActiveTime;
+                currentScaleWindowHighestSeenActiveTimeSeconds = newHighestSeen;
+                currentScaleWindowIsPaySystemTier = false;
+            }
+            else
+            {
+                // Tier 1 normal: each new trigger resets the timer to the highest ActiveTimeSeconds seen
+                // in the current active scale window (counted from now). Highest-seen only goes up.
+                newHighestSeen = Math.Max(currentScaleWindowHighestSeenActiveTimeSeconds, ruleActiveTime);
+                effectiveActiveTime = newHighestSeen;
+                currentScaleWindowHighestSeenActiveTimeSeconds = newHighestSeen;
+            }
+
             sequence = new ActiveAvatarScaleRestoreSequenceState(
                 ++nextAvatarScaleRestoreSequenceId,
                 avatarId,
                 carriedHeightMeters,
                 ApplyAvatarScaleHeightLimits(rule, restoreHeight, "return height"),
-                now.AddSeconds(Math.Max(0.001, rule.ActiveTimeSeconds)),
+                now.AddSeconds(effectiveActiveTime),
                 sourceRuleName,
                 Math.Max(0, rule.SmoothTransitionSeconds),
                 RestoreToPaidGrowthIfActive: true,
-                isTest);
+                isTest,
+                rule,
+                HighestSeenActiveTimeSeconds: newHighestSeen,
+                IsPaySystemTier: isPaySystem);
             previousCancellation = avatarScaleRestoreSequenceCancellation;
             avatarScaleRestoreSequenceCancellation = newCancellation;
             activeAvatarScaleRestoreSequence = sequence;
@@ -5239,10 +5385,68 @@ internal BridgeCoordinator(
         previousCancellation?.Cancel();
         _ = Task.Run(() => RunAvatarScaleRestoreSequenceAsync(sequence, newCancellation), CancellationToken.None);
 
-        var activeSeconds = Math.Max(0.001, rule.ActiveTimeSeconds);
+        var activeSeconds = effectiveActiveTime;
         WriteLog(isTest
             ? $"Avatar scale test/simulated effect '{sourceRuleName}' reset the inactive restore timer for {DescribeDuration(activeSeconds)}."
             : $"Avatar scale '{sourceRuleName}' reset the inactive restore timer for {DescribeDuration(activeSeconds)}.");
+    }
+
+    private void ExtendActiveActivityTimers(TimeSpan extension, string sourceLabel)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var anyExtended = false;
+
+        lock (stateGate)
+        {
+            if (activeAvatarScaleRestoreSequence is { } scaleSequence
+                && scaleSequence.ActiveUntil > now)
+            {
+                var newActiveUntil = scaleSequence.ActiveUntil.Add(extension);
+                activeAvatarScaleRestoreSequence = scaleSequence with { ActiveUntil = newActiveUntil };
+                anyExtended = true;
+                WriteLog($"Extended avatar scale '{scaleSequence.SourceRuleName}' by {extension.TotalSeconds:0.#} seconds from {sourceLabel}.");
+            }
+
+            foreach (var kvp in activeFloatRedeemSessions.ToArray())
+            {
+                if (kvp.Value.ActiveUntil > now)
+                {
+                    kvp.Value.ActiveUntil = kvp.Value.ActiveUntil.Add(extension);
+                    anyExtended = true;
+                }
+            }
+
+            if (activeSupporterOverride is { } supporterOverride
+                && supporterOverride.ActiveUntil > now)
+            {
+                supporterOverride.ActiveUntil = supporterOverride.ActiveUntil.Add(extension);
+                anyExtended = true;
+            }
+
+            foreach (var kvp in pendingResets.ToArray())
+            {
+                if (kvp.Value.DueAt > now)
+                {
+                    var updated = kvp.Value with { DueAt = kvp.Value.DueAt.Add(extension) };
+                    pendingResets[kvp.Key] = updated;
+                    anyExtended = true;
+                }
+            }
+
+            foreach (var kvp in actionLanes.ToArray())
+            {
+                if (kvp.Value.BusyUntil > now)
+                {
+                    actionLanes[kvp.Key] = kvp.Value with { BusyUntil = kvp.Value.BusyUntil.Add(extension) };
+                    anyExtended = true;
+                }
+            }
+        }
+
+        if (!anyExtended)
+        {
+            WriteLog($"{sourceLabel} received — no active activity to extend.");
+        }
     }
 
     private void CancelAvatarScaleRestoreSequenceForCurrentAvatar(
@@ -5375,7 +5579,8 @@ internal BridgeCoordinator(
                             operation,
                             restoreHeightMeters,
                             sequence.RestoreSmoothTransitionSeconds,
-                            cancellationToken))
+                            cancellationToken,
+                            rule: sequence.Rule))
                     {
                         await Task.Delay(AvatarScaleQueuePollDelay, cancellationToken);
                         continue;
@@ -5431,6 +5636,8 @@ internal BridgeCoordinator(
             {
                 activeAvatarScaleRestoreSequence = null;
                 avatarScaleRestoreSequenceCancellation = null;
+                currentScaleWindowHighestSeenActiveTimeSeconds = 0;
+                currentScaleWindowIsPaySystemTier = false;
             }
 
             if (activeAvatarScaleCarryover?.RestoreSequenceId == sequenceId)
@@ -5447,20 +5654,29 @@ internal BridgeCoordinator(
         CancellationToken cancellationToken)
     {
         var bitHeightDirection = 1;
+        var anyKeywordMatched = true;
         if (!isTest
             && incomingEvent.TriggerType == UniversalTriggerType.Bits
             && !TryResolveSupporterGrowthBitsHeightDirection(
                 rule,
                 incomingEvent.ChatMessageText,
                 out bitHeightDirection,
-                out var directionDiagnostic))
+                out var directionDiagnostic,
+                out anyKeywordMatched))
         {
             WriteLog(directionDiagnostic ?? TF("Avatar scale '{0}' skipped because the cheer text matched both grow and shrink keywords.", rule.Name));
             return;
         }
 
-        var addedHeight = GetSupporterGrowthHeightAdd(rule, incomingEvent, isTest, bitHeightDirection);
-        if (addedHeight == 0)
+        var keywordRequiredButMissing = rule.SupporterGrowthRequireCheerKeyword
+            && !isTest
+            && incomingEvent.TriggerType == UniversalTriggerType.Bits
+            && !anyKeywordMatched;
+
+        var addedHeight = keywordRequiredButMissing
+            ? 0
+            : GetSupporterGrowthHeightAdd(rule, incomingEvent, isTest, bitHeightDirection);
+        if (addedHeight == 0 && !keywordRequiredButMissing)
         {
             WriteLog($"Avatar scale '{rule.Name}' skipped because this supporter event does not match a configured tier or bits range.");
             return;
@@ -5505,7 +5721,8 @@ internal BridgeCoordinator(
                         operation,
                         testTargetHeight,
                         rule.SupporterGrowthTransitionSeconds,
-                        cancellationToken))
+                        cancellationToken,
+                        rule: rule))
                 {
                     return;
                 }
@@ -5521,7 +5738,8 @@ internal BridgeCoordinator(
                     operation,
                     normalHeight,
                     rule.SupporterGrowthTransitionSeconds,
-                    cancellationToken);
+                    cancellationToken,
+                    rule: rule);
 
                 WriteLog($"Sent supporter growth test/simulated effect for '{rule.Name}' to {testTargetHeight:0.###}m (+{addedHeight:0.###}m) for {DescribeDuration(addedPaidSeconds)}.");
                 return;
@@ -5577,6 +5795,7 @@ internal BridgeCoordinator(
             _ = Task.Run(
                 () => RunSupporterGrowthScaleSessionAsync(
                     operation,
+                    rule,
                     rule.Id,
                     rule.Name,
                     targetHeight,
@@ -5587,7 +5806,9 @@ internal BridgeCoordinator(
                     sessionCancellation),
                 CancellationToken.None);
 
-            WriteLog($"{incomingEvent.UserDisplayName} changed supporter growth '{rule.Name}' by {addedHeight:+0.###;-0.###;0}m and added {DescribeDuration(addedPaidSeconds)} for a target of {targetHeight:0.###}m. Paid time remaining: {DescribeDuration(remainingPaidSeconds)}.");
+            WriteLog(keywordRequiredButMissing
+                ? $"{incomingEvent.UserDisplayName} added {DescribeDuration(addedPaidSeconds)} to supporter growth '{rule.Name}' without changing height (no grow/shrink keyword). Paid time remaining: {DescribeDuration(remainingPaidSeconds)}."
+                : $"{incomingEvent.UserDisplayName} changed supporter growth '{rule.Name}' by {addedHeight:+0.###;-0.###;0}m and added {DescribeDuration(addedPaidSeconds)} for a target of {targetHeight:0.###}m. Paid time remaining: {DescribeDuration(remainingPaidSeconds)}.");
         }
         finally
         {
@@ -5600,6 +5821,7 @@ internal BridgeCoordinator(
 
     private async Task RunSupporterGrowthScaleSessionAsync(
         ActiveAvatarScaleOperationTicket operation,
+        AvatarScaleRuleSnapshot rule,
         Guid ruleId,
         string ruleName,
         double targetHeight,
@@ -5629,7 +5851,8 @@ internal BridgeCoordinator(
                             normalHeight,
                             targetHeight,
                             activeWindowSeconds);
-                    }))
+                    },
+                    rule: rule))
             {
                 return;
             }
@@ -5685,7 +5908,7 @@ internal BridgeCoordinator(
 
             var restoreHeight = ResolveAvatarScaleRestoreHeightForCurrentAvatar(normalHeight);
             var resetOperation = restoreOperation ?? operation;
-            if (await SendAvatarHeightForOperationAsync(resetOperation, restoreHeight, smoothTransitionSeconds, cancellationToken))
+            if (await SendAvatarHeightForOperationAsync(resetOperation, restoreHeight, smoothTransitionSeconds, cancellationToken, rule: rule))
             {
                 ClearPendingAvatarScaleHeightRestoreForCurrentAvatar();
                 WriteLog($"Supporter growth '{ruleName}' returned to normal height after paid active time ended.");
@@ -5828,14 +6051,17 @@ internal BridgeCoordinator(
         AvatarScaleRuleSnapshot rule,
         string messageText,
         out int direction,
-        out string? diagnostic)
+        out string? diagnostic,
+        out bool anyKeywordMatched)
     {
         direction = 1;
         diagnostic = null;
+        anyKeywordMatched = false;
 
         var cheerText = ExtractBitsOutfitChoiceText(messageText);
         var growMatched = ContainsSupporterGrowthBitsKeyword(cheerText, rule.SupporterGrowthGrowKeyword);
         var shrinkMatched = ContainsSupporterGrowthBitsKeyword(cheerText, rule.SupporterGrowthShrinkKeyword);
+        anyKeywordMatched = growMatched || shrinkMatched;
         if (growMatched && shrinkMatched)
         {
             diagnostic = TF(
@@ -5955,8 +6181,12 @@ internal BridgeCoordinator(
         return false;
     }
 
-    private async Task SendAvatarHeightValueAsync(double heightMeters, CancellationToken cancellationToken)
+    private async Task SendAvatarHeightValueAsync(
+        double heightMeters,
+        CancellationToken cancellationToken,
+        AvatarScaleRuleSnapshot? rule = null)
     {
+        heightMeters = ClampAvatarScaleHeightForSend(heightMeters, rule);
         var floatValue = (float)heightMeters;
         var packet = vrChatOscClient.BuildPacketForAddress(
             "/avatar/eyeheight",
@@ -6129,10 +6359,54 @@ internal BridgeCoordinator(
             return 1.6;
         }
 
-        return Math.Clamp(
-            value,
-            rule.AdvancedRangeEnabled ? AvatarScaleRule.AdvancedMinimumHeightMeters : AvatarScaleRule.SafeMinimumHeightMeters,
-            rule.AdvancedRangeEnabled ? AvatarScaleRule.AdvancedMaximumHeightMeters : AvatarScaleRule.SafeMaximumHeightMeters);
+        var modeMinimum = rule.AdvancedRangeEnabled
+            ? AvatarScaleRule.AdvancedMinimumHeightMeters
+            : AvatarScaleRule.SafeMinimumHeightMeters;
+        var modeMaximum = rule.AdvancedRangeEnabled
+            ? AvatarScaleRule.AdvancedMaximumHeightMeters
+            : AvatarScaleRule.SafeMaximumHeightMeters;
+        var minimum = Math.Max(modeMinimum, rule.CurrentMinimumHeightAllowedMeters);
+        var maximum = Math.Min(modeMaximum, rule.CurrentMaximumHeightAllowedMeters);
+        if (maximum < minimum)
+        {
+            minimum = rule.CurrentMinimumHeightAllowedMeters > modeMaximum
+                ? modeMaximum
+                : modeMinimum;
+            maximum = minimum;
+        }
+
+        return Math.Clamp(value, minimum, maximum);
+    }
+
+    private double ClampAvatarScaleHeightForSend(double value, AvatarScaleRuleSnapshot? rule)
+    {
+        return rule is null
+            ? ClampAvatarScaleHeightToActiveSafety(value)
+            : ClampAvatarScaleHeight(rule, value);
+    }
+
+    private double ClampAvatarScaleHeightToActiveSafety(double value)
+    {
+        if (double.IsNaN(value) || double.IsInfinity(value))
+        {
+            return 1.6;
+        }
+
+        var safety = activeConfiguration?.AvatarScaleSafety;
+        if (safety is null)
+        {
+            return Math.Clamp(value, AvatarScaleRule.AdvancedMinimumHeightMeters, AvatarScaleRule.AdvancedMaximumHeightMeters);
+        }
+
+        var minimum = Math.Clamp(
+            safety.CurrentMinimumHeightAllowedMeters,
+            AvatarScaleRule.AdvancedMinimumHeightMeters,
+            AvatarScaleRule.AdvancedMaximumHeightMeters);
+        var maximum = Math.Clamp(
+            safety.CurrentMaximumHeightAllowedMeters,
+            minimum,
+            AvatarScaleRule.AdvancedMaximumHeightMeters);
+        return Math.Clamp(value, minimum, maximum);
     }
 
     private double ApplyAvatarScaleHeightLimits(
@@ -6321,14 +6595,23 @@ internal BridgeCoordinator(
         UniversalIncomingEvent incomingEvent)
     {
         var bitHeightDirection = 1;
+        var anyKeywordMatched = true;
         if (incomingEvent.TriggerType == UniversalTriggerType.Bits
             && !TryResolveSupporterGrowthBitsHeightDirection(
                 rule,
                 incomingEvent.ChatMessageText,
                 out bitHeightDirection,
-                out _))
+                out _,
+                out anyKeywordMatched))
         {
             return false;
+        }
+
+        if (rule.SupporterGrowthRequireCheerKeyword
+            && incomingEvent.TriggerType == UniversalTriggerType.Bits
+            && !anyKeywordMatched)
+        {
+            return GetSupporterGrowthAddedTimeSeconds(rule, incomingEvent, isTest: false) > 0;
         }
 
         return GetSupporterGrowthHeightAdd(rule, incomingEvent, isTest: false, bitHeightDirection) != 0;
@@ -7804,6 +8087,8 @@ internal BridgeCoordinator(
         }
 
         var address = VrChatOscClient.NormalizeAvatarParameterAddress(rule.ParameterName);
+        var clampedTargetValue = ClampAvatarEyeHeightValueIfNeeded(address, targetValue);
+        var clampedResetValue = ClampAvatarEyeHeightValueIfNeeded(address, resetValue);
         laneKeys ??= GetActionLaneKeys(rule);
         laneLeaseId = laneKeys.Count == 0 ? Guid.Empty : Guid.NewGuid();
         var inSeconds = Math.Clamp(rule.FloatTransitionInSeconds, 0, 30);
@@ -7816,18 +8101,18 @@ internal BridgeCoordinator(
             : CancellationTokenSource.CreateLinkedTokenSource(runtimeCancellation.Token);
         var boostMaximumReached = IsActiveFloatBoostRule(rule)
             && TryResolveActiveFloatBoostMaximum(rule, out var maximumBoostValue)
-            && IsAtOrAboveActiveFloatBoostMaximum(targetValue, maximumBoostValue);
+            && IsAtOrAboveActiveFloatBoostMaximum(clampedTargetValue, maximumBoostValue);
         var (floatMaxReached, floatMinReached) = FloatLimitDetection.ComputeLimitState(
             rule.Rule,
-            targetValue,
+            clampedTargetValue,
             previousMaxReached: false,
             previousMinReached: false,
             featureEnabled: rule.Rule.HideRewardWhenFloatMaxReached || rule.Rule.HideRewardWhenFloatMinReached);
         var session = new ActiveFloatRedeemSessionState(
             rule,
             address,
-            targetValue,
-            resetValue,
+            clampedTargetValue,
+            clampedResetValue,
             activeUntil,
             completionCancellation,
             laneKeys,
@@ -7897,17 +8182,17 @@ internal BridgeCoordinator(
 
         try
         {
-            var startValue = await TryGetCurrentAvatarFloatValueAsync(address, targetValue, cancellationToken);
+            var startValue = await TryGetCurrentAvatarFloatValueAsync(address, clampedTargetValue, cancellationToken);
             await session.SendGate.WaitAsync(cancellationToken);
             try
             {
                 await SendFloatAvatarParameterValueAsync(
                     address,
                     startValue,
-                    targetValue,
+                    clampedTargetValue,
                     inSeconds,
                     cancellationToken);
-                session.CurrentValue = targetValue;
+                session.CurrentValue = clampedTargetValue;
             }
             finally
             {
@@ -7920,7 +8205,7 @@ internal BridgeCoordinator(
             throw;
         }
 
-        RememberAvatarParameterValue(rule, FloatValueModeConverter.ToOscText(targetValue));
+        RememberAvatarParameterValue(rule, FloatValueModeConverter.ToOscText(clampedTargetValue));
 
         if (isTest)
         {
@@ -7939,7 +8224,7 @@ internal BridgeCoordinator(
 
         if (!isTest && bridgeEvent is not null)
         {
-            await TrySendBotMessageAsync(rule, bridgeEvent, FloatValueModeConverter.ToOscText(targetValue), cancellationToken);
+            await TrySendBotMessageAsync(rule, bridgeEvent, FloatValueModeConverter.ToOscText(clampedTargetValue), cancellationToken);
         }
     }
 
@@ -8096,6 +8381,7 @@ internal BridgeCoordinator(
             : CancellationTokenSource.CreateLinkedTokenSource(runtimeCancellation.Token);
         var newActiveUntil = DateTimeOffset.UtcNow.AddSeconds(inSeconds + activeSeconds + outSeconds);
         double boostedValue;
+        double clampedBoostedValue;
         bool boostMaximumReached;
         bool floatLimitChanged;
 
@@ -8109,13 +8395,14 @@ internal BridgeCoordinator(
             }
 
             boostedValue = Math.Clamp(session.CurrentValue + addValue, lowerBound, upperBound);
-            boostMaximumReached = IsAtOrAboveActiveFloatBoostMaximum(boostedValue, upperBound);
+            clampedBoostedValue = ClampAvatarEyeHeightValueIfNeeded(session.Address, boostedValue);
+            boostMaximumReached = IsAtOrAboveActiveFloatBoostMaximum(clampedBoostedValue, upperBound);
             session.ActiveUntil = newActiveUntil;
             session.CompletionCancellation = newCompletionCancellation;
             session.BoostMaximumReached = boostMaximumReached;
             var (updatedFloatMax, updatedFloatMin) = FloatLimitDetection.ComputeLimitState(
                 session.Rule.Rule,
-                boostedValue,
+                clampedBoostedValue,
                 previousMaxReached: session.FloatMaxReached,
                 previousMinReached: session.FloatMinReached,
                 featureEnabled: session.Rule.Rule.HideRewardWhenFloatMaxReached
@@ -8150,19 +8437,19 @@ internal BridgeCoordinator(
             await SendFloatAvatarParameterValueAsync(
                 session.Address,
                 session.CurrentValue,
-                boostedValue,
+                clampedBoostedValue,
                 inSeconds,
                 cancellationToken);
-            session.CurrentValue = boostedValue;
+            session.CurrentValue = clampedBoostedValue;
         }
         finally
         {
             session.SendGate.Release();
         }
 
-        RememberAvatarParameterValue(rule, FloatValueModeConverter.ToOscText(boostedValue));
+        RememberAvatarParameterValue(rule, FloatValueModeConverter.ToOscText(clampedBoostedValue));
         ScheduleActiveFloatRedeemCompletion(session, newCompletionCancellation, inSeconds, activeSeconds, outSeconds);
-        WriteLog($"{bridgeEvent.UserDisplayName} boosted '{rule.Name}' to {FloatValueModeConverter.ToOscText(boostedValue)} and refreshed its active timer.");
+        WriteLog($"{bridgeEvent.UserDisplayName} boosted '{rule.Name}' to {FloatValueModeConverter.ToOscText(clampedBoostedValue)} and refreshed its active timer.");
     }
 
     private void FinishActiveFloatRedeemSession(
@@ -8326,9 +8613,9 @@ internal BridgeCoordinator(
         double value,
         CancellationToken cancellationToken)
     {
-        var clampedValue = Math.Clamp(value, 0d, 1d);
+        var clampedValue = ClampAvatarFloatValueForAddress(address, value);
         await oscRouterService.SendToVrChatAsync(
-            vrChatOscClient.BuildAvatarParameterPacket(address, OscParameterType.Float, FloatValueModeConverter.ToOscText(clampedValue)),
+            BuildAvatarParameterPacketWithAvatarScaleSafety(address, OscParameterType.Float, FloatValueModeConverter.ToOscText(clampedValue)),
             cancellationToken);
         ObserveOscValue(new OscObservedValue(address, OscParameterType.Float, (float)clampedValue));
     }
@@ -10164,7 +10451,7 @@ internal BridgeCoordinator(
 
                 var nextValue = !currentValue;
                 return new ResolvedRuleAction(
-                    vrChatOscClient.BuildAvatarParameterPacket(address, OscParameterType.Bool, nextValue ? "True" : "False"),
+                    BuildAvatarParameterPacketWithAvatarScaleSafety(address, OscParameterType.Bool, nextValue ? "True" : "False"),
                     null,
                     nextValue ? "True" : "False");
             }
@@ -10178,14 +10465,14 @@ internal BridgeCoordinator(
                 };
 
                 return new ResolvedRuleAction(
-                    vrChatOscClient.BuildAvatarParameterPacket(address, OscParameterType.Int, resolvedValue.ToString(CultureInfo.InvariantCulture)),
+                    BuildAvatarParameterPacketWithAvatarScaleSafety(address, OscParameterType.Int, resolvedValue.ToString(CultureInfo.InvariantCulture)),
                     null,
                     resolvedValue.ToString(CultureInfo.InvariantCulture));
             }
             default:
             {
                 var targetValue = ResolveAvatarParameterPacketValue(rule.ParameterType, rule.FloatValueMode, rule.ParameterValue);
-                var targetPacket = vrChatOscClient.BuildAvatarParameterPacket(address, rule.ParameterType, targetValue);
+                var targetPacket = BuildAvatarParameterPacketWithAvatarScaleSafety(address, rule.ParameterType, targetValue);
                 var displayValue = targetValue;
                 var observedValues = Array.Empty<OscObservedValue>();
                 if (TryCreateObservedValueFromText(address, rule.ParameterType, targetValue, out var targetText, out var targetObservedValue))
@@ -10199,7 +10486,7 @@ internal BridgeCoordinator(
                 if (rule.DurationSeconds > 0 && !string.IsNullOrWhiteSpace(rule.ResetValue))
                 {
                     var resetValue = ResolveAvatarParameterPacketValue(rule.ParameterType, rule.FloatValueMode, rule.ResetValue);
-                    resetPacket = vrChatOscClient.BuildAvatarParameterPacket(address, rule.ParameterType, resetValue);
+                    resetPacket = BuildAvatarParameterPacketWithAvatarScaleSafety(address, rule.ParameterType, resetValue);
                     if (TryCreateObservedValueFromText(address, rule.ParameterType, resetValue, out _, out var resetObservedValue))
                     {
                         resetObservedValues = [resetObservedValue];
@@ -10228,42 +10515,48 @@ internal BridgeCoordinator(
         var currentValue = await TryGetCurrentAvatarFloatValueAsync(address, fallback, cancellationToken).ConfigureAwait(false);
 
         var (nextValue, configuredReset) = FloatActionDispatch.ComputeNext(sourceRule, currentValue);
-        var targetPacket = vrChatOscClient.BuildAvatarParameterPacket(
+        var clampedNextValue = ClampAvatarEyeHeightValueIfNeeded(address, nextValue);
+        var targetPacket = BuildAvatarParameterPacketWithAvatarScaleSafety(
             address, OscParameterType.Float,
-            FloatValueModeConverter.ToOscText(nextValue));
+            FloatValueModeConverter.ToOscText(clampedNextValue));
 
         if (sourceRule.FloatActionMode == FloatActionMode.Pulse)
         {
-            var pulseReset = configuredReset ?? ClampAvatarFloatValue(currentValue);
-            var pulsePacket = vrChatOscClient.BuildAvatarParameterPacket(
+            var pulseReset = ClampAvatarEyeHeightValueIfNeeded(
+                address,
+                configuredReset ?? ClampAvatarFloatValueForAddress(address, currentValue));
+            var pulsePacket = BuildAvatarParameterPacketWithAvatarScaleSafety(
                 address, OscParameterType.Float,
-                FloatValueModeConverter.ToOscText(nextValue));
+                FloatValueModeConverter.ToOscText(clampedNextValue));
             ScheduleFloatPulseRestore(sourceRule, address, pulsePacket, pulseReset);
             return new ResolvedRuleAction(
                 packets: new[] { pulsePacket },
                 resetPackets: Array.Empty<byte[]>(),
-                displayValue: FloatValueModeConverter.ToOscText(nextValue));
+                displayValue: FloatValueModeConverter.ToOscText(clampedNextValue));
         }
 
-        var effectiveReset = configuredReset ?? (sourceRule.DurationSeconds > 0 ? ClampAvatarFloatValue(currentValue) : (double?)null);
-        var resetPackets = effectiveReset.HasValue
+        var effectiveReset = configuredReset ?? (sourceRule.DurationSeconds > 0 ? ClampAvatarFloatValueForAddress(address, currentValue) : (double?)null);
+        var clampedResetValue = effectiveReset.HasValue
+            ? ClampAvatarEyeHeightValueIfNeeded(address, effectiveReset.Value)
+            : (double?)null;
+        var resetPackets = clampedResetValue.HasValue
             ? new[]
               {
-                  vrChatOscClient.BuildAvatarParameterPacket(
+                  BuildAvatarParameterPacketWithAvatarScaleSafety(
                       address, OscParameterType.Float,
-                      FloatValueModeConverter.ToOscText(effectiveReset.Value))
+                      FloatValueModeConverter.ToOscText(clampedResetValue.Value))
               }
             : Array.Empty<byte[]>();
 
         if (sourceRule.FloatActionMode == FloatActionMode.Glitchy && sourceRule.DurationSeconds > 0)
         {
-            return ResolveGlitchyFloatSession(rule, address, nextValue, effectiveReset ?? ClampAvatarFloatValue(currentValue));
+            return ResolveGlitchyFloatSession(rule, address, clampedNextValue, clampedResetValue ?? ClampAvatarEyeHeightValueIfNeeded(address, ClampAvatarFloatValueForAddress(address, currentValue)));
         }
 
         return new ResolvedRuleAction(
             packets: new[] { targetPacket },
             resetPackets: resetPackets,
-            displayValue: FloatValueModeConverter.ToOscText(nextValue));
+            displayValue: FloatValueModeConverter.ToOscText(clampedNextValue));
     }
 
     private static double ClampAvatarFloatValue(double value)
@@ -10281,11 +10574,18 @@ internal BridgeCoordinator(
             try
             {
                 await Task.Delay(TimeSpan.FromSeconds(seconds)).ConfigureAwait(false);
-                var resetPacket = vrChatOscClient.BuildAvatarParameterPacket(
-                    address, OscParameterType.Float,
+                var resetText = ClampAvatarEyeHeightRawValueIfNeeded(
+                    address,
+                    OscParameterType.Float,
                     FloatValueModeConverter.ToOscText(resetValue));
+                var resetPacket = BuildAvatarParameterPacketWithAvatarScaleSafety(
+                    address, OscParameterType.Float,
+                    resetText);
                 await oscRouterService.SendToVrChatAsync(resetPacket).ConfigureAwait(false);
-                ObserveOscValue(new OscObservedValue(address, OscParameterType.Float, (float)resetValue));
+                if (float.TryParse(resetText, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out var observedResetValue))
+                {
+                    ObserveOscValue(new OscObservedValue(address, OscParameterType.Float, observedResetValue));
+                }
             }
             catch (TaskCanceledException) { }
             catch (Exception ex)
@@ -10299,6 +10599,8 @@ internal BridgeCoordinator(
         TriggerRuleSnapshot rule, string address, double nextValue, double resetValue)
     {
         var leaseId = Guid.NewGuid();
+        var clampedNextValue = ClampAvatarEyeHeightValueIfNeeded(address, nextValue);
+        var clampedResetValue = ClampAvatarEyeHeightValueIfNeeded(address, resetValue);
         var session = new ActiveFloatGlitchyRedeemSessionState
         {
             Rule = rule,
@@ -10307,7 +10609,8 @@ internal BridgeCoordinator(
             Max = rule.Rule.FloatRangeMax,
             IntervalMs = rule.Rule.FloatGlitchyIntervalMs,
             ActiveUntil = DateTimeOffset.UtcNow.AddSeconds(rule.Rule.DurationSeconds),
-            ResetValue = resetValue,
+            ResetValue = clampedResetValue,
+            CurrentValue = clampedNextValue,
             LeaseId = leaseId,
         };
 
@@ -10324,11 +10627,11 @@ internal BridgeCoordinator(
 
         _ = Task.Run(() => RunGlitchyLoopAsync(session));
         return new ResolvedRuleAction(
-            packets: new[] { vrChatOscClient.BuildAvatarParameterPacket(
+            packets: new[] { BuildAvatarParameterPacketWithAvatarScaleSafety(
                 address, OscParameterType.Float,
-                FloatValueModeConverter.ToOscText(nextValue)) },
+                FloatValueModeConverter.ToOscText(clampedNextValue)) },
             resetPackets: Array.Empty<byte[]>(),
-            displayValue: FloatValueModeConverter.ToOscText(nextValue));
+            displayValue: FloatValueModeConverter.ToOscText(clampedNextValue));
     }
 
     private async Task RunGlitchyLoopAsync(ActiveFloatGlitchyRedeemSessionState session)
@@ -10342,21 +10645,22 @@ internal BridgeCoordinator(
                     .ConfigureAwait(false);
                 if (session.CompletionCancellation.IsCancellationRequested) break;
                 var value = Random.Shared.NextDouble() * (session.Max - session.Min) + session.Min;
+                var clampedValue = ClampAvatarEyeHeightValueIfNeeded(session.Address, value);
                 var inSeconds = Math.Clamp(session.Rule.FloatTransitionInSeconds, 0, 30);
-                var currentValue = await TryGetCurrentAvatarFloatValueAsync(session.Address, value, session.CompletionCancellation.Token);
-                if (inSeconds <= 0 || Math.Abs(currentValue - value) < 0.000001d)
+                var currentValue = await TryGetCurrentAvatarFloatValueAsync(session.Address, clampedValue, session.CompletionCancellation.Token);
+                if (inSeconds <= 0 || Math.Abs(currentValue - clampedValue) < 0.000001d)
                 {
                     await SendSingleFloatAvatarParameterValueAsync(
-                        session.Address, value, session.CompletionCancellation.Token)
+                        session.Address, clampedValue, session.CompletionCancellation.Token)
                         .ConfigureAwait(false);
                 }
                 else
                 {
                     await SendFloatAvatarParameterValueAsync(
-                        session.Address, currentValue, value, inSeconds, session.CompletionCancellation.Token)
+                        session.Address, currentValue, clampedValue, inSeconds, session.CompletionCancellation.Token)
                         .ConfigureAwait(false);
                 }
-                session.CurrentValue = value;
+                session.CurrentValue = clampedValue;
             }
             if (!session.CompletionCancellation.IsCancellationRequested)
             {
@@ -10477,9 +10781,9 @@ internal BridgeCoordinator(
                 throw new InvalidOperationException($"Safe-canceled Set Trigger '{rule.Name}' because Crystal Relay could not read the current {preparedAction.ParameterType} value for {preparedAction.Address}.");
             }
 
-            packets.Add(vrChatOscClient.BuildAvatarParameterPacket(preparedAction.Address, preparedAction.ParameterType, preparedAction.TargetText));
+            packets.Add(BuildAvatarParameterPacketWithAvatarScaleSafety(preparedAction.Address, preparedAction.ParameterType, preparedAction.TargetText));
             observedValues.Add(preparedAction.TargetObservedValue);
-            resetPackets.Add(vrChatOscClient.BuildAvatarParameterPacket(preparedAction.Address, preparedAction.ParameterType, resetText));
+            resetPackets.Add(BuildAvatarParameterPacketWithAvatarScaleSafety(preparedAction.Address, preparedAction.ParameterType, resetText));
             resetObservedValues.Add(resetObservedValue);
         }
 
@@ -10616,7 +10920,7 @@ internal BridgeCoordinator(
         return requests;
     }
 
-    private static bool TryCreateObservedValueFromExisting(
+    private bool TryCreateObservedValueFromExisting(
         string address,
         OscParameterType expectedType,
         OscObservedValue? observedValue,
@@ -10641,8 +10945,16 @@ internal BridgeCoordinator(
                 normalizedValue = new OscObservedValue(address, OscParameterType.Int, intValue);
                 return true;
             case OscParameterType.Float when observedValue.Value is float floatValue:
-                valueText = floatValue.ToString(CultureInfo.InvariantCulture);
-                normalizedValue = new OscObservedValue(address, OscParameterType.Float, floatValue);
+                valueText = ClampAvatarEyeHeightRawValueIfNeeded(
+                    address,
+                    OscParameterType.Float,
+                    floatValue.ToString(CultureInfo.InvariantCulture));
+                if (!float.TryParse(valueText, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out var normalizedFloatValue))
+                {
+                    return false;
+                }
+
+                normalizedValue = new OscObservedValue(address, OscParameterType.Float, normalizedFloatValue);
                 return true;
             default:
                 return false;
@@ -10667,7 +10979,7 @@ internal BridgeCoordinator(
         return FloatValueModeConverter.ToOscText(normalizedValue);
     }
 
-    private static bool TryCreateObservedValueFromText(
+    private bool TryCreateObservedValueFromText(
         string address,
         OscParameterType parameterType,
         string rawValue,
@@ -10698,7 +11010,8 @@ internal BridgeCoordinator(
 
                 return false;
             case OscParameterType.Float:
-                if (float.TryParse(rawValue, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out var floatValue))
+                var floatRawValue = ClampAvatarEyeHeightRawValueIfNeeded(address, OscParameterType.Float, rawValue);
+                if (float.TryParse(floatRawValue, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out var floatValue))
                 {
                     valueText = floatValue.ToString(CultureInfo.InvariantCulture);
                     observedValue = new OscObservedValue(address, OscParameterType.Float, floatValue);
@@ -10823,7 +11136,11 @@ internal BridgeCoordinator(
                 => new OscObservedValue(address, OscParameterType.Bool, boolValue),
             OscParameterType.Int when int.TryParse(resolvedValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out var intValue)
                 => new OscObservedValue(address, OscParameterType.Int, intValue),
-            OscParameterType.Float when float.TryParse(resolvedValue, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out var floatValue)
+            OscParameterType.Float when float.TryParse(
+                ClampAvatarEyeHeightRawValueIfNeeded(address, OscParameterType.Float, resolvedValue),
+                NumberStyles.Float | NumberStyles.AllowThousands,
+                CultureInfo.InvariantCulture,
+                out var floatValue)
                 => new OscObservedValue(address, OscParameterType.Float, floatValue),
             _ => null
         };
@@ -11254,7 +11571,7 @@ internal BridgeCoordinator(
                 throw new InvalidOperationException($"Crystal Relay could not build a Set Trigger restore packet for {restoreValue.Address}.");
             }
 
-            packets.Add(vrChatOscClient.BuildAvatarParameterPacket(normalizedRestoreValue.Address, normalizedRestoreValue.ParameterType, restoreText));
+            packets.Add(BuildAvatarParameterPacketWithAvatarScaleSafety(normalizedRestoreValue.Address, normalizedRestoreValue.ParameterType, restoreText));
             observedValues.Add(normalizedRestoreValue);
         }
 
@@ -14412,7 +14729,8 @@ internal BridgeCoordinator(
                     newAvatarId,
                     carryover.FallbackRestoreHeightMeters,
                     carryover.ActiveUntil,
-                    carryover.SourceRuleName);
+                    carryover.SourceRuleName,
+                    carryover.SourceRuleId);
 
                 RetargetAvatarScaleRestoreSequenceForAvatarChange(newAvatarId);
                 RetargetPausedDevAvatarScaleTimerForAvatarChange(newAvatarId);
@@ -14438,7 +14756,10 @@ internal BridgeCoordinator(
                         return;
                     }
 
-                    await SendAvatarHeightValueAsync(carryover.CarriedHeightMeters, cancellationToken);
+                    await SendAvatarHeightValueAsync(
+                        carryover.CarriedHeightMeters,
+                        cancellationToken,
+                        FindAvatarScaleRuleSnapshot(carryover.SourceRuleId));
                     WriteLog($"Applied active avatar scale height {carryover.CarriedHeightMeters:0.###}m to the new avatar from '{carryover.SourceRuleName}' ({attempt}/{AvatarScaleCarryoverApplyAttemptCount}) with {DescribeDuration((carryover.ActiveUntil - DateTimeOffset.UtcNow).TotalSeconds)} remaining.");
 
                     if (attempt < AvatarScaleCarryoverApplyAttemptCount)
@@ -14491,7 +14812,8 @@ internal BridgeCoordinator(
                     pendingAvatarScaleHeightRestores[fallbackPreviousAvatarId] = new PendingAvatarScaleHeightRestoreState(
                         activeCarryover.RestoreHeightMeters,
                         activeCarryover.ActiveUntil,
-                        activeCarryover.SourceRuleName);
+                        activeCarryover.SourceRuleName,
+                        activeCarryover.SourceRuleId);
                 }
 
                 return new AvatarScaleCarryoverSnapshot(
@@ -14538,7 +14860,8 @@ internal BridgeCoordinator(
                         pendingAvatarScaleHeightRestores[fallbackPreviousAvatarId] = new PendingAvatarScaleHeightRestoreState(
                             pausedSnapshot.RestoreHeightMeters,
                             pausedSnapshot.ActiveUntil,
-                            pausedSnapshot.SourceRuleName);
+                            pausedSnapshot.SourceRuleName,
+                            pausedSnapshot.RuleId);
                     }
 
                     return new AvatarScaleCarryoverSnapshot(
@@ -14566,11 +14889,12 @@ internal BridgeCoordinator(
                         pendingAvatarScaleHeightRestores[fallbackPreviousAvatarId] = new PendingAvatarScaleHeightRestoreState(
                             activeSequence.RestoreHeightMeters,
                             activeSequence.ActiveUntil,
-                            activeSequence.SourceRuleName);
+                            activeSequence.SourceRuleName,
+                            activeSequence.Rule?.Id ?? Guid.Empty);
                     }
 
                     return new AvatarScaleCarryoverSnapshot(
-                        Guid.Empty,
+                        activeSequence.Rule?.Id ?? Guid.Empty,
                         Guid.Empty,
                         activeSequence.SequenceId,
                         Guid.Empty,
@@ -14597,7 +14921,8 @@ internal BridgeCoordinator(
                     pendingAvatarScaleHeightRestores[normalizedPreviousAvatarId] = new PendingAvatarScaleHeightRestoreState(
                         previousRestoreHeight.Value,
                         latestSession.ActiveUntil,
-                        latestSession.RuleName);
+                        latestSession.RuleName,
+                        latestSession.RuleId);
                 }
             }
 
@@ -14851,7 +15176,8 @@ internal BridgeCoordinator(
         string avatarId,
         double restoreHeightMeters,
         DateTimeOffset activeUntil,
-        string sourceRuleName)
+        string sourceRuleName,
+        Guid sourceRuleId)
     {
         var normalizedAvatarId = avatarId?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(normalizedAvatarId))
@@ -14863,7 +15189,7 @@ internal BridgeCoordinator(
         {
             pendingAvatarScaleHeightRestores.TryAdd(
                 normalizedAvatarId,
-                new PendingAvatarScaleHeightRestoreState(restoreHeightMeters, activeUntil, sourceRuleName));
+                new PendingAvatarScaleHeightRestoreState(restoreHeightMeters, activeUntil, sourceRuleName, sourceRuleId));
         }
     }
 
@@ -14928,7 +15254,8 @@ internal BridgeCoordinator(
                 operation,
                 pendingRestore.RestoreHeightMeters,
                 0,
-                cancellationToken);
+                cancellationToken,
+                rule: FindAvatarScaleRuleSnapshot(pendingRestore.SourceRuleId));
         }
         finally
         {
@@ -19285,7 +19612,8 @@ internal BridgeCoordinator(
     private sealed record PendingAvatarScaleHeightRestoreState(
         double RestoreHeightMeters,
         DateTimeOffset SourceActiveUntil,
-        string SourceRuleName);
+        string SourceRuleName,
+        Guid SourceRuleId);
 
     private enum AvatarScaleAvatarChangeCarryoverMode
     {
@@ -19303,7 +19631,10 @@ internal BridgeCoordinator(
         string SourceRuleName,
         double RestoreSmoothTransitionSeconds,
         bool RestoreToPaidGrowthIfActive,
-        bool IsTest);
+        bool IsTest,
+        AvatarScaleRuleSnapshot? Rule,
+        double HighestSeenActiveTimeSeconds = 0,
+        bool IsPaySystemTier = false);
 
     private sealed record ActiveAvatarScaleCarryoverState(
         Guid CarryoverId,
