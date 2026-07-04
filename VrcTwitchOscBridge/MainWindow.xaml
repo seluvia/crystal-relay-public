@@ -7234,10 +7234,6 @@
     <Grid.Resources>
         <!-- Crystal hologram animation: slow rotation + gentle pulse + glow breathing -->
         <Storyboard x:Key="HologramIdleStoryboard">
-            <DoubleAnimation Storyboard.TargetName="HologramRotateTransform"
-                             Storyboard.TargetProperty="Angle"
-                             From="0" To="360" Duration="0:0:8"
-                             RepeatBehavior="Forever" />
             <DoubleAnimationUsingKeyFrames Storyboard.TargetName="HologramScaleTransform"
                                            Storyboard.TargetProperty="ScaleX"
                                            RepeatBehavior="Forever">
@@ -7364,10 +7360,7 @@
           RenderTransformOrigin="0.5,0.5"
           Margin="0,0,0,60">
         <Grid.RenderTransform>
-            <TransformGroup>
-                <RotateTransform x:Name="HologramRotateTransform" Angle="0" />
-                <ScaleTransform x:Name="HologramScaleTransform" ScaleX="1" ScaleY="1" />
-            </TransformGroup>
+            <ScaleTransform x:Name="HologramScaleTransform" ScaleX="1" ScaleY="1" />
         </Grid.RenderTransform>
 
         <!-- Glow behind crystal -->

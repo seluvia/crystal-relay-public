@@ -2461,36 +2461,118 @@ public partial class MainWindow : Window
         var random = new Random();
         var canvas = StarFieldCanvas;
 
-        for (var i = 0; i < 50; i++)
+        // Nebula clouds: large blurred ellipses behind the stars
+        var nebulaColors = new[]
         {
+            System.Windows.Media.Color.FromArgb(18, 74, 158, 255),
+            System.Windows.Media.Color.FromArgb(12, 124, 92, 255),
+            System.Windows.Media.Color.FromArgb(10, 255, 92, 135),
+            System.Windows.Media.Color.FromArgb(8, 60, 180, 220)
+        };
+
+        for (var n = 0; n < 4; n++)
+        {
+            var nebula = new System.Windows.Shapes.Ellipse
+            {
+                Width = random.Next(200, 400),
+                Height = random.Next(150, 300),
+                Fill = new System.Windows.Media.SolidColorBrush(nebulaColors[n]),
+                Opacity = 0.8
+            };
+            nebula.Effect = new System.Windows.Media.Effects.BlurEffect { Radius = 60 };
+            Canvas.SetLeft(nebula, random.Next(-100, 700));
+            Canvas.SetTop(nebula, random.Next(-100, 500));
+            canvas.Children.Add(nebula);
+
+            // Slow drift for nebula
+            var driftX = new System.Windows.Media.Animation.DoubleAnimation
+            {
+                From = Canvas.GetLeft(nebula),
+                To = Canvas.GetLeft(nebula) + random.Next(-30, 30),
+                Duration = new Duration(TimeSpan.FromSeconds(random.Next(15, 25))),
+                AutoReverse = true,
+                RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever
+            };
+            var driftY = new System.Windows.Media.Animation.DoubleAnimation
+            {
+                From = Canvas.GetTop(nebula),
+                To = Canvas.GetTop(nebula) + random.Next(-20, 20),
+                Duration = new Duration(TimeSpan.FromSeconds(random.Next(20, 30))),
+                AutoReverse = true,
+                RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever
+            };
+
+            System.Windows.Media.Animation.Storyboard.SetTarget(driftX, nebula);
+            System.Windows.Media.Animation.Storyboard.SetTargetProperty(driftX, new PropertyPath("(Canvas.Left)"));
+            System.Windows.Media.Animation.Storyboard.SetTarget(driftY, nebula);
+            System.Windows.Media.Animation.Storyboard.SetTargetProperty(driftY, new PropertyPath("(Canvas.Top)"));
+
+            var nebulaStoryboard = new System.Windows.Media.Animation.Storyboard();
+            nebulaStoryboard.Children.Add(driftX);
+            nebulaStoryboard.Children.Add(driftY);
+            nebulaStoryboard.Begin(this, true);
+        }
+
+        // Star colors for variety
+        var starBrushes = new[]
+        {
+            System.Windows.Media.Brushes.White,
+            System.Windows.Media.Brushes.AliceBlue,
+            System.Windows.Media.Brushes.LightSteelBlue,
+            System.Windows.Media.Brushes.LightYellow,
+            System.Windows.Media.Brushes.MistyRose,
+            System.Windows.Media.Brushes.PaleTurquoise
+        };
+
+        for (var i = 0; i < 100; i++)
+        {
+            var isBeacon = i % 20 == 0;
             var star = new System.Windows.Shapes.Ellipse
             {
-                Width = random.Next(1, 3),
-                Height = random.Next(1, 3),
-                Fill = i % 7 == 0 ? System.Windows.Media.Brushes.LightSteelBlue
-                    : i % 11 == 0 ? System.Windows.Media.Brushes.AliceBlue
-                    : System.Windows.Media.Brushes.White,
-                Opacity = random.NextDouble() * 0.5 + 0.15
+                Width = isBeacon ? random.Next(2, 4) : random.Next(1, 3),
+                Height = isBeacon ? random.Next(2, 4) : random.Next(1, 3),
+                Fill = starBrushes[random.Next(starBrushes.Length)],
+                Opacity = isBeacon
+                    ? random.NextDouble() * 0.3 + 0.5
+                    : random.NextDouble() * 0.35 + 0.1
             };
 
             Canvas.SetLeft(star, random.Next(0, 900));
             Canvas.SetTop(star, random.Next(0, 700));
             canvas.Children.Add(star);
 
+            // Twinkle animation
             var twinkleAnimation = new System.Windows.Media.Animation.DoubleAnimation
             {
-                From = star.Opacity * 0.2,
+                From = star.Opacity * 0.15,
                 To = star.Opacity,
-                Duration = new Duration(TimeSpan.FromSeconds(random.Next(2, 6))),
+                Duration = new Duration(TimeSpan.FromSeconds(isBeacon ? random.Next(3, 7) : random.Next(2, 5))),
                 AutoReverse = true,
                 RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever,
-                BeginTime = TimeSpan.FromSeconds(random.NextDouble() * 4)
+                BeginTime = TimeSpan.FromSeconds(random.NextDouble() * 5)
             };
 
             System.Windows.Media.Animation.Storyboard.SetTarget(twinkleAnimation, star);
             System.Windows.Media.Animation.Storyboard.SetTargetProperty(twinkleAnimation, new PropertyPath("Opacity"));
             var starStoryboard = new System.Windows.Media.Animation.Storyboard();
             starStoryboard.Children.Add(twinkleAnimation);
+
+            // Slow drift for some stars
+            if (i % 3 == 0)
+            {
+                var driftX = new System.Windows.Media.Animation.DoubleAnimation
+                {
+                    From = Canvas.GetLeft(star),
+                    To = Canvas.GetLeft(star) + random.Next(-15, 15),
+                    Duration = new Duration(TimeSpan.FromSeconds(random.Next(30, 50))),
+                    AutoReverse = true,
+                    RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever
+                };
+                System.Windows.Media.Animation.Storyboard.SetTarget(driftX, star);
+                System.Windows.Media.Animation.Storyboard.SetTargetProperty(driftX, new PropertyPath("(Canvas.Left)"));
+                starStoryboard.Children.Add(driftX);
+            }
+
             starStoryboard.Begin(this, true);
         }
     }
