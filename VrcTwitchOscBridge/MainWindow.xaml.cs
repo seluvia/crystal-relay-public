@@ -44,12 +44,10 @@ public partial class MainWindow : Window
     private static readonly TimeSpan TeapotShakeCooldown = TimeSpan.FromSeconds(30);
     private static readonly string[] LoadingStoryboardKeys =
     [
-        "CrystalRotateStoryboard",
-        "CrystalPulseStoryboard",
-        "GlowPulseStoryboard",
-        "OrbitStoryboard",
-        "ShimmerStoryboard",
-        "TextFadeStoryboard"
+        "HologramIdleStoryboard",
+        "ScanLineStoryboard",
+        "PhasePulseStoryboard",
+        "HudEntranceStoryboard"
     ];
     private const int PeekabooRequiredToggleCount = 6;
     private const int TeapotShakeRequiredDirectionChanges = 5;
@@ -139,8 +137,12 @@ public partial class MainWindow : Window
 
         await viewModel.InitializeAsync();
         ApplyTheme(viewModel.SelectedTheme);
-        LoadingOverlay.Visibility = Visibility.Collapsed;
+
+        // Reveal transition
+        await RunRevealTransitionAsync();
+
         StopLoadingAnimations();
+        LoadingOverlay.Visibility = Visibility.Collapsed;
         RestoreRestartSessionWindows();
         QueueApplicationUpdateCheck();
         ShowAvatarSwapMigrationNoticeIfNeeded();
@@ -2450,6 +2452,21 @@ public partial class MainWindow : Window
             {
                 storyboard.Stop(this);
             }
+        }
+    }
+
+    private async Task RunRevealTransitionAsync()
+    {
+        // Step 1: Wait for the final "All systems operational" to show
+        await Task.Delay(700);
+
+        // Step 2: Fade out overlay
+        if (TryGetLoadingStoryboard("RevealTransitionStoryboard", out var revealStoryboard))
+        {
+            var tcs = new TaskCompletionSource();
+            revealStoryboard.Completed += (_, _) => tcs.TrySetResult();
+            revealStoryboard.Begin(this);
+            await tcs.Task;
         }
     }
 
