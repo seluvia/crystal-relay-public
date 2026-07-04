@@ -1716,6 +1716,16 @@
                                                     CornerRadius="10"
                                                     Padding="10"
                                                     Margin="0,8,0,0">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding UsesSupporterGrowth}" Value="True">
+                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
                                                 <StackPanel>
                                                     <CheckBox IsChecked="{Binding ExtendCurrentActivity, Mode=TwoWay}"
                                                               Content="{loc:Translate &quot;Extend the current active activity instead of running this rule&apos;s action&quot;}"
