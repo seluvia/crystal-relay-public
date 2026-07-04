@@ -343,6 +343,7 @@ public sealed class AvatarScaleRule : ObservableObject
     private double supporterGrowthMaxAddedHeightMeters;
     private int supporterGrowthInactivityTimerSeconds = 60;
     private bool supporterGrowthAllowRewardScaleOverlay = true;
+    private bool supporterGrowthRequireCheerKeyword;
     private int supporterGrowthBitsTimerUnit = 100;
     private int supporterGrowthSecondsPerBitsUnit = 30;
     private int supporterGrowthTier1Seconds = 300;
@@ -351,6 +352,8 @@ public sealed class AvatarScaleRule : ObservableObject
     private int supporterGrowthSoftCapSeconds = 1800;
     private int supporterGrowthSoftCapMultiplierPercent = 50;
     private int supporterGrowthMaxPaidTimeSeconds = 3600;
+    private bool extendCurrentActivity;
+    private double extendSeconds;
     private string supporterGrowthGrowKeyword = "grow";
     private string supporterGrowthShrinkKeyword = "shrink";
     private double supporterGrowthTier1HeightMeters = 0.10;
@@ -858,6 +861,12 @@ public sealed class AvatarScaleRule : ObservableObject
         set => SetAndRaiseSupporterGrowth(ref supporterGrowthAllowRewardScaleOverlay, value);
     }
 
+    public bool SupporterGrowthRequireCheerKeyword
+    {
+        get => supporterGrowthRequireCheerKeyword;
+        set => SetAndRaiseSupporterGrowth(ref supporterGrowthRequireCheerKeyword, value);
+    }
+
     public int SupporterGrowthBitsTimerUnit
     {
         get => supporterGrowthBitsTimerUnit;
@@ -990,6 +999,24 @@ public sealed class AvatarScaleRule : ObservableObject
     public bool UsesMultiplier => ScaleMode == AvatarScaleMode.Multiplier;
 
     public bool UsesPreset => ScaleMode == AvatarScaleMode.Preset;
+
+    public bool ExtendCurrentActivity
+    {
+        get => extendCurrentActivity;
+        set
+        {
+            if (SetAndRaiseScale(ref extendCurrentActivity, value))
+            {
+                RaisePropertyChanged(nameof(ExtendCurrentActivity));
+            }
+        }
+    }
+
+    public double ExtendSeconds
+    {
+        get => extendSeconds;
+        set => SetAndRaiseScale(ref extendSeconds, Math.Max(0, value));
+    }
 
     public bool HasActiveTime => ActiveTimeSeconds > 0;
 
@@ -1156,6 +1183,17 @@ public sealed class AvatarScaleRule : ObservableObject
     }
 
     private bool SetAndRaiseScale(ref int storage, int value)
+    {
+        if (!SetProperty(ref storage, value))
+        {
+            return false;
+        }
+
+        RaiseScaleProperties();
+        return true;
+    }
+
+    private bool SetAndRaiseScale(ref bool storage, bool value)
     {
         if (!SetProperty(ref storage, value))
         {

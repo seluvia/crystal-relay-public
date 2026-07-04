@@ -519,6 +519,13 @@ public sealed class SettingsStore
 
         AvatarSwapMigrationService.Migrate(settings, profile?.AvatarSwapProfiles);
 
+        if (profile is not null)
+        {
+            settings.AvatarScaleSafety = ToAvatarScaleSafety(
+                profile.AvatarScaleSafety,
+                EnumerateAvatarScaleSafetyMigrationRules(settings));
+        }
+
         if (needsMetadataRewrite || legacyPlainSecure is not null || migratedSecrets)
         {
             await SaveSecureMetadataAsync(settings, cancellationToken);
@@ -611,6 +618,7 @@ public sealed class SettingsStore
             UniversalTriggersFollowsCollapsed = settings.UniversalTriggersFollowsCollapsed,
             AvatarScaleSets = [.. settings.AvatarScaleSets.Select(ToPersistedAvatarScaleSet)],
             AvatarScaleMasterReward = ToPersistedAvatarScaleMasterReward(settings.AvatarScaleMasterReward),
+            AvatarScaleSafety = ToPersistedAvatarScaleSafety(settings.AvatarScaleSafety),
             PowerUpRules = [.. settings.PowerUpRules.Select(ToPersistedPowerUpRule)],
             RewardFireSale = ToPersistedRewardFireSaleSettings(settings.RewardFireSale),
             CashPayments = ToPersistedCashPaymentConnectionSettings(settings.CashPayments),
@@ -1003,7 +1011,7 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
         };
     }
 
-    private static PersistedTriggerRule ToPersistedRule(TriggerRule rule)
+    internal static PersistedTriggerRule ToPersistedRule(TriggerRule rule)
     {
         return new PersistedTriggerRule
         {
@@ -1039,6 +1047,8 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             SubscriptionTier3Enabled = rule.SubscriptionTier3Enabled,
             MaxAccumulatedDurationEnabled = rule.MaxAccumulatedDurationEnabled,
             MaxAccumulatedDurationSeconds = rule.MaxAccumulatedDurationSeconds,
+            ExtendCurrentActivity = rule.ExtendCurrentActivity,
+            ExtendSeconds = rule.ExtendSeconds,
             ActionType = rule.ActionType,
             MovementDirection = rule.MovementDirection,
             ParameterName = rule.ParameterName,
@@ -1347,6 +1357,8 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             MaxAccumulatedDurationSeconds = rule.MaxAccumulatedDurationSeconds <= 0
                 ? 1800
                 : rule.MaxAccumulatedDurationSeconds,
+            ExtendCurrentActivity = rule.ExtendCurrentActivity,
+            ExtendSeconds = rule.ExtendSeconds <= 0 ? 0 : rule.ExtendSeconds,
             ActionType = rule.ActionType,
             MovementDirection = rule.MovementDirection,
             ParameterName = rule.ParameterName ?? string.Empty,
@@ -1617,6 +1629,36 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
         ];
     }
 
+    private static IEnumerable<AvatarScaleRule> EnumerateAvatarScaleSafetyMigrationRules(AppSettings settings)
+    {
+        foreach (var rule in settings.AvatarScaleSets.SelectMany(set => set.ScaleRules))
+        {
+            yield return rule;
+        }
+
+        foreach (var rule in settings.AvatarScaleRules)
+        {
+            yield return rule;
+        }
+
+        foreach (var rule in settings.CashPaymentRules.Where(rule => rule.UsesAvatarScaling))
+        {
+            yield return rule.ScaleAction;
+        }
+
+        foreach (var rule in settings.PowerUpRules.Where(rule => rule.UsesAvatarScaling))
+        {
+            yield return rule.ScaleAction;
+        }
+
+        foreach (var rule in settings.AvatarSwapProfiles
+                     .SelectMany(profile => profile.PaymentRules)
+                     .Where(rule => rule.UsesAvatarScaling))
+        {
+            yield return rule.ScaleAction;
+        }
+    }
+
     private static ObservableCollection<MovementRedeemSet> BuildMovementRedeemSets(
         PersistedProfileSettings profile,
         IEnumerable<TriggerRule> legacyMovementRules)
@@ -1882,7 +1924,32 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
         };
     }
 
-    private static PersistedAvatarScaleRule ToPersistedAvatarScaleRule(AvatarScaleRule rule)
+    private static PersistedAvatarScaleSafetySettings ToPersistedAvatarScaleSafety(AvatarScaleSafetySettings settings)
+    {
+        return new PersistedAvatarScaleSafetySettings
+        {
+            CurrentMinimumHeightMeters = settings.CurrentMinimumHeightMeters,
+            CurrentMaximumHeightMeters = settings.CurrentMaximumHeightMeters
+        };
+    }
+
+    private static AvatarScaleSafetySettings ToAvatarScaleSafety(
+        PersistedAvatarScaleSafetySettings? persisted,
+        IEnumerable<AvatarScaleRule> migrationRules)
+    {
+        if (persisted is null)
+        {
+            return AvatarScaleSafetySettings.FromExistingRules(migrationRules);
+        }
+
+        return new AvatarScaleSafetySettings
+        {
+            CurrentMinimumHeightMeters = persisted.CurrentMinimumHeightMeters,
+            CurrentMaximumHeightMeters = persisted.CurrentMaximumHeightMeters
+        };
+    }
+
+    internal static PersistedAvatarScaleRule ToPersistedAvatarScaleRule(AvatarScaleRule rule)
     {
         return new PersistedAvatarScaleRule
         {
@@ -1931,6 +1998,8 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             SmoothTransitionSeconds = 0,
             Preset = rule.Preset,
             ActiveTimeSeconds = rule.ActiveTimeSeconds,
+            ExtendCurrentActivity = rule.ExtendCurrentActivity,
+            ExtendSeconds = rule.ExtendSeconds,
             RestoreMode = rule.RestoreMode,
             RestoreHeightMeters = rule.RestoreHeightMeters,
             AdvancedRangeEnabled = rule.AdvancedRangeEnabled,
@@ -1939,6 +2008,7 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             SupporterGrowthMaxAddedHeightMeters = rule.SupporterGrowthMaxAddedHeightMeters,
             SupporterGrowthInactivityTimerSeconds = rule.SupporterGrowthInactivityTimerSeconds,
             SupporterGrowthAllowRewardScaleOverlay = rule.SupporterGrowthAllowRewardScaleOverlay,
+            SupporterGrowthRequireCheerKeyword = rule.SupporterGrowthRequireCheerKeyword,
             SupporterGrowthBitsTimerUnit = rule.SupporterGrowthBitsTimerUnit,
             SupporterGrowthSecondsPerBitsUnit = rule.SupporterGrowthSecondsPerBitsUnit,
             SupporterGrowthTier1Seconds = rule.SupporterGrowthTier1Seconds,
@@ -1966,7 +2036,7 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
         };
     }
 
-    private static AvatarScaleRule ToAvatarScaleRule(PersistedAvatarScaleRule rule)
+    internal static AvatarScaleRule ToAvatarScaleRule(PersistedAvatarScaleRule rule)
     {
         var scaleRule = new AvatarScaleRule
         {
@@ -2033,6 +2103,8 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
                 : rule.SmoothTransitionSeconds),
             Preset = Enum.IsDefined(rule.Preset) ? rule.Preset : AvatarScalePreset.Normal,
             ActiveTimeSeconds = Math.Max(0, rule.ActiveTimeSeconds),
+            ExtendCurrentActivity = rule.ExtendCurrentActivity,
+            ExtendSeconds = rule.ExtendSeconds <= 0 ? 0 : rule.ExtendSeconds,
             RestoreMode = AvatarScaleRestoreMode.ConfiguredHeight,
             RestoreHeightMeters = rule.RestoreHeightMeters <= 0 ? 1.6 : rule.RestoreHeightMeters,
             SupporterGrowthNormalHeightMeters = rule.SupporterGrowthNormalHeightMeters <= 0
@@ -2043,6 +2115,7 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
                 ? 60
                 : rule.SupporterGrowthInactivityTimerSeconds,
             SupporterGrowthAllowRewardScaleOverlay = rule.SupporterGrowthAllowRewardScaleOverlay,
+            SupporterGrowthRequireCheerKeyword = rule.SupporterGrowthRequireCheerKeyword,
             SupporterGrowthBitsTimerUnit = rule.SupporterGrowthBitsTimerUnit <= 0
                 ? 100
                 : rule.SupporterGrowthBitsTimerUnit,
@@ -2793,6 +2866,8 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
 
         public PersistedAvatarScaleMasterRewardSettings? AvatarScaleMasterReward { get; set; }
 
+        public PersistedAvatarScaleSafetySettings? AvatarScaleSafety { get; set; }
+
         public List<PersistedPowerUpRule>? PowerUpRules { get; set; }
 
         public PersistedRewardFireSaleSettings? RewardFireSale { get; set; }
@@ -3327,6 +3402,10 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
 
         public int MaxAccumulatedDurationSeconds { get; set; }
 
+        public bool ExtendCurrentActivity { get; set; }
+
+        public double ExtendSeconds { get; set; }
+
         public OscActionType ActionType { get; set; }
 
         public PlayerMovementDirection MovementDirection { get; set; }
@@ -3636,6 +3715,13 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
         public int DiscountPercent { get; set; }
     }
 
+    private sealed class PersistedAvatarScaleSafetySettings
+    {
+        public double CurrentMinimumHeightMeters { get; set; }
+
+        public double CurrentMaximumHeightMeters { get; set; }
+    }
+
     internal sealed class PersistedAvatarScaleRule
     {
         public Guid Id { get; set; }
@@ -3712,6 +3798,10 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
 
         public double ActiveTimeSeconds { get; set; }
 
+        public bool ExtendCurrentActivity { get; set; }
+
+        public double ExtendSeconds { get; set; }
+
         public AvatarScaleRestoreMode RestoreMode { get; set; }
 
         public double RestoreHeightMeters { get; set; }
@@ -3737,6 +3827,8 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
         public int SupporterGrowthInactivityTimerSeconds { get; set; }
 
         public bool SupporterGrowthAllowRewardScaleOverlay { get; set; } = true;
+
+        public bool SupporterGrowthRequireCheerKeyword { get; set; }
 
         public int SupporterGrowthBitsTimerUnit { get; set; }
 
