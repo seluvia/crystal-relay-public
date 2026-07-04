@@ -2468,7 +2468,19 @@ private static readonly string[] LoadingStoryboardKeys =
             (color: System.Windows.Media.Color.FromArgb(20, 255, 92, 135), width: 300, height: 200),
             (color: System.Windows.Media.Color.FromArgb(18, 60, 180, 220), width: 400, height: 280),
             (color: System.Windows.Media.Color.FromArgb(22, 180, 120, 255), width: 320, height: 220),
-            (color: System.Windows.Media.Color.FromArgb(15, 200, 160, 100), width: 250, height: 180)
+            (color: System.Windows.Media.Color.FromArgb(15, 200, 160, 100), width: 250, height: 180),
+            (color: System.Windows.Media.Color.FromArgb(28, 100, 180, 255), width: 380, height: 260),
+            (color: System.Windows.Media.Color.FromArgb(20, 200, 100, 180), width: 280, height: 200),
+            (color: System.Windows.Media.Color.FromArgb(16, 140, 200, 220), width: 350, height: 240),
+            (color: System.Windows.Media.Color.FromArgb(30, 80, 140, 255), width: 400, height: 280),
+            (color: System.Windows.Media.Color.FromArgb(22, 220, 140, 180), width: 300, height: 210),
+            (color: System.Windows.Media.Color.FromArgb(18, 160, 200, 240), width: 330, height: 230),
+            (color: System.Windows.Media.Color.FromArgb(25, 120, 160, 255), width: 420, height: 290),
+            (color: System.Windows.Media.Color.FromArgb(20, 180, 80, 160), width: 270, height: 190),
+            (color: System.Windows.Media.Color.FromArgb(15, 80, 200, 200), width: 310, height: 220),
+            (color: System.Windows.Media.Color.FromArgb(28, 160, 100, 220), width: 360, height: 250),
+            (color: System.Windows.Media.Color.FromArgb(22, 240, 160, 120), width: 290, height: 200),
+            (color: System.Windows.Media.Color.FromArgb(18, 100, 220, 255), width: 370, height: 260)
         };
 
         foreach (var (color, width, height) in nebulaData)
@@ -2514,20 +2526,24 @@ private static readonly string[] LoadingStoryboardKeys =
         }
 
         // Floating void crystals
-        var crystalBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(40, 74, 158, 255));
-        crystalBrush.Freeze();
-        var crystalBrushWarm = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(30, 255, 160, 200));
-        crystalBrushWarm.Freeze();
-        var crystalBrushPurple = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(35, 180, 120, 255));
-        crystalBrushPurple.Freeze();
+        var crystalBrushes = new[]
+        {
+            new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(40, 74, 158, 255)),
+            new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(30, 255, 160, 200)),
+            new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(35, 180, 120, 255)),
+            new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(28, 100, 200, 220)),
+            new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(32, 200, 140, 255)),
+            new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(25, 255, 200, 150))
+        };
+        foreach (var b in crystalBrushes) b.Freeze();
 
-        for (var c = 0; c < 7; c++)
+        for (var c = 0; c < 21; c++)
         {
             var size = random.Next(10, 22);
             var crystal = new System.Windows.Shapes.Path
             {
                 Data = System.Windows.Media.Geometry.Parse($"M0,-{size * 0.7} L{size * 0.4},0 L0,{size * 0.7} L-{size * 0.4},0 Z"),
-                Fill = c % 3 == 0 ? crystalBrush : c % 3 == 1 ? crystalBrushWarm : crystalBrushPurple,
+                Fill = crystalBrushes[c % crystalBrushes.Length],
                 Opacity = 0.7,
                 RenderTransformOrigin = new System.Windows.Point(0.5, 0.5),
                 RenderTransform = new System.Windows.Media.RotateTransform(0)
@@ -2576,6 +2592,41 @@ private static readonly string[] LoadingStoryboardKeys =
             crystalStoryboard.Children.Add(crystalDriftY);
             crystalStoryboard.Children.Add(crystalRotate);
             crystalStoryboard.Begin(this, true);
+        }
+
+        // Distant halo rings
+        var ringBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(15, 74, 158, 255));
+        ringBrush.Freeze();
+        for (var r = 0; r < 5; r++)
+        {
+            var ringSize = random.Next(60, 140);
+            var ring = new System.Windows.Shapes.Ellipse
+            {
+                Width = ringSize,
+                Height = ringSize * random.NextDouble() * 0.4 + ringSize * 0.3,
+                Stroke = ringBrush,
+                StrokeThickness = 0.5,
+                Opacity = 0.6,
+                RenderTransformOrigin = new System.Windows.Point(0.5, 0.5),
+                RenderTransform = new System.Windows.Media.RotateTransform(random.Next(0, 360))
+            };
+
+            Canvas.SetLeft(ring, random.Next(-50, 850));
+            Canvas.SetTop(ring, random.Next(-50, 650));
+            canvas.Children.Add(ring);
+
+            var ringRotate = new System.Windows.Media.Animation.DoubleAnimation
+            {
+                From = 0,
+                To = 360,
+                Duration = new Duration(TimeSpan.FromSeconds(random.Next(40, 80))),
+                RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever
+            };
+            System.Windows.Media.Animation.Storyboard.SetTarget(ringRotate, ring);
+            System.Windows.Media.Animation.Storyboard.SetTargetProperty(ringRotate, new PropertyPath("(RenderTransform).(RotateTransform.Angle)"));
+            var ringStoryboard = new System.Windows.Media.Animation.Storyboard();
+            ringStoryboard.Children.Add(ringRotate);
+            ringStoryboard.Begin(this, true);
         }
 
         // Star colors for variety
