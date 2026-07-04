@@ -86,7 +86,8 @@ public partial class AvatarPickerWindow : Window
         managerWindow = new AvatarLibraryManagerWindow(
             ThemeManager.CurrentTheme,
             viewModel.Library ?? new AvatarLibrary(),
-            imageService);
+            imageService,
+            viewModel.AvatarSummaries);
         managerWindow.Owner = this;
         managerWindow.Closed += OnManagerWindowClosed;
         managerWindow.Show();

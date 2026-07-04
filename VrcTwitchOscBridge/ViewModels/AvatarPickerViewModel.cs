@@ -13,6 +13,7 @@ public sealed class AvatarPickerViewModel : ObservableObject
 {
     private readonly AvatarImageService imageService;
     private readonly AvatarLibrary? avatarLibrary;
+    private readonly IReadOnlyList<VrChatAvatarSummary> avatarSummaries;
     private string searchText = string.Empty;
     private AvatarPickerViewMode viewMode = AvatarPickerViewMode.Grid;
     private string? selectedFilterGroupId;
@@ -30,6 +31,7 @@ public sealed class AvatarPickerViewModel : ObservableObject
     {
         this.imageService = imageService;
         this.avatarLibrary = avatarLibrary;
+        this.avatarSummaries = avatars;
 
         // Prune library entries whose avatar is no longer in the VRChat list.
         avatarLibrary?.PruneMissingEntries(avatars);
@@ -301,6 +303,8 @@ public sealed class AvatarPickerViewModel : ObservableObject
     }
 
     public AvatarLibrary? Library => avatarLibrary;
+
+    public IReadOnlyList<VrChatAvatarSummary> AvatarSummaries => avatarSummaries;
 
     public void RefreshFilter() => ApplyFilter();
 

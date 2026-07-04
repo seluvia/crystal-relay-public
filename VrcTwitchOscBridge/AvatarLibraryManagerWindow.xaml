@@ -5,10 +5,10 @@
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="{loc:Translate 'Manage Avatar Library | Crystal Relay'}"
         Icon="Assets/crystal-relay-icon.ico"
-        Width="500"
-        Height="450"
-        MinWidth="400"
-        MinHeight="350"
+    Width="720"
+    Height="560"
+    MinWidth="600"
+    MinHeight="450"
         WindowStyle="None"
         WindowStartupLocation="CenterOwner"
         FontFamily="{DynamicResource BodyFontFamily}"
@@ -181,6 +181,122 @@
                                 <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,12,0,0">
                                     <Button Content="{loc:Translate 'Add Tag'}" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding AddTagCommand}" />
                                     <Button Content="{loc:Translate 'Delete Tag'}" Style="{StaticResource SecondaryButtonStyle}" Margin="8,0,0,0" Command="{Binding DeleteTagCommand}" />
+                                </StackPanel>
+                            </Grid>
+                        </TabItem>
+
+                        <!-- Avatars Tab -->
+                        <TabItem Header="{loc:Translate 'Avatars'}">
+                            <Grid Margin="0,12,0,0">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <!-- Search -->
+                                <TextBox Grid.Row="0"
+                                         Text="{Binding AvatarSearchText, UpdateSourceTrigger=PropertyChanged}"
+                                         Background="{DynamicResource InputBrush}"
+                                         Foreground="{DynamicResource TextBrush}"
+                                         BorderBrush="{DynamicResource InputBorderBrush}"
+                                         BorderThickness="1"
+                                         Padding="10,6"
+                                         Margin="0,0,0,8" />
+
+                                <!-- Main split: avatar list + assignment pane -->
+                                <Grid Grid.Row="1">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" MinWidth="220" />
+                                        <ColumnDefinition Width="10" />
+                                        <ColumnDefinition Width="*" MinWidth="260" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Avatar list (left) -->
+                                    <ListBox Grid.Column="0"
+                                             ItemsSource="{Binding AssignmentRows}"
+                                             SelectedItem="{Binding SelectedAssignmentRow}"
+                                             SelectionMode="Extended"
+                                             Background="Transparent"
+                                             BorderThickness="0"
+                                             ItemContainerStyle="{StaticResource ListBoxItemStyle}">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="0,2">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="40" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <Border Grid.Column="0" Width="36" Height="36" Background="{DynamicResource InputBrush}" CornerRadius="6" ClipToBounds="True" Margin="0,0,8,0">
+                                                        <Image Source="{Binding Image}" Stretch="UniformToFill" />
+                                                    </Border>
+                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding DisplayName}" Foreground="{DynamicResource TextBrush}" FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Text="{Binding GroupName}" Foreground="{DynamicResource MutedBrush}" FontSize="10" />
+                                                    </StackPanel>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+
+                                    <!-- Assignment pane (right) -->
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="{loc:Translate 'Group:'}" Foreground="{DynamicResource MutedBrush}" FontSize="12" Margin="0,0,0,4" />
+                                        <ComboBox ItemsSource="{Binding GroupAssignmentOptions}"
+                                                  SelectedItem="{Binding SelectedGroupAssignment, UpdateSourceTrigger=PropertyChanged}"
+                                                  DisplayMemberPath="Display"
+                                                  Background="{DynamicResource InputBrush}"
+                                                  Foreground="{DynamicResource TextBrush}"
+                                                  BorderBrush="{DynamicResource InputBorderBrush}"
+                                                  Margin="0,0,0,12" />
+
+                                        <TextBlock Text="{loc:Translate 'Tags:'}" Foreground="{DynamicResource MutedBrush}" FontSize="12" Margin="0,0,0,4" />
+                                        <ItemsControl ItemsSource="{Binding TagAssignmentOptions}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox IsChecked="{Binding IsChecked, UpdateSourceTrigger=PropertyChanged}"
+                                                              Content="{Binding Display}"
+                                                              Foreground="{DynamicResource TextBrush}"
+                                                              Margin="0,2" />
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+
+                                        <Button Content="{loc:Translate 'Apply to selection'}"
+                                                Style="{StaticResource SecondaryButtonStyle}"
+                                                Command="{Binding ApplyAssignmentCommand}"
+                                                Margin="0,12,0,0" />
+
+                                        <Button Content="{loc:Translate 'Clear group for selection'}"
+                                                Style="{StaticResource SecondaryButtonStyle}"
+                                                Command="{Binding ClearGroupCommand}"
+                                                Margin="0,8,0,0" />
+
+                                        <Button Content="{loc:Translate 'Clear all tags for selection'}"
+                                                Style="{StaticResource SecondaryButtonStyle}"
+                                                Command="{Binding ClearTagsCommand}"
+                                                Margin="0,8,0,0" />
+
+                                        <Separator Margin="0,16,0,16" />
+
+                                        <TextBlock Text="{loc:Translate 'Custom Icon:'}" Foreground="{DynamicResource MutedBrush}" FontSize="12" Margin="0,0,0,4" />
+                                        <StackPanel Orientation="Horizontal">
+                                            <Button Content="{loc:Translate 'Set...'}"
+                                                    Style="{StaticResource SecondaryButtonStyle}"
+                                                    Command="{Binding SetCustomIconForSelectionCommand}"
+                                                    Margin="0,0,8,0" />
+                                            <Button Content="{loc:Translate 'Clear'}"
+                                                    Style="{StaticResource SecondaryButtonStyle}"
+                                                    Command="{Binding ClearCustomIconForSelectionCommand}" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Grid>
+
+                                <!-- Bottom bar -->
+                                <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,12,0,0">
+                                    <Button Content="{loc:Translate 'Select All'}" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding SelectAllCommand}" />
+                                    <Button Content="{loc:Translate 'Select None'}" Style="{StaticResource SecondaryButtonStyle}" Margin="8,0,0,0" Command="{Binding SelectNoneCommand}" />
+                                    <TextBlock Text="{Binding SelectionCountText}" Foreground="{DynamicResource MutedBrush}" FontSize="11" VerticalAlignment="Center" Margin="16,0,0,0" />
                                 </StackPanel>
                             </Grid>
                         </TabItem>
