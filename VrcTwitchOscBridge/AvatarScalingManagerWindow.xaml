@@ -735,27 +735,34 @@
                     </DockPanel>
                     <TextBlock Margin="0,6,0,0" Text="{Binding ActionSummary}" Foreground="{DynamicResource TitleBarSubTextBrush}" FontSize="10" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" />
                     <TextBlock Margin="0,2,0,0" Text="{Binding SafetySummary}" Foreground="{DynamicResource TitleBarSubTextBrush}" FontSize="10" TextTrimming="CharacterEllipsis" />
-                    <StackPanel Margin="0,8,0,0" Orientation="Horizontal">
-                        <Button Content="{loc:Translate 'Edit'}"
-                                Command="{Binding DataContext.OpenEditorCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                    <DockPanel Margin="0,8,0,0" LastChildFill="False">
+                        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                            <Button Content="{loc:Translate 'Edit'}"
+                                    Command="{Binding DataContext.OpenEditorCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding}"
+                                    Style="{StaticResource SecondaryButtonStyle}" />
+                            <Button Margin="8,0,0,0"
+                                    Content="{loc:Translate 'Delete'}"
+                                    Command="{Binding DataContext.DeleteCardCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding}">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Kind}" Value="MasterReward">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                        </StackPanel>
+                        <Button DockPanel.Dock="Right"
+                                Content="{loc:Translate 'Avatar Scaling Card Test'}"
+                                Command="{Binding DataContext.TestCardCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                 CommandParameter="{Binding}"
-                                Style="{StaticResource SecondaryButtonStyle}" />
-                        <Button Margin="8,0,0,0"
-                                Content="{loc:Translate 'Delete'}"
-                                Command="{Binding DataContext.DeleteCardCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                CommandParameter="{Binding}">
-                            <Button.Style>
-                                <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
-                                    <Setter Property="Visibility" Value="Visible" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding Kind}" Value="MasterReward">
-                                            <Setter Property="Visibility" Value="Collapsed" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                        </Button>
-                    </StackPanel>
+                                Visibility="{Binding CanTest, Converter={StaticResource BoolToVisibilityConverter}}" />
+                    </DockPanel>
                 </StackPanel>
             </Border>
         </DataTemplate>
@@ -818,6 +825,10 @@
                                    Text="{loc:Translate 'Choose which Avatar Scaling source type to review.'}"
                                     Foreground="{DynamicResource TitleBarSubTextBrush}" />
 
+                        <RadioButton Content="{loc:Translate 'All Sources'}"
+                                     GroupName="AvatarScalingSources"
+                                     Style="{StaticResource NavRadioButtonStyle}"
+                                     IsChecked="{Binding ActiveSourceView, Converter={StaticResource EnumBooleanConverter}, ConverterParameter=AllSources, Mode=TwoWay}" />
                         <RadioButton Content="{loc:Translate 'Twitch Rewards'}"
                                      GroupName="AvatarScalingSources"
                                      Style="{StaticResource NavRadioButtonStyle}"
@@ -834,10 +845,6 @@
                                      GroupName="AvatarScalingSources"
                                      Style="{StaticResource NavRadioButtonStyle}"
                                      IsChecked="{Binding ActiveSourceView, Converter={StaticResource EnumBooleanConverter}, ConverterParameter=PowerUps, Mode=TwoWay}" />
-                        <RadioButton Content="{loc:Translate 'All Sources'}"
-                                     GroupName="AvatarScalingSources"
-                                     Style="{StaticResource NavRadioButtonStyle}"
-                                     IsChecked="{Binding ActiveSourceView, Converter={StaticResource EnumBooleanConverter}, ConverterParameter=AllSources, Mode=TwoWay}" />
                     </StackPanel>
                 </Border>
 
@@ -883,7 +890,6 @@
                                             Style="{StaticResource SecondaryButtonStyle}" />
                                     <Button Content="{loc:Translate 'Add Scale Redeem'}"
                                             Command="{Binding AddAvatarScaleRuleCommand}"
-                                            Visibility="{Binding HasSelectedAvatarScaleSet, Converter={StaticResource BoolToVisibilityConverter}}"
                                             Style="{StaticResource SecondaryButtonStyle}" />
                                 </WrapPanel>
 
@@ -975,7 +981,6 @@
                                         <Button DockPanel.Dock="Right"
                                                 Content="{loc:Translate 'Add Scale Redeem'}"
                                                 Command="{Binding AddAvatarScaleRuleCommand}"
-                                                Visibility="{Binding HasSelectedAvatarScaleSet, Converter={StaticResource BoolToVisibilityConverter}}"
                                                 Style="{StaticResource SecondaryButtonStyle}"
                                                 Margin="8,0,0,0" />
                                         <TextBlock Text="{loc:Translate 'Child Scale Rewards'}" FontWeight="Bold" FontSize="16" />
@@ -1567,7 +1572,18 @@
 
                                                     <StackPanel Margin="0,12,0,0" Visibility="{Binding UsesSupporterGrowth, Converter={StaticResource BoolToVisibilityConverter}}">
                                                         <TextBlock Text="{loc:Translate 'Supporter Growth'}" FontWeight="SemiBold" />
-                                                        <UniformGrid Columns="2" Margin="0,8,0,0">
+                                                        <TextBlock Margin="0,6,0,0"
+                                                                   Text="{loc:Translate 'Supporter Growth listens to bits, new subs, resubs, and gift subs. Paid events add height and add fair active time, then return to normal when the paid timer ends.'}"
+                                                                   Foreground="{DynamicResource TitleBarSubTextBrush}"
+                                                                   TextWrapping="Wrap" />
+                                                        <CheckBox Margin="0,10,0,0"
+                                                                  Content="{loc:Translate 'Allow reward scale changes during paid growth'}"
+                                                                  IsChecked="{Binding SupporterGrowthAllowRewardScaleOverlay, UpdateSourceTrigger=PropertyChanged}" />
+                                                        <TextBlock Margin="26,6,0,0"
+                                                                   Text="{loc:Translate 'When enabled, channel-point and chat scale redeems can temporarily adjust height during paid growth without changing the paid timer.'}"
+                                                                   Foreground="{DynamicResource TitleBarSubTextBrush}"
+                                                                   TextWrapping="Wrap" />
+                                                        <UniformGrid Columns="2" Margin="0,10,0,0">
                                                             <StackPanel Margin="0,0,6,0">
                                                                 <TextBlock Text="{loc:Translate 'Normal Height'}" FontWeight="SemiBold" />
                                                                 <TextBox Text="{Binding SupporterGrowthNormalHeightMeters, UpdateSourceTrigger=LostFocus}" />
@@ -1575,9 +1591,96 @@
                                                             <StackPanel Margin="6,0,0,0">
                                                                 <TextBlock Text="{loc:Translate 'Max Added Height'}" FontWeight="SemiBold" />
                                                                 <TextBox Text="{Binding SupporterGrowthMaxAddedHeightMeters, UpdateSourceTrigger=LostFocus}" />
+                                                                <TextBlock Margin="0,6,0,0"
+                                                                           Text="{loc:Translate 'Use 0 for unlimited added height until VRChat or safe range clamps it.'}"
+                                                                           Foreground="{DynamicResource TitleBarSubTextBrush}"
+                                                                           TextWrapping="Wrap" />
                                                             </StackPanel>
                                                         </UniformGrid>
-                                                        <DockPanel Margin="0,10,0,0" LastChildFill="False">
+                                                        <TextBlock Margin="0,14,0,0"
+                                                                   Text="{loc:Translate 'Paid Active Time'}"
+                                                                   FontWeight="SemiBold" />
+                                                        <TextBlock Margin="0,6,0,0"
+                                                                   Text="{loc:Translate 'Paid time is shared by bits, subs, resubs, and gift subs. Time adds to the remaining paid timer, then slows above the soft cap and never exceeds the max.'}"
+                                                                   Foreground="{DynamicResource TitleBarSubTextBrush}"
+                                                                   TextWrapping="Wrap" />
+                                                        <UniformGrid Columns="3" Margin="0,8,0,0">
+                                                            <StackPanel Margin="0,0,6,0">
+                                                                <TextBlock Text="{loc:Translate 'Bits Timer Unit'}" FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding SupporterGrowthBitsTimerUnit, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                            <StackPanel Margin="6,0,6,0">
+                                                                <TextBlock Text="{loc:Translate 'Seconds Per Bits Unit'}" FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding SupporterGrowthSecondsPerBitsUnit, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                            <StackPanel Margin="6,0,0,0">
+                                                                <TextBlock Text="{loc:Translate 'Soft Cap Seconds'}" FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding SupporterGrowthSoftCapSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                        </UniformGrid>
+                                                        <UniformGrid Columns="3" Margin="0,8,0,0">
+                                                            <StackPanel Margin="0,0,6,0">
+                                                                <TextBlock Text="{loc:Translate 'Soft Cap Multiplier Percent'}" FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding SupporterGrowthSoftCapMultiplierPercent, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                            <StackPanel Margin="6,0,6,0">
+                                                                <TextBlock Text="{loc:Translate 'Max Paid Time Seconds'}" FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding SupporterGrowthMaxPaidTimeSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                            <StackPanel Margin="6,0,0,0" />
+                                                        </UniformGrid>
+                                                        <TextBlock Margin="0,14,0,0"
+                                                                   Text="{loc:Translate 'Supporter Growth Cheer Keywords'}"
+                                                                   FontWeight="SemiBold" />
+                                                        <TextBlock Margin="0,6,0,0"
+                                                                   Text="{loc:Translate 'Use cheer text like Cheer100 grow or Cheer100 shrink. No keyword keeps the existing positive growth behavior; if both words appear, Crystal Relay skips the scale instead of guessing.'}"
+                                                                   Foreground="{DynamicResource TitleBarSubTextBrush}"
+                                                                   TextWrapping="Wrap" />
+                                                        <UniformGrid Columns="2" Margin="0,8,0,0">
+                                                            <StackPanel Margin="0,0,6,0">
+                                                                <TextBlock Text="{loc:Translate 'Grow Keyword'}" FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding SupporterGrowthGrowKeyword, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                            <StackPanel Margin="6,0,0,0">
+                                                                <TextBlock Text="{loc:Translate 'Shrink Keyword'}" FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding SupporterGrowthShrinkKeyword, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                        </UniformGrid>
+                                                        <TextBlock Margin="0,14,0,0"
+                                                                   Text="{loc:Translate 'Subscription Growth'}"
+                                                                   FontWeight="SemiBold" />
+                                                        <UniformGrid Columns="3" Margin="0,8,0,0">
+                                                            <StackPanel Margin="0,0,6,0">
+                                                                <TextBlock Text="{loc:Translate 'Tier 1 Height Add'}" FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding SupporterGrowthTier1HeightMeters, UpdateSourceTrigger=LostFocus}" />
+                                                            </StackPanel>
+                                                            <StackPanel Margin="6,0,6,0">
+                                                                <TextBlock Text="{loc:Translate 'Tier 2 Height Add'}" FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding SupporterGrowthTier2HeightMeters, UpdateSourceTrigger=LostFocus}" />
+                                                            </StackPanel>
+                                                            <StackPanel Margin="6,0,0,0">
+                                                                <TextBlock Text="{loc:Translate 'Tier 3 Height Add'}" FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding SupporterGrowthTier3HeightMeters, UpdateSourceTrigger=LostFocus}" />
+                                                            </StackPanel>
+                                                        </UniformGrid>
+                                                        <TextBlock Margin="0,14,0,0"
+                                                                   Text="{loc:Translate 'Subscription Paid Time'}"
+                                                                   FontWeight="SemiBold" />
+                                                        <UniformGrid Columns="3" Margin="0,8,0,0">
+                                                            <StackPanel Margin="0,0,6,0">
+                                                                <TextBlock Text="{loc:Translate 'Tier 1 Seconds'}" FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding SupporterGrowthTier1Seconds, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                            <StackPanel Margin="6,0,6,0">
+                                                                <TextBlock Text="{loc:Translate 'Tier 2 Seconds'}" FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding SupporterGrowthTier2Seconds, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                            <StackPanel Margin="6,0,0,0">
+                                                                <TextBlock Text="{loc:Translate 'Tier 3 Seconds'}" FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding SupporterGrowthTier3Seconds, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                        </UniformGrid>
+                                                        <DockPanel Margin="0,14,0,0" LastChildFill="False">
                                                             <TextBlock Text="{loc:Translate 'Bits Growth Ranges'}" FontWeight="SemiBold" />
                                                             <Button Margin="10,0,0,0" Content="{loc:Translate 'Add Bits Range'}" Click="OnAddSupporterGrowthBitRangeClicked" Style="{StaticResource SecondaryButtonStyle}" />
                                                         </DockPanel>
@@ -1599,63 +1702,36 @@
                                                                 </DataTemplate>
                                                             </ItemsControl.ItemTemplate>
                                                         </ItemsControl>
+                                                        <TextBlock Margin="0,6,0,0"
+                                                                   Text="{loc:Translate 'Maximum Bits set to 0 means no upper limit for that row.'}"
+                                                                   Foreground="{DynamicResource TitleBarSubTextBrush}"
+                                                                   TextWrapping="Wrap" />
                                                     </StackPanel>
                                                 </StackPanel>
                                             </Border>
 
-                                            <Border Margin="0,12,0,0"
-                                                    Padding="12"
-                                                    CornerRadius="14"
-                                                    Background="{DynamicResource NestedPanelBrush}"
+                                            <Border Background="{DynamicResource NestedPanelBrush}"
                                                     BorderBrush="{DynamicResource BorderBrush}"
-                                                    BorderThickness="1">
+                                                    BorderThickness="1"
+                                                    CornerRadius="10"
+                                                    Padding="10"
+                                                    Margin="0,8,0,0">
                                                 <StackPanel>
-                                                    <TextBlock Text="{loc:Translate 'Safety &amp; Pairing'}" FontWeight="Bold" FontSize="15" />
-                                                    <TextBlock Margin="0,6,0,0" Text="{loc:Translate 'Current Max Height Allowed'}" Foreground="{DynamicResource TitleBarSubTextBrush}" />
-                                                    <TextBlock Text="{Binding DataContext.CurrentMaxHeightAllowedText, RelativeSource={RelativeSource AncestorType=Window}}" FontWeight="Bold" FontSize="18" />
-                                                    <CheckBox Margin="0,10,0,0"
-                                                              Content="{loc:Translate 'Unlock advanced VRChat scale range (0.01m - 10000m)'}"
-                                                              IsChecked="{Binding AdvancedRangeEnabled, UpdateSourceTrigger=PropertyChanged}" />
-                                                    <CheckBox Margin="0,8,0,0"
-                                                              Content="{loc:Translate 'Hide reward at minimum height'}"
-                                                              IsChecked="{Binding HideRewardWhenMinimumHeightReached, UpdateSourceTrigger=PropertyChanged}" />
-                                                    <CheckBox Margin="0,8,0,0"
-                                                              Content="{loc:Translate 'Hide reward at maximum height'}"
-                                                              IsChecked="{Binding HideRewardWhenMaximumHeightReached, UpdateSourceTrigger=PropertyChanged}" />
-                                                    <TextBlock Margin="0,10,0,0"
-                                                               Text="{Binding DataContext.AvatarScaleRuleLockoutSummaryText, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                               Foreground="{DynamicResource TitleBarSubTextBrush}" />
-                                                    <WrapPanel Margin="0,10,0,0">
-                                                        <Button Content="{loc:Translate 'Disable Pairing'}"
-                                                                Command="{Binding DataContext.OpenAvatarScaleRuleLockoutPickerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                Style="{StaticResource SecondaryButtonStyle}" />
-                                                        <Button Content="{loc:Translate 'Open Advanced Safety'}"
-                                                                Command="{Binding DataContext.OpenAdvancedSafetyCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                Style="{StaticResource SecondaryButtonStyle}" />
-                                                    </WrapPanel>
-                                                    <Border Margin="0,10,0,0"
-                                                            Padding="10"
-                                                            CornerRadius="12"
-                                                            Background="{DynamicResource PanelSecondaryBrush}"
-                                                            BorderBrush="{DynamicResource BorderBrush}"
-                                                            BorderThickness="1"
-                                                            Visibility="{Binding DataContext.IsAdvancedSafetyOpen, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibilityConverter}}">
-                                                        <StackPanel>
-                                                            <TextBlock Text="{loc:Translate 'Safety &amp; Pairing'}" FontWeight="SemiBold" />
-                                                            <UniformGrid Columns="2">
-                                                                <StackPanel Margin="0,0,6,0">
-                                                                    <TextBlock Text="{loc:Translate 'Minimum Height'}" FontWeight="SemiBold" />
-                                                                    <TextBox Text="{Binding DataContext.Settings.AvatarScaleSafety.CurrentMinimumHeightMeters, RelativeSource={RelativeSource AncestorType=Window}, UpdateSourceTrigger=LostFocus}" />
-                                                                </StackPanel>
-                                                                <StackPanel Margin="6,0,0,0">
-                                                                    <TextBlock Text="{loc:Translate 'Maximum Height'}" FontWeight="SemiBold" />
-                                                                    <TextBox Text="{Binding DataContext.Settings.AvatarScaleSafety.CurrentMaximumHeightMeters, RelativeSource={RelativeSource AncestorType=Window}, UpdateSourceTrigger=LostFocus}" />
-                                                                </StackPanel>
-                                                            </UniformGrid>
-                                                        </StackPanel>
-                                                    </Border>
+                                                    <CheckBox IsChecked="{Binding ExtendCurrentActivity, Mode=TwoWay}"
+                                                              Content="{loc:Translate &quot;Extend the current active activity instead of running this rule&apos;s action&quot;}"
+                                                              Margin="0,0,0,6" />
+                                                    <StackPanel Orientation="Horizontal"
+                                                                Visibility="{Binding ExtendCurrentActivity, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                        <TextBlock Text="{loc:Translate 'Extend by (seconds)'}"
+                                                                   VerticalAlignment="Center"
+                                                                   Margin="0,0,8,0" />
+                                                        <TextBox Text="{Binding ExtendSeconds, UpdateSourceTrigger=PropertyChanged}"
+                                                                 MinWidth="80" />
+                                                    </StackPanel>
                                                 </StackPanel>
                                             </Border>
+
+
                                         </StackPanel>
                                     </DataTemplate>
                                 </ContentControl.ContentTemplate>
