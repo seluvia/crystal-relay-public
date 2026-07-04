@@ -235,6 +235,7 @@
     <Compile Include="Services\FloatActionDispatch.cs" />
     <Compile Include="Services\FloatLimitDetection.cs" />
     <Compile Include="Services\FloatValueModeConverter.cs" />
+    <Compile Include="Services\LoadingPhaseService.cs" />
     <Compile Include="Services\LocalizationService.cs" />
     <Compile Include="Services\LiveFeedbackHeartbeatService.cs" />
     <Compile Include="Services\ManagedRewardPresentation.cs" />
