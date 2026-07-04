@@ -521,8 +521,14 @@ public sealed class AppSettings : ObservableObject
 
     public bool LiveFeedbackHeartbeatEnabled
     {
-        get => liveFeedbackHeartbeatEnabled;
-        set => SetProperty(ref liveFeedbackHeartbeatEnabled, value);
+        get => true;
+        set
+        {
+            if (value)
+            {
+                SetProperty(ref liveFeedbackHeartbeatEnabled, true);
+            }
+        }
     }
 
     public bool BetaApplicationUpdatesEnabled

@@ -2581,31 +2581,9 @@
                                                        Foreground="{DynamicResource TextBrush}"
                                                        TextWrapping="Wrap" />
                                             <TextBlock Margin="0,8,0,0"
-                                                       Text="{loc:Translate 'Crystal Relay includes a Live Feedback Heartbeat. This helps the developer find live Crystal Relay streams for feedback, support, and community interaction. You can turn this off anytime in Settings.'}"
-                                                       Foreground="{DynamicResource MutedBrush}"
-                                                       TextWrapping="Wrap" />
-                                            <Grid Margin="0,12,0,0">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="Auto" />
-                                                </Grid.ColumnDefinitions>
-                                                <StackPanel Grid.Column="0"
-                                                            Margin="0,0,14,0">
-                                                    <TextBlock Text="{loc:Translate 'Enable Live Feedback Heartbeat'}"
-                                                               FontSize="16"
-                                                               FontWeight="SemiBold"
-                                                               Foreground="{DynamicResource TextBrush}"
-                                                               TextWrapping="Wrap" />
-                                                    <TextBlock Margin="0,6,0,0"
-                                                               Text="{loc:Translate 'When enabled, Crystal Relay lets the developer know when your Twitch channel is live so they can visit your stream, observe real usage, and offer feedback or support. This does not send Twitch tokens, VRChat credentials, OSC data, chat messages, or private VRChat information.'}"
-                                                               Foreground="{DynamicResource MutedBrush}"
-                                                               TextWrapping="Wrap" />
-                                                </StackPanel>
-                                                <ToggleButton Grid.Column="1"
-                                                              VerticalAlignment="Center"
-                                                              Style="{StaticResource RuleToggleStyle}"
-                                                              IsChecked="{Binding Settings.LiveFeedbackHeartbeatEnabled, UpdateSourceTrigger=PropertyChanged}" />
-                                            </Grid>
+                                                        Text="{loc:Translate 'Crystal Relay includes a Live Feedback Heartbeat. This helps the developer find live Crystal Relay streams for feedback, support, and community interaction. This does not send Twitch tokens, VRChat credentials, OSC data, chat messages, or private VRChat information.'}"
+                                                        Foreground="{DynamicResource MutedBrush}"
+                                                        TextWrapping="Wrap" />
                                         </StackPanel>
                                     </Border>
 
