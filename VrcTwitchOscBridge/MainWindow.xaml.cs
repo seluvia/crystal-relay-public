@@ -133,6 +133,7 @@ public partial class MainWindow : Window
     {
         LoadingOverlay.Visibility = Visibility.Visible;
         StartLoadingAnimations();
+        CreateStarField();
         await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
 
         await viewModel.InitializeAsync();
@@ -2452,6 +2453,45 @@ public partial class MainWindow : Window
             {
                 storyboard.Stop(this);
             }
+        }
+    }
+
+    private void CreateStarField()
+    {
+        var random = new Random();
+        var canvas = StarFieldCanvas;
+
+        for (var i = 0; i < 50; i++)
+        {
+            var star = new System.Windows.Shapes.Ellipse
+            {
+                Width = random.Next(1, 3),
+                Height = random.Next(1, 3),
+                Fill = i % 7 == 0 ? System.Windows.Media.Brushes.LightSteelBlue
+                    : i % 11 == 0 ? System.Windows.Media.Brushes.AliceBlue
+                    : System.Windows.Media.Brushes.White,
+                Opacity = random.NextDouble() * 0.5 + 0.15
+            };
+
+            Canvas.SetLeft(star, random.Next(0, 900));
+            Canvas.SetTop(star, random.Next(0, 700));
+            canvas.Children.Add(star);
+
+            var twinkleAnimation = new System.Windows.Media.Animation.DoubleAnimation
+            {
+                From = star.Opacity * 0.2,
+                To = star.Opacity,
+                Duration = new Duration(TimeSpan.FromSeconds(random.Next(2, 6))),
+                AutoReverse = true,
+                RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever,
+                BeginTime = TimeSpan.FromSeconds(random.NextDouble() * 4)
+            };
+
+            System.Windows.Media.Animation.Storyboard.SetTarget(twinkleAnimation, star);
+            System.Windows.Media.Animation.Storyboard.SetTargetProperty(twinkleAnimation, new PropertyPath("Opacity"));
+            var starStoryboard = new System.Windows.Media.Animation.Storyboard();
+            starStoryboard.Children.Add(twinkleAnimation);
+            starStoryboard.Begin(this, true);
         }
     }
 

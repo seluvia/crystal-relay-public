@@ -7230,8 +7230,8 @@
             <Grid x:Name="LoadingOverlay"
                   Grid.RowSpan="2"
                   Panel.ZIndex="999"
-                  Background="{DynamicResource WindowBackgroundBrush}">
-                <Grid.Resources>
+                  Background="#FF050508">
+    <Grid.Resources>
         <!-- Crystal hologram animation: slow rotation + gentle pulse + glow breathing -->
         <Storyboard x:Key="HologramIdleStoryboard">
             <DoubleAnimation Storyboard.TargetName="HologramRotateTransform"
@@ -7274,9 +7274,9 @@
             <DoubleAnimationUsingKeyFrames Storyboard.TargetName="PhasePulseGlow"
                                            Storyboard.TargetProperty="Opacity"
                                            RepeatBehavior="Forever">
-                <LinearDoubleKeyFrame KeyTime="0:0:0" Value="0.3" />
-                <LinearDoubleKeyFrame KeyTime="0:0:0.8" Value="0.7" />
-                <LinearDoubleKeyFrame KeyTime="0:0:1.6" Value="0.3" />
+                <LinearDoubleKeyFrame KeyTime="0:0:0" Value="0.08" />
+                <LinearDoubleKeyFrame KeyTime="0:0:0.8" Value="0.2" />
+                <LinearDoubleKeyFrame KeyTime="0:0:1.6" Value="0.08" />
             </DoubleAnimationUsingKeyFrames>
         </Storyboard>
 
@@ -7319,6 +7319,13 @@
         </Storyboard>
     </Grid.Resources>
 
+    <!-- Star field (populated in code-behind) -->
+    <Canvas x:Name="StarFieldCanvas"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            IsHitTestVisible="False"
+            Opacity="0.6" />
+
     <!-- Subtle overlay pulse glow for phase transitions -->
     <Rectangle x:Name="PhasePulseGlow"
                Grid.RowSpan="2"
@@ -7330,8 +7337,8 @@
     <Rectangle Height="1"
                VerticalAlignment="Top"
                Fill="{DynamicResource AccentBrush}"
-               Opacity="0.3"
-               Margin="40,0,40,0" />
+               Opacity="0.15"
+                Margin="40,0,40,0" />
 
     <!-- CRYSTAL RELAY header text -->
     <TextBlock x:Name="CrystalHeaderText"
@@ -7340,11 +7347,11 @@
                FontSize="13"
                FontWeight="SemiBold"
                Foreground="{DynamicResource AccentBrush}"
-               Opacity="0.45"
-               HorizontalAlignment="Center"
-               VerticalAlignment="Center"
-               Margin="0,36,0,0"
-               RenderTransformOrigin="0.5,0.5">
+               Opacity="0.3"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Margin="0,36,0,0"
+                RenderTransformOrigin="0.5,0.5">
         <TextBlock.RenderTransform>
             <TranslateTransform x:Name="CrystalHeaderTransform" Y="-120" />
         </TextBlock.RenderTransform>
@@ -7367,9 +7374,9 @@
         <Ellipse x:Name="HologramGlowEllipse"
                  Width="140" Height="140"
                  Fill="{DynamicResource AccentBrush}"
-                 Opacity="0.35"
-                 HorizontalAlignment="Center"
-                 VerticalAlignment="Center">
+                 Opacity="0.15"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center">
             <Ellipse.Effect>
                 <BlurEffect Radius="40" />
             </Ellipse.Effect>
@@ -7390,9 +7397,9 @@
                Fill="{DynamicResource AccentBrush}"
                HorizontalAlignment="Center"
                VerticalAlignment="Top"
-               Opacity="0.5"
-               IsHitTestVisible="False"
-               RenderTransformOrigin="0.5,0.5">
+               Opacity="0.25"
+                IsHitTestVisible="False"
+                RenderTransformOrigin="0.5,0.5">
         <Rectangle.RenderTransform>
             <TranslateTransform x:Name="ScanLineTranslateTransform" Y="-400" />
         </Rectangle.RenderTransform>
