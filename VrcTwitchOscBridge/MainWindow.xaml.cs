@@ -2348,14 +2348,14 @@ public partial class MainWindow : Window
 
         if (msg == WmGetMinMaxInfo)
         {
-            ApplyMaximizedWorkArea(hwnd, lParam);
+            ConstrainToWorkArea(hwnd, lParam);
             handled = true;
         }
 
         return IntPtr.Zero;
     }
 
-    private static void ApplyMaximizedWorkArea(IntPtr hwnd, IntPtr lParam)
+    private static void ConstrainToWorkArea(IntPtr hwnd, IntPtr lParam)
     {
         var minMaxInfo = Marshal.PtrToStructure<MinMaxInfo>(lParam);
         var monitor = MonitorFromWindow(hwnd, MonitorDefaultToNearest);
@@ -2375,10 +2375,28 @@ public partial class MainWindow : Window
         var workArea = monitorInfo.WorkArea;
         var monitorArea = monitorInfo.MonitorArea;
 
+        var workWidth = Math.Abs(workArea.Right - workArea.Left);
+        var workHeight = Math.Abs(workArea.Bottom - workArea.Top);
+
+        // Always constrain maximized size to working area
         minMaxInfo.MaxPosition.X = Math.Abs(workArea.Left - monitorArea.Left);
         minMaxInfo.MaxPosition.Y = Math.Abs(workArea.Top - monitorArea.Top);
-        minMaxInfo.MaxSize.X = Math.Abs(workArea.Right - workArea.Left);
-        minMaxInfo.MaxSize.Y = Math.Abs(workArea.Bottom - workArea.Top);
+        minMaxInfo.MaxSize.X = workWidth;
+        minMaxInfo.MaxSize.Y = workHeight;
+
+        // Always constrain max tracking size (resize boundary) to working area
+        // Windows already initializes MaxTrackSize to the virtual screen size;
+        // we just clamp it down to the current monitor's working area.
+        if (minMaxInfo.MaxTrackSize.X > workWidth)
+            minMaxInfo.MaxTrackSize.X = workWidth;
+        if (minMaxInfo.MaxTrackSize.Y > workHeight)
+            minMaxInfo.MaxTrackSize.Y = workHeight;
+
+        // If minimum size exceeds working area, clamp minimum down to fit
+        if (minMaxInfo.MinTrackSize.X > minMaxInfo.MaxTrackSize.X)
+            minMaxInfo.MinTrackSize.X = minMaxInfo.MaxTrackSize.X;
+        if (minMaxInfo.MinTrackSize.Y > minMaxInfo.MaxTrackSize.Y)
+            minMaxInfo.MinTrackSize.Y = minMaxInfo.MaxTrackSize.Y;
 
         Marshal.StructureToPtr(minMaxInfo, lParam, true);
     }

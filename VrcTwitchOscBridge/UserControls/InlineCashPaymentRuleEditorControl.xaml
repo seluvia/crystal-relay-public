@@ -4,6 +4,7 @@
              xmlns:loc="clr-namespace:VrcTwitchOscBridge.Services"
              xmlns:models="clr-namespace:VrcTwitchOscBridge.Models">
     <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
         <Style x:Key="HeadingTextStyle" TargetType="TextBlock">
             <Setter Property="FontFamily" Value="{DynamicResource HeadingFontFamily}" />
         </Style>
@@ -74,15 +75,20 @@
                         </StackPanel>
                     </UniformGrid>
                     <UniformGrid Columns="2" Margin="0,10,0,0">
-                        <StackPanel Margin="0,0,8,0">
-                            <TextBlock Text="{loc:Translate 'Message Contains'}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
-                            <TextBox Text="{Binding MessageContains, UpdateSourceTrigger=PropertyChanged}" />
-                        </StackPanel>
                         <StackPanel Margin="8,0,0,0">
                             <TextBlock Text="{loc:Translate 'Cooldown Seconds'}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
                             <TextBox Text="{Binding CooldownSeconds, UpdateSourceTrigger=PropertyChanged}" />
                         </StackPanel>
+                        <StackPanel Margin="8,0,0,0" />
                     </UniformGrid>
+                    <CheckBox Margin="0,10,0,0"
+                              Content="{loc:Translate 'Require message keyword to trigger'}"
+                              IsChecked="{Binding RequireMessageKeyword, UpdateSourceTrigger=PropertyChanged}" />
+                    <StackPanel Margin="0,8,0,0"
+                                Visibility="{Binding RequireMessageKeyword, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <TextBlock Text="{loc:Translate 'Message Contains'}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
+                        <TextBox Text="{Binding MessageContains, UpdateSourceTrigger=PropertyChanged}" />
+                    </StackPanel>
                 </StackPanel>
             </Border>
 

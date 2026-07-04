@@ -1524,87 +1524,6 @@
             </Grid>
         </DataTemplate>
 
-        <DataTemplate x:Key="AvatarScaleRuleListItemTemplate"
-                      DataType="{x:Type models:AvatarScaleRule}">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="12" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <ToggleButton Grid.Column="0"
-                              VerticalAlignment="Top"
-                              Style="{StaticResource RuleToggleStyle}"
-                              IsChecked="{Binding IsEnabled, UpdateSourceTrigger=PropertyChanged}" />
-                <StackPanel Grid.Column="2"
-                            HorizontalAlignment="Stretch">
-                    <TextBlock Text="{Binding DisplayTitle}"
-                               FontWeight="SemiBold"
-                               FontSize="15"
-                               Foreground="{DynamicResource TextBrush}"
-                               TextWrapping="Wrap" />
-                    <TextBlock Margin="0,6,0,0"
-                               Text="{Binding TriggerSummary}"
-                               Foreground="{DynamicResource MutedBrush}"
-                               TextWrapping="Wrap" />
-                </StackPanel>
-                <Border Grid.Column="3"
-                        Margin="12,0,0,0"
-                        Padding="10,4"
-                        VerticalAlignment="Top"
-                        CornerRadius="10"
-                        Background="{DynamicResource StatusChipBrush}"
-                        Visibility="Collapsed">
-                    <Border.Style>
-                        <Style TargetType="Border">
-                            <Setter Property="Visibility" Value="Collapsed" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding HasScaleDisablePairings}" Value="True">
-                                    <Setter Property="Visibility" Value="Visible" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Border.Style>
-                    <TextBlock Text="{loc:Translate 'Disable pairing set'}"
-                               FontSize="12"
-                               FontWeight="SemiBold"
-                               Foreground="{DynamicResource TextBrush}" />
-                </Border>
-            </Grid>
-        </DataTemplate>
-
-        <DataTemplate x:Key="AvatarScaleSetListItemTemplate"
-                      DataType="{x:Type models:AvatarScaleSet}">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <StackPanel>
-                    <TextBlock Text="{Binding DisplayTitle}"
-                               FontWeight="SemiBold"
-                               FontSize="16"
-                               Foreground="{DynamicResource TextBrush}"
-                               TextWrapping="Wrap" />
-                    <TextBlock Margin="0,6,0,0"
-                               Text="{Binding ScaleCountText}"
-                               Foreground="{DynamicResource MutedBrush}"
-                               TextWrapping="Wrap" />
-                </StackPanel>
-                <Border Grid.Column="1"
-                        Margin="12,0,0,0"
-                        Padding="10,4"
-                        VerticalAlignment="Top"
-                        CornerRadius="10"
-                        Background="{DynamicResource StatusChipBrush}">
-                    <TextBlock Text="{Binding ScaleCountText}"
-                               FontSize="12"
-                               FontWeight="SemiBold"
-                               Foreground="{DynamicResource TextBrush}" />
-                </Border>
-            </Grid>
-        </DataTemplate>
-
         <DataTemplate x:Key="MovementRedeemSetListItemTemplate"
                       DataType="{x:Type models:MovementRedeemSet}">
             <Grid>
@@ -2226,56 +2145,149 @@
                                 </Style.Triggers>
                             </Style>
 
-                            <Storyboard x:Key="GemPulseStoryboard" RepeatBehavior="Forever" AutoReverse="True">
-                                <DoubleAnimation
-                                    Storyboard.TargetName="GemDot"
-                                    Storyboard.TargetProperty="Opacity"
-                                    From="0.35" To="1.0" Duration="0:0:2.5">
-                                    <DoubleAnimation.EasingFunction>
-                                        <CubicEase EasingMode="EaseInOut"/>
-                                    </DoubleAnimation.EasingFunction>
-                                </DoubleAnimation>
-                                <DoubleAnimation
-                                    Storyboard.TargetName="GemGlowRing1"
-                                    Storyboard.TargetProperty="Opacity"
-                                    From="0.25" To="0.7" Duration="0:0:2.5">
-                                    <DoubleAnimation.EasingFunction>
-                                        <CubicEase EasingMode="EaseInOut"/>
-                                    </DoubleAnimation.EasingFunction>
-                                </DoubleAnimation>
-                                <DoubleAnimation
-                                    Storyboard.TargetName="GemGlowRing2"
-                                    Storyboard.TargetProperty="Opacity"
-                                    From="0.12" To="0.35" Duration="0:0:2.5">
-                                    <DoubleAnimation.EasingFunction>
-                                        <CubicEase EasingMode="EaseInOut"/>
-                                    </DoubleAnimation.EasingFunction>
-                                </DoubleAnimation>
-                                <DoubleAnimation
-                                    Storyboard.TargetName="GemGlowRing3"
-                                    Storyboard.TargetProperty="Opacity"
-                                    From="0.05" To="0.15" Duration="0:0:2.5">
-                                    <DoubleAnimation.EasingFunction>
-                                        <CubicEase EasingMode="EaseInOut"/>
-                                    </DoubleAnimation.EasingFunction>
-                                </DoubleAnimation>
-                                <DoubleAnimation
-                                    Storyboard.TargetName="TopRightGlowRing1"
-                                    Storyboard.TargetProperty="Opacity"
-                                    From="0.15" To="0.5" Duration="0:0:2.5">
-                                    <DoubleAnimation.EasingFunction>
-                                        <CubicEase EasingMode="EaseInOut"/>
-                                    </DoubleAnimation.EasingFunction>
-                                </DoubleAnimation>
-                                <DoubleAnimation
-                                    Storyboard.TargetName="TopRightGlowRing2"
-                                    Storyboard.TargetProperty="Opacity"
-                                    From="0.05" To="0.2" Duration="0:0:2.5">
-                                    <DoubleAnimation.EasingFunction>
-                                        <CubicEase EasingMode="EaseInOut"/>
-                                    </DoubleAnimation.EasingFunction>
-                                </DoubleAnimation>
-                            </Storyboard>
+                            <Style x:Key="CrystalMonitorGemDotPulseStyle" TargetType="Ellipse"
+                                   BasedOn="{StaticResource CrystalMonitorGemDotStyle}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding StreamingStatusVisualState}" Value="Live">
+                                        <DataTrigger.EnterActions>
+                                            <BeginStoryboard x:Name="GemDotPulseBegin">
+                                                <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                                                    <DoubleAnimation
+                                                        Storyboard.TargetProperty="Opacity"
+                                                        From="0.35" To="1.0" Duration="0:0:2.5">
+                                                        <DoubleAnimation.EasingFunction>
+                                                            <CubicEase EasingMode="EaseInOut"/>
+                                                        </DoubleAnimation.EasingFunction>
+                                                    </DoubleAnimation>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.EnterActions>
+                                        <DataTrigger.ExitActions>
+                                            <StopStoryboard BeginStoryboardName="GemDotPulseBegin" />
+                                        </DataTrigger.ExitActions>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+
+                            <Style x:Key="CrystalMonitorGemGlow1PulseStyle" TargetType="Ellipse"
+                                   BasedOn="{StaticResource CrystalMonitorGemGlowStyle}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding StreamingStatusVisualState}" Value="Live">
+                                        <DataTrigger.EnterActions>
+                                            <BeginStoryboard x:Name="GemGlow1PulseBegin">
+                                                <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                                                    <DoubleAnimation
+                                                        Storyboard.TargetProperty="Opacity"
+                                                        From="0.25" To="0.7" Duration="0:0:2.5">
+                                                        <DoubleAnimation.EasingFunction>
+                                                            <CubicEase EasingMode="EaseInOut"/>
+                                                        </DoubleAnimation.EasingFunction>
+                                                    </DoubleAnimation>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.EnterActions>
+                                        <DataTrigger.ExitActions>
+                                            <StopStoryboard BeginStoryboardName="GemGlow1PulseBegin" />
+                                        </DataTrigger.ExitActions>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+
+                            <Style x:Key="CrystalMonitorGemGlow2PulseStyle" TargetType="Ellipse"
+                                   BasedOn="{StaticResource CrystalMonitorGemGlowStyle}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding StreamingStatusVisualState}" Value="Live">
+                                        <DataTrigger.EnterActions>
+                                            <BeginStoryboard x:Name="GemGlow2PulseBegin">
+                                                <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                                                    <DoubleAnimation
+                                                        Storyboard.TargetProperty="Opacity"
+                                                        From="0.12" To="0.35" Duration="0:0:2.5">
+                                                        <DoubleAnimation.EasingFunction>
+                                                            <CubicEase EasingMode="EaseInOut"/>
+                                                        </DoubleAnimation.EasingFunction>
+                                                    </DoubleAnimation>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.EnterActions>
+                                        <DataTrigger.ExitActions>
+                                            <StopStoryboard BeginStoryboardName="GemGlow2PulseBegin" />
+                                        </DataTrigger.ExitActions>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+
+                            <Style x:Key="CrystalMonitorGemGlow3PulseStyle" TargetType="Ellipse"
+                                   BasedOn="{StaticResource CrystalMonitorGemGlowStyle}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding StreamingStatusVisualState}" Value="Live">
+                                        <DataTrigger.EnterActions>
+                                            <BeginStoryboard x:Name="GemGlow3PulseBegin">
+                                                <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                                                    <DoubleAnimation
+                                                        Storyboard.TargetProperty="Opacity"
+                                                        From="0.05" To="0.15" Duration="0:0:2.5">
+                                                        <DoubleAnimation.EasingFunction>
+                                                            <CubicEase EasingMode="EaseInOut"/>
+                                                        </DoubleAnimation.EasingFunction>
+                                                    </DoubleAnimation>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.EnterActions>
+                                        <DataTrigger.ExitActions>
+                                            <StopStoryboard BeginStoryboardName="GemGlow3PulseBegin" />
+                                        </DataTrigger.ExitActions>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+
+                            <Style x:Key="CrystalMonitorTopRightGlow1PulseStyle" TargetType="Ellipse"
+                                   BasedOn="{StaticResource CrystalMonitorGemGlowStyle}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding StreamingStatusVisualState}" Value="Live">
+                                        <DataTrigger.EnterActions>
+                                            <BeginStoryboard x:Name="TopRightGlow1PulseBegin">
+                                                <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                                                    <DoubleAnimation
+                                                        Storyboard.TargetProperty="Opacity"
+                                                        From="0.15" To="0.5" Duration="0:0:2.5">
+                                                        <DoubleAnimation.EasingFunction>
+                                                            <CubicEase EasingMode="EaseInOut"/>
+                                                        </DoubleAnimation.EasingFunction>
+                                                    </DoubleAnimation>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.EnterActions>
+                                        <DataTrigger.ExitActions>
+                                            <StopStoryboard BeginStoryboardName="TopRightGlow1PulseBegin" />
+                                        </DataTrigger.ExitActions>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+
+                            <Style x:Key="CrystalMonitorTopRightGlow2PulseStyle" TargetType="Ellipse"
+                                   BasedOn="{StaticResource CrystalMonitorGemGlowStyle}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding StreamingStatusVisualState}" Value="Live">
+                                        <DataTrigger.EnterActions>
+                                            <BeginStoryboard x:Name="TopRightGlow2PulseBegin">
+                                                <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                                                    <DoubleAnimation
+                                                        Storyboard.TargetProperty="Opacity"
+                                                        From="0.05" To="0.2" Duration="0:0:2.5">
+                                                        <DoubleAnimation.EasingFunction>
+                                                            <CubicEase EasingMode="EaseInOut"/>
+                                                        </DoubleAnimation.EasingFunction>
+                                                    </DoubleAnimation>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.EnterActions>
+                                        <DataTrigger.ExitActions>
+                                            <StopStoryboard BeginStoryboardName="TopRightGlow2PulseBegin" />
+                                        </DataTrigger.ExitActions>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
                         </Border.Resources>
                         <StackPanel>
                             <Grid>
@@ -2347,7 +2359,7 @@
                                                      Margin="0,0,0,5"
                                                      HorizontalAlignment="Center"
                                                      VerticalAlignment="Top"
-                                                     Style="{StaticResource CrystalMonitorGemDotStyle}"
+                                                     Style="{StaticResource CrystalMonitorGemDotPulseStyle}"
                                                      Tag="{Binding StreamingStatusVisualState}" />
 
                                             <!-- Gem glow ring 1 -->
@@ -2356,7 +2368,7 @@
                                                      Margin="0,0,0,5"
                                                      HorizontalAlignment="Center"
                                                      VerticalAlignment="Top"
-                                                     Style="{StaticResource CrystalMonitorGemGlowStyle}" />
+                                                     Style="{StaticResource CrystalMonitorGemGlow1PulseStyle}" />
 
                                             <!-- Gem glow ring 2 -->
                                             <Ellipse x:Name="GemGlowRing2"
@@ -2364,7 +2376,7 @@
                                                      Margin="0,0,0,5"
                                                      HorizontalAlignment="Center"
                                                      VerticalAlignment="Top"
-                                                     Style="{StaticResource CrystalMonitorGemGlowStyle}" />
+                                                     Style="{StaticResource CrystalMonitorGemGlow2PulseStyle}" />
 
                                             <!-- Gem glow ring 3 -->
                                             <Ellipse x:Name="GemGlowRing3"
@@ -2372,7 +2384,7 @@
                                                      Margin="0,0,0,5"
                                                      HorizontalAlignment="Center"
                                                      VerticalAlignment="Top"
-                                                     Style="{StaticResource CrystalMonitorGemGlowStyle}" />
+                                                     Style="{StaticResource CrystalMonitorGemGlow3PulseStyle}" />
 
                                             <!-- User silhouette -->
                                             <Ellipse Width="24" Height="24"
@@ -2410,29 +2422,13 @@
                                                      Margin="0,0,0,0"
                                                      HorizontalAlignment="Right"
                                                      VerticalAlignment="Top"
-                                                     Style="{StaticResource CrystalMonitorGemGlowStyle}" />
+                                                     Style="{StaticResource CrystalMonitorTopRightGlow1PulseStyle}" />
                                             <Ellipse x:Name="TopRightGlowRing2"
                                                      Width="20" Height="20"
                                                      Margin="0,0,0,0"
                                                      HorizontalAlignment="Right"
                                                      VerticalAlignment="Top"
-                                                     Style="{StaticResource CrystalMonitorGemGlowStyle}" />
-
-                                            <!-- Animation trigger -->
-                                            <Grid.Style>
-                                                <Style TargetType="Grid">
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding StreamingStatusVisualState}" Value="Live">
-                                                            <DataTrigger.EnterActions>
-                                                                <BeginStoryboard x:Name="GemPulseBegin" Storyboard="{StaticResource GemPulseStoryboard}" />
-                                                            </DataTrigger.EnterActions>
-                                                            <DataTrigger.ExitActions>
-                                                                <StopStoryboard BeginStoryboardName="GemPulseBegin" />
-                                                            </DataTrigger.ExitActions>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Grid.Style>
+                                                     Style="{StaticResource CrystalMonitorTopRightGlow2PulseStyle}" />
                                         </Grid>
                                     </Viewbox>
                                 </Grid>
@@ -3531,20 +3527,13 @@
                                          </Button.Style>
                                      </Button>
                                       <Button Content="{loc:Translate 'Avatar Scaling'}"
-                                             Command="{Binding ShowAvatarScalingCommand}">
-                                         <Button.Style>
-                                             <Style TargetType="Button" BasedOn="{StaticResource RuleLibraryTabButtonStyle}">
-                                                 <Setter Property="Margin" Value="5,0,0,0" />
-                                                 <Style.Triggers>
-                                                     <DataTrigger Binding="{Binding IsViewingAvatarScaling}" Value="True">
-                                                         <Setter Property="Background" Value="{DynamicResource SectionActiveBrush}" />
-                                                         <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                                                         <Setter Property="Foreground" Value="White" />
-                                                     </DataTrigger>
-                                                 </Style.Triggers>
-                                             </Style>
-                                         </Button.Style>
-                                     </Button>
+                                              Command="{Binding OpenAvatarScalingManagerCommand}">
+                                          <Button.Style>
+                                              <Style TargetType="Button" BasedOn="{StaticResource RuleLibraryTabButtonStyle}">
+                                                  <Setter Property="Margin" Value="5,0,0,0" />
+                                              </Style>
+                                          </Button.Style>
+                                      </Button>
                                  </UniformGrid>
                              </StackPanel>
                          </Border>
@@ -4019,62 +4008,6 @@
                                 <Style TargetType="StackPanel">
                                     <Setter Property="Visibility" Value="Collapsed" />
                                     <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsViewingAvatarScaling}" Value="True">
-                                            <Setter Property="Visibility" Value="Visible" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </StackPanel.Style>
-                            <UniformGrid Columns="2">
-                                <Button Style="{StaticResource RuleLibraryPrimaryButtonStyle}"
-                                        Margin="0,0,10,0"
-                                        Content="{loc:Translate 'Add Scale Set'}"
-                                        Command="{Binding AddAvatarScaleSetCommand}" />
-                                <Button Style="{StaticResource RuleLibraryButtonStyle}"
-                                        Margin="10,0,0,0"
-                                        Content="{loc:Translate 'Delete Scale Set'}"
-                                        Command="{Binding RemoveSelectedAvatarScaleSetCommand}" />
-                            </UniformGrid>
-                            <UniformGrid Margin="0,10,0,0"
-                                         Columns="2">
-                                <Button Style="{StaticResource RuleLibraryButtonStyle}"
-                                        Margin="0,0,10,0"
-                                        Content="{loc:Translate 'Enable All Scale Redeems'}"
-                                        Command="{Binding EnableAllAvatarScaleRulesCommand}" />
-                                <Button Style="{StaticResource RuleLibraryButtonStyle}"
-                                        Margin="10,0,0,0"
-                                        Content="{loc:Translate 'Disable All Scale Redeems'}"
-                                        Command="{Binding DisableAllAvatarScaleRulesCommand}" />
-                            </UniformGrid>
-                            <Border Margin="0,16,0,0"
-                                    Padding="14"
-                                    Background="{DynamicResource NestedPanelBrush}"
-                                    BorderBrush="{DynamicResource HighlightBorderBrush}"
-                                    BorderThickness="1"
-                                    CornerRadius="18">
-                                <StackPanel>
-                                    <TextBlock Text="{loc:Translate 'Delete Avatar Scale Sets'}"
-                                               Foreground="{DynamicResource TextBrush}"
-                                               FontWeight="SemiBold"
-                                               TextAlignment="Center"
-                                               TextWrapping="Wrap" />
-                                    <Button Style="{StaticResource RuleLibraryDangerButtonStyle}"
-                                            Margin="0,10,0,0"
-                                            Width="214"
-                                            HorizontalAlignment="Center"
-                                            Content="{loc:Translate 'Delete All Scale Sets'}"
-                                            Command="{Binding DeleteAllAvatarScaleRulesCommand}" />
-                                </StackPanel>
-                            </Border>
-                        </StackPanel>
-
-                        <StackPanel Margin="0,14,0,0"
-                                    Width="340"
-                                    HorizontalAlignment="Center">
-                            <StackPanel.Style>
-                                <Style TargetType="StackPanel">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                    <Style.Triggers>
                                         <DataTrigger Binding="{Binding IsViewingRewardFireSale}" Value="True">
                                             <Setter Property="Visibility" Value="Visible" />
                                         </DataTrigger>
@@ -4216,27 +4149,6 @@
 
                             </StackPanel>
                         </StackPanel>
-
-
-
-                        <ListBox ItemsSource="{Binding AvatarScaleSets}"
-                                 SelectedItem="{Binding SelectedAvatarScaleSet}"
-                                 ItemTemplate="{StaticResource AvatarScaleSetListItemTemplate}"
-                                 ScrollViewer.CanContentScroll="True"
-                                 VirtualizingStackPanel.IsVirtualizing="True"
-                                 VirtualizingStackPanel.VirtualizationMode="Recycling">
-                            <ListBox.Style>
-                                <Style TargetType="ListBox" BasedOn="{StaticResource {x:Type ListBox}}">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsViewingAvatarScaling}" Value="True">
-                                            <Setter Property="Visibility" Value="Visible" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </ListBox.Style>
-                        </ListBox>
-
                         <ListBox ItemsSource="{Binding CashPaymentRules}"
                                  SelectedItem="{Binding SelectedCashPaymentRule}"
                                  ScrollViewer.CanContentScroll="True"
@@ -4341,14 +4253,6 @@
                                             </MultiDataTrigger.Conditions>
                                             <Setter Property="Visibility" Value="Visible" />
                                             <Setter Property="Text" Value="{loc:Translate 'Add a movement set to get started.'}" />
-                                        </MultiDataTrigger>
-                                        <MultiDataTrigger>
-                                            <MultiDataTrigger.Conditions>
-                                                <Condition Binding="{Binding IsViewingAvatarScaling}" Value="True" />
-                                                <Condition Binding="{Binding Settings.AvatarScaleSets.Count}" Value="0" />
-                                            </MultiDataTrigger.Conditions>
-                                            <Setter Property="Visibility" Value="Visible" />
-                                            <Setter Property="Text" Value="{loc:Translate 'Add a scale set to get started.'}" />
                                         </MultiDataTrigger>
                                         <MultiDataTrigger>
                                             <MultiDataTrigger.Conditions>
@@ -5103,6 +5007,27 @@
                                                     </StackPanel>
                                                 </Border>
 
+                                                <Border Background="{DynamicResource PanelHighlightBrush}"
+                                                        BorderBrush="{DynamicResource HighlightBorderBrush}"
+                                                        BorderThickness="1"
+                                                        CornerRadius="10"
+                                                        Padding="10"
+                                                        Margin="0,12,0,0">
+                                                    <StackPanel>
+                                                        <CheckBox IsChecked="{Binding ScaleAction.ExtendCurrentActivity, Mode=TwoWay}"
+                                                                  Content="{loc:Translate &quot;Extend the current active activity instead of running this rule&apos;s action&quot;}"
+                                                                  Margin="0,0,0,6" />
+                                                        <StackPanel Orientation="Horizontal"
+                                                                    Visibility="{Binding ScaleAction.ExtendCurrentActivity, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <TextBlock Text="{loc:Translate 'Extend by (seconds)'}"
+                                                                       VerticalAlignment="Center"
+                                                                       Margin="0,0,8,0" />
+                                                            <TextBox Text="{Binding ScaleAction.ExtendSeconds, UpdateSourceTrigger=PropertyChanged}"
+                                                                     MinWidth="80" />
+                                                        </StackPanel>
+                                                    </StackPanel>
+                                                </Border>
+
                                                 <WrapPanel Margin="0,14,0,0">
                                                     <Button Style="{StaticResource SecondaryButtonStyle}"
                                                             Content="{loc:Translate 'Test Power Up'}"
@@ -5113,400 +5038,12 @@
                                     </DataTemplate>
                                 </ContentControl.ContentTemplate>
                             </ContentControl>
-                            <Border Margin="0,18,0,0"
-                                    Background="{DynamicResource PanelHighlightBrush}"
-                                    BorderBrush="{DynamicResource HighlightBorderBrush}"
-                                    BorderThickness="1"
-                                    CornerRadius="18"
-                                    Padding="18">
-                                <Border.Style>
-                                    <Style TargetType="Border">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsViewingAvatarScaling}" Value="True">
-                                                <Setter Property="Visibility" Value="Visible" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Border.Style>
-                                <StackPanel>
-                                    <DockPanel LastChildFill="False">
-                                        <TextBlock Text="{loc:Translate 'Avatar Scaling'}"
-                                                   Style="{StaticResource HeadingTextStyle}"
-                                                   FontSize="22"
-                                                   FontWeight="Bold"
-                                                   Foreground="{DynamicResource TextBrush}" />
-                                        <Button Style="{StaticResource HelpIconButtonStyle}"
-                                                Click="OnHelpButtonClicked"
-                                                CommandParameter="Avatar Scaling"
-                                                Tag="Avatar Scaling sends VRChat OSC Avatar Scaling values to /avatar/eyeheight. Use it for Twitch rewards, commands, bits, subs, gift subs, and follows that change avatar height without mixing those rules into Avatar Sets." />
-                                    </DockPanel>
-                                    <TextBlock Margin="0,10,0,0"
-                                               Text="{loc:Translate 'Create Twitch-triggered height changes using /avatar/eyeheight. VRChat may still block scaling in some worlds or Udon setups.'}"
-                                               Foreground="{DynamicResource MutedBrush}"
-                                               TextWrapping="Wrap" />
-                                    <TextBlock Margin="0,12,0,0"
-                                               Text="{Binding AvatarScaleRuntimeStatusText}"
-                                               Foreground="{DynamicResource MutedBrush}"
-                                               TextWrapping="Wrap" />
-                                    <Border Margin="0,14,0,0"
-                                            Background="{DynamicResource NestedPanelBrush}"
-                                            BorderBrush="{DynamicResource HighlightBorderBrush}"
-                                            BorderThickness="1"
-                                            CornerRadius="16"
-                                            Padding="14">
-                                        <ContentControl Content="{Binding Settings.AvatarScaleMasterReward}">
-                                            <ContentControl.ContentTemplate>
-                                                <DataTemplate DataType="{x:Type models:AvatarScaleMasterRewardSettings}">
-                                                    <StackPanel>
-                                                        <DockPanel LastChildFill="False">
-                                                            <TextBlock Text="{loc:Translate 'Master Reward Redeem'}"
-                                                                       Style="{StaticResource HeadingTextStyle}"
-                                                                       FontSize="20"
-                                                                       FontWeight="Bold"
-                                                                       Foreground="{DynamicResource TextBrush}" />
-                                                            <Button Style="{StaticResource HelpIconButtonStyle}"
-                                                                    Click="OnHelpButtonClicked"
-                                                                    CommandParameter="Avatar Scaling Master Reward"
-                                                                    Tag="The master reward temporarily unlocks Avatar Scaling channel-point rewards so they do not need to stay visible on Twitch all the time. Supporter Growth is not affected because it listens to bits and subs directly." />
-                                                        </DockPanel>
-                                                        <CheckBox Margin="0,12,0,0"
-                                                                  Content="{loc:Translate 'Use Master Reward'}"
-                                                                  IsChecked="{Binding IsEnabled, UpdateSourceTrigger=PropertyChanged}" />
-                                                        <StackPanel Margin="0,12,0,0">
-                                                            <TextBlock Text="{loc:Translate 'Reward Source'}"
-                                                                       Foreground="{DynamicResource TextBrush}"
-                                                                       FontWeight="SemiBold" />
-                                                            <ComboBox ItemsSource="{Binding DataContext.RewardSyncModeOptions, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                      DisplayMemberPath="Label"
-                                                                      SelectedValuePath="Value"
-                                                                      SelectedValue="{Binding RewardSyncMode, UpdateSourceTrigger=PropertyChanged}" />
-                                                        </StackPanel>
-                                                        <StackPanel Margin="0,12,0,0"
-                                                                    Visibility="{Binding UsesLinkedExistingReward, Converter={StaticResource BoolToVisibilityConverter}}">
-                                                            <TextBlock Text="{loc:Translate 'Existing Twitch Reward'}"
-                                                                       Foreground="{DynamicResource TextBrush}"
-                                                                       FontWeight="SemiBold" />
-                                                            <ComboBox ItemsSource="{Binding DataContext.RewardOptions, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                      ItemTemplate="{StaticResource TwitchRewardOptionTemplate}"
-                                                                      SelectedValuePath="Id"
-                                                                      SelectedValue="{Binding RewardId, UpdateSourceTrigger=PropertyChanged}" />
-                                                            <DockPanel Margin="0,8,0,0"
-                                                                       LastChildFill="False">
-                                                                <Button Style="{StaticResource RewardLinkButtonStyle}"
-                                                                        Content="{loc:Translate 'Refresh Rewards'}"
-                                                                        Command="{Binding DataContext.RefreshTwitchRewardsCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
-                                                                <Button Margin="8,0,0,0"
-                                                                        Style="{StaticResource RewardLinkButtonStyle}"
-                                                                        Content="{loc:Translate 'Unlink Reward'}"
-                                                                        Command="{Binding DataContext.UnlinkTwitchRewardCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                        CommandParameter="{Binding}" />
-                                                            </DockPanel>
-                                                            <TextBlock Margin="0,6,0,0"
-                                                                      Text="{loc:Translate 'Linked rewards are configured on Twitch. Crystal Relay only listens for this reward being redeemed and will not edit its name, cost, prompt, color, input settings, visibility, or cooldown.'}"
-                                                                       Foreground="{DynamicResource MutedBrush}"
-                                                                       TextWrapping="Wrap" />
-                                                        </StackPanel>
-                                                        <UniformGrid Columns="2"
-                                                                      Margin="0,12,0,0">
-                                                            <UniformGrid.Style>
-                                                                <Style TargetType="UniformGrid">
-                                                                    <Setter Property="Visibility" Value="Visible" />
-                                                                    <Style.Triggers>
-                                                                        <DataTrigger Binding="{Binding UsesLinkedExistingReward}" Value="True">
-                                                                            <Setter Property="Visibility" Value="Collapsed" />
-                                                                        </DataTrigger>
-                                                                    </Style.Triggers>
-                                                                </Style>
-                                                            </UniformGrid.Style>
-                                                            <StackPanel Margin="0,0,14,0">
-                                                                <TextBlock Text="{loc:Translate 'Reward Name'}"
-                                                                           Foreground="{DynamicResource TextBrush}"
-                                                                           FontWeight="SemiBold" />
-                                                                <TextBox Text="{Binding RewardTitle, UpdateSourceTrigger=PropertyChanged}" />
-                                                            </StackPanel>
-                                                            <StackPanel Margin="14,0,0,0">
-                                                                <TextBlock Text="{loc:Translate 'Reward Cost'}"
-                                                                           Foreground="{DynamicResource TextBrush}"
-                                                                           FontWeight="SemiBold" />
-                                                                <TextBox Text="{Binding RewardCost, UpdateSourceTrigger=PropertyChanged}" />
-                                                            </StackPanel>
-                                                        </UniformGrid>
-                                                        <StackPanel Margin="0,12,0,0">
-                                                            <StackPanel.Style>
-                                                                <Style TargetType="StackPanel">
-                                                                    <Setter Property="Visibility" Value="Visible" />
-                                                                    <Style.Triggers>
-                                                                        <DataTrigger Binding="{Binding UsesLinkedExistingReward}" Value="True">
-                                                                            <Setter Property="Visibility" Value="Collapsed" />
-                                                                        </DataTrigger>
-                                                                    </Style.Triggers>
-                                                                </Style>
-                                                            </StackPanel.Style>
-                                                            <TextBlock Text="{loc:Translate 'Reward Description'}"
-                                                                       Foreground="{DynamicResource TextBrush}"
-                                                                       FontWeight="SemiBold" />
-                                                            <TextBox Text="{Binding RewardDescription, UpdateSourceTrigger=PropertyChanged}"
-                                                                     AcceptsReturn="True"
-                                                                     Height="70"
-                                                                     TextWrapping="Wrap" />
-                                                            <TextBlock Margin="0,6,0,0"
-                                                                       Text="{loc:Translate 'Shown on Twitch as the reward description. Leave blank to use the Crystal Relay default.'}"
-                                                                       Foreground="{DynamicResource MutedBrush}"
-                                                                       TextWrapping="Wrap" />
-                                                        </StackPanel>
-                                                        <UniformGrid Columns="2"
-                                                                     Margin="0,12,0,0">
-                                                            <StackPanel Margin="0,0,14,0">
-                                                                <TextBlock Text="{loc:Translate 'Unlock Duration Seconds'}"
-                                                                           Foreground="{DynamicResource TextBrush}"
-                                                                           FontWeight="SemiBold" />
-                                                                <TextBox Text="{Binding UnlockDurationSeconds, UpdateSourceTrigger=PropertyChanged}" />
-                                                            </StackPanel>
-                                                            <StackPanel Margin="14,0,0,0">
-                                                                <TextBlock Text="{loc:Translate 'Cooldown (seconds)'}"
-                                                                           Foreground="{DynamicResource TextBrush}"
-                                                                           FontWeight="SemiBold" />
-                                                                <TextBox Text="{Binding CooldownSeconds, UpdateSourceTrigger=PropertyChanged}" />
-                                                            </StackPanel>
-                                                        </UniformGrid>
-                                                        <CheckBox Margin="0,12,0,0"
-                                                                  Content="{loc:Translate 'Free child reward slots while locked'}"
-                                                                  IsChecked="{Binding FreeChildRewardSlotsWhenLocked, UpdateSourceTrigger=PropertyChanged}" />
-                                                        <CheckBox Margin="0,8,0,0"
-                                                                  Content="{loc:Translate 'Delete master reward when inactive'}"
-                                                                  IsChecked="{Binding DeleteMasterRewardWhenInactive, UpdateSourceTrigger=PropertyChanged}">
-                                                            <CheckBox.Style>
-                                                                <Style TargetType="CheckBox"
-                                                                       BasedOn="{StaticResource {x:Type CheckBox}}">
-                                                                    <Setter Property="Visibility" Value="Visible" />
-                                                                    <Style.Triggers>
-                                                                        <DataTrigger Binding="{Binding UsesLinkedExistingReward}" Value="True">
-                                                                            <Setter Property="Visibility" Value="Collapsed" />
-                                                                        </DataTrigger>
-                                                                    </Style.Triggers>
-                                                                </Style>
-                                                            </CheckBox.Style>
-                                                        </CheckBox>
-                                                        <CheckBox Margin="0,8,0,0"
-                                                                  Content="{loc:Translate 'Prevent avatar-change rewards while scaling is active'}"
-                                                                  IsChecked="{Binding PreventAvatarChangesDuringActiveScaling, UpdateSourceTrigger=PropertyChanged}" />
-                                                        <TextBlock Margin="0,8,0,0"
-                                                                   Text="{loc:Translate 'When locked, child scale rewards are hidden or deleted until viewers redeem the master reward.'}"
-                                                                   Foreground="{DynamicResource MutedBrush}"
-                                                                   TextWrapping="Wrap" />
-                                                        <TextBlock Margin="0,6,0,0"
-                                                                   Text="{loc:Translate 'When enabled, normal Avatar Change rewards are blocked during active scaling. Bits + Subs override avatar changes can still run.'}"
-                                                                   Foreground="{DynamicResource MutedBrush}"
-                                                                   TextWrapping="Wrap" />
-
-                                                        <TextBlock Margin="0,14,0,0"
-                                                                   Text="{loc:Translate 'Managed Reward Colors'}"
-                                                                   Foreground="{DynamicResource TextBrush}"
-                                                                   FontWeight="SemiBold">
-                                                            <TextBlock.Style>
-                                                                <Style TargetType="TextBlock">
-                                                                    <Setter Property="Visibility" Value="Visible" />
-                                                                    <Style.Triggers>
-                                                                        <DataTrigger Binding="{Binding UsesLinkedExistingReward}" Value="True">
-                                                                            <Setter Property="Visibility" Value="Collapsed" />
-                                                                        </DataTrigger>
-                                                                    </Style.Triggers>
-                                                                </Style>
-                                                            </TextBlock.Style>
-                                                        </TextBlock>
-                                                        <UniformGrid Columns="2"
-                                                                      Margin="0,8,0,0">
-                                                            <UniformGrid.Style>
-                                                                <Style TargetType="UniformGrid">
-                                                                    <Setter Property="Visibility" Value="Visible" />
-                                                                    <Style.Triggers>
-                                                                        <DataTrigger Binding="{Binding UsesLinkedExistingReward}" Value="True">
-                                                                            <Setter Property="Visibility" Value="Collapsed" />
-                                                                        </DataTrigger>
-                                                                    </Style.Triggers>
-                                                                </Style>
-                                                            </UniformGrid.Style>
-                                                            <StackPanel Margin="0,0,10,0">
-                                                                <TextBlock Text="{loc:Translate 'Ready Color'}"
-                                                                           Foreground="{DynamicResource TextBrush}"
-                                                                           FontWeight="SemiBold" />
-                                                                <DockPanel Margin="0,6,0,0">
-                                                                    <Border Width="30"
-                                                                            Height="30"
-                                                                            Margin="0,0,8,0"
-                                                                            Background="{Binding ManagedRewardReadyColorBrush}"
-                                                                            BorderBrush="{DynamicResource InputBorderBrush}"
-                                                                            BorderThickness="1"
-                                                                            CornerRadius="8" />
-                                                                    <TextBox MinWidth="100"
-                                                                             Text="{Binding ManagedRewardReadyColor, UpdateSourceTrigger=PropertyChanged}" />
-                                                                    <Button Margin="8,0,0,0"
-                                                                            Style="{StaticResource SecondaryButtonStyle}"
-                                                                            Padding="10,6"
-                                                                            Content="{loc:Translate 'Pick'}"
-                                                                            Click="OnPickManagedRewardColorClicked" />
-                                                                </DockPanel>
-                                                            </StackPanel>
-                                                            <StackPanel Margin="10,0,0,0">
-                                                                <TextBlock Text="{loc:Translate 'Cooldown Color'}"
-                                                                           Foreground="{DynamicResource TextBrush}"
-                                                                           FontWeight="SemiBold" />
-                                                                <DockPanel Margin="0,6,0,0">
-                                                                    <Border Width="30"
-                                                                            Height="30"
-                                                                            Margin="0,0,8,0"
-                                                                            Background="{Binding ManagedRewardCooldownColorBrush}"
-                                                                            BorderBrush="{DynamicResource InputBorderBrush}"
-                                                                            BorderThickness="1"
-                                                                            CornerRadius="8" />
-                                                                    <TextBox MinWidth="100"
-                                                                             Text="{Binding ManagedRewardCooldownColor, UpdateSourceTrigger=PropertyChanged}" />
-                                                                    <Button Margin="8,0,0,0"
-                                                                            Style="{StaticResource SecondaryButtonStyle}"
-                                                                            Padding="10,6"
-                                                                            Content="{loc:Translate 'Pick'}"
-                                                                            Click="OnPickManagedRewardColorClicked"
-                                                                            Tag="Cooldown" />
-                                                                </DockPanel>
-                                                            </StackPanel>
-                                                        </UniformGrid>
-                                                        <TextBlock Margin="0,12,0,0"
-                                                                   Text="{Binding DataContext.AvatarScaleMasterRewardStatusText, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                   Foreground="{DynamicResource MutedBrush}"
-                                                                   TextWrapping="Wrap" />
-                                                    </StackPanel>
-                                                </DataTemplate>
-                                            </ContentControl.ContentTemplate>
-                                        </ContentControl>
-                                    </Border>
-                                    <ContentControl Margin="0,14,0,0"
-                                                    Content="{Binding SelectedAvatarScaleSet}">
-                                        <ContentControl.Style>
-                                            <Style TargetType="ContentControl">
-                                                <Setter Property="Visibility" Value="Visible" />
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding SelectedAvatarScaleSet}" Value="{x:Null}">
-                                                        <Setter Property="Visibility" Value="Collapsed" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </ContentControl.Style>
-                                        <ContentControl.ContentTemplate>
-                                            <DataTemplate DataType="{x:Type models:AvatarScaleSet}">
-                                                <StackPanel>
-                                                    <Border Background="{DynamicResource NestedPanelBrush}"
-                                                            BorderBrush="{DynamicResource HighlightBorderBrush}"
-                                                            BorderThickness="1"
-                                                            CornerRadius="16"
-                                                            Padding="14">
-                                                        <StackPanel>
-                                                            <TextBlock Text="{loc:Translate 'Scale Set Setup'}"
-                                                                       Style="{StaticResource HeadingTextStyle}"
-                                                                       FontSize="20"
-                                                                       FontWeight="Bold"
-                                                                       Foreground="{DynamicResource TextBrush}" />
-                                                            <UniformGrid Columns="2"
-                                                                         Margin="0,12,0,0">
-                                                                <StackPanel Margin="0,0,14,0">
-                                                                    <TextBlock Text="{loc:Translate 'Scale Set Name'}"
-                                                                               Foreground="{DynamicResource TextBrush}"
-                                                                               FontWeight="SemiBold" />
-                                                                    <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" />
-                                                                </StackPanel>
-                                                                <StackPanel Margin="14,0,0,0">
-                                                                    <TextBlock Text="{loc:Translate 'Scale Redeems'}"
-                                                                               Foreground="{DynamicResource TextBrush}"
-                                                                               FontWeight="SemiBold" />
-                                                                    <Border Margin="0,8,0,0"
-                                                                            Padding="12,8"
-                                                                            CornerRadius="10"
-                                                                            Background="{DynamicResource StatusChipBrush}">
-                                                                        <TextBlock Text="{Binding ScaleCountText}"
-                                                                                   Foreground="{DynamicResource TextBrush}"
-                                                                                   FontWeight="SemiBold" />
-                                                                    </Border>
-                                                                </StackPanel>
-                                                            </UniformGrid>
-                                                        </StackPanel>
-                                                    </Border>
-
-                                                    <Border Margin="0,16,0,0"
-                                                            Background="{DynamicResource NestedPanelBrush}"
-                                                            BorderBrush="{DynamicResource HighlightBorderBrush}"
-                                                            BorderThickness="1"
-                                                            CornerRadius="16"
-                                                            Padding="14">
-                                                        <StackPanel>
-                                                            <TextBlock Text="{loc:Translate 'Scale Redeems In This Set'}"
-                                                                       Style="{StaticResource HeadingTextStyle}"
-                                                                       FontSize="20"
-                                                                       FontWeight="Bold"
-                                                                       Foreground="{DynamicResource TextBrush}" />
-                                                            <TextBlock Margin="0,8,0,0"
-                                                                       Text="{loc:Translate 'Pick a scale redeem in this set to edit it below, test it, or delete it.'}"
-                                                                       Foreground="{DynamicResource MutedBrush}"
-                                                                       TextWrapping="Wrap" />
-                                                            <WrapPanel Margin="0,14,0,0">
-                                                                <Button Style="{StaticResource SecondaryButtonStyle}"
-                                                                        Content="{loc:Translate 'Add Scale Redeem'}"
-                                                                        Command="{Binding DataContext.AddAvatarScaleRuleCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
-                                                                <Button Style="{StaticResource SecondaryButtonStyle}"
-                                                                        Content="{loc:Translate 'Delete Scale Redeem'}"
-                                                                        Command="{Binding DataContext.RemoveSelectedAvatarScaleRuleCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
-                                                                <Button Style="{StaticResource SecondaryButtonStyle}"
-                                                                        Content="{loc:Translate 'Test Scale'}"
-                                                                        Command="{Binding DataContext.TestSelectedAvatarScaleRuleCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
-                                                                <Button Style="{StaticResource SecondaryButtonStyle}"
-                                                                        Content="{loc:Translate 'Disable Pairing'}"
-                                                                        Command="{Binding DataContext.OpenAvatarScaleRuleLockoutPickerCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
-                                                            </WrapPanel>
-                                                            <TextBlock Margin="0,8,0,0"
-                                                                       Text="{Binding DataContext.AvatarScaleRuleLockoutSummaryText, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                       Foreground="{DynamicResource MutedBrush}"
-                                                                       TextWrapping="Wrap" />
-                                                            <ListBox Margin="0,14,0,0"
-                                                                     MaxHeight="260"
-                                                                     ItemsSource="{Binding ScaleRules}"
-                                                                     SelectedItem="{Binding DataContext.SelectedAvatarScaleRule, RelativeSource={RelativeSource AncestorType=Window}, Mode=TwoWay}"
-                                                                     ItemTemplate="{StaticResource AvatarScaleRuleListItemTemplate}"
-                                                                     ScrollViewer.CanContentScroll="True"
-                                                                     VirtualizingStackPanel.IsVirtualizing="True"
-                                                                     VirtualizingStackPanel.VirtualizationMode="Recycling" />
-                                                        </StackPanel>
-                                                    </Border>
-                                                </StackPanel>
-                                            </DataTemplate>
-                                        </ContentControl.ContentTemplate>
-                                    </ContentControl>
-                                    <TextBlock Margin="0,18,0,0"
-                                               Text="{loc:Translate 'Select or add a scale set to edit scale redeems.'}"
-                                               Foreground="{DynamicResource MutedBrush}"
-                                               TextAlignment="Center"
-                                               TextWrapping="Wrap">
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="Visibility" Value="Collapsed" />
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding SelectedAvatarScaleSet}" Value="{x:Null}">
-                                                        <Setter Property="Visibility" Value="Visible" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </TextBlock.Style>
-                                    </TextBlock>
-                                </StackPanel>
-                            </Border>
-
                             <ContentControl Margin="0,18,0,0"
                                             Content="{Binding SelectedAvatarScaleRule}">
                                 <ContentControl.Style>
                                     <Style TargetType="ContentControl">
                                         <Setter Property="Visibility" Value="Collapsed" />
                                         <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsViewingAvatarScaling}" Value="True">
-                                                <Setter Property="Visibility" Value="Visible" />
-                                            </DataTrigger>
                                             <DataTrigger Binding="{Binding IsViewingPowerUps}" Value="True">
                                                 <Setter Property="Visibility" Value="Visible" />
                                             </DataTrigger>
@@ -5920,226 +5457,232 @@
                                                     </Style>
                                                 </Border.Style>
                                                 <StackPanel>
-                                                    <TextBlock Text="{loc:Translate 'Supporter Growth'}"
-                                                               Style="{StaticResource HeadingTextStyle}"
-                                                               FontSize="20"
-                                                               FontWeight="Bold"
-                                                               Foreground="{DynamicResource TextBrush}" />
-                                                    <TextBlock Margin="0,8,0,0"
-                                                               Text="{loc:Translate 'Supporter Growth listens to bits, new subs, resubs, and gift subs. Paid events add height and add fair active time, then return to normal when the paid timer ends.'}"
-                                                               Foreground="{DynamicResource MutedBrush}"
-                                                               TextWrapping="Wrap" />
-                                                    <CheckBox Margin="0,12,0,0"
-                                                              Content="{loc:Translate 'Allow reward scale changes during paid growth'}"
-                                                              IsChecked="{Binding SupporterGrowthAllowRewardScaleOverlay, UpdateSourceTrigger=PropertyChanged}" />
-                                                    <TextBlock Margin="26,6,0,0"
-                                                               Text="{loc:Translate 'When enabled, channel-point and chat scale redeems can temporarily adjust height during paid growth without changing the paid timer.'}"
-                                                               Foreground="{DynamicResource MutedBrush}"
-                                                               TextWrapping="Wrap" />
-                                                    <UniformGrid Columns="2"
-                                                                 Margin="0,14,0,0">
-                                                        <StackPanel Margin="0,0,14,0">
-                                                            <TextBlock Text="{loc:Translate 'Normal Height'}"
-                                                                       Foreground="{DynamicResource TextBrush}"
-                                                                       FontWeight="SemiBold" />
-                                                            <TextBox Text="{Binding SupporterGrowthNormalHeightMeters, UpdateSourceTrigger=LostFocus}" />
-                                                        </StackPanel>
-                                                        <StackPanel Margin="14,0,0,0">
-                                                            <TextBlock Text="{loc:Translate 'Max Added Height'}"
-                                                                       Foreground="{DynamicResource TextBrush}"
-                                                                       FontWeight="SemiBold" />
-                                                            <TextBox Text="{Binding SupporterGrowthMaxAddedHeightMeters, UpdateSourceTrigger=LostFocus}" />
-                                                            <TextBlock Margin="0,6,0,0"
-                                                                       Text="{loc:Translate 'Use 0 for unlimited added height until VRChat or safe range clamps it.'}"
-                                                                       Foreground="{DynamicResource MutedBrush}"
-                                                                       TextWrapping="Wrap" />
-                                                        </StackPanel>
-                                                    </UniformGrid>
-                                                    <TextBlock Margin="0,16,0,0"
-                                                               Text="{loc:Translate 'Paid Active Time'}"
-                                                               Foreground="{DynamicResource TextBrush}"
-                                                               FontWeight="SemiBold" />
-                                                    <TextBlock Margin="0,6,0,0"
-                                                               Text="{loc:Translate 'Paid time is shared by bits, subs, resubs, and gift subs. Time adds to the remaining paid timer, then slows above the soft cap and never exceeds the max.'}"
-                                                               Foreground="{DynamicResource MutedBrush}"
-                                                               TextWrapping="Wrap" />
-                                                    <UniformGrid Columns="3"
-                                                                 Margin="0,10,0,0">
-                                                        <StackPanel Margin="0,0,10,0">
-                                                            <TextBlock Text="{loc:Translate 'Bits Timer Unit'}"
-                                                                       Foreground="{DynamicResource TextBrush}"
-                                                                       FontWeight="SemiBold" />
-                                                            <TextBox Text="{Binding SupporterGrowthBitsTimerUnit, UpdateSourceTrigger=PropertyChanged}" />
-                                                        </StackPanel>
-                                                        <StackPanel Margin="10,0,10,0">
-                                                            <TextBlock Text="{loc:Translate 'Seconds Per Bits Unit'}"
-                                                                       Foreground="{DynamicResource TextBrush}"
-                                                                       FontWeight="SemiBold" />
-                                                            <TextBox Text="{Binding SupporterGrowthSecondsPerBitsUnit, UpdateSourceTrigger=PropertyChanged}" />
-                                                        </StackPanel>
-                                                        <StackPanel Margin="10,0,0,0">
-                                                            <TextBlock Text="{loc:Translate 'Smooth Transition Seconds'}"
-                                                                       Foreground="{DynamicResource TextBrush}"
-                                                                       FontWeight="SemiBold" />
-                                                            <TextBox Text="{Binding SmoothTransitionSeconds, UpdateSourceTrigger=LostFocus}" />
-                                                        </StackPanel>
-                                                    </UniformGrid>
-                                                    <UniformGrid Columns="3"
-                                                                 Margin="0,10,0,0">
-                                                        <StackPanel Margin="0,0,10,0">
-                                                            <TextBlock Text="{loc:Translate 'Soft Cap Seconds'}"
-                                                                       Foreground="{DynamicResource TextBrush}"
-                                                                       FontWeight="SemiBold" />
-                                                            <TextBox Text="{Binding SupporterGrowthSoftCapSeconds, UpdateSourceTrigger=PropertyChanged}" />
-                                                        </StackPanel>
-                                                        <StackPanel Margin="10,0,10,0">
-                                                            <TextBlock Text="{loc:Translate 'Soft Cap Multiplier Percent'}"
-                                                                       Foreground="{DynamicResource TextBrush}"
-                                                                       FontWeight="SemiBold" />
-                                                            <TextBox Text="{Binding SupporterGrowthSoftCapMultiplierPercent, UpdateSourceTrigger=PropertyChanged}" />
-                                                        </StackPanel>
-                                                        <StackPanel Margin="10,0,0,0">
-                                                            <TextBlock Text="{loc:Translate 'Max Paid Time Seconds'}"
-                                                                       Foreground="{DynamicResource TextBrush}"
-                                                                       FontWeight="SemiBold" />
-                                                            <TextBox Text="{Binding SupporterGrowthMaxPaidTimeSeconds, UpdateSourceTrigger=PropertyChanged}" />
-                                                        </StackPanel>
-                                                    </UniformGrid>
+                                                     <TextBlock Text="{loc:Translate 'Supporter Growth'}"
+                                                                Style="{StaticResource HeadingTextStyle}"
+                                                                FontSize="20"
+                                                                FontWeight="Bold"
+                                                                Foreground="{DynamicResource TextBrush}" />
+                                                     <TextBlock Margin="0,8,0,0"
+                                                                Text="{loc:Translate 'Supporter Growth listens to bits, new subs, resubs, and gift subs. Paid events add height and add fair active time, then return to normal when the paid timer ends.'}"
+                                                                Foreground="{DynamicResource MutedBrush}"
+                                                                TextWrapping="Wrap" />
 
-                                                    <TextBlock Margin="0,16,0,0"
-                                                               Text="{loc:Translate 'Supporter Growth Cheer Keywords'}"
-                                                               Foreground="{DynamicResource TextBrush}"
-                                                               FontWeight="SemiBold" />
-                                                    <TextBlock Margin="0,6,0,0"
-                                                               Text="{loc:Translate 'Use cheer text like Cheer100 grow or Cheer100 shrink. No keyword keeps the existing positive growth behavior; if both words appear, Crystal Relay skips the scale instead of guessing.'}"
-                                                               Foreground="{DynamicResource MutedBrush}"
-                                                               TextWrapping="Wrap" />
-                                                    <UniformGrid Columns="2"
-                                                                 Margin="0,10,0,0">
-                                                        <StackPanel Margin="0,0,14,0">
-                                                            <TextBlock Text="{loc:Translate 'Grow Keyword'}"
-                                                                       Foreground="{DynamicResource TextBrush}"
-                                                                       FontWeight="SemiBold" />
-                                                            <TextBox Text="{Binding SupporterGrowthGrowKeyword, UpdateSourceTrigger=PropertyChanged}" />
-                                                        </StackPanel>
-                                                        <StackPanel Margin="14,0,0,0">
-                                                            <TextBlock Text="{loc:Translate 'Shrink Keyword'}"
-                                                                       Foreground="{DynamicResource TextBrush}"
-                                                                       FontWeight="SemiBold" />
-                                                            <TextBox Text="{Binding SupporterGrowthShrinkKeyword, UpdateSourceTrigger=PropertyChanged}" />
-                                                        </StackPanel>
-                                                    </UniformGrid>
+                                                     <!-- Card 1: General Settings -->
+                                                     <Border Background="{DynamicResource NestedPanelBrush}"
+                                                             BorderBrush="{DynamicResource BorderBrush}"
+                                                             BorderThickness="1" CornerRadius="10" Padding="10" Margin="0,10,0,0">
+                                                         <StackPanel>
+                                                             <CheckBox Content="{loc:Translate 'Allow reward scale changes during paid growth'}"
+                                                                       IsChecked="{Binding SupporterGrowthAllowRewardScaleOverlay, UpdateSourceTrigger=PropertyChanged}" />
+                                                             <TextBlock Margin="24,4,0,0"
+                                                                        Text="{loc:Translate 'When enabled, channel-point and chat scale redeems can temporarily adjust height during paid growth without changing the paid timer.'}"
+                                                                        Foreground="{DynamicResource MutedBrush}"
+                                                                        TextWrapping="Wrap" />
+                                                         </StackPanel>
+                                                     </Border>
 
-                                                    <TextBlock Margin="0,16,0,0"
-                                                               Text="{loc:Translate 'Subscription Growth'}"
-                                                               Foreground="{DynamicResource TextBrush}"
-                                                               FontWeight="SemiBold" />
-                                                    <UniformGrid Columns="3"
-                                                                 Margin="0,10,0,0">
-                                                        <StackPanel Margin="0,0,10,0">
-                                                            <TextBlock Text="{loc:Translate 'Tier 1 Height Add'}"
-                                                                       Foreground="{DynamicResource TextBrush}"
-                                                                       FontWeight="SemiBold" />
-                                                            <TextBox Text="{Binding SupporterGrowthTier1HeightMeters, UpdateSourceTrigger=LostFocus}" />
-                                                        </StackPanel>
-                                                        <StackPanel Margin="10,0,10,0">
-                                                            <TextBlock Text="{loc:Translate 'Tier 2 Height Add'}"
-                                                                       Foreground="{DynamicResource TextBrush}"
-                                                                       FontWeight="SemiBold" />
-                                                            <TextBox Text="{Binding SupporterGrowthTier2HeightMeters, UpdateSourceTrigger=LostFocus}" />
-                                                        </StackPanel>
-                                                        <StackPanel Margin="10,0,0,0">
-                                                            <TextBlock Text="{loc:Translate 'Tier 3 Height Add'}"
-                                                                       Foreground="{DynamicResource TextBrush}"
-                                                                       FontWeight="SemiBold" />
-                                                            <TextBox Text="{Binding SupporterGrowthTier3HeightMeters, UpdateSourceTrigger=LostFocus}" />
-                                                        </StackPanel>
-                                                    </UniformGrid>
-                                                    <TextBlock Margin="0,16,0,0"
-                                                               Text="{loc:Translate 'Subscription Paid Time'}"
-                                                               Foreground="{DynamicResource TextBrush}"
-                                                               FontWeight="SemiBold" />
-                                                    <UniformGrid Columns="3"
-                                                                 Margin="0,10,0,0">
-                                                        <StackPanel Margin="0,0,10,0">
-                                                            <TextBlock Text="{loc:Translate 'Tier 1 Seconds'}"
-                                                                       Foreground="{DynamicResource TextBrush}"
-                                                                       FontWeight="SemiBold" />
-                                                            <TextBox Text="{Binding SupporterGrowthTier1Seconds, UpdateSourceTrigger=PropertyChanged}" />
-                                                        </StackPanel>
-                                                        <StackPanel Margin="10,0,10,0">
-                                                            <TextBlock Text="{loc:Translate 'Tier 2 Seconds'}"
-                                                                       Foreground="{DynamicResource TextBrush}"
-                                                                       FontWeight="SemiBold" />
-                                                            <TextBox Text="{Binding SupporterGrowthTier2Seconds, UpdateSourceTrigger=PropertyChanged}" />
-                                                        </StackPanel>
-                                                        <StackPanel Margin="10,0,0,0">
-                                                            <TextBlock Text="{loc:Translate 'Tier 3 Seconds'}"
-                                                                       Foreground="{DynamicResource TextBrush}"
-                                                                       FontWeight="SemiBold" />
-                                                            <TextBox Text="{Binding SupporterGrowthTier3Seconds, UpdateSourceTrigger=PropertyChanged}" />
-                                                        </StackPanel>
-                                                    </UniformGrid>
+                                                     <!-- Card 2: Paid Active Time -->
+                                                     <Border Background="{DynamicResource NestedPanelBrush}"
+                                                             BorderBrush="{DynamicResource BorderBrush}"
+                                                             BorderThickness="1" CornerRadius="10" Padding="10" Margin="0,10,0,0">
+                                                         <Expander IsExpanded="False" Foreground="{DynamicResource TextBrush}">
+                                                             <Expander.Header>
+                                                                 <DockPanel LastChildFill="True">
+                                                                     <TextBlock Text="{loc:Translate 'Paid Active Time'}" FontWeight="SemiBold" />
+                                                                     <TextBlock DockPanel.Dock="Right"
+                                                                                Text="{Binding SupporterGrowthPaidTimeSummary}"
+                                                                                Foreground="{DynamicResource MutedBrush}"
+                                                                                FontSize="11" />
+                                                                 </DockPanel>
+                                                             </Expander.Header>
+                                                             <StackPanel Margin="0,8,0,0">
+                                                                 <TextBlock Margin="0,0,0,8"
+                                                                            Text="{loc:Translate 'Paid time is shared by bits, subs, resubs, and gift subs. Time adds to the remaining paid timer, then slows above the soft cap and never exceeds the max.'}"
+                                                                            Foreground="{DynamicResource MutedBrush}"
+                                                                            TextWrapping="Wrap" />
+                                                                 <UniformGrid Columns="3" Margin="0,8,0,0">
+                                                                     <StackPanel Margin="0,0,10,0">
+                                                                         <TextBlock Text="{loc:Translate 'Bits Timer Unit'}" FontWeight="SemiBold" />
+                                                                         <TextBox Text="{Binding SupporterGrowthBitsTimerUnit, UpdateSourceTrigger=PropertyChanged}" />
+                                                                     </StackPanel>
+                                                                     <StackPanel Margin="10,0,10,0">
+                                                                         <TextBlock Text="{loc:Translate 'Seconds Per Bits Unit'}" FontWeight="SemiBold" />
+                                                                         <TextBox Text="{Binding SupporterGrowthSecondsPerBitsUnit, UpdateSourceTrigger=PropertyChanged}" />
+                                                                     </StackPanel>
+                                                                     <StackPanel Margin="10,0,0,0">
+                                                                         <TextBlock Text="{loc:Translate 'Smooth Transition Seconds'}" FontWeight="SemiBold" />
+                                                                         <TextBox Text="{Binding SmoothTransitionSeconds, UpdateSourceTrigger=LostFocus}" />
+                                                                     </StackPanel>
+                                                                 </UniformGrid>
+                                                                 <UniformGrid Columns="3" Margin="0,10,0,0">
+                                                                     <StackPanel Margin="0,0,10,0">
+                                                                         <TextBlock Text="{loc:Translate 'Soft Cap Seconds'}" FontWeight="SemiBold" />
+                                                                         <TextBox Text="{Binding SupporterGrowthSoftCapSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                                                                     </StackPanel>
+                                                                     <StackPanel Margin="10,0,10,0">
+                                                                         <TextBlock Text="{loc:Translate 'Soft Cap Multiplier Percent'}" FontWeight="SemiBold" />
+                                                                         <TextBox Text="{Binding SupporterGrowthSoftCapMultiplierPercent, UpdateSourceTrigger=PropertyChanged}" />
+                                                                     </StackPanel>
+                                                                     <StackPanel Margin="10,0,0,0">
+                                                                         <TextBlock Text="{loc:Translate 'Max Paid Time Seconds'}" FontWeight="SemiBold" />
+                                                                         <TextBox Text="{Binding SupporterGrowthMaxPaidTimeSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                                                                     </StackPanel>
+                                                                 </UniformGrid>
+                                                             </StackPanel>
+                                                         </Expander>
+                                                     </Border>
 
-                                                    <DockPanel Margin="0,16,0,0"
-                                                               LastChildFill="False">
-                                                        <TextBlock Text="{loc:Translate 'Bits Growth Ranges'}"
-                                                                   Foreground="{DynamicResource TextBrush}"
-                                                                   FontWeight="SemiBold" />
-                                                        <Button Margin="14,0,0,0"
-                                                                Style="{StaticResource PrimaryButtonStyle}"
-                                                                Padding="16,6"
-                                                                Content="{loc:Translate 'Add Bits Range'}"
-                                                                Click="OnAddSupporterGrowthBitRangeClicked" />
-                                                    </DockPanel>
-                                                    <ItemsControl Margin="0,10,0,0"
-                                                                  ItemsSource="{Binding SupporterGrowthBitRanges}">
-                                                        <ItemsControl.ItemTemplate>
-                                                            <DataTemplate DataType="{x:Type models:AvatarScaleBitGrowthRange}">
-                                                                <Grid Margin="0,0,0,8">
-                                                                    <Grid.ColumnDefinitions>
-                                                                        <ColumnDefinition Width="*" />
-                                                                        <ColumnDefinition Width="*" />
-                                                                        <ColumnDefinition Width="*" />
-                                                                        <ColumnDefinition Width="Auto" />
-                                                                    </Grid.ColumnDefinitions>
-                                                                    <StackPanel Grid.Column="0"
-                                                                                Margin="0,0,8,0">
-                                                                        <TextBlock Text="{loc:Translate 'Minimum Bits'}"
-                                                                                   Foreground="{DynamicResource TextBrush}"
-                                                                                   FontWeight="SemiBold" />
-                                                                        <TextBox Text="{Binding MinimumBits, UpdateSourceTrigger=PropertyChanged}" />
-                                                                    </StackPanel>
-                                                                    <StackPanel Grid.Column="1"
-                                                                                Margin="8,0,8,0">
-                                                                        <TextBlock Text="{loc:Translate 'Maximum Bits'}"
-                                                                                   Foreground="{DynamicResource TextBrush}"
-                                                                                   FontWeight="SemiBold" />
-                                                                        <TextBox Text="{Binding MaximumBits, UpdateSourceTrigger=PropertyChanged}" />
-                                                                    </StackPanel>
-                                                                    <StackPanel Grid.Column="2"
-                                                                                Margin="8,0,8,0">
-                                                                        <TextBlock Text="{loc:Translate 'Height Added'}"
-                                                                                   Foreground="{DynamicResource TextBrush}"
-                                                                                   FontWeight="SemiBold" />
-                                                                        <TextBox Text="{Binding HeightAddedMeters, UpdateSourceTrigger=LostFocus}" />
-                                                                    </StackPanel>
-                                                                    <Button Grid.Column="3"
-                                                                            Margin="8,18,0,0"
-                                                                            Style="{StaticResource SecondaryButtonStyle}"
-                                                                            Padding="14,6"
-                                                                            VerticalAlignment="Top"
-                                                                            Content="{loc:Translate 'Remove'}"
-                                                                            Click="OnRemoveSupporterGrowthBitRangeClicked" />
-                                                                </Grid>
-                                                            </DataTemplate>
-                                                        </ItemsControl.ItemTemplate>
-                                                    </ItemsControl>
-                                                    <TextBlock Margin="0,4,0,0"
-                                                               Text="{loc:Translate 'Maximum Bits set to 0 means no upper limit for that row.'}"
-                                                               Foreground="{DynamicResource MutedBrush}"
-                                                               TextWrapping="Wrap" />
-                                                </StackPanel>
+                                                     <!-- Card 3: Cheer Keywords -->
+                                                     <Border Background="{DynamicResource NestedPanelBrush}"
+                                                             BorderBrush="{DynamicResource BorderBrush}"
+                                                             BorderThickness="1" CornerRadius="10" Padding="10" Margin="0,10,0,0">
+                                                         <Expander IsExpanded="False" Foreground="{DynamicResource TextBrush}">
+                                                             <Expander.Header>
+                                                                 <DockPanel LastChildFill="True">
+                                                                     <TextBlock Text="{loc:Translate 'Supporter Growth Cheer Keywords'}" FontWeight="SemiBold" />
+                                                                     <TextBlock DockPanel.Dock="Right"
+                                                                                Text="{Binding SupporterGrowthCheerKeywordsSummary}"
+                                                                                Foreground="{DynamicResource MutedBrush}"
+                                                                                FontSize="11" />
+                                                                 </DockPanel>
+                                                             </Expander.Header>
+                                                             <StackPanel Margin="0,8,0,0">
+                                                                 <TextBlock Margin="0,0,0,8"
+                                                                            Text="{loc:Translate 'Use cheer text like Cheer100 grow or Cheer100 shrink. No keyword keeps the existing positive growth behavior; if both words appear, Crystal Relay skips the scale instead of guessing.'}"
+                                                                            Foreground="{DynamicResource MutedBrush}"
+                                                                            TextWrapping="Wrap" />
+                                                                 <UniformGrid Columns="2" Margin="0,8,0,0">
+                                                                     <StackPanel Margin="0,0,14,0">
+                                                                         <TextBlock Text="{loc:Translate 'Grow Keyword'}" FontWeight="SemiBold" />
+                                                                         <TextBox Text="{Binding SupporterGrowthGrowKeyword, UpdateSourceTrigger=PropertyChanged}" />
+                                                                     </StackPanel>
+                                                                     <StackPanel Margin="14,0,0,0">
+                                                                         <TextBlock Text="{loc:Translate 'Shrink Keyword'}" FontWeight="SemiBold" />
+                                                                         <TextBox Text="{Binding SupporterGrowthShrinkKeyword, UpdateSourceTrigger=PropertyChanged}" />
+                                                                     </StackPanel>
+                                                                 </UniformGrid>
+                                                             </StackPanel>
+                                                         </Expander>
+                                                     </Border>
+
+                                                     <!-- Card 4: Subscription Tiers -->
+                                                     <Border Background="{DynamicResource NestedPanelBrush}"
+                                                             BorderBrush="{DynamicResource BorderBrush}"
+                                                             BorderThickness="1" CornerRadius="10" Padding="10" Margin="0,10,0,0">
+                                                         <Expander IsExpanded="False" Foreground="{DynamicResource TextBrush}">
+                                                             <Expander.Header>
+                                                                 <DockPanel LastChildFill="True">
+                                                                     <TextBlock Text="{loc:Translate 'Subscription Growth'}" FontWeight="SemiBold" />
+                                                                     <TextBlock DockPanel.Dock="Right"
+                                                                                Text="{Binding SupporterGrowthSubTierSummary}"
+                                                                                Foreground="{DynamicResource MutedBrush}"
+                                                                                FontSize="11" />
+                                                                 </DockPanel>
+                                                             </Expander.Header>
+                                                             <StackPanel Margin="0,8,0,0">
+                                                                 <UniformGrid Columns="3" Margin="0,8,0,0">
+                                                                     <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="8" Margin="0,0,6,0">
+                                                                         <StackPanel>
+                                                                             <TextBlock Text="Tier 1" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextBrush}" />
+                                                                             <TextBlock Text="{loc:Translate 'Height Add'}" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,4,0,2" />
+                                                                             <TextBox Text="{Binding SupporterGrowthTier1HeightMeters, UpdateSourceTrigger=LostFocus}" />
+                                                                             <TextBlock Text="{loc:Translate 'Time'}" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,6,0,2" />
+                                                                             <TextBox Text="{Binding SupporterGrowthTier1Seconds, UpdateSourceTrigger=PropertyChanged}" />
+                                                                         </StackPanel>
+                                                                     </Border>
+                                                                     <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="8" Margin="6,0,6,0">
+                                                                         <StackPanel>
+                                                                             <TextBlock Text="Tier 2" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextBrush}" />
+                                                                             <TextBlock Text="{loc:Translate 'Height Add'}" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,4,0,2" />
+                                                                             <TextBox Text="{Binding SupporterGrowthTier2HeightMeters, UpdateSourceTrigger=LostFocus}" />
+                                                                             <TextBlock Text="{loc:Translate 'Time'}" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,6,0,2" />
+                                                                             <TextBox Text="{Binding SupporterGrowthTier2Seconds, UpdateSourceTrigger=PropertyChanged}" />
+                                                                         </StackPanel>
+                                                                     </Border>
+                                                                     <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="8" Margin="6,0,0,0">
+                                                                         <StackPanel>
+                                                                             <TextBlock Text="Tier 3" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextBrush}" />
+                                                                             <TextBlock Text="{loc:Translate 'Height Add'}" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,4,0,2" />
+                                                                             <TextBox Text="{Binding SupporterGrowthTier3HeightMeters, UpdateSourceTrigger=LostFocus}" />
+                                                                             <TextBlock Text="{loc:Translate 'Time'}" FontSize="11" Foreground="{DynamicResource MutedBrush}" Margin="0,6,0,2" />
+                                                                             <TextBox Text="{Binding SupporterGrowthTier3Seconds, UpdateSourceTrigger=PropertyChanged}" />
+                                                                         </StackPanel>
+                                                                     </Border>
+                                                                 </UniformGrid>
+                                                             </StackPanel>
+                                                         </Expander>
+                                                     </Border>
+
+                                                     <!-- Card 5: Bits Growth Ranges -->
+                                                     <Border Background="{DynamicResource NestedPanelBrush}"
+                                                             BorderBrush="{DynamicResource BorderBrush}"
+                                                             BorderThickness="1" CornerRadius="10" Padding="10" Margin="0,10,0,0">
+                                                         <Expander IsExpanded="False" Foreground="{DynamicResource TextBrush}">
+                                                             <Expander.Header>
+                                                                 <DockPanel LastChildFill="True">
+                                                                     <TextBlock Text="{loc:Translate 'Bits Growth Ranges'}" FontWeight="SemiBold" />
+                                                                     <TextBlock DockPanel.Dock="Right"
+                                                                                Text="{Binding SupporterGrowthBitsRangeCountSummary}"
+                                                                                Foreground="{DynamicResource MutedBrush}"
+                                                                                FontSize="11" />
+                                                                 </DockPanel>
+                                                             </Expander.Header>
+                                                             <StackPanel Margin="0,8,0,0">
+                                                                 <Button Margin="0,0,0,8"
+                                                                         Style="{StaticResource PrimaryButtonStyle}"
+                                                                         Padding="16,6"
+                                                                         Content="{loc:Translate 'Add Bits Range'}"
+                                                                         Click="OnAddSupporterGrowthBitRangeClicked" />
+                                                                 <ItemsControl ItemsSource="{Binding SupporterGrowthBitRanges}">
+                                                                     <ItemsControl.ItemTemplate>
+                                                                         <DataTemplate DataType="{x:Type models:AvatarScaleBitGrowthRange}">
+                                                                             <Grid Margin="0,0,0,8">
+                                                                                 <Grid.ColumnDefinitions>
+                                                                                     <ColumnDefinition Width="*" />
+                                                                                     <ColumnDefinition Width="*" />
+                                                                                     <ColumnDefinition Width="*" />
+                                                                                     <ColumnDefinition Width="Auto" />
+                                                                                 </Grid.ColumnDefinitions>
+                                                                                 <StackPanel Grid.Column="0"
+                                                                                             Margin="0,0,8,0">
+                                                                                     <TextBlock Text="{loc:Translate 'Minimum Bits'}"
+                                                                                                Foreground="{DynamicResource TextBrush}"
+                                                                                                FontWeight="SemiBold" />
+                                                                                     <TextBox Text="{Binding MinimumBits, UpdateSourceTrigger=PropertyChanged}" />
+                                                                                 </StackPanel>
+                                                                                 <StackPanel Grid.Column="1"
+                                                                                             Margin="8,0,8,0">
+                                                                                     <TextBlock Text="{loc:Translate 'Maximum Bits'}"
+                                                                                                Foreground="{DynamicResource TextBrush}"
+                                                                                                FontWeight="SemiBold" />
+                                                                                     <TextBox Text="{Binding MaximumBits, UpdateSourceTrigger=PropertyChanged}" />
+                                                                                 </StackPanel>
+                                                                                 <StackPanel Grid.Column="2"
+                                                                                             Margin="8,0,8,0">
+                                                                                     <TextBlock Text="{loc:Translate 'Height Added'}"
+                                                                                                Foreground="{DynamicResource TextBrush}"
+                                                                                                FontWeight="SemiBold" />
+                                                                                     <TextBox Text="{Binding HeightAddedMeters, UpdateSourceTrigger=LostFocus}" />
+                                                                                 </StackPanel>
+                                                                                 <Button Grid.Column="3"
+                                                                                         Margin="8,18,0,0"
+                                                                                         Style="{StaticResource SecondaryButtonStyle}"
+                                                                                         Padding="14,6"
+                                                                                         VerticalAlignment="Top"
+                                                                                         Content="{loc:Translate 'Remove'}"
+                                                                                         Click="OnRemoveSupporterGrowthBitRangeClicked" />
+                                                                             </Grid>
+                                                                         </DataTemplate>
+                                                                     </ItemsControl.ItemTemplate>
+                                                                 </ItemsControl>
+                                                                 <TextBlock Margin="0,4,0,0"
+                                                                            Text="{loc:Translate 'Maximum Bits set to 0 means no upper limit for that row.'}"
+                                                                            Foreground="{DynamicResource MutedBrush}"
+                                                                            TextWrapping="Wrap" />
+                                                             </StackPanel>
+                                                         </Expander>
+                                                     </Border>
+                                                 </StackPanel>
                                             </Border>
 
                                             <Border Margin="0,14,0,0"
@@ -7261,9 +6804,30 @@
                                                                 BorderThickness="1" CornerRadius="8" Padding="14">
                                                             <StackPanel>
                                                                 <CheckBox IsChecked="{Binding AdvancedRangeEnabled, UpdateSourceTrigger=PropertyChanged}"
-                                                                          Content="{loc:Translate 'Unlock advanced VRChat scale range (0.01m - 10000m)'}" />
+                                                                           Content="{loc:Translate 'Unlock advanced VRChat scale range (0.01m - 10000m)'}" />
                                                             </StackPanel>
                                                         </Border>
+                                                    </StackPanel>
+                                                </Border>
+
+                                                <Border Background="{DynamicResource PanelHighlightBrush}"
+                                                        BorderBrush="{DynamicResource HighlightBorderBrush}"
+                                                        BorderThickness="1"
+                                                        CornerRadius="10"
+                                                        Padding="10"
+                                                        Margin="0,12,0,0">
+                                                    <StackPanel>
+                                                        <CheckBox IsChecked="{Binding ScaleAction.ExtendCurrentActivity, Mode=TwoWay}"
+                                                                  Content="{loc:Translate &quot;Extend the current active activity instead of running this rule&apos;s action&quot;}"
+                                                                  Margin="0,0,0,6" />
+                                                        <StackPanel Orientation="Horizontal"
+                                                                    Visibility="{Binding ScaleAction.ExtendCurrentActivity, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <TextBlock Text="{loc:Translate 'Extend by (seconds)'}"
+                                                                       VerticalAlignment="Center"
+                                                                       Margin="0,0,8,0" />
+                                                            <TextBox Text="{Binding ScaleAction.ExtendSeconds, UpdateSourceTrigger=PropertyChanged}"
+                                                                     MinWidth="80" />
+                                                        </StackPanel>
                                                     </StackPanel>
                                                 </Border>
                                             </StackPanel>

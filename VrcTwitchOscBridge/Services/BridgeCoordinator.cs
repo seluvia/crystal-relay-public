@@ -60,6 +60,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private static readonly TimeSpan ThirdPartyChatEmoteRetryInterval = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan ChatEmoteDiagnosticLogThrottle = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan StreamOfflineConfirmationDelay = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan ChatBadgeRefreshMinimumInterval = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan BroadcasterLiveStateRetryDelay = TimeSpan.FromSeconds(2);
     private const int TwitchChatMessageMaxCharacters = 450;
     private const int VrChatChatboxMaxCharacters = 144;
@@ -225,6 +226,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private DateTimeOffset nextAvatarScalePassiveCarryoverLogAt = DateTimeOffset.MinValue;
     private DateTimeOffset nextRecentMessagePruneAt = DateTimeOffset.MinValue;
     private DateTimeOffset nextThirdPartyChatEmoteRefreshAt = DateTimeOffset.MinValue;
+    private DateTimeOffset lastChatBadgeRefreshAt = DateTimeOffset.MinValue;
     private DateTimeOffset nextChatEmoteDiagnosticLogAt = DateTimeOffset.MinValue;
     private ActiveSupporterOverrideState? activeSupporterOverride;
     private bool drainingQueuedAvatarSwitches;
@@ -3805,8 +3807,9 @@ internal BridgeCoordinator(
             return false;
         }
 
-        return string.IsNullOrWhiteSpace(rule.MessageContains)
-            || (!string.IsNullOrWhiteSpace(paymentEvent.Message)
+        return !rule.RequireMessageKeyword
+            || (!string.IsNullOrWhiteSpace(rule.MessageContains)
+                && !string.IsNullOrWhiteSpace(paymentEvent.Message)
                 && paymentEvent.Message.Contains(rule.MessageContains, StringComparison.OrdinalIgnoreCase));
     }
 
@@ -5713,7 +5716,8 @@ internal BridgeCoordinator(
                 return;
             }
 
-            var normalHeight = ApplyAvatarScaleHeightLimits(rule, rule.SupporterGrowthNormalHeightMeters, "supporter growth normal height");
+            var currentHeight = await TryGetCurrentAvatarHeightAsync(cancellationToken);
+            var normalHeight = ApplyAvatarScaleHeightLimits(rule, currentHeight ?? AvatarScaleRule.SafeMinimumHeightMeters, "supporter growth baseline height");
             if (isTest)
             {
                 var testTargetHeight = ApplyAvatarScaleHeightLimits(rule, normalHeight + addedHeight, "supporter growth test height");
@@ -5767,12 +5771,7 @@ internal BridgeCoordinator(
                 state.SessionCancellation = sessionCancellation;
 
                 var requestedAddedHeight = state.AddedHeightMeters + addedHeight;
-                state.AddedHeightMeters = rule.SupporterGrowthMaxAddedHeightMeters > 0
-                    ? Math.Clamp(
-                        requestedAddedHeight,
-                        -Math.Abs(rule.SupporterGrowthMaxAddedHeightMeters),
-                        Math.Abs(rule.SupporterGrowthMaxAddedHeightMeters))
-                    : requestedAddedHeight;
+                state.AddedHeightMeters = requestedAddedHeight;
                 totalAddedHeight = state.AddedHeightMeters;
                 targetHeight = ApplyAvatarScaleHeightLimits(rule, normalHeight + totalAddedHeight, "supporter growth height");
 
@@ -7391,6 +7390,13 @@ internal BridgeCoordinator(
         {
             return;
         }
+
+        if (DateTimeOffset.UtcNow - lastChatBadgeRefreshAt < ChatBadgeRefreshMinimumInterval)
+        {
+            return;
+        }
+
+        lastChatBadgeRefreshAt = DateTimeOffset.UtcNow;
 
         if (!HasScope(broadcaster, "user:read:chat"))
         {

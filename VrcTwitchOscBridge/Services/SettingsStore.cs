@@ -2004,8 +2004,6 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             RestoreHeightMeters = rule.RestoreHeightMeters,
             AdvancedRangeEnabled = rule.AdvancedRangeEnabled,
             BypassVrChatScaleLimits = rule.BypassVrChatScaleLimits,
-            SupporterGrowthNormalHeightMeters = rule.SupporterGrowthNormalHeightMeters,
-            SupporterGrowthMaxAddedHeightMeters = rule.SupporterGrowthMaxAddedHeightMeters,
             SupporterGrowthInactivityTimerSeconds = rule.SupporterGrowthInactivityTimerSeconds,
             SupporterGrowthAllowRewardScaleOverlay = rule.SupporterGrowthAllowRewardScaleOverlay,
             SupporterGrowthRequireCheerKeyword = rule.SupporterGrowthRequireCheerKeyword,
@@ -2107,10 +2105,6 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             ExtendSeconds = rule.ExtendSeconds <= 0 ? 0 : rule.ExtendSeconds,
             RestoreMode = AvatarScaleRestoreMode.ConfiguredHeight,
             RestoreHeightMeters = rule.RestoreHeightMeters <= 0 ? 1.6 : rule.RestoreHeightMeters,
-            SupporterGrowthNormalHeightMeters = rule.SupporterGrowthNormalHeightMeters <= 0
-                ? 1.6
-                : rule.SupporterGrowthNormalHeightMeters,
-            SupporterGrowthMaxAddedHeightMeters = Math.Max(0, rule.SupporterGrowthMaxAddedHeightMeters),
             SupporterGrowthInactivityTimerSeconds = rule.SupporterGrowthInactivityTimerSeconds <= 0
                 ? 60
                 : rule.SupporterGrowthInactivityTimerSeconds,
@@ -2713,6 +2707,7 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             MaximumAmount = rule.MaximumAmount,
             CurrencyCode = rule.CurrencyCode,
             MessageContains = rule.MessageContains,
+            RequireMessageKeyword = rule.RequireMessageKeyword,
             CooldownSeconds = rule.CooldownSeconds,
             ActionKind = rule.ActionKind,
             TriggerAction = ToPersistedRule(rule.TriggerAction),
@@ -2731,6 +2726,7 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             MaximumAmount = rule.MaximumAmount < 0 ? 0 : rule.MaximumAmount,
             CurrencyCode = rule.CurrencyCode ?? string.Empty,
             MessageContains = rule.MessageContains ?? string.Empty,
+            RequireMessageKeyword = rule.RequireMessageKeyword ?? !string.IsNullOrWhiteSpace(rule.MessageContains),
             CooldownSeconds = Math.Max(0, rule.CooldownSeconds ?? 30),
             ActionKind = Enum.IsDefined(rule.ActionKind) ? rule.ActionKind : CashPaymentActionKind.TriggerAction,
             TriggerAction = rule.TriggerAction is null
@@ -2975,6 +2971,8 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
         public string? CurrencyCode { get; set; }
 
         public string? MessageContains { get; set; }
+
+        public bool? RequireMessageKeyword { get; set; }
 
         public int? CooldownSeconds { get; set; }
 
@@ -3819,10 +3817,6 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
         public bool AdvancedRangeEnabled { get; set; }
 
         public bool BypassVrChatScaleLimits { get; set; }
-
-        public double SupporterGrowthNormalHeightMeters { get; set; }
-
-        public double SupporterGrowthMaxAddedHeightMeters { get; set; }
 
         public int SupporterGrowthInactivityTimerSeconds { get; set; }
 

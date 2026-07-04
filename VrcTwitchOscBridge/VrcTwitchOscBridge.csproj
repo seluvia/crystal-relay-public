@@ -48,6 +48,7 @@
     <Page Include="AvatarLibraryManagerWindow.xaml" />
     <Page Include="ThemedInputDialog.xaml" />
     <Page Include="AvatarSetsManagerWindow.xaml" />
+    <Page Include="AvatarScalingManagerWindow.xaml" />
     <Page Include="UniversalTriggersManagerWindow.xaml" />
     <Page Include="AvatarSwapManagerWindow.xaml" />
     <Page Include="VrChatLoginWindow.xaml" />
@@ -103,6 +104,9 @@
     <Compile Include="AvatarLibraryManagerWindow.xaml.cs" />
     <Compile Include="ThemedInputDialog.xaml.cs" />
     <Compile Include="AvatarSetsManagerWindow.xaml.cs" />
+    <Compile Include="AvatarScalingManagerWindow.xaml.cs">
+      <DependentUpon>AvatarScalingManagerWindow.xaml</DependentUpon>
+    </Compile>
     <Compile Include="UniversalTriggersManagerWindow.xaml.cs">
       <DependentUpon>UniversalTriggersManagerWindow.xaml</DependentUpon>
     </Compile>
@@ -111,6 +115,8 @@
     </Compile>
     <Compile Include="ViewModels\UniversalTriggersManagerViewModel.cs" />
     <Compile Include="ViewModels\UniversalTriggerCardViewModel.cs" />
+    <Compile Include="ViewModels\AvatarScalingManagerViewModel.cs" />
+    <Compile Include="ViewModels\AvatarScalingSourceCardViewModel.cs" />
     <Compile Include="ViewModels\AvatarSetsManagerViewModel.cs" />
     <Compile Include="ViewModels\AvatarSetCardViewModel.cs" />
     <Compile Include="Converters.cs" />
@@ -166,6 +172,7 @@
     <Compile Include="Models\AvatarSetsFilterMode.cs" />
     <Compile Include="Models\AvatarSetsSortMode.cs" />
     <Compile Include="Models\AvatarScaleRule.cs" />
+    <Compile Include="Models\AvatarScaleSafetySettings.cs" />
     <Compile Include="Models\CashPaymentRule.cs" />
     <Compile Include="Models\ChatCommandPermission.cs" />
     <Compile Include="Models\ChatCommandUtility.cs" />

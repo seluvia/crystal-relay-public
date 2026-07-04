@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using VrcTwitchOscBridge.Infrastructure;
 
 namespace VrcTwitchOscBridge.Models;
@@ -23,6 +24,7 @@ public sealed class AppSettings : ObservableObject
     private ObservableCollection<AvatarScaleSet> avatarScaleSets = [];
     private ObservableCollection<AvatarScaleRule> avatarScaleRules = [];
     private AvatarScaleMasterRewardSettings avatarScaleMasterReward = new();
+    private AvatarScaleSafetySettings avatarScaleSafety = new();
     private ObservableCollection<PowerUpRule> powerUpRules = [];
     private RewardFireSaleSettings rewardFireSale = new();
     private CashPaymentConnectionSettings cashPayments = new();
@@ -82,6 +84,7 @@ public sealed class AppSettings : ObservableObject
     public AppSettings()
     {
         WireCustomTheme(customTheme);
+        WireAvatarScaleSafety(avatarScaleSafety);
     }
 
     public TwitchAccountSettings Broadcaster
@@ -184,6 +187,24 @@ public sealed class AppSettings : ObservableObject
     {
         get => avatarScaleMasterReward;
         set => SetProperty(ref avatarScaleMasterReward, value ?? new AvatarScaleMasterRewardSettings());
+    }
+
+    public AvatarScaleSafetySettings AvatarScaleSafety
+    {
+        get => avatarScaleSafety;
+        set
+        {
+            var nextValue = value ?? new AvatarScaleSafetySettings();
+            if (ReferenceEquals(avatarScaleSafety, nextValue))
+            {
+                return;
+            }
+
+            UnwireAvatarScaleSafety(avatarScaleSafety);
+            avatarScaleSafety = nextValue;
+            WireAvatarScaleSafety(avatarScaleSafety);
+            RaisePropertyChanged();
+        }
     }
 
     public ObservableCollection<PowerUpRule> PowerUpRules
@@ -577,5 +598,20 @@ public sealed class AppSettings : ObservableObject
     private void OnCustomThemePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         RaisePropertyChanged(nameof(CustomTheme));
+    }
+
+    private void WireAvatarScaleSafety(AvatarScaleSafetySettings settings)
+    {
+        settings.PropertyChanged += AvatarScaleSafetyChanged;
+    }
+
+    private void UnwireAvatarScaleSafety(AvatarScaleSafetySettings settings)
+    {
+        settings.PropertyChanged -= AvatarScaleSafetyChanged;
+    }
+
+    private void AvatarScaleSafetyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        RaisePropertyChanged(nameof(AvatarScaleSafety));
     }
 }

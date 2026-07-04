@@ -339,8 +339,6 @@ public sealed class AvatarScaleRule : ObservableObject
     private double supporterGrowthTransitionSeconds;
     private bool advancedRangeEnabled;
     private bool bypassVrChatScaleLimits;
-    private double supporterGrowthNormalHeightMeters = 1.6;
-    private double supporterGrowthMaxAddedHeightMeters;
     private int supporterGrowthInactivityTimerSeconds = 60;
     private bool supporterGrowthAllowRewardScaleOverlay = true;
     private bool supporterGrowthRequireCheerKeyword;
@@ -837,17 +835,6 @@ public sealed class AvatarScaleRule : ObservableObject
         }
     }
 
-    public double SupporterGrowthNormalHeightMeters
-    {
-        get => supporterGrowthNormalHeightMeters;
-        set => SetAndRaiseSupporterGrowth(ref supporterGrowthNormalHeightMeters, ClampHeight(value));
-    }
-
-    public double SupporterGrowthMaxAddedHeightMeters
-    {
-        get => supporterGrowthMaxAddedHeightMeters;
-        set => SetAndRaiseSupporterGrowth(ref supporterGrowthMaxAddedHeightMeters, Math.Max(0, ClampRelativeHeight(value)));
-    }
 
     public int SupporterGrowthInactivityTimerSeconds
     {
@@ -1090,9 +1077,6 @@ public sealed class AvatarScaleRule : ObservableObject
     public string SupporterGrowthSummary =>
         $"Supporter growth +{SupporterGrowthTier1HeightMeters:0.##}/+{SupporterGrowthTier2HeightMeters:0.##}/+{SupporterGrowthTier3HeightMeters:0.##}m";
 
-    public string SupporterGrowthHeightBasicsSummary =>
-        $"Return/Resting: {SupporterGrowthNormalHeightMeters:0.##}m | Max Added: {(SupporterGrowthMaxAddedHeightMeters <= 0 ? "unlimited" : $"{SupporterGrowthMaxAddedHeightMeters:0.##}m")}";
-
     public string SupporterGrowthPaidTimeSummary =>
         $"{SupporterGrowthBitsTimerUnit} bits = {SupporterGrowthSecondsPerBitsUnit}s | Soft cap: {SupporterGrowthSoftCapSeconds}s @ {SupporterGrowthSoftCapMultiplierPercent}% | Max: {SupporterGrowthMaxPaidTimeSeconds}s";
 
@@ -1292,7 +1276,7 @@ public sealed class AvatarScaleRule : ObservableObject
     {
         RaisePropertyChanged(nameof(SupporterGrowthBitRanges));
         RaisePropertyChanged(nameof(SupporterGrowthSummary));
-        RaisePropertyChanged(nameof(SupporterGrowthHeightBasicsSummary));
+
         RaisePropertyChanged(nameof(SupporterGrowthPaidTimeSummary));
         RaisePropertyChanged(nameof(SupporterGrowthSubTierSummary));
         RaisePropertyChanged(nameof(SupporterGrowthBitsRangeCountSummary));

@@ -62,6 +62,7 @@ public sealed class AvatarScalingManagerViewModel : ObservableObject, IDisposabl
         CloseEditorCommand = new RelayCommand(CloseEditor);
         OpenAdvancedSafetyCommand = new RelayCommand(ToggleAdvancedSafety);
         DeleteCardCommand = new RelayCommand(DeleteCard);
+        TestCardCommand = new RelayCommand(TestCard);
 
         WireSourceCollections();
         Settings.AvatarScaleSafety.PropertyChanged += OnAvatarScaleSafetyPropertyChanged;
@@ -103,6 +104,7 @@ public sealed class AvatarScalingManagerViewModel : ObservableObject, IDisposabl
                 RaisePropertyChanged(nameof(HasNoSelectedCard));
                 RaisePropertyChanged(nameof(AvailableAvatarScaleTriggerTypesForSelectedRule));
                 RaisePropertyChanged(nameof(AvatarScaleRuleLockoutSummaryText));
+                RaisePropertyChanged(nameof(ActiveScaleAction));
             }
         }
     }
@@ -112,6 +114,11 @@ public sealed class AvatarScalingManagerViewModel : ObservableObject, IDisposabl
     public CashPaymentRule? SelectedCashPaymentRule => SelectedCard?.CashPaymentRule;
 
     public PowerUpRule? SelectedPowerUpRule => SelectedCard?.PowerUpRule;
+
+    public AvatarScaleRule? ActiveScaleAction =>
+        SelectedCard?.ScaleRule
+        ?? SelectedCard?.CashPaymentRule?.ScaleAction
+        ?? SelectedCard?.PowerUpRule?.ScaleAction;
 
     public bool SelectedCardUsesScaleSetCommands => GetSelectedCardScaleSetOwner() is not null;
 
@@ -194,6 +201,8 @@ public sealed class AvatarScalingManagerViewModel : ObservableObject, IDisposabl
     public RelayCommand? UnlinkTwitchRewardCommand => mainWindowViewModel?.UnlinkTwitchRewardCommand;
 
     public RelayCommand DeleteCardCommand { get; }
+
+    public RelayCommand TestCardCommand { get; }
 
     public IReadOnlyList<AvatarScaleTriggerType> AvailableAvatarScaleTriggerTypesForSelectedRule =>
         mainWindowViewModel?.AvailableAvatarScaleTriggerTypesForSelectedRule ?? [];
@@ -344,6 +353,24 @@ public sealed class AvatarScalingManagerViewModel : ObservableObject, IDisposabl
                     mainWindowViewModel?.DeletePowerUpRuleByCard(powerUpRule);
                 }
                 break;
+        }
+    }
+
+    private void TestCard(object? parameter)
+    {
+        if (parameter is not AvatarScalingSourceCardViewModel card)
+        {
+            return;
+        }
+
+        if (!card.CanTest)
+        {
+            return;
+        }
+
+        if (card.ScaleRule is { } scaleRule)
+        {
+            _ = mainWindowViewModel?.TestAvatarScaleRuleByCardAsync(scaleRule);
         }
     }
 

@@ -761,7 +761,8 @@
                                 Content="{loc:Translate 'Avatar Scaling Card Test'}"
                                 Command="{Binding DataContext.TestCardCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                 CommandParameter="{Binding}"
-                                Visibility="{Binding CanTest, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                Visibility="{Binding CanTest, Converter={StaticResource BoolToVisibilityConverter}}"
+                                Style="{StaticResource SecondaryButtonStyle}" />
                     </DockPanel>
                 </StackPanel>
             </Border>
@@ -1576,143 +1577,202 @@
                                                                    Text="{loc:Translate 'Supporter Growth listens to bits, new subs, resubs, and gift subs. Paid events add height and add fair active time, then return to normal when the paid timer ends.'}"
                                                                    Foreground="{DynamicResource TitleBarSubTextBrush}"
                                                                    TextWrapping="Wrap" />
-                                                        <CheckBox Margin="0,10,0,0"
-                                                                  Content="{loc:Translate 'Allow reward scale changes during paid growth'}"
-                                                                  IsChecked="{Binding SupporterGrowthAllowRewardScaleOverlay, UpdateSourceTrigger=PropertyChanged}" />
-                                                        <TextBlock Margin="26,6,0,0"
-                                                                   Text="{loc:Translate 'When enabled, channel-point and chat scale redeems can temporarily adjust height during paid growth without changing the paid timer.'}"
-                                                                   Foreground="{DynamicResource TitleBarSubTextBrush}"
-                                                                   TextWrapping="Wrap" />
-                                                        <UniformGrid Columns="2" Margin="0,10,0,0">
-                                                            <StackPanel Margin="0,0,6,0">
-                                                                <TextBlock Text="{loc:Translate 'Normal Height'}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                                                <TextBox Text="{Binding SupporterGrowthNormalHeightMeters, UpdateSourceTrigger=LostFocus}" />
-                                                            </StackPanel>
-                                                            <StackPanel Margin="6,0,0,0">
-                                                                <TextBlock Text="{loc:Translate 'Max Added Height'}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                                                <TextBox Text="{Binding SupporterGrowthMaxAddedHeightMeters, UpdateSourceTrigger=LostFocus}" />
-                                                                <TextBlock Margin="0,6,0,0"
-                                                                           Text="{loc:Translate 'Use 0 for unlimited added height until VRChat or safe range clamps it.'}"
+                                                        <Border Background="{DynamicResource NestedPanelBrush}"
+                                                                BorderBrush="{DynamicResource BorderBrush}"
+                                                                BorderThickness="1" CornerRadius="10" Padding="10" Margin="0,8,0,0">
+                                                            <StackPanel>
+                                                                <CheckBox Content="{loc:Translate 'Allow reward scale changes during paid growth'}"
+                                                                          IsChecked="{Binding SupporterGrowthAllowRewardScaleOverlay, UpdateSourceTrigger=PropertyChanged}" />
+                                                                <TextBlock Margin="24,4,0,0"
+                                                                           Text="{loc:Translate 'When enabled, channel-point and chat scale redeems can temporarily adjust height during paid growth without changing the paid timer.'}"
                                                                            Foreground="{DynamicResource TitleBarSubTextBrush}"
                                                                            TextWrapping="Wrap" />
                                                             </StackPanel>
-                                                        </UniformGrid>
-                                                        <TextBlock Margin="0,14,0,0"
-                                                                   Text="{loc:Translate 'Paid Active Time'}"
-                                                                   FontWeight="SemiBold" />
-                                                        <TextBlock Margin="0,6,0,0"
-                                                                   Text="{loc:Translate 'Paid time is shared by bits, subs, resubs, and gift subs. Time adds to the remaining paid timer, then slows above the soft cap and never exceeds the max.'}"
-                                                                   Foreground="{DynamicResource TitleBarSubTextBrush}"
-                                                                   TextWrapping="Wrap" />
-                                                        <UniformGrid Columns="3" Margin="0,8,0,0">
-                                                            <StackPanel Margin="0,0,6,0">
-                                                                <TextBlock Text="{loc:Translate 'Bits Timer Unit'}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                                                <TextBox Text="{Binding SupporterGrowthBitsTimerUnit, UpdateSourceTrigger=PropertyChanged}" />
-                                                            </StackPanel>
-                                                            <StackPanel Margin="6,0,6,0">
-                                                                <TextBlock Text="{loc:Translate 'Seconds Per Bits Unit'}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                                                <TextBox Text="{Binding SupporterGrowthSecondsPerBitsUnit, UpdateSourceTrigger=PropertyChanged}" />
-                                                            </StackPanel>
-                                                            <StackPanel Margin="6,0,0,0">
-                                                                <TextBlock Text="{loc:Translate 'Soft Cap Seconds'}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                                                <TextBox Text="{Binding SupporterGrowthSoftCapSeconds, UpdateSourceTrigger=PropertyChanged}" />
-                                                            </StackPanel>
-                                                        </UniformGrid>
-                                                        <UniformGrid Columns="3" Margin="0,8,0,0">
-                                                            <StackPanel Margin="0,0,6,0">
-                                                                <TextBlock Text="{loc:Translate 'Soft Cap Multiplier Percent'}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                                                <TextBox Text="{Binding SupporterGrowthSoftCapMultiplierPercent, UpdateSourceTrigger=PropertyChanged}" />
-                                                            </StackPanel>
-                                                            <StackPanel Margin="6,0,6,0">
-                                                                <TextBlock Text="{loc:Translate 'Max Paid Time Seconds'}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                                                <TextBox Text="{Binding SupporterGrowthMaxPaidTimeSeconds, UpdateSourceTrigger=PropertyChanged}" />
-                                                            </StackPanel>
-                                                            <StackPanel Margin="6,0,0,0" />
-                                                        </UniformGrid>
-                                                        <TextBlock Margin="0,14,0,0"
-                                                                   Text="{loc:Translate 'Supporter Growth Cheer Keywords'}"
-                                                                   FontWeight="SemiBold" />
-                                                        <TextBlock Margin="0,6,0,0"
-                                                                   Text="{loc:Translate 'Use cheer text like Cheer100 grow or Cheer100 shrink. No keyword keeps the existing positive growth behavior; if both words appear, Crystal Relay skips the scale instead of guessing.'}"
-                                                                   Foreground="{DynamicResource TitleBarSubTextBrush}"
-                                                                   TextWrapping="Wrap" />
-                                                        <UniformGrid Columns="2" Margin="0,8,0,0">
-                                                            <StackPanel Margin="0,0,6,0">
-                                                                <TextBlock Text="{loc:Translate 'Grow Keyword'}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                                                <TextBox Text="{Binding SupporterGrowthGrowKeyword, UpdateSourceTrigger=PropertyChanged}" />
-                                                            </StackPanel>
-                                                            <StackPanel Margin="6,0,0,0">
-                                                                <TextBlock Text="{loc:Translate 'Shrink Keyword'}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                                                <TextBox Text="{Binding SupporterGrowthShrinkKeyword, UpdateSourceTrigger=PropertyChanged}" />
-                                                            </StackPanel>
-                                                        </UniformGrid>
-                                                        <CheckBox Margin="0,10,0,0"
-                                                                  Content="{loc:Translate 'Require grow or shrink keyword for height changes'}"
-                                                                  IsChecked="{Binding SupporterGrowthRequireCheerKeyword, UpdateSourceTrigger=PropertyChanged}" />
-                                                        <TextBlock Margin="26,6,0,0"
-                                                                   Text="{loc:Translate 'When enabled, bits only change height if the cheer message says your grow or shrink keyword. Bits without a keyword still add paid time, but do not grow or shrink the avatar.'}"
-                                                                   Foreground="{DynamicResource TitleBarSubTextBrush}"
-                                                                   TextWrapping="Wrap" />
-                                                        <TextBlock Margin="0,14,0,0"
-                                                                   Text="{loc:Translate 'Subscription Growth'}"
-                                                                   FontWeight="SemiBold" />
-                                                        <UniformGrid Columns="3" Margin="0,8,0,0">
-                                                            <StackPanel Margin="0,0,6,0">
-                                                                <TextBlock Text="{loc:Translate 'Tier 1 Height Add'}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                                                <TextBox Text="{Binding SupporterGrowthTier1HeightMeters, UpdateSourceTrigger=LostFocus}" />
-                                                            </StackPanel>
-                                                            <StackPanel Margin="6,0,6,0">
-                                                                <TextBlock Text="{loc:Translate 'Tier 2 Height Add'}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                                                <TextBox Text="{Binding SupporterGrowthTier2HeightMeters, UpdateSourceTrigger=LostFocus}" />
-                                                            </StackPanel>
-                                                            <StackPanel Margin="6,0,0,0">
-                                                                <TextBlock Text="{loc:Translate 'Tier 3 Height Add'}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                                                <TextBox Text="{Binding SupporterGrowthTier3HeightMeters, UpdateSourceTrigger=LostFocus}" />
-                                                            </StackPanel>
-                                                        </UniformGrid>
-                                                        <TextBlock Margin="0,14,0,0"
-                                                                   Text="{loc:Translate 'Subscription Paid Time'}"
-                                                                   FontWeight="SemiBold" />
-                                                        <UniformGrid Columns="3" Margin="0,8,0,0">
-                                                            <StackPanel Margin="0,0,6,0">
-                                                                <TextBlock Text="{loc:Translate 'Tier 1 Seconds'}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                                                <TextBox Text="{Binding SupporterGrowthTier1Seconds, UpdateSourceTrigger=PropertyChanged}" />
-                                                            </StackPanel>
-                                                            <StackPanel Margin="6,0,6,0">
-                                                                <TextBlock Text="{loc:Translate 'Tier 2 Seconds'}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                                                <TextBox Text="{Binding SupporterGrowthTier2Seconds, UpdateSourceTrigger=PropertyChanged}" />
-                                                            </StackPanel>
-                                                            <StackPanel Margin="6,0,0,0">
-                                                                <TextBlock Text="{loc:Translate 'Tier 3 Seconds'}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                                                <TextBox Text="{Binding SupporterGrowthTier3Seconds, UpdateSourceTrigger=PropertyChanged}" />
-                                                            </StackPanel>
-                                                        </UniformGrid>
-                                                        <DockPanel Margin="0,14,0,0" LastChildFill="False">
-                                                            <TextBlock Text="{loc:Translate 'Bits Growth Ranges'}" FontWeight="SemiBold" />
-                                                            <Button Margin="10,0,0,0" Content="{loc:Translate 'Add Bits Range'}" Click="OnAddSupporterGrowthBitRangeClicked" Style="{StaticResource SecondaryButtonStyle}" />
-                                                        </DockPanel>
-                                                        <ItemsControl Margin="0,8,0,0" ItemsSource="{Binding SupporterGrowthBitRanges}">
-                                                            <ItemsControl.ItemTemplate>
-                                                                <DataTemplate DataType="{x:Type models:AvatarScaleBitGrowthRange}">
-                                                                    <Grid Margin="0,0,0,8">
+                                                        </Border>
+                                                        <Border Background="{DynamicResource NestedPanelBrush}"
+                                                                BorderBrush="{DynamicResource BorderBrush}"
+                                                                BorderThickness="1" CornerRadius="10" Padding="10" Margin="0,8,0,0">
+                                                            <Expander IsExpanded="False" Foreground="{DynamicResource TextBrush}">
+                                                                <Expander.Header>
+                                                                    <DockPanel LastChildFill="True">
+                                                                        <TextBlock Text="{loc:Translate 'Paid Active Time'}" FontWeight="SemiBold" />
+                                                                        <TextBlock DockPanel.Dock="Right"
+                                                                                   Text="{Binding SupporterGrowthPaidTimeSummary}"
+                                                                                   Foreground="{DynamicResource TitleBarSubTextBrush}"
+                                                                                   FontSize="11" />
+                                                                    </DockPanel>
+                                                                </Expander.Header>
+                                                                <StackPanel Margin="0,8,0,0">
+                                                                    <TextBlock Margin="0,0,0,8"
+                                                                               Text="{loc:Translate 'Paid time is shared by bits, subs, resubs, and gift subs. Time adds to the remaining paid timer, then slows above the soft cap and never exceeds the max.'}"
+                                                                               Foreground="{DynamicResource TitleBarSubTextBrush}"
+                                                                               TextWrapping="Wrap" />
+                                                                    <UniformGrid Columns="3" Margin="0,8,0,0">
+                                                                        <StackPanel Margin="0,0,6,0">
+                                                                            <TextBlock Text="{loc:Translate 'Bits Timer Unit'}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                                                            <TextBox Text="{Binding SupporterGrowthBitsTimerUnit, UpdateSourceTrigger=PropertyChanged}" />
+                                                                        </StackPanel>
+                                                                        <StackPanel Margin="6,0,6,0">
+                                                                            <TextBlock Text="{loc:Translate 'Seconds Per Bits Unit'}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                                                            <TextBox Text="{Binding SupporterGrowthSecondsPerBitsUnit, UpdateSourceTrigger=PropertyChanged}" />
+                                                                        </StackPanel>
+                                                                        <StackPanel Margin="6,0,0,0">
+                                                                            <TextBlock Text="{loc:Translate 'Soft Cap Seconds'}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                                                            <TextBox Text="{Binding SupporterGrowthSoftCapSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                                                                        </StackPanel>
+                                                                    </UniformGrid>
+                                                                    <UniformGrid Columns="3" Margin="0,8,0,0">
+                                                                        <StackPanel Margin="0,0,6,0">
+                                                                            <TextBlock Text="{loc:Translate 'Soft Cap Multiplier Percent'}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                                                            <TextBox Text="{Binding SupporterGrowthSoftCapMultiplierPercent, UpdateSourceTrigger=PropertyChanged}" />
+                                                                        </StackPanel>
+                                                                        <StackPanel Margin="6,0,6,0">
+                                                                            <TextBlock Text="{loc:Translate 'Max Paid Time Seconds'}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                                                            <TextBox Text="{Binding SupporterGrowthMaxPaidTimeSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                                                                        </StackPanel>
+                                                                        <StackPanel Margin="6,0,0,0" />
+                                                                    </UniformGrid>
+                                                                </StackPanel>
+                                                            </Expander>
+                                                        </Border>
+                                                        <Border Background="{DynamicResource NestedPanelBrush}"
+                                                                BorderBrush="{DynamicResource BorderBrush}"
+                                                                BorderThickness="1" CornerRadius="10" Padding="10" Margin="0,8,0,0">
+                                                            <Expander IsExpanded="False" Foreground="{DynamicResource TextBrush}">
+                                                                <Expander.Header>
+                                                                    <DockPanel LastChildFill="True">
+                                                                        <TextBlock Text="{loc:Translate 'Supporter Growth Cheer Keywords'}" FontWeight="SemiBold" />
+                                                                        <TextBlock DockPanel.Dock="Right"
+                                                                                   Text="{Binding SupporterGrowthCheerKeywordsSummary}"
+                                                                                   Foreground="{DynamicResource TitleBarSubTextBrush}"
+                                                                                   FontSize="11" />
+                                                                    </DockPanel>
+                                                                </Expander.Header>
+                                                                <StackPanel Margin="0,8,0,0">
+                                                                    <TextBlock Margin="0,0,0,8"
+                                                                               Text="{loc:Translate 'Use cheer text like Cheer100 grow or Cheer100 shrink. No keyword keeps the existing positive growth behavior; if both words appear, Crystal Relay skips the scale instead of guessing.'}"
+                                                                               Foreground="{DynamicResource TitleBarSubTextBrush}"
+                                                                               TextWrapping="Wrap" />
+                                                                    <UniformGrid Columns="2" Margin="0,8,0,0">
+                                                                        <StackPanel Margin="0,0,6,0">
+                                                                            <TextBlock Text="{loc:Translate 'Grow Keyword'}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                                                            <TextBox Text="{Binding SupporterGrowthGrowKeyword, UpdateSourceTrigger=PropertyChanged}" />
+                                                                        </StackPanel>
+                                                                        <StackPanel Margin="6,0,0,0">
+                                                                            <TextBlock Text="{loc:Translate 'Shrink Keyword'}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                                                            <TextBox Text="{Binding SupporterGrowthShrinkKeyword, UpdateSourceTrigger=PropertyChanged}" />
+                                                                        </StackPanel>
+                                                                    </UniformGrid>
+                                                                    <CheckBox Margin="0,10,0,0"
+                                                                              Content="{loc:Translate 'Require grow or shrink keyword for height changes'}"
+                                                                              IsChecked="{Binding SupporterGrowthRequireCheerKeyword, UpdateSourceTrigger=PropertyChanged}" />
+                                                                    <TextBlock Margin="26,6,0,0"
+                                                                               Text="{loc:Translate 'When enabled, bits only change height if the cheer message says your grow or shrink keyword. Bits without a keyword still add paid time, but do not grow or shrink the avatar.'}"
+                                                                               Foreground="{DynamicResource TitleBarSubTextBrush}"
+                                                                               TextWrapping="Wrap" />
+                                                                </StackPanel>
+                                                            </Expander>
+                                                        </Border>
+                                                        <Border Background="{DynamicResource NestedPanelBrush}"
+                                                                BorderBrush="{DynamicResource BorderBrush}"
+                                                                BorderThickness="1" CornerRadius="10" Padding="10" Margin="0,8,0,0">
+                                                            <Expander IsExpanded="False" Foreground="{DynamicResource TextBrush}">
+                                                                <Expander.Header>
+                                                                    <DockPanel LastChildFill="True">
+                                                                        <TextBlock Text="{loc:Translate 'Subscription Growth'}" FontWeight="SemiBold" />
+                                                                        <TextBlock DockPanel.Dock="Right"
+                                                                                   Text="{Binding SupporterGrowthSubTierSummary}"
+                                                                                   Foreground="{DynamicResource TitleBarSubTextBrush}"
+                                                                                   FontSize="11" />
+                                                                    </DockPanel>
+                                                                </Expander.Header>
+                                                                <StackPanel Margin="0,8,0,0">
+                                                                    <UniformGrid Columns="3" Margin="0,8,0,0">
+                                                                        <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="8" Margin="0,0,4,0">
+                                                                            <StackPanel>
+                                                                                <TextBlock Text="Tier 1" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextBrush}" />
+                                                                                <TextBlock Text="{loc:Translate 'Height Add'}" FontSize="11" Foreground="{DynamicResource TitleBarSubTextBrush}" Margin="0,4,0,2" />
+                                                                                <TextBox Text="{Binding SupporterGrowthTier1HeightMeters, UpdateSourceTrigger=LostFocus}" />
+                                                                                <TextBlock Text="{loc:Translate 'Time'}" FontSize="11" Foreground="{DynamicResource TitleBarSubTextBrush}" Margin="0,6,0,2" />
+                                                                                <TextBox Text="{Binding SupporterGrowthTier1Seconds, UpdateSourceTrigger=PropertyChanged}" />
+                                                                            </StackPanel>
+                                                                        </Border>
+                                                                        <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="8" Margin="4,0,4,0">
+                                                                            <StackPanel>
+                                                                                <TextBlock Text="Tier 2" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextBrush}" />
+                                                                                <TextBlock Text="{loc:Translate 'Height Add'}" FontSize="11" Foreground="{DynamicResource TitleBarSubTextBrush}" Margin="0,4,0,2" />
+                                                                                <TextBox Text="{Binding SupporterGrowthTier2HeightMeters, UpdateSourceTrigger=LostFocus}" />
+                                                                                <TextBlock Text="{loc:Translate 'Time'}" FontSize="11" Foreground="{DynamicResource TitleBarSubTextBrush}" Margin="0,6,0,2" />
+                                                                                <TextBox Text="{Binding SupporterGrowthTier2Seconds, UpdateSourceTrigger=PropertyChanged}" />
+                                                                            </StackPanel>
+                                                                        </Border>
+                                                                        <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="8" Margin="4,0,0,0">
+                                                                            <StackPanel>
+                                                                                <TextBlock Text="Tier 3" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextBrush}" />
+                                                                                <TextBlock Text="{loc:Translate 'Height Add'}" FontSize="11" Foreground="{DynamicResource TitleBarSubTextBrush}" Margin="0,4,0,2" />
+                                                                                <TextBox Text="{Binding SupporterGrowthTier3HeightMeters, UpdateSourceTrigger=LostFocus}" />
+                                                                                <TextBlock Text="{loc:Translate 'Time'}" FontSize="11" Foreground="{DynamicResource TitleBarSubTextBrush}" Margin="0,6,0,2" />
+                                                                                <TextBox Text="{Binding SupporterGrowthTier3Seconds, UpdateSourceTrigger=PropertyChanged}" />
+                                                                            </StackPanel>
+                                                                        </Border>
+                                                                    </UniformGrid>
+                                                                </StackPanel>
+                                                            </Expander>
+                                                        </Border>
+                                                        <Border Background="{DynamicResource NestedPanelBrush}"
+                                                                BorderBrush="{DynamicResource BorderBrush}"
+                                                                BorderThickness="1" CornerRadius="10" Padding="10" Margin="0,8,0,0">
+                                                            <Expander IsExpanded="False" Foreground="{DynamicResource TextBrush}">
+                                                                <Expander.Header>
+                                                                    <DockPanel LastChildFill="True">
+                                                                        <TextBlock Text="{loc:Translate 'Bits Growth Ranges'}" FontWeight="SemiBold" />
+                                                                        <TextBlock DockPanel.Dock="Right"
+                                                                                   Text="{Binding SupporterGrowthBitsRangeCountSummary}"
+                                                                                   Foreground="{DynamicResource TitleBarSubTextBrush}"
+                                                                                   FontSize="11" />
+                                                                    </DockPanel>
+                                                                </Expander.Header>
+                                                                <StackPanel Margin="0,8,0,0">
+                                                                    <DockPanel Margin="0,0,0,4" LastChildFill="False">
+                                                                        <Button Content="{loc:Translate 'Add Bits Range'}" Click="OnAddSupporterGrowthBitRangeClicked" Style="{StaticResource SecondaryButtonStyle}" DockPanel.Dock="Right" Margin="10,0,0,0" />
+                                                                        <TextBlock Text="{loc:Translate 'Bits Growth Ranges'}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                                                    </DockPanel>
+                                                                    <Grid Margin="0,8,0,4">
                                                                         <Grid.ColumnDefinitions>
                                                                             <ColumnDefinition Width="*" />
                                                                             <ColumnDefinition Width="*" />
                                                                             <ColumnDefinition Width="*" />
                                                                             <ColumnDefinition Width="Auto" />
                                                                         </Grid.ColumnDefinitions>
-                                                                        <TextBox Grid.Column="0" Margin="0,0,4,0" Text="{Binding MinimumBits, UpdateSourceTrigger=PropertyChanged}" />
-                                                                        <TextBox Grid.Column="1" Margin="4,0,4,0" Text="{Binding MaximumBits, UpdateSourceTrigger=PropertyChanged}" />
-                                                                        <TextBox Grid.Column="2" Margin="4,0,4,0" Text="{Binding HeightAddedMeters, UpdateSourceTrigger=LostFocus}" />
-                                                                        <Button Grid.Column="3" Content="{loc:Translate 'Remove'}" Click="OnRemoveSupporterGrowthBitRangeClicked" Style="{StaticResource SecondaryButtonStyle}" />
+                                                                        <TextBlock Grid.Column="0" Text="{loc:Translate 'Minimum Bits'}" FontSize="11" Foreground="{DynamicResource TitleBarSubTextBrush}" Margin="0,0,4,0" />
+                                                                        <TextBlock Grid.Column="1" Text="{loc:Translate 'Maximum Bits'}" FontSize="11" Foreground="{DynamicResource TitleBarSubTextBrush}" Margin="4,0,4,0" />
+                                                                        <TextBlock Grid.Column="2" Text="{loc:Translate 'Height Added'}" FontSize="11" Foreground="{DynamicResource TitleBarSubTextBrush}" Margin="4,0,4,0" />
                                                                     </Grid>
-                                                                </DataTemplate>
-                                                            </ItemsControl.ItemTemplate>
-                                                        </ItemsControl>
-                                                        <TextBlock Margin="0,6,0,0"
-                                                                   Text="{loc:Translate 'Maximum Bits set to 0 means no upper limit for that row.'}"
-                                                                   Foreground="{DynamicResource TitleBarSubTextBrush}"
-                                                                   TextWrapping="Wrap" />
+                                                                    <ItemsControl ItemsSource="{Binding SupporterGrowthBitRanges}">
+                                                                        <ItemsControl.ItemTemplate>
+                                                                            <DataTemplate DataType="{x:Type models:AvatarScaleBitGrowthRange}">
+                                                                                <Grid Margin="0,0,0,8">
+                                                                                    <Grid.ColumnDefinitions>
+                                                                                        <ColumnDefinition Width="*" />
+                                                                                        <ColumnDefinition Width="*" />
+                                                                                        <ColumnDefinition Width="*" />
+                                                                                        <ColumnDefinition Width="Auto" />
+                                                                                    </Grid.ColumnDefinitions>
+                                                                                    <TextBox Grid.Column="0" Margin="0,0,4,0" Text="{Binding MinimumBits, UpdateSourceTrigger=PropertyChanged}" />
+                                                                                    <TextBox Grid.Column="1" Margin="4,0,4,0" Text="{Binding MaximumBits, UpdateSourceTrigger=PropertyChanged}" />
+                                                                                    <TextBox Grid.Column="2" Margin="4,0,4,0" Text="{Binding HeightAddedMeters, UpdateSourceTrigger=LostFocus}" />
+                                                                                    <Button Grid.Column="3" Content="{loc:Translate 'Remove'}" Click="OnRemoveSupporterGrowthBitRangeClicked" Style="{StaticResource SecondaryButtonStyle}" />
+                                                                                </Grid>
+                                                                            </DataTemplate>
+                                                                        </ItemsControl.ItemTemplate>
+                                                                    </ItemsControl>
+                                                                    <TextBlock Margin="0,6,0,0"
+                                                                               Text="{loc:Translate 'Maximum Bits set to 0 means no upper limit for that row.'}"
+                                                                               Foreground="{DynamicResource TitleBarSubTextBrush}"
+                                                                               TextWrapping="Wrap" />
+                                                                </StackPanel>
+                                                            </Expander>
+                                                        </Border>
                                                     </StackPanel>
                                                 </StackPanel>
                                             </Border>
@@ -1752,6 +1812,371 @@
                                         </StackPanel>
                                     </DataTemplate>
                                 </ContentControl.ContentTemplate>
+                                </ContentControl>
+
+                                <ContentControl Content="{Binding SelectedCashPaymentRule}">
+                                    <ContentControl.Style>
+                                        <Style TargetType="ContentControl">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedCashPaymentRule}" Value="{x:Null}">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </ContentControl.Style>
+                                    <ContentControl.ContentTemplate>
+                                        <DataTemplate DataType="{x:Type models:CashPaymentRule}">
+                                            <StackPanel TextElement.Foreground="{DynamicResource TitleBarTextBrush}">
+                                                <Border Padding="12"
+                                                        CornerRadius="14"
+                                                        Background="{DynamicResource NestedPanelBrush}"
+                                                        BorderBrush="{DynamicResource BorderBrush}"
+                                                        BorderThickness="1">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{loc:Translate 'Cash Payment Scaling'}" FontWeight="Bold" FontSize="15" />
+                                                        <TextBlock Margin="0,6,0,0" Text="{Binding TriggerSummary}" Foreground="{DynamicResource TitleBarSubTextBrush}" />
+                                                    </StackPanel>
+                                                </Border>
+
+                                                <Border Margin="0,12,0,0"
+                                                        Padding="12"
+                                                        CornerRadius="14"
+                                                        Background="{DynamicResource NestedPanelBrush}"
+                                                        BorderBrush="{DynamicResource BorderBrush}"
+                                                        BorderThickness="1">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{loc:Translate 'Payment Match'}" FontWeight="Bold" FontSize="15" />
+                                                        <UniformGrid Columns="2" Margin="0,10,0,0">
+                                                            <StackPanel Margin="0,0,6,0">
+                                                                <TextBlock Text="{loc:Translate 'Rule Name'}" FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                            <StackPanel Margin="6,0,0,0">
+                                                                <TextBlock Text="{loc:Translate 'Provider'}" FontWeight="SemiBold" />
+                                                                <ComboBox SelectedValuePath="Tag" SelectedValue="{Binding Provider, UpdateSourceTrigger=PropertyChanged}">
+                                                                    <ComboBoxItem Content="StreamElements" Tag="StreamElements" />
+                                                                    <ComboBoxItem Content="Streamlabs" Tag="Streamlabs" />
+                                                                    <ComboBoxItem Content="Ko-fi" Tag="KoFi" />
+                                                                </ComboBox>
+                                                            </StackPanel>
+                                                        </UniformGrid>
+                                                        <UniformGrid Columns="2" Margin="0,10,0,0">
+                                                            <StackPanel Margin="0,0,6,0">
+                                                                <TextBlock Text="{loc:Translate 'Minimum Amount'}" FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding MinimumAmount, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                            <StackPanel Margin="6,0,0,0">
+                                                                <TextBlock Text="{loc:Translate 'Maximum Amount'}" FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding MaximumAmount, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                        </UniformGrid>
+                                                        <TextBlock Margin="0,6,0,0"
+                                                                   Text="{loc:Translate 'Leave maximum amount at 0 for no upper limit. Any currency is accepted.'}"
+                                                                   Foreground="{DynamicResource TitleBarSubTextBrush}"
+                                                                   TextWrapping="Wrap"
+                                                                   FontSize="11" />
+                                                        <UniformGrid Columns="2" Margin="0,10,0,0">
+                                                            <StackPanel Margin="0,0,6,0">
+                                                                <TextBlock Text="{loc:Translate 'Cooldown Seconds'}" FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding CooldownSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                            <StackPanel Margin="6,0,0,0" />
+                                                        </UniformGrid>
+                                                        <CheckBox Margin="0,10,0,0"
+                                                                  Content="{loc:Translate 'Require message keyword to trigger'}"
+                                                                  IsChecked="{Binding RequireMessageKeyword, UpdateSourceTrigger=PropertyChanged}" />
+                                                        <StackPanel Margin="0,8,0,0"
+                                                                    Visibility="{Binding RequireMessageKeyword, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <TextBlock Text="{loc:Translate 'Message Contains'}" FontWeight="SemiBold" />
+                                                            <TextBox Text="{Binding MessageContains, UpdateSourceTrigger=PropertyChanged}" />
+                                                            <TextBlock Margin="0,6,0,0"
+                                                                       Text="{loc:Translate 'Only payments whose message contains this text will trigger the rule. Leave maximum amount at 0 for no upper limit.'}"
+                                                                       Foreground="{DynamicResource TitleBarSubTextBrush}"
+                                                                       TextWrapping="Wrap"
+                                                                       FontSize="11" />
+                                                        </StackPanel>
+                                                    </StackPanel>
+                                                </Border>
+
+                                                <Border Margin="0,12,0,0"
+                                                        Padding="12"
+                                                        CornerRadius="14"
+                                                        Background="{DynamicResource NestedPanelBrush}"
+                                                        BorderBrush="{DynamicResource BorderBrush}"
+                                                        BorderThickness="1">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{loc:Translate 'Height Change'}" FontWeight="Bold" FontSize="15" />
+                                                        <UniformGrid Columns="3" Margin="0,10,0,0">
+                                                            <Button Content="{loc:Translate 'Set Height'}" Tag="SetHeight" Click="ScaleActionModeButton_Click" Style="{StaticResource SecondaryButtonStyle}" />
+                                                            <Button Content="{loc:Translate 'Random'}" Tag="RandomHeight" Click="ScaleActionModeButton_Click" Style="{StaticResource SecondaryButtonStyle}" />
+                                                            <Button Content="{loc:Translate 'Relative'}" Tag="RelativeHeight" Click="ScaleActionModeButton_Click" Style="{StaticResource SecondaryButtonStyle}" />
+                                                            <Button Content="{loc:Translate 'Multiplier'}" Tag="Multiplier" Click="ScaleActionModeButton_Click" Style="{StaticResource SecondaryButtonStyle}" />
+                                                            <Button Content="{loc:Translate 'Preset'}" Tag="Preset" Click="ScaleActionModeButton_Click" Style="{StaticResource SecondaryButtonStyle}" />
+                                                            <Button Content="{loc:Translate 'Glitchy'}" Tag="GlitchyRandomHeight" Click="ScaleActionModeButton_Click" Style="{StaticResource SecondaryButtonStyle}" />
+                                                        </UniformGrid>
+
+                                                        <StackPanel Margin="0,10,0,0" Visibility="{Binding ScaleAction.UsesTargetHeight, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <TextBlock Text="{loc:Translate 'Target Height Meters'}" FontWeight="SemiBold" />
+                                                            <TextBox Text="{Binding ScaleAction.TargetHeightMeters, UpdateSourceTrigger=LostFocus}" />
+                                                        </StackPanel>
+
+                                                        <UniformGrid Columns="2" Margin="0,10,0,0"
+                                                                     Visibility="{Binding ScaleAction.UsesRandomHeightRange, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <StackPanel Margin="0,0,6,0">
+                                                                <TextBlock Text="{loc:Translate 'Min Height (meters)'}" FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding ScaleAction.MinimumHeightMeters, UpdateSourceTrigger=LostFocus}" />
+                                                            </StackPanel>
+                                                            <StackPanel Margin="6,0,0,0">
+                                                                <TextBlock Text="{loc:Translate 'Max Height (meters)'}" FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding ScaleAction.MaximumHeightMeters, UpdateSourceTrigger=LostFocus}" />
+                                                            </StackPanel>
+                                                        </UniformGrid>
+
+                                                        <Grid Margin="0,10,0,0"
+                                                              Visibility="{Binding ScaleAction.UsesRelativeHeight, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto" />
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="*" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <Button Grid.Column="0" Width="44" Content="{Binding ScaleAction.RelativeHeightOperatorDisplay}" Click="ScaleActionRelHeightOpButton_Click" Style="{StaticResource SecondaryButtonStyle}" />
+                                                            <StackPanel Grid.Column="1" Margin="8,0,6,0">
+                                                                <TextBlock Text="{loc:Translate 'Change (meters)'}" FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding ScaleAction.RelativeHeightMeters, UpdateSourceTrigger=LostFocus}" />
+                                                            </StackPanel>
+                                                            <StackPanel Grid.Column="2" Margin="6,0,0,0">
+                                                                <TextBlock Text="{loc:Translate 'Current (meters)'}" FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding ScaleAction.MultCurrentPreview, UpdateSourceTrigger=LostFocus}" />
+                                                            </StackPanel>
+                                                        </Grid>
+
+                                                        <Grid Margin="0,10,0,0"
+                                                              Visibility="{Binding ScaleAction.UsesMultiplier, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto" />
+                                                                <ColumnDefinition Width="*" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <Button Grid.Column="0" Width="44" Content="{Binding ScaleAction.MultiplierOperatorDisplay}" Click="ScaleActionMultOpButton_Click" Style="{StaticResource SecondaryButtonStyle}" />
+                                                            <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                                                <TextBlock Text="{loc:Translate 'Multiplier'}" FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding ScaleAction.HeightMultiplier, UpdateSourceTrigger=LostFocus}" />
+                                                            </StackPanel>
+                                                        </Grid>
+
+                                                        <StackPanel Margin="0,10,0,0"
+                                                                    Visibility="{Binding ScaleAction.UsesPreset, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <TextBlock Text="{loc:Translate 'Preset'}" FontWeight="SemiBold" />
+                                                            <ComboBox ItemsSource="{Binding DataContext.AvatarScalePresets, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                      SelectedItem="{Binding ScaleAction.Preset, UpdateSourceTrigger=PropertyChanged}" />
+                                                        </StackPanel>
+
+                                                        <TextBlock Margin="0,10,0,0" Text="{loc:Translate 'Current Max Height Allowed'}" Foreground="{DynamicResource TitleBarSubTextBrush}" />
+                                                        <TextBlock Text="{Binding DataContext.CurrentMaxHeightAllowedText, RelativeSource={RelativeSource AncestorType=Window}}" FontWeight="Bold" />
+                                                    </StackPanel>
+                                                </Border>
+
+                                                <Border Margin="0,12,0,0"
+                                                        Padding="12"
+                                                        CornerRadius="14"
+                                                        Background="{DynamicResource NestedPanelBrush}"
+                                                        BorderBrush="{DynamicResource BorderBrush}"
+                                                        BorderThickness="1">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{loc:Translate 'Timer &amp; Return'}" FontWeight="Bold" FontSize="15" />
+                                                        <UniformGrid Columns="2" Margin="0,10,0,0">
+                                                            <StackPanel Margin="0,0,6,0">
+                                                                <TextBlock Text="{loc:Translate 'Active Time Seconds'}" FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding ScaleAction.ActiveTimeSeconds, UpdateSourceTrigger=LostFocus}" />
+                                                            </StackPanel>
+                                                            <StackPanel Margin="6,0,0,0">
+                                                                <TextBlock Text="{loc:Translate 'Return Height'}" FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding ScaleAction.RestoreHeightMeters, UpdateSourceTrigger=LostFocus}" />
+                                                            </StackPanel>
+                                                        </UniformGrid>
+                                                        <UniformGrid Columns="2" Margin="0,10,0,0">
+                                                            <StackPanel Margin="0,0,6,0">
+                                                                <TextBlock Text="{loc:Translate 'Return Mode'}" FontWeight="SemiBold" />
+                                                                <ComboBox ItemsSource="{Binding DataContext.AvatarScaleRestoreModes, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                          SelectedItem="{Binding ScaleAction.RestoreMode, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                            <StackPanel Margin="6,0,0,0">
+                                                                <TextBlock Text="{loc:Translate 'Smooth Transition Seconds'}" FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding ScaleAction.SmoothTransitionSeconds, UpdateSourceTrigger=LostFocus}" />
+                                                            </StackPanel>
+                                                        </UniformGrid>
+                                                    </StackPanel>
+                                                </Border>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ContentControl.ContentTemplate>
+                                </ContentControl>
+
+                                <ContentControl Content="{Binding SelectedPowerUpRule}">
+                                    <ContentControl.Style>
+                                        <Style TargetType="ContentControl">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedPowerUpRule}" Value="{x:Null}">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </ContentControl.Style>
+                                    <ContentControl.ContentTemplate>
+                                        <DataTemplate DataType="{x:Type models:PowerUpRule}">
+                                            <StackPanel TextElement.Foreground="{DynamicResource TitleBarTextBrush}">
+                                                <Border Padding="12"
+                                                        CornerRadius="14"
+                                                        Background="{DynamicResource NestedPanelBrush}"
+                                                        BorderBrush="{DynamicResource BorderBrush}"
+                                                        BorderThickness="1">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{loc:Translate 'Power Up Scaling'}" FontWeight="Bold" FontSize="15" />
+                                                        <TextBlock Margin="0,6,0,0" Text="{Binding TriggerSummary}" Foreground="{DynamicResource TitleBarSubTextBrush}" />
+                                                    </StackPanel>
+                                                </Border>
+
+                                                <Border Margin="0,12,0,0"
+                                                        Padding="12"
+                                                        CornerRadius="14"
+                                                        Background="{DynamicResource NestedPanelBrush}"
+                                                        BorderBrush="{DynamicResource BorderBrush}"
+                                                        BorderThickness="1">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{loc:Translate 'Power Up Title'}" FontWeight="Bold" FontSize="15" />
+                                                        <UniformGrid Columns="2" Margin="0,10,0,0">
+                                                            <StackPanel Margin="0,0,6,0">
+                                                                <TextBlock Text="{loc:Translate 'Rule Name'}" FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                            <StackPanel Margin="6,0,0,0">
+                                                                <TextBlock Text="{loc:Translate 'Power Up Title'}" FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding PowerUpTitle, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                        </UniformGrid>
+                                                        <UniformGrid Columns="2" Margin="0,10,0,0">
+                                                            <StackPanel Margin="0,0,6,0">
+                                                                <TextBlock Text="{loc:Translate 'Bits Cost'}" FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding BitsCost, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                            <StackPanel Margin="6,0,0,0">
+                                                                <TextBlock Text="{loc:Translate 'Cooldown Seconds'}" FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding CooldownSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                        </UniformGrid>
+                                                    </StackPanel>
+                                                </Border>
+
+                                                <Border Margin="0,12,0,0"
+                                                        Padding="12"
+                                                        CornerRadius="14"
+                                                        Background="{DynamicResource NestedPanelBrush}"
+                                                        BorderBrush="{DynamicResource BorderBrush}"
+                                                        BorderThickness="1">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{loc:Translate 'Height Change'}" FontWeight="Bold" FontSize="15" />
+                                                        <UniformGrid Columns="3" Margin="0,10,0,0">
+                                                            <Button Content="{loc:Translate 'Set Height'}" Tag="SetHeight" Click="ScaleActionModeButton_Click" Style="{StaticResource SecondaryButtonStyle}" />
+                                                            <Button Content="{loc:Translate 'Random'}" Tag="RandomHeight" Click="ScaleActionModeButton_Click" Style="{StaticResource SecondaryButtonStyle}" />
+                                                            <Button Content="{loc:Translate 'Relative'}" Tag="RelativeHeight" Click="ScaleActionModeButton_Click" Style="{StaticResource SecondaryButtonStyle}" />
+                                                            <Button Content="{loc:Translate 'Multiplier'}" Tag="Multiplier" Click="ScaleActionModeButton_Click" Style="{StaticResource SecondaryButtonStyle}" />
+                                                            <Button Content="{loc:Translate 'Preset'}" Tag="Preset" Click="ScaleActionModeButton_Click" Style="{StaticResource SecondaryButtonStyle}" />
+                                                            <Button Content="{loc:Translate 'Glitchy'}" Tag="GlitchyRandomHeight" Click="ScaleActionModeButton_Click" Style="{StaticResource SecondaryButtonStyle}" />
+                                                        </UniformGrid>
+
+                                                        <StackPanel Margin="0,10,0,0" Visibility="{Binding ScaleAction.UsesTargetHeight, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <TextBlock Text="{loc:Translate 'Target Height Meters'}" FontWeight="SemiBold" />
+                                                            <TextBox Text="{Binding ScaleAction.TargetHeightMeters, UpdateSourceTrigger=LostFocus}" />
+                                                        </StackPanel>
+
+                                                        <UniformGrid Columns="2" Margin="0,10,0,0"
+                                                                     Visibility="{Binding ScaleAction.UsesRandomHeightRange, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <StackPanel Margin="0,0,6,0">
+                                                                <TextBlock Text="{loc:Translate 'Min Height (meters)'}" FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding ScaleAction.MinimumHeightMeters, UpdateSourceTrigger=LostFocus}" />
+                                                            </StackPanel>
+                                                            <StackPanel Margin="6,0,0,0">
+                                                                <TextBlock Text="{loc:Translate 'Max Height (meters)'}" FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding ScaleAction.MaximumHeightMeters, UpdateSourceTrigger=LostFocus}" />
+                                                            </StackPanel>
+                                                        </UniformGrid>
+
+                                                        <Grid Margin="0,10,0,0"
+                                                              Visibility="{Binding ScaleAction.UsesRelativeHeight, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto" />
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="*" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <Button Grid.Column="0" Width="44" Content="{Binding ScaleAction.RelativeHeightOperatorDisplay}" Click="ScaleActionRelHeightOpButton_Click" Style="{StaticResource SecondaryButtonStyle}" />
+                                                            <StackPanel Grid.Column="1" Margin="8,0,6,0">
+                                                                <TextBlock Text="{loc:Translate 'Change (meters)'}" FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding ScaleAction.RelativeHeightMeters, UpdateSourceTrigger=LostFocus}" />
+                                                            </StackPanel>
+                                                            <StackPanel Grid.Column="2" Margin="6,0,0,0">
+                                                                <TextBlock Text="{loc:Translate 'Current (meters)'}" FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding ScaleAction.MultCurrentPreview, UpdateSourceTrigger=LostFocus}" />
+                                                            </StackPanel>
+                                                        </Grid>
+
+                                                        <Grid Margin="0,10,0,0"
+                                                              Visibility="{Binding ScaleAction.UsesMultiplier, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto" />
+                                                                <ColumnDefinition Width="*" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <Button Grid.Column="0" Width="44" Content="{Binding ScaleAction.MultiplierOperatorDisplay}" Click="ScaleActionMultOpButton_Click" Style="{StaticResource SecondaryButtonStyle}" />
+                                                            <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                                                <TextBlock Text="{loc:Translate 'Multiplier'}" FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding ScaleAction.HeightMultiplier, UpdateSourceTrigger=LostFocus}" />
+                                                            </StackPanel>
+                                                        </Grid>
+
+                                                        <StackPanel Margin="0,10,0,0"
+                                                                    Visibility="{Binding ScaleAction.UsesPreset, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <TextBlock Text="{loc:Translate 'Preset'}" FontWeight="SemiBold" />
+                                                            <ComboBox ItemsSource="{Binding DataContext.AvatarScalePresets, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                      SelectedItem="{Binding ScaleAction.Preset, UpdateSourceTrigger=PropertyChanged}" />
+                                                        </StackPanel>
+
+                                                        <TextBlock Margin="0,10,0,0" Text="{loc:Translate 'Current Max Height Allowed'}" Foreground="{DynamicResource TitleBarSubTextBrush}" />
+                                                        <TextBlock Text="{Binding DataContext.CurrentMaxHeightAllowedText, RelativeSource={RelativeSource AncestorType=Window}}" FontWeight="Bold" />
+                                                    </StackPanel>
+                                                </Border>
+
+                                                <Border Margin="0,12,0,0"
+                                                        Padding="12"
+                                                        CornerRadius="14"
+                                                        Background="{DynamicResource NestedPanelBrush}"
+                                                        BorderBrush="{DynamicResource BorderBrush}"
+                                                        BorderThickness="1">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{loc:Translate 'Timer &amp; Return'}" FontWeight="Bold" FontSize="15" />
+                                                        <UniformGrid Columns="2" Margin="0,10,0,0">
+                                                            <StackPanel Margin="0,0,6,0">
+                                                                <TextBlock Text="{loc:Translate 'Active Time Seconds'}" FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding ScaleAction.ActiveTimeSeconds, UpdateSourceTrigger=LostFocus}" />
+                                                            </StackPanel>
+                                                            <StackPanel Margin="6,0,0,0">
+                                                                <TextBlock Text="{loc:Translate 'Return Height'}" FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding ScaleAction.RestoreHeightMeters, UpdateSourceTrigger=LostFocus}" />
+                                                            </StackPanel>
+                                                        </UniformGrid>
+                                                        <UniformGrid Columns="2" Margin="0,10,0,0">
+                                                            <StackPanel Margin="0,0,6,0">
+                                                                <TextBlock Text="{loc:Translate 'Return Mode'}" FontWeight="SemiBold" />
+                                                                <ComboBox ItemsSource="{Binding DataContext.AvatarScaleRestoreModes, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                          SelectedItem="{Binding ScaleAction.RestoreMode, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                            <StackPanel Margin="6,0,0,0">
+                                                                <TextBlock Text="{loc:Translate 'Smooth Transition Seconds'}" FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding ScaleAction.SmoothTransitionSeconds, UpdateSourceTrigger=LostFocus}" />
+                                                            </StackPanel>
+                                                        </UniformGrid>
+                                                    </StackPanel>
+                                                </Border>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ContentControl.ContentTemplate>
                                 </ContentControl>
                             </StackPanel>
                         </ScrollViewer>

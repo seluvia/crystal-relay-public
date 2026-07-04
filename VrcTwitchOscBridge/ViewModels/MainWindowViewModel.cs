@@ -253,13 +253,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         nameof(TriggerRule.ActiveFloatBoostRewardCooldownSeconds),
         nameof(TriggerRule.ActiveFloatBoostRewardReadyColor),
         nameof(TriggerRule.ActiveFloatBoostRewardCooldownColor),
-        nameof(TriggerRule.ParameterName),
         nameof(TriggerRule.SharedRewardChoiceEnabled),
         nameof(TriggerRule.SharedRewardChoiceNumber),
         nameof(TriggerRule.SharedRewardHelpText),
-        nameof(TriggerRule.SetTriggerActions),
-        nameof(TriggerRule.AvatarChangeTargetId),
-        nameof(TriggerRule.AvatarRouletAvatarIds),
         nameof(TriggerRule.IsEnabled),
         nameof(TriggerRule.CooldownSeconds),
         nameof(TriggerRule.SpecialRulePairingMode),
@@ -1023,9 +1019,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             ApplyAccountSnapshot(role, snapshot);
             UpdateAccountStatuses();
             QueueSave();
-            _ = QueueRewardRefreshAsync();
             if (HasAccountIdentityChanged(role, previousIdentityFingerprint))
             {
+                _ = QueueRewardRefreshAsync();
                 QueueManagedRewardSync(0, ManagedRewardSyncReason.AccountReconnect);
             }
             _ = RefreshAboutProfilesAsync();
@@ -10646,6 +10642,100 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         finally
         {
             bridgeRefreshGate.Release();
+        }
+    }
+
+    public async Task TestAvatarScaleRuleByCardAsync(AvatarScaleRule rule)
+    {
+        if (rule is null) return;
+
+        try
+        {
+            await ReloadRuntimeConfigAsync();
+
+            AvatarScaleRuleSnapshot ruleSnapshot;
+            await bridgeRefreshGate.WaitAsync();
+            try
+            {
+                await EnsureBridgeStateAsync(CancellationToken.None, allowOscOnly: true);
+                ruleSnapshot = BridgeRuntimeConfiguration.CreateManualTestSnapshot(rule, Settings.AvatarScaleSafety);
+            }
+            finally
+            {
+                bridgeRefreshGate.Release();
+            }
+
+            await bridgeCoordinator.SendTestAvatarScaleRuleAsync(ruleSnapshot, CancellationToken.None);
+
+            BridgeStatus = $"Sent avatar scale test for '{ruleSnapshot.Name}'.";
+            RaisePropertyChanged(nameof(AvatarScaleRuntimeStatusText));
+        }
+        catch (Exception ex)
+        {
+            BridgeStatus = "Avatar scale test did not run.";
+            AppendLog($"Could not test the avatar scale redeem: {ex.Message}");
+        }
+    }
+
+    public async Task TestCashPaymentRuleByCardAsync(CashPaymentRule rule)
+    {
+        if (rule is null) return;
+
+        try
+        {
+            await ReloadRuntimeConfigAsync();
+
+            await bridgeRefreshGate.WaitAsync();
+            try
+            {
+                await EnsureBridgeStateAsync(CancellationToken.None, allowOscOnly: true);
+
+                var ruleSnapshot = BridgeRuntimeConfiguration.CreateManualTestSnapshot(rule, Settings.AvatarScaleSafety);
+                await bridgeCoordinator.SendTestCashPaymentRuleAsync(ruleSnapshot, CancellationToken.None);
+
+                BridgeStatus = $"Sent cash payment test for '{ruleSnapshot.Name}'.";
+                RaisePropertyChanged(nameof(AvatarScaleRuntimeStatusText));
+            }
+            finally
+            {
+                bridgeRefreshGate.Release();
+            }
+        }
+        catch (Exception ex)
+        {
+            BridgeStatus = "Cash payment test did not run.";
+            AppendLog($"Could not test the cash payment rule: {ex.Message}");
+        }
+    }
+
+    public async Task TestPowerUpRuleByCardAsync(PowerUpRule rule)
+    {
+        if (rule is null) return;
+
+        try
+        {
+            await ReloadRuntimeConfigAsync();
+
+            await bridgeRefreshGate.WaitAsync();
+            try
+            {
+                await EnsureBridgeStateAsync(CancellationToken.None, allowOscOnly: true);
+
+                var ruleSnapshot = BridgeRuntimeConfiguration.CreateManualTestSnapshot(rule, MasterAvatarProfile, Settings.AvatarScaleSafety);
+                await bridgeCoordinator.SendTestPowerUpRuleAsync(ruleSnapshot, CancellationToken.None);
+
+                BridgeStatus = $"Sent Power Up test for '{ruleSnapshot.Name}'.";
+                RaisePropertyChanged(nameof(AvatarScaleRuntimeStatusText));
+            }
+            finally
+            {
+                bridgeRefreshGate.Release();
+            }
+        }
+        catch (Exception ex)
+        {
+            BridgeStatus = "Power Up test did not run.";
+            AppendLog($"Could not test the Power Up rule: {ex.Message}");
         }
     }
 
