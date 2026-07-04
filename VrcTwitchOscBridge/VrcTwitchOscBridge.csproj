@@ -46,6 +46,7 @@
     <Page Include="AvatarRouletPickerWindow.xaml" />
     <Page Include="AvatarPickerWindow.xaml" />
     <Page Include="AvatarLibraryManagerWindow.xaml" />
+    <Page Include="ThemedInputDialog.xaml" />
     <Page Include="AvatarSetsManagerWindow.xaml" />
     <Page Include="UniversalTriggersManagerWindow.xaml" />
     <Page Include="AvatarSwapManagerWindow.xaml" />
@@ -100,6 +101,7 @@
     <Compile Include="AvatarRouletPickerWindow.xaml.cs" />
     <Compile Include="AvatarPickerWindow.xaml.cs" />
     <Compile Include="AvatarLibraryManagerWindow.xaml.cs" />
+    <Compile Include="ThemedInputDialog.xaml.cs" />
     <Compile Include="AvatarSetsManagerWindow.xaml.cs" />
     <Compile Include="UniversalTriggersManagerWindow.xaml.cs">
       <DependentUpon>UniversalTriggersManagerWindow.xaml</DependentUpon>

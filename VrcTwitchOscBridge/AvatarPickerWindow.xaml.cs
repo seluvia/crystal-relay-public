@@ -220,6 +220,236 @@ public partial class AvatarPickerWindow : Window
         }
     }
 
+    private void OnSetGroupSubmenuOpened(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem groupMenu) return;
+        var item = (groupMenu.Parent as ContextMenu)?.DataContext as AvatarPickerItem;
+        if (item is null) return;
+
+        groupMenu.Items.Clear();
+        var library = viewModel.Library;
+        if (library is null) return;
+
+        var entry = library.GetEntry(item.Id);
+        var currentGroupId = entry?.GroupId ?? string.Empty;
+
+        foreach (var group in library.Groups.OrderBy(g => g.SortOrder).ThenBy(g => g.Name))
+        {
+            var menuItem = new MenuItem
+            {
+                Header = group.Name,
+                IsCheckable = true,
+                IsChecked = string.Equals(group.Id, currentGroupId, StringComparison.Ordinal),
+                Tag = new Tuple<string, AvatarPickerItem, string>(group.Id, item, "set")
+            };
+            menuItem.Click += OnGroupMenuItemClicked;
+            groupMenu.Items.Add(menuItem);
+        }
+
+        groupMenu.Items.Add(new Separator());
+
+        var removeItem = new MenuItem
+        {
+            Header = LocalizationService.Translate("Remove from group"),
+            IsCheckable = true,
+            IsChecked = string.IsNullOrWhiteSpace(currentGroupId),
+            Tag = new Tuple<string, AvatarPickerItem, string>(string.Empty, item, "remove")
+        };
+        removeItem.Click += OnGroupMenuItemClicked;
+        groupMenu.Items.Add(removeItem);
+
+        groupMenu.Items.Add(new Separator());
+
+        var newItem = new MenuItem
+        {
+            Header = LocalizationService.Translate("New Group..."),
+            Tag = item
+        };
+        newItem.Click += OnNewGroupFromMenuClicked;
+        groupMenu.Items.Add(newItem);
+    }
+
+    private void OnGroupMenuItemClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem menuItem) return;
+        if (menuItem.Tag is not Tuple<string, AvatarPickerItem, string> tag) return;
+        var (groupId, item, _) = tag;
+
+        var library = viewModel.Library;
+        if (library is null) return;
+
+        library.EnsureEntry(item.Id);
+        var entry = library.GetEntry(item.Id);
+        if (entry is null) return;
+
+        entry.GroupId = groupId;
+        viewModel.RebuildItem(item);
+        viewModel.RebuildFilterOptions();
+    }
+
+    private void OnNewGroupFromMenuClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem menuItem) return;
+        if (menuItem.Tag is not AvatarPickerItem item) return;
+
+        var library = viewModel.Library;
+        if (library is null) return;
+
+        var name = ThemedInputDialog.ShowPrompt(
+            this,
+            ThemeManager.CurrentTheme,
+            LocalizationService.Translate("New Group..."),
+            LocalizationService.Translate("New group name:"),
+            LocalizationService.Translate("Create"));
+        if (string.IsNullOrWhiteSpace(name)) return;
+
+        var group = new AvatarGroup
+        {
+            Name = name.Trim(),
+            SortOrder = library.Groups.Count
+        };
+        library.Groups.Add(group);
+
+        library.EnsureEntry(item.Id);
+        var entry = library.GetEntry(item.Id);
+        if (entry is not null)
+        {
+            entry.GroupId = group.Id;
+        }
+
+        viewModel.RebuildItem(item);
+        viewModel.RebuildFilterOptions();
+    }
+
+    private void OnTagsSubmenuOpened(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem tagsMenu) return;
+        var item = (tagsMenu.Parent as ContextMenu)?.DataContext as AvatarPickerItem;
+        if (item is null) return;
+
+        tagsMenu.Items.Clear();
+        var library = viewModel.Library;
+        if (library is null) return;
+
+        var entry = library.GetEntry(item.Id);
+        var currentTagIds = entry?.TagIds ?? new List<string>();
+
+        foreach (var tag in library.Tags.OrderBy(t => t.Name))
+        {
+            var menuItem = new MenuItem
+            {
+                Header = tag.Name,
+                IsCheckable = true,
+                IsChecked = currentTagIds.Contains(tag.Id),
+                Tag = new Tuple<AvatarTag, AvatarPickerItem>(tag, item)
+            };
+            menuItem.Click += OnTagMenuItemClicked;
+            tagsMenu.Items.Add(menuItem);
+        }
+
+        if (library.Tags.Count > 0)
+        {
+            tagsMenu.Items.Add(new Separator());
+        }
+
+        var newItem = new MenuItem
+        {
+            Header = LocalizationService.Translate("New Tag..."),
+            Tag = item
+        };
+        newItem.Click += OnNewTagFromMenuClicked;
+        tagsMenu.Items.Add(newItem);
+    }
+
+    private void OnTagMenuItemClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem menuItem) return;
+        if (menuItem.Tag is not Tuple<AvatarTag, AvatarPickerItem> tagTuple) return;
+        var (tag, item) = tagTuple;
+
+        var library = viewModel.Library;
+        if (library is null) return;
+
+        library.EnsureEntry(item.Id);
+        var entry = library.GetEntry(item.Id);
+        if (entry is null) return;
+
+        if (entry.TagIds.Contains(tag.Id))
+        {
+            entry.TagIds.Remove(tag.Id);
+        }
+        else
+        {
+            entry.TagIds.Add(tag.Id);
+        }
+
+        viewModel.RebuildItem(item);
+    }
+
+    private void OnNewTagFromMenuClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem menuItem) return;
+        if (menuItem.Tag is not AvatarPickerItem item) return;
+
+        var library = viewModel.Library;
+        if (library is null) return;
+
+        var (name, color) = ThemedInputDialog.ShowPromptWithColor(
+            this,
+            ThemeManager.CurrentTheme,
+            LocalizationService.Translate("New Tag..."),
+            LocalizationService.Translate("New tag name:"),
+            LocalizationService.Translate("Tag color:"),
+            LocalizationService.Translate("Create"));
+        if (string.IsNullOrWhiteSpace(name)) return;
+
+        var tag = new AvatarTag
+        {
+            Name = name.Trim(),
+            ColorHex = string.IsNullOrWhiteSpace(color) ? "#A855F7" : color
+        };
+        library.Tags.Add(tag);
+
+        library.EnsureEntry(item.Id);
+        var entry = library.GetEntry(item.Id);
+        if (entry is not null && !entry.TagIds.Contains(tag.Id))
+        {
+            entry.TagIds.Add(tag.Id);
+        }
+
+        viewModel.RebuildItem(item);
+        viewModel.RebuildFilterOptions();
+    }
+
+    private void OnTagChipRemoveClicked(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not FrameworkElement element) return;
+        if (element.DataContext is not AvatarTagDisplay tag) return;
+
+        var parent = element;
+        AvatarPickerItem? item = null;
+        while (parent is not null)
+        {
+            if (parent.DataContext is AvatarPickerItem found)
+            {
+                item = found;
+                break;
+            }
+            parent = VisualTreeHelper.GetParent(parent) as FrameworkElement;
+        }
+        if (item is null) return;
+
+        var library = viewModel.Library;
+        if (library is null) return;
+
+        var entry = library.GetEntry(item.Id);
+        if (entry is null) return;
+
+        entry.TagIds.Remove(tag.Id);
+        viewModel.RebuildItem(item);
+        e.Handled = true;
+    }
+
     private void RefreshAvatarImage(AvatarPickerItem item)
     {
         imageService.ClearCache();
