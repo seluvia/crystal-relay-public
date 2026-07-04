@@ -7238,22 +7238,15 @@
                                            Storyboard.TargetProperty="ScaleX"
                                            RepeatBehavior="Forever">
                 <LinearDoubleKeyFrame KeyTime="0:0:0" Value="1" />
-                <LinearDoubleKeyFrame KeyTime="0:0:2" Value="1.05" />
-                <LinearDoubleKeyFrame KeyTime="0:0:4" Value="1" />
+                <LinearDoubleKeyFrame KeyTime="0:0:3" Value="1.03" />
+                <LinearDoubleKeyFrame KeyTime="0:0:6" Value="1" />
             </DoubleAnimationUsingKeyFrames>
             <DoubleAnimationUsingKeyFrames Storyboard.TargetName="HologramScaleTransform"
                                            Storyboard.TargetProperty="ScaleY"
                                            RepeatBehavior="Forever">
                 <LinearDoubleKeyFrame KeyTime="0:0:0" Value="1" />
-                <LinearDoubleKeyFrame KeyTime="0:0:2" Value="1.05" />
-                <LinearDoubleKeyFrame KeyTime="0:0:4" Value="1" />
-            </DoubleAnimationUsingKeyFrames>
-            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="HologramGlowEllipse"
-                                           Storyboard.TargetProperty="Opacity"
-                                           RepeatBehavior="Forever">
-                <LinearDoubleKeyFrame KeyTime="0:0:0" Value="0.25" />
-                <LinearDoubleKeyFrame KeyTime="0:0:2" Value="0.55" />
-                <LinearDoubleKeyFrame KeyTime="0:0:4" Value="0.25" />
+                <LinearDoubleKeyFrame KeyTime="0:0:3" Value="1.03" />
+                <LinearDoubleKeyFrame KeyTime="0:0:6" Value="1" />
             </DoubleAnimationUsingKeyFrames>
         </Storyboard>
 
