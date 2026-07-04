@@ -286,6 +286,7 @@ public partial class AvatarPickerWindow : Window
         entry.GroupId = groupId;
         viewModel.RebuildItem(item);
         viewModel.RebuildFilterOptions();
+        viewModel.RefreshFilter();
     }
 
     private void OnNewGroupFromMenuClicked(object sender, RoutedEventArgs e)
@@ -320,6 +321,7 @@ public partial class AvatarPickerWindow : Window
 
         viewModel.RebuildItem(item);
         viewModel.RebuildFilterOptions();
+        viewModel.RefreshFilter();
     }
 
     private void OnTagsSubmenuOpened(object sender, RoutedEventArgs e)
@@ -385,6 +387,7 @@ public partial class AvatarPickerWindow : Window
         }
 
         viewModel.RebuildItem(item);
+        viewModel.RefreshFilter();
     }
 
     private void OnNewTagFromMenuClicked(object sender, RoutedEventArgs e)
@@ -420,6 +423,7 @@ public partial class AvatarPickerWindow : Window
 
         viewModel.RebuildItem(item);
         viewModel.RebuildFilterOptions();
+        viewModel.RefreshFilter();
     }
 
     private void OnTagChipRemoveClicked(object sender, MouseButtonEventArgs e)
@@ -448,6 +452,7 @@ public partial class AvatarPickerWindow : Window
 
         entry.TagIds.Remove(tag.Id);
         viewModel.RebuildItem(item);
+        viewModel.RefreshFilter();
         e.Handled = true;
     }
 
