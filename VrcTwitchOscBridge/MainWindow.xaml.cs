@@ -2460,13 +2460,13 @@ public partial class MainWindow : Window
         // Step 1: Wait for the final "All systems operational" to show
         await Task.Delay(700);
 
-        // Step 2: Fade out overlay
+        // Step 2: Fade out overlay with 2s timeout to prevent hang
         if (TryGetLoadingStoryboard("RevealTransitionStoryboard", out var revealStoryboard))
         {
             var tcs = new TaskCompletionSource();
             revealStoryboard.Completed += (_, _) => tcs.TrySetResult();
             revealStoryboard.Begin(this);
-            await tcs.Task;
+            await Task.WhenAny(tcs.Task, Task.Delay(2000));
         }
     }
 
