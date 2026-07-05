@@ -717,6 +717,32 @@ internal BridgeCoordinator(
         await ExecuteRuleActionAsync(rule, null, cancellationToken, isTest: true, queuedReplay: false, allowLaneQueue: true, isResuming: false);
     }
 
+    public void QuickTestRule(TriggerRule rule)
+    {
+        if (!IsOscActive) return;
+        var snapshot = TriggerRuleSnapshot.FromRule(rule);
+        if (snapshot.ActionType != OscActionType.PlayerMovement) return;
+
+        snapshot = snapshot with { DurationSeconds = 2 };
+
+        _ = RunQuickMovementTestAsync(snapshot);
+    }
+
+    private async Task RunQuickMovementTestAsync(TriggerRuleSnapshot snapshot)
+    {
+        try
+        {
+            var action = ResolvePlayerMovementAction(snapshot);
+            await SendPacketsToVrChatAsync(action.Packets, CancellationToken.None);
+            await Task.Delay(TimeSpan.FromSeconds(snapshot.DurationSeconds));
+            await SendPacketsToVrChatAsync(action.ResetPackets, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            WriteLog($"Quick movement test failed for '{snapshot.Name}': {ex.Message}");
+        }
+    }
+
     public async Task SendTestUniversalTriggerAsync(UniversalTriggerRuleSnapshot trigger, CancellationToken cancellationToken = default)
     {
         if (!IsOscActive)

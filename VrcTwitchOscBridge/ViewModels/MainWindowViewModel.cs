@@ -10444,6 +10444,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         await TestRuleAsync(SelectedRule);
     }
 
+    public void TestMovementRule(TriggerRule rule)
+    {
+        if (rule is null) return;
+        bridgeCoordinator.QuickTestRule(rule);
+    }
+
     public async Task TestRuleAsync(TriggerRule rule)
     {
         if (rule is null) return;
