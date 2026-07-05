@@ -20,8 +20,14 @@ How To Use:
 Pending Release Draft
 - Target version: v3.1.9
 - Release lane: beta
-- Next build: v3.1.9 beta 4
+- Next build: (none — active beta cycle in progress)
+- Last beta build: v3.1.9 beta 5
 - Source files reflect v3.1.9; csproj and updater project will be updated when new work begins.
+
+v3.1.9 beta 5
+Changed:
+- Restructured release and beta packages: install folder is now always "Crystal Relay", the main executable is always "Crystal Relay.exe", and version info is shown via a `<version>.txt` dummy file instead of being embedded in folder and exe names.
+- The self-updater is compatible with both old and new naming for a clean transition.
 
 v3.1.9 beta 4 (in progress)
 Added:

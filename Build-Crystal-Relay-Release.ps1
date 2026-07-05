@@ -216,15 +216,15 @@ if ($env:CR_SKIP_GIT_CHECK -ne '1' -and -not (Test-WorkingTreeClean)) {
 }
 
 $versionFolderName = "v$targetVersion"
-$releaseName = "CrystalRelayTwitchOsc-v$targetVersion-$runtime"
+$releaseName = "CrystalRelay-v$targetVersion-$runtime"
 $versionRoot = Join-Path $releaseRoot $versionFolderName
-$publishDir = Join-Path $versionRoot $releaseName
+$publishDir = Join-Path $versionRoot 'Crystal Relay'
 $zipPath = Join-Path $versionRoot "$releaseName.zip"
 
 New-Item -ItemType Directory -Path $releaseRoot -Force | Out-Null
 New-Item -ItemType Directory -Path $versionRoot -Force | Out-Null
 if (Test-Path $publishDir) {
-    Assert-SafeBuildPath -Path $publishDir -RequiredParent $versionRoot -Pattern "CrystalRelayTwitchOsc-v$targetVersion-win-x64"
+    Assert-SafeBuildPath -Path $publishDir -RequiredParent $versionRoot -Pattern "Crystal Relay"
     Remove-Item -Path $publishDir -Recurse -Force
 }
 
@@ -265,10 +265,14 @@ finally {
 }
 
 $defaultExe = Join-Path $publishDir 'CrystalRelayTwitchOsc.exe'
-$versionedExe = Join-Path $publishDir "CrystalRelayTwitchOsc-v$targetVersion.exe"
+$targetExeName = 'Crystal Relay.exe'
 if (Test-Path $defaultExe) {
-    Rename-Item -Path $defaultExe -NewName (Split-Path -Path $versionedExe -Leaf) -Force
+    Rename-Item -Path $defaultExe -NewName $targetExeName -Force
 }
+
+# Create version indicator file (empty, filename = version)
+$versionFilePath = Join-Path $publishDir "$targetVersion.txt"
+New-Item -Path $versionFilePath -ItemType File -Force | Out-Null
 
 $updaterPublishDir = Join-Path ([System.IO.Path]::GetTempPath()) ("CrystalRelayUpdater-" + [guid]::NewGuid().ToString("N"))
 Push-Location (Join-Path $root 'CrystalRelayUpdater')
@@ -309,13 +313,12 @@ if (Test-Path $docsPath) {
     }
 }
 
-$entryExecutableName = Split-Path -Path $versionedExe -Leaf
 $updateManifest = [ordered]@{
     productName = 'Crystal Relay'
     version = $targetVersion
     channel = 'stable'
     runtime = $runtime
-    entryExecutableName = $entryExecutableName
+    entryExecutableName = 'Crystal Relay.exe'
 }
 $updateManifest |
     ConvertTo-Json |

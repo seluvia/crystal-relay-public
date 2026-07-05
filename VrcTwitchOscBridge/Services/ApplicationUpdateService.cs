@@ -190,7 +190,7 @@ internal sealed class ApplicationUpdateService : IDisposable
     }
 
     private static string GetExpectedAssetName(AppReleaseVersion version) =>
-        $"CrystalRelayTwitchOsc-v{version.ToDisplayString()}-{RuntimeName}.zip";
+        $"CrystalRelay-v{version.ToDisplayString()}-{RuntimeName}.zip";
 
     private static ReleaseCandidate? ChooseBestCandidate(ReleaseCandidate? stableCandidate, ReleaseCandidate? betaCandidate)
     {
