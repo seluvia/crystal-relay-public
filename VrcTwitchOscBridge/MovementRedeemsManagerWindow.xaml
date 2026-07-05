@@ -21,7 +21,7 @@
         FontFamily="{DynamicResource BodyFontFamily}"
         UseLayoutRounding="True"
         SnapsToDevicePixels="True"
-        Background="Transparent">
+        Background="{DynamicResource WindowBackgroundBrush}">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="0" CornerRadius="0" GlassFrameThickness="0" ResizeBorderThickness="6" UseAeroCaptionButtons="False" />
     </shell:WindowChrome.WindowChrome>
@@ -608,6 +608,7 @@
                          Background="Transparent"
                          BorderThickness="0"
                          ScrollViewer.VerticalScrollBarVisibility="Auto"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                          HorizontalContentAlignment="Stretch">
                     <ListBox.ItemContainerStyle>
                         <Style TargetType="ListBoxItem">
@@ -631,73 +632,54 @@
                 </ListBox>
             </Grid>
 
-            <Border Grid.RowSpan="2"
-                    Background="{DynamicResource BackdropBrush}"
-                    Visibility="{Binding IsEditorOpen, Converter={StaticResource BoolToVisibilityConverter}}"
-                    MouseDown="OnCloseEditor">
-                <Border HorizontalAlignment="Right"
+            <Grid Grid.Row="0" Grid.RowSpan="2"
+                  Visibility="{Binding IsEditorOpen, Converter={StaticResource BoolToVisibilityConverter}}">
+                <Border Background="{DynamicResource BackdropBrush}"
+                        MouseLeftButtonUp="OnEditorBackdropClicked" />
+                <Border Width="480"
+                        HorizontalAlignment="Right"
                         Background="{DynamicResource PanelBrush}"
                         BorderBrush="{DynamicResource BorderBrush}"
-                        BorderThickness="1,0,0,0"
-                        Width="480"
-                        MouseDown="OnCloseEditor">
-                    <Border.Style>
-                        <Style TargetType="Border">
-                            <Setter Property="Margin" Value="0,0,-480,0" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsEditorOpen}" Value="True">
-                                    <DataTrigger.EnterActions>
-                                        <BeginStoryboard>
-                                            <Storyboard>
-                                                <ThicknessAnimation Duration="0:0:0.2"
-                                                                    To="0,0,0,0"
-                                                                    Storyboard.TargetProperty="Margin"
-                                                    />
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </DataTrigger.EnterActions>
-                                    <DataTrigger.ExitActions>
-                                        <BeginStoryboard>
-                                            <Storyboard>
-                                                <ThicknessAnimation Duration="0:0:0.15"
-                                                                    To="0,0,-480,0"
-                                                                    Storyboard.TargetProperty="Margin"
-                                                    />
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </DataTrigger.ExitActions>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Border.Style>
+                        BorderThickness="1,0,0,0">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
 
-                        <DockPanel Grid.Row="0"
-                                   LastChildFill="True"
-                                   Margin="14,14,14,0">
-                            <Button DockPanel.Dock="Right"
-                                    Command="{Binding CloseEditorCommand}"
-                                    Style="{StaticResource SecondaryButtonStyle}"
-                                    AutomationProperties.Name="{loc:Translate 'Close'}"
-                                    ToolTip="{loc:Translate 'Close'}">
-                                <Path Width="10" Height="10" Stretch="Uniform" Stroke="{DynamicResource TitleBarTextBrush}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M 0,0 L 10,10 M 10,0 L 0,10" />
-                            </Button>
-                            <StackPanel>
-                                <TextBlock Text="{loc:Translate 'Edit Movement Rule'}"
-                                           FontFamily="{DynamicResource HeadingFontFamily}"
-                                           FontWeight="Bold"
-                                           FontSize="16"
-                                           Foreground="{DynamicResource TitleBarTextBrush}" />
-                            </StackPanel>
-                        </DockPanel>
+                        <Border Grid.Row="0"
+                                Background="{DynamicResource TitleBarBrush}"
+                                BorderBrush="{DynamicResource BorderBrush}"
+                                BorderThickness="0,0,0,1"
+                                Padding="12,10">
+                            <DockPanel LastChildFill="True">
+                                <Button DockPanel.Dock="Right"
+                                        Content="✕"
+                                        Background="Transparent"
+                                        Foreground="{DynamicResource TitleBarTextBrush}"
+                                        BorderBrush="{DynamicResource BorderBrush}"
+                                        Padding="6,2"
+                                        Margin="6,0,0,0"
+                                        Command="{Binding CloseEditorCommand}"
+                                        AutomationProperties.Name="{loc:Translate 'Close'}"
+                                        ToolTip="{loc:Translate 'Close'}" />
+                                <StackPanel>
+                                    <TextBlock Text="{loc:Translate 'Edit Movement Rule'}"
+                                               FontWeight="Bold"
+                                               FontSize="13"
+                                               Foreground="{DynamicResource TitleBarTextBrush}" />
+                                    <TextBlock Text="{Binding SelectedCard.DirectionDisplayName}"
+                                               Margin="0,2,0,0"
+                                               FontSize="10"
+                                               Foreground="{DynamicResource TitleBarSubTextBrush}" />
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
 
                         <ScrollViewer Grid.Row="1"
                                       Margin="14,14,14,14"
-                                      VerticalScrollBarVisibility="Auto">
+                                      VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled">
                             <StackPanel TextElement.Foreground="{DynamicResource TitleBarTextBrush}">
                                 <Border Padding="12"
                                         CornerRadius="14"
@@ -824,7 +806,7 @@
                         </ScrollViewer>
                     </Grid>
                 </Border>
-            </Border>
+            </Grid>
         </Grid>
     </Border>
 </Window>

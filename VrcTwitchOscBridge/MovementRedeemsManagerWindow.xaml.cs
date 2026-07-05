@@ -35,7 +35,7 @@ public sealed partial class MovementRedeemsManagerWindow : Window
 
     private void OnCloseClicked(object sender, RoutedEventArgs e) => Close();
 
-    private void OnCloseEditor(object sender, RoutedEventArgs e) => Vm.IsEditorOpen = false;
+    private void OnEditorBackdropClicked(object sender, MouseButtonEventArgs e) => Vm.IsEditorOpen = false;
 
     private void OnSaveEditor(object sender, RoutedEventArgs e) => Vm.IsEditorOpen = false;
 
