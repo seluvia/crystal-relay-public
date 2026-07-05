@@ -550,8 +550,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     private Guid lastSelectedAvatarProfileId = Guid.Empty;
     private Guid selectedSupporterAvatarProfileId = Guid.Empty;
     private Guid lastSelectedMasterRuleId = Guid.Empty;
-    private Guid lastSelectedMovementSetId = Guid.Empty;
-    private Guid lastSelectedMovementRuleId = Guid.Empty;
     private Guid lastSelectedSupporterRuleId = Guid.Empty;
     private Guid lastSelectedAvatarScaleSetId = Guid.Empty;
     private Guid lastSelectedAvatarScaleRuleId = Guid.Empty;
@@ -915,7 +913,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         ShowSettingsVisualsSectionCommand = new RelayCommand(() => SetActiveSettingsSection(SettingsSectionView.Visuals));
         ShowSettingsSafetySectionCommand = new RelayCommand(() => SetActiveSettingsSection(SettingsSectionView.Safety));
         ShowAvatarTriggerRulesCommand = new RelayCommand(ShowAvatarTriggerRules);
-        ShowMovementRedeemsCommand = new RelayCommand(ShowMovementRedeems);
+        ShowMovementRedeemsCommand = new RelayCommand(OpenMovementRedeemsManager);
         ShowSupporterOverridesCommand = new RelayCommand(ShowSupporterOverrides);
         ShowPowerUpsCommand = new RelayCommand(ShowPowerUps);
         OpenUniversalTriggersManagerCommand = new RelayCommand(OpenUniversalTriggersManager);
@@ -956,9 +954,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         EnableAllRulesCommand = new RelayCommand(EnableAllRules, () => GetCurrentEditableRuleCollection().Count > 0);
         DisableAllRulesCommand = new RelayCommand(DisableAllRules, () => GetCurrentEditableRuleCollection().Count > 0);
         DeleteAllRulesCommand = new RelayCommand(DeleteAllRules, () => GetCurrentEditableRuleCollection().Count > 0);
-        AddMovementRedeemSetCommand = new RelayCommand(AddMovementRedeemSet);
-        RemoveSelectedMovementRedeemSetCommand = new RelayCommand(RemoveSelectedMovementRedeemSet, () => SelectedMovementRedeemSet is not null);
-        DeleteAllMovementRedeemSetsCommand = new RelayCommand(DeleteAllMovementRedeemSets, () => Settings.MovementRedeemSets.Count > 0);
         AddAvatarScaleSetCommand = new RelayCommand(AddAvatarScaleSet);
         RemoveSelectedAvatarScaleSetCommand = new RelayCommand(RemoveSelectedAvatarScaleSet, () => SelectedAvatarScaleSet is not null);
         AddAvatarScaleRuleCommand = new RelayCommand(AddAvatarScaleRule);
@@ -1560,8 +1555,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     public bool HasGlobalSupporterRules => GlobalSupporterRules.Count > 0;
 
     public IReadOnlyList<MovementRedeemSet> MovementRedeemSets => Settings.MovementRedeemSets.ToArray();
-
-    public IReadOnlyList<TriggerRule> MovementRedeemRules => SelectedMovementRedeemSet?.MovementRules.ToArray() ?? [];
 
     public IReadOnlyList<AvatarScaleSet> AvatarScaleSets => Settings.AvatarScaleSets.ToArray();
 
@@ -2423,22 +2416,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         {
             if (SetProperty(ref selectedMovementRedeemSet, value))
             {
-                lastSelectedMovementSetId = value?.Id ?? Guid.Empty;
-                if (SelectedRule is not null
-                    && value?.MovementRules.Contains(SelectedRule) != true
-                    && IsViewingMovementRedeems)
-                {
-                    SelectedRule = GetRememberedMovementRule();
-                }
-                else if (SelectedRule is null && value is not null && IsViewingMovementRedeems)
-                {
-                    SelectedRule = GetRememberedMovementRule();
-                }
-
-                RemoveSelectedMovementRedeemSetCommand.NotifyCanExecuteChanged();
                 AddRuleCommand.NotifyCanExecuteChanged();
                 RaisePropertyChanged(nameof(SelectedMovementRedeemSet));
-                RaisePropertyChanged(nameof(MovementRedeemRules));
                 RefreshRuleCommandStates();
             }
         }
@@ -3212,12 +3191,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     public RelayCommand DisableAllRulesCommand { get; }
 
     public RelayCommand DeleteAllRulesCommand { get; }
-
-    public RelayCommand AddMovementRedeemSetCommand { get; }
-
-    public RelayCommand RemoveSelectedMovementRedeemSetCommand { get; }
-
-    public RelayCommand DeleteAllMovementRedeemSetsCommand { get; }
 
     public RelayCommand AddAvatarScaleSetCommand { get; }
 
@@ -5296,14 +5269,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         SwitchRuleView(RuleListView.AvatarTriggers, profile, rule);
     }
 
-    private void ShowMovementRedeems()
-    {
-        EnsureSelectedMovementRedeemSet();
-        SelectedMovementRedeemSet = GetRememberedMovementRedeemSet();
-        var rule = GetRememberedMovementRule();
-        SwitchRuleView(RuleListView.MovementRedeems, profile: null, rule);
-    }
-
     private void ShowSupporterOverrides()
     {
         SwitchRuleView(RuleListView.SupporterOverrides, profile: null, GetRememberedSupporterRule());
@@ -5323,6 +5288,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     private AvatarSetsManagerWindow? _avatarSetsManagerWindow;
 
     private AvatarSwapManagerWindow? _avatarSwapManagerWindow;
+
+    private MovementRedeemsManagerWindow? _movementRedeemsManagerWindow;
 
     private readonly AvatarImageService _masterAvatarReturnImageService = new();
     private System.Windows.Media.ImageSource? _masterAvatarReturnImage;
@@ -5412,6 +5379,23 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         };
         _avatarSwapManagerWindow.Closed += (_, _) => _avatarSwapManagerWindow = null;
         _avatarSwapManagerWindow.Show();
+    }
+
+    private void OpenMovementRedeemsManager()
+    {
+        if (_movementRedeemsManagerWindow is { IsVisible: true })
+        {
+            _movementRedeemsManagerWindow.Activate();
+            return;
+        }
+
+        var managerVm = new MovementRedeemsManagerViewModel(Settings, this);
+        _movementRedeemsManagerWindow = new MovementRedeemsManagerWindow(managerVm)
+        {
+            Owner = System.Windows.Application.Current?.MainWindow,
+        };
+        _movementRedeemsManagerWindow.Closed += (_, _) => _movementRedeemsManagerWindow = null;
+        _movementRedeemsManagerWindow.Show();
     }
 
     public System.Windows.Media.ImageSource? MasterAvatarReturnImage
@@ -6981,70 +6965,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         AppendLog($"Deleted {removedCount} override rule{(removedCount == 1 ? string.Empty : "s")}.");
     }
 
-    private void AddMovementRedeemSet()
-    {
-        var set = CreateDefaultMovementRedeemSet();
-        Settings.MovementRedeemSets.Add(set);
-        SelectedMovementRedeemSet = set;
-        SelectedRule = set.MovementRules.FirstOrDefault();
-        AppendLog($"Added movement set '{set.DisplayTitle}'.");
-    }
-
-    private void RemoveSelectedMovementRedeemSet()
-    {
-        if (SelectedMovementRedeemSet is null)
-        {
-            return;
-        }
-
-        var removedSet = SelectedMovementRedeemSet;
-        var removedName = removedSet.DisplayTitle;
-        var removedRules = removedSet.MovementRules.ToArray();
-        ForgetRememberedRules(removedRules);
-        Settings.MovementRedeemSets.Remove(removedSet);
-
-        if (lastSelectedMovementSetId == removedSet.Id)
-        {
-            lastSelectedMovementSetId = Guid.Empty;
-        }
-
-        SelectedMovementRedeemSet = GetRememberedMovementRedeemSet();
-        SelectedRule = GetRememberedMovementRule();
-        QueueSave();
-        QueueBridgeRefresh();
-        AppendLog($"Removed movement set '{removedName}'.");
-    }
-
-    private void DeleteAllMovementRedeemSets()
-    {
-        var setsToRemove = Settings.MovementRedeemSets.ToArray();
-        if (setsToRemove.Length == 0)
-        {
-            return;
-        }
-
-        if (!ConfirmDeleteAll(
-            "Delete All Movement Sets",
-            "Are you sure you want to delete every movement set and movement redeem? This cannot be undone."))
-        {
-            return;
-        }
-
-        foreach (var set in setsToRemove)
-        {
-            var removedRules = set.MovementRules.ToArray();
-            ForgetRememberedRules(removedRules);
-            Settings.MovementRedeemSets.Remove(set);
-        }
-
-        lastSelectedMovementSetId = Guid.Empty;
-        SelectedMovementRedeemSet = null;
-        SelectedRule = null;
-        QueueSave();
-        QueueBridgeRefresh();
-        AppendLog($"Deleted {setsToRemove.Length} movement set{(setsToRemove.Length == 1 ? string.Empty : "s")}.");
-    }
-
     private void AddAvatarScaleSet()
     {
         var set = CreateDefaultAvatarScaleSet();
@@ -7772,22 +7692,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         return profile.ChannelPointRules.FirstOrDefault();
     }
 
-    private TriggerRule? GetRememberedMovementRule()
-    {
-        IEnumerable<TriggerRule> candidateRules = (IEnumerable<TriggerRule>?)SelectedMovementRedeemSet?.MovementRules
-            ?? GetAllMovementRules();
-        if (lastSelectedMovementRuleId != Guid.Empty)
-        {
-            var rememberedRule = candidateRules.FirstOrDefault(rule => rule.Id == lastSelectedMovementRuleId);
-            if (rememberedRule is not null)
-            {
-                return rememberedRule;
-            }
-        }
-
-        return candidateRules.FirstOrDefault();
-    }
-
     private TriggerRule? GetRememberedSupporterRule()
     {
         if (lastSelectedSupporterRuleId != Guid.Empty)
@@ -7863,35 +7767,14 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         return Settings.PowerUpRules.FirstOrDefault();
     }
 
-    private MovementRedeemSet? GetRememberedMovementRedeemSet()
-    {
-        if (lastSelectedMovementSetId != Guid.Empty)
-        {
-            var rememberedSet = Settings.MovementRedeemSets.FirstOrDefault(set => set.Id == lastSelectedMovementSetId);
-            if (rememberedSet is not null)
-            {
-                return rememberedSet;
-            }
-        }
-
-        var rememberedRuleOwner = lastSelectedMovementRuleId == Guid.Empty
-            ? null
-            : Settings.MovementRedeemSets.FirstOrDefault(set => set.MovementRules.Any(rule => rule.Id == lastSelectedMovementRuleId));
-        return rememberedRuleOwner ?? Settings.MovementRedeemSets.FirstOrDefault();
-    }
-
     private void EnsureSelectedMovementRedeemSet()
     {
         if (SelectedMovementRedeemSet is not null)
-        {
             return;
-        }
 
-        SelectedMovementRedeemSet = GetRememberedMovementRedeemSet();
+        SelectedMovementRedeemSet = Settings.MovementRedeemSets.FirstOrDefault();
         if (SelectedMovementRedeemSet is not null)
-        {
             return;
-        }
 
         var set = CreateDefaultMovementRedeemSet();
         Settings.MovementRedeemSets.Add(set);
@@ -7965,12 +7848,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             return;
         }
 
-        if (IsViewingMovementRedeems)
-        {
-            lastSelectedMovementRuleId = rule.Id;
-            return;
-        }
-
         if (IsViewingPowerUps)
         {
             var owner = Settings.PowerUpRules.FirstOrDefault(powerUp => ReferenceEquals(powerUp.ActionRule, rule));
@@ -8005,11 +7882,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         if (lastSelectedSupporterRuleId == rule.Id)
         {
             lastSelectedSupporterRuleId = Guid.Empty;
-        }
-
-        if (lastSelectedMovementRuleId == rule.Id)
-        {
-            lastSelectedMovementRuleId = Guid.Empty;
         }
 
         if (lastSelectedMasterRuleId == rule.Id)
@@ -8246,7 +8118,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         universalTriggersGroupedView = null;
         RaisePropertyChanged(nameof(UniversalTriggersGroupedView));
         RaisePropertyChanged(nameof(MovementRedeemSets));
-        RaisePropertyChanged(nameof(MovementRedeemRules));
         RaisePropertyChanged(nameof(AvatarScaleSets));
         RaisePropertyChanged(nameof(AvatarScaleRules));
         RaisePropertyChanged(nameof(CashPaymentRules));
@@ -8357,30 +8228,13 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             {
                 UnwireMovementRedeemSet(set);
                 removedRules.AddRange(set.MovementRules);
-                if (lastSelectedMovementSetId == set.Id)
-                {
-                    lastSelectedMovementSetId = Guid.Empty;
-                }
             }
 
             RetireManagedRewards(removedRules);
         }
 
-        if (IsViewingMovementRedeems && SelectedMovementRedeemSet is not null && !Settings.MovementRedeemSets.Contains(SelectedMovementRedeemSet))
-        {
-            SelectedMovementRedeemSet = GetRememberedMovementRedeemSet();
-        }
-
-        if (IsViewingMovementRedeems
-            && SelectedRule is not null
-            && !GetAllMovementRules().Contains(SelectedRule))
-        {
-            SelectedRule = GetRememberedMovementRule();
-        }
-
         SyncLegacyGlobalMovementRules();
         RaisePropertyChanged(nameof(MovementRedeemSets));
-        RaisePropertyChanged(nameof(MovementRedeemRules));
         QueueSave();
         QueueBridgeRefresh();
         RefreshRuleCommandStates();
@@ -8432,25 +8286,13 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             {
                 rule.PropertyChanged -= RuleChanged;
                 removedRules.Add(rule);
-                if (lastSelectedMovementRuleId == rule.Id)
-                {
-                    lastSelectedMovementRuleId = Guid.Empty;
-                }
             }
 
             RetireManagedRewards(removedRules);
         }
 
-        if (IsViewingMovementRedeems
-            && SelectedRule is not null
-            && SelectedMovementRedeemSet?.MovementRules.Contains(SelectedRule) != true)
-        {
-            SelectedRule = GetRememberedMovementRule();
-        }
-
         SyncLegacyGlobalMovementRules();
         RaisePropertyChanged(nameof(MovementRedeemSets));
-        RaisePropertyChanged(nameof(MovementRedeemRules));
         QueueSave();
         QueueBridgeRefresh();
         RefreshRuleCommandStates();
@@ -17786,8 +17628,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         ClearVrChatCacheCommand.NotifyCanExecuteChanged();
         RemoveSelectedRuleCommand.NotifyCanExecuteChanged();
         TestSelectedRuleCommand.NotifyCanExecuteChanged();
-        RemoveSelectedMovementRedeemSetCommand.NotifyCanExecuteChanged();
-        DeleteAllMovementRedeemSetsCommand.NotifyCanExecuteChanged();
         RemoveSelectedAvatarScaleSetCommand.NotifyCanExecuteChanged();
         RemoveSelectedAvatarScaleRuleCommand.NotifyCanExecuteChanged();
         TestSelectedAvatarScaleRuleCommand.NotifyCanExecuteChanged();
@@ -17826,9 +17666,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         DisableAllRulesCommand.NotifyCanExecuteChanged();
         DeleteAllRulesCommand.NotifyCanExecuteChanged();
         TestSelectedRuleCommand.NotifyCanExecuteChanged();
-        AddMovementRedeemSetCommand.NotifyCanExecuteChanged();
-        RemoveSelectedMovementRedeemSetCommand.NotifyCanExecuteChanged();
-        DeleteAllMovementRedeemSetsCommand.NotifyCanExecuteChanged();
         AddAvatarScaleSetCommand.NotifyCanExecuteChanged();
         RemoveSelectedAvatarScaleSetCommand.NotifyCanExecuteChanged();
         AddAvatarScaleRuleCommand.NotifyCanExecuteChanged();
@@ -19366,7 +19203,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         RaisePropertyChanged(nameof(IsViewingCashPayments));
         RaisePropertyChanged(nameof(IsViewingRewardFireSale));
         RaisePropertyChanged(nameof(MovementRedeemSets));
-        RaisePropertyChanged(nameof(MovementRedeemRules));
         RaisePropertyChanged(nameof(AvatarScaleSets));
         RaisePropertyChanged(nameof(AvatarScaleRules));
         RaisePropertyChanged(nameof(CashPaymentRules));

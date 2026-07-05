@@ -1524,37 +1524,6 @@
             </Grid>
         </DataTemplate>
 
-        <DataTemplate x:Key="MovementRedeemSetListItemTemplate"
-                      DataType="{x:Type models:MovementRedeemSet}">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <StackPanel>
-                    <TextBlock Text="{Binding DisplayTitle}"
-                               FontWeight="SemiBold"
-                               FontSize="16"
-                               Foreground="{DynamicResource TextBrush}"
-                               TextWrapping="Wrap" />
-                    <TextBlock Margin="0,6,0,0"
-                               Text="{Binding MovementCountText}"
-                               Foreground="{DynamicResource MutedBrush}"
-                               TextWrapping="Wrap" />
-                </StackPanel>
-                <Border Grid.Column="1"
-                        Margin="12,0,0,0"
-                        Padding="10,4"
-                        VerticalAlignment="Top"
-                        CornerRadius="10"
-                        Background="{DynamicResource StatusChipBrush}">
-                    <TextBlock Text="{Binding MovementCountText}"
-                               FontSize="12"
-                               FontWeight="SemiBold"
-                               Foreground="{DynamicResource TextBrush}" />
-                </Border>
-            </Grid>
-        </DataTemplate>
     </Window.Resources>
 
     <Border BorderBrush="{DynamicResource BorderBrush}"
@@ -3532,22 +3501,7 @@
                                             TextAlignment="Center" />
                                  <UniformGrid Margin="0,8,0,0"
                                               Columns="2">
-                                     <Button Content="{loc:Translate 'Movement Redeems'}"
-                                             Command="{Binding ShowMovementRedeemsCommand}">
-                                         <Button.Style>
-                                             <Style TargetType="Button" BasedOn="{StaticResource RuleLibraryTabButtonStyle}">
-                                                 <Setter Property="Margin" Value="0,0,5,0" />
-                                                 <Style.Triggers>
-                                                     <DataTrigger Binding="{Binding IsViewingMovementRedeems}" Value="True">
-                                                         <Setter Property="Background" Value="{DynamicResource SectionActiveBrush}" />
-                                                         <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                                                         <Setter Property="Foreground" Value="White" />
-                                                     </DataTrigger>
-                                                 </Style.Triggers>
-                                             </Style>
-                                         </Button.Style>
-                                     </Button>
-<Button Content="{loc:Translate 'Universal Triggers'}"
+                                     <Button Content="{loc:Translate 'Universal Triggers'}"
                                               Command="{Binding OpenUniversalTriggersManagerCommand}">
                                          <Button.Style>
                                              <Style TargetType="Button" BasedOn="{StaticResource RuleLibraryTabButtonStyle}">
@@ -3907,37 +3861,6 @@
                                 <Style TargetType="StackPanel">
                                     <Setter Property="Visibility" Value="Collapsed" />
                                     <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsViewingMovementRedeems}" Value="True">
-                                            <Setter Property="Visibility" Value="Visible" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </StackPanel.Style>
-                            <UniformGrid Columns="2">
-                                <Button Style="{StaticResource RuleLibraryPrimaryButtonStyle}"
-                                        Margin="0,0,10,0"
-                                        Content="{loc:Translate 'Add Movement Set'}"
-                                        Command="{Binding AddMovementRedeemSetCommand}" />
-                                <Button Style="{StaticResource RuleLibraryButtonStyle}"
-                                        Margin="10,0,0,0"
-                                        Content="{loc:Translate 'Delete Movement Set'}"
-                                        Command="{Binding RemoveSelectedMovementRedeemSetCommand}" />
-                            </UniformGrid>
-                            <Button Style="{StaticResource RuleLibraryDangerButtonStyle}"
-                                    Margin="0,10,0,0"
-                                    Width="214"
-                                    HorizontalAlignment="Center"
-                                    Content="{loc:Translate 'Delete All Movement Sets'}"
-                                    Command="{Binding DeleteAllMovementRedeemSetsCommand}" />
-                        </StackPanel>
-
-                        <StackPanel Margin="0,14,0,0"
-                                    Width="340"
-                                    HorizontalAlignment="Center">
-                            <StackPanel.Style>
-                                <Style TargetType="StackPanel">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                    <Style.Triggers>
                                         <DataTrigger Binding="{Binding IsViewingSupporterOverrides}" Value="True">
                                             <Setter Property="Visibility" Value="Visible" />
                                         </DataTrigger>
@@ -4027,24 +3950,6 @@
                                 </StackPanel>
                             </Border>
                         </StackPanel>
-
-                    <ListBox ItemsSource="{Binding MovementRedeemSets}"
-                                 SelectedItem="{Binding SelectedMovementRedeemSet}"
-                                 ItemTemplate="{StaticResource MovementRedeemSetListItemTemplate}"
-                                 ScrollViewer.CanContentScroll="True"
-                                 VirtualizingStackPanel.IsVirtualizing="True"
-                                 VirtualizingStackPanel.VirtualizationMode="Recycling">
-                            <ListBox.Style>
-                                <Style TargetType="ListBox" BasedOn="{StaticResource {x:Type ListBox}}">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsViewingMovementRedeems}" Value="True">
-                                            <Setter Property="Visibility" Value="Visible" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </ListBox.Style>
-                        </ListBox>
 
                         <StackPanel>
                             <StackPanel.Style>
@@ -4223,14 +4128,6 @@
                                                 <Condition Binding="{Binding AvatarRuleProfiles.Count}" Value="0" />
                                             </MultiDataTrigger.Conditions>
                                             <Setter Property="Visibility" Value="Visible" />
-                                        </MultiDataTrigger>
-                                        <MultiDataTrigger>
-                                            <MultiDataTrigger.Conditions>
-                                                <Condition Binding="{Binding IsViewingMovementRedeems}" Value="True" />
-                                                <Condition Binding="{Binding MovementRedeemSets.Count}" Value="0" />
-                                            </MultiDataTrigger.Conditions>
-                                            <Setter Property="Visibility" Value="Visible" />
-                                            <Setter Property="Text" Value="{loc:Translate 'Add a movement set to get started.'}" />
                                         </MultiDataTrigger>
                                         <MultiDataTrigger>
                                             <MultiDataTrigger.Conditions>
@@ -6812,106 +6709,6 @@
                                         </DataTemplate>
                                     </ContentControl.ContentTemplate>
                                 </ContentControl>
-                            </Border>
-
-                            <Border Margin="0,18,0,0"
-                                    Background="{DynamicResource PanelHighlightBrush}"
-                                    BorderBrush="{DynamicResource HighlightBorderBrush}"
-                                    BorderThickness="1"
-                                    CornerRadius="18"
-                                    Padding="18">
-                                <Border.Style>
-                                    <Style TargetType="Border">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsViewingMovementRedeems}" Value="True">
-                                                <Setter Property="Visibility" Value="Visible" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Border.Style>
-                                <StackPanel>
-                                    <DockPanel LastChildFill="False">
-                                        <TextBlock Text="{loc:Translate 'Movement Redeems'}"
-                                                   Style="{StaticResource HeadingTextStyle}"
-                                                   FontSize="20"
-                                                   FontWeight="Bold"
-                                                   Foreground="{DynamicResource TextBrush}" />
-                                        <Button Style="{StaticResource HelpIconButtonStyle}"
-                                                Click="OnHelpButtonClicked"
-                                                CommandParameter="Movement Redeems"
-                                                Tag="{loc:Translate 'Movement Sets are organization-only folders. Movement redeems inside them still run globally across every avatar and keep their existing Twitch reward links.'}" />
-                                    </DockPanel>
-                                    <TextBlock Margin="0,10,0,0"
-                                               Text="{loc:Translate 'Movement Sets are only for organization. Every movement redeem in every set still works globally across avatars.'}"
-                                               Foreground="{DynamicResource MutedBrush}"
-                                               TextWrapping="Wrap" />
-                                    <Border Margin="0,16,0,0"
-                                            Background="{DynamicResource NestedPanelBrush}"
-                                            BorderBrush="{DynamicResource HighlightBorderBrush}"
-                                            BorderThickness="1"
-                                            CornerRadius="18"
-                                            Padding="16">
-                                        <StackPanel>
-                                            <TextBlock Text="{loc:Translate 'Movement Set Name'}"
-                                                       Foreground="{DynamicResource TextBrush}"
-                                                       FontWeight="SemiBold" />
-                                            <TextBox Margin="0,6,0,0"
-                                                     Text="{Binding SelectedMovementRedeemSet.Name, UpdateSourceTrigger=PropertyChanged}" />
-                                            <DockPanel Margin="0,16,0,0"
-                                                       LastChildFill="False">
-                                                <TextBlock Text="{loc:Translate 'Redeems In This Movement Set'}"
-                                                           Foreground="{DynamicResource TextBrush}"
-                                                           FontWeight="SemiBold"
-                                                           FontSize="17"
-                                                           VerticalAlignment="Center" />
-                                                <Border Margin="10,0,0,0"
-                                                        Padding="10,4"
-                                                        VerticalAlignment="Center"
-                                                        Background="{DynamicResource StatusChipBrush}"
-                                                        BorderBrush="{DynamicResource InputBorderBrush}"
-                                                        BorderThickness="1"
-                                                        CornerRadius="10">
-                                                    <TextBlock Text="{Binding SelectedMovementRedeemSet.MovementCountText}"
-                                                               Foreground="{DynamicResource TextBrush}"
-                                                               FontWeight="SemiBold"
-                                                               FontSize="12" />
-                                                </Border>
-                                            </DockPanel>
-                                            <UniformGrid Margin="0,12,0,0"
-                                                         Columns="2">
-                                                <Button Style="{StaticResource SecondaryButtonStyle}"
-                                                        Margin="0,0,8,0"
-                                                        Content="{loc:Translate 'Add Movement Redeem'}"
-                                                        Command="{Binding AddRuleCommand}" />
-                                                <Button Style="{StaticResource SecondaryButtonStyle}"
-                                                        Margin="8,0,0,0"
-                                                        Content="{loc:Translate 'Delete Movement Redeem'}"
-                                                        Command="{Binding RemoveSelectedRuleCommand}" />
-                                            </UniformGrid>
-                                            <UniformGrid Margin="0,10,0,0"
-                                                         Columns="2">
-                                                <Button Style="{StaticResource SecondaryButtonStyle}"
-                                                        Margin="0,0,8,0"
-                                                        Content="{loc:Translate 'Enable All'}"
-                                                        Command="{Binding EnableAllRulesCommand}" />
-                                                <Button Style="{StaticResource SecondaryButtonStyle}"
-                                                        Margin="8,0,0,0"
-                                                        Content="{loc:Translate 'Disable All'}"
-                                                        Command="{Binding DisableAllRulesCommand}" />
-                                            </UniformGrid>
-                                            <ListBox Margin="0,14,0,0"
-                                                     ItemsSource="{Binding MovementRedeemRules}"
-                                                     SelectedItem="{Binding SelectedRule, Mode=OneWayToSource}"
-                                                     MinHeight="72"
-                                                     MaxHeight="260"
-                                                     ScrollViewer.CanContentScroll="True"
-                                                     VirtualizingStackPanel.IsVirtualizing="True"
-                                                     VirtualizingStackPanel.VirtualizationMode="Recycling"
-                                                     ItemTemplate="{StaticResource AvatarRedeemListItemTemplate}" />
-                                        </StackPanel>
-                                    </Border>
-                                </StackPanel>
                             </Border>
 
                             <Border Margin="0,18,0,0"
