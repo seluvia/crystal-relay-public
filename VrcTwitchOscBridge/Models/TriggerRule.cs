@@ -183,6 +183,14 @@ public sealed class TriggerRule : ObservableObject
         {
             if (SetProperty(ref name, value))
             {
+                if (TriggerType == TwitchTriggerType.ChannelPoints)
+                {
+                    if (!string.Equals(channelPointRewardTitle, value, StringComparison.Ordinal))
+                    {
+                        channelPointRewardTitle = value;
+                        RaisePropertyChanged(nameof(ChannelPointRewardTitle));
+                    }
+                }
                 RaisePropertyChanged(nameof(DisplayTitle));
                 RaisePropertyChanged(nameof(TriggerSummary));
             }
@@ -1082,6 +1090,9 @@ public sealed class TriggerRule : ObservableObject
     public bool IsGiftSubscription { get; set; }
     public bool PermanentAvatarChange { get; set; }
     public bool CooldownOnlyAvatarChange { get; set; }
+
+    [JsonPropertyName("fv")]
+    public float? FloatValue { get; set; }
 
     public ObservableCollection<string> AvatarRouletAvatarIds
     {

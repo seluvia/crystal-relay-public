@@ -144,7 +144,8 @@ public sealed record TriggerRuleSnapshot(
     bool SubscriptionTier2Enabled = true,
     bool SubscriptionTier3Enabled = true,
     bool ExtendCurrentActivity = false,
-    double ExtendSeconds = 0);
+    double ExtendSeconds = 0,
+    float? FloatValue = null);
 
 public sealed record UniversalTriggerActionSnapshot(
     Guid Id,
@@ -1060,7 +1061,8 @@ public sealed record BridgeRuntimeConfiguration(
             rule.SubscriptionTier2Enabled,
             rule.SubscriptionTier3Enabled,
             rule.ExtendCurrentActivity,
-            rule.ExtendSeconds);
+            rule.ExtendSeconds,
+            rule.FloatValue);
     }
 
     private static SetTriggerActionSnapshot ToSetTriggerActionSnapshot(SetTriggerAction action)
