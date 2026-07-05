@@ -2,8 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
+using VrcTwitchOscBridge.Infrastructure;
 using VrcTwitchOscBridge.Models;
 
 namespace VrcTwitchOscBridge.ViewModels;
@@ -21,6 +20,14 @@ public sealed class MovementRedeemsManagerViewModel : ObservableObject, IDisposa
     {
         this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
         this.mainWindowViewModel = mainWindowViewModel;
+
+        FilterCategoryCommand = new RelayCommand(p => ActiveCategory = p as MovementCategory?);
+        OpenEditorCommand = new RelayCommand(() => IsEditorOpen = true);
+        CloseEditorCommand = new RelayCommand(() => IsEditorOpen = false);
+        AddNewRuleCommand = new RelayCommand(AddNewRule);
+        DeleteCardCommand = new RelayCommand(DeleteCard);
+        TestCardCommand = new RelayCommand(TestCard);
+
         WireCollectionChanges();
         RefreshCards();
     }
@@ -55,12 +62,12 @@ public sealed class MovementRedeemsManagerViewModel : ObservableObject, IDisposa
 
     public MovementRedeemCardViewModel? SelectedCard { get; set; }
 
-    public IRelayCommand<MovementCategory?> FilterCategoryCommand { get; }
-    public IRelayCommand OpenEditorCommand { get; }
-    public IRelayCommand CloseEditorCommand { get; }
-    public IRelayCommand AddNewRuleCommand { get; }
-    public IRelayCommand DeleteCardCommand { get; }
-    public IRelayCommand TestCardCommand { get; }
+    public RelayCommand FilterCategoryCommand { get; }
+    public RelayCommand OpenEditorCommand { get; }
+    public RelayCommand CloseEditorCommand { get; }
+    public RelayCommand AddNewRuleCommand { get; }
+    public RelayCommand DeleteCardCommand { get; }
+    public RelayCommand TestCardCommand { get; }
 
     public int MovementCount => GetCategoryCount(MovementCategory.Movement);
     public int TurningCount => GetCategoryCount(MovementCategory.Turning);
@@ -131,16 +138,47 @@ public sealed class MovementRedeemsManagerViewModel : ObservableObject, IDisposa
             Cards.Add(new MovementRedeemCardViewModel(rule, OnTestCard));
         }
 
-        OnPropertyChanged(nameof(MovementCount));
-        OnPropertyChanged(nameof(TurningCount));
-        OnPropertyChanged(nameof(HandCount));
-        OnPropertyChanged(nameof(HeldObjectCount));
-        OnPropertyChanged(nameof(UiTogglesCount));
+        RaisePropertyChanged(nameof(MovementCount));
+        RaisePropertyChanged(nameof(TurningCount));
+        RaisePropertyChanged(nameof(HandCount));
+        RaisePropertyChanged(nameof(HeldObjectCount));
+        RaisePropertyChanged(nameof(UiTogglesCount));
     }
 
     private void OnTestCard(MovementRedeemCardViewModel card)
     {
         mainWindowViewModel?.TestMovementRule(card.GetRule());
+    }
+
+    private void AddNewRule()
+    {
+        var firstSet = settings.MovementRedeemSets.FirstOrDefault();
+        if (firstSet is null)
+        {
+            firstSet = new MovementRedeemSet { Name = "Default" };
+            settings.MovementRedeemSets.Add(firstSet);
+        }
+        var rule = new TriggerRule { Name = "New Movement Rule" };
+        firstSet.MovementRules.Add(rule);
+        RefreshCards();
+    }
+
+    private void DeleteCard()
+    {
+        if (SelectedCard is null) return;
+        var rule = SelectedCard.GetRule();
+        foreach (var set in settings.MovementRedeemSets)
+        {
+            if (set.MovementRules.Remove(rule))
+                break;
+        }
+        RefreshCards();
+    }
+
+    private void TestCard()
+    {
+        if (SelectedCard is null) return;
+        OnTestCard(SelectedCard);
     }
 
     public void Dispose()
