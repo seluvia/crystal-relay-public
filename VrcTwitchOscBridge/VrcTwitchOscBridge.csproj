@@ -52,7 +52,6 @@
     <Page Include="UniversalTriggersManagerWindow.xaml" />
     <Page Include="AvatarSwapManagerWindow.xaml" />
     <Page Include="MovementRedeemsManagerWindow.xaml" />
-    <Page Include="MovementRedeemsManagerWindow.xaml" />
     <Page Include="VrChatLoginWindow.xaml" />
     <Page Include="VrChatTwoFactorWindow.xaml" />
     <Page Include="RedeemGroupEditorDialog.xaml" />
@@ -114,6 +113,9 @@
     </Compile>
     <Compile Include="AvatarSwapManagerWindow.xaml.cs">
       <DependentUpon>AvatarSwapManagerWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="MovementRedeemsManagerWindow.xaml.cs">
+      <DependentUpon>MovementRedeemsManagerWindow.xaml</DependentUpon>
     </Compile>
     <Compile Include="ViewModels\UniversalTriggersManagerViewModel.cs" />
     <Compile Include="ViewModels\UniversalTriggerCardViewModel.cs" />
@@ -289,9 +291,6 @@
     <Compile Include="ViewModels\AvatarSwapRuleEditorViewModel.cs" />
     <Compile Include="ViewModels\AvatarSwapManagerViewModel.cs" />
     <Compile Include="ViewModels\ITwitchRewardSource.cs" />
-    <Compile Include="MovementRedeemsManagerWindow.xaml.cs">
-      <DependentUpon>MovementRedeemsManagerWindow.xaml</DependentUpon>
-    </Compile>
     <Compile Include="ViewModels\MovementRedeemCardViewModel.cs" />
     <Compile Include="ViewModels\MovementRedeemsManagerViewModel.cs" />
 
