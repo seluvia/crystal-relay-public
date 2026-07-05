@@ -3501,17 +3501,23 @@
                                             TextAlignment="Center" />
                                  <UniformGrid Margin="0,8,0,0"
                                               Columns="2">
-                                     <Button Content="{loc:Translate 'Universal Triggers'}"
-                                              Command="{Binding OpenUniversalTriggersManagerCommand}">
-                                         <Button.Style>
-                                             <Style TargetType="Button" BasedOn="{StaticResource RuleLibraryTabButtonStyle}">
-                                                 <Setter Property="Margin" Value="5,0,0,0" />
-<Style.Triggers>
-                                                  </Style.Triggers>
-                                             </Style>
-                                         </Button.Style>
-                                     </Button>
-                                 </UniformGrid>
+                                      <Button Content="{loc:Translate 'Universal Triggers'}"
+                                               Command="{Binding OpenUniversalTriggersManagerCommand}">
+                                          <Button.Style>
+                                              <Style TargetType="Button" BasedOn="{StaticResource RuleLibraryTabButtonStyle}">
+                                                  <Setter Property="Margin" Value="0,0,5,0" />
+                                              </Style>
+                                          </Button.Style>
+                                      </Button>
+                                      <Button Content="{loc:Translate 'Movement Redeems'}"
+                                               Command="{Binding ShowMovementRedeemsCommand}">
+                                          <Button.Style>
+                                              <Style TargetType="Button" BasedOn="{StaticResource RuleLibraryTabButtonStyle}">
+                                                  <Setter Property="Margin" Value="5,0,0,0" />
+                                              </Style>
+                                          </Button.Style>
+                                      </Button>
+                                  </UniformGrid>
                              </StackPanel>
                          </Border>
                          <!-- Viewer Support group -->
