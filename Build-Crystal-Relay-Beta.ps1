@@ -186,7 +186,7 @@ if ($env:CR_SKIP_GIT_CHECK -ne '1' -and -not (Test-WorkingTreeClean)) {
 $betaName = "beta$Beta"
 $betaLabel = "Beta $Beta"
 $versionFolderName = "v$targetVersion"
-$releaseName = "CrystalRelay-v$targetVersion-$betaName-$runtime"
+$releaseName = "CrystalRelayTwitchOsc-v$targetVersion-$betaName-$runtime"
 $versionRoot = Join-Path $releaseRoot $versionFolderName
 $publishDir = Join-Path $versionRoot 'Crystal Relay'
 $zipPath = Join-Path $versionRoot "$releaseName.zip"

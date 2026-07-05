@@ -27,7 +27,7 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
     private const string ApplyManifestFileName = "crystal-relay-apply-update.json";
     private const string ProductName = "Crystal Relay";
     private const string RuntimeName = "win-x64";
-    private const string PackageFolderPrefix = "CrystalRelay-v";
+    private const string PackageFolderPrefix = "CrystalRelayTwitchOsc-v";
     private const string DedicatedUpdaterExecutableName = "CrystalRelayUpdater.exe";
     private const string SourceBackupFolderName = "source";
     private const string TargetBackupFolderName = "target";
@@ -276,8 +276,8 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
         }
 
         var expectedAssetName = update.IsBeta
-            ? $"CrystalRelay-v{update.LatestVersion}-win-x64.zip"
-            : $"CrystalRelay-v{update.LatestVersion}-win-x64.zip";
+            ? $"CrystalRelayTwitchOsc-v{update.LatestVersion}-win-x64.zip"
+            : $"CrystalRelayTwitchOsc-v{update.LatestVersion}-win-x64.zip";
         if (!string.Equals(update.AssetName, expectedAssetName, StringComparison.OrdinalIgnoreCase))
         {
             throw new ApplicationSelfUpdateException("The GitHub release asset name does not match Crystal Relay's update package format.");

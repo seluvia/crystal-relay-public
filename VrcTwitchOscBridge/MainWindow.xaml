@@ -2401,12 +2401,12 @@
                                                   Tag="{Binding StreamingStatusVisualState}" />
 
                                             <!-- LIVE badge -->
-                                            <Path Data="M160 8 L170 2 L180 8 L175 16 L165 16 Z"
+                                            <Path Data="M176 16 L186 4 L194 12 L190 20 L182 20 Z"
                                                   Style="{StaticResource CrystalMonitorLiveBadgeStyle}"
                                                   Tag="{Binding StreamingStatusVisualState}" />
                                             <TextBlock Text="LIVE"
-                                                       Margin="0,0,0,0"
-                                                       HorizontalAlignment="Right"
+                                                       Margin="176,6,0,0"
+                                                       HorizontalAlignment="Left"
                                                        VerticalAlignment="Top"
                                                        Style="{StaticResource CrystalMonitorLiveBadgeTextStyle}"
                                                        Tag="{Binding StreamingStatusVisualState}" />

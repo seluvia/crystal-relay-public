@@ -8050,8 +8050,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         isSwitchingRuleView = true;
         try
         {
+            try
+            {
+                SelectedRule = rule;
+            }
+            catch (NullReferenceException)
+            {
+            }
+
             SelectedAvatarProfile = profile;
-            SelectedRule = rule;
             if (targetView != RuleListView.MovementRedeems)
             {
                 SelectedMovementRedeemSet = null;

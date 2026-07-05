@@ -184,6 +184,8 @@
     <Compile Include="Models\OscActionType.cs" />
     <Compile Include="Models\OscParameterType.cs" />
     <Compile Include="Models\PlayerMovementDirection.cs" />
+    <Compile Include="Models\MovementCategory.cs" />
+    <Compile Include="Models\MovementTypeClassifier.cs" />
     <Compile Include="Models\PowerUpRule.cs" />
     <Compile Include="Models\RedeemGroup.cs" />
     <Compile Include="Models\ResumeActivity.cs" />

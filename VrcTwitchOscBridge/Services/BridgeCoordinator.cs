@@ -8816,6 +8816,26 @@ internal BridgeCoordinator(
             PlayerMovementDirection.Jump => "/input/Jump",
             PlayerMovementDirection.SpinLeft => "/input/LookLeft",
             PlayerMovementDirection.SpinRight => "/input/LookRight",
+            PlayerMovementDirection.Run => "/input/Run",
+            PlayerMovementDirection.LookHorizontal => "/input/LookHorizontal",
+            PlayerMovementDirection.LookLeft => "/input/LookLeft",
+            PlayerMovementDirection.LookRight => "/input/LookRight",
+            PlayerMovementDirection.ComfortLeft => "/input/ComfortLeft",
+            PlayerMovementDirection.ComfortRight => "/input/ComfortRight",
+            PlayerMovementDirection.GrabLeft => "/input/GrabLeft",
+            PlayerMovementDirection.GrabRight => "/input/GrabRight",
+            PlayerMovementDirection.UseLeft => "/input/UseLeft",
+            PlayerMovementDirection.UseRight => "/input/UseRight",
+            PlayerMovementDirection.DropLeft => "/input/DropLeft",
+            PlayerMovementDirection.DropRight => "/input/DropRight",
+            PlayerMovementDirection.MoveHoldFB => "/input/MoveHoldFB",
+            PlayerMovementDirection.SpinHoldCwCcw => "/input/SpinHoldCwCcw",
+            PlayerMovementDirection.SpinHoldUD => "/input/SpinHoldUD",
+            PlayerMovementDirection.SpinHoldLR => "/input/SpinHoldLR",
+            PlayerMovementDirection.QuickMenuToggleLeft => "/input/QuickMenuToggleLeft",
+            PlayerMovementDirection.QuickMenuToggleRight => "/input/QuickMenuToggleRight",
+            PlayerMovementDirection.PanicButton => "/input/PanicButton",
+            PlayerMovementDirection.Voice => "/input/Voice",
             PlayerMovementDirection.RandomMovement => throw new InvalidOperationException("Random Movement must be resolved before sending movement input."),
             PlayerMovementDirection.GlitchyMovement => throw new InvalidOperationException("Glitchy Movement must be resolved before sending movement input."),
             _ => throw new InvalidOperationException($"Unsupported movement direction: {rule.MovementDirection}")
@@ -8827,10 +8847,25 @@ internal BridgeCoordinator(
                 ? $"Repeated for {DescribeDuration(holdSeconds)}"
                 : "Jumped"
             : $"Held for {DescribeDuration(holdSeconds)}";
-        return new ResolvedRuleAction(
-            vrChatOscClient.BuildInputButtonPacket(inputAddress, true),
-            vrChatOscClient.BuildInputButtonPacket(inputAddress, false),
-            displayValue);
+
+        var isAxis = MovementTypeClassifier.IsAxisType(rule.MovementDirection);
+
+        byte[] startPacket;
+        byte[] stopPacket;
+
+        if (isAxis)
+        {
+            var floatValue = rule.FloatValue ?? 1.0f;
+            startPacket = vrChatOscClient.BuildInputAxisPacket(inputAddress, floatValue);
+            stopPacket = vrChatOscClient.BuildInputAxisPacket(inputAddress, 0.0f);
+        }
+        else
+        {
+            startPacket = vrChatOscClient.BuildInputButtonPacket(inputAddress, true);
+            stopPacket = vrChatOscClient.BuildInputButtonPacket(inputAddress, false);
+        }
+
+        return new ResolvedRuleAction(startPacket, stopPacket, displayValue);
     }
 
     private RouletteAvatarEntrySnapshot? PickAvatarRouletTarget(AvatarRouletteProfileSnapshot roulette)
