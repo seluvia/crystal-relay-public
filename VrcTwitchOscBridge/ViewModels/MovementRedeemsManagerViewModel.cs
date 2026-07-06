@@ -44,8 +44,6 @@ public sealed class MovementRedeemsManagerViewModel : ObservableObject, IDisposa
         SaveEditorCommand = new RelayCommand(SaveEditor);
         DeleteRuleCommand = new RelayCommand(() => DeleteCard(SelectedCard));
         TestRuleCommand = new RelayCommand(() => { if (SelectedCard is not null) TestCard(SelectedCard); });
-        AddSetTriggerCommand = new RelayCommand(AddSetTrigger);
-        RemoveSetTriggerCommand = new RelayCommand(p => RemoveSetTrigger(p));
 
         var items = new List<MovementDirectionItem>();
         foreach (PlayerMovementDirection dir in Enum.GetValues(typeof(PlayerMovementDirection)))
@@ -114,10 +112,23 @@ public sealed class MovementRedeemsManagerViewModel : ObservableObject, IDisposa
 
     public string EditorTitle => IsNewRule ? "Add Movement Rule" : "Edit Movement Rule";
 
-    public IList TriggerTypeValues => Enum.GetValues(typeof(TwitchTriggerType));
-    public IList RewardSyncModeValues => Enum.GetValues(typeof(TwitchRewardSyncMode));
     public IList ChatCommandPermissionValues => Enum.GetValues(typeof(ChatCommandPermission));
-    public IList OscParameterTypeValues => Enum.GetValues(typeof(OscParameterType));
+
+    public IReadOnlyList<TwitchTriggerTypeOption> TriggerTypeOptions { get; } =
+    [
+        new(TwitchTriggerType.ChannelPoints, "Channel Points"),
+        new(TwitchTriggerType.Bits, "Bits"),
+        new(TwitchTriggerType.Subscriptions, "Subs"),
+        new(TwitchTriggerType.GiftSubscription, "Gift Sub"),
+        new(TwitchTriggerType.Follow, "Follow"),
+        new(TwitchTriggerType.ChatCommand, "Chat Command"),
+    ];
+
+    public IReadOnlyList<TwitchRewardSyncModeOption> RewardSyncModeOptions { get; } =
+    [
+        new(TwitchRewardSyncMode.CreateOrManage, "Create or Manage"),
+        new(TwitchRewardSyncMode.LinkExisting, "Link Existing"),
+    ];
 
     public bool UsesChannelPointReward => selectedRule?.TriggerType == TwitchTriggerType.ChannelPoints;
     public bool UsesChatCommand => selectedRule?.TriggerType == TwitchTriggerType.ChatCommand;
@@ -141,8 +152,6 @@ public sealed class MovementRedeemsManagerViewModel : ObservableObject, IDisposa
     public RelayCommand SaveEditorCommand { get; }
     public RelayCommand DeleteRuleCommand { get; }
     public RelayCommand TestRuleCommand { get; }
-    public RelayCommand AddSetTriggerCommand { get; }
-    public RelayCommand RemoveSetTriggerCommand { get; }
 
     public int MovementCount => GetCategoryCount(MovementCategory.Movement);
     public int TurningCount => GetCategoryCount(MovementCategory.Turning);
@@ -290,20 +299,6 @@ public sealed class MovementRedeemsManagerViewModel : ObservableObject, IDisposa
         IsEditorOpen = false;
     }
 
-    private void AddSetTrigger()
-    {
-        if (SelectedRule is null) return;
-        SelectedRule.SetTriggerActions.Add(new SetTriggerAction());
-    }
-
-    private void RemoveSetTrigger(object? param)
-    {
-        if (param is SetTriggerAction action && SelectedRule is not null)
-        {
-            SelectedRule.SetTriggerActions.Remove(action);
-        }
-    }
-
     public void OnTriggerTypeChanged()
     {
         RaisePropertyChanged(nameof(UsesChannelPointReward));
@@ -324,4 +319,9 @@ public sealed class MovementRedeemsManagerViewModel : ObservableObject, IDisposa
 public sealed record MovementDirectionItem(PlayerMovementDirection Value)
 {
     public string Display => MovementRedeemCardViewModel.GetDisplayName(Value);
+}
+
+public sealed record TwitchTriggerTypeOption(TwitchTriggerType Value, string Label)
+{
+    public override string ToString() => Label;
 }
