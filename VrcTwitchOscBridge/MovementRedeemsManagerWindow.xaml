@@ -168,11 +168,10 @@
                                 </Grid>
                             </Border>
                             <Popup x:Name="PART_Popup"
-                                   AllowsTransparency="True"
                                    Focusable="False"
                                    IsOpen="{TemplateBinding IsDropDownOpen}"
                                    Placement="Bottom"
-                                   PopupAnimation="Slide">
+                                   PopupAnimation="None">
                                 <Grid MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
                                       MaxHeight="{TemplateBinding MaxDropDownHeight}">
                                     <Border Margin="0,4,0,0"
