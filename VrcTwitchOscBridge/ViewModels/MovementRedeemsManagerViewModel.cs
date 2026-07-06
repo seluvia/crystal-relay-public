@@ -1,7 +1,9 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Windows.Data;
 using VrcTwitchOscBridge.Infrastructure;
 using VrcTwitchOscBridge.Models;
 
@@ -15,6 +17,8 @@ public sealed class MovementRedeemsManagerViewModel : ObservableObject, IDisposa
     private MovementCategory? activeCategory;
     private bool isEditorOpen;
     private bool disposed;
+    private TriggerRule? selectedRule;
+    private bool isNewRule;
 
     public MovementRedeemsManagerViewModel(AppSettings settings, MainWindowViewModel? mainWindowViewModel)
     {
@@ -22,11 +26,33 @@ public sealed class MovementRedeemsManagerViewModel : ObservableObject, IDisposa
         this.mainWindowViewModel = mainWindowViewModel;
 
         FilterCategoryCommand = new RelayCommand(p => ActiveCategory = p as MovementCategory?);
-        OpenEditorCommand = new RelayCommand(p => { SelectedCard = p as MovementRedeemCardViewModel; IsEditorOpen = SelectedCard is not null; });
+        OpenEditorCommand = new RelayCommand(p =>
+        {
+            SelectedCard = p as MovementRedeemCardViewModel;
+            if (SelectedCard is not null)
+            {
+                SelectedRule = SelectedCard.GetRule();
+                IsNewRule = false;
+                IsEditorOpen = true;
+            }
+        });
         CloseEditorCommand = new RelayCommand(() => IsEditorOpen = false);
         AddNewRuleCommand = new RelayCommand(AddNewRule);
         DeleteCardCommand = new RelayCommand(p => DeleteCard(p as MovementRedeemCardViewModel));
         TestCardCommand = new RelayCommand(p => TestCard(p as MovementRedeemCardViewModel));
+
+        SaveEditorCommand = new RelayCommand(SaveEditor);
+        DeleteRuleCommand = new RelayCommand(() => DeleteCard(SelectedCard));
+        TestRuleCommand = new RelayCommand(() => { if (SelectedCard is not null) TestCard(SelectedCard); });
+        AddSetTriggerCommand = new RelayCommand(AddSetTrigger);
+        RemoveSetTriggerCommand = new RelayCommand(p => RemoveSetTrigger(p));
+
+        var items = new List<MovementDirectionItem>();
+        foreach (PlayerMovementDirection dir in Enum.GetValues(typeof(PlayerMovementDirection)))
+        {
+            items.Add(new MovementDirectionItem(dir));
+        }
+        MovementDirections = (ListCollectionView)CollectionViewSource.GetDefaultView(items);
 
         WireCollectionChanges();
         RefreshCards();
@@ -60,7 +86,51 @@ public sealed class MovementRedeemsManagerViewModel : ObservableObject, IDisposa
         set => SetProperty(ref isEditorOpen, value);
     }
 
+    public TriggerRule? SelectedRule
+    {
+        get => selectedRule;
+        set
+        {
+            if (SetProperty(ref selectedRule, value))
+            {
+                RaisePropertyChanged(nameof(UsesChannelPointReward));
+                RaisePropertyChanged(nameof(UsesChatCommand));
+                RaisePropertyChanged(nameof(UsesBits));
+                RaisePropertyChanged(nameof(UsesSubscription));
+                RaisePropertyChanged(nameof(UsesFollow));
+                RaisePropertyChanged(nameof(UsesGiftSub));
+                RaisePropertyChanged(nameof(IsAxisType));
+                RaisePropertyChanged(nameof(IsVrOnly));
+                RaisePropertyChanged(nameof(EditorTitle));
+            }
+        }
+    }
+
+    public bool IsNewRule
+    {
+        get => isNewRule;
+        set => SetProperty(ref isNewRule, value);
+    }
+
+    public string EditorTitle => IsNewRule ? "Add Movement Rule" : "Edit Movement Rule";
+
+    public IList TriggerTypeValues => Enum.GetValues(typeof(TwitchTriggerType));
+    public IList RewardSyncModeValues => Enum.GetValues(typeof(TwitchRewardSyncMode));
+    public IList ChatCommandPermissionValues => Enum.GetValues(typeof(ChatCommandPermission));
+    public IList OscParameterTypeValues => Enum.GetValues(typeof(OscParameterType));
+
+    public bool UsesChannelPointReward => selectedRule?.TriggerType == TwitchTriggerType.ChannelPoints;
+    public bool UsesChatCommand => selectedRule?.TriggerType == TwitchTriggerType.ChatCommand;
+    public bool UsesBits => selectedRule?.TriggerType == TwitchTriggerType.Bits;
+    public bool UsesSubscription => selectedRule?.TriggerType == TwitchTriggerType.Subscriptions;
+    public bool UsesGiftSub => selectedRule?.TriggerType == TwitchTriggerType.GiftSubscription;
+    public bool UsesFollow => selectedRule?.TriggerType == TwitchTriggerType.Follow;
+    public bool IsAxisType => selectedRule is not null && MovementTypeClassifier.IsAxisType(selectedRule.MovementDirection);
+    public bool IsVrOnly => selectedRule is not null && MovementTypeClassifier.IsVrOnly(selectedRule.MovementDirection);
+
     public MovementRedeemCardViewModel? SelectedCard { get; set; }
+
+    public ListCollectionView MovementDirections { get; }
 
     public RelayCommand FilterCategoryCommand { get; }
     public RelayCommand OpenEditorCommand { get; }
@@ -68,6 +138,11 @@ public sealed class MovementRedeemsManagerViewModel : ObservableObject, IDisposa
     public RelayCommand AddNewRuleCommand { get; }
     public RelayCommand DeleteCardCommand { get; }
     public RelayCommand TestCardCommand { get; }
+    public RelayCommand SaveEditorCommand { get; }
+    public RelayCommand DeleteRuleCommand { get; }
+    public RelayCommand TestRuleCommand { get; }
+    public RelayCommand AddSetTriggerCommand { get; }
+    public RelayCommand RemoveSetTriggerCommand { get; }
 
     public int MovementCount => GetCategoryCount(MovementCategory.Movement);
     public int TurningCount => GetCategoryCount(MovementCategory.Turning);
@@ -164,9 +239,24 @@ public sealed class MovementRedeemsManagerViewModel : ObservableObject, IDisposa
             firstSet = new MovementRedeemSet { Name = "Default" };
             settings.MovementRedeemSets.Add(firstSet);
         }
-        var rule = new TriggerRule { Name = "New Movement Rule", MovementDirection = PlayerMovementDirection.Forward };
+        var rule = new TriggerRule
+        {
+            Name = "New Movement Rule",
+            MovementDirection = PlayerMovementDirection.Forward,
+            ActionType = OscActionType.PlayerMovement,
+            DurationSeconds = 5,
+            CooldownSeconds = 60
+        };
         firstSet.MovementRules.Add(rule);
         RefreshCards();
+        var card = Cards.FirstOrDefault(c => c.Id == rule.Id);
+        if (card is not null)
+        {
+            SelectedCard = card;
+            SelectedRule = rule;
+            IsNewRule = true;
+            IsEditorOpen = true;
+        }
     }
 
     private void DeleteCard(MovementRedeemCardViewModel? card)
@@ -179,7 +269,11 @@ public sealed class MovementRedeemsManagerViewModel : ObservableObject, IDisposa
                 break;
         }
         if (SelectedCard == card)
+        {
             SelectedCard = null;
+            SelectedRule = null;
+            IsEditorOpen = false;
+        }
         RefreshCards();
     }
 
@@ -189,9 +283,45 @@ public sealed class MovementRedeemsManagerViewModel : ObservableObject, IDisposa
         OnTestCard(card);
     }
 
+    private void SaveEditor()
+    {
+        if (SelectedRule is null) return;
+        RefreshCards();
+        IsEditorOpen = false;
+    }
+
+    private void AddSetTrigger()
+    {
+        if (SelectedRule is null) return;
+        SelectedRule.SetTriggerActions.Add(new SetTriggerAction());
+    }
+
+    private void RemoveSetTrigger(object? param)
+    {
+        if (param is SetTriggerAction action && SelectedRule is not null)
+        {
+            SelectedRule.SetTriggerActions.Remove(action);
+        }
+    }
+
+    public void OnTriggerTypeChanged()
+    {
+        RaisePropertyChanged(nameof(UsesChannelPointReward));
+        RaisePropertyChanged(nameof(UsesChatCommand));
+        RaisePropertyChanged(nameof(UsesBits));
+        RaisePropertyChanged(nameof(UsesSubscription));
+        RaisePropertyChanged(nameof(UsesGiftSub));
+        RaisePropertyChanged(nameof(UsesFollow));
+    }
+
     public void Dispose()
     {
         if (disposed) return;
         disposed = true;
     }
+}
+
+public sealed record MovementDirectionItem(PlayerMovementDirection Value)
+{
+    public string Display => MovementRedeemCardViewModel.GetDisplayName(Value);
 }

@@ -37,8 +37,6 @@ public sealed partial class MovementRedeemsManagerWindow : Window
 
     private void OnEditorBackdropClicked(object sender, MouseButtonEventArgs e) => Vm.IsEditorOpen = false;
 
-    private void OnSaveEditor(object sender, RoutedEventArgs e) => Vm.IsEditorOpen = false;
-
     private void OnThemeManagerThemeChanged(object? sender, EventArgs e)
     {
         Dispatcher.BeginInvoke(() => ThemeManager.ApplyToResources(Resources));

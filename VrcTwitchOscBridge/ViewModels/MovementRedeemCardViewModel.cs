@@ -39,7 +39,7 @@ public sealed class MovementRedeemCardViewModel : ObservableObject
 
     public bool IsAxisType => MovementTypeClassifier.IsAxisType(rule.MovementDirection);
 
-    public string BehaviorTooltip => MovementTypeClassifier.GetBehaviorTooltip(rule.MovementDirection);
+    public string? BehaviorTooltip => MovementTypeClassifier.GetBehaviorTooltip(rule.MovementDirection);
 
     public double DurationSeconds
     {
@@ -155,7 +155,7 @@ public sealed class MovementRedeemCardViewModel : ObservableObject
         RaisePropertyChanged(nameof(HasFollowTrigger));
     }
 
-    private static string GetDisplayName(PlayerMovementDirection direction) => direction switch
+    internal static string GetDisplayName(PlayerMovementDirection direction) => direction switch
     {
         PlayerMovementDirection.Forward => "Move Forward",
         PlayerMovementDirection.Backward => "Move Backward",

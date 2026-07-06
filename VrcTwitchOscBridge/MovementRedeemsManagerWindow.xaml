@@ -526,11 +526,11 @@
                                         AutomationProperties.Name="{loc:Translate 'Close'}"
                                         ToolTip="{loc:Translate 'Close'}" />
                                 <StackPanel>
-                                    <TextBlock Text="{loc:Translate 'Edit Movement Rule'}"
+                                    <TextBlock Text="{Binding EditorTitle}"
                                                FontWeight="Bold"
                                                FontSize="13"
                                                Foreground="{DynamicResource TitleBarTextBrush}" />
-                                    <TextBlock Text="{Binding SelectedCard.DirectionDisplayName}"
+                                    <TextBlock Text="{Binding SelectedRule.MovementDirection}"
                                                Margin="0,2,0,0"
                                                FontSize="10"
                                                Foreground="{DynamicResource TitleBarSubTextBrush}" />
@@ -543,6 +543,7 @@
                                       VerticalScrollBarVisibility="Auto"
                                       HorizontalScrollBarVisibility="Disabled">
                             <StackPanel TextElement.Foreground="{DynamicResource TitleBarTextBrush}">
+                                <!-- ===== Section 1: General Settings ===== -->
                                 <Border Padding="12"
                                         CornerRadius="14"
                                         Background="{DynamicResource NestedPanelBrush}"
@@ -550,29 +551,84 @@
                                         BorderThickness="1"
                                         TextElement.Foreground="{DynamicResource TitleBarTextBrush}">
                                     <StackPanel>
-                                        <TextBlock Text="{loc:Translate 'Rule Name'}"
-                                                   FontWeight="SemiBold" />
-                                        <TextBox Text="{Binding SelectedCard.Name, UpdateSourceTrigger=PropertyChanged}"
-                                                 Margin="0,6,0,0" />
-                                    </StackPanel>
-                                </Border>
-
-                                <Border Margin="0,12,0,0"
-                                        Padding="12"
-                                        CornerRadius="14"
-                                        Background="{DynamicResource NestedPanelBrush}"
-                                        BorderBrush="{DynamicResource BorderBrush}"
-                                        BorderThickness="1">
-                                    <StackPanel>
-                                        <TextBlock Text="{loc:Translate 'Movement Type'}"
-                                                   FontWeight="SemiBold" />
-                                        <TextBlock Text="{Binding SelectedCard.DirectionDisplayName}"
-                                                   Foreground="{DynamicResource TitleBarSubTextBrush}"
+                                        <TextBlock Text="{loc:Translate 'General Settings'}"
+                                                   FontWeight="Bold"
                                                    FontSize="13"
-                                                   Margin="0,6,0,0" />
+                                                   Margin="0,0,0,8" />
+                                        <UniformGrid Columns="2" Margin="0,0,0,8">
+                                            <StackPanel Margin="0,0,8,0">
+                                                <TextBlock Text="{loc:Translate 'Rule Name'}"
+                                                           FontWeight="SemiBold" />
+                                                <TextBox Text="{Binding SelectedRule.Name, UpdateSourceTrigger=PropertyChanged}"
+                                                         Margin="0,6,0,0" />
+                                            </StackPanel>
+                                            <StackPanel Margin="8,0,0,0">
+                                                <TextBlock Text="{loc:Translate 'Enabled'}"
+                                                           FontWeight="SemiBold" />
+                                                <ToggleButton IsChecked="{Binding SelectedRule.IsEnabled, Mode=TwoWay}"
+                                                              Cursor="Hand"
+                                                              Width="36"
+                                                              Height="20"
+                                                              Margin="0,6,0,0"
+                                                              HorizontalAlignment="Left">
+                                                    <ToggleButton.Style>
+                                                        <Style TargetType="ToggleButton">
+                                                            <Setter Property="Template">
+                                                                <Setter.Value>
+                                                                    <ControlTemplate TargetType="ToggleButton">
+                                                                        <Border x:Name="ToggleTrack"
+                                                                                Width="36" Height="20"
+                                                                                CornerRadius="10"
+                                                                                Background="{DynamicResource InputBrush}"
+                                                                                BorderBrush="{DynamicResource InputBorderBrush}"
+                                                                                BorderThickness="1"
+                                                                                Cursor="Hand">
+                                                                            <Border x:Name="ToggleThumb"
+                                                                                    Width="16" Height="16"
+                                                                                    CornerRadius="8"
+                                                                                    Background="{DynamicResource MutedBrush}"
+                                                                                    HorizontalAlignment="Left"
+                                                                                    Margin="1,0,0,0" />
+                                                                        </Border>
+                                                                        <ControlTemplate.Triggers>
+                                                                            <Trigger Property="IsChecked" Value="True">
+                                                                                <Setter TargetName="ToggleTrack" Property="Background" Value="{DynamicResource AccentBrush}" />
+                                                                                <Setter TargetName="ToggleTrack" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                                                                <Setter TargetName="ToggleThumb" Property="Background" Value="{DynamicResource TitleBarTextBrush}" />
+                                                                                <Setter TargetName="ToggleThumb" Property="HorizontalAlignment" Value="Right" />
+                                                                                <Setter TargetName="ToggleThumb" Property="Margin" Value="0,0,1,0" />
+                                                                            </Trigger>
+                                                                        </ControlTemplate.Triggers>
+                                                                    </ControlTemplate>
+                                                                </Setter.Value>
+                                                            </Setter>
+                                                        </Style>
+                                                    </ToggleButton.Style>
+                                                </ToggleButton>
+                                            </StackPanel>
+                                        </UniformGrid>
+                                        <TextBlock Text="{loc:Translate 'Movement Direction'}"
+                                                   FontWeight="SemiBold" />
+                                        <ComboBox ItemsSource="{Binding MovementDirections}"
+                                                  SelectedValue="{Binding SelectedRule.MovementDirection}"
+                                                  DisplayMemberPath="Display"
+                                                  SelectedValuePath="Value"
+                                                  Margin="0,6,0,0" />
+                                        <Border Padding="6,2"
+                                                CornerRadius="6"
+                                                Background="{DynamicResource AccentDimBrush}"
+                                                BorderBrush="{DynamicResource BorderBrush}"
+                                                BorderThickness="1"
+                                                Margin="0,6,0,0"
+                                                Visibility="{Binding IsVrOnly, Converter={StaticResource BoolToVisibilityConverter}}">
+                                            <TextBlock Text="{loc:Translate 'VR Only'}"
+                                                       FontSize="10"
+                                                       Foreground="{DynamicResource TitleBarSubTextBrush}" />
+                                        </Border>
                                     </StackPanel>
                                 </Border>
 
+                                <!-- ===== Section 2: Trigger Configuration ===== -->
                                 <Border Margin="0,12,0,0"
                                         Padding="12"
                                         CornerRadius="14"
@@ -580,17 +636,344 @@
                                         BorderBrush="{DynamicResource BorderBrush}"
                                         BorderThickness="1">
                                     <StackPanel>
-                                        <TextBlock Text="{loc:Translate 'Duration (seconds)'}"
+                                <TextBlock Text="{loc:Translate 'Trigger Configuration'}"
+                                           FontWeight="Bold"
+                                           FontSize="13"
+                                           Margin="0,0,0,8" />
+                                        <TextBlock Text="{loc:Translate 'Trigger Type'}"
                                                    FontWeight="SemiBold" />
-                                        <TextBox Text="{Binding SelectedCard.DurationSeconds, UpdateSourceTrigger=PropertyChanged}"
+                                        <ComboBox ItemsSource="{Binding TriggerTypeValues}"
+                                                  SelectedItem="{Binding SelectedRule.TriggerType}"
+                                                  Margin="0,6,0,0" />
+
+                                        <!-- Channel Points sub-section -->
+                                        <Border Padding="10"
+                                                CornerRadius="10"
+                                                Background="{DynamicResource PanelSecondaryBrush}"
+                                                BorderBrush="{DynamicResource BorderBrush}"
+                                                BorderThickness="1"
+                                                Margin="0,12,0,0"
+                                                Visibility="{Binding UsesChannelPointReward, Converter={StaticResource BoolToVisibilityConverter}}">
+                                            <StackPanel>
+                                                <TextBlock Text="{loc:Translate 'Reward Sync Mode'}"
+                                                           FontWeight="SemiBold" />
+                                                <ComboBox ItemsSource="{Binding RewardSyncModeValues}"
+                                                          SelectedItem="{Binding SelectedRule.RewardSyncMode}"
+                                                          Margin="0,6,0,0" />
+                                                <UniformGrid Columns="2" Margin="0,12,0,0">
+                                                    <StackPanel Margin="0,0,8,0">
+                                                        <TextBlock Text="{loc:Translate 'Reward Title'}"
+                                                                   FontWeight="SemiBold" />
+                                                        <TextBox Text="{Binding SelectedRule.ChannelPointRewardTitle, UpdateSourceTrigger=PropertyChanged}"
+                                                                 Margin="0,6,0,0" />
+                                                    </StackPanel>
+                                                    <StackPanel Margin="8,0,0,0">
+                                                        <TextBlock Text="{loc:Translate 'Cost'}"
+                                                                   FontWeight="SemiBold" />
+                                                        <TextBox Text="{Binding SelectedRule.ChannelPointRewardCost, UpdateSourceTrigger=PropertyChanged}"
+                                                                 Margin="0,6,0,0" />
+                                                    </StackPanel>
+                                                </UniformGrid>
+                                                <TextBlock Text="{loc:Translate 'Description'}"
+                                                           FontWeight="SemiBold"
+                                                           Margin="0,12,0,0" />
+                                                <TextBox Text="{Binding SelectedRule.ChannelPointRewardDescription, UpdateSourceTrigger=PropertyChanged}"
+                                                         Margin="0,6,0,0" />
+                                                <UniformGrid Columns="2" Margin="0,12,0,0">
+                                                    <StackPanel Margin="0,0,8,0">
+                                                        <TextBlock Text="{loc:Translate 'Ready Color'}"
+                                                                   FontWeight="SemiBold" />
+                                                        <TextBox Text="{Binding SelectedRule.ManagedRewardReadyColor, UpdateSourceTrigger=PropertyChanged}"
+                                                                 Margin="0,6,0,0" />
+                                                    </StackPanel>
+                                                    <StackPanel Margin="8,0,0,0">
+                                                        <TextBlock Text="{loc:Translate 'Cooldown Color'}"
+                                                                   FontWeight="SemiBold" />
+                                                        <TextBox Text="{Binding SelectedRule.ManagedRewardCooldownColor, UpdateSourceTrigger=PropertyChanged}"
+                                                                 Margin="0,6,0,0" />
+                                                    </StackPanel>
+                                                </UniformGrid>
+                                                <CheckBox IsChecked="{Binding SelectedRule.DeleteManagedRewardWhenInactive}"
+                                                          Content="{loc:Translate 'Delete reward when inactive'}"
+                                                          Margin="0,12,0,0" />
+                                            </StackPanel>
+                                        </Border>
+
+                                        <!-- Chat Command sub-section -->
+                                        <Border Padding="10"
+                                                CornerRadius="10"
+                                                Background="{DynamicResource PanelSecondaryBrush}"
+                                                BorderBrush="{DynamicResource BorderBrush}"
+                                                BorderThickness="1"
+                                                Margin="0,12,0,0"
+                                                Visibility="{Binding UsesChatCommand, Converter={StaticResource BoolToVisibilityConverter}}">
+                                            <StackPanel>
+                                                <UniformGrid Columns="2">
+                                                    <StackPanel Margin="0,0,8,0">
+                                                        <TextBlock Text="{loc:Translate 'Command Text'}"
+                                                                   FontWeight="SemiBold" />
+                                                        <TextBox Text="{Binding SelectedRule.ChatCommandText, UpdateSourceTrigger=PropertyChanged}"
+                                                                 Margin="0,6,0,0" />
+                                                    </StackPanel>
+                                                    <StackPanel Margin="8,0,0,0">
+                                                        <TextBlock Text="{loc:Translate 'Permission'}"
+                                                                   FontWeight="SemiBold" />
+                                                        <ComboBox ItemsSource="{Binding ChatCommandPermissionValues}"
+                                                                  SelectedItem="{Binding SelectedRule.ChatCommandPermission}"
+                                                                  Margin="0,6,0,0" />
+                                                    </StackPanel>
+                                                </UniformGrid>
+                                            </StackPanel>
+                                        </Border>
+
+                                        <!-- Bits sub-section -->
+                                        <Border Padding="10"
+                                                CornerRadius="10"
+                                                Background="{DynamicResource PanelSecondaryBrush}"
+                                                BorderBrush="{DynamicResource BorderBrush}"
+                                                BorderThickness="1"
+                                                Margin="0,12,0,0"
+                                                Visibility="{Binding UsesBits, Converter={StaticResource BoolToVisibilityConverter}}">
+                                            <StackPanel>
+                                                <TextBlock Text="{loc:Translate 'Minimum Bits'}"
+                                                           FontWeight="SemiBold" />
+                                                <TextBox Text="{Binding SelectedRule.MinimumAmount, UpdateSourceTrigger=PropertyChanged}"
+                                                         Margin="0,6,0,0" />
+                                                <CheckBox IsChecked="{Binding SelectedRule.BitsKeywordEnabled}"
+                                                          Content="{loc:Translate 'Force motion keyword'}"
+                                                          Margin="0,12,0,0" />
+                                                <TextBox Text="{Binding SelectedRule.SupporterKeywordText, UpdateSourceTrigger=PropertyChanged}"
+                                                         Margin="0,6,0,0"
+                                                         Visibility="{Binding SelectedRule.BitsKeywordEnabled, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                            </StackPanel>
+                                        </Border>
+
+                                        <!-- Subs sub-section -->
+                                        <Border Padding="10"
+                                                CornerRadius="10"
+                                                Background="{DynamicResource PanelSecondaryBrush}"
+                                                BorderBrush="{DynamicResource BorderBrush}"
+                                                BorderThickness="1"
+                                                Margin="0,12,0,0"
+                                                Visibility="{Binding UsesSubscription, Converter={StaticResource BoolToVisibilityConverter}}">
+                                            <StackPanel>
+                                                <TextBlock Text="{loc:Translate 'Minimum Subs'}"
+                                                           FontWeight="SemiBold" />
+                                                <TextBox Text="{Binding SelectedRule.MinimumAmount, UpdateSourceTrigger=PropertyChanged}"
+                                                         Margin="0,6,0,0" />
+                                                <CheckBox IsChecked="{Binding SelectedRule.IsGiftSubscription}"
+                                                          Content="{loc:Translate 'Gift Sub'}"
+                                                          Margin="0,12,0,0" />
+                                            </StackPanel>
+                                        </Border>
+
+                                        <!-- Gift Sub sub-section -->
+                                        <Border Padding="10"
+                                                CornerRadius="10"
+                                                Background="{DynamicResource PanelSecondaryBrush}"
+                                                BorderBrush="{DynamicResource BorderBrush}"
+                                                BorderThickness="1"
+                                                Margin="0,12,0,0"
+                                                Visibility="{Binding UsesGiftSub, Converter={StaticResource BoolToVisibilityConverter}}">
+                                            <StackPanel>
+                                                <TextBlock Text="{loc:Translate 'Minimum Gift Subs'}"
+                                                           FontWeight="SemiBold" />
+                                                <TextBox Text="{Binding SelectedRule.MinimumAmount, UpdateSourceTrigger=PropertyChanged}"
+                                                         Margin="0,6,0,0" />
+                                            </StackPanel>
+                                        </Border>
+
+                                        <!-- Follow sub-section -->
+                                        <Border Padding="10"
+                                                CornerRadius="10"
+                                                Background="{DynamicResource PanelSecondaryBrush}"
+                                                BorderBrush="{DynamicResource BorderBrush}"
+                                                BorderThickness="1"
+                                                Margin="0,12,0,0"
+                                                Visibility="{Binding UsesFollow, Converter={StaticResource BoolToVisibilityConverter}}">
+                                            <TextBlock Text="{loc:Translate 'Triggers on follow event.'}"
+                                                       Foreground="{DynamicResource TitleBarSubTextBrush}" />
+                                        </Border>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- ===== Section 3: Movement Behavior ===== -->
+                                <Border Margin="0,12,0,0"
+                                        Padding="12"
+                                        CornerRadius="14"
+                                        Background="{DynamicResource NestedPanelBrush}"
+                                        BorderBrush="{DynamicResource BorderBrush}"
+                                        BorderThickness="1">
+                                    <StackPanel>
+                                <TextBlock Text="{loc:Translate 'Movement Behavior'}"
+                                           FontWeight="Bold"
+                                           FontSize="13"
+                                           Margin="0,0,0,8" />
+                                        <UniformGrid Columns="2">
+                                            <StackPanel Margin="0,0,8,0">
+                                                <TextBlock Text="{loc:Translate 'Duration (seconds)'}"
+                                                           FontWeight="SemiBold" />
+                                                <TextBox Text="{Binding SelectedRule.DurationSeconds, UpdateSourceTrigger=PropertyChanged}"
+                                                         Margin="0,6,0,0" />
+                                                <TextBlock Text="{loc:Translate 'Minimum 1 second.'}"
+                                                           Foreground="{DynamicResource TitleBarSubTextBrush}"
+                                                           FontSize="10"
+                                                           Margin="0,4,0,0" />
+                                            </StackPanel>
+                                            <StackPanel Margin="8,0,0,0">
+                                                <TextBlock Text="{loc:Translate 'Cooldown (seconds)'}"
+                                                           FontWeight="SemiBold" />
+                                                <TextBox Text="{Binding SelectedRule.CooldownSeconds, UpdateSourceTrigger=PropertyChanged}"
+                                                         Margin="0,6,0,0" />
+                                                <TextBlock Text="{loc:Translate '0 means no cooldown.'}"
+                                                           Foreground="{DynamicResource TitleBarSubTextBrush}"
+                                                           FontSize="10"
+                                                           Margin="0,4,0,0" />
+                                            </StackPanel>
+                                        </UniformGrid>
+
+                                        <!-- Speed (axis types only) -->
+                                        <Border Padding="10"
+                                                CornerRadius="10"
+                                                Background="{DynamicResource PanelSecondaryBrush}"
+                                                BorderBrush="{DynamicResource BorderBrush}"
+                                                BorderThickness="1"
+                                                Margin="0,12,0,0"
+                                                Visibility="{Binding IsAxisType, Converter={StaticResource BoolToVisibilityConverter}}">
+                                            <StackPanel>
+                                                <TextBlock Text="{loc:Translate 'Speed (0.1 - 1.0)'}"
+                                                           FontWeight="SemiBold" />
+                                                <TextBox Text="{Binding SelectedRule.FloatValue, UpdateSourceTrigger=PropertyChanged}"
+                                                         Margin="0,6,0,0" />
+                                            </StackPanel>
+                                        </Border>
+
+                                        <!-- Bits amount scaling -->
+                                        <Border Padding="10"
+                                                CornerRadius="10"
+                                                Background="{DynamicResource PanelSecondaryBrush}"
+                                                BorderBrush="{DynamicResource BorderBrush}"
+                                                BorderThickness="1"
+                                                Margin="0,12,0,0"
+                                                Visibility="{Binding UsesBits, Converter={StaticResource BoolToVisibilityConverter}}">
+                                            <StackPanel>
+                                                <CheckBox IsChecked="{Binding SelectedRule.AmountScaledDurationEnabled}"
+                                                          Content="{loc:Translate 'Amount-scaled duration'}" />
+                                                <UniformGrid Columns="2" Margin="0,8,0,0"
+                                                             Visibility="{Binding SelectedRule.AmountScaledDurationEnabled, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                    <StackPanel Margin="0,0,8,0">
+                                                        <TextBlock Text="{loc:Translate 'Units per duration'}"
+                                                                   FontSize="10" />
+                                                        <TextBox Text="{Binding SelectedRule.BitsAmountUnitsPerDuration, UpdateSourceTrigger=PropertyChanged}"
+                                                                 Margin="0,4,0,0" />
+                                                    </StackPanel>
+                                                    <StackPanel Margin="8,0,0,0">
+                                                        <TextBlock Text="{loc:Translate 'Seconds per unit'}"
+                                                                   FontSize="10" />
+                                                        <TextBox Text="{Binding SelectedRule.BitsSecondsPerAmountUnit, UpdateSourceTrigger=PropertyChanged}"
+                                                                 Margin="0,4,0,0" />
+                                                    </StackPanel>
+                                                </UniformGrid>
+                                            </StackPanel>
+                                        </Border>
+
+                                        <!-- Sub tier duration scaling -->
+                                        <Border Padding="10"
+                                                CornerRadius="10"
+                                                Background="{DynamicResource PanelSecondaryBrush}"
+                                                BorderBrush="{DynamicResource BorderBrush}"
+                                                BorderThickness="1"
+                                                Margin="0,12,0,0"
+                                                Visibility="{Binding UsesSubscription, Converter={StaticResource BoolToVisibilityConverter}}">
+                                            <StackPanel>
+                                                <TextBlock Text="{loc:Translate 'Sub duration scaling'}"
+                                                           FontWeight="SemiBold"
+                                                           Margin="0,0,0,8" />
+                                                <UniformGrid Columns="3">
+                                                    <StackPanel Margin="0,0,4,0">
+                                                        <TextBlock Text="T1 sec/sub" FontSize="10" />
+                                                        <TextBox Text="{Binding SelectedRule.SubscriptionTier1SecondsPerSub, UpdateSourceTrigger=PropertyChanged}"
+                                                                 Margin="0,4,0,0" />
+                                                    </StackPanel>
+                                                    <StackPanel Margin="4,0,4,0">
+                                                        <TextBlock Text="T2 sec/sub" FontSize="10" />
+                                                        <TextBox Text="{Binding SelectedRule.SubscriptionTier2SecondsPerSub, UpdateSourceTrigger=PropertyChanged}"
+                                                                 Margin="0,4,0,0" />
+                                                    </StackPanel>
+                                                    <StackPanel Margin="4,0,0,0">
+                                                        <TextBlock Text="T3 sec/sub" FontSize="10" />
+                                                        <TextBox Text="{Binding SelectedRule.SubscriptionTier3SecondsPerSub, UpdateSourceTrigger=PropertyChanged}"
+                                                                 Margin="0,4,0,0" />
+                                                    </StackPanel>
+                                                </UniformGrid>
+                                            </StackPanel>
+                                        </Border>
+
+                                        <CheckBox IsChecked="{Binding SelectedRule.MaxAccumulatedDurationEnabled}"
+                                                  Content="{loc:Translate 'Max accumulated duration'}"
+                                                  Margin="0,12,0,0" />
+                                        <TextBox Text="{Binding SelectedRule.MaxAccumulatedDurationSeconds, UpdateSourceTrigger=PropertyChanged}"
+                                                 Margin="0,6,0,0"
+                                                 Visibility="{Binding SelectedRule.MaxAccumulatedDurationEnabled, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                        <CheckBox IsChecked="{Binding SelectedRule.ExtendCurrentActivity}"
+                                                  Content="{loc:Translate 'Extend current activity'}"
+                                                  Margin="0,8,0,0" />
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- ===== Section 4: Avatar Scope ===== -->
+                                <Border Margin="0,12,0,0"
+                                        Padding="12"
+                                        CornerRadius="14"
+                                        Background="{DynamicResource NestedPanelBrush}"
+                                        BorderBrush="{DynamicResource BorderBrush}"
+                                        BorderThickness="1">
+                                    <StackPanel>
+                                <TextBlock Text="{loc:Translate 'Avatar Scope (Optional)'}"
+                                           FontWeight="Bold"
+                                           FontSize="13"
+                                           Margin="0,0,0,8" />
+                                        <TextBlock Text="{loc:Translate 'Avatar Profile ID'}"
+                                                   FontWeight="SemiBold" />
+                                        <TextBox Text="{Binding SelectedRule.SupporterAvatarProfileId, UpdateSourceTrigger=PropertyChanged}"
                                                  Margin="0,6,0,0" />
-                                        <TextBlock Text="{loc:Translate 'Minimum 1 second.'}"
+                                        <TextBlock Text="{loc:Translate 'Avatar ID'}"
+                                                   FontWeight="SemiBold"
+                                                   Margin="0,8,0,0" />
+                                        <TextBox Text="{Binding SelectedRule.SupporterAvatarId, UpdateSourceTrigger=PropertyChanged}"
+                                                 Margin="0,6,0,0" />
+                                        <TextBlock Text="{loc:Translate 'Avatar Name'}"
+                                                   FontWeight="SemiBold"
+                                                   Margin="0,8,0,0" />
+                                        <TextBox Text="{Binding SelectedRule.SupporterAvatarName, UpdateSourceTrigger=PropertyChanged}"
+                                                 Margin="0,6,0,0" />
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- ===== Section 5: Bot Message ===== -->
+                                <Border Margin="0,12,0,0"
+                                        Padding="12"
+                                        CornerRadius="14"
+                                        Background="{DynamicResource NestedPanelBrush}"
+                                        BorderBrush="{DynamicResource BorderBrush}"
+                                        BorderThickness="1">
+                                    <StackPanel>
+                                        <TextBlock Text="{loc:Translate 'Bot Message (Optional)'}"
+                                                   FontWeight="Bold"
+                                                   FontSize="13"
+                                                   Margin="0,0,0,8" />
+                                        <TextBox Text="{Binding SelectedRule.BotMessageTemplate, UpdateSourceTrigger=PropertyChanged}"
+                                                 AcceptsReturn="True"
+                                                 TextWrapping="Wrap"
+                                                 MinHeight="60" />
+                                        <TextBlock Text="{loc:Translate 'Use {user}, {rule}, {duration}, {cooldown} as template variables.'}"
                                                    Foreground="{DynamicResource TitleBarSubTextBrush}"
                                                    FontSize="10"
                                                    Margin="0,4,0,0" />
                                     </StackPanel>
                                 </Border>
 
+                                <!-- ===== Section 6: Set Triggers ===== -->
                                 <Border Margin="0,12,0,0"
                                         Padding="12"
                                         CornerRadius="14"
@@ -598,70 +981,97 @@
                                         BorderBrush="{DynamicResource BorderBrush}"
                                         BorderThickness="1">
                                     <StackPanel>
-                                        <TextBlock Text="{loc:Translate 'Cooldown (seconds)'}"
-                                                   FontWeight="SemiBold" />
-                                        <TextBox Text="{Binding SelectedCard.CooldownSeconds, UpdateSourceTrigger=PropertyChanged}"
-                                                 Margin="0,6,0,0" />
-                                        <TextBlock Text="{loc:Translate '0 means no cooldown.'}"
-                                                   Foreground="{DynamicResource TitleBarSubTextBrush}"
-                                                   FontSize="10"
-                                                   Margin="0,4,0,0" />
+                                        <DockPanel LastChildFill="True" Margin="0,0,0,8">
+                                            <TextBlock Text="{loc:Translate 'Set Triggers'}"
+                                                       FontWeight="Bold"
+                                                       FontSize="13"
+                                                       VerticalAlignment="Center" />
+                                            <Button Content="{loc:Translate 'Add'}"
+                                                    Style="{StaticResource AccentButtonStyle}"
+                                                    DockPanel.Dock="Right"
+                                                    Padding="8,2"
+                                                    FontSize="11"
+                                                    Command="{Binding AddSetTriggerCommand}" />
+                                        </DockPanel>
+                                        <ItemsControl ItemsSource="{Binding SelectedRule.SetTriggerActions}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate DataType="{x:Type models:SetTriggerAction}">
+                                                    <Border Padding="8"
+                                                            CornerRadius="8"
+                                                            Background="{DynamicResource PanelSecondaryBrush}"
+                                                            BorderBrush="{DynamicResource BorderBrush}"
+                                                            BorderThickness="1"
+                                                            Margin="0,0,0,4">
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <StackPanel Grid.Column="0">
+                                                                <UniformGrid Columns="2">
+                                                                    <StackPanel Margin="0,0,4,0">
+                                                                        <TextBlock Text="{loc:Translate 'OSC Address'}"
+                                                                                   FontSize="10" />
+                                                                        <TextBox Text="{Binding ParameterName, UpdateSourceTrigger=PropertyChanged}"
+                                                                                 Margin="0,2,0,0"
+                                                                                 Padding="6,4"
+                                                                                 FontSize="11" />
+                                                                    </StackPanel>
+                                                                    <StackPanel Margin="4,0,0,0">
+                                                                        <TextBlock Text="{loc:Translate 'Type'}"
+                                                                                   FontSize="10" />
+                                                                        <ComboBox ItemsSource="{Binding DataContext.OscParameterTypeValues, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                                  SelectedItem="{Binding ParameterType}"
+                                                                                  Margin="0,2,0,0"
+                                                                                  FontSize="11" />
+                                                                    </StackPanel>
+                                                                </UniformGrid>
+                                                                <UniformGrid Columns="2" Margin="0,4,0,0">
+                                                                    <StackPanel Margin="0,0,4,0">
+                                                                        <TextBlock Text="{loc:Translate 'Value'}"
+                                                                                   FontSize="10" />
+                                                                        <TextBox Text="{Binding ParameterValue, UpdateSourceTrigger=PropertyChanged}"
+                                                                                 Margin="0,2,0,0"
+                                                                                 Padding="6,4"
+                                                                                 FontSize="11" />
+                                                                    </StackPanel>
+                                                                </UniformGrid>
+                                                            </StackPanel>
+                                                            <Button Grid.Column="1"
+                                                                    Content="✕"
+                                                                    Width="24"
+                                                                    Height="24"
+                                                                    Margin="8,0,0,0"
+                                                                    VerticalAlignment="Top"
+                                                                    Style="{StaticResource DangerButtonStyle}"
+                                                                    Padding="0"
+                                                                    FontSize="10"
+                                                                    Command="{Binding DataContext.RemoveSetTriggerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                    CommandParameter="{Binding}" />
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
                                     </StackPanel>
                                 </Border>
 
-                                <Border Margin="0,12,0,0"
-                                        Padding="12"
-                                        CornerRadius="14"
-                                        Background="{DynamicResource NestedPanelBrush}"
-                                        BorderBrush="{DynamicResource BorderBrush}"
-                                        BorderThickness="1"
-                                        Visibility="{Binding SelectedCard.IsAxisType, Converter={StaticResource BoolToVisibilityConverter}}">
-                                    <StackPanel>
-                                        <TextBlock Text="{loc:Translate 'Speed (0.1 - 1.0)'}"
-                                                   FontWeight="SemiBold" />
-                                        <TextBox Text="{Binding SelectedCard.FloatValue, UpdateSourceTrigger=PropertyChanged}"
-                                                 Margin="0,6,0,0" />
-                                    </StackPanel>
-                                </Border>
-
-                                <Border Margin="0,12,0,0"
-                                        Padding="12"
-                                        CornerRadius="14"
-                                        Background="{DynamicResource NestedPanelBrush}"
-                                        BorderBrush="{DynamicResource BorderBrush}"
-                                        BorderThickness="1"
-                                        Visibility="{Binding SelectedCard.IsVrOnly, Converter={StaticResource BoolToVisibilityConverter}}">
-                                    <StackPanel>
-                                        <TextBlock Text="{loc:Translate 'VR Only'}"
-                                                   FontWeight="SemiBold" />
-                                        <TextBlock Text="{loc:Translate 'This movement type only works in VR mode and has no effect on Desktop.'}"
-                                                   Foreground="{DynamicResource TitleBarSubTextBrush}"
-                                                   FontSize="11"
-                                                   Margin="0,6,0,0" />
-                                    </StackPanel>
-                                </Border>
-
-                                <Border Margin="0,12,0,0"
-                                        Padding="12"
-                                        CornerRadius="14"
-                                        Background="{DynamicResource NestedPanelBrush}"
-                                        BorderBrush="{DynamicResource BorderBrush}"
-                                        BorderThickness="1">
-                                    <StackPanel>
-                                        <TextBlock Text="{Binding SelectedCard.BehaviorTooltip}"
-                                                   Foreground="{DynamicResource TitleBarSubTextBrush}"
-                                                   FontSize="11"
-                                                   TextWrapping="Wrap" />
-                                    </StackPanel>
-                                </Border>
-
+                                <!-- ===== Footer Buttons ===== -->
                                 <WrapPanel Margin="0,16,0,0" HorizontalAlignment="Right">
+                                    <Button Content="{loc:Translate 'Delete'}"
+                                            Command="{Binding DeleteRuleCommand}"
+                                            Style="{StaticResource DangerButtonStyle}"
+                                            Margin="0,0,8,0" />
+                                    <Button Content="{loc:Translate 'Test'}"
+                                            Command="{Binding TestRuleCommand}"
+                                            Style="{StaticResource SecondaryButtonStyle}"
+                                            Margin="0,0,8,0" />
                                     <Button Content="{loc:Translate 'Cancel'}"
                                             Command="{Binding CloseEditorCommand}"
                                             Style="{StaticResource SecondaryButtonStyle}"
                                             Margin="0,0,8,0" />
                                     <Button Content="{loc:Translate 'Save'}"
-                                            Click="OnSaveEditor"
+                                            Command="{Binding SaveEditorCommand}"
                                             Style="{StaticResource AccentButtonStyle}" />
                                 </WrapPanel>
                             </StackPanel>

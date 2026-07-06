@@ -52,7 +52,7 @@ public static class MovementTypeClassifier
         _ => false,
     };
 
-    public static string GetBehaviorTooltip(PlayerMovementDirection direction) => direction switch
+    public static string? GetBehaviorTooltip(PlayerMovementDirection direction) => direction switch
     {
         PlayerMovementDirection.LookLeft or PlayerMovementDirection.LookRight
             => "Smooth on Desktop. Snap-turn in VR if Comfort Turning is ON.",
@@ -72,6 +72,6 @@ public static class MovementTypeClassifier
             => "Triggers UI action. Duration = hold time before reset.",
         PlayerMovementDirection.Voice
             => "Toggles voice. Behavior depends on VRChat 'Toggle Voice' setting.",
-        _ => string.Empty,
+        _ => null,
     };
 }
