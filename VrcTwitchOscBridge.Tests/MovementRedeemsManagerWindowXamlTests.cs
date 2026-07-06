@@ -22,6 +22,21 @@ public sealed class MovementRedeemsManagerWindowXamlTests
         Assert.DoesNotContain("Storyboard.TargetProperty=\"Margin\"", xaml, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Window_ScrollBarStyleUsesCustomDarkTemplateToHideWhiteThumb()
+    {
+        var xaml = File.ReadAllText(FindSourceFile("VrcTwitchOscBridge", "MovementRedeemsManagerWindow.xaml"));
+
+        var scrollBarStyleIndex = xaml.IndexOf("<Style TargetType=\"ScrollBar\">", StringComparison.Ordinal);
+        Assert.True(scrollBarStyleIndex >= 0, "Style TargetType=ScrollBar should exist.");
+        var styleEndIndex = xaml.IndexOf("</Style>", scrollBarStyleIndex, StringComparison.Ordinal);
+        var styleBlock = xaml[scrollBarStyleIndex..(styleEndIndex + "</Style>".Length)];
+
+        Assert.Contains("Template", styleBlock, StringComparison.Ordinal);
+        Assert.Contains("VerticalScrollBarTemplate", styleBlock, StringComparison.Ordinal);
+        Assert.Contains("HorizontalScrollBarTemplate", styleBlock, StringComparison.Ordinal);
+    }
+
     private static string FindSourceFile(params string[] relativeParts)
     {
         var current = AppContext.BaseDirectory;
