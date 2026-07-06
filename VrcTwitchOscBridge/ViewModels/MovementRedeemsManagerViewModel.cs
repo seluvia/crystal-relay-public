@@ -22,11 +22,11 @@ public sealed class MovementRedeemsManagerViewModel : ObservableObject, IDisposa
         this.mainWindowViewModel = mainWindowViewModel;
 
         FilterCategoryCommand = new RelayCommand(p => ActiveCategory = p as MovementCategory?);
-        OpenEditorCommand = new RelayCommand(() => IsEditorOpen = true);
+        OpenEditorCommand = new RelayCommand(p => { SelectedCard = p as MovementRedeemCardViewModel; IsEditorOpen = SelectedCard is not null; });
         CloseEditorCommand = new RelayCommand(() => IsEditorOpen = false);
         AddNewRuleCommand = new RelayCommand(AddNewRule);
-        DeleteCardCommand = new RelayCommand(DeleteCard);
-        TestCardCommand = new RelayCommand(TestCard);
+        DeleteCardCommand = new RelayCommand(p => DeleteCard(p as MovementRedeemCardViewModel));
+        TestCardCommand = new RelayCommand(p => TestCard(p as MovementRedeemCardViewModel));
 
         WireCollectionChanges();
         RefreshCards();
@@ -158,27 +158,29 @@ public sealed class MovementRedeemsManagerViewModel : ObservableObject, IDisposa
             firstSet = new MovementRedeemSet { Name = "Default" };
             settings.MovementRedeemSets.Add(firstSet);
         }
-        var rule = new TriggerRule { Name = "New Movement Rule" };
+        var rule = new TriggerRule { Name = "New Movement Rule", MovementDirection = PlayerMovementDirection.Forward };
         firstSet.MovementRules.Add(rule);
         RefreshCards();
     }
 
-    private void DeleteCard()
+    private void DeleteCard(MovementRedeemCardViewModel? card)
     {
-        if (SelectedCard is null) return;
-        var rule = SelectedCard.GetRule();
+        if (card is null) return;
+        var rule = card.GetRule();
         foreach (var set in settings.MovementRedeemSets)
         {
             if (set.MovementRules.Remove(rule))
                 break;
         }
+        if (SelectedCard == card)
+            SelectedCard = null;
         RefreshCards();
     }
 
-    private void TestCard()
+    private void TestCard(MovementRedeemCardViewModel? card)
     {
-        if (SelectedCard is null) return;
-        OnTestCard(SelectedCard);
+        if (card is null) return;
+        OnTestCard(card);
     }
 
     public void Dispose()

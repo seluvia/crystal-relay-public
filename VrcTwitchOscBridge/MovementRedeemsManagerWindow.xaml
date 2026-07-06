@@ -104,6 +104,12 @@
             <Setter Property="FontWeight" Value="Bold" />
         </Style>
 
+        <Style x:Key="DangerButtonStyle" TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+            <Setter Property="Background" Value="#553030" />
+            <Setter Property="BorderBrush" Value="#AA5555" />
+            <Setter Property="Foreground" Value="#FFCCCC" />
+        </Style>
+
         <Style x:Key="TitleBarButtonStyle" TargetType="Button">
             <Setter Property="Width" Value="42" />
             <Setter Property="Height" Value="34" />
@@ -234,20 +240,6 @@
                 </Track>
             </Grid>
         </ControlTemplate>
-
-        <Style TargetType="ScrollBar">
-            <Setter Property="Background" Value="{DynamicResource ScrollTrackBrush}" />
-            <Setter Property="Width" Value="18" />
-            <Setter Property="Height" Value="Auto" />
-            <Setter Property="Template" Value="{StaticResource VerticalScrollBarTemplate}" />
-            <Style.Triggers>
-                <Trigger Property="Orientation" Value="Horizontal">
-                    <Setter Property="Width" Value="Auto" />
-                    <Setter Property="Height" Value="18" />
-                    <Setter Property="Template" Value="{StaticResource HorizontalScrollBarTemplate}" />
-                </Trigger>
-            </Style.Triggers>
-        </Style>
 
         <Style TargetType="ScrollViewer">
             <Setter Property="Background" Value="Transparent" />
@@ -510,7 +502,7 @@
                             <Button Content="{loc:Translate 'Delete'}"
                                     Command="{Binding DataContext.DeleteCardCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                     CommandParameter="{Binding}"
-                                    Style="{StaticResource SecondaryButtonStyle}"
+                                    Style="{StaticResource DangerButtonStyle}"
                                     Margin="4,0,0,0" />
                         </StackPanel>
                     </DockPanel>
@@ -597,6 +589,10 @@
                                         Command="{Binding FilterCategoryCommand}"
                                         CommandParameter="{x:Static models:MovementCategory.UiToggles}"
                                         Style="{StaticResource FilterButtonStyle}" />
+                                <Button Content="{loc:Translate 'Add Rule'}"
+                                        Command="{Binding AddNewRuleCommand}"
+                                        Style="{StaticResource AccentButtonStyle}"
+                                        Margin="8,0,0,0" />
                             </WrapPanel>
                         </DockPanel>
                     </StackPanel>
