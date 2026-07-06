@@ -63,13 +63,9 @@
         <SolidColorBrush x:Key="ObjectPillBrush" Color="#EF4444" />
         <SolidColorBrush x:Key="UiPillBrush" Color="#8B5CF6" />
 
-        <SolidColorBrush x:Key="ComboSurfaceBrush" Color="#1F1530" />
-        <SolidColorBrush x:Key="ComboHighlightBrush" Color="#3A2856" />
         <SolidColorBrush x:Key="ComboDropButtonBrush" Color="#2C1C48" />
         <SolidColorBrush x:Key="ComboDropButtonHoverBrush" Color="#3F2D5C" />
         <SolidColorBrush x:Key="ComboDropButtonPressedBrush" Color="#553080" />
-        <SolidColorBrush x:Key="PopupBorderBrush" Color="#4B2B78" />
-        <SolidColorBrush x:Key="ComboTextBrush" Color="#FFFFFF" />
 
         <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
 
@@ -77,10 +73,10 @@
             <Setter Property="FontFamily" Value="{DynamicResource BodyFontFamily}" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Foreground" Value="{DynamicResource ComboTextBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TitleBarTextBrush}" />
             <Setter Property="Padding" Value="0" />
             <Setter Property="Margin" Value="0" />
-            <Setter Property="CaretBrush" Value="{DynamicResource ComboTextBrush}" />
+            <Setter Property="CaretBrush" Value="{DynamicResource TitleBarTextBrush}" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
         <Style x:Key="ComboBoxToggleButtonStyle" TargetType="ToggleButton">
@@ -104,7 +100,7 @@
                                   HorizontalAlignment="Center"
                                   VerticalAlignment="Center"
                                   Data="M 0 0 L 5.5 6 L 11 0"
-                                  Stroke="{DynamicResource ComboTextBrush}"
+                                  Stroke="{DynamicResource TitleBarTextBrush}"
                                   StrokeThickness="1.8"
                                   StrokeStartLineCap="Round"
                                   StrokeEndLineCap="Round" />
@@ -129,8 +125,8 @@
             <Setter Property="MinHeight" Value="32" />
             <Setter Property="Margin" Value="0,0,0,0" />
             <Setter Property="Padding" Value="8,4" />
-            <Setter Property="Background" Value="{DynamicResource ComboSurfaceBrush}" />
-            <Setter Property="Foreground" Value="{DynamicResource ComboTextBrush}" />
+            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TitleBarTextBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
@@ -181,8 +177,8 @@
                                       MaxHeight="{TemplateBinding MaxDropDownHeight}">
                                     <Border Margin="0,4,0,0"
                                             Padding="4"
-                                            Background="{DynamicResource ComboSurfaceBrush}"
-                                            BorderBrush="{DynamicResource PopupBorderBrush}"
+                                            Background="{DynamicResource InputBrush}"
+                                            BorderBrush="{DynamicResource BorderBrush}"
                                             BorderThickness="1"
                                             CornerRadius="10">
                                         <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" />
@@ -211,7 +207,7 @@
         </Style>
         <Style TargetType="ComboBoxItem">
             <Setter Property="FontFamily" Value="{DynamicResource BodyFontFamily}" />
-            <Setter Property="Foreground" Value="{DynamicResource ComboTextBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TitleBarTextBrush}" />
             <Setter Property="Padding" Value="8,6" />
             <Setter Property="Template">
                 <Setter.Value>
@@ -225,10 +221,10 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsHighlighted" Value="True">
-                                <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource ComboHighlightBrush}" />
+                                <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource AccentDimBrush}" />
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource ComboHighlightBrush}" />
+                                <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource AccentDimBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
