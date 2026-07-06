@@ -241,6 +241,12 @@
             </Grid>
         </ControlTemplate>
 
+        <Style TargetType="ScrollBar">
+            <Setter Property="Background" Value="#241733" />
+            <Setter Property="Foreground" Value="#7C3AED" />
+            <Setter Property="Width" Value="12" />
+        </Style>
+
         <Style TargetType="ScrollViewer">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="Padding" Value="0" />

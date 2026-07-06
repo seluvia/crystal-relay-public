@@ -116,6 +116,12 @@ public sealed class MovementRedeemsManagerViewModel : ObservableObject, IDisposa
 
     private void RefreshCards()
     {
+        allRules.Clear();
+        foreach (var set in settings.MovementRedeemSets)
+        {
+            allRules.AddRange(set.MovementRules);
+        }
+
         var filtered = allRules.AsEnumerable();
 
         if (!string.IsNullOrWhiteSpace(searchText))
