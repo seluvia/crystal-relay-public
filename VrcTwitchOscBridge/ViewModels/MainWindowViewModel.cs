@@ -9962,7 +9962,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     private void QueueBridgeRefresh()
     {
-        if (!isInitialized)
+        if (!isInitialized || isShuttingDown)
         {
             return;
         }
@@ -9984,7 +9984,13 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
                 }
                 finally
                 {
-                    bridgeRefreshGate.Release();
+                    try
+                    {
+                        bridgeRefreshGate.Release();
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                    }
                 }
             }
             catch (OperationCanceledException)
