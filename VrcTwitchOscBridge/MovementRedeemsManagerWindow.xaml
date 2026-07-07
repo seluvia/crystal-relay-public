@@ -886,25 +886,33 @@
                                       HorizontalScrollBarVisibility="Disabled">
                             <StackPanel TextElement.Foreground="{DynamicResource TitleBarTextBrush}">
                                 <!-- ===== Section 1: General Settings ===== -->
-                                <Border Padding="12"
+                                <Border Padding="0"
                                         CornerRadius="14"
                                         Background="{DynamicResource NestedPanelBrush}"
                                         BorderBrush="{DynamicResource BorderBrush}"
                                         BorderThickness="1"
                                         TextElement.Foreground="{DynamicResource TitleBarTextBrush}">
-                                    <StackPanel>
-                                        <TextBlock Text="{loc:Translate 'General Settings'}"
-                                                   FontWeight="Bold"
-                                                   FontSize="13"
-                                                   Margin="0,0,0,8" />
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="4" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <Border Grid.Column="0"
+                                                Background="{DynamicResource AccentBrush}"
+                                                CornerRadius="14,0,0,14" />
+                                        <Border Grid.Column="1" Padding="10"><StackPanel>
+                                            <TextBlock Text="{loc:Translate 'General Settings'}"
+                                                       FontWeight="Bold"
+                                                       FontSize="13"
+                                                       Margin="0,0,0,8" />
                                         <UniformGrid Columns="2" Margin="0,0,0,8">
-                                            <StackPanel Margin="0,0,8,0">
+                                            <StackPanel Margin="0,0,6,0">
                                                 <TextBlock Text="{loc:Translate 'Rule Name'}"
                                                            FontWeight="SemiBold" />
                                                 <TextBox Text="{Binding SelectedRule.Name, UpdateSourceTrigger=PropertyChanged}"
                                                          Margin="0,6,0,0" />
                                             </StackPanel>
-                                            <StackPanel Margin="8,0,0,0">
+                                            <StackPanel Margin="6,0,0,0">
                                                 <TextBlock Text="{loc:Translate 'Enabled'}"
                                                            FontWeight="SemiBold" />
                                                 <ToggleButton IsChecked="{Binding SelectedRule.IsEnabled, Mode=TwoWay}"
@@ -968,16 +976,26 @@
                                                        Foreground="{DynamicResource TitleBarSubTextBrush}" />
                                         </Border>
                                     </StackPanel>
+                                        </Border>
+                                    </Grid>
                                 </Border>
 
                                 <!-- ===== Section 2: Trigger Configuration ===== -->
-                                <Border Margin="0,12,0,0"
-                                        Padding="12"
+                                <Border Margin="0,8,0,0"
+                                        Padding="0"
                                         CornerRadius="14"
                                         Background="{DynamicResource NestedPanelBrush}"
                                         BorderBrush="{DynamicResource BorderBrush}"
                                         BorderThickness="1">
-                                    <StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="4" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <Border Grid.Column="0"
+                                                Background="{DynamicResource AccentBrush}"
+                                                CornerRadius="14,0,0,14" />
+                                        <Border Grid.Column="1" Padding="10"><StackPanel>
                                 <TextBlock Text="{loc:Translate 'Trigger Configuration'}"
                                            FontWeight="Bold"
                                            FontSize="13"
@@ -991,7 +1009,7 @@
                                                   Margin="0,6,0,0" />
 
                                         <!-- Channel Points sub-section -->
-                                        <Border Padding="10"
+                                        <Border Padding="8"
                                                 CornerRadius="10"
                                                 Background="{DynamicResource PanelSecondaryBrush}"
                                                 BorderBrush="{DynamicResource BorderBrush}"
@@ -1007,13 +1025,13 @@
                                                           SelectedValuePath="Value"
                                                           Margin="0,6,0,0" />
                                                 <UniformGrid Columns="2" Margin="0,12,0,0">
-                                                    <StackPanel Margin="0,0,8,0">
+                                                    <StackPanel Margin="0,0,6,0">
                                                         <TextBlock Text="{loc:Translate 'Reward Title'}"
                                                                    FontWeight="SemiBold" />
                                                         <TextBox Text="{Binding SelectedRule.ChannelPointRewardTitle, UpdateSourceTrigger=PropertyChanged}"
                                                                  Margin="0,6,0,0" />
                                                     </StackPanel>
-                                                    <StackPanel Margin="8,0,0,0">
+                                                    <StackPanel Margin="6,0,0,0">
                                                         <TextBlock Text="{loc:Translate 'Cost'}"
                                                                    FontWeight="SemiBold" />
                                                         <TextBox Text="{Binding SelectedRule.ChannelPointRewardCost, UpdateSourceTrigger=PropertyChanged}"
@@ -1059,7 +1077,7 @@
                                         </Border>
 
                                         <!-- Chat Command sub-section -->
-                                        <Border Padding="10"
+                                        <Border Padding="8"
                                                 CornerRadius="10"
                                                 Background="{DynamicResource PanelSecondaryBrush}"
                                                 BorderBrush="{DynamicResource BorderBrush}"
@@ -1068,13 +1086,13 @@
                                                 Visibility="{Binding UsesChatCommand, Converter={StaticResource BoolToVisibilityConverter}}">
                                             <StackPanel>
                                                 <UniformGrid Columns="2">
-                                                    <StackPanel Margin="0,0,8,0">
+                                                    <StackPanel Margin="0,0,6,0">
                                                         <TextBlock Text="{loc:Translate 'Command Text'}"
                                                                    FontWeight="SemiBold" />
                                                         <TextBox Text="{Binding SelectedRule.ChatCommandText, UpdateSourceTrigger=PropertyChanged}"
                                                                  Margin="0,6,0,0" />
                                                     </StackPanel>
-                                                    <StackPanel Margin="8,0,0,0">
+                                                    <StackPanel Margin="6,0,0,0">
                                                         <TextBlock Text="{loc:Translate 'Permission'}"
                                                                    FontWeight="SemiBold" />
                                                         <ComboBox ItemsSource="{Binding ChatCommandPermissionValues}"
@@ -1086,7 +1104,7 @@
                                         </Border>
 
                                         <!-- Bits sub-section -->
-                                        <Border Padding="10"
+                                        <Border Padding="8"
                                                 CornerRadius="10"
                                                 Background="{DynamicResource PanelSecondaryBrush}"
                                                 BorderBrush="{DynamicResource BorderBrush}"
@@ -1108,7 +1126,7 @@
                                         </Border>
 
                                         <!-- Subs sub-section -->
-                                        <Border Padding="10"
+                                        <Border Padding="8"
                                                 CornerRadius="10"
                                                 Background="{DynamicResource PanelSecondaryBrush}"
                                                 BorderBrush="{DynamicResource BorderBrush}"
@@ -1127,7 +1145,7 @@
                                         </Border>
 
                                         <!-- Gift Sub sub-section -->
-                                        <Border Padding="10"
+                                        <Border Padding="8"
                                                 CornerRadius="10"
                                                 Background="{DynamicResource PanelSecondaryBrush}"
                                                 BorderBrush="{DynamicResource BorderBrush}"
@@ -1143,7 +1161,7 @@
                                         </Border>
 
                                         <!-- Follow sub-section -->
-                                        <Border Padding="10"
+                                        <Border Padding="8"
                                                 CornerRadius="10"
                                                 Background="{DynamicResource PanelSecondaryBrush}"
                                                 BorderBrush="{DynamicResource BorderBrush}"
@@ -1154,22 +1172,32 @@
                                                        Foreground="{DynamicResource TitleBarSubTextBrush}" />
                                         </Border>
                                     </StackPanel>
+                                        </Border>
+                                    </Grid>
                                 </Border>
 
                                 <!-- ===== Section 3: Movement Behavior ===== -->
-                                <Border Margin="0,12,0,0"
-                                        Padding="12"
+                                <Border Margin="0,8,0,0"
+                                        Padding="0"
                                         CornerRadius="14"
                                         Background="{DynamicResource NestedPanelBrush}"
                                         BorderBrush="{DynamicResource BorderBrush}"
                                         BorderThickness="1">
-                                    <StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="4" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <Border Grid.Column="0"
+                                                Background="{DynamicResource AccentBrush}"
+                                                CornerRadius="14,0,0,14" />
+                                        <Border Grid.Column="1" Padding="10"><StackPanel>
                                 <TextBlock Text="{loc:Translate 'Movement Behavior'}"
                                            FontWeight="Bold"
                                            FontSize="13"
                                            Margin="0,0,0,8" />
                                         <UniformGrid Columns="2">
-                                            <StackPanel Margin="0,0,8,0">
+                                            <StackPanel Margin="0,0,6,0">
                                                 <TextBlock Text="{loc:Translate 'Duration (seconds)'}"
                                                            FontWeight="SemiBold" />
                                                 <TextBox Text="{Binding SelectedRule.DurationSeconds, UpdateSourceTrigger=PropertyChanged}"
@@ -1179,7 +1207,7 @@
                                                            FontSize="10"
                                                            Margin="0,4,0,0" />
                                             </StackPanel>
-                                            <StackPanel Margin="8,0,0,0">
+                                            <StackPanel Margin="6,0,0,0">
                                                 <TextBlock Text="{loc:Translate 'Cooldown (seconds)'}"
                                                            FontWeight="SemiBold" />
                                                 <TextBox Text="{Binding SelectedRule.CooldownSeconds, UpdateSourceTrigger=PropertyChanged}"
@@ -1192,7 +1220,7 @@
                                         </UniformGrid>
 
                                         <!-- Speed (axis types only) -->
-                                        <Border Padding="10"
+                                        <Border Padding="8"
                                                 CornerRadius="10"
                                                 Background="{DynamicResource PanelSecondaryBrush}"
                                                 BorderBrush="{DynamicResource BorderBrush}"
@@ -1208,7 +1236,7 @@
                                         </Border>
 
                                         <!-- Bits amount scaling -->
-                                        <Border Padding="10"
+                                        <Border Padding="8"
                                                 CornerRadius="10"
                                                 Background="{DynamicResource PanelSecondaryBrush}"
                                                 BorderBrush="{DynamicResource BorderBrush}"
@@ -1220,13 +1248,13 @@
                                                           Content="{loc:Translate 'Amount-scaled duration'}" />
                                                 <UniformGrid Columns="2" Margin="0,8,0,0"
                                                              Visibility="{Binding SelectedRule.AmountScaledDurationEnabled, Converter={StaticResource BoolToVisibilityConverter}}">
-                                                    <StackPanel Margin="0,0,8,0">
+                                                    <StackPanel Margin="0,0,6,0">
                                                         <TextBlock Text="{loc:Translate 'Units per duration'}"
                                                                    FontSize="10" />
                                                         <TextBox Text="{Binding SelectedRule.BitsAmountUnitsPerDuration, UpdateSourceTrigger=PropertyChanged}"
                                                                  Margin="0,4,0,0" />
                                                     </StackPanel>
-                                                    <StackPanel Margin="8,0,0,0">
+                                                    <StackPanel Margin="6,0,0,0">
                                                         <TextBlock Text="{loc:Translate 'Seconds per unit'}"
                                                                    FontSize="10" />
                                                         <TextBox Text="{Binding SelectedRule.BitsSecondsPerAmountUnit, UpdateSourceTrigger=PropertyChanged}"
@@ -1237,7 +1265,7 @@
                                         </Border>
 
                                         <!-- Sub tier duration scaling -->
-                                        <Border Padding="10"
+                                        <Border Padding="8"
                                                 CornerRadius="10"
                                                 Background="{DynamicResource PanelSecondaryBrush}"
                                                 BorderBrush="{DynamicResource BorderBrush}"
@@ -1270,16 +1298,26 @@
 
 
                                     </StackPanel>
+                                        </Border>
+                                    </Grid>
                                 </Border>
 
                                 <!-- ===== Section 4: Bot Message ===== -->
-                                <Border Margin="0,12,0,0"
-                                        Padding="12"
+                                <Border Margin="0,8,0,0"
+                                        Padding="0"
                                         CornerRadius="14"
                                         Background="{DynamicResource NestedPanelBrush}"
                                         BorderBrush="{DynamicResource BorderBrush}"
                                         BorderThickness="1">
-                                    <StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="4" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <Border Grid.Column="0"
+                                                Background="{DynamicResource AccentBrush}"
+                                                CornerRadius="14,0,0,14" />
+                                        <Border Grid.Column="1" Padding="10"><StackPanel>
                                         <TextBlock Text="{loc:Translate 'Bot Message (Optional)'}"
                                                    FontWeight="Bold"
                                                    FontSize="13"
@@ -1293,10 +1331,12 @@
                                                    FontSize="10"
                                                    Margin="0,4,0,0" />
                                     </StackPanel>
+                                        </Border>
+                                    </Grid>
                                 </Border>
 
                                 <!-- ===== Footer Buttons ===== -->
-                                <WrapPanel Margin="0,16,0,0" HorizontalAlignment="Right">
+                                <WrapPanel Margin="0,12,0,0" HorizontalAlignment="Right">
                                     <Button Content="{loc:Translate 'Delete'}"
                                             Command="{Binding DeleteRuleCommand}"
                                             Style="{StaticResource DangerButtonStyle}"
