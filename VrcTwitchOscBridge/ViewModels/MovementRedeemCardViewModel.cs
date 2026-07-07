@@ -101,6 +101,10 @@ public sealed class MovementRedeemCardViewModel : ObservableObject
 
     public string CooldownText => CooldownSeconds > 0 ? $"{CooldownSeconds:F0}s cooldown" : "No cooldown";
 
+    public string DurationWithCooldownText => CooldownSeconds > 0
+        ? $"{DurationSeconds:F1}s / {CooldownSeconds:F0}s"
+        : $"{DurationSeconds:F1}s";
+
     public string DirectionDisplayName => GetDisplayName(rule.MovementDirection);
 
     public string CategoryDisplayName => Category switch
@@ -153,6 +157,7 @@ public sealed class MovementRedeemCardViewModel : ObservableObject
         RaisePropertyChanged(nameof(HasSubsTrigger));
         RaisePropertyChanged(nameof(HasGiftSubTrigger));
         RaisePropertyChanged(nameof(HasFollowTrigger));
+        RaisePropertyChanged(nameof(DurationWithCooldownText));
     }
 
     internal static string GetDisplayName(PlayerMovementDirection direction) => direction switch

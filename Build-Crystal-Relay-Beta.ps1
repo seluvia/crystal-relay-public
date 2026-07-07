@@ -271,6 +271,9 @@ catch {
 $versionFileName = "$targetVersion-$betaName.txt"
 $versionFilePath = Join-Path $publishDir $versionFileName
 New-Item -Path $versionFilePath -ItemType File -Force | Out-Null
+# Create beta-build.flag with the beta label so the app detects itself as a beta build
+$betaFlagPath = Join-Path $publishDir 'beta-build.flag'
+$betaName | Set-Content -Path $betaFlagPath -NoNewline -Encoding UTF8
 Copy-Item -Path $readmePath -Destination (Join-Path $publishDir 'README.md') -Force
 Copy-Item -Path $changelogPath -Destination (Join-Path $publishDir 'CHANGELOG.txt') -Force
 if (Test-Path $docsPath) {

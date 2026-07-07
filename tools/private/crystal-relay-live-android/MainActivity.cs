@@ -20,14 +20,39 @@ public sealed class MainActivity : Activity
     private const int ContentPaddingTopDp = 18;
     private const int ContentPaddingBottomDp = 20;
 
-    private EditText? endpointInput;
+    private const int TabLive = 0;
+    private const int TabHistory = 1;
+    private const int TabSettings = 2;
+
+    private int currentTab = TabLive;
+    private LinearLayout? tabContentContainer;
+    private LinearLayout? tabBar;
+
+    // Live tab controls
+    private EditText? searchInput;
+    private Switch? favoritesFilterSwitch;
+    private Switch? showDislikedSwitch;
+    private LinearLayout? liveUsersPanel;
+    private TextView? liveStatusText;
+    private TextView? liveLastUpdatedText;
+
+    // Settings tab controls
+    private RadioGroup? pollIntervalGroup;
+    private TextView? statsStartedText;
+    private TextView? statsDurationText;
+    private TextView? statsPeakText;
+    private TextView? statsUniqueText;
+    private TextView? statsAlertsText;
+
+    private LiveStatsTracker statsTracker = new();
+    private List<LiveUserInfo> cachedLiveUsers = [];
+
+    private Java.Util.Timer? fastPollTimer;
+
+    private Button? refreshButton;
     private Switch? alertsSwitch;
     private TextView? statusText;
     private TextView? lastUpdatedText;
-    private LinearLayout? usersPanel;
-    private Button? refreshButton;
-    private Button? saveButton;
-    private bool isLoadingSettings;
 
     protected override void OnCreate(Bundle? savedInstanceState)
     {
@@ -37,7 +62,6 @@ public sealed class MainActivity : Activity
 
         LiveNotificationService.EnsureChannel(this);
         BuildUi();
-        LoadSettingsIntoUi();
         RequestNotificationPermissionIfNeeded();
 
         if (LiveSettings.GetNotificationsEnabled(this))
@@ -46,6 +70,27 @@ public sealed class MainActivity : Activity
         }
 
         _ = RefreshLiveListAsync(false);
+    }
+
+    protected override void OnResume()
+    {
+        base.OnResume();
+
+        if (LiveSettings.GetPollInterval(this) == LiveWatchConstants.PollIntervalFast)
+        {
+            StartFastPoll();
+        }
+    }
+
+    protected override void OnPause()
+    {
+        base.OnPause();
+        StopFastPoll();
+
+        if (LiveSettings.GetNotificationsEnabled(this))
+        {
+            LiveAlarmScheduler.Schedule(this);
+        }
     }
 
     public override void OnRequestPermissionsResult(int requestCode, string[] permissions, Permission[] grantResults)
@@ -67,215 +112,666 @@ public sealed class MainActivity : Activity
         Window?.SetStatusBarColor(Color.ParseColor("#080A13"));
         Window?.SetNavigationBarColor(Color.ParseColor("#080A13"));
 
-        var rootScroll = new ScrollView(this)
-        {
-            FillViewport = true
-        };
-
-        var root = new LinearLayout(this)
+        var rootLayout = new LinearLayout(this)
         {
             Orientation = Orientation.Vertical
         };
-        ApplySafeAreaPadding(root);
-        root.SetBackgroundColor(Color.ParseColor("#080A13"));
-        rootScroll.AddView(root, new ScrollView.LayoutParams(
-            ViewGroup.LayoutParams.MatchParent,
-            ViewGroup.LayoutParams.WrapContent));
+        rootLayout.SetBackgroundColor(Color.ParseColor("#080A13"));
+
+        var header = BuildHeader();
+        rootLayout.AddView(header);
+
+        tabContentContainer = new LinearLayout(this)
+        {
+            Orientation = Orientation.Vertical
+        };
+        tabContentContainer.LayoutParameters = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MatchParent, 0, 1f);
+        rootLayout.AddView(tabContentContainer);
+
+        tabBar = BuildTabBar();
+        rootLayout.AddView(tabBar);
+
+        ApplySafeAreaPadding(rootLayout);
+        SetContentView(rootLayout);
+
+        SelectTab(TabLive);
+    }
+
+    private LinearLayout BuildHeader()
+    {
+        var header = new LinearLayout(this)
+        {
+            Orientation = Orientation.Vertical
+        };
 
         var title = MakeText("Crystal Relay Live Watch", 28, "#F8F4FF", TypefaceStyle.Bold);
-        root.AddView(title);
+        header.AddView(title);
 
         var subtitle = MakeText("Void Crystal phone heartbeat monitor", 14, "#CDBEEE", TypefaceStyle.Normal);
         subtitle.SetPadding(0, Dp(4), 0, Dp(14));
-        root.AddView(subtitle);
+        header.AddView(subtitle);
 
-        var endpointCard = MakeCard();
-        endpointCard.Orientation = Orientation.Vertical;
-        root.AddView(endpointCard, MatchWrap(0, 0, 0, Dp(14)));
+        return header;
+    }
 
-        endpointCard.AddView(MakeText("Live endpoint", 12, "#CDBEEE", TypefaceStyle.Bold));
-
-        endpointInput = new EditText(this)
-        {
-            InputType = InputTypes.ClassText | InputTypes.TextVariationUri,
-            TextSize = 13
-        };
-        endpointInput.SetSingleLine(true);
-        endpointInput.SetTextColor(Color.ParseColor("#F8F4FF"));
-        endpointInput.SetHintTextColor(Color.ParseColor("#7DCDBEEE"));
-        endpointInput.SetPadding(Dp(10), Dp(8), Dp(10), Dp(8));
-        endpointInput.Background = Rounded("#24141830", "#55436A93", 10, 1);
-        endpointCard.AddView(endpointInput, MatchWrap(0, Dp(6), 0, Dp(10)));
-
-        var buttonRow = new LinearLayout(this)
+    private LinearLayout BuildTabBar()
+    {
+        var bar = new LinearLayout(this)
         {
             Orientation = Orientation.Horizontal
         };
-        endpointCard.AddView(buttonRow);
+        bar.SetBackgroundColor(Color.ParseColor("#0D0F1A"));
+        bar.SetPadding(Dp(8), Dp(6), Dp(8), Dp(6));
 
-        saveButton = MakeButton("Save");
-        saveButton.Click += (_, _) => SaveEndpoint();
-        buttonRow.AddView(saveButton, WeightedRowButton(0, 0, Dp(6), 0));
+        var liveTab = MakeTabButton("Live", TabLive);
+        var historyTab = MakeTabButton("History", TabHistory);
+        var settingsTab = MakeTabButton("Settings", TabSettings);
+
+        bar.AddView(liveTab, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WrapContent, 1f));
+        bar.AddView(historyTab, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WrapContent, 1f));
+        bar.AddView(settingsTab, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WrapContent, 1f));
+
+        return bar;
+    }
+
+    private TextView MakeTabButton(string text, int tabId)
+    {
+        var button = MakeText(text, 14, "#CDBEEE", TypefaceStyle.Bold);
+        button.Gravity = GravityFlags.Center;
+        button.SetPadding(Dp(12), Dp(10), Dp(12), Dp(10));
+        button.Click += (_, _) => SelectTab(tabId);
+        return button;
+    }
+
+    private void SelectTab(int tab)
+    {
+        currentTab = tab;
+        tabContentContainer!.RemoveAllViews();
+
+        for (int i = 0; i < tabBar!.ChildCount; i++)
+        {
+            var child = tabBar.GetChildAt(i);
+            if (child is TextView tv)
+            {
+                tv.SetTextColor(Color.ParseColor(i == tab ? "#7DF9FF" : "#CDBEEE"));
+            }
+        }
+
+        switch (tab)
+        {
+            case TabLive:
+                BuildLiveTab();
+                break;
+            case TabHistory:
+                BuildHistoryTab();
+                break;
+            case TabSettings:
+                BuildSettingsTab();
+                break;
+        }
+    }
+
+    private void BuildLiveTab()
+    {
+        var container = new ScrollView(this)
+        {
+            FillViewport = true,
+            VerticalScrollBarEnabled = false
+        };
+        var inner = new LinearLayout(this)
+        {
+            Orientation = Orientation.Vertical
+        };
+        container.AddView(inner);
+        container.SetPadding(Dp(18), 0, Dp(18), 0);
+
+        searchInput = new EditText(this)
+        {
+            InputType = InputTypes.ClassText,
+            TextSize = 13
+        };
+        searchInput.Hint = "Search streamers...";
+        searchInput.SetSingleLine(true);
+        searchInput.SetTextColor(Color.ParseColor("#F8F4FF"));
+        searchInput.SetHintTextColor(Color.ParseColor("#7DCDBEEE"));
+        searchInput.SetPadding(Dp(10), Dp(8), Dp(10), Dp(8));
+        searchInput.Background = Rounded("#24141830", "#55436A93", 10, 1);
+        searchInput.TextChanged += (_, _) => RefreshLiveUserCards();
+        inner.AddView(searchInput);
+
+        favoritesFilterSwitch = new Switch(this)
+        {
+            Text = "Favorites only",
+            TextSize = 14,
+            ShowText = false
+        };
+        favoritesFilterSwitch.SetTextColor(Color.ParseColor("#F8F4FF"));
+        favoritesFilterSwitch.SetPadding(0, Dp(10), 0, Dp(6));
+        favoritesFilterSwitch.CheckedChange += (_, _) => RefreshLiveUserCards();
+        inner.AddView(favoritesFilterSwitch);
+
+        showDislikedSwitch = new Switch(this)
+        {
+            Text = "Show disliked",
+            TextSize = 14,
+            ShowText = false
+        };
+        showDislikedSwitch.SetTextColor(Color.ParseColor("#F8F4FF"));
+        showDislikedSwitch.SetPadding(0, Dp(2), 0, Dp(6));
+        showDislikedSwitch.CheckedChange += (_, _) => RefreshLiveUserCards();
+        inner.AddView(showDislikedSwitch);
 
         refreshButton = MakeButton("Refresh");
         refreshButton.Click += async (_, _) => await RefreshLiveListAsync(false);
-        buttonRow.AddView(refreshButton, WeightedRowButton(Dp(6), 0, 0, 0));
+        refreshButton.SetPadding(0, Dp(6), 0, Dp(2));
+        inner.AddView(refreshButton, MatchWrap());
 
+        liveStatusText = MakeText("Loading live users...", 16, "#E6F9FF", TypefaceStyle.Bold);
+        liveStatusText.SetPadding(0, Dp(10), 0, Dp(4));
+        inner.AddView(liveStatusText);
+
+        liveLastUpdatedText = MakeText("Not refreshed yet.", 12, "#CDBEEE", TypefaceStyle.Normal);
+        liveLastUpdatedText.SetPadding(0, 0, 0, Dp(8));
+        inner.AddView(liveLastUpdatedText);
+
+        liveUsersPanel = new LinearLayout(this)
+        {
+            Orientation = Orientation.Vertical
+        };
+        inner.AddView(liveUsersPanel);
+
+        tabContentContainer!.AddView(container);
+        RenderCachedLiveUsers();
+    }
+
+    private void BuildHistoryTab()
+    {
+        var container = new ScrollView(this)
+        {
+            FillViewport = true,
+            VerticalScrollBarEnabled = false
+        };
+        var inner = new LinearLayout(this)
+        {
+            Orientation = Orientation.Vertical
+        };
+        container.AddView(inner);
+        container.SetPadding(Dp(18), 0, Dp(18), 0);
+
+        var title = MakeText("History (24h)", 18, "#F8F4FF", TypefaceStyle.Bold);
+        title.SetPadding(0, Dp(4), 0, Dp(12));
+        inner.AddView(title);
+
+        var entries = LiveHistoryStore.GetEntries(this);
+        if (entries.Count == 0)
+        {
+            var empty = MakeCard();
+            empty.SetGravity(GravityFlags.Center);
+            empty.SetMinimumHeight(Dp(120));
+            empty.AddView(MakeText("No history yet", 17, "#F8F4FF", TypefaceStyle.Bold));
+            var emptySub = MakeText("Users you observe will appear here.", 13, "#CDBEEE", TypefaceStyle.Normal);
+            emptySub.SetPadding(0, Dp(6), 0, 0);
+            empty.AddView(emptySub);
+            inner.AddView(empty, MatchWrap());
+            tabContentContainer!.AddView(container);
+            return;
+        }
+
+        foreach (var entry in entries)
+        {
+            var card = BuildHistoryCard(entry);
+            inner.AddView(card, MatchWrap(0, 0, 0, Dp(12)));
+        }
+
+        tabContentContainer!.AddView(container);
+    }
+
+    private LinearLayout BuildHistoryCard(LiveHistoryEntry entry)
+    {
+        var card = MakeCard();
+        card.Orientation = Orientation.Vertical;
+
+        var name = MakeText(entry.DisplayName, 18, "#F8F4FF", TypefaceStyle.Bold);
+        card.AddView(name);
+
+        var badgesRow = new LinearLayout(this)
+        {
+            Orientation = Orientation.Horizontal
+        };
+        badgesRow.SetPadding(0, Dp(6), 0, Dp(6));
+
+        if (!string.IsNullOrWhiteSpace(entry.RelayVersion))
+        {
+            var versionPill = MakeText(entry.RelayVersion, 11, "#F8F4FF", TypefaceStyle.Bold);
+            versionPill.Gravity = GravityFlags.Center;
+            versionPill.SetPadding(Dp(8), Dp(3), Dp(8), Dp(3));
+            versionPill.Background = Rounded("#33243344", "#6643693A", 999, 1);
+            badgesRow.AddView(versionPill);
+            badgesRow.AddView(new View(this) { LayoutParameters = new LinearLayout.LayoutParams(Dp(6), 0) });
+        }
+
+        if (!string.IsNullOrWhiteSpace(entry.BuildChannel))
+        {
+            var channelPill = MakeText(entry.BuildChannel, 11, "#130A1B", TypefaceStyle.Bold);
+            channelPill.Gravity = GravityFlags.Center;
+            channelPill.SetPadding(Dp(8), Dp(3), Dp(8), Dp(3));
+            var channelColor = entry.BuildChannel.StartsWith("beta", StringComparison.OrdinalIgnoreCase)
+                ? "#Ffe77400" : entry.BuildChannel.Equals("test", StringComparison.OrdinalIgnoreCase)
+                ? "#Ffcc4444" : "#B37DF9FF";
+            channelPill.Background = Rounded(channelColor, "#D97DF9FF", 999, 1);
+            badgesRow.AddView(channelPill);
+        }
+
+        card.AddView(badgesRow);
+
+        var firstSeen = MakeText($"First seen: {entry.FirstSeenAt.ToLocalTime():g}", 12, "#CDBEEE", TypefaceStyle.Normal);
+        card.AddView(firstSeen);
+
+        var lastSeen = MakeText($"Last seen: {entry.LastSeenAt.ToLocalTime():g}", 12, "#CDBEEE", TypefaceStyle.Normal);
+        card.AddView(lastSeen);
+
+        card.Click += (_, _) => OpenTwitchStream(entry.TwitchUrl);
+
+        return card;
+    }
+
+    private void BuildSettingsTab()
+    {
+        var container = new ScrollView(this)
+        {
+            FillViewport = true,
+            VerticalScrollBarEnabled = false
+        };
+        var inner = new LinearLayout(this)
+        {
+            Orientation = Orientation.Vertical
+        };
+        container.AddView(inner);
+        container.SetPadding(Dp(18), 0, Dp(18), 0);
+
+        // Poll interval card
+        var pollCard = MakeCard();
+        pollCard.Orientation = Orientation.Vertical;
+        inner.AddView(pollCard, MatchWrap(0, 0, 0, Dp(14)));
+
+        pollCard.AddView(MakeText("Poll interval & alerts", 12, "#CDBEEE", TypefaceStyle.Bold));
+
+        pollIntervalGroup = new RadioGroup(this);
+        pollIntervalGroup.SetPadding(0, Dp(4), 0, 0);
+
+        var currentInterval = LiveSettings.GetPollInterval(this);
+
+        var pollNormalRadio = new RadioButton(this)
+        {
+            Text = "Normal (~15 min)",
+            TextSize = 14,
+            Checked = currentInterval == LiveWatchConstants.PollIntervalNormal
+        };
+        pollNormalRadio.SetTextColor(Color.ParseColor("#F8F4FF"));
+        pollNormalRadio.Id = 1;
+        pollIntervalGroup.AddView(pollNormalRadio);
+
+        var pollFastRadio = new RadioButton(this)
+        {
+            Text = "Fast (~30 sec, while app is open)",
+            TextSize = 14,
+            Checked = currentInterval == LiveWatchConstants.PollIntervalFast
+        };
+        pollFastRadio.SetTextColor(Color.ParseColor("#F8F4FF"));
+        pollFastRadio.Id = 2;
+        pollIntervalGroup.AddView(pollFastRadio);
+
+        pollIntervalGroup.CheckedChange += (_, args) =>
+        {
+            var interval = args.CheckedId == 2
+                ? LiveWatchConstants.PollIntervalFast
+                : LiveWatchConstants.PollIntervalNormal;
+            LiveSettings.SavePollInterval(this, interval);
+            LiveAlarmScheduler.Schedule(this);
+        };
+
+        pollCard.AddView(pollIntervalGroup);
+
+        var cadence = MakeText(
+            $"Background checks are roughly every {LiveWatchConstants.CheckIntervalMinutes} minutes. " +
+            "Android may delay them in battery saver or deep sleep.",
+            12, "#CDBEEE", TypefaceStyle.Normal);
+        cadence.SetPadding(0, Dp(8), 0, 0);
+        pollCard.AddView(cadence);
+
+        // Alerts toggle (below background checks text)
         alertsSwitch = new Switch(this)
         {
             Text = "Phone live alerts",
             TextSize = 15,
-            ShowText = false
+            ShowText = false,
+            Checked = LiveSettings.GetNotificationsEnabled(this)
         };
         alertsSwitch.SetTextColor(Color.ParseColor("#F8F4FF"));
-        alertsSwitch.SetPadding(0, Dp(12), 0, 0);
+        alertsSwitch.SetPadding(0, Dp(8), 0, 0);
         alertsSwitch.CheckedChange += (_, args) =>
         {
-            if (isLoadingSettings)
-            {
-                return;
-            }
-
             LiveSettings.SaveNotificationsEnabled(this, args.IsChecked);
             if (args.IsChecked)
             {
                 RequestNotificationPermissionIfNeeded();
                 LiveAlarmScheduler.Schedule(this);
-                statusText!.Text = "Phone alerts are on. Android will check in the background when allowed.";
             }
             else
             {
                 LiveAlarmScheduler.Cancel(this);
-                statusText!.Text = "Phone alerts are off. Manual refresh still works.";
             }
         };
-        endpointCard.AddView(alertsSwitch);
+        pollCard.AddView(alertsSwitch);
 
-        var cadence = MakeText("Background checks are roughly every 15 minutes. Android may delay them in battery saver or deep sleep.", 12, "#CDBEEE", TypefaceStyle.Normal);
-        cadence.SetPadding(0, Dp(8), 0, 0);
-        endpointCard.AddView(cadence);
+        // Stats card
+        var statsCard = MakeCard();
+        statsCard.Orientation = Orientation.Vertical;
+        inner.AddView(statsCard, MatchWrap(0, 0, 0, Dp(14)));
 
+        statsCard.AddView(MakeText("Session stats", 12, "#CDBEEE", TypefaceStyle.Bold));
+
+        statsStartedText = MakeText($"Started: {statsTracker.SessionStartedAt.ToLocalTime():g}", 14, "#F8F4FF", TypefaceStyle.Normal);
+        statsStartedText.SetPadding(0, Dp(8), 0, 0);
+        statsCard.AddView(statsStartedText);
+
+        statsDurationText = MakeText("", 14, "#F8F4FF", TypefaceStyle.Normal);
+        statsCard.AddView(statsDurationText);
+
+        statsPeakText = MakeText($"Peak live: {statsTracker.PeakLive}", 14, "#F8F4FF", TypefaceStyle.Normal);
+        statsCard.AddView(statsPeakText);
+
+        statsUniqueText = MakeText($"Unique streamers seen: {statsTracker.UniqueStreamersSeen}", 14, "#F8F4FF", TypefaceStyle.Normal);
+        statsCard.AddView(statsUniqueText);
+
+        statsAlertsText = MakeText($"Alerts triggered: {statsTracker.AlertsTriggered}", 14, "#F8F4FF", TypefaceStyle.Normal);
+        statsCard.AddView(statsAlertsText);
+
+        // Status card
         var statusCard = MakeCard();
         statusCard.Orientation = Orientation.Vertical;
-        root.AddView(statusCard, MatchWrap(0, 0, 0, Dp(14)));
+        inner.AddView(statusCard, MatchWrap(0, 0, 0, Dp(14)));
 
-        statusText = MakeText("Loading live users...", 16, "#E6F9FF", TypefaceStyle.Bold);
+        statusText = MakeText("Ready.", 16, "#E6F9FF", TypefaceStyle.Bold);
         statusCard.AddView(statusText);
 
         lastUpdatedText = MakeText("Not refreshed yet.", 12, "#CDBEEE", TypefaceStyle.Normal);
         lastUpdatedText.SetPadding(0, Dp(6), 0, 0);
         statusCard.AddView(lastUpdatedText);
 
-        usersPanel = new LinearLayout(this)
-        {
-            Orientation = Orientation.Vertical
-        };
-        root.AddView(usersPanel);
-
-        SetContentView(rootScroll);
+        tabContentContainer!.AddView(container);
+        StartStatsTimer();
     }
 
-    private void LoadSettingsIntoUi()
+    private void StartStatsTimer()
     {
-        isLoadingSettings = true;
-        try
+        var timer = new Java.Util.Timer();
+        timer.ScheduleAtFixedRate(new StatsUpdateTask(this), 0, 10000);
+    }
+
+    private void UpdateStatsDisplay()
+    {
+        if (statsDurationText is not null)
         {
-            endpointInput!.Text = LiveSettings.GetEndpoint(this);
-            alertsSwitch!.Checked = LiveSettings.GetNotificationsEnabled(this);
+            statsDurationText.Text = $"Duration: {(int)statsTracker.SessionDuration.TotalHours}h {statsTracker.SessionDuration.Minutes}m";
         }
-        finally
+
+        if (statsPeakText is not null)
         {
-            isLoadingSettings = false;
+            statsPeakText.Text = $"Peak live: {statsTracker.PeakLive}";
+        }
+
+        if (statsUniqueText is not null)
+        {
+            statsUniqueText.Text = $"Unique streamers seen: {statsTracker.UniqueStreamersSeen}";
+        }
+
+        if (statsAlertsText is not null)
+        {
+            statsAlertsText.Text = $"Alerts triggered: {statsTracker.AlertsTriggered}";
         }
     }
 
-    private void SaveEndpoint()
+    private void StartFastPoll()
     {
-        HideKeyboard();
+        StopFastPoll();
+        fastPollTimer = new Java.Util.Timer();
+        fastPollTimer.ScheduleAtFixedRate(new FastPollTask(this), 0, LiveWatchConstants.FastPollIntervalMillis);
 
-        var endpoint = endpointInput?.Text?.Trim() ?? string.Empty;
-        if (LiveEndpointTools.BuildLiveApiUri(endpoint) is null)
+        if (LiveSettings.GetNotificationsEnabled(this))
         {
-            statusText!.Text = "That endpoint does not look valid.";
-            return;
+            LiveAlarmScheduler.Schedule(this);
         }
+    }
 
-        LiveSettings.SaveEndpoint(this, endpoint);
-        LiveSettings.ResetSnapshot(this);
-        LiveAlarmScheduler.Schedule(this);
-        statusText!.Text = "Endpoint saved. The next refresh will become the new baseline.";
-        _ = RefreshLiveListAsync(false);
+    private void StopFastPoll()
+    {
+        fastPollTimer?.Cancel();
+        fastPollTimer?.Dispose();
+        fastPollTimer = null;
     }
 
     private async Task RefreshLiveListAsync(bool notifyOnNewLive)
     {
-        if (refreshButton is null || statusText is null || lastUpdatedText is null || usersPanel is null)
-        {
-            return;
-        }
+        if (refreshButton is not null)
+            refreshButton.Enabled = false;
+        if (statusText is not null)
+            statusText.Text = "Refreshing live list...";
+        if (liveStatusText is not null)
+            liveStatusText.Text = "Refreshing live list...";
 
-        refreshButton.Enabled = false;
-        statusText.Text = "Refreshing live list...";
         try
         {
-            var result = await LiveMonitorClient.CheckAsync(this, notifyOnNewLive);
-            statusText.Text = result.StatusText;
-            lastUpdatedText.Text = result.LastUpdatedText;
-            RenderUsers(result.Users);
+            var result = await LiveMonitorClient.CheckAsync(this, notifyOnNewLive, statsTracker);
+            cachedLiveUsers = result.Users.ToList();
+
+            if (statusText is not null)
+                statusText.Text = result.StatusText;
+            if (lastUpdatedText is not null)
+                lastUpdatedText.Text = result.LastUpdatedText;
+            if (liveStatusText is not null)
+                liveStatusText.Text = result.StatusText;
+            if (liveLastUpdatedText is not null)
+                liveLastUpdatedText.Text = result.LastUpdatedText;
+
+            RenderCachedLiveUsers();
         }
         catch (Exception ex)
         {
-            statusText.Text = $"Could not refresh: {ex.Message}";
-            lastUpdatedText.Text = $"Last attempt: {DateTimeOffset.Now:g}";
+            var errorText = $"Could not refresh: {ex.Message}";
+            var attemptText = $"Last attempt: {DateTimeOffset.Now:g}";
+
+            if (statusText is not null)
+                statusText.Text = errorText;
+            if (lastUpdatedText is not null)
+                lastUpdatedText.Text = attemptText;
+            if (liveStatusText is not null)
+                liveStatusText.Text = errorText;
+            if (liveLastUpdatedText is not null)
+                liveLastUpdatedText.Text = attemptText;
         }
         finally
         {
-            refreshButton.Enabled = true;
+            if (refreshButton is not null)
+                refreshButton.Enabled = true;
         }
     }
 
-    private void RenderUsers(IReadOnlyList<LiveUserInfo> users)
+    private void RenderCachedLiveUsers()
     {
-        usersPanel!.RemoveAllViews();
-
-        if (users.Count == 0)
+        if (liveUsersPanel is null)
         {
-            var empty = MakeCard();
-            empty.SetGravity(GravityFlags.Center);
-            empty.SetMinimumHeight(Dp(170));
-            empty.AddView(MakeText("No Crystal Relay users are live right now", 17, "#F8F4FF", TypefaceStyle.Bold));
-            usersPanel.AddView(empty, MatchWrap());
             return;
         }
 
-        foreach (var user in users)
+        RefreshLiveUserCards();
+    }
+
+    private void RefreshLiveUserCards()
+    {
+        if (liveUsersPanel is null || searchInput is null)
         {
-            var card = MakeCard();
-            card.Orientation = Orientation.Vertical;
-            usersPanel.AddView(card, MatchWrap(0, 0, 0, Dp(12)));
+            return;
+        }
 
-            var row = new LinearLayout(this)
+        var searchText = searchInput.Text?.Trim() ?? string.Empty;
+        var favoritesOnly = favoritesFilterSwitch?.Checked ?? false;
+        var showDisliked = showDislikedSwitch?.Checked ?? false;
+        var favorites = LiveFavoritesStore.GetFavorites(this);
+        var disliked = LiveDislikedStore.GetDisliked(this);
+
+        var filtered = cachedLiveUsers
+            .Where(u => string.IsNullOrWhiteSpace(searchText)
+                || u.DisplayName.Contains(searchText, StringComparison.OrdinalIgnoreCase))
+            .Where(u => !favoritesOnly || favorites.Contains(CreateLiveUserKey(u)))
+            .Where(u => showDisliked || !disliked.Contains(CreateLiveUserKey(u)))
+            .ToList();
+
+        liveUsersPanel.RemoveAllViews();
+
+        if (filtered.Count == 0)
+        {
+            var empty = MakeCard();
+            empty.SetGravity(GravityFlags.Center);
+            empty.SetMinimumHeight(Dp(120));
+            var message = favoritesOnly
+                ? "No favorites live right now"
+                : "No live users right now";
+            empty.AddView(MakeText(message, 17, "#F8F4FF", TypefaceStyle.Bold));
+            liveUsersPanel.AddView(empty, MatchWrap());
+            return;
+        }
+
+        foreach (var user in filtered)
+        {
+            var isFav = favorites.Contains(CreateLiveUserKey(user));
+            var isDis = disliked.Contains(CreateLiveUserKey(user));
+            var card = BuildUserCard(user, isFav, isDis);
+            liveUsersPanel.AddView(card, MatchWrap(0, 0, 0, Dp(12)));
+        }
+    }
+
+    private string CreateLiveUserKey(LiveUserInfo user)
+    {
+        return !string.IsNullOrWhiteSpace(user.TwitchUrl)
+            ? user.TwitchUrl.Trim()
+            : user.DisplayName.Trim();
+    }
+
+    private LinearLayout BuildUserCard(LiveUserInfo user, bool isFavorite, bool isDisliked)
+    {
+        var card = MakeCard();
+        card.Orientation = Orientation.Vertical;
+
+        var isDis = isDisliked;
+        var textColor = isDis ? "#7D6B84" : "#F8F4FF";
+        var detailColor = isDis ? "#5D4B64" : "#CDBEEE";
+
+        var topRow = new LinearLayout(this)
+        {
+            Orientation = Orientation.Horizontal
+        };
+        topRow.SetGravity(GravityFlags.CenterVertical);
+        card.AddView(topRow);
+
+        var starText = isFavorite ? "\u2605" : "\u2606";
+        var starColor = isFavorite ? "#FFD700" : "#CDBEEE";
+        var star = MakeText(starText, 22, starColor, TypefaceStyle.Normal);
+        star.SetPadding(0, 0, Dp(8), 0);
+        star.Click += (_, _) =>
+        {
+            var key = CreateLiveUserKey(user);
+            LiveFavoritesStore.Toggle(this, key);
+            RefreshLiveUserCards();
+        };
+        topRow.AddView(star);
+
+        // Dislike button (always visible)
+        var dislikeIcon = MakeText(isDis ? "\u2298" : "\u2299", 18, isDis ? "#FF4444" : "#5D4B64", TypefaceStyle.Normal);
+        dislikeIcon.SetPadding(0, 0, Dp(8), 0);
+        dislikeIcon.Click += (_, _) =>
+        {
+            var key = CreateLiveUserKey(user);
+            LiveDislikedStore.Toggle(this, key);
+            RefreshLiveUserCards();
+        };
+        topRow.AddView(dislikeIcon);
+
+        var name = MakeText(user.DisplayName, 20, textColor, TypefaceStyle.Bold);
+        topRow.AddView(name, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WrapContent, 1f));
+
+        var livePill = MakeText("LIVE", 11, "#130A1B", TypefaceStyle.Bold);
+        livePill.Gravity = GravityFlags.Center;
+        livePill.SetPadding(Dp(10), Dp(4), Dp(10), Dp(4));
+        livePill.Background = Rounded("#B8FF78D8", "#D97DF9FF", 999, 1);
+        topRow.AddView(livePill);
+
+        var badgesRow = new LinearLayout(this)
+        {
+            Orientation = Orientation.Horizontal
+        };
+        badgesRow.SetPadding(0, Dp(8), 0, Dp(6));
+
+        if (!string.IsNullOrWhiteSpace(user.RelayVersion))
+        {
+            var versionPill = MakeText(user.RelayVersion, 11, "#F8F4FF", TypefaceStyle.Bold);
+            versionPill.Gravity = GravityFlags.Center;
+            versionPill.SetPadding(Dp(8), Dp(3), Dp(8), Dp(3));
+            versionPill.Background = Rounded("#33243344", "#6643693A", 999, 1);
+            badgesRow.AddView(versionPill);
+            badgesRow.AddView(new View(this) { LayoutParameters = new LinearLayout.LayoutParams(Dp(6), 0) });
+        }
+
+        if (!string.IsNullOrWhiteSpace(user.BuildChannel))
+        {
+            var channelPill = MakeText(user.BuildChannel, 11, "#130A1B", TypefaceStyle.Bold);
+            channelPill.Gravity = GravityFlags.Center;
+            channelPill.SetPadding(Dp(8), Dp(3), Dp(8), Dp(3));
+            var channelColor = user.BuildChannel.StartsWith("beta", StringComparison.OrdinalIgnoreCase)
+                ? "#Ffe77400" : user.BuildChannel.Equals("test", StringComparison.OrdinalIgnoreCase)
+                ? "#Ffcc4444" : "#B37DF9FF";
+            channelPill.Background = Rounded(channelColor, "#D97DF9FF", 999, 1);
+            badgesRow.AddView(channelPill);
+        }
+
+        card.AddView(badgesRow);
+
+        var url = MakeText(user.TwitchUrl, 13, detailColor, TypefaceStyle.Bold);
+        url.SetPadding(0, Dp(4), 0, Dp(4));
+        card.AddView(url);
+
+        if (user.LastPingAt is { } lastPing)
+        {
+            var detailText = MakeText($"Last heartbeat {lastPing.ToLocalTime():g}", 12, detailColor, TypefaceStyle.Normal);
+            card.AddView(detailText);
+        }
+
+        card.Click += (_, _) => OpenTwitchStream(user.TwitchUrl);
+
+        return card;
+    }
+
+    private void OpenTwitchStream(string twitchUrl)
+    {
+        try
+        {
+            var channel = twitchUrl.TrimEnd('/');
+            var lastSlash = channel.LastIndexOf('/');
+            if (lastSlash >= 0)
             {
-                Orientation = Orientation.Horizontal
-            };
-            row.SetGravity(GravityFlags.CenterVertical);
-            card.AddView(row);
+                channel = channel[(lastSlash + 1)..];
+            }
 
-            var name = MakeText(user.DisplayName, 20, "#F8F4FF", TypefaceStyle.Bold);
-            row.AddView(name, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WrapContent, 1f));
-
-            var livePill = MakeText("LIVE", 11, "#130A1B", TypefaceStyle.Bold);
-            livePill.Gravity = GravityFlags.Center;
-            livePill.SetPadding(Dp(10), Dp(4), Dp(10), Dp(4));
-            livePill.Background = Rounded("#B8FF78D8", "#D97DF9FF", 999, 1);
-            row.AddView(livePill);
-
-            var url = MakeText(user.TwitchUrl, 13, "#7DF9FF", TypefaceStyle.Bold);
-            url.SetPadding(0, Dp(10), 0, Dp(8));
-            card.AddView(url);
-
-            var details = MakeText(user.DetailText, 13, "#CDBEEE", TypefaceStyle.Normal);
-            card.AddView(details);
+            var twitchIntent = new Intent(Intent.ActionView,
+                Android.Net.Uri.Parse($"twitch://stream/{channel}"));
+            StartActivity(twitchIntent);
+        }
+        catch
+        {
+            var browserIntent = new Intent(Intent.ActionView,
+                Android.Net.Uri.Parse(twitchUrl));
+            StartActivity(browserIntent);
         }
     }
 
@@ -293,7 +789,7 @@ public sealed class MainActivity : Activity
     private void HideKeyboard()
     {
         var manager = (InputMethodManager?)GetSystemService(InputMethodService);
-        manager?.HideSoftInputFromWindow(endpointInput?.WindowToken, HideSoftInputFlags.None);
+        manager?.HideSoftInputFromWindow(CurrentFocus?.WindowToken, HideSoftInputFlags.None);
     }
 
     private LinearLayout MakeCard()
@@ -413,6 +909,32 @@ public sealed class MainActivity : Activity
             }
 
             return insets;
+        }
+    }
+
+    private sealed class StatsUpdateTask(MainActivity activity) : Java.Util.TimerTask
+    {
+        public override void Run()
+        {
+            activity.RunOnUiThread(() => activity.UpdateStatsDisplay());
+        }
+    }
+
+    private sealed class FastPollTask(MainActivity activity) : Java.Util.TimerTask
+    {
+        public override void Run()
+        {
+            activity.RunOnUiThread(async () =>
+            {
+                try
+                {
+                    await activity.RefreshLiveListAsync(false);
+                }
+                catch
+                {
+                    // Fast poll failures are silent
+                }
+            });
         }
     }
 }

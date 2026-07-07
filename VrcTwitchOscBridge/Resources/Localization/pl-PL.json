@@ -681,7 +681,7 @@
   "Master Wardrobe Reward": "Główna nagroda Wardrobe",
   "Reward Title": "Tytuł nagrody",
   "Refresh Parameters": "Odśwież parametry",
-  "{0} ({1} param{2})": "{0} ({1} param{2})",
+  "{0} ({1} param{2})": "{0} ({1} param.{2})",
   "Avatar-Tied Redeems": "Nagrody przypisane do avatara",
   "These two share the same avatar profile list.": "Te dwa dzielą tę samą listę profili avatarów.",
   "Avatar Actions": "Akcje avatara",

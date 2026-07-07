@@ -17768,7 +17768,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
                 : Settings.Broadcaster.DisplayName,
             Settings.Broadcaster.Login,
             runtimeConfig.LiveFeedbackHeartbeatEndpoint,
-            AppVersion,
+            GetAppUpdateVersion(),
             BuildChannel);
     }
 
@@ -21242,7 +21242,18 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             return "test";
         }
 
-        return string.IsNullOrWhiteSpace(BetaBuildLabel) ? "stable" : "beta";
+        if (string.IsNullOrWhiteSpace(BetaBuildLabel))
+        {
+            return "stable";
+        }
+
+        var compactLabel = new string(BetaBuildLabel
+            .Trim()
+            .ToLowerInvariant()
+            .Where(char.IsLetterOrDigit)
+            .ToArray());
+
+        return compactLabel;
     }
 
     private enum SectionView
