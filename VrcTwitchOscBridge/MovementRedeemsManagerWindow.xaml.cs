@@ -86,6 +86,15 @@ public sealed partial class MovementRedeemsManagerWindow : Window
         }
     }
 
+    private void OnDataGridRowDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (DataContext is MovementRedeemsManagerViewModel vm
+            && (e.OriginalSource as FrameworkElement)?.DataContext is MovementRedeemCardViewModel card)
+        {
+            vm.OpenEditorCommand.Execute(card);
+        }
+    }
+
     private sealed class NativeWin32Window(IntPtr handle) : System.Windows.Forms.IWin32Window
     {
         public IntPtr Handle { get; } = handle;
