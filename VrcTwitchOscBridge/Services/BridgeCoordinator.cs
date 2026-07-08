@@ -17827,8 +17827,8 @@ internal BridgeCoordinator(
 
     private static bool ShouldBlockChatboxRelayMessage(BridgeChatMessage chatMessage)
     {
-        return ChatboxRelayModerationFilter.ContainsBlockedRacialContent(chatMessage.UserDisplayName)
-            || ChatboxRelayModerationFilter.ContainsBlockedRacialContent(chatMessage.MessageText);
+        return ChatboxRelayModerationFilter.ShouldBlockMessage(chatMessage.UserDisplayName)
+            || ChatboxRelayModerationFilter.ShouldBlockMessage(chatMessage.MessageText);
     }
 
     private void LogBlockedChatboxRelayMessage()
