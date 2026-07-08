@@ -78,9 +78,7 @@ public static class ChatboxRelayModerationFilter
 
     private static IEnumerable<Regex> BuildBlockedPatterns()
     {
-        var allTerms = BlockedSlurTerms.Concat(BlockedHarassmentPhrases);
-
-        foreach (var term in allTerms)
+        foreach (var term in BlockedSlurTerms)
         {
             var compactTerm = CollapseToLetters(term);
             if (string.IsNullOrWhiteSpace(compactTerm))
@@ -93,6 +91,23 @@ public static class ChatboxRelayModerationFilter
                 .ToArray();
             var separatorPattern = @"[^a-z]*";
             var pattern = $"(?<![a-z]){string.Join(separatorPattern, pieces)}s?(?![a-z])";
+            yield return new Regex(pattern,
+                RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+        }
+
+        foreach (var term in BlockedHarassmentPhrases)
+        {
+            var compactTerm = CollapseToLetters(term);
+            if (string.IsNullOrWhiteSpace(compactTerm))
+            {
+                continue;
+            }
+
+            var pieces = compactTerm
+                .Select(character => Regex.Escape(character.ToString()))
+                .ToArray();
+            var separatorPattern = @"[^a-z]*";
+            var pattern = $"(?<![a-z]){string.Join(separatorPattern, pieces)}(?![a-z])";
             yield return new Regex(pattern,
                 RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
         }

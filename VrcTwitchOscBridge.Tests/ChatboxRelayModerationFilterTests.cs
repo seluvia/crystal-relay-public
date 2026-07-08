@@ -164,4 +164,19 @@ public sealed class ChatboxRelayModerationFilterTests
         Assert.False(ChatboxRelayModerationFilter.ShouldBlockMessage(string.Empty));
         Assert.False(ChatboxRelayModerationFilter.ShouldBlockMessage("   "));
     }
+
+    [Fact]
+    public void PhraseTrailingS_NotBlocked()
+    {
+        // s? suffix is only applied to slur terms, not harassment phrases
+        Assert.False(ChatboxRelayModerationFilter.ShouldBlockMessage("ifoundyouraddresss"));
+        Assert.False(ChatboxRelayModerationFilter.ShouldBlockMessage("iknowwhereyoulives"));
+    }
+
+    [Fact]
+    public void DoxxingUnicodeNormalization_IsBlocked()
+    {
+        // Full-width digits should normalize via NFKD
+        Assert.True(ChatboxRelayModerationFilter.ShouldBlockMessage("My SSN is \uff11\uff12\uff13-\uff14\uff15-\uff16\uff17\uff18\uff19"));
+    }
 }
