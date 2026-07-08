@@ -17846,7 +17846,7 @@ internal BridgeCoordinator(
 
         if (shouldLog)
         {
-            WriteLog("Blocked a Twitch chat relay message because it matched the zero-tolerance racial-content filter.");
+            WriteLog("Blocked a Twitch chat relay message because it matched the zero-tolerance content filter.");
         }
     }
 
