@@ -472,7 +472,9 @@ public sealed record BridgeRuntimeConfiguration(
     IReadOnlyList<AvatarSwapProfileSnapshot> AvatarSwapProfiles,
     IReadOnlyList<AvatarRouletteProfileSnapshot> AvatarRouletteProfiles,
     string MasterAvatarSwapReturnId,
-    string MasterAvatarSwapReturnName)
+    string MasterAvatarSwapReturnName,
+    IReadOnlyList<string> CustomBlockedWords,
+    IReadOnlyList<string> SuppressedBlockedWords)
 {
     public static BridgeRuntimeConfiguration FromSettings(
         AppSettings settings,
@@ -741,7 +743,9 @@ public sealed record BridgeRuntimeConfiguration(
             avatarSwapProfiles.ToArray(),
             avatarRouletteProfiles.ToArray(),
             settings.MasterAvatarSwapReturnId?.Trim() ?? string.Empty,
-            settings.MasterAvatarSwapReturnName?.Trim() ?? string.Empty);
+            settings.MasterAvatarSwapReturnName?.Trim() ?? string.Empty,
+            settings.CustomBlockedWords?.ToList() as IReadOnlyList<string> ?? [],
+            settings.SuppressedBlockedWords?.ToList() as IReadOnlyList<string> ?? []);
     }
 
     public AvatarSwapProfileSnapshot? FindAvatarSwapProfileForRule(TriggerRule rule)

@@ -654,6 +654,9 @@ internal BridgeCoordinator(
 
         var wasPaused = activeConfiguration?.EmergencyRedeemStopEnabled == true;
         SetActiveConfiguration(configuration);
+        ChatboxRelayModerationFilter.SetUserBlockList(
+            configuration.CustomBlockedWords ?? [],
+            configuration.SuppressedBlockedWords ?? []);
         RefreshSupporterOverrideBlockedRuleIds(configuration.Rules);
         broadcaster = configuration.Broadcaster;
         bot = configuration.Bot;
