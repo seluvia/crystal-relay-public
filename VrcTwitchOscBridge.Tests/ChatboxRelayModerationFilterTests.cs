@@ -3,6 +3,7 @@ using Xunit;
 
 namespace VrcTwitchOscBridge.Tests;
 
+[Collection("ChatboxModerationFilter")]
 public sealed class ChatboxRelayModerationFilterTests
 {
     // ── Existing racial slurs still blocked ──────────────────────────
@@ -178,5 +179,40 @@ public sealed class ChatboxRelayModerationFilterTests
     {
         // Full-width digits should normalize via NFKD
         Assert.True(ChatboxRelayModerationFilter.ShouldBlockMessage("My SSN is \uff11\uff12\uff13-\uff14\uff15-\uff16\uff17\uff18\uff19"));
+    }
+
+    [Fact]
+    public void CustomWord_IsBlocked()
+    {
+        ChatboxRelayModerationFilter.SetUserBlockList(["customslur"], []);
+        Assert.True(ChatboxRelayModerationFilter.ShouldBlockMessage("customslur"));
+        Assert.True(ChatboxRelayModerationFilter.ShouldBlockMessage("custom slur"));
+        ChatboxRelayModerationFilter.SetUserBlockList([], []);
+    }
+
+    [Fact]
+    public void SuppressedHardcodedWord_IsNotBlocked()
+    {
+        ChatboxRelayModerationFilter.SetUserBlockList([], ["nigger"]);
+        Assert.False(ChatboxRelayModerationFilter.ShouldBlockMessage("nigger"));
+        Assert.True(ChatboxRelayModerationFilter.ShouldBlockMessage("chink"));
+        ChatboxRelayModerationFilter.SetUserBlockList([], []);
+    }
+
+    [Fact]
+    public void AddedAndThenSuppressed_IsNotBlocked()
+    {
+        ChatboxRelayModerationFilter.SetUserBlockList(["customslur"], ["customslur"]);
+        Assert.False(ChatboxRelayModerationFilter.ShouldBlockMessage("customslur"));
+        ChatboxRelayModerationFilter.SetUserBlockList([], []);
+    }
+
+    [Fact]
+    public void ExistingSlursStillBlockedAfterReset()
+    {
+        ChatboxRelayModerationFilter.SetUserBlockList([], []);
+        Assert.True(ChatboxRelayModerationFilter.ShouldBlockMessage("faggot"));
+        Assert.True(ChatboxRelayModerationFilter.ShouldBlockMessage("dyke"));
+        Assert.True(ChatboxRelayModerationFilter.ShouldBlockMessage("chink"));
     }
 }

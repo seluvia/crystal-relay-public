@@ -11,7 +11,7 @@ public static class ChatboxRelayModerationFilter
     // self-harm encouragement, harassment/doxxing patterns, and common
     // bypass styles around them.
 
-    private static readonly string[] BlockedSlurTerms =
+    public static readonly string[] BlockedSlurTerms =
     [
         // Racial (24)
         "nigger", "nigga", "coon", "jigaboo", "porchmonkey", "spearchucker",
@@ -35,7 +35,7 @@ public static class ChatboxRelayModerationFilter
         "iknowyourrealname", "ifoundyourrealname"
     ];
 
-    private static readonly Regex[] BlockedPatterns = [.. BuildBlockedPatterns()];
+    private static volatile Regex[] blockedPatterns = [.. BuildBlockedPatterns()];
 
     private static readonly Regex[] DoxxingPatterns =
     [
@@ -52,6 +52,23 @@ public static class ChatboxRelayModerationFilter
             RegexOptions.Compiled | RegexOptions.CultureInvariant)
     ];
 
+    public static void SetUserBlockList(
+        IEnumerable<string> customWords,
+        IEnumerable<string> suppressedWords)
+    {
+        var suppressed = suppressedWords is not null
+            ? new HashSet<string>(suppressedWords, StringComparer.OrdinalIgnoreCase)
+            : [];
+
+        var effectiveSlurTerms = BlockedSlurTerms
+            .Concat(customWords ?? [])
+            .Where(w => !string.IsNullOrWhiteSpace(w) && !suppressed.Contains(w))
+            .ToArray();
+
+        var allTerms = effectiveSlurTerms.Concat(BlockedHarassmentPhrases);
+        blockedPatterns = [.. BuildBlockedPatterns(allTerms)];
+    }
+
     public static bool ShouldBlockMessage(string? text)
     {
         if (string.IsNullOrWhiteSpace(text))
@@ -61,7 +78,7 @@ public static class ChatboxRelayModerationFilter
 
         var normalizedText = NormalizeForMatching(text);
         if (!string.IsNullOrWhiteSpace(normalizedText)
-            && BlockedPatterns.Any(pattern => pattern.IsMatch(normalizedText)))
+            && blockedPatterns.Any(pattern => pattern.IsMatch(normalizedText)))
         {
             return true;
         }
@@ -78,7 +95,12 @@ public static class ChatboxRelayModerationFilter
 
     private static IEnumerable<Regex> BuildBlockedPatterns()
     {
-        foreach (var term in BlockedSlurTerms)
+        return BuildBlockedPatterns(BlockedSlurTerms.Concat(BlockedHarassmentPhrases));
+    }
+
+    private static IEnumerable<Regex> BuildBlockedPatterns(IEnumerable<string> terms)
+    {
+        foreach (var term in terms)
         {
             var compactTerm = CollapseToLetters(term);
             if (string.IsNullOrWhiteSpace(compactTerm))
@@ -90,24 +112,9 @@ public static class ChatboxRelayModerationFilter
                 .Select(character => Regex.Escape(character.ToString()))
                 .ToArray();
             var separatorPattern = @"[^a-z]*";
-            var pattern = $"(?<![a-z]){string.Join(separatorPattern, pieces)}s?(?![a-z])";
-            yield return new Regex(pattern,
-                RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
-        }
-
-        foreach (var term in BlockedHarassmentPhrases)
-        {
-            var compactTerm = CollapseToLetters(term);
-            if (string.IsNullOrWhiteSpace(compactTerm))
-            {
-                continue;
-            }
-
-            var pieces = compactTerm
-                .Select(character => Regex.Escape(character.ToString()))
-                .ToArray();
-            var separatorPattern = @"[^a-z]*";
-            var pattern = $"(?<![a-z]){string.Join(separatorPattern, pieces)}(?![a-z])";
+            var isPhrase = BlockedHarassmentPhrases.Contains(term);
+            var suffix = isPhrase ? "" : "s?";
+            var pattern = $"(?<![a-z]){string.Join(separatorPattern, pieces)}{suffix}(?![a-z])";
             yield return new Regex(pattern,
                 RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
         }
