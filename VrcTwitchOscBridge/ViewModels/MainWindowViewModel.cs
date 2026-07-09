@@ -3313,6 +3313,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         var previousSessionNeedsRecovery = ShutdownRecoveryStateStore.BeginSession();
         previousSessionWasClean = !previousSessionNeedsRecovery;
         ReplaceSettings(await settingsStore.LoadAsync());
+        RefreshBlockedWordItems();
         LoadingService.ReportProgress("settings", PhaseStatus.Completed);
         LoadingService.ReportProgress("vrchat", PhaseStatus.Active);
         var savedLoginRecoveryResult = SavedLoginStateRecoveryService.TryConsumeRecoveryResult();
