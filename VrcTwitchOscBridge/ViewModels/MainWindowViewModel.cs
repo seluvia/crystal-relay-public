@@ -2875,7 +2875,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     public string NewBlockedWordText
     {
         get => newBlockedWordText;
-        set => SetProperty(ref newBlockedWordText, value);
+        set
+        {
+            if (SetProperty(ref newBlockedWordText, value))
+                AddBlockedWordCommand.NotifyCanExecuteChanged();
+        }
     }
 
     public TwitchChatMessageEntry? SelectedChatMessage
@@ -3650,6 +3654,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         }
 
         if (Settings.CustomBlockedWords.Contains(word))
+        {
+            NewBlockedWordText = string.Empty;
+            return;
+        }
+
+        if (ChatboxRelayModerationFilter.BlockedSlurTerms.Contains(word, StringComparer.OrdinalIgnoreCase))
         {
             NewBlockedWordText = string.Empty;
             return;

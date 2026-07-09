@@ -376,10 +376,12 @@ public sealed class SettingsStore
                 ? profile.ChatboxOscDelaySeconds.Value
                 : settings.ChatboxOscDelaySeconds;
             settings.ChatboxViewerSoundEnabled = profile.ChatboxViewerSoundEnabled ?? settings.ChatboxViewerSoundEnabled;
-            if (profile.CustomBlockedWords is { Count: > 0 })
-                settings.CustomBlockedWords = new ObservableCollection<string>(profile.CustomBlockedWords);
-            if (profile.SuppressedBlockedWords is { Count: > 0 })
-                settings.SuppressedBlockedWords = new ObservableCollection<string>(profile.SuppressedBlockedWords);
+            settings.CustomBlockedWords = profile.CustomBlockedWords is { Count: > 0 }
+                ? new ObservableCollection<string>(profile.CustomBlockedWords)
+                : [];
+            settings.SuppressedBlockedWords = profile.SuppressedBlockedWords is { Count: > 0 }
+                ? new ObservableCollection<string>(profile.SuppressedBlockedWords)
+                : [];
             settings.UseBroadcasterAsBotSender = profile.UseBroadcasterAsBotSender ?? settings.UseBroadcasterAsBotSender;
             settings.SupporterOverrideInfoMessageEnabled = profile.SupporterOverrideInfoMessageEnabled ?? settings.SupporterOverrideInfoMessageEnabled;
             settings.TriggerInfoAnnouncementsEnabled = profile.TriggerInfoAnnouncementsEnabled ?? settings.TriggerInfoAnnouncementsEnabled;
