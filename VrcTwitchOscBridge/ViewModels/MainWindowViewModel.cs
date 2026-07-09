@@ -472,6 +472,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     private string chatboxListenerStatus = "Connect broadcaster to start Twitch Chatbox.";
     private string chatboxModerationStatusText = "Select a chat card to moderate.";
     private bool isChatboxModerationDrawerOpen;
+    private bool blockedWordsSectionOpen;
+    private ObservableCollection<BlockedWordItem> blockedWordItems = [];
+    private string newBlockedWordText = string.Empty;
     private TwitchChatMessageEntry? selectedChatMessage;
     private string activityAttentionMessage = string.Empty;
     private SectionView activeSection;
@@ -892,6 +895,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         OpenTestModeWindowCommand = new RelayCommand(OpenTestModeWindow);
         OpenTwitchChatboxCommand = new RelayCommand(OpenTwitchChatbox);
         ToggleChatboxModerationDrawerCommand = new RelayCommand(ToggleChatboxModerationDrawer);
+        AddBlockedWordCommand = new RelayCommand(AddBlockedWord, () => !string.IsNullOrWhiteSpace(NewBlockedWordText));
+        RemoveBlockedWordCommand = new RelayCommand(p => RemoveBlockedWord(p as BlockedWordItem));
+        RestoreBlockedWordCommand = new RelayCommand(p => RestoreBlockedWord(p as BlockedWordItem));
         TimeoutSelectedChatUser10SecondsCommand = new AsyncRelayCommand(() => TimeoutSelectedChatUserAsync(10), CanTimeoutSelectedChatUser);
         TimeoutSelectedChatUser1MinuteCommand = new AsyncRelayCommand(() => TimeoutSelectedChatUserAsync(60), CanTimeoutSelectedChatUser);
         TimeoutSelectedChatUser5MinutesCommand = new AsyncRelayCommand(() => TimeoutSelectedChatUserAsync(300), CanTimeoutSelectedChatUser);
@@ -2854,6 +2860,24 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         ? T("Hide Activity + Mod")
         : T("Activity + Mod");
 
+    public bool BlockedWordsSectionOpen
+    {
+        get => blockedWordsSectionOpen;
+        set => SetProperty(ref blockedWordsSectionOpen, value);
+    }
+
+    public ObservableCollection<BlockedWordItem> BlockedWordItems
+    {
+        get => blockedWordItems;
+        set => SetProperty(ref blockedWordItems, value);
+    }
+
+    public string NewBlockedWordText
+    {
+        get => newBlockedWordText;
+        set => SetProperty(ref newBlockedWordText, value);
+    }
+
     public TwitchChatMessageEntry? SelectedChatMessage
     {
         get => selectedChatMessage;
@@ -3091,6 +3115,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     public RelayCommand OpenTwitchChatboxCommand { get; }
 
     public RelayCommand ToggleChatboxModerationDrawerCommand { get; }
+
+    public RelayCommand AddBlockedWordCommand { get; }
+
+    public RelayCommand RemoveBlockedWordCommand { get; }
+
+    public RelayCommand RestoreBlockedWordCommand { get; }
 
     public AsyncRelayCommand TimeoutSelectedChatUser10SecondsCommand { get; }
 
@@ -3602,6 +3632,89 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     private void ToggleChatboxModerationDrawer()
     {
         IsChatboxModerationDrawerOpen = !IsChatboxModerationDrawerOpen;
+    }
+
+    private void AddBlockedWord()
+    {
+        var word = NewBlockedWordText.Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(word) || word.Length < 2)
+            return;
+
+        if (Settings.SuppressedBlockedWords.Remove(word))
+        {
+            NewBlockedWordText = string.Empty;
+            RefreshBlockedWordItems();
+            SyncFilterWithUserList();
+            return;
+        }
+
+        if (Settings.CustomBlockedWords.Contains(word))
+        {
+            NewBlockedWordText = string.Empty;
+            return;
+        }
+
+        Settings.CustomBlockedWords.Add(word);
+        NewBlockedWordText = string.Empty;
+        RefreshBlockedWordItems();
+        SyncFilterWithUserList();
+    }
+
+    private void RemoveBlockedWord(BlockedWordItem? item)
+    {
+        if (item is null)
+            return;
+
+        if (item.IsCustom)
+        {
+            Settings.CustomBlockedWords.Remove(item.Word);
+        }
+        else
+        {
+            Settings.SuppressedBlockedWords.Add(item.Word);
+        }
+
+        RefreshBlockedWordItems();
+        SyncFilterWithUserList();
+    }
+
+    private void RestoreBlockedWord(BlockedWordItem? item)
+    {
+        if (item is null)
+            return;
+
+        Settings.SuppressedBlockedWords.Remove(item.Word);
+        RefreshBlockedWordItems();
+        SyncFilterWithUserList();
+    }
+
+    private void RefreshBlockedWordItems()
+    {
+        var items = new ObservableCollection<BlockedWordItem>();
+        var suppressed = new HashSet<string>(Settings.SuppressedBlockedWords, StringComparer.OrdinalIgnoreCase);
+        var custom = new HashSet<string>(Settings.CustomBlockedWords, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var word in ChatboxRelayModerationFilter.BlockedSlurTerms)
+        {
+            items.Add(new BlockedWordItem(word, IsCustom: false, IsSuppressed: suppressed.Contains(word)));
+        }
+
+        foreach (var word in Settings.CustomBlockedWords)
+        {
+            if (!string.IsNullOrWhiteSpace(word))
+            {
+                items.Add(new BlockedWordItem(word, IsCustom: true, IsSuppressed: false));
+            }
+        }
+
+        BlockedWordItems = items;
+    }
+
+    private void SyncFilterWithUserList()
+    {
+        ChatboxRelayModerationFilter.SetUserBlockList(
+            Settings.CustomBlockedWords,
+            Settings.SuppressedBlockedWords);
     }
 
     private void OpenTestModeWindow()
