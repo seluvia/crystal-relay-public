@@ -48,6 +48,8 @@ public sealed class AppSettings : ObservableObject
     private bool chatboxOscEnabled;
     private int chatboxOscDelaySeconds = 3;
     private bool chatboxViewerSoundEnabled;
+    private ObservableCollection<string> _customBlockedWords = [];
+    private ObservableCollection<string> _suppressedBlockedWords = [];
     private bool useBroadcasterAsBotSender;
     private bool supporterOverrideInfoMessageEnabled;
     private bool triggerInfoAnnouncementsEnabled;
@@ -396,6 +398,18 @@ public sealed class AppSettings : ObservableObject
     {
         get => chatboxViewerSoundEnabled;
         set => SetProperty(ref chatboxViewerSoundEnabled, value);
+    }
+
+    public ObservableCollection<string> CustomBlockedWords
+    {
+        get => _customBlockedWords;
+        set => SetProperty(ref _customBlockedWords, value);
+    }
+
+    public ObservableCollection<string> SuppressedBlockedWords
+    {
+        get => _suppressedBlockedWords;
+        set => SetProperty(ref _suppressedBlockedWords, value);
     }
 
     public bool UseBroadcasterAsBotSender

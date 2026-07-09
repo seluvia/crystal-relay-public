@@ -376,6 +376,10 @@ public sealed class SettingsStore
                 ? profile.ChatboxOscDelaySeconds.Value
                 : settings.ChatboxOscDelaySeconds;
             settings.ChatboxViewerSoundEnabled = profile.ChatboxViewerSoundEnabled ?? settings.ChatboxViewerSoundEnabled;
+            if (profile.CustomBlockedWords is { Count: > 0 })
+                settings.CustomBlockedWords = new ObservableCollection<string>(profile.CustomBlockedWords);
+            if (profile.SuppressedBlockedWords is { Count: > 0 })
+                settings.SuppressedBlockedWords = new ObservableCollection<string>(profile.SuppressedBlockedWords);
             settings.UseBroadcasterAsBotSender = profile.UseBroadcasterAsBotSender ?? settings.UseBroadcasterAsBotSender;
             settings.SupporterOverrideInfoMessageEnabled = profile.SupporterOverrideInfoMessageEnabled ?? settings.SupporterOverrideInfoMessageEnabled;
             settings.TriggerInfoAnnouncementsEnabled = profile.TriggerInfoAnnouncementsEnabled ?? settings.TriggerInfoAnnouncementsEnabled;
@@ -627,7 +631,9 @@ public sealed class SettingsStore
             MasterAvatarSwapReturnName = settings.MasterAvatarSwapReturnName,
             AvatarChangeToAvatarSwapMigrationVersion = settings.AvatarChangeToAvatarSwapMigrationVersion,
             AvatarSwapProfiles = [.. settings.AvatarSwapProfiles.Select(ToPersistedAvatarSwapProfile)],
-            AvatarRouletteProfiles = [.. settings.AvatarRouletteProfiles.Select(ToPersistedAvatarRouletteProfile)]
+            AvatarRouletteProfiles = [.. settings.AvatarRouletteProfiles.Select(ToPersistedAvatarRouletteProfile)],
+            CustomBlockedWords = settings.CustomBlockedWords?.ToList(),
+            SuppressedBlockedWords = settings.SuppressedBlockedWords?.ToList(),
         };
 
         await SaveTextFileAtomicallyAsync(
@@ -2885,6 +2891,10 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
         public List<PersistedAvatarSwapProfile>? AvatarSwapProfiles { get; set; }
 
         public List<PersistedAvatarRouletteProfile> AvatarRouletteProfiles { get; set; } = new();
+
+        public List<string>? CustomBlockedWords { get; set; }
+
+        public List<string>? SuppressedBlockedWords { get; set; }
     }
 
     private sealed class PersistedRedeemGroup
