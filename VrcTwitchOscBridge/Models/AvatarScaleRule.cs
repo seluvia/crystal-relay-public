@@ -527,7 +527,13 @@ public sealed class AvatarScaleRule : ObservableObject
     public int CooldownSeconds
     {
         get => cooldownSeconds;
-        set => SetProperty(ref cooldownSeconds, Math.Max(0, value));
+        set
+        {
+            if (SetProperty(ref cooldownSeconds, Math.Max(0, value)))
+            {
+                RaisePropertyChanged(nameof(TimingSummary));
+            }
+        }
     }
 
     public ObservableCollection<Guid> TemporarilyDisabledScaleRuleIds
@@ -642,6 +648,7 @@ public sealed class AvatarScaleRule : ObservableObject
             if (SetAndRaiseScale(ref activeTimeSeconds, Math.Max(0, value)))
             {
                 RaisePropertyChanged(nameof(HasActiveTime));
+                RaisePropertyChanged(nameof(TimingSummary));
             }
         }
     }
@@ -1006,6 +1013,25 @@ public sealed class AvatarScaleRule : ObservableObject
     }
 
     public bool HasActiveTime => ActiveTimeSeconds > 0;
+
+    public string TimingSummary
+    {
+        get
+        {
+            var activeSeconds = (int)Math.Ceiling(ActiveTimeSeconds);
+            if (CooldownSeconds <= 0)
+            {
+                return CooldownSeconds <= 0 && activeSeconds <= 0
+                    ? string.Empty
+                    : $"Active: {activeSeconds}s";
+            }
+
+            var total = activeSeconds + CooldownSeconds;
+            return CooldownSeconds > 0
+                ? $"Active: {activeSeconds}s → Cooldown: {CooldownSeconds}s → Ready: {total}s"
+                : $"Active: {activeSeconds}s";
+        }
+    }
 
     public bool UsesConfiguredRestoreHeight => HasActiveTime;
 
