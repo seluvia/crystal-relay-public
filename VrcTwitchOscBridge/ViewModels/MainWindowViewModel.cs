@@ -19725,6 +19725,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             HeightMultiplier = 1.25,
             Preset = AvatarScalePreset.Normal,
             ActiveTimeSeconds = 0,
+            CooldownSeconds = 30,
             RestoreMode = AvatarScaleRestoreMode.ConfiguredHeight,
             RestoreHeightMeters = 1.6,
             SetHeightTransitionSeconds = 0,
