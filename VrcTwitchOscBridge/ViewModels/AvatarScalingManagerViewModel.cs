@@ -158,16 +158,24 @@ public sealed class AvatarScalingManagerViewModel : ObservableObject, IDisposabl
     private static readonly GridLength ZeroGrid = new GridLength(0);
     private static readonly GridLength StarGrid = new GridLength(1, GridUnitType.Star);
     private static readonly GridLength SpacerGrid = new GridLength(12);
+    private static readonly GridLength EditorGrid = new GridLength(370);
 
     public GridLength ChannelPointColumnWidth => IsChannelPointViewActive ? StarGrid : ZeroGrid;
     public GridLength PaySystemSpacerWidth =>
         (IsChannelPointViewActive && IsPaySystemViewActive) ? SpacerGrid : ZeroGrid;
     public GridLength PaySystemColumnWidth => IsPaySystemViewActive ? StarGrid : ZeroGrid;
+    public GridLength EditorColumnWidth => IsEditorOpen ? EditorGrid : ZeroGrid;
 
     public bool IsEditorOpen
     {
         get => isEditorOpen;
-        private set => SetProperty(ref isEditorOpen, value);
+        private set
+        {
+            if (SetProperty(ref isEditorOpen, value))
+            {
+                RaisePropertyChanged(nameof(EditorColumnWidth));
+            }
+        }
     }
 
     public bool IsAdvancedSafetyOpen

@@ -810,7 +810,7 @@
                     <ColumnDefinition Width="190" />
                     <ColumnDefinition Width="*" MinWidth="280" />
                     <ColumnDefinition Width="5" />
-                    <ColumnDefinition Width="370" MinWidth="300" MaxWidth="600" />
+                    <ColumnDefinition Width="{Binding EditorColumnWidth}" MinWidth="0" />
                 </Grid.ColumnDefinitions>
 
                 <Border Grid.Column="0"
@@ -856,7 +856,8 @@
                               Background="Transparent"
                               ResizeBehavior="PreviousAndNext"
                               ShowsPreview="True"
-                              ResizeDirection="Columns" />
+                              ResizeDirection="Columns"
+                              Visibility="{Binding IsEditorOpen, Converter={StaticResource BoolToVisibilityConverter}}" />
 
                 <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
                     <StackPanel>
