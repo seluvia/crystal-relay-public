@@ -874,8 +874,16 @@
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0">
                                         <TextBlock Text="{loc:Translate 'Global Safety Rule'}" FontWeight="Bold" FontSize="14" />
-                                        <TextBlock Margin="0,4,0,0" Text="{loc:Translate 'Current Max Height Allowed'}" Foreground="{DynamicResource TitleBarSubTextBrush}" />
-                                        <TextBlock Text="{Binding CurrentMaxHeightAllowedText}" FontWeight="Bold" FontSize="24" />
+                                        <UniformGrid Columns="2" Margin="0,6,0,0">
+                                            <StackPanel Margin="0,0,12,0">
+                                                <TextBlock Text="{loc:Translate 'Current Min Height Allowed'}" Foreground="{DynamicResource TitleBarSubTextBrush}" />
+                                                <TextBlock Text="{Binding CurrentMinHeightAllowedText}" FontWeight="Bold" FontSize="20" />
+                                            </StackPanel>
+                                            <StackPanel>
+                                                <TextBlock Text="{loc:Translate 'Current Max Height Allowed'}" Foreground="{DynamicResource TitleBarSubTextBrush}" />
+                                                <TextBlock Text="{Binding CurrentMaxHeightAllowedText}" FontWeight="Bold" FontSize="20" />
+                                            </StackPanel>
+                                        </UniformGrid>
                                     </StackPanel>
                                     <Button Grid.Column="1"
                                             Content="{loc:Translate 'Open Advanced Safety'}"

@@ -22,6 +22,7 @@ public sealed class AvatarScaleSafetySettings : ObservableObject
                 }
 
                 RaisePropertyChanged(nameof(CurrentMaxHeightAllowedText));
+                RaisePropertyChanged(nameof(CurrentMinHeightAllowedText));
             }
         }
     }
@@ -36,11 +37,14 @@ public sealed class AvatarScaleSafetySettings : ObservableObject
             if (SetProperty(ref currentMaximumHeightMeters, nextValue))
             {
                 RaisePropertyChanged(nameof(CurrentMaxHeightAllowedText));
+                RaisePropertyChanged(nameof(CurrentMinHeightAllowedText));
             }
         }
     }
 
     public string CurrentMaxHeightAllowedText => $"{CurrentMaximumHeightMeters:0.###}m";
+
+    public string CurrentMinHeightAllowedText => $"{CurrentMinimumHeightMeters:0.###}m";
 
     public double ClampHeight(double value)
     {

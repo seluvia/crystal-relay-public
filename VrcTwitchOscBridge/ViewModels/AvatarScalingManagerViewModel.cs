@@ -178,6 +178,8 @@ public sealed class AvatarScalingManagerViewModel : ObservableObject, IDisposabl
 
     public string CurrentMaxHeightAllowedText => Settings.AvatarScaleSafety.CurrentMaxHeightAllowedText;
 
+    public string CurrentMinHeightAllowedText => Settings.AvatarScaleSafety.CurrentMinHeightAllowedText;
+
     public RelayCommand? AddAvatarScaleSetCommand => mainWindowViewModel?.AddAvatarScaleSetCommand;
 
     public RelayCommand? RemoveSelectedAvatarScaleSetCommand => mainWindowViewModel?.RemoveSelectedAvatarScaleSetCommand;
@@ -729,9 +731,12 @@ public sealed class AvatarScalingManagerViewModel : ObservableObject, IDisposabl
     {
         if (string.IsNullOrWhiteSpace(e.PropertyName)
             || e.PropertyName == nameof(AvatarScaleSafetySettings.CurrentMaxHeightAllowedText)
-            || e.PropertyName == nameof(AvatarScaleSafetySettings.CurrentMaximumHeightMeters))
+            || e.PropertyName == nameof(AvatarScaleSafetySettings.CurrentMaximumHeightMeters)
+            || e.PropertyName == nameof(AvatarScaleSafetySettings.CurrentMinHeightAllowedText)
+            || e.PropertyName == nameof(AvatarScaleSafetySettings.CurrentMinimumHeightMeters))
         {
             RaisePropertyChanged(nameof(CurrentMaxHeightAllowedText));
+            RaisePropertyChanged(nameof(CurrentMinHeightAllowedText));
         }
     }
 
