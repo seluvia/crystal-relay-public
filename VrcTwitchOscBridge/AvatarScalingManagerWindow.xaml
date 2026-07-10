@@ -1554,20 +1554,35 @@
                                                             <TextBlock Text="{loc:Translate 'Active Time Seconds'}" FontWeight="SemiBold" />
                                                             <TextBox Text="{Binding ActiveTimeSeconds, UpdateSourceTrigger=LostFocus}" />
                                                         </StackPanel>
-                                                        <StackPanel Margin="6,0,0,0">
-                                                            <TextBlock Text="{loc:Translate 'Return Height'}" FontWeight="SemiBold" />
-                                                            <TextBox Text="{Binding RestoreHeightMeters, UpdateSourceTrigger=LostFocus}" />
+                                                        <StackPanel Margin="6,0,0,0"
+                                                                    Visibility="{Binding UsesCreateOrManageReward, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <TextBlock Text="{loc:Translate 'Cooldown Seconds'}" FontWeight="SemiBold" />
+                                                            <TextBox Text="{Binding CooldownSeconds, UpdateSourceTrigger=PropertyChanged}" />
                                                         </StackPanel>
                                                     </UniformGrid>
                                                     <UniformGrid Columns="2" Margin="0,10,0,0">
                                                         <StackPanel Margin="0,0,6,0">
+                                                            <TextBlock Text="{loc:Translate 'Return Height'}" FontWeight="SemiBold" />
+                                                            <TextBox Text="{Binding RestoreHeightMeters, UpdateSourceTrigger=LostFocus}" />
+                                                        </StackPanel>
+                                                        <StackPanel Margin="6,0,0,0">
                                                             <TextBlock Text="{loc:Translate 'Return Mode'}" FontWeight="SemiBold" />
                                                             <ComboBox ItemsSource="{Binding DataContext.AvatarScaleRestoreModes, RelativeSource={RelativeSource AncestorType=Window}}"
                                                                       SelectedItem="{Binding RestoreMode, UpdateSourceTrigger=PropertyChanged}" />
                                                         </StackPanel>
-                                                        <StackPanel Margin="6,0,0,0">
+                                                    </UniformGrid>
+                                                    <UniformGrid Columns="2" Margin="0,10,0,0">
+                                                        <StackPanel Margin="0,0,6,0">
                                                             <TextBlock Text="{loc:Translate 'Smooth Transition Seconds'}" FontWeight="SemiBold" />
                                                             <TextBox Text="{Binding SmoothTransitionSeconds, UpdateSourceTrigger=LostFocus}" />
+                                                        </StackPanel>
+                                                        <StackPanel Margin="6,0,0,0"
+                                                                    VerticalAlignment="Bottom"
+                                                                    Visibility="{Binding UsesCreateOrManageReward, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <TextBlock Text="{Binding TimingSummary}"
+                                                                       Foreground="{DynamicResource TitleBarSubTextBrush}"
+                                                                       FontSize="11"
+                                                                       TextWrapping="Wrap" />
                                                         </StackPanel>
                                                     </UniformGrid>
 
