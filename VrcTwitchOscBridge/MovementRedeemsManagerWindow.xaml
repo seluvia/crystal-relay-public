@@ -57,15 +57,11 @@
         <FontFamily x:Key="HeadingFontFamily">Constantia</FontFamily>
         <FontFamily x:Key="BodyFontFamily">Verdana</FontFamily>
 
-        <SolidColorBrush x:Key="MovementPillBrush" Color="#3B82F6" />
-        <SolidColorBrush x:Key="TurningPillBrush" Color="#F59E0B" />
-        <SolidColorBrush x:Key="HandPillBrush" Color="#10B981" />
-        <SolidColorBrush x:Key="ObjectPillBrush" Color="#EF4444" />
-        <SolidColorBrush x:Key="UiPillBrush" Color="#8B5CF6" />
 
         <SolidColorBrush x:Key="ComboDropButtonBrush" Color="#2C1C48" />
         <SolidColorBrush x:Key="ComboDropButtonHoverBrush" Color="#3F2D5C" />
         <SolidColorBrush x:Key="ComboDropButtonPressedBrush" Color="#553080" />
+        <SolidColorBrush x:Key="PopupBorderBrush" Color="#8B5CD6" />
 
         <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
 
@@ -120,6 +116,112 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <Style x:Key="ComboPopupTrackButtonStyle" TargetType="RepeatButton">
+            <Setter Property="OverridesDefaultStyle" Value="True" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RepeatButton">
+                        <Border Background="{TemplateBinding Background}" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ComboPopupThumbStyle" TargetType="Thumb">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Border x:Name="ComboPopupThumbBorder"
+                                Width="8"
+                                HorizontalAlignment="Center"
+                                Background="{DynamicResource ScrollThumbBrush}"
+                                CornerRadius="4" />
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ComboPopupThumbBorder" Property="Background" Value="{DynamicResource ScrollThumbHoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsDragging" Value="True">
+                                <Setter TargetName="ComboPopupThumbBorder" Property="Background" Value="{DynamicResource ScrollThumbPressedBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <ControlTemplate x:Key="ComboPopupVerticalScrollBarTemplate" TargetType="ScrollBar">
+            <Grid Width="{TemplateBinding Width}"
+                  Background="Transparent">
+                <Border Width="8"
+                        HorizontalAlignment="Center"
+                        Margin="0,2"
+                        Background="{DynamicResource ScrollTrackBrush}"
+                        BorderBrush="{DynamicResource InputBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="4" />
+                <Track x:Name="PART_Track"
+                       Margin="0,2"
+                       IsDirectionReversed="True">
+                    <Track.DecreaseRepeatButton>
+                        <RepeatButton Style="{StaticResource ComboPopupTrackButtonStyle}"
+                                      Command="{x:Static ScrollBar.PageUpCommand}" />
+                    </Track.DecreaseRepeatButton>
+                    <Track.Thumb>
+                        <Thumb Style="{StaticResource ComboPopupThumbStyle}"
+                               MinHeight="30" />
+                    </Track.Thumb>
+                    <Track.IncreaseRepeatButton>
+                        <RepeatButton Style="{StaticResource ComboPopupTrackButtonStyle}"
+                                      Command="{x:Static ScrollBar.PageDownCommand}" />
+                    </Track.IncreaseRepeatButton>
+                </Track>
+            </Grid>
+        </ControlTemplate>
+
+        <ControlTemplate x:Key="ComboPopupHorizontalScrollBarTemplate" TargetType="ScrollBar">
+            <Grid Height="{TemplateBinding Height}"
+                  Background="Transparent">
+                <Border Height="8"
+                        VerticalAlignment="Center"
+                        Margin="2,0"
+                        Background="{DynamicResource ScrollTrackBrush}"
+                        BorderBrush="{DynamicResource InputBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="4" />
+                <Track x:Name="PART_Track"
+                       Margin="2,0">
+                    <Track.DecreaseRepeatButton>
+                        <RepeatButton Style="{StaticResource ComboPopupTrackButtonStyle}"
+                                      Command="{x:Static ScrollBar.PageLeftCommand}" />
+                    </Track.DecreaseRepeatButton>
+                    <Track.Thumb>
+                        <Thumb Style="{StaticResource ComboPopupThumbStyle}"
+                               MinWidth="30" />
+                    </Track.Thumb>
+                    <Track.IncreaseRepeatButton>
+                        <RepeatButton Style="{StaticResource ComboPopupTrackButtonStyle}"
+                                      Command="{x:Static ScrollBar.PageRightCommand}" />
+                    </Track.IncreaseRepeatButton>
+                </Track>
+            </Grid>
+        </ControlTemplate>
+
+        <Style x:Key="ComboPopupScrollBarStyle" TargetType="ScrollBar">
+            <Setter Property="Width" Value="12" />
+            <Setter Property="Height" Value="Auto" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Template" Value="{StaticResource ComboPopupVerticalScrollBarTemplate}" />
+            <Style.Triggers>
+                <Trigger Property="Orientation" Value="Horizontal">
+                    <Setter Property="Width" Value="Auto" />
+                    <Setter Property="Height" Value="12" />
+                    <Setter Property="Template" Value="{StaticResource ComboPopupHorizontalScrollBarTemplate}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
         <Style TargetType="ComboBox">
             <Setter Property="FontFamily" Value="{DynamicResource BodyFontFamily}" />
             <Setter Property="MinHeight" Value="32" />
@@ -146,16 +248,16 @@
                                         <ColumnDefinition Width="28" />
                                     </Grid.ColumnDefinitions>
                                     <ContentPresenter x:Name="ContentSite"
-                                                      Grid.Column="0"
-                                                      Margin="10,0,4,0"
-                                                      HorizontalAlignment="Left"
-                                                      VerticalAlignment="Center"
-                                                      Content="{TemplateBinding SelectionBoxItem}"
-                                                      ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
-                                                      ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
-                                                      ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"
-                                                      TextElement.Foreground="{TemplateBinding Foreground}"
-                                                      IsHitTestVisible="False" />
+                                                       Grid.Column="0"
+                                                       Margin="10,0,4,0"
+                                                       HorizontalAlignment="Left"
+                                                       VerticalAlignment="Center"
+                                                       Content="{TemplateBinding SelectionBoxItem}"
+                                                       ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                                       ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+                                                       ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"
+                                                        TextElement.Foreground="{DynamicResource TitleBarTextBrush}"
+                                                        IsHitTestVisible="False" />
                                     <TextBox x:Name="PART_EditableTextBox"
                                              Grid.Column="0"
                                              Margin="10,0,4,0"
@@ -177,10 +279,15 @@
                                     <Border Margin="0,4,0,0"
                                             Padding="4"
                                             Background="{DynamicResource InputBrush}"
-                                            BorderBrush="{DynamicResource BorderBrush}"
+                                            BorderBrush="{DynamicResource PopupBorderBrush}"
                                             BorderThickness="1"
                                             CornerRadius="10">
-                                        <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" />
+                                        <ScrollViewer SnapsToDevicePixels="True">
+                                            <ScrollViewer.Resources>
+                                                <Style TargetType="ScrollBar" BasedOn="{StaticResource ComboPopupScrollBarStyle}" />
+                                            </ScrollViewer.Resources>
+                                            <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" />
+                                        </ScrollViewer>
                                     </Border>
                                 </Grid>
                             </Popup>
@@ -396,7 +503,7 @@
 
         <Style TargetType="TextBox">
             <Setter Property="FontFamily" Value="{DynamicResource BodyFontFamily}" />
-            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontSize" Value="13" />
             <Setter Property="Padding" Value="10,7" />
             <Setter Property="Background" Value="{DynamicResource InputBrush}" />
             <Setter Property="Foreground" Value="{DynamicResource TitleBarTextBrush}" />
@@ -503,6 +610,7 @@
         <Style TargetType="DataGridCell">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource TitleBarTextBrush}" />
             <Setter Property="Padding" Value="6,0" />
             <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="Template">
@@ -513,7 +621,8 @@
                                 BorderThickness="{TemplateBinding BorderThickness}"
                                 Padding="{TemplateBinding Padding}"
                                 VerticalAlignment="{TemplateBinding VerticalAlignment}">
-                            <ContentPresenter VerticalAlignment="Center" />
+                            <ContentPresenter VerticalAlignment="Center"
+                                              TextElement.Foreground="{DynamicResource TitleBarTextBrush}" />
                         </Border>
                     </ControlTemplate>
                 </Setter.Value>
@@ -582,35 +691,21 @@
                                      MinWidth="180"
                                      Margin="4"
                                      shell:WindowChrome.IsHitTestVisibleInChrome="True" />
-                            <WrapPanel Margin="8,0,0,0">
-                                <Button Content="All"
-                                        Command="{Binding FilterCategoryCommand}"
-                                        CommandParameter="{x:Null}"
-                                        Style="{StaticResource FilterButtonStyle}" />
-                                <Button Content="{loc:Translate 'Movement'}"
-                                        Command="{Binding FilterCategoryCommand}"
-                                        CommandParameter="{x:Static models:MovementCategory.Movement}"
-                                        Style="{StaticResource FilterButtonStyle}" />
-                                <Button Content="{loc:Translate 'Turning'}"
-                                        Command="{Binding FilterCategoryCommand}"
-                                        CommandParameter="{x:Static models:MovementCategory.Turning}"
-                                        Style="{StaticResource FilterButtonStyle}" />
-                                <Button Content="{loc:Translate 'Hand'}"
-                                        Command="{Binding FilterCategoryCommand}"
-                                        CommandParameter="{x:Static models:MovementCategory.HandInteractions}"
-                                        Style="{StaticResource FilterButtonStyle}" />
-                                <Button Content="{loc:Translate 'Object'}"
-                                        Command="{Binding FilterCategoryCommand}"
-                                        CommandParameter="{x:Static models:MovementCategory.HeldObject}"
-                                        Style="{StaticResource FilterButtonStyle}" />
-                                <Button Content="{loc:Translate 'UI'}"
-                                        Command="{Binding FilterCategoryCommand}"
-                                        CommandParameter="{x:Static models:MovementCategory.UiToggles}"
-                                        Style="{StaticResource FilterButtonStyle}" />
+                            <WrapPanel HorizontalAlignment="Right">
                                 <Button Content="{loc:Translate 'Add Rule'}"
                                         Command="{Binding AddNewRuleCommand}"
                                         Style="{StaticResource AccentButtonStyle}"
-                                        Margin="8,0,0,0" />
+                                        MinWidth="80" />
+                                <Button Content="Enable All"
+                                        Command="{Binding EnableAllCommand}"
+                                        Style="{StaticResource SecondaryButtonStyle}"
+                                        MinWidth="80"
+                                        Margin="4,0,0,0" />
+                                <Button Content="Disable All"
+                                        Command="{Binding DisableAllCommand}"
+                                        Style="{StaticResource SecondaryButtonStyle}"
+                                        MinWidth="80"
+                                        Margin="4,0,0,0" />
                             </WrapPanel>
                         </DockPanel>
                     </StackPanel>
@@ -623,6 +718,8 @@
                           GridLinesVisibility="None"
                           Background="Transparent"
                           BorderThickness="0"
+                          AlternatingRowBackground="#22181730"
+                          AlternationCount="2"
                           RowHeaderWidth="0"
                           SelectionMode="Single"
                           SelectionUnit="FullRow"
@@ -646,45 +743,7 @@
                     </DataGrid.Resources>
 
                     <DataGrid.Columns>
-                        <DataGridTemplateColumn Header="Category" Width="80" SortMemberPath="Category">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <Border Padding="6,2"
-                                            CornerRadius="6"
-                                            BorderThickness="1"
-                                            Background="{DynamicResource MovementPillBrush}"
-                                            BorderBrush="{DynamicResource MovementPillBrush}"
-                                            HorizontalAlignment="Center">
-                                        <Border.Style>
-                                            <Style TargetType="Border">
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding Category}" Value="Turning">
-                                                        <Setter Property="Background" Value="{DynamicResource TurningPillBrush}" />
-                                                        <Setter Property="BorderBrush" Value="{DynamicResource TurningPillBrush}" />
-                                                    </DataTrigger>
-                                                    <DataTrigger Binding="{Binding Category}" Value="HandInteractions">
-                                                        <Setter Property="Background" Value="{DynamicResource HandPillBrush}" />
-                                                        <Setter Property="BorderBrush" Value="{DynamicResource HandPillBrush}" />
-                                                    </DataTrigger>
-                                                    <DataTrigger Binding="{Binding Category}" Value="HeldObject">
-                                                        <Setter Property="Background" Value="{DynamicResource ObjectPillBrush}" />
-                                                        <Setter Property="BorderBrush" Value="{DynamicResource ObjectPillBrush}" />
-                                                    </DataTrigger>
-                                                    <DataTrigger Binding="{Binding Category}" Value="UiToggles">
-                                                        <Setter Property="Background" Value="{DynamicResource UiPillBrush}" />
-                                                        <Setter Property="BorderBrush" Value="{DynamicResource UiPillBrush}" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </Border.Style>
-                                        <TextBlock Text="{Binding CategoryDisplayName}"
-                                                   FontSize="9"
-                                                   FontWeight="Bold"
-                                                   Foreground="White" />
-                                    </Border>
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
+
 
                         <DataGridTextColumn Header="Direction"
                                             Width="150"
@@ -692,7 +751,7 @@
 
                         <DataGridTextColumn Header="Name"
                                             Width="*"
-                                            Binding="{Binding Name}" />
+                                            Binding="{Binding DisplayName}" />
 
                         <DataGridTextColumn Header="Dur / CD"
                                             Width="90"
@@ -905,65 +964,64 @@
                                                        FontWeight="Bold"
                                                        FontSize="13"
                                                        Margin="0,0,0,8" />
-                                        <UniformGrid Columns="2" Margin="0,0,0,8">
-                                            <StackPanel Margin="0,0,6,0">
-                                                <TextBlock Text="{loc:Translate 'Rule Name'}"
-                                                           FontWeight="SemiBold" />
-                                                <TextBox Text="{Binding SelectedRule.Name, UpdateSourceTrigger=PropertyChanged}"
-                                                         Margin="0,6,0,0" />
-                                            </StackPanel>
-                                            <StackPanel Margin="6,0,0,0">
-                                                <TextBlock Text="{loc:Translate 'Enabled'}"
-                                                           FontWeight="SemiBold" />
-                                                <ToggleButton IsChecked="{Binding SelectedRule.IsEnabled, Mode=TwoWay}"
-                                                              Cursor="Hand"
-                                                              Width="36"
-                                                              Height="20"
-                                                              Margin="0,6,0,0"
-                                                              HorizontalAlignment="Left">
-                                                    <ToggleButton.Style>
-                                                        <Style TargetType="ToggleButton">
-                                                            <Setter Property="Template">
-                                                                <Setter.Value>
-                                                                    <ControlTemplate TargetType="ToggleButton">
-                                                                        <Border x:Name="ToggleTrack"
-                                                                                Width="36" Height="20"
-                                                                                CornerRadius="10"
-                                                                                Background="{DynamicResource InputBrush}"
-                                                                                BorderBrush="{DynamicResource InputBorderBrush}"
-                                                                                BorderThickness="1"
-                                                                                Cursor="Hand">
-                                                                            <Border x:Name="ToggleThumb"
-                                                                                    Width="16" Height="16"
-                                                                                    CornerRadius="8"
-                                                                                    Background="{DynamicResource MutedBrush}"
-                                                                                    HorizontalAlignment="Left"
-                                                                                    Margin="1,0,0,0" />
-                                                                        </Border>
-                                                                        <ControlTemplate.Triggers>
-                                                                            <Trigger Property="IsChecked" Value="True">
-                                                                                <Setter TargetName="ToggleTrack" Property="Background" Value="{DynamicResource AccentBrush}" />
-                                                                                <Setter TargetName="ToggleTrack" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                                                                                <Setter TargetName="ToggleThumb" Property="Background" Value="{DynamicResource TitleBarTextBrush}" />
-                                                                                <Setter TargetName="ToggleThumb" Property="HorizontalAlignment" Value="Right" />
-                                                                                <Setter TargetName="ToggleThumb" Property="Margin" Value="0,0,1,0" />
-                                                                            </Trigger>
-                                                                        </ControlTemplate.Triggers>
-                                                                    </ControlTemplate>
-                                                                </Setter.Value>
-                                                            </Setter>
-                                                        </Style>
-                                                    </ToggleButton.Style>
-                                                </ToggleButton>
-                                            </StackPanel>
-                                        </UniformGrid>
+                                        <StackPanel Margin="0,0,0,8">
+                                            <TextBlock Text="{loc:Translate 'Enabled'}"
+                                                       FontWeight="SemiBold" />
+                                            <ToggleButton IsChecked="{Binding SelectedRule.IsEnabled, Mode=TwoWay}"
+                                                          Cursor="Hand"
+                                                          Width="36"
+                                                          Height="20"
+                                                          Margin="0,6,0,0"
+                                                          HorizontalAlignment="Left">
+                                                <ToggleButton.Style>
+                                                    <Style TargetType="ToggleButton">
+                                                        <Setter Property="Template">
+                                                            <Setter.Value>
+                                                                <ControlTemplate TargetType="ToggleButton">
+                                                                    <Border x:Name="ToggleTrack"
+                                                                            Width="36" Height="20"
+                                                                            CornerRadius="10"
+                                                                            Background="{DynamicResource InputBrush}"
+                                                                            BorderBrush="{DynamicResource InputBorderBrush}"
+                                                                            BorderThickness="1"
+                                                                            Cursor="Hand">
+                                                                        <Border x:Name="ToggleThumb"
+                                                                                Width="16" Height="16"
+                                                                                CornerRadius="8"
+                                                                                Background="{DynamicResource MutedBrush}"
+                                                                                HorizontalAlignment="Left"
+                                                                                Margin="1,0,0,0" />
+                                                                    </Border>
+                                                                    <ControlTemplate.Triggers>
+                                                                        <Trigger Property="IsChecked" Value="True">
+                                                                            <Setter TargetName="ToggleTrack" Property="Background" Value="{DynamicResource AccentBrush}" />
+                                                                            <Setter TargetName="ToggleTrack" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                                                            <Setter TargetName="ToggleThumb" Property="Background" Value="{DynamicResource TitleBarTextBrush}" />
+                                                                            <Setter TargetName="ToggleThumb" Property="HorizontalAlignment" Value="Right" />
+                                                                            <Setter TargetName="ToggleThumb" Property="Margin" Value="0,0,1,0" />
+                                                                        </Trigger>
+                                                                    </ControlTemplate.Triggers>
+                                                                </ControlTemplate>
+                                                            </Setter.Value>
+                                                        </Setter>
+                                                    </Style>
+                                                </ToggleButton.Style>
+                                            </ToggleButton>
+                                        </StackPanel>
                                         <TextBlock Text="{loc:Translate 'Movement Direction'}"
                                                    FontWeight="SemiBold" />
                                         <ComboBox ItemsSource="{Binding MovementDirections}"
                                                   SelectedValue="{Binding SelectedRule.MovementDirection}"
                                                   DisplayMemberPath="Display"
                                                   SelectedValuePath="Value"
-                                                  Margin="0,6,0,0" />
+                                                  MaxDropDownHeight="400"
+                                                  Margin="0,6,0,0">
+                                            <ComboBox.Resources>
+                                                <Style TargetType="ScrollViewer">
+                                                    <Setter Property="VerticalScrollBarVisibility" Value="Visible" />
+                                                </Style>
+                                            </ComboBox.Resources>
+                                        </ComboBox>
                                         <Border Padding="6,2"
                                                 CornerRadius="6"
                                                 Background="{DynamicResource AccentDimBrush}"

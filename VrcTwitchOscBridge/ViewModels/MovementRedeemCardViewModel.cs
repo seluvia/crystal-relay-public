@@ -33,8 +33,6 @@ public sealed class MovementRedeemCardViewModel : ObservableObject
 
     public PlayerMovementDirection MovementDirection => rule.MovementDirection;
 
-    public MovementCategory Category => MovementTypeClassifier.GetCategory(rule.MovementDirection);
-
     public bool IsVrOnly => MovementTypeClassifier.IsVrOnly(rule.MovementDirection);
 
     public bool IsAxisType => MovementTypeClassifier.IsAxisType(rule.MovementDirection);
@@ -107,15 +105,30 @@ public sealed class MovementRedeemCardViewModel : ObservableObject
 
     public string DirectionDisplayName => GetDisplayName(rule.MovementDirection);
 
-    public string CategoryDisplayName => Category switch
+    public string DisplayName
     {
-        MovementCategory.Movement => "Movement",
-        MovementCategory.Turning => "Turning",
-        MovementCategory.HandInteractions => "Hand",
-        MovementCategory.HeldObject => "Object",
-        MovementCategory.UiToggles => "UI",
-        _ => "Movement",
-    };
+        get
+        {
+            if (rule.TriggerType == TwitchTriggerType.ChannelPoints)
+                return string.IsNullOrWhiteSpace(rule.ChannelPointRewardTitle)
+                    ? rule.HasConfiguredChatCommand
+                        ? rule.ChatCommandText.Trim()
+                        : "New Movement Rule"
+                    : rule.ChannelPointRewardTitle.Trim();
+
+            if (rule.HasConfiguredChatCommand)
+                return rule.ChatCommandText.Trim();
+
+            var dirName = GetDisplayName(rule.MovementDirection);
+            return rule.TriggerType switch
+            {
+                TwitchTriggerType.Bits => $"Bits {dirName}",
+                TwitchTriggerType.Subscriptions => rule.IsGiftSubscription ? $"Gift Subs {dirName}" : $"Subs {dirName}",
+                TwitchTriggerType.Follow => $"Follow {dirName}",
+                _ => dirName
+            };
+        }
+    }
 
     public bool HasChannelPointTrigger => !string.IsNullOrEmpty(rule.ChannelPointRewardId);
     public bool HasChatCommandTrigger => rule.HasConfiguredChatCommand;
@@ -139,7 +152,6 @@ public sealed class MovementRedeemCardViewModel : ObservableObject
     {
         RaisePropertyChanged(nameof(Name));
         RaisePropertyChanged(nameof(MovementDirection));
-        RaisePropertyChanged(nameof(Category));
         RaisePropertyChanged(nameof(IsVrOnly));
         RaisePropertyChanged(nameof(IsAxisType));
         RaisePropertyChanged(nameof(BehaviorTooltip));
@@ -150,7 +162,6 @@ public sealed class MovementRedeemCardViewModel : ObservableObject
         RaisePropertyChanged(nameof(DurationText));
         RaisePropertyChanged(nameof(CooldownText));
         RaisePropertyChanged(nameof(DirectionDisplayName));
-        RaisePropertyChanged(nameof(CategoryDisplayName));
         RaisePropertyChanged(nameof(HasChannelPointTrigger));
         RaisePropertyChanged(nameof(HasChatCommandTrigger));
         RaisePropertyChanged(nameof(HasBitsTrigger));
@@ -158,6 +169,7 @@ public sealed class MovementRedeemCardViewModel : ObservableObject
         RaisePropertyChanged(nameof(HasGiftSubTrigger));
         RaisePropertyChanged(nameof(HasFollowTrigger));
         RaisePropertyChanged(nameof(DurationWithCooldownText));
+        RaisePropertyChanged(nameof(DisplayName));
     }
 
     internal static string GetDisplayName(PlayerMovementDirection direction) => direction switch
@@ -184,6 +196,10 @@ public sealed class MovementRedeemCardViewModel : ObservableObject
         PlayerMovementDirection.DropLeft => "Drop (Left Hand)",
         PlayerMovementDirection.DropRight => "Drop (Right Hand)",
         PlayerMovementDirection.MoveHoldFB => "Move Held F/B",
+        PlayerMovementDirection.Vertical => "Move Vertical (Axis)",
+        PlayerMovementDirection.Horizontal => "Move Horizontal (Axis)",
+        PlayerMovementDirection.UseAxisRight => "Use (Axis, Right Hand)",
+        PlayerMovementDirection.GrabAxisRight => "Grab (Axis, Right Hand)",
         PlayerMovementDirection.SpinHoldCwCcw => "Spin Held CW/CCW",
         PlayerMovementDirection.SpinHoldUD => "Spin Held Up/Down",
         PlayerMovementDirection.SpinHoldLR => "Spin Held Left/Right",

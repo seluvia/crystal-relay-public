@@ -100,9 +100,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     private static readonly TimeSpan TwitchAccessTokenRefreshLeadTime = TimeSpan.FromMinutes(15);
     private static readonly TimeSpan TwitchCachedValidationGraceWindow = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan TwitchPublicRefreshSessionWindow = TimeSpan.FromDays(30);
-    private static readonly TimeSpan VrChatLocalStatePollInterval = TimeSpan.FromSeconds(2);
-    private static readonly TimeSpan VrChatCurrentAvatarPollInterval = TimeSpan.FromSeconds(15);
-    private static readonly TimeSpan ActiveAvatarScaleLocalRefreshInterval = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan VrChatLocalStatePollInterval = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan VrChatCurrentAvatarPollInterval = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan ActiveAvatarScaleLocalRefreshInterval = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan VrChatOscParameterAutoRefreshInitialDelay = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan VrChatOscParameterAutoRefreshRetryDelay = TimeSpan.FromSeconds(3);
     private static readonly TimeSpan WorldCommandBlacklistRefreshInterval = TimeSpan.FromMinutes(10);

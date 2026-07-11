@@ -142,6 +142,7 @@ private static readonly string[] LoadingStoryboardKeys =
         await RunRevealTransitionAsync();
 
         StopLoadingAnimations();
+        DestroyStarField();
         LoadingOverlay.Visibility = Visibility.Collapsed;
         RestoreRestartSessionWindows();
         QueueApplicationUpdateCheck();
@@ -2665,6 +2666,25 @@ private static readonly string[] LoadingStoryboardKeys =
 
             starStoryboard.Begin(this, true);
         }
+    }
+
+    private void DestroyStarField()
+    {
+        var canvas = StarFieldCanvas;
+        if (canvas is null) return;
+
+        foreach (var child in canvas.Children.OfType<UIElement>().ToArray())
+        {
+            child.BeginAnimation(UIElement.OpacityProperty, null);
+            child.BeginAnimation(Canvas.LeftProperty, null);
+            child.BeginAnimation(Canvas.TopProperty, null);
+            if (child.RenderTransform is RotateTransform rt)
+            {
+                rt.BeginAnimation(RotateTransform.AngleProperty, null);
+            }
+        }
+
+        canvas.Children.Clear();
     }
 
     private async Task RunRevealTransitionAsync()

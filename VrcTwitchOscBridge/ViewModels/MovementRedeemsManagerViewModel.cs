@@ -14,7 +14,6 @@ public sealed class MovementRedeemsManagerViewModel : ObservableObject, IDisposa
     private readonly AppSettings settings;
     private readonly MainWindowViewModel? mainWindowViewModel;
     private string searchText = string.Empty;
-    private MovementCategory? activeCategory;
     private bool isEditorOpen;
     private bool disposed;
     private TriggerRule? selectedRule;
@@ -25,7 +24,6 @@ public sealed class MovementRedeemsManagerViewModel : ObservableObject, IDisposa
         this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
         this.mainWindowViewModel = mainWindowViewModel;
 
-        FilterCategoryCommand = new RelayCommand(p => ActiveCategory = p as MovementCategory?);
         OpenEditorCommand = new RelayCommand(p =>
         {
             SelectedCard = p as MovementRedeemCardViewModel;
@@ -38,6 +36,8 @@ public sealed class MovementRedeemsManagerViewModel : ObservableObject, IDisposa
         });
         CloseEditorCommand = new RelayCommand(() => IsEditorOpen = false);
         AddNewRuleCommand = new RelayCommand(AddNewRule);
+        EnableAllCommand = new RelayCommand(EnableAll);
+        DisableAllCommand = new RelayCommand(DisableAll);
         DeleteCardCommand = new RelayCommand(p => DeleteCard(p as MovementRedeemCardViewModel));
         TestCardCommand = new RelayCommand(p => TestCard(p as MovementRedeemCardViewModel));
 
@@ -64,16 +64,6 @@ public sealed class MovementRedeemsManagerViewModel : ObservableObject, IDisposa
         set
         {
             if (SetProperty(ref searchText, value))
-                RefreshCards();
-        }
-    }
-
-    public MovementCategory? ActiveCategory
-    {
-        get => activeCategory;
-        set
-        {
-            if (SetProperty(ref activeCategory, value))
                 RefreshCards();
         }
     }
@@ -143,24 +133,16 @@ public sealed class MovementRedeemsManagerViewModel : ObservableObject, IDisposa
 
     public ListCollectionView MovementDirections { get; }
 
-    public RelayCommand FilterCategoryCommand { get; }
     public RelayCommand OpenEditorCommand { get; }
     public RelayCommand CloseEditorCommand { get; }
     public RelayCommand AddNewRuleCommand { get; }
+    public RelayCommand EnableAllCommand { get; }
+    public RelayCommand DisableAllCommand { get; }
     public RelayCommand DeleteCardCommand { get; }
     public RelayCommand TestCardCommand { get; }
     public RelayCommand SaveEditorCommand { get; }
     public RelayCommand DeleteRuleCommand { get; }
     public RelayCommand TestRuleCommand { get; }
-
-    public int MovementCount => GetCategoryCount(MovementCategory.Movement);
-    public int TurningCount => GetCategoryCount(MovementCategory.Turning);
-    public int HandCount => GetCategoryCount(MovementCategory.HandInteractions);
-    public int HeldObjectCount => GetCategoryCount(MovementCategory.HeldObject);
-    public int UiTogglesCount => GetCategoryCount(MovementCategory.UiToggles);
-
-    private int GetCategoryCount(MovementCategory category) =>
-        allRules.Count(r => MovementTypeClassifier.GetCategory(r.MovementDirection) == category);
 
     private readonly List<TriggerRule> allRules = [];
 
@@ -216,23 +198,12 @@ public sealed class MovementRedeemsManagerViewModel : ObservableObject, IDisposa
                 r.MovementDirection.ToString().ToLowerInvariant().Contains(lower));
         }
 
-        if (activeCategory.HasValue)
-        {
-            var cat = activeCategory.Value;
-            filtered = filtered.Where(r => MovementTypeClassifier.GetCategory(r.MovementDirection) == cat);
-        }
-
         Cards.Clear();
         foreach (var rule in filtered)
         {
             Cards.Add(new MovementRedeemCardViewModel(rule, OnTestCard));
         }
 
-        RaisePropertyChanged(nameof(MovementCount));
-        RaisePropertyChanged(nameof(TurningCount));
-        RaisePropertyChanged(nameof(HandCount));
-        RaisePropertyChanged(nameof(HeldObjectCount));
-        RaisePropertyChanged(nameof(UiTogglesCount));
     }
 
     private void OnTestCard(MovementRedeemCardViewModel card)
@@ -290,6 +261,24 @@ public sealed class MovementRedeemsManagerViewModel : ObservableObject, IDisposa
     {
         if (card is null) return;
         OnTestCard(card);
+    }
+
+    private void EnableAll()
+    {
+        foreach (var set in settings.MovementRedeemSets)
+        {
+            foreach (var rule in set.MovementRules)
+                rule.IsEnabled = true;
+        }
+    }
+
+    private void DisableAll()
+    {
+        foreach (var set in settings.MovementRedeemSets)
+        {
+            foreach (var rule in set.MovementRules)
+                rule.IsEnabled = false;
+        }
     }
 
     private void SaveEditor()

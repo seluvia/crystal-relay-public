@@ -44,7 +44,6 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private static readonly TimeSpan RedeemPauseLogThrottle = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan PowerUpInactiveAvatarLogThrottle = TimeSpan.FromSeconds(20);
     private static readonly TimeSpan AvatarScalePassiveCarryoverLogThrottle = TimeSpan.FromSeconds(15);
-    private static readonly TimeSpan AvatarScaleCarryoverInitialSendDelay = TimeSpan.FromMilliseconds(2500);
     private static readonly TimeSpan AvatarScaleCarryoverApplyInterval = TimeSpan.FromMilliseconds(1000);
     private static readonly TimeSpan MovementSoftLockPulseInterval = TimeSpan.FromMilliseconds(200);
     private static readonly TimeSpan JumpPulsePressDuration = TimeSpan.FromMilliseconds(120);
@@ -71,6 +70,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private const int AvatarScaleSmoothUpdatesPerSecond = 60;
     private const int AvatarScaleSmoothMaxSteps = 600;
     private const int AvatarScaleCarryoverApplyAttemptCount = 4;
+    private static readonly TimeSpan AvatarScaleAvatarLoadSignalTimeout = TimeSpan.FromSeconds(8);
     private const int BroadcasterLiveStateCheckAttempts = 3;
     private const string BitsOutfitSetTriggerLaneKey = "set-trigger-bits-outfit";
     private const string AvatarSwitchLaneKey = "avatar-switch";
@@ -204,6 +204,9 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private CancellationTokenSource? avatarScaleRestoreSequenceCancellation;
     private CancellationTokenSource? pendingStreamOfflineConfirmation;
     private bool drainingQueuedAvatarScaleOperations;
+    private TaskCompletionSource? _avatarLoadedForScalingTcs;
+    private string? _pendingAvatarChangeId;
+    private CancellationTokenSource? _avatarLoadTimeoutCts;
 
     private CancellationTokenSource? runtimeCancellation;
     private CancellationTokenSource? chatboxRelayCancellation;
@@ -5866,6 +5869,7 @@ internal BridgeCoordinator(
         {
             var cancellationToken = sessionCancellation.Token;
             var activeWindowSeconds = Math.Max(1, (paidActiveUntil - DateTimeOffset.UtcNow).TotalSeconds + smoothTransitionSeconds);
+            await WaitForAvatarLoadedForScalingAsync(cancellationToken);
             if (!await SendAvatarHeightForOperationAsync(
                     operation,
                     targetHeight,
@@ -8858,6 +8862,10 @@ internal BridgeCoordinator(
             PlayerMovementDirection.DropLeft => "/input/DropLeft",
             PlayerMovementDirection.DropRight => "/input/DropRight",
             PlayerMovementDirection.MoveHoldFB => "/input/MoveHoldFB",
+            PlayerMovementDirection.Vertical => "/input/Vertical",
+            PlayerMovementDirection.Horizontal => "/input/Horizontal",
+            PlayerMovementDirection.UseAxisRight => "/input/UseAxisRight",
+            PlayerMovementDirection.GrabAxisRight => "/input/GrabAxisRight",
             PlayerMovementDirection.SpinHoldCwCcw => "/input/SpinHoldCwCcw",
             PlayerMovementDirection.SpinHoldUD => "/input/SpinHoldUD",
             PlayerMovementDirection.SpinHoldLR => "/input/SpinHoldLR",
@@ -14735,6 +14743,12 @@ internal BridgeCoordinator(
         if (changed && !string.IsNullOrWhiteSpace(normalizedAvatarId))
         {
             lastAvatarChangeAt = DateTimeOffset.UtcNow;
+            _pendingAvatarChangeId = normalizedAvatarId;
+            _avatarLoadTimeoutCts?.Cancel();
+            _avatarLoadTimeoutCts?.Dispose();
+            _avatarLoadTimeoutCts = new CancellationTokenSource();
+            _avatarLoadTimeoutCts.CancelAfter(AvatarScaleAvatarLoadSignalTimeout);
+            _avatarLoadedForScalingTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             ResumePendingAvatarScopedResetsForCurrentAvatar(normalizedAvatarId);
             _ = TryResumePendingActivitiesAsync();
             QueueAvatarScaleAvatarChangeHandling(
@@ -14804,8 +14818,8 @@ internal BridgeCoordinator(
 
                 RetargetAvatarScaleRestoreSequenceForAvatarChange(newAvatarId);
                 RetargetPausedDevAvatarScaleTimerForAvatarChange(newAvatarId);
-                WriteLog($"Avatar scale carryover from '{carryover.SourceRuleName}' is waiting {AvatarScaleCarryoverInitialSendDelay.TotalSeconds:0.#}s for the new avatar to finish loading before applying {carryover.CarriedHeightMeters:0.###}m.");
-                await Task.Delay(AvatarScaleCarryoverInitialSendDelay, cancellationToken);
+                WriteLog($"Avatar scale carryover from '{carryover.SourceRuleName}' is waiting for the new avatar to finish loading (via OSC eyeheight feedback, {AvatarScaleAvatarLoadSignalTimeout.TotalSeconds:0.#}s timeout) before applying {carryover.CarriedHeightMeters:0.###}m.");
+                await WaitForAvatarLoadedForScalingAsync(cancellationToken);
                 for (var attempt = 1; attempt <= AvatarScaleCarryoverApplyAttemptCount; attempt++)
                 {
                     if (!IsAvatarScaleAvatarChangeHandlingCurrent(sequenceId))
@@ -17953,6 +17967,8 @@ internal BridgeCoordinator(
                     && observedValue.ParameterType == OscParameterType.Float
                     && observedValue.Value is float heightMeters)
                 {
+                    TrySignalAvatarLoadedForScaling();
+
                     if (updateActiveAvatarScaleCarryover)
                     {
                         UpdateActiveAvatarScaleCarriedHeightLocked(heightMeters);
@@ -18017,6 +18033,81 @@ internal BridgeCoordinator(
 
         nextAvatarScalePassiveCarryoverLogAt = now.Add(AvatarScalePassiveCarryoverLogThrottle);
         return $"Ignored passive /avatar/eyeheight read of {observedHeightMeters:0.###}m while active scale carryover from '{activeAvatarScaleCarryover.SourceRuleName}' is holding {activeAvatarScaleCarryover.CarriedHeightMeters:0.###}m for {DescribeDuration((activeAvatarScaleCarryover.ActiveUntil - now).TotalSeconds)}.";
+    }
+
+    private void TrySignalAvatarLoadedForScaling()
+    {
+        if (_pendingAvatarChangeId is null || _avatarLoadedForScalingTcs is null)
+            return;
+
+        var elapsed = DateTimeOffset.UtcNow - lastAvatarChangeAt;
+        if (elapsed.TotalMilliseconds < 500)
+            return;
+
+        _avatarLoadedForScalingTcs.TrySetResult();
+        _pendingAvatarChangeId = null;
+        _avatarLoadTimeoutCts?.Dispose();
+        _avatarLoadTimeoutCts = null;
+        _avatarLoadedForScalingTcs = null;
+    }
+
+    /// <summary>
+    /// If an avatar change is in progress, waits for the new avatar's
+    /// /avatar/eyeheight OSC feedback (proxied by
+    /// <see cref="TrySignalAvatarLoadedForScaling"/>) before returning.
+    /// Falls back silently after the configured timeout.
+    /// </summary>
+    private async Task WaitForAvatarLoadedForScalingAsync(CancellationToken cancellationToken)
+    {
+        TaskCompletionSource? tcs;
+        CancellationTokenSource? timeoutCts;
+
+        lock (stateGate)
+        {
+            tcs = _avatarLoadedForScalingTcs;
+            timeoutCts = _avatarLoadTimeoutCts;
+        }
+
+        if (tcs is null || timeoutCts is null)
+        {
+            // TCS doesn't exist yet; the avatar change may not have
+            // been initiated. Spin briefly — the event loop's main
+            // thread calls SetCurrentVrChatAvatar (which creates the
+            // TCS) after launching this growth session.
+            for (var i = 0; i < 6; i++)
+            {
+                try
+                {
+                    await Task.Delay(50, cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+
+                lock (stateGate)
+                {
+                    tcs = _avatarLoadedForScalingTcs;
+                    timeoutCts = _avatarLoadTimeoutCts;
+                }
+
+                if (tcs is not null && timeoutCts is not null)
+                    break;
+            }
+
+            if (tcs is null || timeoutCts is null)
+                return;
+        }
+
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken, timeoutCts.Token);
+        try
+        {
+            await tcs.Task.WaitAsync(linkedCts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+        }
     }
 
     private void UpdateActiveAvatarScaleCarriedHeightLocked(double heightMeters)

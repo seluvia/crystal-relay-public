@@ -8,6 +8,7 @@ public static class MovementTypeClassifier
             or PlayerMovementDirection.Left or PlayerMovementDirection.Right
             or PlayerMovementDirection.Jump or PlayerMovementDirection.Run
             or PlayerMovementDirection.RandomMovement or PlayerMovementDirection.GlitchyMovement
+            or PlayerMovementDirection.Vertical or PlayerMovementDirection.Horizontal
             => MovementCategory.Movement,
 
         PlayerMovementDirection.LookHorizontal or PlayerMovementDirection.LookLeft
@@ -18,6 +19,7 @@ public static class MovementTypeClassifier
         PlayerMovementDirection.GrabLeft or PlayerMovementDirection.GrabRight
             or PlayerMovementDirection.UseLeft or PlayerMovementDirection.UseRight
             or PlayerMovementDirection.DropLeft or PlayerMovementDirection.DropRight
+            or PlayerMovementDirection.UseAxisRight or PlayerMovementDirection.GrabAxisRight
             => MovementCategory.HandInteractions,
 
         PlayerMovementDirection.MoveHoldFB or PlayerMovementDirection.SpinHoldCwCcw
@@ -37,6 +39,7 @@ public static class MovementTypeClassifier
             or PlayerMovementDirection.GrabLeft or PlayerMovementDirection.GrabRight
             or PlayerMovementDirection.UseLeft or PlayerMovementDirection.UseRight
             or PlayerMovementDirection.DropLeft or PlayerMovementDirection.DropRight
+            or PlayerMovementDirection.UseAxisRight or PlayerMovementDirection.GrabAxisRight
             => true,
         _ => false,
     };
@@ -48,6 +51,10 @@ public static class MovementTypeClassifier
             or PlayerMovementDirection.SpinHoldCwCcw
             or PlayerMovementDirection.SpinHoldUD
             or PlayerMovementDirection.SpinHoldLR
+            or PlayerMovementDirection.Vertical
+            or PlayerMovementDirection.Horizontal
+            or PlayerMovementDirection.UseAxisRight
+            or PlayerMovementDirection.GrabAxisRight
             => true,
         _ => false,
     };
@@ -63,10 +70,13 @@ public static class MovementTypeClassifier
         PlayerMovementDirection.GrabLeft or PlayerMovementDirection.GrabRight
             or PlayerMovementDirection.UseLeft or PlayerMovementDirection.UseRight
             or PlayerMovementDirection.DropLeft or PlayerMovementDirection.DropRight
+            or PlayerMovementDirection.UseAxisRight or PlayerMovementDirection.GrabAxisRight
             => "VR-only input. No effect on Desktop.",
         PlayerMovementDirection.MoveHoldFB or PlayerMovementDirection.SpinHoldCwCcw
             or PlayerMovementDirection.SpinHoldUD or PlayerMovementDirection.SpinHoldLR
             => "Controls held objects. Axis speed value = speed setting.",
+        PlayerMovementDirection.Vertical or PlayerMovementDirection.Horizontal
+            => "Axis input. Float -1 to 1 controls direction. Speed value = multiplier.",
         PlayerMovementDirection.QuickMenuToggleLeft or PlayerMovementDirection.QuickMenuToggleRight
             or PlayerMovementDirection.PanicButton
             => "Triggers UI action. Duration = hold time before reset.",

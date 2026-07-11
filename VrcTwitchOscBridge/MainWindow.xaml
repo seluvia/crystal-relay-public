@@ -1294,7 +1294,7 @@
 
         <Style TargetType="Slider">
             <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
-            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+            <Setter Property="Background" Value="{DynamicResource MutedBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Height" Value="24" />
@@ -1325,9 +1325,9 @@
                                         <RepeatButton.Template>
                                             <ControlTemplate TargetType="RepeatButton">
                                                 <Border Height="6"
-                                                        CornerRadius="3"
-                                                        Background="{DynamicResource InputBrush}"
-                                                        VerticalAlignment="Center" />
+                                                         CornerRadius="3"
+                                                         Background="{TemplateBinding Background}"
+                                                         VerticalAlignment="Center" />
                                             </ControlTemplate>
                                         </RepeatButton.Template>
                                     </RepeatButton>
