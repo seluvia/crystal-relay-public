@@ -9,60 +9,24 @@
         var style = document.createElement("style");
         style.id = "cr-livelist-cleanup";
         style.textContent = [
-            /* Hide chrome */
             "[data-a-target=\"side-nav\"] { display: none !important; }",
             "[data-a-target=\"top-nav\"] { display: none !important; }",
             "[data-test-selector=\"recommended-section\"] { display: none !important; }",
             ".recommended-section, .recommended-show { display: none !important; }",
             "[data-a-target*=\"recommended\"] { display: none !important; }",
             "footer, .tw-footer { display: none !important; }",
-            /* Force full viewport fill */
-            "html, body { width: 100vw !important; height: 100vh !important; overflow: hidden !important; margin: 0 !important; padding: 0 !important; }",
-            ".channel-root, .channel-root__content { width: 100% !important; height: 100vh !important; max-width: none !important; margin: 0 !important; padding: 0 !important; }",
-            ".video-player, .channel-info-content { max-width: none !important; }",
-            /* Make the player column take all remaining space */
-            "[class*=\"player-column\"] { flex: 1 1 100% !important; min-width: 0 !important; }",
-            /* Remove any leftover gaps */
-            ".persistent-player, .player-overlay, .video-player__container { width: 100% !important; }"
+            ".channel-root, .channel-root__content { max-width: none !important; margin: 0 !important; padding-left: 0 !important; }",
+            ".video-player, .channel-info-content { max-width: none !important; }"
         ].join(" ");
         document.head.appendChild(style);
     }
 
-    /* ── Theatre Mode — retry until active, then maximize ── */
+    /* ── Theatre Mode ── */
     function tryTheatreMode() {
-        var attempts = 0;
-        var maxAttempts = 15;
-        function poll() {
-            var btn = document.querySelector('[data-a-target="player-theatre-mode-button"]');
-            var active = btn && btn.getAttribute("aria-pressed") === "true";
-            if (!active && btn) {
-                btn.click();
-            }
-            if (active || attempts >= maxAttempts) {
-                applyMaximizeCss();
-                return;
-            }
-            attempts++;
-            setTimeout(poll, 1000);
+        var btn = document.querySelector('[data-a-target="player-theatre-mode-button"]');
+        if (btn && btn.getAttribute("aria-pressed") !== "true") {
+            btn.click();
         }
-        setTimeout(poll, 2000);
-    }
-
-    function applyMaximizeCss() {
-        var style = document.createElement("style");
-        style.id = "cr-livelist-maximize";
-        style.textContent = [
-            /* Squeeze out every pixel for the player */
-            ".channel-root { padding-top: 0 !important; }",
-            "[class*=\"top-bar\"] { display: none !important; }",
-            "[class*=\"player-column\"] { height: 100% !important; }",
-            /* Remove any bottom padding/margin the theatre layout adds */
-            ".channel-root__player { margin-bottom: 0 !important; }",
-            ".tw-flex, .tw-relative { width: 100% !important; }",
-            /* Force the video element itself to fill */
-            "video { width: 100% !important; height: 100% !important; object-fit: contain !important; }"
-        ].join(" ");
-        document.head.appendChild(style);
     }
 
     /* ── Channel Points Auto-Claim ── */
