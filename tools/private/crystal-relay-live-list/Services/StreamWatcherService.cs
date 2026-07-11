@@ -1,18 +1,19 @@
 using System.IO;
+using System.Reflection;
+using System.Text;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.Wpf;
-using System.Windows.Controls;
 
 namespace CrystalRelayLiveList.Services;
 
 public sealed class StreamWatcherService : IDisposable
 {
-    private const string TwitchViewerHost = "crystal-relay-live-feedback.test";
-    private const string StreamViewerPageName = "stream-viewer.html";
+    private const string TwitchUrlTemplate = "https://www.twitch.tv/{0}";
 
     private readonly WebView2 webView;
     private bool initialized;
     private bool disposed;
+    private string? injectedScript;
 
     public StreamWatcherService(WebView2 webView)
     {
@@ -32,15 +33,20 @@ public sealed class StreamWatcherService : IDisposable
     public async Task EnsureReadyAsync()
     {
         if (IsReady) return;
+
+        injectedScript = LoadInjectScript();
+
         var folder = GetUserDataFolder();
         Directory.CreateDirectory(folder);
         var env = await CoreWebView2Environment.CreateAsync(null, folder);
         await webView.EnsureCoreWebView2Async(env);
         var core = webView.CoreWebView2 ?? throw new InvalidOperationException("WebView2 did not initialize.");
-        core.SetVirtualHostNameToFolderMapping(
-            TwitchViewerHost,
-            AppContext.BaseDirectory,
-            CoreWebView2HostResourceAccessKind.DenyCors);
+
+        if (injectedScript is not null)
+        {
+            await core.AddScriptToExecuteOnDocumentCreatedAsync(injectedScript);
+        }
+
         core.NewWindowRequested += OnNewWindowRequested;
         core.Settings.IsStatusBarEnabled = false;
         initialized = true;
@@ -48,7 +54,7 @@ public sealed class StreamWatcherService : IDisposable
 
     public void Navigate(string channelSlug) =>
         (webView.CoreWebView2 ?? throw new InvalidOperationException("WebView2 not ready."))
-            .Navigate(BuildViewerUri(channelSlug).ToString());
+            .Navigate(string.Format(TwitchUrlTemplate, Uri.EscapeDataString(channelSlug)));
 
     public async Task ClearLoginAsync(string? channelSlug)
     {
@@ -57,7 +63,7 @@ public sealed class StreamWatcherService : IDisposable
         await webView.CoreWebView2.Profile.ClearBrowsingDataAsync(CoreWebView2BrowsingDataKinds.AllProfile);
         if (!string.IsNullOrWhiteSpace(channelSlug))
         {
-            webView.CoreWebView2.Navigate(BuildViewerUri(channelSlug).ToString());
+            webView.CoreWebView2.Navigate(string.Format(TwitchUrlTemplate, Uri.EscapeDataString(channelSlug)));
         }
     }
 
@@ -77,14 +83,19 @@ public sealed class StreamWatcherService : IDisposable
         webView.CoreWebView2.Navigate(e.Uri);
     }
 
-    private static Uri BuildViewerUri(string channelSlug)
+    private static string? LoadInjectScript()
     {
-        var builder = new UriBuilder(Uri.UriSchemeHttps, TwitchViewerHost)
-        {
-            Path = StreamViewerPageName,
-            Query = $"channel={Uri.EscapeDataString(channelSlug)}"
-        };
-        return builder.Uri;
+        var assembly = Assembly.GetExecutingAssembly();
+        var name = assembly.GetManifestResourceNames()
+            .FirstOrDefault(n => n.EndsWith("StreamViewerInject.js", StringComparison.OrdinalIgnoreCase));
+
+        if (name is null) return null;
+
+        using var stream = assembly.GetManifestResourceStream(name);
+        if (stream is null) return null;
+
+        using var reader = new StreamReader(stream, Encoding.UTF8);
+        return reader.ReadToEnd();
     }
 
     public void Dispose()
