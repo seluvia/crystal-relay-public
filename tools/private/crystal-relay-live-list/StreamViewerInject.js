@@ -32,7 +32,7 @@
     /* ── Channel Points Auto-Claim ── */
     function setupAutoClaim() {
         function getRandomDelay() {
-            var arr = new Uint32Array(6);
+            var arr = new Uint32Array(7);
             crypto.getRandomValues(arr);
 
             /* Base: 800–8000ms */
@@ -44,8 +44,8 @@
             /* Jitter 2: prime-multiplier 0–2296ms in steps of 177 */
             var j2 = (arr[2] % 13) * 177;
 
-            /* Jitter 3: time-of-day modulo 991 × 0.7 */
-            var j3 = (Date.now() % 991) * 0.7;
+            /* Jitter 3: crypto modulo 693 × 0.7 + 50 */
+            var j3 = (arr[6] % 693) * 0.7 + 50;
 
             /* Jitter 4: raw noise ±250ms */
             var j4 = (arr[3] % 500) - 250;
@@ -64,17 +64,18 @@
             '[data-a-target="claim-channel-points-button"]',
             '[data-a-target="bonus-points-button"]',
             '[data-test-selector="claim-points-button"]',
-            'button[aria-label*="Claim"]'
+            'button[aria-label^="Claim "]'
         ];
 
         function tryClaim() {
             if (claimTimer !== null) return;
             for (var i = 0; i < selectors.length; i++) {
                 var btn = document.querySelector(selectors[i]);
-                if (btn && btn.offsetParent !== null && !btn.dataset.crClaimed) {
+                if (btn && btn.getClientRects().length > 0 && !btn.disabled && !btn.dataset.crClaimed) {
                     btn.dataset.crClaimed = "true";
                     var delay = getRandomDelay();
                     claimTimer = setTimeout(function () {
+                        if (!btn.isConnected) { claimTimer = null; return; }
                         try { btn.click(); } catch (_) { }
                         claimTimer = null;
                     }, delay);

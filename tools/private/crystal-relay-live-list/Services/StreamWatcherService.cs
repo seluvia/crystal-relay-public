@@ -80,6 +80,7 @@ public sealed class StreamWatcherService : IDisposable
     {
         e.Handled = true;
         if (webView.CoreWebView2 is null || string.IsNullOrWhiteSpace(e.Uri)) return;
+        if (!e.Uri.StartsWith("https://www.twitch.tv/", StringComparison.OrdinalIgnoreCase)) return;
         webView.CoreWebView2.Navigate(e.Uri);
     }
 
@@ -89,10 +90,18 @@ public sealed class StreamWatcherService : IDisposable
         var name = assembly.GetManifestResourceNames()
             .FirstOrDefault(n => n.EndsWith("StreamViewerInject.js", StringComparison.OrdinalIgnoreCase));
 
-        if (name is null) return null;
+        if (name is null)
+        {
+            System.Diagnostics.Debug.WriteLine("[StreamWatcherService] LoadInjectScript: embedded resource 'StreamViewerInject.js' not found.");
+            return null;
+        }
 
         using var stream = assembly.GetManifestResourceStream(name);
-        if (stream is null) return null;
+        if (stream is null)
+        {
+            System.Diagnostics.Debug.WriteLine("[StreamWatcherService] LoadInjectScript: manifest resource stream returned null for '{0}'.", name);
+            return null;
+        }
 
         using var reader = new StreamReader(stream, Encoding.UTF8);
         return reader.ReadToEnd();
