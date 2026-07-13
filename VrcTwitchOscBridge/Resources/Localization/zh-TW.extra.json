@@ -1304,8 +1304,7 @@
   "Use {user}, {rule}, {duration}, {cooldown} as template variables.": "?? {user}?{rule}?{duration}?{cooldown} ???????",
   "VR Only": "? VR",
   "ui-theme": "ui-??"
-}
-
+}
   "connection": "connection"
 
   "crash": "crash"

@@ -3961,7 +3961,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     private async Task ConnectVrChatAsync()
     {
-        var loginWindow = new VrChatLoginWindow(SelectedTheme)
+        var loginWindow = new VrChatLoginWindow(SelectedTheme, vrChatApiClient)
         {
             Owner = Application.Current?.MainWindow
         };
@@ -3971,44 +3971,22 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             return;
         }
 
+        var account = loginWindow.AccountResult;
+        if (account is null)
+        {
+            VrChatStatus = T("VRChat login completed, but no account details were returned.");
+            VrChatAvatarStatus = T("Connect VRChat again when you want to load avatars.");
+            RecomputeVrChatConnectionState();
+            RefreshCommandStates();
+            RefreshVrChatAvatarSelectionOptions();
+            return;
+        }
+
         VrChatStatus = T("Connecting to VRChat...");
         VrChatAvatarStatus = T("Waiting for VRChat login to finish.");
 
         try
         {
-            var loginResponse = await vrChatApiClient.LoginWithCredentialsAsync(
-                loginWindow.VrChatUsername,
-                loginWindow.VrChatPassword,
-                CancellationToken.None);
-
-            var account = loginResponse.Account;
-            if (loginResponse.RequiredTwoFactorMethods.Count > 0)
-            {
-                var twoFactorWindow = new VrChatTwoFactorWindow(SelectedTheme, loginResponse.RequiredTwoFactorMethods)
-                {
-                    Owner = Application.Current?.MainWindow
-                };
-
-                if (twoFactorWindow.ShowDialog() != true)
-                {
-                    VrChatStatus = T("VRChat login cancelled before 2FA completed.");
-                    VrChatAvatarStatus = T("Connect VRChat again when you want to load avatars.");
-                    await SafeVrChatLogoutAsync(loginResponse.AuthCookie);
-                    return;
-                }
-
-                account = await vrChatApiClient.CompleteTwoFactorAsync(
-                    loginResponse.AuthCookie,
-                    twoFactorWindow.SelectedMethod,
-                    twoFactorWindow.VerificationCode,
-                    CancellationToken.None);
-            }
-
-            if (account is null)
-            {
-                throw new InvalidOperationException("VRChat login completed, but no account details were returned.");
-            }
-
             Settings.VrChat.Apply(account);
             AvatarPickerService.SetVrChatAuthCookie(account.AuthCookie);
             RaiseVrChatConnectionStateProperties();
