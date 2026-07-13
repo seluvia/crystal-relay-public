@@ -13704,6 +13704,7 @@ internal BridgeCoordinator(
                 temporarilyDisabledRuleIds,
                 avatarChangeTransitionActive,
                 configuration.AvatarChangeCooldownOnlyModeEnabled,
+                configuration.PermanentSwapModeEnabled,
                 permanentChangeCompletedRules),
             TwitchTriggerType.Bits => SelectBitsMatchingRules(
                 ruleIndex.GetGlobalOverrideRulesByTriggerType(bridgeEvent.TriggerType)
@@ -13941,6 +13942,7 @@ internal BridgeCoordinator(
         IReadOnlyCollection<Guid> temporarilyDisabledRuleIds,
         bool avatarChangeTransitionActive,
         bool avatarChangeCooldownOnlyModeEnabled,
+        bool permanentSwapModeEnabled = false,
         IReadOnlySet<Guid>? permanentChangeCompletedRuleIds = null)
     {
         var normalizedRewardId = rewardId?.Trim() ?? string.Empty;
@@ -13959,6 +13961,7 @@ internal BridgeCoordinator(
             temporarilyDisabledRuleIds,
             avatarChangeTransitionActive,
             avatarChangeCooldownOnlyModeEnabled,
+            permanentSwapModeEnabled,
             permanentChangeCompletedRuleIds);
 
         if (activeCandidates.Length == 0)
@@ -14436,6 +14439,7 @@ internal BridgeCoordinator(
         IReadOnlyCollection<Guid> temporarilyDisabledRuleIds,
         bool avatarChangeTransitionActive,
         bool avatarChangeCooldownOnlyModeEnabled,
+        bool permanentSwapModeEnabled = false,
         IReadOnlySet<Guid>? permanentChangeCompletedRuleIds = null)
     {
         var activeCandidates = new List<TriggerRuleSnapshot>();
@@ -14446,6 +14450,8 @@ internal BridgeCoordinator(
                 continue;
             }
 
+            var effectiveCooldownMode = avatarChangeCooldownOnlyModeEnabled || permanentSwapModeEnabled;
+            var effectivePermanentChange = permanentSwapModeEnabled || rule.Rule.PermanentAvatarChange;
             if (!AvatarRuleActivationPolicy.IsRuleActiveForCurrentAvatar(
                     rule.IsGlobalOverride,
                     rule.BelongsToMasterAvatarProfile,
@@ -14454,8 +14460,8 @@ internal BridgeCoordinator(
                     rule.RequiredAvatarId,
                     normalizedCurrentAvatarId,
                     avatarChangeTransitionActive,
-                    avatarChangeCooldownOnlyModeEnabled,
-                    permanentAvatarChange: rule.Rule.PermanentAvatarChange,
+                    effectiveCooldownMode,
+                    permanentAvatarChange: effectivePermanentChange,
                     permanentChangeCompleted: permanentChangeCompletedRuleIds?.Contains(rule.Id) ?? false))
             {
                 continue;
