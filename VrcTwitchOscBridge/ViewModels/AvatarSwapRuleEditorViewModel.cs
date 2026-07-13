@@ -19,6 +19,7 @@ public sealed class AvatarSwapRuleEditorViewModel : ObservableObject
         MinimumAmount = rule.MinimumAmount;
         ActionType = rule.ActionType;
         PermanentAvatarChange = rule.PermanentAvatarChange;
+        ReturnToPreviousAvatar = rule.ReturnToPreviousAvatar;
         CooldownOnlyAvatarChange = rule.CooldownOnlyAvatarChange;
         DeleteManagedRewardWhenInactive = rule.DeleteManagedRewardWhenInactive;
         RewardSyncMode = rule.RewardSyncMode;
@@ -42,6 +43,7 @@ public sealed class AvatarSwapRuleEditorViewModel : ObservableObject
         || MinimumAmount != OriginalSnapshot.MinimumAmount
         || ActionType != OriginalSnapshot.ActionType
         || PermanentAvatarChange != OriginalSnapshot.PermanentAvatarChange
+        || ReturnToPreviousAvatar != OriginalSnapshot.ReturnToPreviousAvatar
         || CooldownOnlyAvatarChange != OriginalSnapshot.CooldownOnlyAvatarChange
         || DeleteManagedRewardWhenInactive != OriginalSnapshot.DeleteManagedRewardWhenInactive
         || RewardSyncMode != OriginalSnapshot.RewardSyncMode
@@ -59,6 +61,7 @@ public sealed class AvatarSwapRuleEditorViewModel : ObservableObject
     public int MinimumAmount { get; set; }
     public OscActionType ActionType { get; set; }
     public bool PermanentAvatarChange { get; set; }
+    public bool ReturnToPreviousAvatar { get; set; }
     public bool CooldownOnlyAvatarChange { get; set; }
     public bool DeleteManagedRewardWhenInactive { get; set; }
     public TwitchRewardSyncMode RewardSyncMode { get; set; }
@@ -67,6 +70,10 @@ public sealed class AvatarSwapRuleEditorViewModel : ObservableObject
     public string? TargetAvatarName { get; set; }
     public string? ReturnAvatarId { get; set; }
     public string? ReturnAvatarName { get; set; }
+
+    public bool IsReturnToGlobal => !PermanentAvatarChange && !ReturnToPreviousAvatar;
+    public bool IsReturnToPrevious => ReturnToPreviousAvatar;
+    public bool IsPermanent => PermanentAvatarChange;
 
     public void Save()
     {
@@ -78,6 +85,7 @@ public sealed class AvatarSwapRuleEditorViewModel : ObservableObject
         Rule.MinimumAmount = MinimumAmount;
         Rule.ActionType = ActionType;
         Rule.PermanentAvatarChange = PermanentAvatarChange;
+        Rule.ReturnToPreviousAvatar = ReturnToPreviousAvatar;
         Rule.CooldownOnlyAvatarChange = CooldownOnlyAvatarChange;
         Rule.DeleteManagedRewardWhenInactive = DeleteManagedRewardWhenInactive;
         Rule.RewardSyncMode = RewardSyncMode;
