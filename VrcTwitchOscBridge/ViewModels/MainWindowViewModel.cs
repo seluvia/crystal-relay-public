@@ -12539,12 +12539,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         var cooldownOnlyAvatarChangeVisible = isCooldownOnlyDirectAvatarChange
             && !string.IsNullOrWhiteSpace(normalizedCurrentAvatarId)
             && (isOnLocalCooldown || (!anyCooldownOnlyAvatarChangeOnCooldown && !isCurrentAvatarChangeTarget));
+        var swapRequiredAvatarId = rule.ReturnToPreviousAvatar && !string.IsNullOrWhiteSpace(swapProfile.TargetAvatarId)
+            ? swapProfile.TargetAvatarId
+            : returnAvatarId;
         var profileIsEffectivelyActive = AvatarRuleActivationPolicy.IsRuleActiveForCurrentAvatar(
             isGlobalOverride: false,
             belongsToMasterAvatarProfile: true,
             actionType: rule.ActionType,
             avatarChangeTargetId: rule.AvatarChangeTargetId,
-            requiredAvatarId: returnAvatarId,
+            requiredAvatarId: swapRequiredAvatarId,
             currentAvatarId: currentAvatarId,
             avatarChangeTransitionActive: avatarChangeTransitionActive,
             avatarChangeCooldownOnlyModeEnabled: Settings.AvatarChangeCooldownOnlyModeEnabled,
