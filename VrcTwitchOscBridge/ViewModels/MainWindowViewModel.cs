@@ -5471,6 +5471,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             TryGetVrChatAvatarThumbnailUrl,
             () =>
             {
+                Coordinator?.ClearAllPermanentChangeCompleted();
                 QueueSave(0);
                 QueueBridgeRefresh();
                 QueueManagedRewardSync(0, ManagedRewardSyncReason.SettingsEdit);

@@ -143,6 +143,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     // Runtime state for cooldowns, queued redeems, movement lanes, active timed resets,
     // and the temporary disable-pairing system used by avatar-set redeems.
     private readonly Dictionary<Guid, DateTimeOffset> cooldowns = [];
+    private readonly HashSet<Guid> permanentChangeCompletedRules = [];
     private readonly Dictionary<Guid, Queue<QueuedRuleTrigger>> queuedTriggers = [];
     private readonly HashSet<Guid> drainingQueuedRules = [];
     private readonly Dictionary<string, ActiveMovementLaneState> actionLanes = [];
@@ -721,6 +722,14 @@ internal BridgeCoordinator(
         }
 
         await ExecuteRuleActionAsync(rule, null, cancellationToken, isTest: true, queuedReplay: false, allowLaneQueue: true, isResuming: false);
+    }
+
+    public void ClearAllPermanentChangeCompleted()
+    {
+        lock (stateGate)
+        {
+            permanentChangeCompletedRules.Clear();
+        }
     }
 
     public void QuickTestRule(TriggerRule rule)
@@ -7521,7 +7530,8 @@ internal BridgeCoordinator(
         bool isTest,
         bool queuedReplay,
         bool allowLaneQueue,
-        bool isResuming = false)
+        bool isResuming = false,
+        string? resumePreviousAvatarId = null)
     {
         if (!isTest && AreRedeemsPaused())
         {
@@ -7535,8 +7545,17 @@ internal BridgeCoordinator(
             return;
         }
 
-        var suppressSharedReturnAvatarUpdate = IsCooldownOnlyDirectAvatarChange(rule);
+        var isPermanentAvatarChange = rule.ActionType is OscActionType.AvatarChange
+            && rule.Rule.PermanentAvatarChange;
+        var isReturnToPreviousAvatar = rule.ActionType is OscActionType.AvatarChange
+            && rule.Rule.ReturnToPreviousAvatar
+            && rule.DurationSeconds > 0;
+        var suppressSharedReturnAvatarUpdate = IsCooldownOnlyDirectAvatarChange(rule) || isPermanentAvatarChange;
         if (suppressSharedReturnAvatarUpdate)
+        {
+            rule = rule with { DurationSeconds = 0 };
+        }
+        if (isPermanentAvatarChange)
         {
             rule = rule with { DurationSeconds = 0 };
         }
@@ -7561,14 +7580,24 @@ internal BridgeCoordinator(
 
         var isMovementStopAction = executionRule.ActionType == OscActionType.PlayerMovement && IsSoftLockMovement(executionRule.MovementDirection);
         var cooldownSeconds = GetCooldownSeconds(executionRule);
-        var capturedReturnAvatar = (executionRule.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet) && executionRule.DurationSeconds > 0
-            ? GetSharedReturnAvatarSnapshot()
-            : SharedReturnAvatarSnapshot.Empty;
+        var capturedReturnAvatar = !string.IsNullOrWhiteSpace(resumePreviousAvatarId)
+            ? new SharedReturnAvatarSnapshot(resumePreviousAvatarId, string.Empty)
+            : (executionRule.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet) && executionRule.DurationSeconds > 0
+                ? GetSharedReturnAvatarSnapshot()
+                : SharedReturnAvatarSnapshot.Empty;
         if (executionRule.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet
             && executionRule.DurationSeconds > 0
             && string.IsNullOrWhiteSpace(capturedReturnAvatar.AvatarId))
         {
             throw new InvalidOperationException("Pick the return avatar first before timed avatar-switch redeems can switch back.");
+        }
+
+        if (isReturnToPreviousAvatar)
+        {
+            var previousAvatarId = GetCurrentVrChatAvatarId();
+            capturedReturnAvatar = !string.IsNullOrWhiteSpace(previousAvatarId)
+                ? new SharedReturnAvatarSnapshot(previousAvatarId, string.Empty)
+                : capturedReturnAvatar;
         }
 
         if (isMovementStopAction)
@@ -7817,18 +7846,34 @@ internal BridgeCoordinator(
             }
         }
 
+        if (!isTest && isPermanentAvatarChange && !string.IsNullOrWhiteSpace(action.AvatarTargetId))
+        {
+            lock (stateGate)
+            {
+                permanentChangeCompletedRules.Add(rule.Id);
+            }
+            ManagedRewardAvailabilityChanged?.Invoke();
+        }
+
         if (!isTest && !isResuming && executionRule.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet)
         {
-            var expiresAt = executionRule.DurationSeconds > 0 ? DateTimeOffset.UtcNow.AddSeconds(executionRule.DurationSeconds) : (DateTimeOffset?)null;
+            var payload = new Dictionary<string, object>
+            {
+                ["avatarTargetId"] = action.AvatarTargetId ?? string.Empty
+            };
+            if (isReturnToPreviousAvatar)
+            {
+                payload["previousAvatarId"] = capturedReturnAvatar.AvatarId ?? string.Empty;
+            }
+            var expiresAt = executionRule.DurationSeconds > 0
+                ? DateTimeOffset.UtcNow.AddSeconds(executionRule.DurationSeconds)
+                : (DateTimeOffset?)null;
             await activityResumeService.RecordActivityStartedAsync(new ResumeActivity
             {
                 Type = ResumeActivityType.AvatarChange,
                 RuleId = rule.Id,
                 ExpiresAt = expiresAt,
-                Payload = new Dictionary<string, object>
-                {
-                    ["avatarTargetId"] = action.AvatarTargetId ?? string.Empty
-                }
+                Payload = payload
             }, action.AvatarTargetId ?? string.Empty);
         }
 
@@ -14697,6 +14742,8 @@ internal BridgeCoordinator(
                         return;
                     }
 
+                    var previousAvatarId = activity.Payload?.GetValueOrDefault("previousAvatarId") as string;
+
                     await ExecuteRuleActionAsync(
                         rule,
                         null,
@@ -14704,7 +14751,8 @@ internal BridgeCoordinator(
                         isTest: false,
                         queuedReplay: false,
                         allowLaneQueue: false,
-                        isResuming: true);
+                        isResuming: true,
+                        resumePreviousAvatarId: previousAvatarId);
                     break;
                 }
         }
