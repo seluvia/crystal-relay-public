@@ -7587,7 +7587,8 @@ internal BridgeCoordinator(
                 : SharedReturnAvatarSnapshot.Empty;
         if (executionRule.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet
             && executionRule.DurationSeconds > 0
-            && string.IsNullOrWhiteSpace(capturedReturnAvatar.AvatarId))
+            && string.IsNullOrWhiteSpace(capturedReturnAvatar.AvatarId)
+            && !isReturnToPreviousAvatar)
         {
             throw new InvalidOperationException("Pick the return avatar first before timed avatar-switch redeems can switch back.");
         }
