@@ -291,6 +291,31 @@
                 </Border>
             </StackPanel>
 
+            <!-- Avatar Change Return Behavior -->
+            <Border Background="{DynamicResource NestedPanelBrush}" CornerRadius="4" Padding="10"
+                    Visibility="{Binding Rule.ActionType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter=AvatarChange}">
+                <StackPanel>
+                    <TextBlock Text="{loc:Translate 'Return Behavior'}" Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" Margin="0,0,0,8" />
+                    <RadioButton x:Name="ReturnToPermanentRadio"
+                                 GroupName="AvatarReturnMode"
+                                 IsChecked="{Binding Rule.PermanentAvatarChange, Mode=TwoWay}"
+                                 Checked="OnPermanentChecked"
+                                 Content="{loc:Translate 'Permanent No Return'}"
+                                 Foreground="{DynamicResource TextBrush}" />
+                    <RadioButton x:Name="ReturnToPreviousRadio"
+                                 GroupName="AvatarReturnMode"
+                                 IsChecked="{Binding Rule.ReturnToPreviousAvatar, Mode=TwoWay}"
+                                 Checked="OnReturnToPreviousChecked"
+                                 Content="{loc:Translate 'Return to Previous Avatar'}"
+                                 Foreground="{DynamicResource TextBrush}" />
+                    <RadioButton x:Name="ReturnToGlobalRadio"
+                                 GroupName="AvatarReturnMode"
+                                 Checked="OnReturnToGlobalChecked"
+                                 Content="{loc:Translate 'Return to Global Return Avatar'}"
+                                 Foreground="{DynamicResource TextBrush}" />
+                </StackPanel>
+            </Border>
+
             <!-- Common fields -->
             <Border Background="{DynamicResource NestedPanelBrush}" CornerRadius="4" Padding="10">
                 <StackPanel>
