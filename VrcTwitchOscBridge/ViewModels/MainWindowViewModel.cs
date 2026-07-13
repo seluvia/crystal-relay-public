@@ -12525,7 +12525,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         var isOnLocalCooldown = cooldownRuleIds.Contains(rule.Id);
         var normalizedCurrentAvatarId = currentAvatarId?.Trim() ?? string.Empty;
         var normalizedAvatarChangeTargetId = rule.AvatarChangeTargetId?.Trim() ?? string.Empty;
-        var isCooldownOnlyDirectAvatarChange = Settings.AvatarChangeCooldownOnlyModeEnabled
+        var isCooldownOnlyDirectAvatarChange = (Settings.AvatarChangeCooldownOnlyModeEnabled || Settings.PermanentSwapModeEnabled)
             && rule.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet;
         var isCurrentAvatarChangeTarget = isCooldownOnlyDirectAvatarChange
             && rule.ActionType == OscActionType.AvatarChange
