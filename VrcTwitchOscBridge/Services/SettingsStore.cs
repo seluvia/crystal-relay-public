@@ -1119,6 +1119,10 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             SetTriggerRestoreMode = rule.SetTriggerRestoreMode,
             SpecialRulePairingMode = rule.SpecialRulePairingMode,
             BotMessageTemplate = rule.BotMessageTemplate,
+            ReturnToPreviousAvatar = rule.ReturnToPreviousAvatar,
+            PermanentAvatarChange = rule.PermanentAvatarChange,
+            CooldownOnlyAvatarChange = rule.CooldownOnlyAvatarChange,
+            IsGiftSubscription = rule.IsGiftSubscription,
             TemporarilyDisabledRuleIds = [.. rule.TemporarilyDisabledRuleIds]
 };
     }
@@ -1447,7 +1451,11 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
                 .Distinct()),
             BotMessageTemplate = string.IsNullOrWhiteSpace(rule.BotMessageTemplate)
                 ? "{user} triggered {rule}. Active for {duration}. Cooldown {cooldown}."
-                : rule.BotMessageTemplate
+                : rule.BotMessageTemplate,
+            ReturnToPreviousAvatar = rule.ReturnToPreviousAvatar,
+            PermanentAvatarChange = rule.PermanentAvatarChange,
+            CooldownOnlyAvatarChange = rule.CooldownOnlyAvatarChange,
+            IsGiftSubscription = rule.IsGiftSubscription
 };
     }
 
@@ -3548,6 +3556,10 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
         public List<Guid>? TemporarilyDisabledRuleIds { get; set; }
 
         public string? BotMessageTemplate { get; set; }
+        public bool ReturnToPreviousAvatar { get; set; }
+        public bool PermanentAvatarChange { get; set; }
+        public bool CooldownOnlyAvatarChange { get; set; }
+        public bool IsGiftSubscription { get; set; }
     }
 
     internal sealed class PersistedSupporterFloatAddRange
