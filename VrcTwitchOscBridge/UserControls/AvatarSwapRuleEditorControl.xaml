@@ -1055,6 +1055,32 @@
                                Foreground="{DynamicResource TextBrush}"
                                FontWeight="SemiBold" />
                 </Border>
+                <StackPanel Margin="0,12,0,0"
+                            Visibility="{Binding UsesAvatarChange, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <TextBlock Text="↩ Return Behavior"
+                               Foreground="{DynamicResource TextBrush}"
+                               FontWeight="SemiBold" />
+                    <RadioButton Margin="0,6,0,0"
+                                 GroupName="AvatarReturnMode"
+                                 IsChecked="{Binding IsReturnToGlobal}"
+                                 Content="Return to Global Return Avatar"
+                                 Foreground="{DynamicResource TextBrush}" />
+                    <RadioButton Margin="0,4,0,0"
+                                 GroupName="AvatarReturnMode"
+                                 IsChecked="{Binding IsReturnToPrevious}"
+                                 Content="Return to Previous Avatar"
+                                 Foreground="{DynamicResource TextBrush}" />
+                    <RadioButton Margin="0,4,0,0"
+                                 GroupName="AvatarReturnMode"
+                                 IsChecked="{Binding IsPermanent}"
+                                 Content="Permanent (No Return)"
+                                 Foreground="{DynamicResource TextBrush}" />
+                    <TextBlock Margin="0,6,0,0"
+                               Text="Will return to the avatar you were wearing before this swap."
+                               Foreground="{DynamicResource MutedBrush}"
+                               TextWrapping="Wrap"
+                               Visibility="{Binding IsReturnToPrevious, Converter={StaticResource BoolToVisibilityConverter}}" />
+                </StackPanel>
                 <Border Margin="0,8,0,0"
                         Padding="14,10"
                         Background="{DynamicResource InputBackgroundBrush}"
@@ -1746,6 +1772,9 @@
                                 </MultiDataTrigger.Conditions>
                                 <Setter Property="Visibility" Value="Collapsed" />
                             </MultiDataTrigger>
+                            <DataTrigger Binding="{Binding IsPermanent}" Value="True">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
                         </Style.Triggers>
                     </Style>
                 </StackPanel.Style>
