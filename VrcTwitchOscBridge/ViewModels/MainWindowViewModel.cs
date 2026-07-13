@@ -18675,6 +18675,14 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         // RecomputeVrChatConnectionState so the connection state reflects the change.
         HandleVrChatAvatarChangedByBridge(avatarId, queueManagedRewardSync: true);
 
+        // When permanent swap mode is enabled, update the global return avatar to match
+        // manual avatar changes so that future "Return to Previous" swaps can return
+        // the viewer back to the streamer's manually-chosen avatar.
+        if (Settings.PermanentSwapModeEnabled && !string.IsNullOrWhiteSpace(avatarId))
+        {
+            ApplySharedReturnAvatarSelection(avatarId, resolvedName ?? string.Empty, saveImmediately: true);
+        }
+
         RecomputeVrChatConnectionState();
     }
 
