@@ -304,6 +304,31 @@
                                     </StackPanel>
                                 </StackPanel>
                             </Border>
+
+                            <Border Background="{DynamicResource PanelBrush}"
+                                    BorderBrush="{DynamicResource BorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    Padding="12"
+                                    Margin="0,16,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="{loc:Translate 'Extend current activity'}"
+                                               FontWeight="Bold"
+                                               FontSize="13"
+                                               Margin="0,0,0,8" />
+                                    <CheckBox IsChecked="{Binding ExtendCurrentActivity, Mode=TwoWay}"
+                                              Content="{loc:Translate &quot;Extend the current active activity instead of running this rule&apos;s action&quot;}"
+                                              Margin="0,0,0,8" />
+                                    <StackPanel Orientation="Horizontal"
+                                                Visibility="{Binding ExtendCurrentActivity, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <TextBlock Text="{loc:Translate 'Extend by (seconds)'}"
+                                                   VerticalAlignment="Center"
+                                                   Margin="0,0,8,0" />
+                                        <TextBox Text="{Binding ExtendSeconds, UpdateSourceTrigger=PropertyChanged}"
+                                                 MinWidth="80" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
                         </StackPanel>
 
                         <Button Margin="0,18,0,0"

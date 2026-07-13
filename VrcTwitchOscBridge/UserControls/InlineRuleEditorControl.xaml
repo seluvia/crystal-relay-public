@@ -118,16 +118,10 @@
                                          Foreground="{DynamicResource TextBrush}" Margin="0,2,0,0" />
                         </StackPanel>
                         <StackPanel Visibility="{Binding Rule.RewardSyncMode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter=CreateOrManage, FallbackValue=Visible}">
-                            <UniformGrid Columns="2">
-                                <StackPanel Margin="0,0,8,0">
-                                    <TextBlock Text="{loc:Translate 'Reward Name'}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
-                                    <TextBox Text="{Binding Rule.ChannelPointRewardTitle, UpdateSourceTrigger=PropertyChanged}" />
-                                </StackPanel>
-                                <StackPanel Margin="8,0,0,0">
-                                    <TextBlock Text="{loc:Translate 'Reward Cost'}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
-                                    <TextBox Text="{Binding Rule.ChannelPointRewardCost, UpdateSourceTrigger=PropertyChanged}" />
-                                </StackPanel>
-                            </UniformGrid>
+                            <StackPanel>
+                                <TextBlock Text="{loc:Translate 'Reward Cost'}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
+                                <TextBox Text="{Binding Rule.ChannelPointRewardCost, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
                         </StackPanel>
                         <StackPanel Visibility="{Binding Rule.RewardSyncMode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter=LinkExisting, FallbackValue=Collapsed}">
                             <TextBlock Text="{loc:Translate 'Existing Twitch Reward'}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,8,0,2" />

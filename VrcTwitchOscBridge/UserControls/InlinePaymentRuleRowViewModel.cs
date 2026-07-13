@@ -50,7 +50,7 @@ public sealed class InlinePaymentRuleRowViewModel : ObservableObject, IRuleRowVi
             sb.Append(' ').Append(_rule.CurrencyCode ?? string.Empty).Append(' ')
               .Append(_rule.MinimumAmount).Append('-').Append(_rule.MaximumAmount);
         }
-        if (!string.IsNullOrWhiteSpace(_rule.MessageContains))
+        if (_rule.RequireMessageKeyword && !string.IsNullOrWhiteSpace(_rule.MessageContains))
         {
             sb.Append(" match: '").Append(_rule.MessageContains).Append('\'');
         }

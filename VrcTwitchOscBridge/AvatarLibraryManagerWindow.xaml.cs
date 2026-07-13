@@ -13,9 +13,10 @@ public partial class AvatarLibraryManagerWindow : Window
     public AvatarLibraryManagerWindow(
         AppTheme theme,
         AvatarLibrary library,
-        AvatarImageService imageService)
+        AvatarImageService imageService,
+        IReadOnlyList<VrChatAvatarSummary> avatars)
     {
-        viewModel = new AvatarLibraryManagerViewModel(library, imageService);
+        viewModel = new AvatarLibraryManagerViewModel(library, imageService, avatars);
         DataContext = viewModel;
 
         InitializeComponent();

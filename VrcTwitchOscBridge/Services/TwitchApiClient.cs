@@ -31,11 +31,17 @@ public sealed class TwitchApiClient : IDisposable
     private static string lastBroadcasterRefreshInput = string.Empty;
     private static TokenExchangeResponse? lastBroadcasterRefreshResponse;
     private static DateTimeOffset lastBroadcasterRefreshAt = DateTimeOffset.MinValue;
+    private static readonly TimeSpan RewardCatalogCacheTtl = TimeSpan.FromSeconds(30);
 
     private readonly HttpClient httpClient = new()
     {
         Timeout = DefaultRequestTimeout
     };
+
+    private IReadOnlyList<CustomRewardResponse>? cachedRewardCatalog;
+    private DateTimeOffset cachedRewardCatalogAt = DateTimeOffset.MinValue;
+    private string? cachedRewardCatalogBroadcasterId;
+    private bool? cachedRewardCatalogOnlyManageable;
 
     // Twitch device flow used for the broadcaster and bot login buttons inside Crystal Relay.
     public async Task<DeviceCodeResponse> StartDeviceAuthorizationAsync(
@@ -261,6 +267,14 @@ public sealed class TwitchApiClient : IDisposable
         CancellationToken cancellationToken = default,
         bool onlyManageableRewards = false)
     {
+        if (cachedRewardCatalog is not null
+            && cachedRewardCatalogBroadcasterId == broadcasterId
+            && cachedRewardCatalogOnlyManageable == onlyManageableRewards
+            && DateTimeOffset.UtcNow - cachedRewardCatalogAt < RewardCatalogCacheTtl)
+        {
+            return cachedRewardCatalog;
+        }
+
         var rewardsUrl = new StringBuilder("https://api.twitch.tv/helix/channel_points/custom_rewards");
         rewardsUrl.Append("?broadcaster_id=");
         rewardsUrl.Append(Uri.EscapeDataString(broadcasterId));
@@ -277,7 +291,21 @@ public sealed class TwitchApiClient : IDisposable
 
         using var response = await SendAsync(request, cancellationToken);
         var payload = await ReadAsJsonAsync<CustomRewardListResponse>(response, cancellationToken);
+
+        cachedRewardCatalog = payload.Data;
+        cachedRewardCatalogAt = DateTimeOffset.UtcNow;
+        cachedRewardCatalogBroadcasterId = broadcasterId;
+        cachedRewardCatalogOnlyManageable = onlyManageableRewards;
+
         return payload.Data;
+    }
+
+    private void InvalidateRewardCatalogCache()
+    {
+        cachedRewardCatalog = null;
+        cachedRewardCatalogBroadcasterId = null;
+        cachedRewardCatalogOnlyManageable = null;
+        cachedRewardCatalogAt = DateTimeOffset.MinValue;
     }
 
     public async Task<IReadOnlyList<CustomPowerUpResponse>> GetCustomPowerUpsAsync(
@@ -319,6 +347,7 @@ public sealed class TwitchApiClient : IDisposable
 
         using var response = await SendAsync(request, cancellationToken);
         var payload = await ReadAsJsonAsync<CustomRewardListResponse>(response, cancellationToken);
+        InvalidateRewardCatalogCache();
         return payload.Data.FirstOrDefault()
             ?? throw new InvalidOperationException("Twitch created the reward, but returned no reward details.");
     }
@@ -346,6 +375,7 @@ public sealed class TwitchApiClient : IDisposable
 
         using var response = await SendAsync(request, cancellationToken);
         var payload = await ReadAsJsonAsync<CustomRewardListResponse>(response, cancellationToken);
+        InvalidateRewardCatalogCache();
         return payload.Data.FirstOrDefault()
             ?? throw new InvalidOperationException("Twitch updated the reward, but returned no reward details.");
     }
@@ -370,6 +400,7 @@ public sealed class TwitchApiClient : IDisposable
 
         using var response = await SendAsync(request, cancellationToken);
         var payload = await ReadAsJsonAsync<CustomRewardListResponse>(response, cancellationToken);
+        InvalidateRewardCatalogCache();
         return payload.Data.FirstOrDefault()
             ?? throw new InvalidOperationException("Twitch updated the reward visibility, but returned no reward details.");
     }
@@ -389,6 +420,7 @@ public sealed class TwitchApiClient : IDisposable
 
         using var response = await SendAsync(request, cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
+        InvalidateRewardCatalogCache();
     }
 
     public async Task<IReadOnlyList<ChatBadgeSetResponse>> GetGlobalChatBadgesAsync(
@@ -813,7 +845,11 @@ public sealed class TwitchApiClient : IDisposable
         return profiles;
     }
 
-    public void Dispose() => httpClient.Dispose();
+    public void Dispose()
+    {
+        InvalidateRewardCatalogCache();
+        httpClient.Dispose();
+    }
 
     private async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {

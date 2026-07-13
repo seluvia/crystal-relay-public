@@ -100,9 +100,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     private static readonly TimeSpan TwitchAccessTokenRefreshLeadTime = TimeSpan.FromMinutes(15);
     private static readonly TimeSpan TwitchCachedValidationGraceWindow = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan TwitchPublicRefreshSessionWindow = TimeSpan.FromDays(30);
-    private static readonly TimeSpan VrChatLocalStatePollInterval = TimeSpan.FromSeconds(2);
-    private static readonly TimeSpan VrChatCurrentAvatarPollInterval = TimeSpan.FromSeconds(15);
-    private static readonly TimeSpan ActiveAvatarScaleLocalRefreshInterval = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan VrChatLocalStatePollInterval = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan VrChatCurrentAvatarPollInterval = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan ActiveAvatarScaleLocalRefreshInterval = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan VrChatOscParameterAutoRefreshInitialDelay = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan VrChatOscParameterAutoRefreshRetryDelay = TimeSpan.FromSeconds(3);
     private static readonly TimeSpan WorldCommandBlacklistRefreshInterval = TimeSpan.FromMinutes(10);
@@ -253,13 +253,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         nameof(TriggerRule.ActiveFloatBoostRewardCooldownSeconds),
         nameof(TriggerRule.ActiveFloatBoostRewardReadyColor),
         nameof(TriggerRule.ActiveFloatBoostRewardCooldownColor),
-        nameof(TriggerRule.ParameterName),
         nameof(TriggerRule.SharedRewardChoiceEnabled),
         nameof(TriggerRule.SharedRewardChoiceNumber),
         nameof(TriggerRule.SharedRewardHelpText),
-        nameof(TriggerRule.SetTriggerActions),
-        nameof(TriggerRule.AvatarChangeTargetId),
-        nameof(TriggerRule.AvatarRouletAvatarIds),
         nameof(TriggerRule.IsEnabled),
         nameof(TriggerRule.CooldownSeconds),
         nameof(TriggerRule.SpecialRulePairingMode),
@@ -476,6 +472,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     private string chatboxListenerStatus = "Connect broadcaster to start Twitch Chatbox.";
     private string chatboxModerationStatusText = "Select a chat card to moderate.";
     private bool isChatboxModerationDrawerOpen;
+    private bool blockedWordsSectionOpen;
+    private ObservableCollection<BlockedWordItem> blockedWordItems = [];
+    private string newBlockedWordText = string.Empty;
     private TwitchChatMessageEntry? selectedChatMessage;
     private string activityAttentionMessage = string.Empty;
     private SectionView activeSection;
@@ -554,8 +553,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     private Guid lastSelectedAvatarProfileId = Guid.Empty;
     private Guid selectedSupporterAvatarProfileId = Guid.Empty;
     private Guid lastSelectedMasterRuleId = Guid.Empty;
-    private Guid lastSelectedMovementSetId = Guid.Empty;
-    private Guid lastSelectedMovementRuleId = Guid.Empty;
     private Guid lastSelectedSupporterRuleId = Guid.Empty;
     private Guid lastSelectedAvatarScaleSetId = Guid.Empty;
     private Guid lastSelectedAvatarScaleRuleId = Guid.Empty;
@@ -898,6 +895,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         OpenTestModeWindowCommand = new RelayCommand(OpenTestModeWindow);
         OpenTwitchChatboxCommand = new RelayCommand(OpenTwitchChatbox);
         ToggleChatboxModerationDrawerCommand = new RelayCommand(ToggleChatboxModerationDrawer);
+        AddBlockedWordCommand = new RelayCommand(AddBlockedWord, () => !string.IsNullOrWhiteSpace(NewBlockedWordText));
+        RemoveBlockedWordCommand = new RelayCommand(p => RemoveBlockedWord(p as BlockedWordItem));
+        RestoreBlockedWordCommand = new RelayCommand(p => RestoreBlockedWord(p as BlockedWordItem));
         TimeoutSelectedChatUser10SecondsCommand = new AsyncRelayCommand(() => TimeoutSelectedChatUserAsync(10), CanTimeoutSelectedChatUser);
         TimeoutSelectedChatUser1MinuteCommand = new AsyncRelayCommand(() => TimeoutSelectedChatUserAsync(60), CanTimeoutSelectedChatUser);
         TimeoutSelectedChatUser5MinutesCommand = new AsyncRelayCommand(() => TimeoutSelectedChatUserAsync(300), CanTimeoutSelectedChatUser);
@@ -919,10 +919,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         ShowSettingsVisualsSectionCommand = new RelayCommand(() => SetActiveSettingsSection(SettingsSectionView.Visuals));
         ShowSettingsSafetySectionCommand = new RelayCommand(() => SetActiveSettingsSection(SettingsSectionView.Safety));
         ShowAvatarTriggerRulesCommand = new RelayCommand(ShowAvatarTriggerRules);
-        ShowMovementRedeemsCommand = new RelayCommand(ShowMovementRedeems);
+        ShowMovementRedeemsCommand = new RelayCommand(OpenMovementRedeemsManager);
         ShowSupporterOverridesCommand = new RelayCommand(ShowSupporterOverrides);
         ShowPowerUpsCommand = new RelayCommand(ShowPowerUps);
         OpenUniversalTriggersManagerCommand = new RelayCommand(OpenUniversalTriggersManager);
+        OpenAvatarScalingManagerCommand = new RelayCommand(OpenAvatarScalingManager);
         OpenAvatarSetsManagerCommand = new RelayCommand(OpenAvatarSetsManager);
         OpenAvatarSwapManagerCommand = new RelayCommand(OpenAvatarSwapManager);
         PickReturnAvatarCommand = new RelayCommand(PickReturnAvatar);
@@ -959,12 +960,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         EnableAllRulesCommand = new RelayCommand(EnableAllRules, () => GetCurrentEditableRuleCollection().Count > 0);
         DisableAllRulesCommand = new RelayCommand(DisableAllRules, () => GetCurrentEditableRuleCollection().Count > 0);
         DeleteAllRulesCommand = new RelayCommand(DeleteAllRules, () => GetCurrentEditableRuleCollection().Count > 0);
-        AddMovementRedeemSetCommand = new RelayCommand(AddMovementRedeemSet);
-        RemoveSelectedMovementRedeemSetCommand = new RelayCommand(RemoveSelectedMovementRedeemSet, () => SelectedMovementRedeemSet is not null);
-        DeleteAllMovementRedeemSetsCommand = new RelayCommand(DeleteAllMovementRedeemSets, () => Settings.MovementRedeemSets.Count > 0);
         AddAvatarScaleSetCommand = new RelayCommand(AddAvatarScaleSet);
         RemoveSelectedAvatarScaleSetCommand = new RelayCommand(RemoveSelectedAvatarScaleSet, () => SelectedAvatarScaleSet is not null);
         AddAvatarScaleRuleCommand = new RelayCommand(AddAvatarScaleRule);
+        AddRewardGrowthCommand = new RelayCommand(AddRewardGrowth);
         RemoveSelectedAvatarScaleRuleCommand = new RelayCommand(RemoveSelectedAvatarScaleRule, () => SelectedAvatarScaleRule is not null);
         EnableAllAvatarScaleRulesCommand = new RelayCommand(EnableAllAvatarScaleRules, () => GetAllAvatarScaleRules().Count > 0);
         DisableAllAvatarScaleRulesCommand = new RelayCommand(DisableAllAvatarScaleRules, () => GetAllAvatarScaleRules().Count > 0);
@@ -972,12 +971,14 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         TestSelectedAvatarScaleRuleCommand = new RelayCommand(StartSelectedAvatarScaleRuleTest, CanTestSelectedAvatarScaleRule);
         OpenAvatarScaleRuleLockoutPickerCommand = new RelayCommand(OpenAvatarScaleRuleLockoutPicker, CanOpenAvatarScaleRuleLockoutPicker);
         AddCashPaymentRuleCommand = new RelayCommand(AddCashPaymentRule);
+        AddAvatarScalingCashPaymentRuleCommand = new RelayCommand(AddAvatarScalingCashPaymentRule);
         RemoveSelectedCashPaymentRuleCommand = new RelayCommand(RemoveSelectedCashPaymentRule, () => SelectedCashPaymentRule is not null);
         EnableAllCashPaymentRulesCommand = new RelayCommand(EnableAllCashPaymentRules, () => Settings.CashPaymentRules.Count > 0);
         DisableAllCashPaymentRulesCommand = new RelayCommand(DisableAllCashPaymentRules, () => Settings.CashPaymentRules.Count > 0);
         DeleteAllCashPaymentRulesCommand = new RelayCommand(DeleteAllCashPaymentRules, () => Settings.CashPaymentRules.Count > 0);
         TestSelectedCashPaymentRuleCommand = new AsyncRelayCommand(TestSelectedCashPaymentRuleAsync, () => SelectedCashPaymentRule is not null);
         AddPowerUpRuleCommand = new RelayCommand(AddPowerUpRule);
+        AddAvatarScalingPowerUpRuleCommand = new RelayCommand(AddAvatarScalingPowerUpRule);
         RemoveSelectedPowerUpRuleCommand = new RelayCommand(RemoveSelectedPowerUpRule, () => SelectedPowerUpRule is not null);
         EnableAllPowerUpRulesCommand = new RelayCommand(EnableAllPowerUpRules, () => Settings.PowerUpRules.Count > 0);
         DisableAllPowerUpRulesCommand = new RelayCommand(DisableAllPowerUpRules, () => Settings.PowerUpRules.Count > 0);
@@ -1019,9 +1020,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             ApplyAccountSnapshot(role, snapshot);
             UpdateAccountStatuses();
             QueueSave();
-            _ = QueueRewardRefreshAsync();
             if (HasAccountIdentityChanged(role, previousIdentityFingerprint))
             {
+                _ = QueueRewardRefreshAsync();
                 QueueManagedRewardSync(0, ManagedRewardSyncReason.AccountReconnect);
             }
             _ = RefreshAboutProfilesAsync();
@@ -1054,8 +1055,17 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         bridgeCoordinator.VrChatOscAvatarChangeReceived += avatarId => RunOnUi(() => HandleIncomingOscAvatarChangeSync(avatarId));
         liveFeedbackHeartbeatService.DiagnosticLogged += message => RunOnUi(() => AppendLog(message));
 
+        LoadingService.DefinePhases(
+            ("settings", "Loading Settings"),
+            ("vrchat", "Connecting to VRChat"),
+            ("twitch", "Syncing Twitch Rewards"),
+            ("bridge", "Starting OSC Bridge"),
+            ("finalizing", "Finalizing")
+        );
         RecomputeVrChatConnectionState();
     }
+
+    public LoadingPhaseService LoadingService { get; } = new();
 
     public AppSettings Settings
     {
@@ -1551,8 +1561,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     public bool HasGlobalSupporterRules => GlobalSupporterRules.Count > 0;
 
     public IReadOnlyList<MovementRedeemSet> MovementRedeemSets => Settings.MovementRedeemSets.ToArray();
-
-    public IReadOnlyList<TriggerRule> MovementRedeemRules => SelectedMovementRedeemSet?.MovementRules.ToArray() ?? [];
 
     public IReadOnlyList<AvatarScaleSet> AvatarScaleSets => Settings.AvatarScaleSets.ToArray();
 
@@ -2414,22 +2422,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         {
             if (SetProperty(ref selectedMovementRedeemSet, value))
             {
-                lastSelectedMovementSetId = value?.Id ?? Guid.Empty;
-                if (SelectedRule is not null
-                    && value?.MovementRules.Contains(SelectedRule) != true
-                    && IsViewingMovementRedeems)
-                {
-                    SelectedRule = GetRememberedMovementRule();
-                }
-                else if (SelectedRule is null && value is not null && IsViewingMovementRedeems)
-                {
-                    SelectedRule = GetRememberedMovementRule();
-                }
-
-                RemoveSelectedMovementRedeemSetCommand.NotifyCanExecuteChanged();
                 AddRuleCommand.NotifyCanExecuteChanged();
                 RaisePropertyChanged(nameof(SelectedMovementRedeemSet));
-                RaisePropertyChanged(nameof(MovementRedeemRules));
                 RefreshRuleCommandStates();
             }
         }
@@ -2455,6 +2449,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
                 RemoveSelectedAvatarScaleSetCommand.NotifyCanExecuteChanged();
                 AddAvatarScaleRuleCommand.NotifyCanExecuteChanged();
+                AddRewardGrowthCommand.NotifyCanExecuteChanged();
                 RaisePropertyChanged(nameof(SelectedAvatarScaleSet));
                 RaisePropertyChanged(nameof(AvatarScaleRules));
                 RaisePropertyChanged(nameof(AvatarScaleRuntimeStatusText));
@@ -2865,6 +2860,28 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         ? T("Hide Activity + Mod")
         : T("Activity + Mod");
 
+    public bool BlockedWordsSectionOpen
+    {
+        get => blockedWordsSectionOpen;
+        set => SetProperty(ref blockedWordsSectionOpen, value);
+    }
+
+    public ObservableCollection<BlockedWordItem> BlockedWordItems
+    {
+        get => blockedWordItems;
+        set => SetProperty(ref blockedWordItems, value);
+    }
+
+    public string NewBlockedWordText
+    {
+        get => newBlockedWordText;
+        set
+        {
+            if (SetProperty(ref newBlockedWordText, value))
+                AddBlockedWordCommand.NotifyCanExecuteChanged();
+        }
+    }
+
     public TwitchChatMessageEntry? SelectedChatMessage
     {
         get => selectedChatMessage;
@@ -3103,6 +3120,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     public RelayCommand ToggleChatboxModerationDrawerCommand { get; }
 
+    public RelayCommand AddBlockedWordCommand { get; }
+
+    public RelayCommand RemoveBlockedWordCommand { get; }
+
+    public RelayCommand RestoreBlockedWordCommand { get; }
+
     public AsyncRelayCommand TimeoutSelectedChatUser10SecondsCommand { get; }
 
     public AsyncRelayCommand TimeoutSelectedChatUser1MinuteCommand { get; }
@@ -3153,6 +3176,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     public RelayCommand OpenUniversalTriggersManagerCommand { get; }
 
+    public RelayCommand OpenAvatarScalingManagerCommand { get; }
+
     public RelayCommand OpenAvatarSetsManagerCommand { get; }
 
     public RelayCommand ShowAvatarScalingCommand { get; }
@@ -3201,17 +3226,13 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     public RelayCommand DeleteAllRulesCommand { get; }
 
-    public RelayCommand AddMovementRedeemSetCommand { get; }
-
-    public RelayCommand RemoveSelectedMovementRedeemSetCommand { get; }
-
-    public RelayCommand DeleteAllMovementRedeemSetsCommand { get; }
-
     public RelayCommand AddAvatarScaleSetCommand { get; }
 
     public RelayCommand RemoveSelectedAvatarScaleSetCommand { get; }
 
     public RelayCommand AddAvatarScaleRuleCommand { get; }
+
+    public RelayCommand AddRewardGrowthCommand { get; }
 
     public RelayCommand RemoveSelectedAvatarScaleRuleCommand { get; }
 
@@ -3227,6 +3248,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     public RelayCommand AddCashPaymentRuleCommand { get; }
 
+    public RelayCommand AddAvatarScalingCashPaymentRuleCommand { get; }
+
     public RelayCommand RemoveSelectedCashPaymentRuleCommand { get; }
 
     public RelayCommand EnableAllCashPaymentRulesCommand { get; }
@@ -3238,6 +3261,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     public AsyncRelayCommand TestSelectedCashPaymentRuleCommand { get; }
 
     public RelayCommand AddPowerUpRuleCommand { get; }
+
+    public RelayCommand AddAvatarScalingPowerUpRuleCommand { get; }
 
     public RelayCommand RemoveSelectedPowerUpRuleCommand { get; }
 
@@ -3292,6 +3317,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         var previousSessionNeedsRecovery = ShutdownRecoveryStateStore.BeginSession();
         previousSessionWasClean = !previousSessionNeedsRecovery;
         ReplaceSettings(await settingsStore.LoadAsync());
+        RefreshBlockedWordItems();
+        LoadingService.ReportProgress("settings", PhaseStatus.Completed);
+        LoadingService.ReportProgress("vrchat", PhaseStatus.Active);
         var savedLoginRecoveryResult = SavedLoginStateRecoveryService.TryConsumeRecoveryResult();
         activeLanguageAtStartup = Settings.Language;
         ResetStartupSectionState();
@@ -3371,12 +3399,19 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         }
         await activityResumeService.LoadPendingAsync();
         await RefreshWorldCommandBlacklistOnStartupAsync();
+        LoadingService.ReportProgress("vrchat", PhaseStatus.Completed);
+        LoadingService.ReportProgress("twitch", PhaseStatus.Active);
         await InitializeVrChatAsync();
+        LoadingService.ReportProgress("twitch", PhaseStatus.Completed);
+        LoadingService.ReportProgress("bridge", PhaseStatus.Active);
         await QueueRewardRefreshAsync();
         QueueManagedRewardSync(reason: ManagedRewardSyncReason.Startup);
         await aboutProfilesRefreshTask;
+        LoadingService.ReportProgress("bridge", PhaseStatus.Completed);
+        LoadingService.ReportProgress("finalizing", PhaseStatus.Active);
         QueueBridgeRefresh();
         QueueLiveFeedbackHeartbeatEvaluation();
+        LoadingService.CompleteAll();
     }
 
     public async ValueTask DisposeAsync()
@@ -3602,6 +3637,95 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     private void ToggleChatboxModerationDrawer()
     {
         IsChatboxModerationDrawerOpen = !IsChatboxModerationDrawerOpen;
+    }
+
+    private void AddBlockedWord()
+    {
+        var word = NewBlockedWordText.Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(word) || word.Length < 2)
+            return;
+
+        if (Settings.SuppressedBlockedWords.Remove(word))
+        {
+            NewBlockedWordText = string.Empty;
+            RefreshBlockedWordItems();
+            SyncFilterWithUserList();
+            return;
+        }
+
+        if (Settings.CustomBlockedWords.Contains(word))
+        {
+            NewBlockedWordText = string.Empty;
+            return;
+        }
+
+        if (ChatboxRelayModerationFilter.BlockedSlurTerms.Contains(word, StringComparer.OrdinalIgnoreCase))
+        {
+            NewBlockedWordText = string.Empty;
+            return;
+        }
+
+        Settings.CustomBlockedWords.Add(word);
+        NewBlockedWordText = string.Empty;
+        RefreshBlockedWordItems();
+        SyncFilterWithUserList();
+    }
+
+    private void RemoveBlockedWord(BlockedWordItem? item)
+    {
+        if (item is null)
+            return;
+
+        if (item.IsCustom)
+        {
+            Settings.CustomBlockedWords.Remove(item.Word);
+        }
+        else
+        {
+            Settings.SuppressedBlockedWords.Add(item.Word);
+        }
+
+        RefreshBlockedWordItems();
+        SyncFilterWithUserList();
+    }
+
+    private void RestoreBlockedWord(BlockedWordItem? item)
+    {
+        if (item is null)
+            return;
+
+        Settings.SuppressedBlockedWords.Remove(item.Word);
+        RefreshBlockedWordItems();
+        SyncFilterWithUserList();
+    }
+
+    private void RefreshBlockedWordItems()
+    {
+        var items = new ObservableCollection<BlockedWordItem>();
+        var suppressed = new HashSet<string>(Settings.SuppressedBlockedWords, StringComparer.OrdinalIgnoreCase);
+        var custom = new HashSet<string>(Settings.CustomBlockedWords, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var word in ChatboxRelayModerationFilter.BlockedSlurTerms)
+        {
+            items.Add(new BlockedWordItem(word, IsCustom: false, IsSuppressed: suppressed.Contains(word)));
+        }
+
+        foreach (var word in Settings.CustomBlockedWords)
+        {
+            if (!string.IsNullOrWhiteSpace(word))
+            {
+                items.Add(new BlockedWordItem(word, IsCustom: true, IsSuppressed: false));
+            }
+        }
+
+        BlockedWordItems = items;
+    }
+
+    private void SyncFilterWithUserList()
+    {
+        ChatboxRelayModerationFilter.SetUserBlockList(
+            Settings.CustomBlockedWords,
+            Settings.SuppressedBlockedWords);
     }
 
     private void OpenTestModeWindow()
@@ -5269,14 +5393,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         SwitchRuleView(RuleListView.AvatarTriggers, profile, rule);
     }
 
-    private void ShowMovementRedeems()
-    {
-        EnsureSelectedMovementRedeemSet();
-        SelectedMovementRedeemSet = GetRememberedMovementRedeemSet();
-        var rule = GetRememberedMovementRule();
-        SwitchRuleView(RuleListView.MovementRedeems, profile: null, rule);
-    }
-
     private void ShowSupporterOverrides()
     {
         SwitchRuleView(RuleListView.SupporterOverrides, profile: null, GetRememberedSupporterRule());
@@ -5291,9 +5407,13 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     private UniversalTriggersManagerWindow? _universalTriggersManagerWindow;
 
+    private AvatarScalingManagerWindow? _avatarScalingManagerWindow;
+
     private AvatarSetsManagerWindow? _avatarSetsManagerWindow;
 
     private AvatarSwapManagerWindow? _avatarSwapManagerWindow;
+
+    private MovementRedeemsManagerWindow? _movementRedeemsManagerWindow;
 
     private readonly AvatarImageService _masterAvatarReturnImageService = new();
     private System.Windows.Media.ImageSource? _masterAvatarReturnImage;
@@ -5314,6 +5434,23 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         };
         _universalTriggersManagerWindow.Closed += (_, _) => _universalTriggersManagerWindow = null;
         _universalTriggersManagerWindow.Show();
+    }
+
+    private void OpenAvatarScalingManager()
+    {
+        if (_avatarScalingManagerWindow is { IsVisible: true })
+        {
+            _avatarScalingManagerWindow.Activate();
+            return;
+        }
+
+        var managerVm = new AvatarScalingManagerViewModel(Settings, this);
+        _avatarScalingManagerWindow = new AvatarScalingManagerWindow(managerVm)
+        {
+            Owner = Application.Current?.MainWindow,
+        };
+        _avatarScalingManagerWindow.Closed += (_, _) => _avatarScalingManagerWindow = null;
+        _avatarScalingManagerWindow.Show();
     }
 
     private void OpenAvatarSetsManager()
@@ -5366,6 +5503,23 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         };
         _avatarSwapManagerWindow.Closed += (_, _) => _avatarSwapManagerWindow = null;
         _avatarSwapManagerWindow.Show();
+    }
+
+    private void OpenMovementRedeemsManager()
+    {
+        if (_movementRedeemsManagerWindow is { IsVisible: true })
+        {
+            _movementRedeemsManagerWindow.Activate();
+            return;
+        }
+
+        var managerVm = new MovementRedeemsManagerViewModel(Settings, this);
+        _movementRedeemsManagerWindow = new MovementRedeemsManagerWindow(managerVm)
+        {
+            Owner = System.Windows.Application.Current?.MainWindow,
+        };
+        _movementRedeemsManagerWindow.Closed += (_, _) => _movementRedeemsManagerWindow = null;
+        _movementRedeemsManagerWindow.Show();
     }
 
     public System.Windows.Media.ImageSource? MasterAvatarReturnImage
@@ -6935,70 +7089,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         AppendLog($"Deleted {removedCount} override rule{(removedCount == 1 ? string.Empty : "s")}.");
     }
 
-    private void AddMovementRedeemSet()
-    {
-        var set = CreateDefaultMovementRedeemSet();
-        Settings.MovementRedeemSets.Add(set);
-        SelectedMovementRedeemSet = set;
-        SelectedRule = set.MovementRules.FirstOrDefault();
-        AppendLog($"Added movement set '{set.DisplayTitle}'.");
-    }
-
-    private void RemoveSelectedMovementRedeemSet()
-    {
-        if (SelectedMovementRedeemSet is null)
-        {
-            return;
-        }
-
-        var removedSet = SelectedMovementRedeemSet;
-        var removedName = removedSet.DisplayTitle;
-        var removedRules = removedSet.MovementRules.ToArray();
-        ForgetRememberedRules(removedRules);
-        Settings.MovementRedeemSets.Remove(removedSet);
-
-        if (lastSelectedMovementSetId == removedSet.Id)
-        {
-            lastSelectedMovementSetId = Guid.Empty;
-        }
-
-        SelectedMovementRedeemSet = GetRememberedMovementRedeemSet();
-        SelectedRule = GetRememberedMovementRule();
-        QueueSave();
-        QueueBridgeRefresh();
-        AppendLog($"Removed movement set '{removedName}'.");
-    }
-
-    private void DeleteAllMovementRedeemSets()
-    {
-        var setsToRemove = Settings.MovementRedeemSets.ToArray();
-        if (setsToRemove.Length == 0)
-        {
-            return;
-        }
-
-        if (!ConfirmDeleteAll(
-            "Delete All Movement Sets",
-            "Are you sure you want to delete every movement set and movement redeem? This cannot be undone."))
-        {
-            return;
-        }
-
-        foreach (var set in setsToRemove)
-        {
-            var removedRules = set.MovementRules.ToArray();
-            ForgetRememberedRules(removedRules);
-            Settings.MovementRedeemSets.Remove(set);
-        }
-
-        lastSelectedMovementSetId = Guid.Empty;
-        SelectedMovementRedeemSet = null;
-        SelectedRule = null;
-        QueueSave();
-        QueueBridgeRefresh();
-        AppendLog($"Deleted {setsToRemove.Length} movement set{(setsToRemove.Length == 1 ? string.Empty : "s")}.");
-    }
-
     private void AddAvatarScaleSet()
     {
         var set = CreateDefaultAvatarScaleSet();
@@ -7046,6 +7136,24 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         AppendLog($"Added avatar scale redeem '{rule.DisplayTitle}' to '{SelectedAvatarScaleSet.DisplayTitle}'.");
     }
 
+    private void AddRewardGrowth()
+    {
+        EnsureSelectedAvatarScaleSet();
+        if (SelectedAvatarScaleSet is null)
+        {
+            return;
+        }
+
+        var rule = CreateDefaultAvatarScaleRule();
+        rule.TriggerType = AvatarScaleTriggerType.SupporterGrowth;
+        rule.Name = "New Supporter Growth";
+        SelectedAvatarScaleSet.ScaleRules.Add(rule);
+        SelectedAvatarScaleRule = rule;
+        QueueSave();
+        QueueBridgeRefresh();
+        AppendLog($"Added supporter growth rule '{rule.DisplayTitle}' to '{SelectedAvatarScaleSet.DisplayTitle}'.");
+    }
+
     private void RemoveSelectedAvatarScaleRule()
     {
         if (SelectedAvatarScaleRule is null)
@@ -7061,6 +7169,44 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         QueueSave();
         QueueBridgeRefresh();
         AppendLog($"Removed avatar scale redeem '{removedName}'.");
+    }
+
+    public void DeleteAvatarScaleRuleByCard(AvatarScaleRule rule)
+    {
+        RemoveAvatarScaleRuleLockoutReferencesToRule(rule.Id);
+        var ownerSet = GetOwningAvatarScaleSet(rule);
+        ownerSet?.ScaleRules.Remove(rule);
+        if (ReferenceEquals(SelectedAvatarScaleRule, rule))
+        {
+            SelectedAvatarScaleRule = GetRememberedAvatarScaleRule();
+        }
+        QueueSave();
+        QueueBridgeRefresh();
+        AppendLog($"Removed avatar scale redeem '{rule.DisplayTitle}'.");
+    }
+
+    public void DeleteCashPaymentRuleByCard(CashPaymentRule rule)
+    {
+        Settings.CashPaymentRules.Remove(rule);
+        if (ReferenceEquals(SelectedCashPaymentRule, rule))
+        {
+            SelectedCashPaymentRule = GetRememberedCashPaymentRule();
+        }
+        QueueSave();
+        QueueBridgeRefresh();
+        AppendLog($"Removed cash payment rule '{rule.DisplayTitle}'.");
+    }
+
+    public void DeletePowerUpRuleByCard(PowerUpRule rule)
+    {
+        Settings.PowerUpRules.Remove(rule);
+        if (ReferenceEquals(SelectedPowerUpRule, rule))
+        {
+            SelectedPowerUpRule = GetRememberedPowerUpRule();
+        }
+        QueueSave();
+        QueueBridgeRefresh();
+        AppendLog($"Removed Power Up rule '{rule.DisplayTitle}'.");
     }
 
     private void EnableAllAvatarScaleRules()
@@ -7127,6 +7273,24 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         return rule;
     }
 
+    private static CashPaymentRule CreateDefaultAvatarScalingCashPaymentRule()
+    {
+        var rule = new CashPaymentRule
+        {
+            Name = "New Cash Payment Scale",
+            Provider = CashPaymentProvider.StreamElements,
+            MinimumAmount = 1m,
+            MaximumAmount = 0m,
+            CurrencyCode = string.Empty,
+            MessageContains = string.Empty,
+            CooldownSeconds = 30,
+            ActionKind = CashPaymentActionKind.AvatarScaling
+        };
+        rule.ScaleAction = CashPaymentRule.CreateDefaultScaleAction();
+        rule.ScaleAction.Name = rule.Name;
+        return rule;
+    }
+
     private void AddCashPaymentRule()
     {
         var rule = CreateDefaultCashPaymentRule();
@@ -7135,6 +7299,16 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         QueueSave();
         QueueBridgeRefresh();
         AppendLog($"Added cash payment rule '{rule.DisplayTitle}'.");
+    }
+
+    private void AddAvatarScalingCashPaymentRule()
+    {
+        var rule = CreateDefaultAvatarScalingCashPaymentRule();
+        Settings.CashPaymentRules.Add(rule);
+        SelectedCashPaymentRule = rule;
+        QueueSave();
+        QueueBridgeRefresh();
+        AppendLog($"Added cash payment scaling rule '{rule.DisplayTitle}'.");
     }
 
     private void RemoveSelectedCashPaymentRule()
@@ -7210,6 +7384,21 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         return rule;
     }
 
+    private static PowerUpRule CreateDefaultAvatarScalingPowerUpRule()
+    {
+        var rule = new PowerUpRule
+        {
+            Name = "New Power Up Scale",
+            SourceMode = TwitchRewardSyncMode.LinkExisting,
+            BitsCost = 100,
+            CooldownSeconds = 30,
+            ActionKind = PowerUpActionKind.AvatarScaling
+        };
+        rule.ScaleAction = PowerUpRule.CreateDefaultScaleAction();
+        rule.ScaleAction.Name = rule.Name;
+        return rule;
+    }
+
     private void AddPowerUpRule()
     {
         var rule = CreateDefaultPowerUpRule();
@@ -7218,6 +7407,16 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         QueueSave();
         QueueBridgeRefresh();
         AppendLog($"Added Power Up rule '{rule.DisplayTitle}'.");
+    }
+
+    private void AddAvatarScalingPowerUpRule()
+    {
+        var rule = CreateDefaultAvatarScalingPowerUpRule();
+        Settings.PowerUpRules.Add(rule);
+        SelectedPowerUpRule = rule;
+        QueueSave();
+        QueueBridgeRefresh();
+        AppendLog($"Added Power Up scaling rule '{rule.DisplayTitle}'.");
     }
 
     private void RemoveSelectedPowerUpRule()
@@ -7617,22 +7816,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         return profile.ChannelPointRules.FirstOrDefault();
     }
 
-    private TriggerRule? GetRememberedMovementRule()
-    {
-        IEnumerable<TriggerRule> candidateRules = (IEnumerable<TriggerRule>?)SelectedMovementRedeemSet?.MovementRules
-            ?? GetAllMovementRules();
-        if (lastSelectedMovementRuleId != Guid.Empty)
-        {
-            var rememberedRule = candidateRules.FirstOrDefault(rule => rule.Id == lastSelectedMovementRuleId);
-            if (rememberedRule is not null)
-            {
-                return rememberedRule;
-            }
-        }
-
-        return candidateRules.FirstOrDefault();
-    }
-
     private TriggerRule? GetRememberedSupporterRule()
     {
         if (lastSelectedSupporterRuleId != Guid.Empty)
@@ -7708,35 +7891,14 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         return Settings.PowerUpRules.FirstOrDefault();
     }
 
-    private MovementRedeemSet? GetRememberedMovementRedeemSet()
-    {
-        if (lastSelectedMovementSetId != Guid.Empty)
-        {
-            var rememberedSet = Settings.MovementRedeemSets.FirstOrDefault(set => set.Id == lastSelectedMovementSetId);
-            if (rememberedSet is not null)
-            {
-                return rememberedSet;
-            }
-        }
-
-        var rememberedRuleOwner = lastSelectedMovementRuleId == Guid.Empty
-            ? null
-            : Settings.MovementRedeemSets.FirstOrDefault(set => set.MovementRules.Any(rule => rule.Id == lastSelectedMovementRuleId));
-        return rememberedRuleOwner ?? Settings.MovementRedeemSets.FirstOrDefault();
-    }
-
     private void EnsureSelectedMovementRedeemSet()
     {
         if (SelectedMovementRedeemSet is not null)
-        {
             return;
-        }
 
-        SelectedMovementRedeemSet = GetRememberedMovementRedeemSet();
+        SelectedMovementRedeemSet = Settings.MovementRedeemSets.FirstOrDefault();
         if (SelectedMovementRedeemSet is not null)
-        {
             return;
-        }
 
         var set = CreateDefaultMovementRedeemSet();
         Settings.MovementRedeemSets.Add(set);
@@ -7810,12 +7972,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             return;
         }
 
-        if (IsViewingMovementRedeems)
-        {
-            lastSelectedMovementRuleId = rule.Id;
-            return;
-        }
-
         if (IsViewingPowerUps)
         {
             var owner = Settings.PowerUpRules.FirstOrDefault(powerUp => ReferenceEquals(powerUp.ActionRule, rule));
@@ -7850,11 +8006,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         if (lastSelectedSupporterRuleId == rule.Id)
         {
             lastSelectedSupporterRuleId = Guid.Empty;
-        }
-
-        if (lastSelectedMovementRuleId == rule.Id)
-        {
-            lastSelectedMovementRuleId = Guid.Empty;
         }
 
         if (lastSelectedMasterRuleId == rule.Id)
@@ -7895,8 +8046,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         isSwitchingRuleView = true;
         try
         {
+            try
+            {
+                SelectedRule = rule;
+            }
+            catch (NullReferenceException)
+            {
+            }
+
             SelectedAvatarProfile = profile;
-            SelectedRule = rule;
             if (targetView != RuleListView.MovementRedeems)
             {
                 SelectedMovementRedeemSet = null;
@@ -7951,6 +8109,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         appSettings.CashPayments.PropertyChanged += CashPaymentConnectionsChanged;
         appSettings.CashPaymentRules.CollectionChanged += CashPaymentRulesCollectionChanged;
         appSettings.PowerUpRules.CollectionChanged += PowerUpRulesCollectionChanged;
+        appSettings.AvatarScaleSafety.PropertyChanged += AvatarScaleSafetyChanged;
         WireRewardFireSale(appSettings.RewardFireSale);
 
         foreach (var profile in appSettings.AvatarProfiles)
@@ -8005,6 +8164,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         appSettings.CashPayments.PropertyChanged -= CashPaymentConnectionsChanged;
         appSettings.CashPaymentRules.CollectionChanged -= CashPaymentRulesCollectionChanged;
         appSettings.PowerUpRules.CollectionChanged -= PowerUpRulesCollectionChanged;
+        appSettings.AvatarScaleSafety.PropertyChanged -= AvatarScaleSafetyChanged;
         UnwireRewardFireSale(appSettings.RewardFireSale);
 
         foreach (var profile in appSettings.AvatarProfiles)
@@ -8082,7 +8242,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         universalTriggersGroupedView = null;
         RaisePropertyChanged(nameof(UniversalTriggersGroupedView));
         RaisePropertyChanged(nameof(MovementRedeemSets));
-        RaisePropertyChanged(nameof(MovementRedeemRules));
         RaisePropertyChanged(nameof(AvatarScaleSets));
         RaisePropertyChanged(nameof(AvatarScaleRules));
         RaisePropertyChanged(nameof(CashPaymentRules));
@@ -8193,30 +8352,13 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             {
                 UnwireMovementRedeemSet(set);
                 removedRules.AddRange(set.MovementRules);
-                if (lastSelectedMovementSetId == set.Id)
-                {
-                    lastSelectedMovementSetId = Guid.Empty;
-                }
             }
 
             RetireManagedRewards(removedRules);
         }
 
-        if (IsViewingMovementRedeems && SelectedMovementRedeemSet is not null && !Settings.MovementRedeemSets.Contains(SelectedMovementRedeemSet))
-        {
-            SelectedMovementRedeemSet = GetRememberedMovementRedeemSet();
-        }
-
-        if (IsViewingMovementRedeems
-            && SelectedRule is not null
-            && !GetAllMovementRules().Contains(SelectedRule))
-        {
-            SelectedRule = GetRememberedMovementRule();
-        }
-
         SyncLegacyGlobalMovementRules();
         RaisePropertyChanged(nameof(MovementRedeemSets));
-        RaisePropertyChanged(nameof(MovementRedeemRules));
         QueueSave();
         QueueBridgeRefresh();
         RefreshRuleCommandStates();
@@ -8268,25 +8410,13 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             {
                 rule.PropertyChanged -= RuleChanged;
                 removedRules.Add(rule);
-                if (lastSelectedMovementRuleId == rule.Id)
-                {
-                    lastSelectedMovementRuleId = Guid.Empty;
-                }
             }
 
             RetireManagedRewards(removedRules);
         }
 
-        if (IsViewingMovementRedeems
-            && SelectedRule is not null
-            && SelectedMovementRedeemSet?.MovementRules.Contains(SelectedRule) != true)
-        {
-            SelectedRule = GetRememberedMovementRule();
-        }
-
         SyncLegacyGlobalMovementRules();
         RaisePropertyChanged(nameof(MovementRedeemSets));
-        RaisePropertyChanged(nameof(MovementRedeemRules));
         QueueSave();
         QueueBridgeRefresh();
         RefreshRuleCommandStates();
@@ -8863,6 +8993,16 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         {
             QueueManagedRewardSync();
         }
+    }
+
+    private void AvatarScaleSafetyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        QueueSave();
+        QueueBridgeRefresh();
+        RaisePropertyChanged(nameof(AvatarScaleRuntimeStatusText));
+        RaisePropertyChanged(nameof(AvatarScaleSets));
+        RaisePropertyChanged(nameof(AvatarScaleRules));
+        QueueManagedRewardSync();
     }
 
     private void RewardFireSaleChanged(object? sender, PropertyChangedEventArgs e)
@@ -9946,7 +10086,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     private void QueueBridgeRefresh()
     {
-        if (!isInitialized)
+        if (!isInitialized || isShuttingDown)
         {
             return;
         }
@@ -9968,7 +10108,13 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
                 }
                 finally
                 {
-                    bridgeRefreshGate.Release();
+                    try
+                    {
+                        bridgeRefreshGate.Release();
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                    }
                 }
             }
             catch (OperationCanceledException)
@@ -10270,6 +10416,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         await TestRuleAsync(SelectedRule);
     }
 
+    public void TestMovementRule(TriggerRule rule)
+    {
+        if (rule is null) return;
+        bridgeCoordinator.QuickTestRule(rule);
+    }
+
     public async Task TestRuleAsync(TriggerRule rule)
     {
         if (rule is null) return;
@@ -10415,7 +10567,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             try
             {
                 await EnsureBridgeStateAsync(CancellationToken.None, allowOscOnly: true);
-                ruleSnapshot = BridgeRuntimeConfiguration.CreateManualTestSnapshot(ruleToTest);
+                ruleSnapshot = BridgeRuntimeConfiguration.CreateManualTestSnapshot(ruleToTest, Settings.AvatarScaleSafety);
             }
             finally
             {
@@ -10448,7 +10600,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         {
             await EnsureBridgeStateAsync(CancellationToken.None, allowOscOnly: true);
 
-            var ruleSnapshot = BridgeRuntimeConfiguration.CreateManualTestSnapshot(SelectedCashPaymentRule);
+            var ruleSnapshot = BridgeRuntimeConfiguration.CreateManualTestSnapshot(SelectedCashPaymentRule, Settings.AvatarScaleSafety);
             await bridgeCoordinator.SendTestCashPaymentRuleAsync(ruleSnapshot, CancellationToken.None);
 
             BridgeStatus = $"Sent cash payment test for '{ruleSnapshot.Name}'.";
@@ -10479,7 +10631,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         {
             await EnsureBridgeStateAsync(CancellationToken.None, allowOscOnly: true);
 
-            var ruleSnapshot = BridgeRuntimeConfiguration.CreateManualTestSnapshot(SelectedPowerUpRule, MasterAvatarProfile);
+            var ruleSnapshot = BridgeRuntimeConfiguration.CreateManualTestSnapshot(SelectedPowerUpRule, MasterAvatarProfile, Settings.AvatarScaleSafety);
             await bridgeCoordinator.SendTestPowerUpRuleAsync(ruleSnapshot, CancellationToken.None);
 
             BridgeStatus = $"Sent Power Up test for '{ruleSnapshot.Name}'.";
@@ -10493,6 +10645,100 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         finally
         {
             bridgeRefreshGate.Release();
+        }
+    }
+
+    public async Task TestAvatarScaleRuleByCardAsync(AvatarScaleRule rule)
+    {
+        if (rule is null) return;
+
+        try
+        {
+            await ReloadRuntimeConfigAsync();
+
+            AvatarScaleRuleSnapshot ruleSnapshot;
+            await bridgeRefreshGate.WaitAsync();
+            try
+            {
+                await EnsureBridgeStateAsync(CancellationToken.None, allowOscOnly: true);
+                ruleSnapshot = BridgeRuntimeConfiguration.CreateManualTestSnapshot(rule, Settings.AvatarScaleSafety);
+            }
+            finally
+            {
+                bridgeRefreshGate.Release();
+            }
+
+            await bridgeCoordinator.SendTestAvatarScaleRuleAsync(ruleSnapshot, CancellationToken.None);
+
+            BridgeStatus = $"Sent avatar scale test for '{ruleSnapshot.Name}'.";
+            RaisePropertyChanged(nameof(AvatarScaleRuntimeStatusText));
+        }
+        catch (Exception ex)
+        {
+            BridgeStatus = "Avatar scale test did not run.";
+            AppendLog($"Could not test the avatar scale redeem: {ex.Message}");
+        }
+    }
+
+    public async Task TestCashPaymentRuleByCardAsync(CashPaymentRule rule)
+    {
+        if (rule is null) return;
+
+        try
+        {
+            await ReloadRuntimeConfigAsync();
+
+            await bridgeRefreshGate.WaitAsync();
+            try
+            {
+                await EnsureBridgeStateAsync(CancellationToken.None, allowOscOnly: true);
+
+                var ruleSnapshot = BridgeRuntimeConfiguration.CreateManualTestSnapshot(rule, Settings.AvatarScaleSafety);
+                await bridgeCoordinator.SendTestCashPaymentRuleAsync(ruleSnapshot, CancellationToken.None);
+
+                BridgeStatus = $"Sent cash payment test for '{ruleSnapshot.Name}'.";
+                RaisePropertyChanged(nameof(AvatarScaleRuntimeStatusText));
+            }
+            finally
+            {
+                bridgeRefreshGate.Release();
+            }
+        }
+        catch (Exception ex)
+        {
+            BridgeStatus = "Cash payment test did not run.";
+            AppendLog($"Could not test the cash payment rule: {ex.Message}");
+        }
+    }
+
+    public async Task TestPowerUpRuleByCardAsync(PowerUpRule rule)
+    {
+        if (rule is null) return;
+
+        try
+        {
+            await ReloadRuntimeConfigAsync();
+
+            await bridgeRefreshGate.WaitAsync();
+            try
+            {
+                await EnsureBridgeStateAsync(CancellationToken.None, allowOscOnly: true);
+
+                var ruleSnapshot = BridgeRuntimeConfiguration.CreateManualTestSnapshot(rule, MasterAvatarProfile, Settings.AvatarScaleSafety);
+                await bridgeCoordinator.SendTestPowerUpRuleAsync(ruleSnapshot, CancellationToken.None);
+
+                BridgeStatus = $"Sent Power Up test for '{ruleSnapshot.Name}'.";
+                RaisePropertyChanged(nameof(AvatarScaleRuntimeStatusText));
+            }
+            finally
+            {
+                bridgeRefreshGate.Release();
+            }
+        }
+        catch (Exception ex)
+        {
+            BridgeStatus = "Power Up test did not run.";
+            AppendLog($"Could not test the Power Up rule: {ex.Message}");
         }
     }
 
@@ -17512,8 +17758,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         ClearVrChatCacheCommand.NotifyCanExecuteChanged();
         RemoveSelectedRuleCommand.NotifyCanExecuteChanged();
         TestSelectedRuleCommand.NotifyCanExecuteChanged();
-        RemoveSelectedMovementRedeemSetCommand.NotifyCanExecuteChanged();
-        DeleteAllMovementRedeemSetsCommand.NotifyCanExecuteChanged();
         RemoveSelectedAvatarScaleSetCommand.NotifyCanExecuteChanged();
         RemoveSelectedAvatarScaleRuleCommand.NotifyCanExecuteChanged();
         TestSelectedAvatarScaleRuleCommand.NotifyCanExecuteChanged();
@@ -17552,12 +17796,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         DisableAllRulesCommand.NotifyCanExecuteChanged();
         DeleteAllRulesCommand.NotifyCanExecuteChanged();
         TestSelectedRuleCommand.NotifyCanExecuteChanged();
-        AddMovementRedeemSetCommand.NotifyCanExecuteChanged();
-        RemoveSelectedMovementRedeemSetCommand.NotifyCanExecuteChanged();
-        DeleteAllMovementRedeemSetsCommand.NotifyCanExecuteChanged();
         AddAvatarScaleSetCommand.NotifyCanExecuteChanged();
         RemoveSelectedAvatarScaleSetCommand.NotifyCanExecuteChanged();
         AddAvatarScaleRuleCommand.NotifyCanExecuteChanged();
+        AddRewardGrowthCommand.NotifyCanExecuteChanged();
         RemoveSelectedAvatarScaleRuleCommand.NotifyCanExecuteChanged();
         EnableAllAvatarScaleRulesCommand.NotifyCanExecuteChanged();
         DisableAllAvatarScaleRulesCommand.NotifyCanExecuteChanged();
@@ -17565,12 +17807,14 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         TestSelectedAvatarScaleRuleCommand.NotifyCanExecuteChanged();
         OpenAvatarScaleRuleLockoutPickerCommand.NotifyCanExecuteChanged();
         AddCashPaymentRuleCommand.NotifyCanExecuteChanged();
+        AddAvatarScalingCashPaymentRuleCommand.NotifyCanExecuteChanged();
         RemoveSelectedCashPaymentRuleCommand.NotifyCanExecuteChanged();
         EnableAllCashPaymentRulesCommand.NotifyCanExecuteChanged();
         DisableAllCashPaymentRulesCommand.NotifyCanExecuteChanged();
         DeleteAllCashPaymentRulesCommand.NotifyCanExecuteChanged();
         TestSelectedCashPaymentRuleCommand.NotifyCanExecuteChanged();
         AddPowerUpRuleCommand.NotifyCanExecuteChanged();
+        AddAvatarScalingPowerUpRuleCommand.NotifyCanExecuteChanged();
         RemoveSelectedPowerUpRuleCommand.NotifyCanExecuteChanged();
         EnableAllPowerUpRulesCommand.NotifyCanExecuteChanged();
         DisableAllPowerUpRulesCommand.NotifyCanExecuteChanged();
@@ -17654,7 +17898,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
                 : Settings.Broadcaster.DisplayName,
             Settings.Broadcaster.Login,
             runtimeConfig.LiveFeedbackHeartbeatEndpoint,
-            AppVersion,
+            GetAppUpdateVersion(),
             BuildChannel);
     }
 
@@ -18636,15 +18880,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     private IReadOnlyList<TriggerRuleReferenceOption> BuildAvailableAvatarScaleRuleLockoutOptions()
     {
-        if (!IsViewingAvatarScaling || SelectedAvatarScaleSet is null || SelectedAvatarScaleRule is null)
+        if (SelectedAvatarScaleRule is not { } selectedRule || GetSelectedAvatarScaleRuleLockoutSet() is not { } selectedSet)
         {
             return [];
         }
 
-        var selectedRuleId = SelectedAvatarScaleRule.Id;
-        var existingLockouts = SelectedAvatarScaleRule.TemporarilyDisabledScaleRuleIds.ToHashSet();
+        var selectedRuleId = selectedRule.Id;
+        var existingLockouts = selectedRule.TemporarilyDisabledScaleRuleIds.ToHashSet();
 
-        return SelectedAvatarScaleSet.ScaleRules
+        return selectedSet.ScaleRules
             .Where(rule => rule.Id != selectedRuleId && !existingLockouts.Contains(rule.Id))
             .OrderBy(rule => GetAvatarScaleRuleLockoutDisplayLabel(rule), StringComparer.OrdinalIgnoreCase)
             .Select(rule => new TriggerRuleReferenceOption(rule.Id, GetAvatarScaleRuleLockoutDisplayLabel(rule)))
@@ -18653,17 +18897,17 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     private IReadOnlyList<TriggerRuleReferenceOption> BuildConfiguredAvatarScaleRuleLockoutOptions()
     {
-        if (!IsViewingAvatarScaling || SelectedAvatarScaleSet is null || SelectedAvatarScaleRule is null)
+        if (SelectedAvatarScaleRule is not { } selectedRule || GetSelectedAvatarScaleRuleLockoutSet() is not { } selectedSet)
         {
             return [];
         }
 
-        var scaleRulesById = SelectedAvatarScaleSet.ScaleRules.ToDictionary(rule => rule.Id);
+        var scaleRulesById = selectedSet.ScaleRules.ToDictionary(rule => rule.Id);
         var configuredOptions = new List<TriggerRuleReferenceOption>();
 
-        foreach (var blockedRuleId in SelectedAvatarScaleRule.TemporarilyDisabledScaleRuleIds)
+        foreach (var blockedRuleId in selectedRule.TemporarilyDisabledScaleRuleIds)
         {
-            if (blockedRuleId == SelectedAvatarScaleRule.Id)
+            if (blockedRuleId == selectedRule.Id)
             {
                 continue;
             }
@@ -18679,22 +18923,36 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     private bool CanOpenAvatarScaleRuleLockoutPicker()
     {
-        return IsViewingAvatarScaling
-            && SelectedAvatarScaleSet is not null
-            && SelectedAvatarScaleRule is not null;
+        return SelectedAvatarScaleRule is not null
+            && (BuildAvailableAvatarScaleRuleLockoutOptions().Count > 0
+                || BuildConfiguredAvatarScaleRuleLockoutOptions().Count > 0);
+    }
+
+    private AvatarScaleSet? GetSelectedAvatarScaleRuleLockoutSet()
+    {
+        if (SelectedAvatarScaleRule is not { } selectedRule)
+        {
+            return null;
+        }
+
+        return SelectedAvatarScaleSet?.ScaleRules.Contains(selectedRule) == true
+            ? SelectedAvatarScaleSet
+            : GetOwningAvatarScaleSet(selectedRule);
     }
 
     private void OpenAvatarScaleRuleLockoutPicker()
     {
-        if (!CanOpenAvatarScaleRuleLockoutPicker() || SelectedAvatarScaleSet is null || SelectedAvatarScaleRule is null)
+        if (!CanOpenAvatarScaleRuleLockoutPicker()
+            || SelectedAvatarScaleRule is not { } selectedRule
+            || GetSelectedAvatarScaleRuleLockoutSet() is not { } selectedSet)
         {
             return;
         }
 
         var dialog = new RuleLockoutPickerWindow(
             SelectedTheme,
-            $"Scale Set: {SelectedAvatarScaleSet.DisplayTitle}",
-            SelectedAvatarScaleRule.DisplayTitle,
+            $"Scale Set: {selectedSet.DisplayTitle}",
+            selectedRule.DisplayTitle,
             BuildAvailableAvatarScaleRuleLockoutOptions(),
             BuildConfiguredAvatarScaleRuleLockoutOptions())
         {
@@ -18707,11 +18965,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         }
 
         var updatedRuleIds = dialog.SelectedRuleIds
-            .Where(ruleId => ruleId != Guid.Empty && ruleId != SelectedAvatarScaleRule.Id)
+            .Where(ruleId => ruleId != Guid.Empty && ruleId != selectedRule.Id)
             .Distinct()
             .ToArray();
-        var currentRuleIds = SelectedAvatarScaleRule.TemporarilyDisabledScaleRuleIds
-            .Where(ruleId => ruleId != Guid.Empty && ruleId != SelectedAvatarScaleRule.Id)
+        var currentRuleIds = selectedRule.TemporarilyDisabledScaleRuleIds
+            .Where(ruleId => ruleId != Guid.Empty && ruleId != selectedRule.Id)
             .Distinct()
             .ToArray();
 
@@ -18720,14 +18978,14 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             return;
         }
 
-        SelectedAvatarScaleRule.TemporarilyDisabledScaleRuleIds = new ObservableCollection<Guid>(updatedRuleIds);
+        selectedRule.TemporarilyDisabledScaleRuleIds = new ObservableCollection<Guid>(updatedRuleIds);
         RaisePropertyChanged(nameof(AvatarScaleRuleLockoutSummaryText));
         QueueSave();
         QueueBridgeRefresh();
         QueueManagedRewardSync(0);
         AppendLog(updatedRuleIds.Length == 0
-            ? $"Cleared scale disable pairings for '{SelectedAvatarScaleRule.DisplayTitle}'."
-            : $"Updated scale disable pairings for '{SelectedAvatarScaleRule.DisplayTitle}'.");
+            ? $"Cleared scale disable pairings for '{selectedRule.DisplayTitle}'."
+            : $"Updated scale disable pairings for '{selectedRule.DisplayTitle}'.");
     }
 
     private bool CanOpenAvatarRouletPoolPicker()
@@ -19075,7 +19333,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         RaisePropertyChanged(nameof(IsViewingCashPayments));
         RaisePropertyChanged(nameof(IsViewingRewardFireSale));
         RaisePropertyChanged(nameof(MovementRedeemSets));
-        RaisePropertyChanged(nameof(MovementRedeemRules));
         RaisePropertyChanged(nameof(AvatarScaleSets));
         RaisePropertyChanged(nameof(AvatarScaleRules));
         RaisePropertyChanged(nameof(CashPaymentRules));
@@ -19468,6 +19725,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             HeightMultiplier = 1.25,
             Preset = AvatarScalePreset.Normal,
             ActiveTimeSeconds = 0,
+            CooldownSeconds = 30,
             RestoreMode = AvatarScaleRestoreMode.ConfiguredHeight,
             RestoreHeightMeters = 1.6,
             SetHeightTransitionSeconds = 0,
@@ -21115,7 +21373,18 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             return "test";
         }
 
-        return string.IsNullOrWhiteSpace(BetaBuildLabel) ? "stable" : "beta";
+        if (string.IsNullOrWhiteSpace(BetaBuildLabel))
+        {
+            return "stable";
+        }
+
+        var compactLabel = new string(BetaBuildLabel
+            .Trim()
+            .ToLowerInvariant()
+            .Where(char.IsLetterOrDigit)
+            .ToArray());
+
+        return compactLabel;
     }
 
     private enum SectionView

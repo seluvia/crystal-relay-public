@@ -294,6 +294,7 @@ public sealed class CashPaymentRule : ObservableObject
     private decimal maximumAmount;
     private string currencyCode = string.Empty;
     private string messageContains = string.Empty;
+    private bool requireMessageKeyword;
     private int cooldownSeconds = 30;
     private CashPaymentActionKind actionKind = CashPaymentActionKind.TriggerAction;
     private TriggerRule triggerAction = CreateDefaultTriggerAction();
@@ -400,6 +401,18 @@ public sealed class CashPaymentRule : ObservableObject
         }
     }
 
+    public bool RequireMessageKeyword
+    {
+        get => requireMessageKeyword;
+        set
+        {
+            if (SetProperty(ref requireMessageKeyword, value))
+            {
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
+
     public int CooldownSeconds
     {
         get => cooldownSeconds;
@@ -484,7 +497,10 @@ public sealed class CashPaymentRule : ObservableObject
                 : $"{MinimumAmount:0.##}+";
             var currencyText = string.IsNullOrWhiteSpace(CurrencyCode) ? "any currency" : CurrencyCode;
             var actionText = UsesAvatarScaling ? "avatar scaling" : TriggerAction.ActionType.ToString();
-            return $"{enabledText} | {ProviderDisplayName} | {rangeText} {currencyText} | {actionText}";
+            var keywordText = RequireMessageKeyword
+                ? (string.IsNullOrWhiteSpace(MessageContains) ? " | keyword required" : $" | keyword: {MessageContains}")
+                : string.Empty;
+            return $"{enabledText} | {ProviderDisplayName} | {rangeText} {currencyText}{keywordText} | {actionText}";
         }
     }
 

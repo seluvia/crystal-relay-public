@@ -37,6 +37,7 @@ public partial class TwitchChatboxWindow : Window
         UpdateWindowStateGlyph();
         ApplyChatboxStateFromSettings();
 
+        BlockedWordsToggle.Click += OnBlockedWordsToggleClicked;
         ThemeManager.ThemeChanged += OnThemeManagerThemeChanged;
         ChatMessageInlinePresenter.DiagnosticWritten += OnChatInlineDiagnosticWritten;
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
@@ -150,6 +151,11 @@ public partial class TwitchChatboxWindow : Window
     private void OnToggleSettingsClicked(object sender, RoutedEventArgs e)
     {
         viewModel.Settings.ChatboxSettingsPanelOpen = !viewModel.Settings.ChatboxSettingsPanelOpen;
+    }
+
+    private void OnBlockedWordsToggleClicked(object sender, RoutedEventArgs e)
+    {
+        viewModel.BlockedWordsSectionOpen = BlockedWordsToggle.IsChecked == true;
     }
 
     private void OnClearChatClicked(object sender, RoutedEventArgs e)
@@ -319,6 +325,8 @@ public partial class TwitchChatboxWindow : Window
         SettingsToggleButton.Content = settingsPanelOpen
             ? LocalizationService.Translate("Done")
             : LocalizationService.Translate("Settings");
+
+        BlockedWordsToggle.IsChecked = viewModel.BlockedWordsSectionOpen;
 
         ApplyOverlayLayout(viewModel.Settings.ChatboxOverlayMode);
     }

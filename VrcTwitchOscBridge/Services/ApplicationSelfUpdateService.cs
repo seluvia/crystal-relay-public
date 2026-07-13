@@ -31,7 +31,7 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
     private const string DedicatedUpdaterExecutableName = "CrystalRelayUpdater.exe";
     private const string SourceBackupFolderName = "source";
     private const string TargetBackupFolderName = "target";
-    private const string ExecutableSearchPattern = "CrystalRelayTwitchOsc-v*.exe";
+    private const string ExecutableSearchPattern = "Crystal Relay.exe";
     private const int FileOperationRetryCount = 20;
     private static readonly TimeSpan DownloadTimeout = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan ProcessExitTimeout = TimeSpan.FromSeconds(75);
@@ -1065,10 +1065,11 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
 
     private static bool IsPackageInstallFolderName(string? folderName) =>
         !string.IsNullOrWhiteSpace(folderName)
-        && folderName.StartsWith(PackageFolderPrefix, StringComparison.OrdinalIgnoreCase)
-        && folderName.EndsWith($"-{RuntimeName}", StringComparison.OrdinalIgnoreCase)
         && !folderName.Contains(Path.DirectorySeparatorChar)
-        && !folderName.Contains(Path.AltDirectorySeparatorChar);
+        && !folderName.Contains(Path.AltDirectorySeparatorChar)
+        && (string.Equals(folderName, "Crystal Relay", StringComparison.OrdinalIgnoreCase)
+            || (folderName.StartsWith(PackageFolderPrefix, StringComparison.OrdinalIgnoreCase)
+                && folderName.EndsWith($"-{RuntimeName}", StringComparison.OrdinalIgnoreCase)));
 
     private static string NormalizeSha256Digest(string? digest)
     {

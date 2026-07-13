@@ -142,7 +142,101 @@ public sealed record TriggerRuleSnapshot(
     TriggerRule Rule,
     bool SubscriptionTier1Enabled = true,
     bool SubscriptionTier2Enabled = true,
-    bool SubscriptionTier3Enabled = true);
+    bool SubscriptionTier3Enabled = true,
+    bool ExtendCurrentActivity = false,
+    double ExtendSeconds = 0,
+    float? FloatValue = null)
+{
+    public static TriggerRuleSnapshot FromRule(TriggerRule rule)
+    {
+        return new TriggerRuleSnapshot(
+            Id: rule.Id,
+            IsEnabled: rule.IsEnabled,
+            Name: rule.Name,
+            IsGlobalOverride: false,
+            AvatarProfileId: Guid.Empty,
+            AvatarProfileName: string.Empty,
+            RequiredAvatarId: string.Empty,
+            RequiredAvatarName: string.Empty,
+            SupporterAvatarProfileId: Guid.Empty,
+            SupporterAvatarId: string.Empty,
+            SupporterAvatarName: string.Empty,
+            BelongsToMasterAvatarProfile: false,
+            TriggerType: rule.TriggerType,
+            ChannelPointRewardId: rule.ChannelPointRewardId ?? string.Empty,
+            ChannelPointRewardTitle: rule.ChannelPointRewardTitle ?? string.Empty,
+            ManagedRewardReadyColor: rule.ManagedRewardReadyColor ?? string.Empty,
+            ManagedRewardCooldownColor: rule.ManagedRewardCooldownColor ?? string.Empty,
+            ChatCommandEnabled: rule.ChatCommandEnabled,
+            ChatCommandText: rule.ChatCommandText ?? string.Empty,
+            ChatCommandPermission: rule.ChatCommandPermission,
+            MinimumAmount: rule.MinimumAmount,
+            AmountScaledDurationEnabled: rule.AmountScaledDurationEnabled,
+            AmountUnitsPerDuration: rule.AmountUnitsPerDuration,
+            SecondsPerAmountUnit: rule.SecondsPerAmountUnit,
+            BitsAmountUnitsPerDuration: rule.BitsAmountUnitsPerDuration,
+            BitsSecondsPerAmountUnit: rule.BitsSecondsPerAmountUnit,
+            SubscriptionsAmountUnitsPerDuration: rule.SubscriptionsAmountUnitsPerDuration,
+            SubscriptionsSecondsPerAmountUnit: rule.SubscriptionsSecondsPerAmountUnit,
+            SubscriptionTier1SecondsPerSub: rule.SubscriptionTier1SecondsPerSub,
+            SubscriptionTier2SecondsPerSub: rule.SubscriptionTier2SecondsPerSub,
+            SubscriptionTier3SecondsPerSub: rule.SubscriptionTier3SecondsPerSub,
+            AddBitsToSwapTime: rule.AddBitsToSwapTime,
+            MaxAccumulatedDurationEnabled: rule.MaxAccumulatedDurationEnabled,
+            MaxAccumulatedDurationSeconds: rule.MaxAccumulatedDurationSeconds,
+            ActionType: rule.ActionType,
+            MovementDirection: rule.MovementDirection,
+            ParameterName: rule.ParameterName ?? string.Empty,
+            ParameterType: rule.ParameterType,
+            IntZeroDurationMode: rule.IntZeroDurationMode,
+            ParameterValue: rule.ParameterValue ?? string.Empty,
+            FloatValueMode: rule.FloatValueMode,
+            FloatTransitionInSeconds: rule.FloatTransitionInSeconds,
+            FloatTransitionOutSeconds: rule.FloatTransitionOutSeconds,
+            ResetValue: rule.ResetValue ?? string.Empty,
+            ActiveFloatBoostRewardEnabled: rule.ActiveFloatBoostRewardEnabled,
+            ActiveFloatBoostRewardId: rule.ActiveFloatBoostRewardId ?? string.Empty,
+            ActiveFloatBoostRewardTitle: rule.ActiveFloatBoostRewardTitle ?? string.Empty,
+            ActiveFloatBoostRewardDescription: rule.ActiveFloatBoostRewardDescription ?? string.Empty,
+            ActiveFloatBoostRewardCost: rule.ActiveFloatBoostRewardCost,
+            ActiveFloatBoostRewardCooldownSeconds: rule.ActiveFloatBoostRewardCooldownSeconds,
+            ActiveFloatBoostRewardReadyColor: rule.ActiveFloatBoostRewardReadyColor ?? string.Empty,
+            ActiveFloatBoostRewardCooldownColor: rule.ActiveFloatBoostRewardCooldownColor ?? string.Empty,
+            ActiveFloatBoostAddValue: rule.ActiveFloatBoostAddValue ?? string.Empty,
+            ActiveFloatBoostMinimumValue: rule.ActiveFloatBoostMinimumValue ?? string.Empty,
+            ActiveFloatBoostMaximumValue: rule.ActiveFloatBoostMaximumValue ?? string.Empty,
+            SupporterFloatAddEnabled: rule.SupporterFloatAddEnabled,
+            SupporterFloatAddMinimumValue: rule.SupporterFloatAddMinimumValue ?? string.Empty,
+            SupporterFloatAddMaximumValue: rule.SupporterFloatAddMaximumValue ?? string.Empty,
+            SupporterFloatAddRanges: rule.SupporterFloatAddRanges.Select(r => new SupporterFloatAddRangeSnapshot(r.MinimumAmount, r.MaximumAmount, r.AddValue)).ToList(),
+            AvatarChangeTargetId: rule.AvatarChangeTargetId ?? string.Empty,
+            AvatarChangeResetId: rule.AvatarChangeResetId ?? string.Empty,
+            AvatarTargetName: rule.AvatarTargetName ?? string.Empty,
+            ResetAvatarName: rule.ResetAvatarName ?? string.Empty,
+            AvatarRouletAvatarIds: rule.AvatarRouletAvatarIds.ToList(),
+            AvatarRouletAvatarNames: rule.AvatarRouletAvatarNames.ToList(),
+            RangeMinimum: rule.RangeMinimum,
+            RangeMaximum: rule.RangeMaximum,
+            DurationSeconds: rule.DurationSeconds,
+            CooldownSeconds: rule.CooldownSeconds,
+            UsesLinkedChannelPointReward: rule.RewardSyncMode == TwitchRewardSyncMode.LinkExisting,
+            BotMessageCooldownSeconds: null,
+            SharedRewardChoiceEnabled: rule.SharedRewardChoiceEnabled,
+            SharedRewardChoiceNumber: rule.SharedRewardChoiceNumber,
+            SharedRewardHelpText: rule.SharedRewardHelpText ?? string.Empty,
+            UsesSharedNumberedOutfitReward: false,
+            PostOutfitChoiceListToTwitchChat: false,
+            SetTriggerRestoreMode: rule.SetTriggerRestoreMode,
+            SupporterKeywordText: rule.SupporterKeywordText ?? string.Empty,
+            BitsKeywordEnabled: rule.BitsKeywordEnabled,
+            SetTriggerActions: rule.SetTriggerActions.Select(a => new SetTriggerActionSnapshot(a.Id, a.ParameterName, a.ParameterType, a.ParameterValue)).ToList(),
+            SpecialRulePairingMode: rule.SpecialRulePairingMode,
+            TemporarilyDisabledRuleIds: rule.TemporarilyDisabledRuleIds.ToList(),
+            BotMessageTemplate: rule.BotMessageTemplate ?? string.Empty,
+            Rule: rule,
+            FloatValue: rule.FloatValue);
+    }
+}
 
 public sealed record UniversalTriggerActionSnapshot(
     Guid Id,
@@ -188,6 +282,10 @@ public sealed record AvatarScaleMasterRewardSnapshot(
     int CooldownSeconds,
     bool PreventAvatarChangesDuringActiveScaling);
 
+public sealed record AvatarScaleSafetySnapshot(
+    double CurrentMinimumHeightAllowedMeters,
+    double CurrentMaximumHeightAllowedMeters);
+
 public sealed record AvatarScaleRuleSnapshot(
     Guid Id,
     bool IsEnabled,
@@ -229,10 +327,11 @@ public sealed record AvatarScaleRuleSnapshot(
     double RestoreHeightMeters,
     bool AdvancedRangeEnabled,
     bool BypassVrChatScaleLimits,
-    double SupporterGrowthNormalHeightMeters,
-    double SupporterGrowthMaxAddedHeightMeters,
+    double CurrentMinimumHeightAllowedMeters,
+    double CurrentMaximumHeightAllowedMeters,
     int SupporterGrowthInactivityTimerSeconds,
     bool SupporterGrowthAllowRewardScaleOverlay,
+    bool SupporterGrowthRequireCheerKeyword,
     int SupporterGrowthBitsTimerUnit,
     int SupporterGrowthSecondsPerBitsUnit,
     int SupporterGrowthTier1Seconds,
@@ -246,7 +345,10 @@ public sealed record AvatarScaleRuleSnapshot(
     double SupporterGrowthTier1HeightMeters,
     double SupporterGrowthTier2HeightMeters,
     double SupporterGrowthTier3HeightMeters,
-    IReadOnlyList<AvatarScaleBitGrowthRangeSnapshot> SupporterGrowthBitRanges);
+    IReadOnlyList<AvatarScaleBitGrowthRangeSnapshot> SupporterGrowthBitRanges,
+    bool IsPaySystemTrigger = false,
+    bool ExtendCurrentActivity = false,
+    double ExtendSeconds = 0);
 
 public sealed record CashPaymentConnectionSnapshot(
     bool StreamElementsEnabled,
@@ -272,6 +374,7 @@ public sealed record CashPaymentRuleSnapshot(
     decimal MaximumAmount,
     string CurrencyCode,
     string MessageContains,
+    bool RequireMessageKeyword,
     int CooldownSeconds,
     CashPaymentActionKind ActionKind,
     TriggerRuleSnapshot? TriggerAction,
@@ -358,6 +461,7 @@ public sealed record BridgeRuntimeConfiguration(
     bool RedeemControlCommandEnabled,
     IReadOnlyList<RedeemGroupSnapshot> RedeemGroups,
     AvatarScaleMasterRewardSnapshot AvatarScaleMasterReward,
+    AvatarScaleSafetySnapshot AvatarScaleSafety,
     CashPaymentConnectionSnapshot CashPayments,
     IReadOnlyList<TriggerRuleSnapshot> Rules,
     IReadOnlyList<PowerUpRuleSnapshot> PowerUpRules,
@@ -368,7 +472,9 @@ public sealed record BridgeRuntimeConfiguration(
     IReadOnlyList<AvatarSwapProfileSnapshot> AvatarSwapProfiles,
     IReadOnlyList<AvatarRouletteProfileSnapshot> AvatarRouletteProfiles,
     string MasterAvatarSwapReturnId,
-    string MasterAvatarSwapReturnName)
+    string MasterAvatarSwapReturnName,
+    IReadOnlyList<string> CustomBlockedWords,
+    IReadOnlyList<string> SuppressedBlockedWords)
 {
     public static BridgeRuntimeConfiguration FromSettings(
         AppSettings settings,
@@ -381,6 +487,7 @@ public sealed record BridgeRuntimeConfiguration(
         var avatarScaleRules = new List<AvatarScaleRuleSnapshot>();
         var cashPaymentRules = new List<CashPaymentRuleSnapshot>();
         var masterProfile = settings.AvatarProfiles.FirstOrDefault(profile => profile.IsMasterProfile);
+        var avatarScaleSafety = ToAvatarScaleSafetySnapshot(settings.AvatarScaleSafety);
 
         foreach (var profile in settings.AvatarProfiles)
         {
@@ -425,7 +532,7 @@ public sealed record BridgeRuntimeConfiguration(
 
         foreach (var powerUpRule in settings.PowerUpRules)
         {
-            if (TryToPowerUpSnapshot(powerUpRule, masterProfile, out var snapshot))
+            if (TryToPowerUpSnapshot(powerUpRule, masterProfile, avatarScaleSafety, out var snapshot))
             {
                 powerUpRules.Add(snapshot);
             }
@@ -436,7 +543,7 @@ public sealed record BridgeRuntimeConfiguration(
             : settings.AvatarScaleRules;
         foreach (var scaleRule in configuredScaleRules)
         {
-            if (TryToAvatarScaleSnapshot(scaleRule, requireTriggerFilter: true, out var snapshot))
+            if (TryToAvatarScaleSnapshot(scaleRule, avatarScaleSafety, requireTriggerFilter: true, isPaySystemTrigger: false, out var snapshot))
             {
                 avatarScaleRules.Add(snapshot);
             }
@@ -444,7 +551,7 @@ public sealed record BridgeRuntimeConfiguration(
 
         foreach (var cashRule in settings.CashPaymentRules)
         {
-            if (TryToCashPaymentSnapshot(cashRule, out var snapshot))
+            if (TryToCashPaymentSnapshot(cashRule, avatarScaleSafety, out var snapshot))
             {
                 cashPaymentRules.Add(snapshot);
             }
@@ -521,7 +628,7 @@ public sealed record BridgeRuntimeConfiguration(
                 // Register the payment rule with the cash-payment matcher so it fires on
                 // StreamElements / Streamlabs / Ko-fi events. The fired TriggerAction is routed
                 // back to this profile's target avatar via FindAvatarSwapProfileForRule.
-                if (TryToCashPaymentSnapshot(rule, out var cashSnapshot))
+                if (TryToCashPaymentSnapshot(rule, avatarScaleSafety, out var cashSnapshot))
                 {
                     cashPaymentRules.Add(cashSnapshot);
                 }
@@ -625,6 +732,7 @@ public sealed record BridgeRuntimeConfiguration(
                 ChatCommandUtility.Normalize(g.CommandText),
                 [.. g.AssignedRuleIds]))],
             ToAvatarScaleMasterRewardSnapshot(settings.AvatarScaleMasterReward),
+            avatarScaleSafety,
             ToCashPaymentConnectionSnapshot(settings.CashPayments),
             rules.ToArray(),
             powerUpRules.ToArray(),
@@ -635,7 +743,9 @@ public sealed record BridgeRuntimeConfiguration(
             avatarSwapProfiles.ToArray(),
             avatarRouletteProfiles.ToArray(),
             settings.MasterAvatarSwapReturnId?.Trim() ?? string.Empty,
-            settings.MasterAvatarSwapReturnName?.Trim() ?? string.Empty);
+            settings.MasterAvatarSwapReturnName?.Trim() ?? string.Empty,
+            settings.CustomBlockedWords?.ToList() as IReadOnlyList<string> ?? [],
+            settings.SuppressedBlockedWords?.ToList() as IReadOnlyList<string> ?? []);
     }
 
     public AvatarSwapProfileSnapshot? FindAvatarSwapProfileForRule(TriggerRule rule)
@@ -720,9 +830,12 @@ public sealed record BridgeRuntimeConfiguration(
         return snapshot;
     }
 
-    public static AvatarScaleRuleSnapshot CreateManualTestSnapshot(AvatarScaleRule rule)
+    public static AvatarScaleRuleSnapshot CreateManualTestSnapshot(
+        AvatarScaleRule rule,
+        AvatarScaleSafetySettings? safetySettings = null)
     {
-        if (!TryToAvatarScaleSnapshot(rule, requireTriggerFilter: false, out var snapshot))
+        var safety = ToAvatarScaleSafetySnapshot(safetySettings ?? new AvatarScaleSafetySettings());
+        if (!TryToAvatarScaleSnapshot(rule, safety, requireTriggerFilter: false, isPaySystemTrigger: false, out var snapshot))
         {
             throw new InvalidOperationException("Finish the avatar scale setup before testing this scale redeem.");
         }
@@ -730,9 +843,12 @@ public sealed record BridgeRuntimeConfiguration(
         return snapshot;
     }
 
-    public static CashPaymentRuleSnapshot CreateManualTestSnapshot(CashPaymentRule rule)
+    public static CashPaymentRuleSnapshot CreateManualTestSnapshot(
+        CashPaymentRule rule,
+        AvatarScaleSafetySettings? safetySettings = null)
     {
-        if (!TryToCashPaymentSnapshot(rule, out var snapshot))
+        var safety = ToAvatarScaleSafetySnapshot(safetySettings ?? new AvatarScaleSafetySettings());
+        if (!TryToCashPaymentSnapshot(rule, safety, out var snapshot))
         {
             throw new InvalidOperationException("Finish the cash payment rule before testing it.");
         }
@@ -740,9 +856,13 @@ public sealed record BridgeRuntimeConfiguration(
         return snapshot;
     }
 
-    public static PowerUpRuleSnapshot CreateManualTestSnapshot(PowerUpRule rule, AvatarTriggerProfile? masterProfile)
+    public static PowerUpRuleSnapshot CreateManualTestSnapshot(
+        PowerUpRule rule,
+        AvatarTriggerProfile? masterProfile,
+        AvatarScaleSafetySettings? safetySettings = null)
     {
-        if (!TryToPowerUpSnapshot(rule, masterProfile, out var snapshot))
+        var safety = ToAvatarScaleSafetySnapshot(safetySettings ?? new AvatarScaleSafetySettings());
+        if (!TryToPowerUpSnapshot(rule, masterProfile, safety, out var snapshot))
         {
             throw new InvalidOperationException("Finish the Power Up rule setup before testing it.");
         }
@@ -750,7 +870,10 @@ public sealed record BridgeRuntimeConfiguration(
         return snapshot;
     }
 
-    private static bool TryToCashPaymentSnapshot(CashPaymentRule rule, out CashPaymentRuleSnapshot snapshot)
+    private static bool TryToCashPaymentSnapshot(
+        CashPaymentRule rule,
+        AvatarScaleSafetySnapshot safety,
+        out CashPaymentRuleSnapshot snapshot)
     {
         snapshot = default!;
         TriggerRuleSnapshot? triggerAction = null;
@@ -758,7 +881,7 @@ public sealed record BridgeRuntimeConfiguration(
 
         if (rule.ActionKind == CashPaymentActionKind.AvatarScaling)
         {
-            if (!TryToAvatarScaleSnapshot(rule.ScaleAction, requireTriggerFilter: false, out var scaleSnapshot))
+            if (!TryToAvatarScaleSnapshot(rule.ScaleAction, safety, requireTriggerFilter: false, isPaySystemTrigger: true, out var scaleSnapshot))
             {
                 return false;
             }
@@ -815,6 +938,7 @@ public sealed record BridgeRuntimeConfiguration(
             Math.Max(0m, rule.MaximumAmount),
             rule.CurrencyCode.Trim().ToUpperInvariant(),
             rule.MessageContains.Trim(),
+            rule.RequireMessageKeyword,
             Math.Max(0, rule.CooldownSeconds),
             rule.ActionKind,
             triggerAction,
@@ -1030,7 +1154,10 @@ public sealed record BridgeRuntimeConfiguration(
             rule,
             rule.SubscriptionTier1Enabled,
             rule.SubscriptionTier2Enabled,
-            rule.SubscriptionTier3Enabled);
+            rule.SubscriptionTier3Enabled,
+            rule.ExtendCurrentActivity,
+            rule.ExtendSeconds,
+            rule.FloatValue);
     }
 
     private static SetTriggerActionSnapshot ToSetTriggerActionSnapshot(SetTriggerAction action)
@@ -1068,6 +1195,7 @@ public sealed record BridgeRuntimeConfiguration(
     private static bool TryToPowerUpSnapshot(
         PowerUpRule rule,
         AvatarTriggerProfile? masterProfile,
+        AvatarScaleSafetySnapshot safety,
         out PowerUpRuleSnapshot snapshot)
     {
         snapshot = default!;
@@ -1080,7 +1208,7 @@ public sealed record BridgeRuntimeConfiguration(
         AvatarScaleRuleSnapshot? scaleAction = null;
         if (rule.ActionKind == PowerUpActionKind.AvatarScaling)
         {
-            if (!TryToAvatarScaleSnapshot(rule.ScaleAction, requireTriggerFilter: false, out var scaleSnapshot))
+            if (!TryToAvatarScaleSnapshot(rule.ScaleAction, safety, requireTriggerFilter: false, isPaySystemTrigger: true, out var scaleSnapshot))
             {
                 return false;
             }
@@ -1251,7 +1379,9 @@ public sealed record BridgeRuntimeConfiguration(
 
     private static bool TryToAvatarScaleSnapshot(
         AvatarScaleRule rule,
+        AvatarScaleSafetySnapshot safety,
         bool requireTriggerFilter,
+        bool isPaySystemTrigger,
         out AvatarScaleRuleSnapshot snapshot)
     {
         snapshot = default!;
@@ -1270,6 +1400,7 @@ public sealed record BridgeRuntimeConfiguration(
             && rule.RewardSyncMode == TwitchRewardSyncMode.CreateOrManage
                 ? Math.Max(0, rule.CooldownSeconds)
                 : 0;
+        var heightBounds = GetScaleHeightBounds(rule.AdvancedRangeEnabled, safety);
 
         snapshot = new AvatarScaleRuleSnapshot(
             rule.Id == Guid.Empty ? Guid.NewGuid() : rule.Id,
@@ -1289,12 +1420,12 @@ public sealed record BridgeRuntimeConfiguration(
             cooldownSeconds,
             [.. rule.TemporarilyDisabledScaleRuleIds.Where(ruleId => ruleId != Guid.Empty).Distinct()],
             rule.ScaleMode,
-            ClampScaleHeight(rule.TargetHeightMeters, rule.AdvancedRangeEnabled),
-            ClampScaleHeight(rule.MinimumHeightMeters, rule.AdvancedRangeEnabled),
-            ClampScaleHeight(rule.MaximumHeightMeters, rule.AdvancedRangeEnabled),
-            ClampRelativeScaleHeight(rule.RelativeHeightMeters, rule.AdvancedRangeEnabled),
-            ClampScaleHeight(rule.RelativeMinimumHeightMeters, rule.AdvancedRangeEnabled),
-            ClampScaleHeight(rule.RelativeMaximumHeightMeters, rule.AdvancedRangeEnabled),
+            ClampScaleHeight(rule.TargetHeightMeters, rule.AdvancedRangeEnabled, safety),
+            ClampScaleHeight(rule.MinimumHeightMeters, rule.AdvancedRangeEnabled, safety),
+            ClampScaleHeight(rule.MaximumHeightMeters, rule.AdvancedRangeEnabled, safety),
+            ClampRelativeScaleHeight(rule.RelativeHeightMeters, rule.AdvancedRangeEnabled, safety),
+            ClampScaleHeight(rule.RelativeMinimumHeightMeters, rule.AdvancedRangeEnabled, safety),
+            ClampScaleHeight(rule.RelativeMaximumHeightMeters, rule.AdvancedRangeEnabled, safety),
             Math.Clamp(rule.HeightMultiplier, 0.01, AvatarScaleRule.AdvancedMaximumHeightMeters),
             (int)rule.MultiplierDirection,
             (int)rule.RelativeHeightDirection,
@@ -1309,13 +1440,14 @@ public sealed record BridgeRuntimeConfiguration(
             rule.Preset,
             Math.Max(0, rule.ActiveTimeSeconds),
             AvatarScaleRestoreMode.ConfiguredHeight,
-            ClampScaleHeight(rule.RestoreHeightMeters, rule.AdvancedRangeEnabled),
+            ClampScaleHeight(rule.RestoreHeightMeters, rule.AdvancedRangeEnabled, safety),
             rule.AdvancedRangeEnabled,
             rule.BypassVrChatScaleLimits,
-            ClampScaleHeight(rule.SupporterGrowthNormalHeightMeters, rule.AdvancedRangeEnabled),
-            ClampRelativeScaleHeight(rule.SupporterGrowthMaxAddedHeightMeters, rule.AdvancedRangeEnabled),
+            heightBounds.Minimum,
+            heightBounds.Maximum,
             Math.Max(1, rule.SupporterGrowthInactivityTimerSeconds),
             rule.SupporterGrowthAllowRewardScaleOverlay,
+            rule.SupporterGrowthRequireCheerKeyword,
             Math.Max(1, rule.SupporterGrowthBitsTimerUnit),
             Math.Max(0, rule.SupporterGrowthSecondsPerBitsUnit),
             Math.Max(0, rule.SupporterGrowthTier1Seconds),
@@ -1326,10 +1458,13 @@ public sealed record BridgeRuntimeConfiguration(
             Math.Max(1, rule.SupporterGrowthMaxPaidTimeSeconds),
             string.IsNullOrWhiteSpace(rule.SupporterGrowthGrowKeyword) ? "grow" : rule.SupporterGrowthGrowKeyword.Trim(),
             string.IsNullOrWhiteSpace(rule.SupporterGrowthShrinkKeyword) ? "shrink" : rule.SupporterGrowthShrinkKeyword.Trim(),
-            Math.Max(0, rule.SupporterGrowthTier1HeightMeters),
-            Math.Max(0, rule.SupporterGrowthTier2HeightMeters),
-            Math.Max(0, rule.SupporterGrowthTier3HeightMeters),
-            [.. rule.SupporterGrowthBitRanges.Select(ToAvatarScaleBitGrowthRangeSnapshot)]);
+            Math.Max(0, ClampRelativeScaleHeight(rule.SupporterGrowthTier1HeightMeters, rule.AdvancedRangeEnabled, safety)),
+            Math.Max(0, ClampRelativeScaleHeight(rule.SupporterGrowthTier2HeightMeters, rule.AdvancedRangeEnabled, safety)),
+            Math.Max(0, ClampRelativeScaleHeight(rule.SupporterGrowthTier3HeightMeters, rule.AdvancedRangeEnabled, safety)),
+            [.. rule.SupporterGrowthBitRanges.Select(range => ToAvatarScaleBitGrowthRangeSnapshot(range, rule.AdvancedRangeEnabled, safety))],
+            isPaySystemTrigger,
+            rule.ExtendCurrentActivity,
+            rule.ExtendSeconds);
         return true;
     }
 
@@ -1343,6 +1478,13 @@ public sealed record BridgeRuntimeConfiguration(
             Math.Max(1, settings.UnlockDurationSeconds),
             Math.Max(0, settings.CooldownSeconds),
             settings.PreventAvatarChangesDuringActiveScaling);
+    }
+
+    private static AvatarScaleSafetySnapshot ToAvatarScaleSafetySnapshot(AvatarScaleSafetySettings settings)
+    {
+        return new AvatarScaleSafetySnapshot(
+            settings.CurrentMinimumHeightMeters,
+            settings.CurrentMaximumHeightMeters);
     }
 
     private static CashPaymentConnectionSnapshot ToCashPaymentConnectionSnapshot(
@@ -1366,12 +1508,15 @@ public sealed record BridgeRuntimeConfiguration(
             settings.KoFiVerificationToken);
     }
 
-    private static AvatarScaleBitGrowthRangeSnapshot ToAvatarScaleBitGrowthRangeSnapshot(AvatarScaleBitGrowthRange range)
+    private static AvatarScaleBitGrowthRangeSnapshot ToAvatarScaleBitGrowthRangeSnapshot(
+        AvatarScaleBitGrowthRange range,
+        bool advancedRangeEnabled,
+        AvatarScaleSafetySnapshot safety)
     {
         return new AvatarScaleBitGrowthRangeSnapshot(
             Math.Max(1, range.MinimumBits),
             Math.Max(0, range.MaximumBits),
-            Math.Max(0, range.HeightAddedMeters));
+            Math.Max(0, ClampRelativeScaleHeight(range.HeightAddedMeters, advancedRangeEnabled, safety)));
     }
 
     private static bool IsLiveRuntimeReady(
@@ -1459,27 +1604,56 @@ public sealed record BridgeRuntimeConfiguration(
         };
     }
 
-    private static double ClampScaleHeight(double value, bool advancedRangeEnabled)
+    private static double ClampScaleHeight(
+        double value,
+        bool advancedRangeEnabled,
+        AvatarScaleSafetySnapshot safety)
     {
         if (double.IsNaN(value) || double.IsInfinity(value))
         {
             return 1.6;
         }
 
-        return Math.Clamp(
-            value,
-            advancedRangeEnabled ? AvatarScaleRule.AdvancedMinimumHeightMeters : AvatarScaleRule.SafeMinimumHeightMeters,
-            advancedRangeEnabled ? AvatarScaleRule.AdvancedMaximumHeightMeters : AvatarScaleRule.SafeMaximumHeightMeters);
+        var bounds = GetScaleHeightBounds(advancedRangeEnabled, safety);
+        return Math.Clamp(value, bounds.Minimum, bounds.Maximum);
     }
 
-    private static double ClampRelativeScaleHeight(double value, bool advancedRangeEnabled)
+    private static (double Minimum, double Maximum) GetScaleHeightBounds(
+        bool advancedRangeEnabled,
+        AvatarScaleSafetySnapshot safety)
+    {
+        var modeMinimum = advancedRangeEnabled
+            ? AvatarScaleRule.AdvancedMinimumHeightMeters
+            : AvatarScaleRule.SafeMinimumHeightMeters;
+        var modeMaximum = advancedRangeEnabled
+            ? AvatarScaleRule.AdvancedMaximumHeightMeters
+            : AvatarScaleRule.SafeMaximumHeightMeters;
+        var minimum = Math.Max(modeMinimum, safety.CurrentMinimumHeightAllowedMeters);
+        var maximum = Math.Min(modeMaximum, safety.CurrentMaximumHeightAllowedMeters);
+        if (maximum >= minimum)
+        {
+            return (minimum, maximum);
+        }
+
+        return safety.CurrentMinimumHeightAllowedMeters > modeMaximum
+            ? (modeMaximum, modeMaximum)
+            : (modeMinimum, modeMinimum);
+    }
+
+    private static double ClampRelativeScaleHeight(
+        double value,
+        bool advancedRangeEnabled,
+        AvatarScaleSafetySnapshot safety)
     {
         if (double.IsNaN(value) || double.IsInfinity(value))
         {
             return 0;
         }
 
-        var limit = advancedRangeEnabled ? AvatarScaleRule.AdvancedMaximumHeightMeters : AvatarScaleRule.SafeMaximumHeightMeters;
+        var baseLimit = advancedRangeEnabled ? AvatarScaleRule.AdvancedMaximumHeightMeters : AvatarScaleRule.SafeMaximumHeightMeters;
+        var limit = Math.Min(
+            baseLimit,
+            Math.Max(Math.Abs(safety.CurrentMinimumHeightAllowedMeters), Math.Abs(safety.CurrentMaximumHeightAllowedMeters)));
         return Math.Clamp(value, -limit, limit);
     }
 

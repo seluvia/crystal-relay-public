@@ -531,7 +531,8 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
             AvatarChangeTargetId = SelectedSwapCard.Profile.TargetAvatarId,
             AvatarTargetName = SelectedSwapCard.Profile.TargetAvatarName,
             ChannelPointRewardCost = 100,
-            Name = "New Channel Point Swap"
+            Name = "New Channel Point Swap",
+            ChannelPointRewardTitle = "New Channel Point Swap"
         };
         SelectedSwapCard.Profile.ChannelPointRules.Add(rule);
         var row = new InlineChannelPointRuleRowViewModel(rule, SelectedSwapCard.Profile);

@@ -46,9 +46,12 @@
     <Page Include="AvatarRouletPickerWindow.xaml" />
     <Page Include="AvatarPickerWindow.xaml" />
     <Page Include="AvatarLibraryManagerWindow.xaml" />
+    <Page Include="ThemedInputDialog.xaml" />
     <Page Include="AvatarSetsManagerWindow.xaml" />
+    <Page Include="AvatarScalingManagerWindow.xaml" />
     <Page Include="UniversalTriggersManagerWindow.xaml" />
     <Page Include="AvatarSwapManagerWindow.xaml" />
+    <Page Include="MovementRedeemsManagerWindow.xaml" />
     <Page Include="VrChatLoginWindow.xaml" />
     <Page Include="VrChatTwoFactorWindow.xaml" />
     <Page Include="RedeemGroupEditorDialog.xaml" />
@@ -100,15 +103,24 @@
     <Compile Include="AvatarRouletPickerWindow.xaml.cs" />
     <Compile Include="AvatarPickerWindow.xaml.cs" />
     <Compile Include="AvatarLibraryManagerWindow.xaml.cs" />
+    <Compile Include="ThemedInputDialog.xaml.cs" />
     <Compile Include="AvatarSetsManagerWindow.xaml.cs" />
+    <Compile Include="AvatarScalingManagerWindow.xaml.cs">
+      <DependentUpon>AvatarScalingManagerWindow.xaml</DependentUpon>
+    </Compile>
     <Compile Include="UniversalTriggersManagerWindow.xaml.cs">
       <DependentUpon>UniversalTriggersManagerWindow.xaml</DependentUpon>
     </Compile>
     <Compile Include="AvatarSwapManagerWindow.xaml.cs">
       <DependentUpon>AvatarSwapManagerWindow.xaml</DependentUpon>
     </Compile>
+    <Compile Include="MovementRedeemsManagerWindow.xaml.cs">
+      <DependentUpon>MovementRedeemsManagerWindow.xaml</DependentUpon>
+    </Compile>
     <Compile Include="ViewModels\UniversalTriggersManagerViewModel.cs" />
     <Compile Include="ViewModels\UniversalTriggerCardViewModel.cs" />
+    <Compile Include="ViewModels\AvatarScalingManagerViewModel.cs" />
+    <Compile Include="ViewModels\AvatarScalingSourceCardViewModel.cs" />
     <Compile Include="ViewModels\AvatarSetsManagerViewModel.cs" />
     <Compile Include="ViewModels\AvatarSetCardViewModel.cs" />
     <Compile Include="Converters.cs" />
@@ -164,6 +176,7 @@
     <Compile Include="Models\AvatarSetsFilterMode.cs" />
     <Compile Include="Models\AvatarSetsSortMode.cs" />
     <Compile Include="Models\AvatarScaleRule.cs" />
+    <Compile Include="Models\AvatarScaleSafetySettings.cs" />
     <Compile Include="Models\CashPaymentRule.cs" />
     <Compile Include="Models\ChatCommandPermission.cs" />
     <Compile Include="Models\ChatCommandUtility.cs" />
@@ -175,6 +188,8 @@
     <Compile Include="Models\OscActionType.cs" />
     <Compile Include="Models\OscParameterType.cs" />
     <Compile Include="Models\PlayerMovementDirection.cs" />
+    <Compile Include="Models\MovementCategory.cs" />
+    <Compile Include="Models\MovementTypeClassifier.cs" />
     <Compile Include="Models\PowerUpRule.cs" />
     <Compile Include="Models\RedeemGroup.cs" />
     <Compile Include="Models\ResumeActivity.cs" />
@@ -194,11 +209,14 @@
     <Compile Include="Models\VrChatConnectionState.cs" />
     <Compile Include="Models\AvatarLibrary.cs" />
     <Compile Include="Models\AvatarPickerViewMode.cs" />
+    <Compile Include="Models\AvatarTagDisplay.cs" />
+    <Compile Include="Models\FilterOption.cs" />
     <Compile Include="Models\VrChatOscParameterSummary.cs" />
     <Compile Include="Models\VrChatTwoFactorMethod.cs" />
     <Compile Include="Models\WardrobeSnapshotParam.cs" />
     <Compile Include="Models\WardrobeOutfit.cs" />
     <Compile Include="Models\WorldCommandBlacklistSettings.cs" />
+    <Compile Include="Models\BlockedWordItem.cs" />
     <Compile Include="Services\AppDataPaths.cs" />
     <Compile Include="Services\AvatarImageService.cs" />
     <Compile Include="Services\AvatarPickerService.cs" />
@@ -224,6 +242,7 @@
     <Compile Include="Services\FloatActionDispatch.cs" />
     <Compile Include="Services\FloatLimitDetection.cs" />
     <Compile Include="Services\FloatValueModeConverter.cs" />
+    <Compile Include="Services\LoadingPhaseService.cs" />
     <Compile Include="Services\LocalizationService.cs" />
     <Compile Include="Services\LiveFeedbackHeartbeatService.cs" />
     <Compile Include="Services\ManagedRewardPresentation.cs" />
@@ -260,6 +279,7 @@
     <Compile Include="ViewModels\MainWindowViewModel.cs" />
     <Compile Include="ViewModels\AvatarPickerViewModel.cs" />
     <Compile Include="ViewModels\AvatarLibraryManagerViewModel.cs" />
+    <Compile Include="ViewModels\AvatarAssignmentRow.cs" />
     <Compile Include="UserControls\InlineBitsRuleRowViewModel.cs" />
     <Compile Include="UserControls\InlineChannelPointRuleRowViewModel.cs" />
     <Compile Include="UserControls\InlinePaymentRuleRowViewModel.cs" />
@@ -272,6 +292,8 @@
     <Compile Include="ViewModels\AvatarSwapRuleEditorViewModel.cs" />
     <Compile Include="ViewModels\AvatarSwapManagerViewModel.cs" />
     <Compile Include="ViewModels\ITwitchRewardSource.cs" />
+    <Compile Include="ViewModels\MovementRedeemCardViewModel.cs" />
+    <Compile Include="ViewModels\MovementRedeemsManagerViewModel.cs" />
 
   </ItemGroup>
   <ItemGroup>

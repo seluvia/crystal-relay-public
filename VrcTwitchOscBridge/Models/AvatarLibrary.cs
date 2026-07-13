@@ -44,13 +44,35 @@ public sealed class AvatarLibrary : ObservableObject
             Entries.Add(new AvatarLibraryEntry { AvatarId = avatarId });
         }
     }
+
+    /// <summary>
+    /// Removes any entry whose AvatarId is not in the current VRChat avatar list.
+    /// Call when the picker opens with a fresh avatar list.
+    /// </summary>
+    public void PruneMissingEntries(IReadOnlyList<VrChatAvatarSummary> currentAvatars)
+    {
+        if (currentAvatars.Count == 0)
+        {
+            // Don't wipe the library on a transiently empty avatar list (failed fetch, still-loading).
+            return;
+        }
+
+        var currentIds = new HashSet<string>(currentAvatars.Select(a => a.Id), StringComparer.Ordinal);
+        for (var i = Entries.Count - 1; i >= 0; i--)
+        {
+            if (!currentIds.Contains(Entries[i].AvatarId))
+            {
+                Entries.RemoveAt(i);
+            }
+        }
+    }
 }
 
 public sealed class AvatarLibraryEntry : ObservableObject
 {
     private string avatarId = string.Empty;
     private string customIconPath = string.Empty;
-    private List<string> groupIds = [];
+    private string groupId = string.Empty;
     private List<string> tagIds = [];
 
     public string AvatarId
@@ -65,10 +87,10 @@ public sealed class AvatarLibraryEntry : ObservableObject
         set => SetProperty(ref customIconPath, value);
     }
 
-    public List<string> GroupIds
+    public string GroupId
     {
-        get => groupIds;
-        set => SetProperty(ref groupIds, value ?? []);
+        get => groupId;
+        set => SetProperty(ref groupId, value);
     }
 
     public List<string> TagIds
@@ -82,7 +104,6 @@ public sealed class AvatarGroup : ObservableObject
 {
     private string id = Guid.NewGuid().ToString();
     private string name = string.Empty;
-    private bool isCollapsed;
     private int sortOrder;
 
     public string Id
@@ -95,12 +116,6 @@ public sealed class AvatarGroup : ObservableObject
     {
         get => name;
         set => SetProperty(ref name, value);
-    }
-
-    public bool IsCollapsed
-    {
-        get => isCollapsed;
-        set => SetProperty(ref isCollapsed, value);
     }
 
     public int SortOrder

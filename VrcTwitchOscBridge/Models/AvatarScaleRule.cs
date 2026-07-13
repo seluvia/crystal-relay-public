@@ -339,10 +339,9 @@ public sealed class AvatarScaleRule : ObservableObject
     private double supporterGrowthTransitionSeconds;
     private bool advancedRangeEnabled;
     private bool bypassVrChatScaleLimits;
-    private double supporterGrowthNormalHeightMeters = 1.6;
-    private double supporterGrowthMaxAddedHeightMeters;
     private int supporterGrowthInactivityTimerSeconds = 60;
     private bool supporterGrowthAllowRewardScaleOverlay = true;
+    private bool supporterGrowthRequireCheerKeyword;
     private int supporterGrowthBitsTimerUnit = 100;
     private int supporterGrowthSecondsPerBitsUnit = 30;
     private int supporterGrowthTier1Seconds = 300;
@@ -351,6 +350,8 @@ public sealed class AvatarScaleRule : ObservableObject
     private int supporterGrowthSoftCapSeconds = 1800;
     private int supporterGrowthSoftCapMultiplierPercent = 50;
     private int supporterGrowthMaxPaidTimeSeconds = 3600;
+    private bool extendCurrentActivity;
+    private double extendSeconds;
     private string supporterGrowthGrowKeyword = "grow";
     private string supporterGrowthShrinkKeyword = "shrink";
     private double supporterGrowthTier1HeightMeters = 0.10;
@@ -526,7 +527,13 @@ public sealed class AvatarScaleRule : ObservableObject
     public int CooldownSeconds
     {
         get => cooldownSeconds;
-        set => SetProperty(ref cooldownSeconds, Math.Max(0, value));
+        set
+        {
+            if (SetProperty(ref cooldownSeconds, Math.Max(0, value)))
+            {
+                RaisePropertyChanged(nameof(TimingSummary));
+            }
+        }
     }
 
     public ObservableCollection<Guid> TemporarilyDisabledScaleRuleIds
@@ -641,6 +648,7 @@ public sealed class AvatarScaleRule : ObservableObject
             if (SetAndRaiseScale(ref activeTimeSeconds, Math.Max(0, value)))
             {
                 RaisePropertyChanged(nameof(HasActiveTime));
+                RaisePropertyChanged(nameof(TimingSummary));
             }
         }
     }
@@ -834,17 +842,6 @@ public sealed class AvatarScaleRule : ObservableObject
         }
     }
 
-    public double SupporterGrowthNormalHeightMeters
-    {
-        get => supporterGrowthNormalHeightMeters;
-        set => SetAndRaiseSupporterGrowth(ref supporterGrowthNormalHeightMeters, ClampHeight(value));
-    }
-
-    public double SupporterGrowthMaxAddedHeightMeters
-    {
-        get => supporterGrowthMaxAddedHeightMeters;
-        set => SetAndRaiseSupporterGrowth(ref supporterGrowthMaxAddedHeightMeters, Math.Max(0, ClampRelativeHeight(value)));
-    }
 
     public int SupporterGrowthInactivityTimerSeconds
     {
@@ -856,6 +853,12 @@ public sealed class AvatarScaleRule : ObservableObject
     {
         get => supporterGrowthAllowRewardScaleOverlay;
         set => SetAndRaiseSupporterGrowth(ref supporterGrowthAllowRewardScaleOverlay, value);
+    }
+
+    public bool SupporterGrowthRequireCheerKeyword
+    {
+        get => supporterGrowthRequireCheerKeyword;
+        set => SetAndRaiseSupporterGrowth(ref supporterGrowthRequireCheerKeyword, value);
     }
 
     public int SupporterGrowthBitsTimerUnit
@@ -991,7 +994,44 @@ public sealed class AvatarScaleRule : ObservableObject
 
     public bool UsesPreset => ScaleMode == AvatarScaleMode.Preset;
 
+    public bool ExtendCurrentActivity
+    {
+        get => extendCurrentActivity;
+        set
+        {
+            if (SetAndRaiseScale(ref extendCurrentActivity, value))
+            {
+                RaisePropertyChanged(nameof(ExtendCurrentActivity));
+            }
+        }
+    }
+
+    public double ExtendSeconds
+    {
+        get => extendSeconds;
+        set => SetAndRaiseScale(ref extendSeconds, Math.Max(0, value));
+    }
+
     public bool HasActiveTime => ActiveTimeSeconds > 0;
+
+    public string TimingSummary
+    {
+        get
+        {
+            var activeSeconds = (int)Math.Ceiling(ActiveTimeSeconds);
+            if (CooldownSeconds <= 0)
+            {
+                return CooldownSeconds <= 0 && activeSeconds <= 0
+                    ? string.Empty
+                    : $"Active: {activeSeconds}s";
+            }
+
+            var total = activeSeconds + CooldownSeconds;
+            return CooldownSeconds > 0
+                ? $"Active: {activeSeconds}s → Cooldown: {CooldownSeconds}s → Ready: {total}s"
+                : $"Active: {activeSeconds}s";
+        }
+    }
 
     public bool UsesConfiguredRestoreHeight => HasActiveTime;
 
@@ -1062,9 +1102,6 @@ public sealed class AvatarScaleRule : ObservableObject
 
     public string SupporterGrowthSummary =>
         $"Supporter growth +{SupporterGrowthTier1HeightMeters:0.##}/+{SupporterGrowthTier2HeightMeters:0.##}/+{SupporterGrowthTier3HeightMeters:0.##}m";
-
-    public string SupporterGrowthHeightBasicsSummary =>
-        $"Return/Resting: {SupporterGrowthNormalHeightMeters:0.##}m | Max Added: {(SupporterGrowthMaxAddedHeightMeters <= 0 ? "unlimited" : $"{SupporterGrowthMaxAddedHeightMeters:0.##}m")}";
 
     public string SupporterGrowthPaidTimeSummary =>
         $"{SupporterGrowthBitsTimerUnit} bits = {SupporterGrowthSecondsPerBitsUnit}s | Soft cap: {SupporterGrowthSoftCapSeconds}s @ {SupporterGrowthSoftCapMultiplierPercent}% | Max: {SupporterGrowthMaxPaidTimeSeconds}s";
@@ -1166,6 +1203,17 @@ public sealed class AvatarScaleRule : ObservableObject
         return true;
     }
 
+    private bool SetAndRaiseScale(ref bool storage, bool value)
+    {
+        if (!SetProperty(ref storage, value))
+        {
+            return false;
+        }
+
+        RaiseScaleProperties();
+        return true;
+    }
+
     private bool SetAndRaiseSupporterGrowth(ref double storage, double value)
     {
         if (!SetProperty(ref storage, value))
@@ -1254,7 +1302,7 @@ public sealed class AvatarScaleRule : ObservableObject
     {
         RaisePropertyChanged(nameof(SupporterGrowthBitRanges));
         RaisePropertyChanged(nameof(SupporterGrowthSummary));
-        RaisePropertyChanged(nameof(SupporterGrowthHeightBasicsSummary));
+
         RaisePropertyChanged(nameof(SupporterGrowthPaidTimeSummary));
         RaisePropertyChanged(nameof(SupporterGrowthSubTierSummary));
         RaisePropertyChanged(nameof(SupporterGrowthBitsRangeCountSummary));

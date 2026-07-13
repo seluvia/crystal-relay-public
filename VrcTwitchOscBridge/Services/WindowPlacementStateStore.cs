@@ -1,6 +1,7 @@
 using System.IO;
 using System.Text.Json;
 using System.Windows;
+using System.Windows.Forms;
 
 namespace VrcTwitchOscBridge.Services;
 
@@ -67,6 +68,28 @@ internal static class WindowPlacementStateStore
             window.Left = snapshot.Left;
             window.Top = snapshot.Top;
             window.WindowStartupLocation = WindowStartupLocation.Manual;
+
+            if (snapshot.Width > 0 && snapshot.Height > 0)
+            {
+                var windowRect = new System.Drawing.Rectangle(
+                    (int)snapshot.Left, (int)snapshot.Top,
+                    (int)snapshot.Width, (int)snapshot.Height);
+
+                var isOnAnyScreen = false;
+                foreach (Screen screen in Screen.AllScreens)
+                {
+                    if (screen.WorkingArea.IntersectsWith(windowRect))
+                    {
+                        isOnAnyScreen = true;
+                        break;
+                    }
+                }
+
+                if (!isOnAnyScreen)
+                {
+                    window.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+                }
+            }
         }
 
         window.WindowState = snapshot.WindowState == WindowState.Minimized

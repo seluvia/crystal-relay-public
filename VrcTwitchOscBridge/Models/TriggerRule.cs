@@ -86,6 +86,8 @@ public sealed class TriggerRule : ObservableObject
     private bool subscriptionTier3Enabled = true;
     private bool maxAccumulatedDurationEnabled;
     private int maxAccumulatedDurationSeconds = 1800;
+    private bool extendCurrentActivity;
+    private double extendSeconds;
     private OscActionType actionType = OscActionType.AvatarParameter;
     private PlayerMovementDirection movementDirection = PlayerMovementDirection.Forward;
     private string parameterName = "VRCEmote";
@@ -181,6 +183,14 @@ public sealed class TriggerRule : ObservableObject
         {
             if (SetProperty(ref name, value))
             {
+                if (TriggerType == TwitchTriggerType.ChannelPoints)
+                {
+                    if (!string.Equals(channelPointRewardTitle, value, StringComparison.Ordinal))
+                    {
+                        channelPointRewardTitle = value;
+                        RaisePropertyChanged(nameof(ChannelPointRewardTitle));
+                    }
+                }
                 RaisePropertyChanged(nameof(DisplayTitle));
                 RaisePropertyChanged(nameof(TriggerSummary));
             }
@@ -614,6 +624,18 @@ public sealed class TriggerRule : ObservableObject
                 RaisePropertyChanged(nameof(SupporterTimeSettingsSummary));
             }
         }
+    }
+
+    public bool ExtendCurrentActivity
+    {
+        get => extendCurrentActivity;
+        set => SetProperty(ref extendCurrentActivity, value);
+    }
+
+    public double ExtendSeconds
+    {
+        get => extendSeconds;
+        set => SetProperty(ref extendSeconds, Math.Max(0, value));
     }
 
     public OscActionType ActionType
@@ -1068,6 +1090,9 @@ public sealed class TriggerRule : ObservableObject
     public bool IsGiftSubscription { get; set; }
     public bool PermanentAvatarChange { get; set; }
     public bool CooldownOnlyAvatarChange { get; set; }
+
+    [JsonPropertyName("fv")]
+    public float? FloatValue { get; set; }
 
     public ObservableCollection<string> AvatarRouletAvatarIds
     {

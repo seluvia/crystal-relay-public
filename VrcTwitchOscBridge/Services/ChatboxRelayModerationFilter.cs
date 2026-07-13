@@ -7,39 +7,69 @@ namespace VrcTwitchOscBridge.Services;
 public static class ChatboxRelayModerationFilter
 {
     // Crystal Relay intentionally allows common non-racial profanity in the
-    // VRChat chat relay. This filter is only for zero-tolerance racial /
-    // ethnic slurs and common bypass styles around them.
-    private static readonly string[] BlockedRacialTerms =
+    // VRChat chat relay. This filter is only for zero-tolerance slurs,
+    // self-harm encouragement, harassment/doxxing patterns, and common
+    // bypass styles around them.
+
+    public static readonly string[] BlockedSlurTerms =
     [
-        "nigger",
-        "nigga",
-        "coon",
-        "jigaboo",
-        "porchmonkey",
-        "spearchucker",
-        "darkie",
-        "golliwog",
-        "chink",
-        "gook",
-        "zipperhead",
-        "slopehead",
-        "spic",
-        "wetback",
-        "beaner",
-        "kike",
-        "hebe",
-        "paki",
-        "raghead",
-        "towelhead",
-        "cameljockey",
-        "sandnigger",
-        "injun",
-        "redskin"
+        // Racial (24)
+        "nigger", "nigga", "coon", "jigaboo", "porchmonkey", "spearchucker",
+        "darkie", "golliwog", "chink", "gook", "zipperhead", "slopehead",
+        "spic", "wetback", "beaner", "kike", "hebe", "paki", "raghead",
+        "towelhead", "cameljockey", "sandnigger", "injun", "redskin",
+
+        // Anti-LGBTQ+ (5)
+        "faggot", "fag", "dyke", "tranny", "shemale",
+
+        // Additional racial (4)
+        "nip", "chingchong", "yid", "wop"
     ];
 
-    private static readonly Regex[] BlockedPatterns = [.. BuildBlockedPatterns()];
+    private static readonly string[] BlockedHarassmentPhrases =
+    [
+        "kys",
+        "killyourself", "endyourself", "neckyourself", "ropeyourself",
+        "justkillyourself", "godie", "hopeyoudie", "youshoulddie",
+        "iknowwhereyoulive", "ifoundyouraddress",
+        "iknowyourrealname", "ifoundyourrealname"
+    ];
 
-    public static bool ContainsBlockedRacialContent(string? text)
+    private static volatile Regex[] blockedPatterns = [.. BuildBlockedPatterns()];
+
+    private static readonly Regex[] DoxxingPatterns =
+    [
+        // US phone: XXX-XXX-XXXX, XXX.XXX.XXXX, XXX XXX XXXX
+        new(@"\b\d{3}[-.\s]\d{3}[-.\s]\d{4}\b",
+            RegexOptions.Compiled | RegexOptions.CultureInvariant),
+
+        // SSN: XXX-XX-XXXX
+        new(@"\b\d{3}-\d{2}-\d{4}\b",
+            RegexOptions.Compiled | RegexOptions.CultureInvariant),
+
+        // Email: standard pattern
+        new(@"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b",
+            RegexOptions.Compiled | RegexOptions.CultureInvariant)
+    ];
+
+    public static void SetUserBlockList(
+        IEnumerable<string> customWords,
+        IEnumerable<string> suppressedWords)
+    {
+        var suppressed = suppressedWords is not null
+            ? new HashSet<string>(suppressedWords, StringComparer.OrdinalIgnoreCase)
+            : [];
+
+        var effectiveSlurTerms = BlockedSlurTerms
+            .Concat(customWords ?? [])
+            .Where(w => !string.IsNullOrWhiteSpace(w) && !suppressed.Contains(w))
+            .ToArray();
+
+        var allTerms = effectiveSlurTerms.Concat(BlockedHarassmentPhrases);
+        blockedPatterns = [.. BuildBlockedPatterns(allTerms)];
+    }
+
+    public static bool ShouldBlockMessage(string? text)
     {
         if (string.IsNullOrWhiteSpace(text))
         {
@@ -47,17 +77,30 @@ public static class ChatboxRelayModerationFilter
         }
 
         var normalizedText = NormalizeForMatching(text);
-        if (string.IsNullOrWhiteSpace(normalizedText))
+        if (!string.IsNullOrWhiteSpace(normalizedText)
+            && blockedPatterns.Any(pattern => pattern.IsMatch(normalizedText)))
         {
-            return false;
+            return true;
         }
 
-        return BlockedPatterns.Any(pattern => pattern.IsMatch(normalizedText));
+        var doxxingText = NormalizeForDoxxing(text);
+        if (!string.IsNullOrWhiteSpace(doxxingText)
+            && DoxxingPatterns.Any(pattern => pattern.IsMatch(doxxingText)))
+        {
+            return true;
+        }
+
+        return false;
     }
 
     private static IEnumerable<Regex> BuildBlockedPatterns()
     {
-        foreach (var term in BlockedRacialTerms)
+        return BuildBlockedPatterns(BlockedSlurTerms.Concat(BlockedHarassmentPhrases));
+    }
+
+    private static IEnumerable<Regex> BuildBlockedPatterns(IEnumerable<string> terms)
+    {
+        foreach (var term in terms)
         {
             var compactTerm = CollapseToLetters(term);
             if (string.IsNullOrWhiteSpace(compactTerm))
@@ -69,8 +112,11 @@ public static class ChatboxRelayModerationFilter
                 .Select(character => Regex.Escape(character.ToString()))
                 .ToArray();
             var separatorPattern = @"[^a-z]*";
-            var pattern = $"(?<![a-z]){string.Join(separatorPattern, pieces)}s?(?![a-z])";
-            yield return new Regex(pattern, RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+            var isPhrase = BlockedHarassmentPhrases.Contains(term);
+            var suffix = isPhrase ? "" : "s?";
+            var pattern = $"(?<![a-z]){string.Join(separatorPattern, pieces)}{suffix}(?![a-z])";
+            yield return new Regex(pattern,
+                RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
         }
     }
 
@@ -97,6 +143,25 @@ public static class ChatboxRelayModerationFilter
         }
 
         return Regex.Replace(builder.ToString(), @"\s+", " ").Trim();
+    }
+
+    private static string NormalizeForDoxxing(string text)
+    {
+        var builder = new StringBuilder(text.Length);
+        foreach (var character in text.Normalize(NormalizationForm.FormKD))
+        {
+            var category = CharUnicodeInfo.GetUnicodeCategory(character);
+            if (category == UnicodeCategory.NonSpacingMark
+                || category == UnicodeCategory.Control
+                || category == UnicodeCategory.Format)
+            {
+                continue;
+            }
+
+            builder.Append(character);
+        }
+
+        return builder.ToString().Trim();
     }
 
     private static string CollapseToLetters(string text)

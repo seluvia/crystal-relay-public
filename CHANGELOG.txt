@@ -3,6 +3,12 @@ Crystal Relay Changelog
 
 Newest updates appear first. This changelog focuses on the changes users will notice most.
 
+v3.1.9 beta 5
+- Reworked the Avatar Scaling manager window with a cleaner, more organized UI layout for easier rule management.
+- Restructured release and beta packages: install folder is now always "Crystal Relay", the main executable is always "Crystal Relay.exe", and version info is shown via a `<version>.txt` dummy file instead of being embedded in folder and exe names.
+- The self-updater is compatible with both old and new naming for a clean transition.
+- Fixed VRChat login not showing the 2FA window when two-factor authentication is required. The login flow now handles both the older 200 OK response and a possible 401 response from the VRChat API.
+
 v3.1.9 beta 4
 - Reworked the Avatar Swap window: the right-side editor is now split into four clean sections (Channel Points, Bits, Subs, Payment) with per-section add buttons.
 - Made Avatar Roulette its own first-class card type with a gold-bordered style and a pool thumbnail strip.

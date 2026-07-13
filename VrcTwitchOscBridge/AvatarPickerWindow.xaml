@@ -5,6 +5,7 @@
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         xmlns:vm="clr-namespace:VrcTwitchOscBridge.ViewModels"
         xmlns:local="clr-namespace:VrcTwitchOscBridge"
+        xmlns:m="clr-namespace:VrcTwitchOscBridge.Models"
         Title="{loc:Translate 'Pick Avatar | Crystal Relay'}"
         Icon="Assets/crystal-relay-icon.ico"
         Width="900"
@@ -403,6 +404,29 @@
             </Setter>
         </Style>
 
+        <!-- Tag Chip DataTemplate (must be defined before card templates that reference it via StaticResource) -->
+        <DataTemplate x:Key="TagChipTemplate" DataType="{x:Type m:AvatarTagDisplay}">
+            <Border Background="{Binding ColorHex}"
+                    CornerRadius="8"
+                    Padding="6,1"
+                    Margin="0,0,4,0"
+                    Cursor="Hand"
+                    Tag="{Binding}"
+                    MouseLeftButtonDown="OnTagChipRemoveClicked">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="{Binding Name}"
+                               Foreground="White"
+                               FontSize="9"
+                               VerticalAlignment="Center" />
+                    <TextBlock Text="&#x2715;"
+                               Foreground="White"
+                               FontSize="8"
+                               Margin="3,0,0,0"
+                               VerticalAlignment="Center" />
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
         <!-- Avatar Card Template for Grid View -->
         <DataTemplate x:Key="AvatarCardTemplate" DataType="{x:Type vm:AvatarPickerItem}">
             <Border x:Name="CardBorder"
@@ -417,11 +441,15 @@
                     <ContextMenu>
                         <MenuItem Header="{loc:Translate 'Set Custom Icon...'}" Click="OnSetCustomIconClicked" />
                         <MenuItem Header="{loc:Translate 'Clear Custom Icon'}" Click="OnClearCustomIconClicked" />
+                        <Separator />
+                        <MenuItem Header="{loc:Translate 'Set Group'}" SubmenuOpened="OnSetGroupSubmenuOpened" />
+                        <MenuItem Header="{loc:Translate 'Tags'}" SubmenuOpened="OnTagsSubmenuOpened" />
                     </ContextMenu>
                 </Border.ContextMenu>
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="120" />
+                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
@@ -455,8 +483,20 @@
                                TextAlignment="Center"
                                Margin="0,0,0,6" />
 
+                    <!-- Tag Chips -->
+                    <ItemsControl Grid.Row="2"
+                                  ItemsSource="{Binding Tags}"
+                                  ItemTemplate="{StaticResource TagChipTemplate}"
+                                  Margin="0,0,0,6">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+
                     <!-- Select Button -->
-                    <Button Grid.Row="2"
+                    <Button Grid.Row="3"
                             Content="{loc:Translate 'Select'}"
                             Style="{StaticResource PrimaryButtonStyle}"
                             Padding="10,6"
@@ -489,12 +529,16 @@
                     <ContextMenu>
                         <MenuItem Header="{loc:Translate 'Set Custom Icon...'}" Click="OnSetCustomIconClicked" />
                         <MenuItem Header="{loc:Translate 'Clear Custom Icon'}" Click="OnClearCustomIconClicked" />
+                        <Separator />
+                        <MenuItem Header="{loc:Translate 'Set Group'}" SubmenuOpened="OnSetGroupSubmenuOpened" />
+                        <MenuItem Header="{loc:Translate 'Tags'}" SubmenuOpened="OnTagsSubmenuOpened" />
                     </ContextMenu>
                 </Border.ContextMenu>
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="40" />
                         <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
@@ -537,8 +581,21 @@
                                VerticalAlignment="Center"
                                Margin="0,0,10,0" />
 
+                    <!-- Tag Chips -->
+                    <ItemsControl Grid.Column="3"
+                                  ItemsSource="{Binding Tags}"
+                                  ItemTemplate="{StaticResource TagChipTemplate}"
+                                  VerticalAlignment="Center"
+                                  Margin="0,0,10,0">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+
                     <!-- Select Button -->
-                    <Button Grid.Column="3"
+                    <Button Grid.Column="4"
                             Content="{loc:Translate 'Select'}"
                             Style="{StaticResource PrimaryButtonStyle}"
                             Padding="12,6"
@@ -705,10 +762,9 @@
                         <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
                             <TextBlock Text="{loc:Translate 'Group:'}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
                             <ComboBox Width="150"
-                                      ItemsSource="{Binding Library.Groups}"
-                                      SelectedValue="{Binding SelectedFilterGroupId, UpdateSourceTrigger=PropertyChanged}"
-                                      SelectedValuePath="Id"
-                                      DisplayMemberPath="Name"
+                                      ItemsSource="{Binding GroupFilterOptions}"
+                                      SelectedItem="{Binding SelectedGroupFilterOption, UpdateSourceTrigger=PropertyChanged}"
+                                      DisplayMemberPath="Display"
                                       Margin="0,0,16,0">
                                 <ComboBox.Style>
                                     <Style TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
@@ -721,10 +777,9 @@
 
                             <TextBlock Text="{loc:Translate 'Tag:'}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
                             <ComboBox Width="150"
-                                      ItemsSource="{Binding Library.Tags}"
-                                      SelectedValue="{Binding SelectedFilterTagId, UpdateSourceTrigger=PropertyChanged}"
-                                      SelectedValuePath="Id"
-                                      DisplayMemberPath="Name">
+                                      ItemsSource="{Binding TagFilterOptions}"
+                                      SelectedItem="{Binding SelectedTagFilterOption, UpdateSourceTrigger=PropertyChanged}"
+                                      DisplayMemberPath="Display">
                                 <ComboBox.Style>
                                     <Style TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
                                         <Setter Property="Background" Value="{DynamicResource InputBrush}" />

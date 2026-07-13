@@ -34,6 +34,7 @@ public sealed class OscRouterService : IAsyncDisposable
     private OSCQueryService? oscQueryService;
     private Dictionary<string, OscParameterType> advertisedEndpoints = new(StringComparer.Ordinal);
     private DiscoveredOscTarget? activeVrChatTarget;
+    private IPEndPoint? cachedVrChatEndPoint;
     private int localUdpPort;
     private int localTcpPort;
     private string localServiceName = string.Empty;
@@ -146,6 +147,7 @@ public sealed class OscRouterService : IAsyncDisposable
         lock (stateGate)
         {
             activeVrChatTarget = null;
+            cachedVrChatEndPoint = null;
             nextDiscoveryLogAt = DateTimeOffset.MinValue;
             discoveryState = OscDiscoveryState.Discovering;
         }
@@ -181,6 +183,7 @@ public sealed class OscRouterService : IAsyncDisposable
             service = oscQueryService
                 ?? throw new InvalidOperationException("OSCQuery is not running yet. Start OSC testing or the background bridge first.");
             activeVrChatTarget = null;
+            cachedVrChatEndPoint = null;
             discoveryState = OscDiscoveryState.Discovering;
             nextDiscoveryLogAt = DateTimeOffset.MinValue;
         }
@@ -311,6 +314,7 @@ public sealed class OscRouterService : IAsyncDisposable
         lock (stateGate)
         {
             activeVrChatTarget = null;
+            cachedVrChatEndPoint = null;
             localUdpPort = 0;
             localTcpPort = 0;
             localServiceName = string.Empty;
@@ -345,20 +349,29 @@ public sealed class OscRouterService : IAsyncDisposable
 
     public async Task SendToVrChatAsync(byte[] packet, CancellationToken cancellationToken = default)
     {
-        DiscoveredOscTarget target;
+        IPEndPoint endPoint;
         UdpClient client;
 
         lock (stateGate)
         {
-            target = activeVrChatTarget
+            var target = activeVrChatTarget
                 ?? throw new InvalidOperationException("Crystal Relay has not discovered VRChat through OSCQuery yet. Start VRChat with OSC enabled and leave it open so Crystal Relay can find it.");
             client = sendClient ?? throw new InvalidOperationException("OSC sender is not available.");
+
+            if (cachedVrChatEndPoint is null
+                || cachedVrChatEndPoint.Port != target.OscPort
+                || !cachedVrChatEndPoint.Address.Equals(target.Address))
+            {
+                cachedVrChatEndPoint = new IPEndPoint(target.Address, target.OscPort);
+            }
+
+            endPoint = cachedVrChatEndPoint;
         }
 
         cancellationToken.ThrowIfCancellationRequested();
         try
         {
-            await client.SendAsync(packet, packet.Length, new IPEndPoint(target.Address, target.OscPort));
+            await client.SendAsync(packet, packet.Length, endPoint);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -713,6 +726,7 @@ public sealed class OscRouterService : IAsyncDisposable
             }
 
             activeVrChatTarget = null;
+            cachedVrChatEndPoint = null;
             discoveryState = OscDiscoveryState.Lost;
             nextDiscoveryLogAt = DateTimeOffset.MinValue;
             shouldLog = true;

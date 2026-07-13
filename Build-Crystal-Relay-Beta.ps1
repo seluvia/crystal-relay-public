@@ -188,14 +188,13 @@ $betaLabel = "Beta $Beta"
 $versionFolderName = "v$targetVersion"
 $releaseName = "CrystalRelayTwitchOsc-v$targetVersion-$betaName-$runtime"
 $versionRoot = Join-Path $releaseRoot $versionFolderName
-$publishDir = Join-Path $versionRoot $releaseName
+$publishDir = Join-Path $versionRoot 'Crystal Relay'
 $zipPath = Join-Path $versionRoot "$releaseName.zip"
-$betaMarkerPath = Join-Path $publishDir 'beta-build.flag'
 
 New-Item -ItemType Directory -Path $releaseRoot -Force | Out-Null
 New-Item -ItemType Directory -Path $versionRoot -Force | Out-Null
 if (Test-Path $publishDir) {
-    Assert-SafeBuildPath -Path $publishDir -RequiredParent $versionRoot -Pattern "CrystalRelayTwitchOsc-v$targetVersion-beta$Beta-win-x64"
+    Assert-SafeBuildPath -Path $publishDir -RequiredParent $versionRoot -Pattern "Crystal Relay"
     Remove-Item -Path $publishDir -Recurse -Force
 }
 
@@ -236,9 +235,9 @@ finally {
 }
 
 $defaultExe = Join-Path $publishDir 'CrystalRelayTwitchOsc.exe'
-$versionedExe = Join-Path $publishDir "CrystalRelayTwitchOsc-v$targetVersion-$betaName.exe"
+$targetExeName = 'Crystal Relay.exe'
 if (Test-Path $defaultExe) {
-    Rename-Item -Path $defaultExe -NewName (Split-Path -Path $versionedExe -Leaf) -Force
+    Rename-Item -Path $defaultExe -NewName $targetExeName -Force
 }
 
 $updaterPublishDir = Join-Path ([System.IO.Path]::GetTempPath()) ("CrystalRelayUpdater-" + [guid]::NewGuid().ToString("N"))
@@ -268,7 +267,13 @@ catch {
     Write-Warning "Could not clean up updater temp folder: $_"
 }
 
-Set-Content -Path $betaMarkerPath -Value $betaLabel -Encoding ASCII
+# Create version indicator file (empty, filename = version + beta suffix)
+$versionFileName = "$targetVersion-$betaName.txt"
+$versionFilePath = Join-Path $publishDir $versionFileName
+New-Item -Path $versionFilePath -ItemType File -Force | Out-Null
+# Create beta-build.flag with the beta label so the app detects itself as a beta build
+$betaFlagPath = Join-Path $publishDir 'beta-build.flag'
+$betaName | Set-Content -Path $betaFlagPath -NoNewline -Encoding UTF8
 Copy-Item -Path $readmePath -Destination (Join-Path $publishDir 'README.md') -Force
 Copy-Item -Path $changelogPath -Destination (Join-Path $publishDir 'CHANGELOG.txt') -Force
 if (Test-Path $docsPath) {
@@ -281,13 +286,12 @@ if (Test-Path $docsPath) {
     }
 }
 
-$entryExecutableName = Split-Path -Path $versionedExe -Leaf
 $updateManifest = [ordered]@{
     productName = 'Crystal Relay'
     version = "$targetVersion-$betaName"
     channel = 'beta'
     runtime = $runtime
-    entryExecutableName = $entryExecutableName
+    entryExecutableName = 'Crystal Relay.exe'
 }
 $updateManifest |
     ConvertTo-Json |

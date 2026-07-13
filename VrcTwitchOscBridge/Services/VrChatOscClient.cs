@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Buffers.Binary;
 using System.Globalization;
 using System.Text;
@@ -100,50 +101,75 @@ public sealed class VrChatOscClient
 
     private static byte[] BuildPacket(string address, OscParameterType parameterType, string rawValue)
     {
-        var bytes = new List<byte>(128);
-        AppendPaddedString(bytes, address);
+        var addressByteCount = Encoding.UTF8.GetByteCount(address);
+        var addressSegmentLen = (addressByteCount + 1 + 3) & ~3;
 
-        switch (parameterType)
+        var typeTag = parameterType switch
         {
-            case OscParameterType.Bool:
+            OscParameterType.Bool => ParseBoolean(rawValue) ? ",T" : ",F",
+            OscParameterType.Int => ",i",
+            OscParameterType.Float => ",f",
+            OscParameterType.String => ",s",
+            _ => throw new InvalidOperationException($"Unsupported OSC parameter type: {parameterType}")
+        };
+        var typeTagByteCount = typeTag.Length;
+        var typeSegmentLen = (typeTagByteCount + 1 + 3) & ~3;
+
+        var valueSegmentLen = parameterType switch
+        {
+            OscParameterType.Bool => 0,
+            OscParameterType.Int => 4,
+            OscParameterType.Float => 4,
+            OscParameterType.String => (Encoding.UTF8.GetByteCount(rawValue) + 1 + 3) & ~3,
+            _ => 0
+        };
+
+        var totalLen = addressSegmentLen + typeSegmentLen + valueSegmentLen;
+        var buffer = ArrayPool<byte>.Shared.Rent(totalLen);
+
+        try
+        {
+            var offset = 0;
+
+            offset += Encoding.UTF8.GetBytes(address.AsSpan(), buffer.AsSpan(offset));
+            buffer[offset++] = 0;
+            while (offset % 4 != 0) buffer[offset++] = 0;
+
+            offset += Encoding.UTF8.GetBytes(typeTag.AsSpan(), buffer.AsSpan(offset));
+            buffer[offset++] = 0;
+            while (offset % 4 != 0) buffer[offset++] = 0;
+
+            switch (parameterType)
             {
-                var booleanValue = ParseBoolean(rawValue);
-                AppendPaddedString(bytes, booleanValue ? ",T" : ",F");
-                break;
-            }
-            case OscParameterType.Int:
-            {
-                AppendPaddedString(bytes, ",i");
-                var intValue = int.Parse(rawValue, CultureInfo.InvariantCulture);
-                var intBytes = new byte[4];
-                BinaryPrimitives.WriteInt32BigEndian(intBytes, intValue);
-                bytes.AddRange(intBytes);
-                break;
-            }
-            case OscParameterType.Float:
-            {
-                AppendPaddedString(bytes, ",f");
-                var floatValue = float.Parse(rawValue, CultureInfo.InvariantCulture);
-                var floatBytes = BitConverter.GetBytes(floatValue);
-                if (BitConverter.IsLittleEndian)
+                case OscParameterType.Int:
                 {
-                    Array.Reverse(floatBytes);
+                    var intValue = int.Parse(rawValue, CultureInfo.InvariantCulture);
+                    BinaryPrimitives.WriteInt32BigEndian(buffer.AsSpan(offset, 4), intValue);
+                    break;
                 }
+                case OscParameterType.Float:
+                {
+                    var floatValue = float.Parse(rawValue, CultureInfo.InvariantCulture);
+                    BinaryPrimitives.WriteSingleBigEndian(buffer.AsSpan(offset, 4), floatValue);
+                    break;
+                }
+                case OscParameterType.String:
+                {
+                    offset += Encoding.UTF8.GetBytes(rawValue.AsSpan(), buffer.AsSpan(offset));
+                    buffer[offset++] = 0;
+                    while (offset % 4 != 0) buffer[offset++] = 0;
+                    break;
+                }
+            }
 
-                bytes.AddRange(floatBytes);
-                break;
-            }
-            case OscParameterType.String:
-            {
-                AppendPaddedString(bytes, ",s");
-                AppendPaddedString(bytes, rawValue);
-                break;
-            }
-            default:
-                throw new InvalidOperationException($"Unsupported OSC parameter type: {parameterType}");
+            var result = new byte[totalLen];
+            Array.Copy(buffer, result, totalLen);
+            return result;
         }
-
-        return [.. bytes];
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
     }
 
     private static void AppendPaddedString(List<byte> buffer, string value)

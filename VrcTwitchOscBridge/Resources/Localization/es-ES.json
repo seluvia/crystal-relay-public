@@ -1,5 +1,5 @@
 ﻿{
-  " - Test Build": " - Test Build",
+  " - Test Build": " - Versión de prueba",
   "{0} | Crystal Relay": "{0} | Crystal Relay",
   "12-hour": "12-hour",
   "24-hour": "24-hour",
@@ -560,7 +560,7 @@
   "{0} bits": "{0} bits",
   "1 sub": "1 sub",
   "{0} subs": "{0} subs",
-  "1 gift sub": "1 gift sub",
+  "1 gift sub": "1 sub regalada",
   "{0} gift subs": "{0} gift subs",
   "Avatar rule: {0}{2}Current redeem: {1}": "Regla de avatar: {0}{2}Recompensa actual: {1}",
   "Avatar setup: {0}{2}Current redeem: {1}": "Configuración de avatar: {0}{2}Recompensa actual: {1}",

@@ -40,18 +40,37 @@ public sealed class VrChatApiClient : IDisposable
         request.Headers.Authorization = new AuthenticationHeaderValue("Basic", BuildBasicAuthorization(username, password));
 
         using var response = await SendAsync(request, cancellationToken);
-        var payload = await ReadAsJsonAsync<VrChatCurrentUserEnvelope>(response, cancellationToken);
         var authCookie = ExtractAuthCookie(response);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+
+        // Check for 2FA requirement in both success and error responses.
+        // VRChat may return a 401 (instead of 200) when 2FA is required.
+        var methods = TryExtractTwoFactorMethods(body);
+        if (methods.Count > 0)
+        {
+            if (string.IsNullOrWhiteSpace(authCookie))
+            {
+                throw new InvalidOperationException("VRChat did not return a reusable auth session for 2FA verification.");
+            }
+
+            return new VrChatLoginResponse(authCookie, null, methods);
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var message = ParseErrorMessageBody(body) ?? response.ReasonPhrase ?? $"HTTP {(int)response.StatusCode}";
+            throw new VrChatApiException(response.StatusCode, message);
+        }
+
+        var payload = DeserializeBody<VrChatCurrentUserEnvelope>(body);
+        if (payload is null)
+        {
+            throw new InvalidOperationException("VRChat returned an empty response.");
+        }
 
         if (string.IsNullOrWhiteSpace(authCookie))
         {
             throw new InvalidOperationException("VRChat did not return a reusable auth session.");
-        }
-
-        var methods = ParseTwoFactorMethods(payload.RequiresTwoFactorAuth);
-        if (methods.Count > 0)
-        {
-            return new VrChatLoginResponse(authCookie, null, methods);
         }
 
         return new VrChatLoginResponse(authCookie, ToAccountSettings(payload), []);
@@ -512,9 +531,14 @@ public sealed class VrChatApiClient : IDisposable
     private static async Task<string> ReadErrorMessageAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
         var content = await response.Content.ReadAsStringAsync(cancellationToken);
+        return ParseErrorMessageBody(content) ?? response.ReasonPhrase ?? $"HTTP {(int)response.StatusCode}";
+    }
+
+    private static string? ParseErrorMessageBody(string content)
+    {
         if (string.IsNullOrWhiteSpace(content))
         {
-            return response.ReasonPhrase ?? $"HTTP {(int)response.StatusCode}";
+            return null;
         }
 
         try
@@ -532,12 +556,71 @@ public sealed class VrChatApiClient : IDisposable
                 return messageElement.GetString() ?? content;
             }
 
-            return content;
+            return null;
         }
         catch
         {
             return content;
         }
+    }
+
+    private static IReadOnlyList<VrChatTwoFactorMethod> TryExtractTwoFactorMethods(string body)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            return [];
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(body);
+
+            if (document.RootElement.TryGetProperty("requiresTwoFactorAuth", out var methodsElement)
+                && methodsElement.ValueKind == JsonValueKind.Array)
+            {
+                var rawMethods = new List<string>();
+                foreach (var item in methodsElement.EnumerateArray())
+                {
+                    if (item.ValueKind == JsonValueKind.String)
+                    {
+                        rawMethods.Add(item.GetString() ?? string.Empty);
+                    }
+                }
+
+                if (rawMethods.Count > 0)
+                {
+                    return ParseTwoFactorMethods(rawMethods);
+                }
+            }
+
+            if (document.RootElement.TryGetProperty("error", out var errorElement)
+                && errorElement.ValueKind == JsonValueKind.Object
+                && errorElement.TryGetProperty("message", out var messageElement))
+            {
+                var message = messageElement.GetString() ?? string.Empty;
+                if (message.Contains("2fa", StringComparison.OrdinalIgnoreCase)
+                    || message.Contains("two factor", StringComparison.OrdinalIgnoreCase)
+                    || message.Contains("two-factor", StringComparison.OrdinalIgnoreCase))
+                {
+                    return [VrChatTwoFactorMethod.Totp, VrChatTwoFactorMethod.EmailOtp, VrChatTwoFactorMethod.RecoveryCode];
+                }
+            }
+        }
+        catch
+        {
+        }
+
+        return [];
+    }
+
+    private static T? DeserializeBody<T>(string body) where T : class
+    {
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            return null;
+        }
+
+        return JsonSerializer.Deserialize<T>(body, JsonOptions);
     }
 
     public sealed record VrChatLoginResponse(
