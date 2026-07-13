@@ -28,6 +28,8 @@ v3.1.9 beta 5
 Added:
 - VRChat login now handles both 200 OK and 401 responses when two-factor authentication is required, so the 2FA fields appear correctly regardless of which API response shape VRChat returns.
 - Redesigned the VRChat login window: the 2FA code field appears inline below the password instead of in a separate popup window, keeping the login window open through both steps.
+- Added a per-rule "Return Behavior" three-way choice in the Avatar Swap rule editor: Return to Global Return Avatar (default), Return to Previous Avatar (stamps the current avatar before swapping, returns to it when the timer ends), and Permanent (No Return) — the swap fires once and the reward is hidden afterward with no timed return.
+- Permanent (No Return) mode suppresses the global return avatar update so your other swaps are not affected, and hides the rule's Twitch reward after a successful activation to prevent re-triggering.
 Changed:
 - Restructured release and beta packages: install folder is now always "Crystal Relay", the main executable is always "Crystal Relay.exe", and version info is shown via a `<version>.txt` dummy file instead of being embedded in folder and exe names.
 - The self-updater is compatible with both old and new naming for a clean transition.
