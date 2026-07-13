@@ -1301,5 +1301,10 @@
   "low": "low",
   "movement": "movement",
   "normal": "normal",
-  "other": "other"
+  "other": "other",
+  "Return Behavior": "Return Behavior",
+  "Return to Global Return Avatar": "Return to Global Return Avatar",
+  "Return to Previous Avatar": "Return to Previous Avatar",
+  "Permanent No Return": "Permanent (No Return)",
+  "Will return to the avatar you were wearing before this swap": "Will return to the avatar you were wearing before this swap"
 }
