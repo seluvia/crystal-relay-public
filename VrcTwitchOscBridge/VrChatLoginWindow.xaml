@@ -34,7 +34,11 @@
         <SolidColorBrush x:Key="MutedBrush" Color="#C9B8E3" />
         <SolidColorBrush x:Key="InputBrush" Color="#B8271A3D" />
         <SolidColorBrush x:Key="InputBorderBrush" Color="#5B3A8E" />
+        <SolidColorBrush x:Key="ComboSurfaceBrush" Color="#F7F2FF" />
+        <SolidColorBrush x:Key="ComboTextBrush" Color="#140C20" />
+        <SolidColorBrush x:Key="ComboHighlightBrush" Color="#D8C2FF" />
         <SolidColorBrush x:Key="StatusChipBrush" Color="#8E241841" />
+        <SolidColorBrush x:Key="ErrorBrush" Color="#FF6B6B" />
         <SolidColorBrush x:Key="SecondaryButtonBrush" Color="#2C1C48" />
         <SolidColorBrush x:Key="SecondaryButtonBorderBrush" Color="#6942A7" />
         <SolidColorBrush x:Key="TitleBarBrush" Color="#20122F" />
@@ -102,6 +106,16 @@
         <Style TargetType="PasswordBox">
             <Setter Property="Background" Value="{DynamicResource InputBrush}" />
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="12,10" />
+            <Setter Property="MinHeight" Value="44" />
+            <Setter Property="Margin" Value="0,8,0,0" />
+        </Style>
+
+        <Style TargetType="ComboBox">
+            <Setter Property="Background" Value="{DynamicResource ComboSurfaceBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource ComboTextBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Padding" Value="12,10" />
@@ -187,6 +201,8 @@
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
 
                             <TextBlock Text="{loc:Translate 'VRChat Avatar Access'}"
@@ -239,16 +255,78 @@
                                            TextWrapping="Wrap" />
                             </Border>
 
-                            <StackPanel Grid.Row="4"
+                            <TextBlock x:Name="StatusTextBlock"
+                                       Grid.Row="4"
+                                       Margin="0,14,0,0"
+                                       Foreground="{DynamicResource ErrorBrush}"
+                                       TextWrapping="Wrap"
+                                       Visibility="Collapsed" />
+
+                            <Grid x:Name="TwoFactorSection"
+                                  Grid.Row="5"
+                                  Margin="0,14,0,0"
+                                  Visibility="Collapsed">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <Border Background="{DynamicResource StatusChipBrush}"
+                                        BorderBrush="{DynamicResource AccentBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="14"
+                                        Padding="12,10">
+                                    <TextBlock x:Name="TwoFactorTitleText"
+                                               Text="{loc:Translate 'Two-factor authentication is required for this account. Enter the verification code below.'}"
+                                               Foreground="{DynamicResource MutedBrush}"
+                                               TextWrapping="Wrap" />
+                                </Border>
+
+                                <TextBlock Grid.Row="1"
+                                           Margin="0,16,0,0"
+                                           Text="{loc:Translate 'Verification Method'}"
+                                           Foreground="{DynamicResource TextBrush}"
+                                           FontWeight="SemiBold" />
+
+                                <ComboBox x:Name="MethodComboBox"
+                                          Grid.Row="2"
+                                          SelectionChanged="OnMethodSelectionChanged" />
+
+                                <TextBlock Grid.Row="3"
+                                           Margin="0,16,0,0"
+                                           Text="{loc:Translate 'Verification Code'}"
+                                           Foreground="{DynamicResource TextBrush}"
+                                           FontWeight="SemiBold" />
+
+                                <TextBox x:Name="CodeTextBox"
+                                         Grid.Row="4"
+                                         MaxLength="12"
+                                         CharacterCasing="Upper"
+                                         IsEnabled="True" />
+
+                                <TextBlock x:Name="HintTextBlock"
+                                           Grid.Row="5"
+                                           Margin="0,8,0,0"
+                                           Foreground="{DynamicResource MutedBrush}"
+                                           TextWrapping="Wrap"
+                                           FontSize="12" />
+                            </Grid>
+
+                            <StackPanel Grid.Row="6"
                                         Margin="0,20,0,0"
                                         Orientation="Horizontal"
                                         HorizontalAlignment="Right">
-                                <Button Content="{loc:Translate 'Cancel'}"
+                                <Button x:Name="CancelButton"
+                                        Content="{loc:Translate 'Cancel'}"
                                         Width="98"
                                         Margin="0,0,10,0"
                                         Style="{StaticResource SecondaryButtonStyle}"
                                         Click="OnCancelClicked" />
-                                <Button Content="{loc:Translate 'Continue'}"
+                                <Button x:Name="ContinueButton"
+                                        Content="{loc:Translate 'Continue'}"
                                         Width="116"
                                         Style="{StaticResource PrimaryButtonStyle}"
                                         IsDefault="True"
