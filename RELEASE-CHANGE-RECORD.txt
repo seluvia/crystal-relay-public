@@ -25,6 +25,8 @@ Pending Release Draft
 - Source files reflect v3.1.9; csproj and updater project will be updated when new work begins.
 
 v3.1.9 beta 5
+Added:
+- VRChat login now handles both 200 OK and 401 responses when two-factor authentication is required, so the 2FA window opens correctly regardless of which API response shape VRChat returns.
 Changed:
 - Restructured release and beta packages: install folder is now always "Crystal Relay", the main executable is always "Crystal Relay.exe", and version info is shown via a `<version>.txt` dummy file instead of being embedded in folder and exe names.
 - The self-updater is compatible with both old and new naming for a clean transition.
