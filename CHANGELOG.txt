@@ -8,6 +8,7 @@ v3.1.9 beta 5
 - Restructured release and beta packages: install folder is now always "Crystal Relay", the main executable is always "Crystal Relay.exe", and version info is shown via a `<version>.txt` dummy file instead of being embedded in folder and exe names.
 - The self-updater is compatible with both old and new naming for a clean transition.
 - Fixed VRChat login not showing the 2FA window when two-factor authentication is required. The login flow now handles both the older 200 OK response and a possible 401 response from the VRChat API.
+- Redesigned the VRChat login window: the 2FA code field now appears inline below the password instead of in a separate popup window. Enter your credentials, click Continue, and if the account needs two-factor authentication the code field shows up right there without closing the login window.
 
 v3.1.9 beta 4
 - Reworked the Avatar Swap window: the right-side editor is now split into four clean sections (Channel Points, Bits, Subs, Payment) with per-section add buttons.
