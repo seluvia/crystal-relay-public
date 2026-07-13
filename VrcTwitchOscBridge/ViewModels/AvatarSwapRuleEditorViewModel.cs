@@ -98,6 +98,7 @@ public sealed class AvatarSwapRuleEditorViewModel : ObservableObject
         MinimumAmount = r.MinimumAmount,
         ActionType = r.ActionType,
         PermanentAvatarChange = r.PermanentAvatarChange,
+        ReturnToPreviousAvatar = r.ReturnToPreviousAvatar,
         CooldownOnlyAvatarChange = r.CooldownOnlyAvatarChange,
         DeleteManagedRewardWhenInactive = r.DeleteManagedRewardWhenInactive,
         RewardSyncMode = r.RewardSyncMode,

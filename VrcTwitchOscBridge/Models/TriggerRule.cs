@@ -1089,6 +1089,7 @@ public sealed class TriggerRule : ObservableObject
     public string? CashPaymentRuleId { get; set; }
     public bool IsGiftSubscription { get; set; }
     public bool PermanentAvatarChange { get; set; }
+    public bool ReturnToPreviousAvatar { get; set; }
     public bool CooldownOnlyAvatarChange { get; set; }
 
     [JsonPropertyName("fv")]
