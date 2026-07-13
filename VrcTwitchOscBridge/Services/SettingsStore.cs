@@ -413,6 +413,7 @@ public sealed class SettingsStore
                     : settings.WorldCommandPermission;
             settings.ChannelPointRewardTestModeEnabled = profile.ChannelPointRewardTestModeEnabled ?? settings.ChannelPointRewardTestModeEnabled;
             settings.AvatarChangeCooldownOnlyModeEnabled = profile.AvatarChangeCooldownOnlyModeEnabled ?? settings.AvatarChangeCooldownOnlyModeEnabled;
+            settings.PermanentSwapModeEnabled = profile.PermanentSwapModeEnabled ?? settings.PermanentSwapModeEnabled;
             settings.AvatarSwapManagerUseFullRuleEditor = profile.AvatarSwapManagerUseFullRuleEditor ?? settings.AvatarSwapManagerUseFullRuleEditor;
             settings.AvatarSwapMigrationNoticeShown = profile.AvatarSwapMigrationNoticeShown ?? settings.AvatarSwapMigrationNoticeShown;
             settings.EmergencyRedeemStopEnabled = profile.EmergencyRedeemStopEnabled ?? settings.EmergencyRedeemStopEnabled;
@@ -595,6 +596,7 @@ public sealed class SettingsStore
             WorldCommandPermission = settings.WorldCommandPermission,
             ChannelPointRewardTestModeEnabled = settings.ChannelPointRewardTestModeEnabled,
             AvatarChangeCooldownOnlyModeEnabled = settings.AvatarChangeCooldownOnlyModeEnabled,
+            PermanentSwapModeEnabled = settings.PermanentSwapModeEnabled,
             AvatarSwapManagerUseFullRuleEditor = settings.AvatarSwapManagerUseFullRuleEditor,
             AvatarSwapMigrationNoticeShown = settings.AvatarSwapMigrationNoticeShown,
             EmergencyRedeemStopEnabled = settings.EmergencyRedeemStopEnabled,
@@ -2808,6 +2810,9 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
         public bool? ChannelPointRewardTestModeEnabled { get; set; }
 
         public bool? AvatarChangeCooldownOnlyModeEnabled { get; set; }
+
+        [JsonPropertyName("permanentSwapModeEnabled")]
+        public bool? PermanentSwapModeEnabled { get; set; }
 
         [JsonPropertyName("avatarSwapManagerUseFullRuleEditor")]
         public bool? AvatarSwapManagerUseFullRuleEditor { get; set; }

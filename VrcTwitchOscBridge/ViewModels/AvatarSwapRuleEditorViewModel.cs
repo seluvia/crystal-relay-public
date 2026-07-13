@@ -71,9 +71,8 @@ public sealed class AvatarSwapRuleEditorViewModel : ObservableObject
     public string? ReturnAvatarId { get; set; }
     public string? ReturnAvatarName { get; set; }
 
-    public bool IsReturnToGlobal => !PermanentAvatarChange && !ReturnToPreviousAvatar;
+    public bool IsReturnToGlobal => !ReturnToPreviousAvatar;
     public bool IsReturnToPrevious => ReturnToPreviousAvatar;
-    public bool IsPermanent => PermanentAvatarChange;
 
     public void Save()
     {

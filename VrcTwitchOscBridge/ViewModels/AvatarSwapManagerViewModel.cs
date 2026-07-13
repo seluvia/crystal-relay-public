@@ -151,6 +151,20 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
 
     public bool HasGlobalReturnAvatar => !string.IsNullOrWhiteSpace(GlobalReturnAvatarId);
 
+    public bool PermanentSwapModeEnabled
+    {
+        get => _settings.PermanentSwapModeEnabled;
+        set
+        {
+            if (_settings.PermanentSwapModeEnabled != value)
+            {
+                _settings.PermanentSwapModeEnabled = value;
+                RaisePropertyChanged();
+                NotifySettingsChanged();
+            }
+        }
+    }
+
     private AvatarSwapCardViewModel? _selectedSwapCard;
     public AvatarSwapCardViewModel? SelectedSwapCard
     {

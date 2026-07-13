@@ -66,6 +66,7 @@ public sealed class AppSettings : ObservableObject
     private WorldCommandBlacklistSettings worldCommandBlacklist = new();
     private bool channelPointRewardTestModeEnabled;
     private bool avatarChangeCooldownOnlyModeEnabled;
+    private bool permanentSwapModeEnabled;
     private bool emergencyRedeemStopEnabled;
     private bool desktopModeInputLockEnabled;
     private bool restartVrChatInDesktopMode;
@@ -283,6 +284,12 @@ public sealed class AppSettings : ObservableObject
     public string MasterAvatarSwapReturnDisplayName => string.IsNullOrWhiteSpace(MasterAvatarSwapReturnName)
         ? (string.IsNullOrWhiteSpace(MasterAvatarSwapReturnId) ? "(no return avatar picked)" : MasterAvatarSwapReturnId)
         : MasterAvatarSwapReturnName;
+
+    public bool PermanentSwapModeEnabled
+    {
+        get => permanentSwapModeEnabled;
+        set => SetProperty(ref permanentSwapModeEnabled, value);
+    }
 
     public AppTheme Theme
     {

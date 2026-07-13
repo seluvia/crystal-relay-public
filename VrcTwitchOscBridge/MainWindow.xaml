@@ -4254,36 +4254,41 @@
                                                                Visibility="{Binding HasMasterAvatarReturnImage, Converter={StaticResource InverseBoolToVisibilityConverter}}" />
                                                 </Grid>
                                             </Border>
-                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                                <TextBlock Text="{loc:Translate 'Return Avatar'}"
-                                                           FontWeight="Bold"
-                                                           FontSize="14"
-                                                           Foreground="{DynamicResource TextBrush}"
-                                                           FontFamily="{DynamicResource HeadingFontFamily}" />
-                                                <TextBlock Text="{Binding Settings.MasterAvatarSwapReturnDisplayName}"
-                                                           FontSize="12"
-                                                           Foreground="{DynamicResource MutedBrush}"
-                                                           Margin="0,2,0,8" />
-                                                <StackPanel Orientation="Horizontal">
-                                                    <Button Content="{loc:Translate 'Pick...'}"
-                                                            Style="{StaticResource SecondaryButtonStyle}"
-                                                            Margin="0,0,6,0"
-                                                            Command="{Binding PickReturnAvatarCommand}" />
-                                                    <Button Content="{loc:Translate 'Use Current Avatar'}"
-                                                            Style="{StaticResource SecondaryButtonStyle}"
-                                                            Margin="0,0,6,0"
-                                                            Command="{Binding UseCurrentAvatarForReturnCommand}" />
-                                                    <Button Content="{loc:Translate 'Clear'}"
-                                                            Style="{StaticResource SecondaryButtonStyle}"
-                                                            Command="{Binding ClearReturnAvatarCommand}" />
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                    <TextBlock Text="{loc:Translate 'Return Avatar'}"
+                                                               FontWeight="Bold"
+                                                               FontSize="14"
+                                                               Foreground="{DynamicResource TextBrush}"
+                                                               FontFamily="{DynamicResource HeadingFontFamily}" />
+                                                    <TextBlock Text="{Binding Settings.MasterAvatarSwapReturnDisplayName}"
+                                                               FontSize="12"
+                                                               Foreground="{DynamicResource MutedBrush}"
+                                                               Margin="0,2,0,8" />
+                                                    <CheckBox IsChecked="{Binding Settings.PermanentSwapModeEnabled}"
+                                                              Content="{loc:Translate 'Permanent No Return'}"
+                                                              Foreground="{DynamicResource TextBrush}"
+                                                              Margin="0,0,0,4" />
+                                                    <StackPanel Orientation="Horizontal"
+                                                                Visibility="{Binding Settings.PermanentSwapModeEnabled, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                                                        <Button Content="{loc:Translate 'Pick...'}"
+                                                                Style="{StaticResource SecondaryButtonStyle}"
+                                                                Margin="0,0,6,0"
+                                                                Command="{Binding PickReturnAvatarCommand}" />
+                                                        <Button Content="{loc:Translate 'Use Current Avatar'}"
+                                                                Style="{StaticResource SecondaryButtonStyle}"
+                                                                Margin="0,0,6,0"
+                                                                Command="{Binding UseCurrentAvatarForReturnCommand}" />
+                                                        <Button Content="{loc:Translate 'Clear'}"
+                                                                Style="{StaticResource SecondaryButtonStyle}"
+                                                                Command="{Binding ClearReturnAvatarCommand}" />
+                                                    </StackPanel>
+                                                    <TextBlock Text="{loc:Translate 'Pick the Return Avatar first so timed Avatar Swap and Avatar Roulette redeems know the exact VRChat avatar ID to switch back to.'}"
+                                                               FontSize="10"
+                                                               Foreground="{DynamicResource MutedBrush}"
+                                                               Margin="0,8,0,0"
+                                                               TextWrapping="Wrap"
+                                                               Visibility="{Binding Settings.HasMasterAvatarSwapReturn, Converter={StaticResource InverseBoolToVisibilityConverter}}" />
                                                 </StackPanel>
-                                                <TextBlock Text="{loc:Translate 'Pick the Return Avatar first so timed Avatar Swap and Avatar Roulette redeems know the exact VRChat avatar ID to switch back to.'}"
-                                                           FontSize="10"
-                                                           Foreground="{DynamicResource MutedBrush}"
-                                                           Margin="0,8,0,0"
-                                                           TextWrapping="Wrap"
-                                                           Visibility="{Binding Settings.HasMasterAvatarSwapReturn, Converter={StaticResource InverseBoolToVisibilityConverter}}" />
-                                            </StackPanel>
                                         </Grid>
                                     </Border>
                                     <Button Margin="0,18,0,0"

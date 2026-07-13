@@ -1070,11 +1070,6 @@
                                  IsChecked="{Binding IsReturnToPrevious}"
                                  Content="{loc:Translate 'Return to Previous Avatar'}"
                                  Foreground="{DynamicResource TextBrush}" />
-                    <RadioButton Margin="0,4,0,0"
-                                 GroupName="AvatarReturnMode"
-                                 IsChecked="{Binding IsPermanent}"
-                                 Content="{loc:Translate 'Permanent No Return'}"
-                                 Foreground="{DynamicResource TextBrush}" />
                     <TextBlock Margin="0,6,0,0"
                                Text="{loc:Translate 'Will return to the avatar you were wearing before this swap'}"
                                Foreground="{DynamicResource MutedBrush}"
@@ -1772,9 +1767,6 @@
                                 </MultiDataTrigger.Conditions>
                                 <Setter Property="Visibility" Value="Collapsed" />
                             </MultiDataTrigger>
-                            <DataTrigger Binding="{Binding IsPermanent}" Value="True">
-                                <Setter Property="Visibility" Value="Collapsed" />
-                            </DataTrigger>
                         </Style.Triggers>
                     </Style>
                 </StackPanel.Style>

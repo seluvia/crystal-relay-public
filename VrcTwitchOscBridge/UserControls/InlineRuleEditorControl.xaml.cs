@@ -40,12 +40,9 @@ public partial class InlineRuleEditorControl : UserControl
     {
         var global = FindName("ReturnToGlobalRadio") as RadioButton;
         var previous = FindName("ReturnToPreviousRadio") as RadioButton;
-        var permanent = FindName("ReturnToPermanentRadio") as RadioButton;
-        if (global is null || previous is null || permanent is null) return;
+        if (global is null || previous is null) return;
 
-        if (rule.PermanentAvatarChange)
-            permanent.IsChecked = true;
-        else if (rule.ReturnToPreviousAvatar)
+        if (rule.ReturnToPreviousAvatar)
             previous.IsChecked = true;
         else
             global.IsChecked = true;
@@ -55,7 +52,6 @@ public partial class InlineRuleEditorControl : UserControl
     {
         if (DataContext is IRuleRowViewModel rowVm && rowVm.Rule is TriggerRule rule)
         {
-            rule.PermanentAvatarChange = false;
             rule.ReturnToPreviousAvatar = false;
         }
     }
@@ -65,16 +61,6 @@ public partial class InlineRuleEditorControl : UserControl
         if (DataContext is IRuleRowViewModel rowVm && rowVm.Rule is TriggerRule rule)
         {
             rule.ReturnToPreviousAvatar = true;
-            rule.PermanentAvatarChange = false;
-        }
-    }
-
-    private void OnPermanentChecked(object sender, RoutedEventArgs e)
-    {
-        if (DataContext is IRuleRowViewModel rowVm && rowVm.Rule is TriggerRule rule)
-        {
-            rule.PermanentAvatarChange = true;
-            rule.ReturnToPreviousAvatar = false;
         }
     }
 

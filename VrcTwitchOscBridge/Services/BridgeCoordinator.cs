@@ -144,6 +144,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     // and the temporary disable-pairing system used by avatar-set redeems.
     private readonly Dictionary<Guid, DateTimeOffset> cooldowns = [];
     private readonly HashSet<Guid> permanentChangeCompletedRules = [];
+    private DateTimeOffset? permanentSwapModeBlockedUntil;
     private readonly Dictionary<Guid, Queue<QueuedRuleTrigger>> queuedTriggers = [];
     private readonly HashSet<Guid> drainingQueuedRules = [];
     private readonly Dictionary<string, ActiveMovementLaneState> actionLanes = [];
@@ -737,6 +738,15 @@ internal BridgeCoordinator(
         lock (stateGate)
         {
             permanentChangeCompletedRules.Clear();
+            permanentSwapModeBlockedUntil = null;
+        }
+    }
+
+    public DateTimeOffset? GetPermanentSwapModeBlockedUntil()
+    {
+        lock (stateGate)
+        {
+            return permanentSwapModeBlockedUntil;
         }
     }
 
@@ -7567,11 +7577,12 @@ internal BridgeCoordinator(
             return;
         }
 
-        var isPermanentAvatarChange = rule.ActionType is OscActionType.AvatarChange
-            && rule.Rule.PermanentAvatarChange;
         var isReturnToPreviousAvatar = rule.ActionType is OscActionType.AvatarChange
             && rule.Rule.ReturnToPreviousAvatar
             && rule.DurationSeconds > 0;
+        var isPermanentAvatarChange = rule.ActionType is OscActionType.AvatarChange
+            && (activeConfiguration?.PermanentSwapModeEnabled == true || rule.Rule.PermanentAvatarChange)
+            && !isReturnToPreviousAvatar;
         var suppressSharedReturnAvatarUpdate = IsCooldownOnlyDirectAvatarChange(rule) || isPermanentAvatarChange;
         if (suppressSharedReturnAvatarUpdate)
         {
@@ -7876,6 +7887,21 @@ internal BridgeCoordinator(
                 permanentChangeCompletedRules.Add(rule.Id);
             }
             ManagedRewardAvailabilityChanged?.Invoke();
+        }
+
+        if (!isTest && activeConfiguration?.PermanentSwapModeEnabled == true
+            && executionRule.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet
+            && !string.IsNullOrWhiteSpace(action.AvatarTargetId))
+        {
+            var blockSeconds = isReturnToPreviousAvatar ? executionRule.DurationSeconds : cooldownSeconds;
+            if (blockSeconds > 0)
+            {
+                lock (stateGate)
+                {
+                    permanentSwapModeBlockedUntil = DateTimeOffset.UtcNow.AddSeconds(blockSeconds);
+                }
+                ManagedRewardAvailabilityChanged?.Invoke();
+            }
         }
 
         if (!isTest && !isResuming && executionRule.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet)

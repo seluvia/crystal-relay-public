@@ -297,12 +297,6 @@
                     Visibility="{Binding Rule.ActionType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter=AvatarChange}">
                 <StackPanel>
                     <TextBlock Text="{loc:Translate 'Return Behavior'}" Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" Margin="0,0,0,8" />
-                    <RadioButton x:Name="ReturnToPermanentRadio"
-                                 GroupName="AvatarReturnMode"
-                                 IsChecked="{Binding Rule.PermanentAvatarChange, Mode=TwoWay}"
-                                 Checked="OnPermanentChecked"
-                                 Content="{loc:Translate 'Permanent No Return'}"
-                                 Foreground="{DynamicResource TextBrush}" />
                     <RadioButton x:Name="ReturnToPreviousRadio"
                                  GroupName="AvatarReturnMode"
                                  IsChecked="{Binding Rule.ReturnToPreviousAvatar, Mode=TwoWay}"

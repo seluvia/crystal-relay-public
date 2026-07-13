@@ -12560,6 +12560,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         var ruleIsVisibleForCurrentAvatar = isCooldownOnlyDirectAvatarChange
             ? cooldownOnlyAvatarChangeVisible
             : profileIsEffectivelyActive;
+        var permanentSwapBlocked = Settings.PermanentSwapModeEnabled
+            && bridgeCoordinator.GetPermanentSwapModeBlockedUntil() is DateTimeOffset blockUntil
+            && blockUntil > DateTimeOffset.UtcNow;
         var desiredEnabled = allowManagedRewardActivation
             && ruleHasRuntimeReadyAction
             && swapProfile.IsEnabled
@@ -12567,7 +12570,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             && !temporarilyDisabledRuleIds.Contains(rule.Id)
             && ruleIsVisibleForCurrentAvatar
             && !isActiveFloatBoostParent
-            && !floatLimitReached;
+            && !floatLimitReached
+            && !permanentSwapBlocked;
         var backgroundColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(rule.ManagedRewardReadyColor);
 
         return new ManagedRewardSyncTarget(

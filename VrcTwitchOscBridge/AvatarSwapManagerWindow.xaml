@@ -206,9 +206,17 @@
                                 </Grid>
                             </Border>
                             <TextBlock Text="{Binding GlobalReturnAvatarName}" VerticalAlignment="Center" Margin="0,0,12,0" Foreground="{DynamicResource TextBrush}" />
-                            <Button Content="Pick…" Click="OnPickGlobalReturnClicked" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,4,0" />
-                            <Button Content="Use Current" Click="OnUseCurrentAvatarForGlobalReturnClicked" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,4,0" />
-                            <Button Content="Clear" Command="{Binding ClearGlobalReturnCommand}" Style="{StaticResource SecondaryButtonStyle}" />
+                            <CheckBox IsChecked="{Binding PermanentSwapModeEnabled}"
+                                      Content="{loc:Translate 'Permanent No Return'}"
+                                      Foreground="{DynamicResource TextBrush}"
+                                      VerticalAlignment="Center"
+                                      Margin="0,0,8,0" />
+                            <StackPanel Orientation="Horizontal"
+                                        Visibility="{Binding PermanentSwapModeEnabled, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                                <Button Content="Pick…" Click="OnPickGlobalReturnClicked" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,4,0" />
+                                <Button Content="Use Current" Click="OnUseCurrentAvatarForGlobalReturnClicked" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,4,0" />
+                                <Button Content="Clear" Command="{Binding ClearGlobalReturnCommand}" Style="{StaticResource SecondaryButtonStyle}" />
+                            </StackPanel>
                         </StackPanel>
                     </DockPanel>
                 </Border>
