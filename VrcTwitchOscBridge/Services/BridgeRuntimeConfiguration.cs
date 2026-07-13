@@ -1802,11 +1802,18 @@ internal static class AvatarRuleActivationPolicy
         string? requiredAvatarId,
         string? currentAvatarId,
         bool avatarChangeTransitionActive,
-        bool avatarChangeCooldownOnlyModeEnabled = false)
+        bool avatarChangeCooldownOnlyModeEnabled = false,
+        bool permanentAvatarChange = false,
+        bool permanentChangeCompleted = false)
     {
         if (isGlobalOverride)
         {
             return true;
+        }
+
+        if (permanentAvatarChange && permanentChangeCompleted)
+        {
+            return false;
         }
 
         var normalizedCurrentAvatarId = currentAvatarId?.Trim() ?? string.Empty;

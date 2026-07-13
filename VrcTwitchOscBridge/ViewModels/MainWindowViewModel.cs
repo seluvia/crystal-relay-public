@@ -12471,7 +12471,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             requiredAvatarId: GetEffectiveRequiredAvatarIdForProfile(profile),
             currentAvatarId: currentAvatarId,
             avatarChangeTransitionActive: avatarChangeTransitionActive,
-            avatarChangeCooldownOnlyModeEnabled: Settings.AvatarChangeCooldownOnlyModeEnabled);
+            avatarChangeCooldownOnlyModeEnabled: Settings.AvatarChangeCooldownOnlyModeEnabled,
+            permanentAvatarChange: rule.PermanentAvatarChange,
+            permanentChangeCompleted: bridgeCoordinator.IsPermanentChangeCompleted(rule.Id));
         var isActiveFloatBoostParent = IsActiveFloatBoostParentRule(rule) && activeTimedRuleIds.Contains(rule.Id);
         var floatLimitReached = activeFloatLimitReachedRuleIds.Contains(rule.Id)
             && rule.UsesFloatHideOnLimit
@@ -12545,7 +12547,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             requiredAvatarId: returnAvatarId,
             currentAvatarId: currentAvatarId,
             avatarChangeTransitionActive: avatarChangeTransitionActive,
-            avatarChangeCooldownOnlyModeEnabled: Settings.AvatarChangeCooldownOnlyModeEnabled);
+            avatarChangeCooldownOnlyModeEnabled: Settings.AvatarChangeCooldownOnlyModeEnabled,
+            permanentAvatarChange: rule.PermanentAvatarChange,
+            permanentChangeCompleted: bridgeCoordinator.IsPermanentChangeCompleted(rule.Id));
         var isActiveFloatBoostParent = IsActiveFloatBoostParentRule(rule) && activeTimedRuleIds.Contains(rule.Id);
         var floatLimitReached = activeFloatLimitReachedRuleIds.Contains(rule.Id)
             && rule.UsesFloatHideOnLimit
@@ -12691,7 +12695,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             avatarChangeTargetId: rule.AvatarChangeTargetId,
             requiredAvatarId: GetEffectiveRequiredAvatarIdForProfile(profile),
             currentAvatarId: currentAvatarId,
-            avatarChangeTransitionActive: avatarChangeTransitionActive);
+            avatarChangeTransitionActive: avatarChangeTransitionActive,
+            permanentAvatarChange: rule.PermanentAvatarChange,
+            permanentChangeCompleted: bridgeCoordinator.IsPermanentChangeCompleted(rule.Id));
         var parentIsActive = activeTimedRuleIds.Contains(rule.Id);
         var boostMaximumReached = activeFloatBoostMaximumReachedRuleIds.Contains(rule.Id);
         var parentCanBeManaged = rule.RewardSyncMode == TwitchRewardSyncMode.CreateOrManage;
@@ -12744,7 +12750,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             avatarChangeTargetId: owner.AvatarChangeTargetId,
             requiredAvatarId: GetEffectiveRequiredAvatarIdForProfile(profile),
             currentAvatarId: currentAvatarId,
-            avatarChangeTransitionActive: avatarChangeTransitionActive);
+            avatarChangeTransitionActive: avatarChangeTransitionActive,
+            permanentAvatarChange: owner.PermanentAvatarChange,
+            permanentChangeCompleted: bridgeCoordinator.IsPermanentChangeCompleted(owner.Id));
         var activeChoices = group.Rules
             .Where(rule => rule.IsEnabled
                 && HasRuntimeReadyAction(rule)

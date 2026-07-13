@@ -724,6 +724,14 @@ internal BridgeCoordinator(
         await ExecuteRuleActionAsync(rule, null, cancellationToken, isTest: true, queuedReplay: false, allowLaneQueue: true, isResuming: false);
     }
 
+    public bool IsPermanentChangeCompleted(Guid ruleId)
+    {
+        lock (stateGate)
+        {
+            return permanentChangeCompletedRules.Contains(ruleId);
+        }
+    }
+
     public void ClearAllPermanentChangeCompleted()
     {
         lock (stateGate)
@@ -2795,7 +2803,7 @@ internal BridgeCoordinator(
                     continue;
                 }
 
-                var message = BuildTriggerInfoAnnouncement(configuration, currentAvatarId);
+                var message = BuildTriggerInfoAnnouncement(configuration, currentAvatarId, permanentChangeCompletedRules);
                 if (string.IsNullOrWhiteSpace(message))
                 {
                     nextTriggerInfoAnnouncementAt = now.Add(interval);
@@ -2865,7 +2873,7 @@ internal BridgeCoordinator(
         }
 
         var currentAvatarId = GetCurrentVrChatAvatarId();
-        var message = BuildTriggerInfoAnnouncement(configuration, currentAvatarId);
+        var message = BuildTriggerInfoAnnouncement(configuration, currentAvatarId, permanentChangeCompletedRules);
         if (string.IsNullOrWhiteSpace(message))
         {
             message = T("No current trigger info is available right now.");
@@ -3442,7 +3450,8 @@ internal BridgeCoordinator(
                 bridgeEvent,
                 currentAvatarId,
                 avatarChangeTransitionActive,
-                temporarilyDisabledRuleIds)
+                temporarilyDisabledRuleIds,
+                permanentChangeCompletedRules)
             : SelectMatchingRules(
                 configuration,
                 ruleIndex,
@@ -3722,7 +3731,12 @@ internal BridgeCoordinator(
                 continue;
             }
 
-            if (!PowerUpRuleIsActiveForCurrentAvatar(rule, currentAvatarId, avatarChangeTransitionActive))
+            var powerUpPermanentAvatarChange = rule.TriggerAction?.Rule.PermanentAvatarChange ?? false;
+            var powerUpPermanentChangeCompleted = rule.TriggerAction is not null
+                && permanentChangeCompletedRules.Contains(rule.TriggerAction.Id);
+
+            if (!PowerUpRuleIsActiveForCurrentAvatar(rule, currentAvatarId, avatarChangeTransitionActive,
+                powerUpPermanentAvatarChange, powerUpPermanentChangeCompleted))
             {
                 inactiveMatches.Add(rule);
                 continue;
@@ -3753,7 +3767,9 @@ internal BridgeCoordinator(
     private static bool PowerUpRuleIsActiveForCurrentAvatar(
         PowerUpRuleSnapshot rule,
         string currentAvatarId,
-        bool avatarChangeTransitionActive)
+        bool avatarChangeTransitionActive,
+        bool permanentAvatarChange = false,
+        bool permanentChangeCompleted = false)
     {
         if (rule.TriggerAction is not null)
         {
@@ -3764,7 +3780,9 @@ internal BridgeCoordinator(
                 rule.TriggerAction.AvatarChangeTargetId,
                 rule.TriggerAction.RequiredAvatarId,
                 currentAvatarId,
-                avatarChangeTransitionActive);
+                avatarChangeTransitionActive,
+                permanentAvatarChange: permanentAvatarChange,
+                permanentChangeCompleted: permanentChangeCompleted);
         }
 
         if (!rule.AvatarScoped)
@@ -7085,7 +7103,9 @@ internal BridgeCoordinator(
                     rule.RequiredAvatarId,
                     activationAvatarId,
                     avatarChangeTransitionActive: false,
-                    avatarChangeCooldownOnlyModeEnabled))
+                    avatarChangeCooldownOnlyModeEnabled,
+                    permanentAvatarChange: rule.Rule.PermanentAvatarChange,
+                    permanentChangeCompleted: permanentChangeCompletedRules.Contains(rule.Id)))
             .ToArray();
         if (candidates.Length == 0)
         {
@@ -7138,7 +7158,9 @@ internal BridgeCoordinator(
                     rule.RequiredAvatarId,
                     activationAvatarId,
                     avatarChangeTransitionActive: false,
-                    avatarChangeCooldownOnlyModeEnabled))
+                    avatarChangeCooldownOnlyModeEnabled,
+                    permanentAvatarChange: rule.Rule.PermanentAvatarChange,
+                    permanentChangeCompleted: permanentChangeCompletedRules.Contains(rule.Id)))
             .ToArray();
         if (candidates.Length == 0)
         {
@@ -13655,7 +13677,8 @@ internal BridgeCoordinator(
                 currentAvatarId,
                 temporarilyDisabledRuleIds,
                 avatarChangeTransitionActive,
-                configuration.AvatarChangeCooldownOnlyModeEnabled),
+                configuration.AvatarChangeCooldownOnlyModeEnabled,
+                permanentChangeCompletedRules),
             TwitchTriggerType.Bits => SelectBitsMatchingRules(
                 ruleIndex.GetGlobalOverrideRulesByTriggerType(bridgeEvent.TriggerType)
                     .Where(rule => rule.IsEnabled && !temporarilyDisabledRuleIds.Contains(rule.Id))
@@ -13693,7 +13716,9 @@ internal BridgeCoordinator(
                     rule.AvatarChangeTargetId,
                     rule.RequiredAvatarId,
                     normalizedCurrentAvatarId,
-                    avatarChangeTransitionActive))
+                    avatarChangeTransitionActive,
+                    permanentAvatarChange: rule.Rule.PermanentAvatarChange,
+                    permanentChangeCompleted: permanentChangeCompletedRules.Contains(rule.Id)))
             .ToArray();
         if (candidates.Length == 0)
         {
@@ -13889,7 +13914,8 @@ internal BridgeCoordinator(
         string currentAvatarId,
         IReadOnlyCollection<Guid> temporarilyDisabledRuleIds,
         bool avatarChangeTransitionActive,
-        bool avatarChangeCooldownOnlyModeEnabled)
+        bool avatarChangeCooldownOnlyModeEnabled,
+        IReadOnlySet<Guid>? permanentChangeCompletedRuleIds = null)
     {
         var normalizedRewardId = rewardId?.Trim() ?? string.Empty;
         var normalizedRewardTitle = NormalizeRewardTitle(rewardTitle);
@@ -13906,7 +13932,8 @@ internal BridgeCoordinator(
             normalizedCurrentAvatarId,
             temporarilyDisabledRuleIds,
             avatarChangeTransitionActive,
-            avatarChangeCooldownOnlyModeEnabled);
+            avatarChangeCooldownOnlyModeEnabled,
+            permanentChangeCompletedRuleIds);
 
         if (activeCandidates.Length == 0)
         {
@@ -13937,7 +13964,8 @@ internal BridgeCoordinator(
         BridgeIncomingEvent bridgeEvent,
         string currentAvatarId,
         bool avatarChangeTransitionActive,
-        IReadOnlyCollection<Guid> temporarilyDisabledRuleIds)
+        IReadOnlyCollection<Guid> temporarilyDisabledRuleIds,
+        IReadOnlySet<Guid>? permanentChangeCompletedRuleIds = null)
     {
         var normalizedCurrentAvatarId = currentAvatarId?.Trim() ?? string.Empty;
         if (!bridgeEvent.IsChatCommandTrigger || string.IsNullOrWhiteSpace(bridgeEvent.ChatCommandText))
@@ -13962,7 +13990,9 @@ internal BridgeCoordinator(
                     rule.RequiredAvatarId,
                     normalizedCurrentAvatarId,
                     avatarChangeTransitionActive,
-                    configuration.AvatarChangeCooldownOnlyModeEnabled))
+                    configuration.AvatarChangeCooldownOnlyModeEnabled,
+                    permanentAvatarChange: rule.Rule.PermanentAvatarChange,
+                    permanentChangeCompleted: permanentChangeCompletedRuleIds?.Contains(rule.Id) ?? false))
             {
                 continue;
             }
@@ -14379,7 +14409,8 @@ internal BridgeCoordinator(
         string normalizedCurrentAvatarId,
         IReadOnlyCollection<Guid> temporarilyDisabledRuleIds,
         bool avatarChangeTransitionActive,
-        bool avatarChangeCooldownOnlyModeEnabled)
+        bool avatarChangeCooldownOnlyModeEnabled,
+        IReadOnlySet<Guid>? permanentChangeCompletedRuleIds = null)
     {
         var activeCandidates = new List<TriggerRuleSnapshot>();
         foreach (var rule in ruleIndex.GetChannelPointCandidates(normalizedRewardId, normalizedRewardTitle))
@@ -14397,7 +14428,9 @@ internal BridgeCoordinator(
                     rule.RequiredAvatarId,
                     normalizedCurrentAvatarId,
                     avatarChangeTransitionActive,
-                    avatarChangeCooldownOnlyModeEnabled))
+                    avatarChangeCooldownOnlyModeEnabled,
+                    permanentAvatarChange: rule.Rule.PermanentAvatarChange,
+                    permanentChangeCompleted: permanentChangeCompletedRuleIds?.Contains(rule.Id) ?? false))
             {
                 continue;
             }
@@ -17147,12 +17180,13 @@ internal BridgeCoordinator(
 
     private static string BuildTriggerInfoAnnouncement(
         BridgeRuntimeConfiguration configuration,
-        string currentAvatarId)
+        string currentAvatarId,
+        IReadOnlySet<Guid>? permanentChangeCompletedRuleIds = null)
     {
         string? fallbackMessage = null;
         for (var maxOptions = 4; maxOptions >= 1; maxOptions--)
         {
-            var sections = BuildTriggerInfoAnnouncementSections(configuration, currentAvatarId, maxOptions);
+            var sections = BuildTriggerInfoAnnouncementSections(configuration, currentAvatarId, maxOptions, permanentChangeCompletedRuleIds);
             if (sections.Count == 0)
             {
                 return string.Empty;
@@ -17174,7 +17208,8 @@ internal BridgeCoordinator(
     private static IReadOnlyList<string> BuildTriggerInfoAnnouncementSections(
         BridgeRuntimeConfiguration configuration,
         string currentAvatarId,
-        int maxOptions)
+        int maxOptions,
+        IReadOnlySet<Guid>? permanentChangeCompletedRuleIds = null)
     {
         var normalizedCurrentAvatarId = currentAvatarId?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(normalizedCurrentAvatarId))
@@ -17197,7 +17232,9 @@ internal BridgeCoordinator(
                     rule.AvatarChangeTargetId,
                     rule.RequiredAvatarId,
                     normalizedCurrentAvatarId,
-                    avatarChangeTransitionActive: false))
+                    avatarChangeTransitionActive: false,
+                    permanentAvatarChange: rule.Rule.PermanentAvatarChange,
+                    permanentChangeCompleted: permanentChangeCompletedRuleIds?.Contains(rule.Id) ?? false))
             .GroupBy(rule => string.IsNullOrWhiteSpace(rule.ChannelPointRewardTitle)
                 ? rule.AvatarProfileId.ToString("N")
                 : ManagedRewardPresentation.NormalizeTitleIdentityKey(rule.ChannelPointRewardTitle))
