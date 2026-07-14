@@ -1296,8 +1296,11 @@
   "multOp": "multOp",
   "rewards": "rewards",
   "scaling": "scaling",
-  "ui-theme": "ui-theme"
-}
+  "ui-theme": "ui-theme",
+  "Movement Redeem Notice": "Hinweis zu Bewegungs-Belohnungen",
+  "OSC movement redeems may not work as intended for all users. Some movement directions work in VR but not on desktop, and movement inputs or counter-inputs from redeems may not always produce the expected results.": "OSC-Bewegungs-Belohnungen funktionieren möglicherweise nicht für alle Benutzer wie beabsichtigt. Manche Bewegungsrichtungen funktionieren in VR, aber nicht auf dem Desktop, und Bewegungseingaben oder Gegenbewegungen von Belohnungen führen nicht immer zum erwarteten Ergebnis."
+}
+
   "connection": "connection"
 
   "crash": "crash"

@@ -1303,8 +1303,11 @@
   "Units per duration": "Unidades por dura——o",
   "Universal Triggers Delete All Confirm Body": "Tem certeza que quer excluir todos os Gatilhos Universais? Isso n—o pode ser desfeito.",
   "Use {user}, {rule}, {duration}, {cooldown} as template variables.": "Use {user}, {rule}, {duration}, {cooldown} como vari—veis de modelo.",
-  "VR Only": "S— VR"
-}
+  "VR Only": "S— VR",
+  "Movement Redeem Notice": "Aviso sobre recompensas de movimento",
+  "OSC movement redeems may not work as intended for all users. Some movement directions work in VR but not on desktop, and movement inputs or counter-inputs from redeems may not always produce the expected results.": "As recompensas de movimento por OSC podem n\u00e3o funcionar como esperado para todos os usu\u00e1rios. Algumas dire\u00e7\u00f5es de movimento funcionam no VR mas n\u00e3o no desktop, e entradas ou contra-entradas de movimento das recompensas podem nem sempre produzir os resultados esperados."
+}
+
   "connection": "connection"
 
   "crash": "crash"

@@ -1348,6 +1348,8 @@
   "rewards": "ricompense",
   "scaling": "scalatura",
   "ui-theme": "interfaccia-tema",
+  "Movement Redeem Notice": "Avviso sulle ricompense movimento",
+  "OSC movement redeems may not work as intended for all users. Some movement directions work in VR but not on desktop, and movement inputs or counter-inputs from redeems may not always produce the expected results.": "Le ricompense movimento OSC potrebbero non funzionare come previsto per tutti gli utenti. Alcune direzioni di movimento funzionano in VR ma non sul desktop, e gli input di movimento o contro-input dalle ricompense potrebbero non produrre sempre i risultati attesi.",
   "Supporter Growth, Cash Payments &amp; Power Ups": "Supporter Growth, Cash Payments e Power Up",
   "Avatar Swap has been reworked! Avatar Roulette is now its own card type, and Bits / Subs / Payment each have their own section. The per-avatar 'Return Avatar' is gone — all swaps now return to the global Return Avatar at the top of the window. This notice will not appear again.": "Avatar Swap — stato riprogettato! La roulette avatar — ora un suo tipo di scheda, e Bits / Sub / Pagamento hanno ciascuno la propria sezione. L'avatar di ritorno per avatar non esiste pi— - ora tutti gli scambi tornano all'avatar di ritorno globale nella parte superiore della finestra. Questo avviso non apparir— pi—.",
   "No saved OSC parameters for this avatar yet. Switch to it in VRChat to generate them.": "Nessun parametro OSC salvato per questo avatar ancora. Passa a esso in VRChat per generarli.",

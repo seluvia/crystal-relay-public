@@ -1309,5 +1309,7 @@
   "other": "—vrigt",
   "rewards": "bel—ningar",
   "scaling": "skalning",
-  "ui-theme": "ui-tema"
+  "ui-theme": "ui-tema",
+  "Movement Redeem Notice": "Meddelande om rörelsebelöningar",
+  "OSC movement redeems may not work as intended for all users. Some movement directions work in VR but not on desktop, and movement inputs or counter-inputs from redeems may not always produce the expected results.": "OSC-rörelsebelöningar fungerar kanske inte som tänkt för alla användare. Vissa rörelseriktningar fungerar i VR men inte på skrivbordet, och rörelseinputs eller motinputs från belöningar ger inte alltid förväntat resultat."
 }

@@ -1359,8 +1359,12 @@
   "Use {user}, {rule}, {duration}, {cooldown} as template variables.": "?? {user}?{rule}?{duration}?{cooldown} ???????",
   "VR Only": "? VR",
   "No saved OSC parameters for this avatar yet. Switch to it in VRChat to generate them.": "????????? OSC ???? VRChat ?????????",
-  "No saved OSC parameters yet. Wear this avatar in VRChat to generate them.": "?????? OSC ???? VRChat ????????????"
-}
+  "No saved OSC parameters yet. Wear this avatar in VRChat to generate them.": "?????? OSC ???? VRChat ????????????",
+  "Movement Redeem Notice": "\u79fb\u52a8\u6743\u9650\u987b\u77e5",
+  "OSC movement redeems may not work as intended for all users. Some movement directions work in VR but not on desktop, and movement inputs or counter-inputs from redeems may not always produce the expected results.": "OSC\u79fb\u52a8\u6743\u9650\u53ef\u80fd\u65e0\u6cd5\u6309\u9884\u671f\u4e3a\u6240\u6709\u7528\u6237\u6b63\u5e38\u5de5\u4f5c\u3002\u90e8\u5206\u79fb\u52a8\u65b9\u5411\u5728VR\u4e2d\u6709\u6548\u4f46\u5728\u684c\u9762\u7aef\u65e0\u6548\uff0c\u6743\u9650\u89e6\u53d1\u7684\u79fb\u52a8\u8f93\u5165\u6216\u53cd\u5411\u8f93\u5165\u53ef\u80fd\u5e76\u4e0d\u603b\u662f\u4ea7\u751f\u9884\u671f\u7684\u7ed3\u679c\u3002"
+
+}
+
   "connection": "connection"
 
   "crash": "crash"

@@ -1306,5 +1306,7 @@
   "Return to Global Return Avatar": "Return to Global Return Avatar",
   "Return to Previous Avatar": "Return to Previous Avatar",
   "Permanent No Return": "Permanent (No Return)",
-  "Will return to the avatar you were wearing before this swap": "Will return to the avatar you were wearing before this swap"
+  "Will return to the avatar you were wearing before this swap": "Will return to the avatar you were wearing before this swap",
+  "Movement Redeem Notice": "Movement Redeem Notice",
+  "OSC movement redeems may not work as intended for all users. Some movement directions work in VR but not on desktop, and movement inputs or counter-inputs from redeems may not always produce the expected results.": "OSC movement redeems may not work as intended for all users. Some movement directions work in VR but not on desktop, and movement inputs or counter-inputs from redeems may not always produce the expected results."
 }

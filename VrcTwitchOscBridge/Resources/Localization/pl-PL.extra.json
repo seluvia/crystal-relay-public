@@ -1301,5 +1301,7 @@
   "low": "niska",
   "movement": "ruch",
   "normal": "normalna",
-  "other": "inne"
+  "other": "inne",
+  "Movement Redeem Notice": "Uwaga dotycząca wykupów ruchu",
+  "OSC movement redeems may not work as intended for all users. Some movement directions work in VR but not on desktop, and movement inputs or counter-inputs from redeems may not always produce the expected results.": "Wykupy ruchu przez OSC mogą nie działać zgodnie z oczekiwaniami dla wszystkich użytkowników. Niektóre kierunki ruchu działają w VR, ale nie na pulpicie, a wejścia ruchu lub przeciw-ruch z wykupów nie zawsze dają spodziewane rezultaty."
 }

@@ -1311,4 +1311,7 @@
   "rewards": "r—compenses",
   "scaling": "mise — l'—chelle",
   "ui-theme": "ui-th—me"
+  "ui-theme": "ui-thème",
+  "Movement Redeem Notice": "Avis de récompenses de mouvement",
+  "OSC movement redeems may not work as intended for all users. Some movement directions work in VR but not on desktop, and movement inputs or counter-inputs from redeems may not always produce the expected results.": "Les récompenses de mouvement par OSC peuvent ne pas fonctionner comme prévu pour tout le monde. Certaines directions marchent en VR mais pas sur bureau, et les entrées ou contre-entrées de mouvement des récompenses ne produisent pas toujours le résultat attendu."
 }

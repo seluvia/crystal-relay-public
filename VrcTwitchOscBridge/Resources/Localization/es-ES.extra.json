@@ -1310,5 +1310,7 @@
   "Units per duration": "Unidades por duraci—n",
   "Universal Triggers Delete All Confirm Body": "—Seguro que quieres borrar todos los triggers? Esto no se puede deshacer.",
   "Use {user}, {rule}, {duration}, {cooldown} as template variables.": "Usa {user}, {rule}, {duration}, {cooldown} como variables de plantilla.",
-  "VR Only": "Solo VR"
+  "VR Only": "Solo VR",
+  "Movement Redeem Notice": "Aviso de recompensas de movimiento",
+  "OSC movement redeems may not work as intended for all users. Some movement directions work in VR but not on desktop, and movement inputs or counter-inputs from redeems may not always produce the expected results.": "Las recompensas de movimiento por OSC pueden no funcionar como se espera para todos los usuarios. Algunas direcciones funcionan en VR pero no en escritorio, y las entradas o contra-entradas de movimiento de las recompensas no siempre dan el resultado esperado."
 }

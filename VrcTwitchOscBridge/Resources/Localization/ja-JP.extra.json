@@ -1311,5 +1311,7 @@
   "other": "other",
   "rewards": "rewards",
   "scaling": "scaling",
-  "ui-theme": "ui-theme"
+  "ui-theme": "ui-theme",
+  "Movement Redeem Notice": "移動権の使用に関する注意",
+  "OSC movement redeems may not work as intended for all users. Some movement directions work in VR but not on desktop, and movement inputs or counter-inputs from redeems may not always produce the expected results.": "OSCの移動権はすべてのユーザーが意図した通りに動作するとは限りません。一部の移動方向はVRでは機能しますがデスクトップでは機能せず、権行使による移動入力や対抗入力が必ずしも期待通りの結果にならない場合があります。"
 }
