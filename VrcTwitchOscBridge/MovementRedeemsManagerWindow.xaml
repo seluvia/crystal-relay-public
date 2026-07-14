@@ -674,10 +674,33 @@
             <Grid Grid.Row="1" Margin="14">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
+                <!-- Movement Redeem Notice -->
                 <Border Grid.Row="0"
+                        Margin="0,0,0,8"
+                        Padding="14,10"
+                        Background="{DynamicResource AttentionBrush}"
+                        BorderBrush="{DynamicResource AttentionBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8">
+                    <StackPanel>
+                        <TextBlock Text="{loc:Translate 'Movement Redeem Notice'}"
+                                   FontFamily="{DynamicResource HeadingFontFamily}"
+                                   FontSize="15"
+                                   FontWeight="Bold"
+                                   Foreground="{DynamicResource TextBrush}"
+                                   TextWrapping="Wrap" />
+                        <TextBlock Margin="0,4,0,0"
+                                   Text="{loc:Translate 'OSC movement redeems may not work as intended for all users. Some movement directions work in VR but not on desktop, and movement inputs or counter-inputs from redeems may not always produce the expected results.'}"
+                                   Foreground="{DynamicResource TextBrush}"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Row="1"
                         Background="{DynamicResource NestedPanelBrush}"
                         BorderBrush="{DynamicResource BorderBrush}"
                         BorderThickness="1"
@@ -711,7 +734,7 @@
                     </StackPanel>
                 </Border>
 
-                <DataGrid Grid.Row="1"
+                <DataGrid Grid.Row="2"
                           ItemsSource="{Binding Cards}"
                           AutoGenerateColumns="False"
                           HeadersVisibility="Column"
