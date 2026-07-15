@@ -46,7 +46,15 @@
         <SolidColorBrush x:Key="TitleBarClosePressedBrush" Color="#8C2648" />
         <SolidColorBrush x:Key="ScrollTrackBrush" Color="#25183D" />
         <SolidColorBrush x:Key="ScrollThumbBrush" Color="#7B57D0" />
+        <SolidColorBrush x:Key="ScrollThumbHoverBrush" Color="#A978FF" />
+        <SolidColorBrush x:Key="ScrollThumbPressedBrush" Color="#C49FFF" />
         <SolidColorBrush x:Key="ComboTextBrush" Color="#140C20" />
+        <SolidColorBrush x:Key="ComboSurfaceBrush" Color="#241733" />
+        <SolidColorBrush x:Key="ComboHighlightBrush" Color="#4B2B78" />
+        <SolidColorBrush x:Key="ComboDropButtonBrush" Color="#2C1C48" />
+        <SolidColorBrush x:Key="ComboDropButtonHoverBrush" Color="#3B235B" />
+        <SolidColorBrush x:Key="ComboDropButtonPressedBrush" Color="#543183" />
+        <SolidColorBrush x:Key="PopupBorderBrush" Color="#8B5CD6" />
 
         <Style TargetType="TextBlock">
             <Setter Property="FontFamily" Value="{DynamicResource BodyFontFamily}" />
