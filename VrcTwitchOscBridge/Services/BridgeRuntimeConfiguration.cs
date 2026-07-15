@@ -626,7 +626,6 @@ public sealed record BridgeRuntimeConfiguration(
                 if (TryToSnapshot(rule, isGlobalOverride: true, profile: null, linkedRewardCooldownSecondsById, out var snapshot))
                 {
                     powerUpSnapshots.Add(snapshot);
-                    rules.Add(snapshot);
                 }
             }
 
@@ -775,6 +774,8 @@ public sealed record BridgeRuntimeConfiguration(
             if (profile.SubsRules.Any(r => ReferenceEquals(r.Rule, rule)))
                 return profile;
             if (profile.PaymentRules.Any(r => ReferenceEquals(r.Rule, rule)))
+                return profile;
+            if (profile.PowerUpRules.Any(r => ReferenceEquals(r.Rule, rule)))
                 return profile;
         }
         return null;

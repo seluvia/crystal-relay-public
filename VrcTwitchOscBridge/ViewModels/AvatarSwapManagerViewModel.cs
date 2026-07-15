@@ -51,6 +51,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
         AddBitsRuleCommand = new RelayCommand(AddBitsRule, () => SelectedSwapCard is not null);
         AddSubsRuleCommand = new RelayCommand(AddSubsRule, () => SelectedSwapCard is not null);
         AddPaymentRuleCommand = new RelayCommand(AddPaymentRule, () => SelectedSwapCard is not null);
+        AddPowerUpRuleCommand = new RelayCommand(AddPowerUpRule, () => SelectedSwapCard is not null);
         AddAdvancedTriggerCommand = new RelayCommand(p => AddAdvancedTrigger(p as string));
         AddRoulettePoolEntryCommand = new RelayCommand(AddRoulettePoolEntry, () => SelectedRouletteCard is not null);
         DeleteRuleCommand = new RelayCommand(p => DeleteRule(p as IRuleRowViewModel));
@@ -133,6 +134,8 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
     public ObservableCollection<InlineSubsRuleRowViewModel> SubsRows { get; } = new();
 
     public ObservableCollection<InlinePaymentRuleRowViewModel> PaymentRows { get; } = new();
+
+    public ObservableCollection<InlinePowerUpRuleRowViewModel> PowerUpRows { get; } = new();
 
     public ObservableCollection<IRuleRowViewModel> RouletteTriggerRows { get; } = new();
 
@@ -303,6 +306,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
     public RelayCommand AddBitsRuleCommand { get; }
     public RelayCommand AddSubsRuleCommand { get; }
     public RelayCommand AddPaymentRuleCommand { get; }
+    public RelayCommand AddPowerUpRuleCommand { get; }
     public RelayCommand AddAdvancedTriggerCommand { get; }
     public RelayCommand AddRoulettePoolEntryCommand { get; }
     public RelayCommand DeleteRuleCommand { get; }
@@ -336,6 +340,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
         BitsRows.Clear();
         SubsRows.Clear();
         PaymentRows.Clear();
+        PowerUpRows.Clear();
         RouletteTriggerRows.Clear();
         RoulettePoolRows.Clear();
         RouletteChannelPointRows.Clear();
@@ -369,6 +374,12 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
                 var row = new InlinePaymentRuleRowViewModel(r, swapProfile);
                 WireRowCommands(row);
                 PaymentRows.Add(row);
+            }
+            foreach (var r in swapProfile.PowerUpRules)
+            {
+                var row = new InlinePowerUpRuleRowViewModel(r, swapProfile);
+                WireRowCommands(row);
+                PowerUpRows.Add(row);
             }
         }
 
@@ -493,6 +504,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
         AddBitsRuleCommand.NotifyCanExecuteChanged();
         AddSubsRuleCommand.NotifyCanExecuteChanged();
         AddPaymentRuleCommand.NotifyCanExecuteChanged();
+        AddPowerUpRuleCommand.NotifyCanExecuteChanged();
         AddRoulettePoolEntryCommand.NotifyCanExecuteChanged();
     }
 
@@ -612,6 +624,24 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
         var row = new InlinePaymentRuleRowViewModel(rule, SelectedSwapCard.Profile);
         WireRowCommands(row);
         PaymentRows.Add(row);
+        NotifySettingsChanged();
+    }
+
+    private void AddPowerUpRule()
+    {
+        if (SelectedSwapCard is null) return;
+        var rule = new TriggerRule
+        {
+            TriggerType = TwitchTriggerType.PowerUp,
+            ActionType = OscActionType.AvatarChange,
+            AvatarChangeTargetId = SelectedSwapCard.Profile.TargetAvatarId,
+            AvatarTargetName = SelectedSwapCard.Profile.TargetAvatarName,
+            Name = "New Power Up Swap"
+        };
+        SelectedSwapCard.Profile.PowerUpRules.Add(rule);
+        var row = new InlinePowerUpRuleRowViewModel(rule, SelectedSwapCard.Profile);
+        WireRowCommands(row);
+        PowerUpRows.Add(row);
         NotifySettingsChanged();
     }
 
@@ -802,6 +832,11 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
                 && SelectedSwapCard.Profile.PaymentRules.Remove((CashPaymentRule)pay.Rule))
             {
                 PaymentRows.Remove(pay);
+            }
+            else if (row is InlinePowerUpRuleRowViewModel pow
+                && SelectedSwapCard.Profile.PowerUpRules.Remove((TriggerRule)pow.Rule))
+            {
+                PowerUpRows.Remove(pow);
             }
         }
 

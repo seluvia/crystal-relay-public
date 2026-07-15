@@ -3719,13 +3719,13 @@ internal BridgeCoordinator(
         }
 
         var swapPowerUpRules = configuration.AvatarSwapProfiles
-            .SelectMany(profile => profile.PowerUpRules.Select(rule => (Profile: profile, Rule: rule)))
-            .Where(t => t.Rule.IsEnabled
-                && !temporarilyDisabledRuleIds.Contains(t.Rule.Id)
-                && PowerUpSnapshotIdentityMatches(t.Rule, bridgeEvent))
+            .SelectMany(profile => profile.PowerUpRules)
+            .Where(rule => rule.IsEnabled
+                && !temporarilyDisabledRuleIds.Contains(rule.Id)
+                && PowerUpSnapshotIdentityMatches(rule, bridgeEvent))
             .ToArray();
 
-        foreach (var (profile, rule) in swapPowerUpRules)
+        foreach (var rule in swapPowerUpRules)
         {
             if (AreRedeemsPaused())
             {
