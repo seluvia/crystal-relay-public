@@ -54,6 +54,8 @@
         <SolidColorBrush x:Key="TitleBarCloseHoverBrush" Color="#B43D62" />
         <SolidColorBrush x:Key="TitleBarClosePressedBrush" Color="#8C2648" />
         <SolidColorBrush x:Key="BackdropBrush" Color="#80000000" />
+        <SolidColorBrush x:Key="AttentionBrush" Color="#46390F" />
+        <SolidColorBrush x:Key="AttentionBorderBrush" Color="#D9B84F" />
         <FontFamily x:Key="HeadingFontFamily">Constantia</FontFamily>
         <FontFamily x:Key="BodyFontFamily">Verdana</FontFamily>
 
