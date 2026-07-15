@@ -1193,7 +1193,8 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             BitsRules = [.. profile.BitsRules.Select(ToPersistedRule)],
             SubsRules = [.. profile.SubsRules.Select(ToPersistedRule)],
-            PaymentRules = [.. profile.PaymentRules.Select(ToPersistedCashPaymentRule)]
+            PaymentRules = [.. profile.PaymentRules.Select(ToPersistedCashPaymentRule)],
+            PowerUpRules = [.. profile.PowerUpRules.Select(ToPersistedRule)]
         };
     }
 
@@ -1231,6 +1232,14 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
         foreach (var paymentRule in (profile.PaymentRules ?? []).Select(ToCashPaymentRule))
         {
             result.PaymentRules.Add(paymentRule);
+        }
+        if (profile.PowerUpRules is { Count: > 0 })
+        {
+            foreach (var persistedRule in profile.PowerUpRules)
+            {
+                var rule = ToRule(persistedRule);
+                result.PowerUpRules.Add(rule);
+            }
         }
         return result;
     }
@@ -3286,6 +3295,8 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
         public List<PersistedTriggerRule>? SubsRules { get; set; }
 
         public List<PersistedCashPaymentRule>? PaymentRules { get; set; }
+
+        public List<PersistedTriggerRule>? PowerUpRules { get; set; }
 
         [Obsolete("Migrated to BitsRules and SubsRules in V4. Kept for loading legacy saves.")]
         public List<PersistedTriggerRule>? BitsSubsRules { get; set; }
