@@ -52,6 +52,7 @@
     <Page Include="UniversalTriggersManagerWindow.xaml" />
     <Page Include="AvatarSwapManagerWindow.xaml" />
     <Page Include="MovementRedeemsManagerWindow.xaml" />
+    <Page Include="CashPaymentManagerWindow.xaml" />
     <Page Include="VrChatLoginWindow.xaml" />
     <Page Include="VrChatTwoFactorWindow.xaml" />
     <Page Include="RedeemGroupEditorDialog.xaml" />
@@ -61,6 +62,7 @@
     <Page Include="UserControls\InlineChannelPointRuleRowControl.xaml" />
     <Page Include="UserControls\InlinePaymentRuleRowControl.xaml" />
     <Page Include="UserControls\InlineRouletteRuleRowControl.xaml" />
+    <Page Include="UserControls\InlinePowerUpRuleRowControl.xaml" />
     <Page Include="UserControls\InlineRuleEditorControl.xaml" />
     <Page Include="UserControls\InlineSubsRuleRowControl.xaml" />
     <Page Include="UserControls\RouletteRewardSettingsControl.xaml" />
@@ -117,12 +119,16 @@
     <Compile Include="MovementRedeemsManagerWindow.xaml.cs">
       <DependentUpon>MovementRedeemsManagerWindow.xaml</DependentUpon>
     </Compile>
+    <Compile Include="CashPaymentManagerWindow.xaml.cs">
+      <DependentUpon>CashPaymentManagerWindow.xaml</DependentUpon>
+    </Compile>
     <Compile Include="ViewModels\UniversalTriggersManagerViewModel.cs" />
     <Compile Include="ViewModels\UniversalTriggerCardViewModel.cs" />
     <Compile Include="ViewModels\AvatarScalingManagerViewModel.cs" />
     <Compile Include="ViewModels\AvatarScalingSourceCardViewModel.cs" />
     <Compile Include="ViewModels\AvatarSetsManagerViewModel.cs" />
     <Compile Include="ViewModels\AvatarSetCardViewModel.cs" />
+    <Compile Include="ViewModels\CashPaymentManagerViewModel.cs" />
     <Compile Include="Converters.cs" />
     <Compile Include="Converters\UniversalTriggerValueConverters.cs" />
     <Compile Include="Converters\AvatarSwapConverters.cs" />
@@ -147,6 +153,9 @@
     </Compile>
     <Compile Include="UserControls\InlineRouletteRuleRowControl.xaml.cs">
       <DependentUpon>InlineRouletteRuleRowControl.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="UserControls\InlinePowerUpRuleRowControl.xaml.cs">
+      <DependentUpon>InlinePowerUpRuleRowControl.xaml</DependentUpon>
     </Compile>
     <Compile Include="UserControls\InlineRuleEditorControl.xaml.cs">
       <DependentUpon>InlineRuleEditorControl.xaml</DependentUpon>
@@ -283,6 +292,7 @@
     <Compile Include="UserControls\InlineBitsRuleRowViewModel.cs" />
     <Compile Include="UserControls\InlineChannelPointRuleRowViewModel.cs" />
     <Compile Include="UserControls\InlinePaymentRuleRowViewModel.cs" />
+    <Compile Include="UserControls\InlinePowerUpRuleRowViewModel.cs" />
     <Compile Include="UserControls\InlineRouletteRuleRowViewModel.cs" />
     <Compile Include="UserControls\InlineSubsRuleRowViewModel.cs" />
     <Compile Include="UserControls\IRuleRowViewModel.cs" />
