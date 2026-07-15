@@ -424,7 +424,6 @@
                                                 <WrapPanel Orientation="Horizontal">
                                                     <Button Content="💬 Chat Command" Command="{Binding DataContext.AddAdvancedTriggerCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="ChatCommand" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,4,4" />
                                                     <Button Content="👥 Follow" Command="{Binding DataContext.AddAdvancedTriggerCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="Follow" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,4,4" />
-                                                    <Button Content="⚡ Power-up" Command="{Binding DataContext.AddAdvancedTriggerCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="PowerUp" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,4,4" />
                                                 </WrapPanel>
 
                                                 <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
