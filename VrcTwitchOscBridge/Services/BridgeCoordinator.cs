@@ -3693,28 +3693,28 @@ internal BridgeCoordinator(
                 var label = !string.IsNullOrWhiteSpace(bridgeEvent.RewardTitle)
                     ? bridgeEvent.RewardTitle
                     : bridgeEvent.RewardId ?? "unknown Power Up";
-                WriteLog($"No active Power Up rule matched '{label}'.");
+                WriteLog($"No active top-level Power Up rule matched '{label}'.");
             }
-
-            return;
         }
-
-        foreach (var rule in matchingRules)
+        else
         {
-            if (rule.ActionKind == PowerUpActionKind.AvatarScaling && rule.ScaleAction is not null)
+            foreach (var rule in matchingRules)
             {
-                StartAvatarScaleRuleExecution(rule.ScaleAction, ToUniversalPowerUpEvent(bridgeEvent));
-                continue;
-            }
-
-            if (rule.TriggerAction is not null)
-            {
-                if (rule.TriggerAction is { ExtendCurrentActivity: true, ExtendSeconds: > 0 })
+                if (rule.ActionKind == PowerUpActionKind.AvatarScaling && rule.ScaleAction is not null)
                 {
-                    ExtendActiveActivityTimers(TimeSpan.FromSeconds(rule.TriggerAction.ExtendSeconds), bridgeEvent.TriggerLabel);
+                    StartAvatarScaleRuleExecution(rule.ScaleAction, ToUniversalPowerUpEvent(bridgeEvent));
                     continue;
                 }
-                await ExecuteRuleAsync(rule.TriggerAction, bridgeEvent, cancellationToken);
+
+                if (rule.TriggerAction is not null)
+                {
+                    if (rule.TriggerAction is { ExtendCurrentActivity: true, ExtendSeconds: > 0 })
+                    {
+                        ExtendActiveActivityTimers(TimeSpan.FromSeconds(rule.TriggerAction.ExtendSeconds), bridgeEvent.TriggerLabel);
+                        continue;
+                    }
+                    await ExecuteRuleAsync(rule.TriggerAction, bridgeEvent, cancellationToken);
+                }
             }
         }
 
@@ -3724,6 +3724,15 @@ internal BridgeCoordinator(
                 && !temporarilyDisabledRuleIds.Contains(rule.Id)
                 && PowerUpSnapshotIdentityMatches(rule, bridgeEvent))
             .ToArray();
+
+        if (swapPowerUpRules.Length == 0 && matchingRules.Length == 0 && !avatarScaleHandled && !fireSaleContributionHandled)
+        {
+            var label = !string.IsNullOrWhiteSpace(bridgeEvent.RewardTitle)
+                ? bridgeEvent.RewardTitle
+                : bridgeEvent.RewardId ?? "unknown Power Up";
+            WriteLog($"No active Power Up rule matched '{label}'.");
+            return;
+        }
 
         foreach (var rule in swapPowerUpRules)
         {

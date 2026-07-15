@@ -646,8 +646,33 @@
                             <TextBox Text="{Binding Rule.DurationSeconds, UpdateSourceTrigger=PropertyChanged}" />
                         </StackPanel>
                         <StackPanel Margin="8,0,0,0">
+                            <StackPanel.Style>
+                                <Style TargetType="StackPanel">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Rule.TriggerType}" Value="PowerUp">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </StackPanel.Style>
                             <TextBlock Text="{loc:Translate 'Cooldown (seconds)'}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
                             <TextBox Text="{Binding Rule.CooldownSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                        <StackPanel Margin="8,0,0,0">
+                            <StackPanel.Style>
+                                <Style TargetType="StackPanel">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Rule.TriggerType}" Value="PowerUp">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </StackPanel.Style>
+                            <TextBlock Text="{loc:Translate 'Cooldown (seconds)'}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
+                            <TextBox Text="{Binding Rule.CooldownSeconds, UpdateSourceTrigger=PropertyChanged}" IsEnabled="False" />
+                            <TextBlock Text="{loc:Translate 'Cooldown is managed by Twitch for linked Power Ups.'}" Foreground="{DynamicResource MutedBrush}" FontSize="10" FontStyle="Italic" Margin="0,4,0,0" TextWrapping="Wrap" />
                         </StackPanel>
                     </UniformGrid>
                     <StackPanel Margin="0,8,0,0"
