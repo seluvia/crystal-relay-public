@@ -9,6 +9,31 @@
         <uc:EnumToBoolConverter x:Key="EnumToBoolConverter" />
         <uc:EnumToVisibilityConverter x:Key="EnumToVisibilityConverter" />
 
+        <DataTemplate x:Key="TwitchPowerUpOptionTemplate">
+            <StackPanel>
+                <TextBlock Text="{Binding DisplayLabel}"
+                           Foreground="{DynamicResource ComboTextBrush}"
+                           TextWrapping="Wrap" />
+                <TextBlock Margin="0,2,0,0"
+                           Text="{Binding DetailText}"
+                           Foreground="{DynamicResource MutedBrush}"
+                           FontSize="11"
+                           TextWrapping="Wrap"
+                           Visibility="Collapsed">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding HasDetailText}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </StackPanel>
+        </DataTemplate>
+
         <Style x:Key="HeadingTextStyle" TargetType="TextBlock">
             <Setter Property="FontFamily" Value="{DynamicResource HeadingFontFamily}" />
         </Style>
@@ -156,7 +181,7 @@
                         <TextBlock Text="{loc:Translate 'Twitch Custom Power-up'}" Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" Margin="0,0,0,8" />
                         <TextBlock Text="{loc:Translate 'Existing Twitch Power Up'}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
                         <ComboBox ItemsSource="{Binding DataContext.PowerUpOptions, RelativeSource={RelativeSource AncestorType=Window}}"
-                                  DisplayMemberPath="DisplayLabel"
+                                  ItemTemplate="{StaticResource TwitchPowerUpOptionTemplate}"
                                   SelectedValuePath="Id"
                                   SelectedValue="{Binding Rule.PowerUpId, UpdateSourceTrigger=PropertyChanged}" />
                         <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
