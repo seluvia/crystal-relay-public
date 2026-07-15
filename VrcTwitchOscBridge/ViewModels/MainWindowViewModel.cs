@@ -3272,6 +3272,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         LoadingService.ReportProgress("twitch", PhaseStatus.Completed);
         LoadingService.ReportProgress("bridge", PhaseStatus.Active);
         await QueueRewardRefreshAsync();
+        _ = QueuePowerUpRefreshAsync();
         QueueManagedRewardSync(reason: ManagedRewardSyncReason.Startup);
         await aboutProfilesRefreshTask;
         LoadingService.ReportProgress("bridge", PhaseStatus.Completed);
@@ -5348,6 +5349,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
                 QueueBridgeRefresh();
                 QueueManagedRewardSync(0, ManagedRewardSyncReason.SettingsEdit);
             });
+        _ = QueuePowerUpRefreshAsync();
         _avatarSwapManagerWindow = new AvatarSwapManagerWindow(managerVm)
         {
             Owner = System.Windows.Application.Current?.MainWindow,

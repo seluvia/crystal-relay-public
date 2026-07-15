@@ -48,7 +48,7 @@
         <SolidColorBrush x:Key="ScrollThumbBrush" Color="#7B57D0" />
         <SolidColorBrush x:Key="ScrollThumbHoverBrush" Color="#A978FF" />
         <SolidColorBrush x:Key="ScrollThumbPressedBrush" Color="#C49FFF" />
-        <SolidColorBrush x:Key="ComboTextBrush" Color="#140C20" />
+        <SolidColorBrush x:Key="ComboTextBrush" Color="#F5EEFF" />
         <SolidColorBrush x:Key="ComboSurfaceBrush" Color="#241733" />
         <SolidColorBrush x:Key="ComboHighlightBrush" Color="#4B2B78" />
         <SolidColorBrush x:Key="ComboDropButtonBrush" Color="#2C1C48" />
