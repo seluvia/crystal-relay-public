@@ -437,7 +437,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     private MovementRedeemSet? selectedMovementRedeemSet;
     private AvatarScaleSet? selectedAvatarScaleSet;
     private AvatarScaleRule? selectedAvatarScaleRule;
-    private CashPaymentRule? selectedCashPaymentRule;
     private PowerUpRule? selectedPowerUpRule;
     private TriggerRule? selectedAvatarRule;
     private AvatarTriggerProfile? selectedAvatarProfile;
@@ -556,7 +555,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     private Guid lastSelectedSupporterRuleId = Guid.Empty;
     private Guid lastSelectedAvatarScaleSetId = Guid.Empty;
     private Guid lastSelectedAvatarScaleRuleId = Guid.Empty;
-    private Guid lastSelectedCashPaymentRuleId = Guid.Empty;
     private Guid lastSelectedPowerUpRuleId = Guid.Empty;
     private AppLanguage activeLanguageAtStartup = AppLanguage.SystemDefault;
     private ICollectionView? universalTriggersGroupedView;
@@ -705,24 +703,18 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         ];
         AvatarScalePresets = Enum.GetValues<AvatarScalePreset>();
         AvatarScaleRestoreModes = Enum.GetValues<AvatarScaleRestoreMode>();
-        CashPaymentProviderOptions =
-        [
-            new CashPaymentProviderOption(CashPaymentProvider.StreamElements, "StreamElements"),
-            new CashPaymentProviderOption(CashPaymentProvider.Streamlabs, "Streamlabs"),
-            new CashPaymentProviderOption(CashPaymentProvider.KoFi, "Ko-fi")
-        ];
-        CashPaymentCurrencyCodeOptions = []; // Deferred to InitializeAsync for faster startup.
-        CashPaymentActionKindOptions =
-        [
-            new CashPaymentActionKindOption(CashPaymentActionKind.TriggerAction, T("OSC / Avatar Action")),
-            new CashPaymentActionKindOption(CashPaymentActionKind.AvatarScaling, T("Avatar Scaling"))
-        ];
         AvatarScaleSubscriptionTierOptions =
         [
             new AvatarScaleSubscriptionTierOption(string.Empty, T("Any tier")),
             new AvatarScaleSubscriptionTierOption("1000", T("Tier 1")),
             new AvatarScaleSubscriptionTierOption("2000", T("Tier 2")),
             new AvatarScaleSubscriptionTierOption("3000", T("Tier 3"))
+        ];
+        CashPaymentProviderOptions =
+        [
+            new CashPaymentProviderOption(CashPaymentProvider.StreamElements, "StreamElements"),
+            new CashPaymentProviderOption(CashPaymentProvider.Streamlabs, "Streamlabs"),
+            new CashPaymentProviderOption(CashPaymentProvider.KoFi, "Ko-fi")
         ];
         ActionTypes = [.. allActionTypes];
         ThemeOptions =
@@ -913,6 +905,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         OpenBuiltInCommandsCommand = new RelayCommand(OpenBuiltInCommands);
         RefreshWorldCommandBlacklistCommand = new AsyncRelayCommand(RefreshWorldCommandBlacklistManuallyAsync);
         DismissMigrationNoticeCommand = new RelayCommand(DismissMigrationNotice);
+        DismissCashPaymentMigrationNoticeCommand = new RelayCommand(DismissCashPaymentMigrationNotice);
         ShowSettingsTwitchSectionCommand = new RelayCommand(() => SetActiveSettingsSection(SettingsSectionView.Twitch));
         ShowSettingsVrChatSectionCommand = new RelayCommand(() => SetActiveSettingsSection(SettingsSectionView.VrChat));
         ShowSettingsAppSectionCommand = new RelayCommand(() => SetActiveSettingsSection(SettingsSectionView.App));
@@ -920,17 +913,16 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         ShowSettingsSafetySectionCommand = new RelayCommand(() => SetActiveSettingsSection(SettingsSectionView.Safety));
         ShowAvatarTriggerRulesCommand = new RelayCommand(ShowAvatarTriggerRules);
         ShowMovementRedeemsCommand = new RelayCommand(OpenMovementRedeemsManager);
-        ShowSupporterOverridesCommand = new RelayCommand(ShowSupporterOverrides);
         ShowPowerUpsCommand = new RelayCommand(ShowPowerUps);
         OpenUniversalTriggersManagerCommand = new RelayCommand(OpenUniversalTriggersManager);
         OpenAvatarScalingManagerCommand = new RelayCommand(OpenAvatarScalingManager);
         OpenAvatarSetsManagerCommand = new RelayCommand(OpenAvatarSetsManager);
         OpenAvatarSwapManagerCommand = new RelayCommand(OpenAvatarSwapManager);
+        OpenCashPaymentManagerCommand = new RelayCommand(OpenCashPaymentManager);
         PickReturnAvatarCommand = new RelayCommand(PickReturnAvatar);
         UseCurrentAvatarForReturnCommand = new RelayCommand(UseCurrentAvatarForReturn);
         ClearReturnAvatarCommand = new RelayCommand(ClearReturnAvatar);
         ShowAvatarScalingCommand = new RelayCommand(ShowAvatarScaling);
-        ShowCashPaymentsCommand = new RelayCommand(ShowCashPayments);
         ShowRewardFireSaleCommand = new RelayCommand(ShowRewardFireSale);
 
         AddAvatarProfileCommand = new RelayCommand(AddAvatarProfile);
@@ -943,9 +935,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         UseCurrentVrChatAvatarForProfileCommand = new RelayCommand(
             UseCurrentVrChatAvatarForProfile,
             () => SelectedAvatarProfile is not null && !string.IsNullOrWhiteSpace(GetResolvedCurrentVrChatAvatarId()));
-        UseCurrentAvatarForSupporterRuleCommand = new RelayCommand(
-            UseCurrentAvatarForSupporterRule,
-            () => CanUseCurrentAvatarForSupporterRule());
         OpenAvatarPickerCommand = new RelayCommand(OpenAvatarPicker);
         AddRuleCommand = new RelayCommand(AddRule);
         AddOutfitChoiceCommand = new RelayCommand(AddOutfitChoice, () => IsViewingAvatarTriggers && SelectedAvatarProfile is not null);
@@ -970,13 +959,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         DeleteAllAvatarScaleRulesCommand = new RelayCommand(DeleteAllAvatarScaleSets, () => Settings.AvatarScaleSets.Count > 0);
         TestSelectedAvatarScaleRuleCommand = new RelayCommand(StartSelectedAvatarScaleRuleTest, CanTestSelectedAvatarScaleRule);
         OpenAvatarScaleRuleLockoutPickerCommand = new RelayCommand(OpenAvatarScaleRuleLockoutPicker, CanOpenAvatarScaleRuleLockoutPicker);
-        AddCashPaymentRuleCommand = new RelayCommand(AddCashPaymentRule);
         AddAvatarScalingCashPaymentRuleCommand = new RelayCommand(AddAvatarScalingCashPaymentRule);
-        RemoveSelectedCashPaymentRuleCommand = new RelayCommand(RemoveSelectedCashPaymentRule, () => SelectedCashPaymentRule is not null);
-        EnableAllCashPaymentRulesCommand = new RelayCommand(EnableAllCashPaymentRules, () => Settings.CashPaymentRules.Count > 0);
-        DisableAllCashPaymentRulesCommand = new RelayCommand(DisableAllCashPaymentRules, () => Settings.CashPaymentRules.Count > 0);
-        DeleteAllCashPaymentRulesCommand = new RelayCommand(DeleteAllCashPaymentRules, () => Settings.CashPaymentRules.Count > 0);
-        TestSelectedCashPaymentRuleCommand = new AsyncRelayCommand(TestSelectedCashPaymentRuleAsync, () => SelectedCashPaymentRule is not null);
         AddPowerUpRuleCommand = new RelayCommand(AddPowerUpRule);
         AddAvatarScalingPowerUpRuleCommand = new RelayCommand(AddAvatarScalingPowerUpRule);
         RemoveSelectedPowerUpRuleCommand = new RelayCommand(RemoveSelectedPowerUpRule, () => SelectedPowerUpRule is not null);
@@ -992,7 +975,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         OpenSpecialRuleLockoutPickerCommand = new RelayCommand(OpenSpecialRuleLockoutPicker, CanOpenSpecialRuleLockoutPicker);
         OpenAvatarRouletPoolPickerCommand = new RelayCommand(OpenAvatarRouletPoolPicker, CanOpenAvatarRouletPoolPicker);
         OpenActiveFloatBoostRewardCommand = new RelayCommand(OpenActiveFloatBoostReward, CanOpenActiveFloatBoostReward);
-        OpenSupporterOverrideTimeSettingsCommand = new RelayCommand(OpenSupporterOverrideTimeSettings, CanOpenSupporterOverrideTimeSettings);
         AddSetTriggerActionCommand = new RelayCommand(AddSetTriggerAction, () => SelectedRule?.ActionType == OscActionType.SetTrigger);
         RemoveSelectedSetTriggerActionCommand = new RelayCommand(RemoveSelectedSetTriggerAction, () => SelectedRule?.ActionType == OscActionType.SetTrigger && SelectedSetTriggerAction is not null);
         CopySelectedAvatarParameterPathCommand = new RelayCommand(CopySelectedAvatarParameterPath, CanCopySelectedAvatarParameterPath);
@@ -1224,10 +1206,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     public IReadOnlyList<TwitchTriggerType> OverrideTriggerTypes { get; }
 
-    public IReadOnlyList<TwitchTriggerType> AvailableOverrideTriggerTypesForSelectedRule =>
-        IsViewingSupporterOverrides && SelectedRule?.ActionType == OscActionType.PlayerMovement
-            ? [TwitchTriggerType.Bits]
-            : OverrideTriggerTypes;
+    public IReadOnlyList<TwitchTriggerType> AvailableOverrideTriggerTypesForSelectedRule => OverrideTriggerTypes;
 
     public IReadOnlyList<AvatarScaleTriggerType> AvatarScaleTriggerTypes { get; }
 
@@ -1252,11 +1231,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     public IReadOnlyList<AvatarScaleRestoreMode> AvatarScaleRestoreModes { get; }
 
-    public IReadOnlyList<CashPaymentProviderOption> CashPaymentProviderOptions { get; }
-
     public IReadOnlyList<string> CashPaymentCurrencyCodeOptions { get; private set; } = [];
 
-    public IReadOnlyList<CashPaymentActionKindOption> CashPaymentActionKindOptions { get; }
+    public IReadOnlyList<CashPaymentProviderOption> CashPaymentProviderOptions { get; }
 
     public IReadOnlyList<AvatarScaleSubscriptionTierOption> AvatarScaleSubscriptionTierOptions { get; }
 
@@ -1392,6 +1369,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         !Settings.AvatarSwapMigrationNoticeShown
         && Settings.AvatarChangeToAvatarSwapMigrationVersion >= AvatarSwapMigrationService.CurrentMigrationVersion;
 
+    public bool ShowCashPaymentMigrationNotice =>
+        !Settings.CashPaymentMigrationNoticeShown;
+
     public string UiOpacityStatusText => TF("UI Opacity: {0}%", Settings.InterfaceOpacityPercent);
 
     public AppTheme SelectedTheme
@@ -1447,13 +1427,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     public bool IsViewingMovementRedeems => activeRuleListView == RuleListView.MovementRedeems;
 
-    public bool IsViewingSupporterOverrides => activeRuleListView == RuleListView.SupporterOverrides;
-
     public bool IsViewingPowerUps => activeRuleListView == RuleListView.PowerUps;
 
     public bool IsViewingAvatarScaling => activeRuleListView == RuleListView.AvatarScaling;
-
-    public bool IsViewingCashPayments => activeRuleListView == RuleListView.CashPayments;
 
     public bool IsViewingRewardFireSale => activeRuleListView == RuleListView.RewardFireSale;
 
@@ -1565,8 +1541,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     public IReadOnlyList<AvatarScaleSet> AvatarScaleSets => Settings.AvatarScaleSets.ToArray();
 
     public IReadOnlyList<AvatarScaleRule> AvatarScaleRules => SelectedAvatarScaleSet?.ScaleRules.ToArray() ?? [];
-
-    public IReadOnlyList<CashPaymentRule> CashPaymentRules => Settings.CashPaymentRules.ToArray();
 
     public IReadOnlyList<UniversalTriggerRule> UniversalChatCommandTriggers => GetUniversalTriggersByType(UniversalTriggerType.ChatCommand);
 
@@ -1717,14 +1691,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     public string SelectedRuleCollectionTitle => IsViewingRewardFireSale
         ? T("Reward Fire Sale")
-        : IsViewingCashPayments
-        ? T("Cash Payments")
         : IsViewingPowerUps
         ? T("Power Up")
         : IsViewingAvatarScaling
         ? T("Avatar Scaling")
-        : IsViewingSupporterOverrides
-        ? T("Bits + Subs Overrides")
         : IsViewingMovementRedeems
             ? T("Movement Sets")
         : IsViewingMasterAvatar
@@ -1733,14 +1703,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     public string SelectedRuleCollectionHelpText => IsViewingRewardFireSale
         ? T("Build a shared Bits and funding reward goal that discounts Crystal Relay-owned channel point redeems. Linked Twitch rewards stay listen-only and are never repriced.")
-        : IsViewingCashPayments
-        ? T("Use Cash Payments for tip and donation triggers from StreamElements, Streamlabs, and Ko-fi. These rules do not create Twitch rewards.")
         : IsViewingPowerUps
         ? T("Link Twitch Custom Power-ups paid with Bits, then choose the Crystal Relay action each Power Up should run. Linked Power Ups are listen-only in this beta build.")
         : IsViewingAvatarScaling
         ? T("Use Scale Sets to organize VRChat OSC avatar height scaling. Scale redeems send /avatar/eyeheight and stay separate from avatar sets, movement, universal triggers, and paid overrides.")
-        : IsViewingSupporterOverrides
-        ? T("Use this list for paid Twitch triggers like bits and subscriptions. Avatar Supporter Triggers are tied directly to one VRChat avatar, while Avatar Change Overrides stay global so outfit-name Bits triggers do not fight avatar swaps.")
         : IsViewingMovementRedeems
             ? T("Use Movement Sets to organize global movement redeems. The sets are folders only; every movement redeem still works across every avatar and keeps its existing Twitch reward link.")
         : IsViewingMasterAvatar
@@ -1751,14 +1717,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     public string RuleLibraryHelpText => IsViewingRewardFireSale
         ? T("Reward Fire Sale tracks Bits and the optional Fire Sale funding reward toward a discount goal. The sale changes only Crystal Relay-created reward prices when the goal starts or ends.")
-        : IsViewingCashPayments
-            ? T("This tab is for cash payment triggers. Connect StreamElements, Streamlabs, or Ko-fi, then add rules that fire OSC, avatar-change, roulette, Set Trigger, or avatar-scaling actions.")
         : IsViewingPowerUps
             ? T("This tab is for Twitch Custom Power-ups. Power Ups use Bits, stay separate from normal cheers, and can run OSC, avatar, movement, Set Trigger, or Avatar Scaling actions.")
         : IsViewingAvatarScaling
         ? T("This tab is for avatar height scale redeems using VRChat OSC Avatar Scaling. Use Scale Sets to keep different height reward ideas organized without changing how the triggers run.")
-        : IsViewingSupporterOverrides
-        ? T("This tab is for paid Twitch triggers. Use Avatar Supporter Triggers for current-avatar bits/subs actions and Bits outfit Set Triggers, and keep avatar-change paid overrides in their own group.")
         : IsViewingMovementRedeems
             ? T("This tab is for organizing global movement redeems like forward, back, left, right, and spin. Movement Sets do not add avatar matching; they only keep the movement library easier to manage.")
             : IsViewingMasterAvatar
@@ -1767,14 +1729,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     public string AddRuleButtonText => IsViewingRewardFireSale
         ? T("Add Fire Sale Tier")
-        : IsViewingCashPayments
-        ? T("Add Cash Rule")
         : IsViewingPowerUps
         ? T("Add Power Up")
         : IsViewingAvatarScaling
         ? T("Add Scale Redeem")
-        : IsViewingSupporterOverrides
-        ? T("Add Avatar Supporter Trigger")
         : IsViewingMovementRedeems
             ? T("Add Movement Redeem")
         : IsViewingMasterAvatar
@@ -1783,14 +1741,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     public string DeleteRuleButtonText => IsViewingRewardFireSale
         ? T("Delete Fire Sale Tier")
-        : IsViewingCashPayments
-        ? T("Delete Cash Rule")
         : IsViewingPowerUps
         ? T("Delete Power Up")
         : IsViewingAvatarScaling
         ? T("Delete Scale Redeem")
-        : IsViewingSupporterOverrides
-        ? T("Delete Override")
         : IsViewingMovementRedeems
             ? T("Delete Movement Redeem")
         : IsViewingMasterAvatar
@@ -1799,14 +1753,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     public string DeleteAllRulesButtonText => IsViewingRewardFireSale
         ? T("Reset Fire Sale Progress")
-        : IsViewingCashPayments
-        ? T("Delete All Cash Rules")
         : IsViewingPowerUps
         ? T("Delete All Power Ups")
         : IsViewingAvatarScaling
         ? T("Delete All Scale Sets")
-        : IsViewingSupporterOverrides
-        ? T("Delete All Overrides")
         : IsViewingMovementRedeems
             ? T("Delete All Movement Sets")
         : IsViewingMasterAvatar
@@ -1815,14 +1765,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     public string SelectedRuleEmptyStateText => IsViewingRewardFireSale
         ? T("Use the Reward Fire Sale setup to edit sale sources, tiers, and duration.")
-        : IsViewingCashPayments
-        ? T("Add or select a cash payment rule to edit it.")
         : IsViewingPowerUps
         ? T("Add or select a Power Up rule to edit it.")
         : IsViewingAvatarScaling
         ? T("Select or add a scale set, then add a scale redeem to edit it.")
-        : IsViewingSupporterOverrides
-        ? T("Add or select a bits/subs trigger to edit it.")
         : IsViewingMovementRedeems
             ? T("Select a movement set, then add a movement redeem to edit it.")
         : IsViewingMasterAvatar
@@ -1981,30 +1927,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         }
     }
 
-    public string CashPaymentConnectionHelpText => T("Cash Payments listen for StreamElements tips, Streamlabs donations, and Ko-fi payments. Ko-fi uses the Crystal Relay hosted relay by default, with a local webhook fallback for advanced setups. Tokens, client secrets, and webhook verification secrets are stored in Windows Credential Manager.");
-
-    public string CashPaymentRuleStatusText
-    {
-        get
-        {
-            var rule = SelectedCashPaymentRule;
-            if (rule is null)
-            {
-                return T("Add or select a cash payment rule to edit its provider, amount filters, and action.");
-            }
-
-            var rangeText = rule.MaximumAmount > 0
-                ? $"{rule.MinimumAmount:0.##}-{rule.MaximumAmount:0.##}"
-                : $"{rule.MinimumAmount:0.##}+";
-            var currencyText = string.IsNullOrWhiteSpace(rule.CurrencyCode) ? T("any currency") : rule.CurrencyCode;
-            return TF("{0} listens for {1} {2} payments from {3}.", rule.DisplayTitle, rangeText, currencyText, rule.ProviderDisplayName);
-        }
-    }
-
-    public string CashPaymentActionEditorHelpText => SelectedCashPaymentRule?.UsesAvatarScaling == true
-        ? T("This cash rule runs an Avatar Scaling action and does not create a Twitch reward.")
-        : T("This cash rule runs the same OSC, Set Trigger, Avatar Change, or Avatar Roulette actions as other redeems, but it is triggered by a cash payment instead of Twitch.");
-
     public string PowerUpRuleStatusText
     {
         get
@@ -2122,11 +2044,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
                 return GetActionTypeOptionsForSelectedContext(option => option.Value == OscActionType.PlayerMovement);
             }
 
-            if (IsViewingSupporterOverrides)
-            {
-                return GetSupporterActionTypeOptionsForSelectedRule();
-            }
-
             if (IsViewingPowerUps)
             {
                 return GetActionTypeOptionsForSelectedContext(option =>
@@ -2135,15 +2052,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
                         or OscActionType.AvatarChange
                         or OscActionType.AvatarRoulet
                         or OscActionType.PlayerMovement);
-            }
-
-            if (IsViewingCashPayments)
-            {
-                return GetActionTypeOptionsForSelectedContext(option =>
-                    option.Value is OscActionType.AvatarParameter
-                        or OscActionType.SetTrigger
-                        or OscActionType.AvatarChange
-                        or OscActionType.AvatarRoulet);
             }
 
             if (IsViewingAvatarTriggers)
@@ -2396,7 +2304,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
                 AddSetTriggerActionCommand.NotifyCanExecuteChanged();
                 RemoveSelectedSetTriggerActionCommand.NotifyCanExecuteChanged();
                 OpenActiveFloatBoostRewardCommand.NotifyCanExecuteChanged();
-                OpenSupporterOverrideTimeSettingsCommand.NotifyCanExecuteChanged();
                 RefreshAvatarParameterPathCommandStates();
                 RememberSelectedRuleForCurrentView(value);
                 RaisePropertyChanged(nameof(ChatCommandFallbackHelpText));
@@ -2473,32 +2380,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
                 RaisePropertyChanged(nameof(AvailableAvatarScaleTriggerTypesForSelectedRule));
                 RaisePropertyChanged(nameof(AvatarScaleRuntimeStatusText));
                 RaisePropertyChanged(nameof(AvatarScaleRuleLockoutSummaryText));
-            }
-        }
-    }
-
-    public CashPaymentRule? SelectedCashPaymentRule
-    {
-        get => selectedCashPaymentRule;
-        set
-        {
-            if (SetProperty(ref selectedCashPaymentRule, value))
-            {
-                lastSelectedCashPaymentRuleId = value?.Id ?? Guid.Empty;
-                if (IsViewingCashPayments)
-                {
-                    SelectedRule = value?.UsesTriggerAction == true ? value.TriggerAction : null;
-                    SelectedAvatarScaleRule = value?.UsesAvatarScaling == true ? value.ScaleAction : null;
-                }
-
-                RemoveSelectedCashPaymentRuleCommand.NotifyCanExecuteChanged();
-                TestSelectedCashPaymentRuleCommand.NotifyCanExecuteChanged();
-                RaisePropertyChanged(nameof(SelectedCashPaymentRule));
-                RaisePropertyChanged(nameof(CashPaymentRuleStatusText));
-                RaisePropertyChanged(nameof(CashPaymentActionEditorHelpText));
-                RefreshAvailableActionTypes();
-                RefreshAvatarParameterOptions();
-                _ = EnsureSelectedAvatarParameterCacheLoadedAsync();
             }
         }
     }
@@ -3094,6 +2975,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     ICommand ITwitchRewardSource.UnlinkTwitchRewardCommand => UnlinkTwitchRewardCommand;
 
+    ObservableCollection<TwitchPowerUpOption> ITwitchRewardSource.PowerUpOptions => PowerUpOptions;
+
     public RelayCommand UnlinkWardrobeMasterRewardCommand { get; }
 
     public AsyncRelayCommand TestSelectedRuleCommand { get; }
@@ -3156,6 +3039,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     public RelayCommand DismissMigrationNoticeCommand { get; }
 
+    public RelayCommand DismissCashPaymentMigrationNoticeCommand { get; }
+
     public RelayCommand ShowSettingsTwitchSectionCommand { get; }
 
     public RelayCommand ShowSettingsVrChatSectionCommand { get; }
@@ -3170,8 +3055,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     public RelayCommand ShowMovementRedeemsCommand { get; }
 
-    public RelayCommand ShowSupporterOverridesCommand { get; }
-
     public RelayCommand ShowPowerUpsCommand { get; }
 
     public RelayCommand OpenUniversalTriggersManagerCommand { get; }
@@ -3180,9 +3063,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     public RelayCommand OpenAvatarSetsManagerCommand { get; }
 
-    public RelayCommand ShowAvatarScalingCommand { get; }
+    public RelayCommand OpenCashPaymentManagerCommand { get; }
 
-    public RelayCommand ShowCashPaymentsCommand { get; }
+    public RelayCommand ShowAvatarScalingCommand { get; }
 
     public RelayCommand ShowRewardFireSaleCommand { get; }
 
@@ -3201,8 +3084,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     public RelayCommand ToggleDesktopModeInputLockCommand { get; }
 
     public RelayCommand UseCurrentVrChatAvatarForProfileCommand { get; }
-
-    public RelayCommand UseCurrentAvatarForSupporterRuleCommand { get; }
 
     public RelayCommand OpenAvatarPickerCommand { get; }
 
@@ -3246,19 +3127,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     public RelayCommand OpenAvatarScaleRuleLockoutPickerCommand { get; }
 
-    public RelayCommand AddCashPaymentRuleCommand { get; }
-
     public RelayCommand AddAvatarScalingCashPaymentRuleCommand { get; }
-
-    public RelayCommand RemoveSelectedCashPaymentRuleCommand { get; }
-
-    public RelayCommand EnableAllCashPaymentRulesCommand { get; }
-
-    public RelayCommand DisableAllCashPaymentRulesCommand { get; }
-
-    public RelayCommand DeleteAllCashPaymentRulesCommand { get; }
-
-    public AsyncRelayCommand TestSelectedCashPaymentRuleCommand { get; }
 
     public RelayCommand AddPowerUpRuleCommand { get; }
 
@@ -3285,8 +3154,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     public RelayCommand OpenAvatarRouletPoolPickerCommand { get; }
 
     public RelayCommand OpenActiveFloatBoostRewardCommand { get; }
-
-    public RelayCommand OpenSupporterOverrideTimeSettingsCommand { get; }
 
     public RelayCommand AddSetTriggerActionCommand { get; }
 
@@ -3902,6 +3769,17 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         }
 
         Settings.AvatarSwapMigrationNoticeShown = true;
+        _ = SaveSettingsAsync();
+    }
+
+    private void DismissCashPaymentMigrationNotice()
+    {
+        if (Settings.CashPaymentMigrationNoticeShown)
+        {
+            return;
+        }
+
+        Settings.CashPaymentMigrationNoticeShown = true;
         _ = SaveSettingsAsync();
     }
 
@@ -4553,10 +4431,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         RunOnUi(() =>
         {
             var isEditingPowerUp = IsViewingPowerUps && SelectedPowerUpRule is not null;
-            var needsProfileAvatarOptions = !IsViewingSupporterOverrides && !IsViewingPowerUps;
-            var needsSupporterAvatarOptions = IsViewingSupporterOverrides
-                && SelectedRule is not null
-                && !IsSupporterAvatarChangeOverride(SelectedRule);
+            var needsProfileAvatarOptions = !IsViewingPowerUps;
+            var needsSupporterAvatarOptions = false;
             var needsAvatarChangeOptions = SelectedRule?.ActionType == OscActionType.AvatarChange;
             var needsPowerUpAvatarOptions = isEditingPowerUp;
             if (!needsProfileAvatarOptions && !needsSupporterAvatarOptions && !needsAvatarChangeOptions && !needsPowerUpAvatarOptions)
@@ -5371,11 +5247,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         SwitchRuleView(RuleListView.AvatarTriggers, profile, rule);
     }
 
-    private void ShowSupporterOverrides()
-    {
-        SwitchRuleView(RuleListView.SupporterOverrides, profile: null, GetRememberedSupporterRule());
-    }
-
     private void ShowPowerUps()
     {
         SwitchRuleView(RuleListView.PowerUps, profile: null, rule: null);
@@ -5392,6 +5263,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     private AvatarSwapManagerWindow? _avatarSwapManagerWindow;
 
     private MovementRedeemsManagerWindow? _movementRedeemsManagerWindow;
+    private CashPaymentManagerWindow? _cashPaymentManagerWindow;
 
     private readonly AvatarImageService _masterAvatarReturnImageService = new();
     private System.Windows.Media.ImageSource? _masterAvatarReturnImage;
@@ -5499,6 +5371,23 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         };
         _movementRedeemsManagerWindow.Closed += (_, _) => _movementRedeemsManagerWindow = null;
         _movementRedeemsManagerWindow.Show();
+    }
+
+    private void OpenCashPaymentManager()
+    {
+        if (_cashPaymentManagerWindow is { IsVisible: true })
+        {
+            _cashPaymentManagerWindow.Activate();
+            return;
+        }
+
+        var managerVm = new CashPaymentManagerViewModel(Settings, this);
+        _cashPaymentManagerWindow = new CashPaymentManagerWindow(managerVm)
+        {
+            Owner = System.Windows.Application.Current?.MainWindow,
+        };
+        _cashPaymentManagerWindow.Closed += (_, _) => _cashPaymentManagerWindow = null;
+        _cashPaymentManagerWindow.Show();
     }
 
     public System.Windows.Media.ImageSource? MasterAvatarReturnImage
@@ -5615,12 +5504,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         SelectedAvatarScaleSet = GetRememberedAvatarScaleSet();
         SelectedAvatarScaleRule = GetRememberedAvatarScaleRule();
         QueueManagedRewardSync(0);
-    }
-
-    private void ShowCashPayments()
-    {
-        SwitchRuleView(RuleListView.CashPayments, profile: null, rule: null);
-        SelectedCashPaymentRule = GetRememberedCashPaymentRule();
     }
 
     private void ShowRewardFireSale()
@@ -6560,17 +6443,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         RefreshVrChatAvatarSelectionOptions();
     }
 
-    private bool CanUseCurrentAvatarForSupporterRule()
-    {
-        return IsViewingSupporterOverrides
-            && SelectedRule is not null
-            && !IsSupporterAvatarChangeOverride(SelectedRule)
-            && !string.IsNullOrWhiteSpace(Settings.VrChat.CurrentAvatarId);
-    }
-
     private void UseCurrentAvatarForSupporterRule()
     {
-        if (!CanUseCurrentAvatarForSupporterRule() || SelectedRule is null)
+        if (SelectedRule is null)
         {
             return;
         }
@@ -6639,19 +6514,13 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     private void AddRule()
     {
-        var rule = IsViewingSupporterOverrides
-            ? CreateDefaultOverrideRule()
-            : IsViewingMovementRedeems
+        var rule = IsViewingMovementRedeems
                 ? CreateDefaultMovementRule()
             : IsViewingMasterAvatar
                 ? CreateDefaultMasterAvatarRule()
                 : CreateDefaultAvatarProfileRule();
 
-        if (IsViewingSupporterOverrides)
-        {
-            Settings.GlobalOverrideRules.Add(rule);
-        }
-        else if (IsViewingMovementRedeems)
+        if (IsViewingMovementRedeems)
         {
             EnsureSelectedMovementRedeemSet();
             if (SelectedMovementRedeemSet is null)
@@ -6688,9 +6557,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         SelectedRule = rule;
         QueueSave();
         QueueBridgeRefresh();
-        AppendLog(IsViewingSupporterOverrides
-            ? $"Added override '{rule.DisplayTitle}'."
-            : IsViewingMovementRedeems
+        AppendLog(IsViewingMovementRedeems
                 ? $"Added movement redeem '{rule.DisplayTitle}'."
                 : IsViewingMasterAvatar
                     ? $"Added master trigger '{rule.DisplayTitle}'."
@@ -6980,12 +6847,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
         var removedName = SelectedRule.DisplayTitle;
         var removedRule = SelectedRule;
-        if (IsViewingSupporterOverrides)
-        {
-            Settings.GlobalOverrideRules.Remove(SelectedRule);
-            SelectedRule = Settings.GlobalOverrideRules.FirstOrDefault();
-        }
-        else if (IsViewingMovementRedeems)
+        if (IsViewingMovementRedeems)
         {
             SelectedMovementRedeemSet?.MovementRules.Remove(SelectedRule);
             SelectedRule = SelectedMovementRedeemSet?.MovementRules.FirstOrDefault();
@@ -7004,7 +6866,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         RemoveSpecialRuleLockoutReferencesToRule(removedRule.Id);
         RefreshSpecialRuleLockoutOptions();
 
-        if (!IsViewingSupporterOverrides && !IsViewingMovementRedeems)
+        if (!IsViewingMovementRedeems)
         {
             RetireManagedRewards([removedRule]);
         }
@@ -7051,7 +6913,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
         var currentRules = GetCurrentEditableRuleCollection();
         var removedCount = currentRules.Count;
-        if (!IsViewingSupporterOverrides && !IsViewingMovementRedeems)
+        if (!IsViewingMovementRedeems)
         {
             RetireManagedRewards(currentRules.ToArray());
         }
@@ -7167,10 +7029,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     public void DeleteCashPaymentRuleByCard(CashPaymentRule rule)
     {
         Settings.CashPaymentRules.Remove(rule);
-        if (ReferenceEquals(SelectedCashPaymentRule, rule))
-        {
-            SelectedCashPaymentRule = GetRememberedCashPaymentRule();
-        }
         QueueSave();
         QueueBridgeRefresh();
         AppendLog($"Removed cash payment rule '{rule.DisplayTitle}'.");
@@ -7232,26 +7090,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         AppendLog($"Deleted {removedCount} avatar scale set{(removedCount == 1 ? string.Empty : "s")}.");
     }
 
-    private static CashPaymentRule CreateDefaultCashPaymentRule()
-    {
-        var rule = new CashPaymentRule
-        {
-            Name = "New Cash Payment",
-            Provider = CashPaymentProvider.StreamElements,
-            MinimumAmount = 1m,
-            MaximumAmount = 0m,
-            CurrencyCode = string.Empty,
-            MessageContains = string.Empty,
-            CooldownSeconds = 30,
-            ActionKind = CashPaymentActionKind.TriggerAction
-        };
-        rule.TriggerAction = CashPaymentRule.CreateDefaultTriggerAction();
-        rule.TriggerAction.Name = rule.Name;
-        rule.ScaleAction = CashPaymentRule.CreateDefaultScaleAction();
-        rule.ScaleAction.Name = rule.Name;
-        return rule;
-    }
-
     private static CashPaymentRule CreateDefaultAvatarScalingCashPaymentRule()
     {
         var rule = new CashPaymentRule
@@ -7270,80 +7108,13 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         return rule;
     }
 
-    private void AddCashPaymentRule()
-    {
-        var rule = CreateDefaultCashPaymentRule();
-        Settings.CashPaymentRules.Add(rule);
-        SelectedCashPaymentRule = rule;
-        QueueSave();
-        QueueBridgeRefresh();
-        AppendLog($"Added cash payment rule '{rule.DisplayTitle}'.");
-    }
-
     private void AddAvatarScalingCashPaymentRule()
     {
         var rule = CreateDefaultAvatarScalingCashPaymentRule();
         Settings.CashPaymentRules.Add(rule);
-        SelectedCashPaymentRule = rule;
         QueueSave();
         QueueBridgeRefresh();
         AppendLog($"Added cash payment scaling rule '{rule.DisplayTitle}'.");
-    }
-
-    private void RemoveSelectedCashPaymentRule()
-    {
-        if (SelectedCashPaymentRule is null)
-        {
-            return;
-        }
-
-        var removedName = SelectedCashPaymentRule.DisplayTitle;
-        Settings.CashPaymentRules.Remove(SelectedCashPaymentRule);
-        SelectedCashPaymentRule = GetRememberedCashPaymentRule();
-        QueueSave();
-        QueueBridgeRefresh();
-        AppendLog($"Removed cash payment rule '{removedName}'.");
-    }
-
-    private void EnableAllCashPaymentRules()
-    {
-        foreach (var rule in Settings.CashPaymentRules.Where(rule => !rule.IsEnabled))
-        {
-            rule.IsEnabled = true;
-        }
-
-        QueueSave();
-        QueueBridgeRefresh();
-        AppendLog("Enabled all cash payment rules.");
-    }
-
-    private void DisableAllCashPaymentRules()
-    {
-        foreach (var rule in Settings.CashPaymentRules.Where(rule => rule.IsEnabled))
-        {
-            rule.IsEnabled = false;
-        }
-
-        QueueSave();
-        QueueBridgeRefresh();
-        AppendLog("Disabled all cash payment rules.");
-    }
-
-    private void DeleteAllCashPaymentRules()
-    {
-        if (!ConfirmDeleteAll(
-            "Delete Cash Payment Rules",
-            "Are you sure you want to delete every cash payment rule? This cannot be undone. Provider connection settings and saved credentials are kept."))
-        {
-            return;
-        }
-
-        var removedCount = Settings.CashPaymentRules.Count;
-        Settings.CashPaymentRules.Clear();
-        SelectedCashPaymentRule = null;
-        QueueSave();
-        QueueBridgeRefresh();
-        AppendLog($"Deleted {removedCount} cash payment rule{(removedCount == 1 ? string.Empty : "s")}.");
     }
 
     private static PowerUpRule CreateDefaultPowerUpRule()
@@ -7842,20 +7613,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         return rememberedRuleOwner ?? Settings.AvatarScaleSets.FirstOrDefault();
     }
 
-    private CashPaymentRule? GetRememberedCashPaymentRule()
-    {
-        if (lastSelectedCashPaymentRuleId != Guid.Empty)
-        {
-            var rememberedRule = Settings.CashPaymentRules.FirstOrDefault(rule => rule.Id == lastSelectedCashPaymentRuleId);
-            if (rememberedRule is not null)
-            {
-                return rememberedRule;
-            }
-        }
-
-        return Settings.CashPaymentRules.FirstOrDefault();
-    }
-
     private PowerUpRule? GetRememberedPowerUpRule()
     {
         if (lastSelectedPowerUpRuleId != Guid.Empty)
@@ -7945,12 +7702,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             return;
         }
 
-        if (IsViewingSupporterOverrides)
-        {
-            lastSelectedSupporterRuleId = rule.Id;
-            return;
-        }
-
         if (IsViewingPowerUps)
         {
             var owner = Settings.PowerUpRules.FirstOrDefault(powerUp => ReferenceEquals(powerUp.ActionRule, rule));
@@ -8016,10 +7767,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         RaisePropertyChanged(nameof(IsViewingAvatarTriggers));
         RaisePropertyChanged(nameof(IsViewingMasterAvatar));
         RaisePropertyChanged(nameof(IsViewingMovementRedeems));
-        RaisePropertyChanged(nameof(IsViewingSupporterOverrides));
         RaisePropertyChanged(nameof(IsViewingPowerUps));
         RaisePropertyChanged(nameof(IsViewingAvatarScaling));
-        RaisePropertyChanged(nameof(IsViewingCashPayments));
         RaisePropertyChanged(nameof(IsViewingRewardFireSale));
 
         isSwitchingRuleView = true;
@@ -8043,11 +7792,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             {
                 SelectedAvatarScaleSet = null;
                 SelectedAvatarScaleRule = null;
-            }
-
-            if (targetView != RuleListView.CashPayments)
-            {
-                SelectedCashPaymentRule = null;
             }
 
             if (targetView != RuleListView.PowerUps)
@@ -8085,8 +7829,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         appSettings.UniversalTriggers.CollectionChanged += UniversalTriggersCollectionChanged;
         appSettings.AvatarScaleSets.CollectionChanged += AvatarScaleSetsCollectionChanged;
         appSettings.AvatarScaleMasterReward.PropertyChanged += AvatarScaleMasterRewardChanged;
-        appSettings.CashPayments.PropertyChanged += CashPaymentConnectionsChanged;
-        appSettings.CashPaymentRules.CollectionChanged += CashPaymentRulesCollectionChanged;
         appSettings.PowerUpRules.CollectionChanged += PowerUpRulesCollectionChanged;
         appSettings.AvatarScaleSafety.PropertyChanged += AvatarScaleSafetyChanged;
         WireRewardFireSale(appSettings.RewardFireSale);
@@ -8116,11 +7858,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             WireAvatarScaleSet(scaleSet);
         }
 
-        foreach (var cashRule in appSettings.CashPaymentRules)
-        {
-            WireCashPaymentRule(cashRule);
-        }
-
         foreach (var powerUpRule in appSettings.PowerUpRules)
         {
             WirePowerUpRule(powerUpRule);
@@ -8140,8 +7877,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         appSettings.UniversalTriggers.CollectionChanged -= UniversalTriggersCollectionChanged;
         appSettings.AvatarScaleSets.CollectionChanged -= AvatarScaleSetsCollectionChanged;
         appSettings.AvatarScaleMasterReward.PropertyChanged -= AvatarScaleMasterRewardChanged;
-        appSettings.CashPayments.PropertyChanged -= CashPaymentConnectionsChanged;
-        appSettings.CashPaymentRules.CollectionChanged -= CashPaymentRulesCollectionChanged;
         appSettings.PowerUpRules.CollectionChanged -= PowerUpRulesCollectionChanged;
         appSettings.AvatarScaleSafety.PropertyChanged -= AvatarScaleSafetyChanged;
         UnwireRewardFireSale(appSettings.RewardFireSale);
@@ -8169,11 +7904,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         foreach (var scaleSet in appSettings.AvatarScaleSets)
         {
             UnwireAvatarScaleSet(scaleSet);
-        }
-
-        foreach (var cashRule in appSettings.CashPaymentRules)
-        {
-            UnwireCashPaymentRule(cashRule);
         }
 
         foreach (var powerUpRule in appSettings.PowerUpRules)
@@ -8223,7 +7953,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         RaisePropertyChanged(nameof(MovementRedeemSets));
         RaisePropertyChanged(nameof(AvatarScaleSets));
         RaisePropertyChanged(nameof(AvatarScaleRules));
-        RaisePropertyChanged(nameof(CashPaymentRules));
         RaisePropertyChanged(nameof(SelectedLanguageOption));
         RaisePropertyChanged(nameof(IsLanguageRestartNoticeVisible));
         RaisePropertyChanged(nameof(LanguageRestartNoticeText));
@@ -8678,78 +8407,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         }
     }
 
-    private void CashPaymentConnectionsChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        QueueSave();
-        QueueBridgeRefresh();
-        RaisePropertyChanged(nameof(CashPaymentConnectionHelpText));
-    }
-
-    private void CashPaymentRulesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        if (e.NewItems is not null)
-        {
-            foreach (CashPaymentRule rule in e.NewItems)
-            {
-                WireCashPaymentRule(rule);
-            }
-        }
-
-        if (e.OldItems is not null)
-        {
-            foreach (CashPaymentRule rule in e.OldItems)
-            {
-                UnwireCashPaymentRule(rule);
-                if (lastSelectedCashPaymentRuleId == rule.Id)
-                {
-                    lastSelectedCashPaymentRuleId = Guid.Empty;
-                }
-            }
-        }
-
-        if (IsViewingCashPayments && SelectedCashPaymentRule is not null && !Settings.CashPaymentRules.Contains(SelectedCashPaymentRule))
-        {
-            SelectedCashPaymentRule = GetRememberedCashPaymentRule();
-        }
-
-        RaisePropertyChanged(nameof(CashPaymentRules));
-        QueueSave();
-        QueueBridgeRefresh();
-        RefreshRuleCommandStates();
-    }
-
-    private void WireCashPaymentRule(CashPaymentRule rule)
-    {
-        rule.PropertyChanged += CashPaymentRuleChanged;
-    }
-
-    private void UnwireCashPaymentRule(CashPaymentRule rule)
-    {
-        rule.PropertyChanged -= CashPaymentRuleChanged;
-    }
-
-    private void CashPaymentRuleChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (sender is CashPaymentRule rule && ReferenceEquals(rule, SelectedCashPaymentRule))
-        {
-            if (e.PropertyName == nameof(CashPaymentRule.ActionKind)
-                || e.PropertyName == nameof(CashPaymentRule.TriggerAction)
-                || e.PropertyName == nameof(CashPaymentRule.ScaleAction))
-            {
-                SelectedRule = rule.UsesTriggerAction ? rule.TriggerAction : null;
-                SelectedAvatarScaleRule = rule.UsesAvatarScaling ? rule.ScaleAction : null;
-            }
-
-            RaisePropertyChanged(nameof(CashPaymentRuleStatusText));
-            RaisePropertyChanged(nameof(CashPaymentActionEditorHelpText));
-        }
-
-        RaisePropertyChanged(nameof(CashPaymentRules));
-        QueueSave();
-        QueueBridgeRefresh();
-        RefreshRuleCommandStates();
-    }
-
     private void PowerUpRulesCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         if (e.NewItems is not null)
@@ -8939,7 +8596,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         _ = EnsureSelectedAvatarParameterCacheLoadedAsync();
         OpenAvatarRouletPoolPickerCommand.NotifyCanExecuteChanged();
         OpenActiveFloatBoostRewardCommand.NotifyCanExecuteChanged();
-        OpenSupporterOverrideTimeSettingsCommand.NotifyCanExecuteChanged();
         AddSetTriggerActionCommand.NotifyCanExecuteChanged();
         RemoveSelectedSetTriggerActionCommand.NotifyCanExecuteChanged();
         RefreshAvatarParameterPathCommandStates();
@@ -9671,7 +9327,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
                 RaisePropertyChanged(nameof(SelectedSetTriggerUsesSharedNumberedReward));
                 OpenAvatarRouletPoolPickerCommand.NotifyCanExecuteChanged();
                 OpenActiveFloatBoostRewardCommand.NotifyCanExecuteChanged();
-                OpenSupporterOverrideTimeSettingsCommand.NotifyCanExecuteChanged();
                 AddSetTriggerActionCommand.NotifyCanExecuteChanged();
                 RemoveSelectedSetTriggerActionCommand.NotifyCanExecuteChanged();
                 RefreshAvatarParameterPathCommandStates();
@@ -10562,37 +10217,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         {
             BridgeStatus = "Avatar scale test did not run.";
             AppendLog($"Could not test the selected avatar scale redeem: {ex.Message}");
-        }
-    }
-
-    private async Task TestSelectedCashPaymentRuleAsync()
-    {
-        if (SelectedCashPaymentRule is null)
-        {
-            return;
-        }
-
-        await ReloadRuntimeConfigAsync();
-
-        await bridgeRefreshGate.WaitAsync();
-        try
-        {
-            await EnsureBridgeStateAsync(CancellationToken.None, allowOscOnly: true);
-
-            var ruleSnapshot = BridgeRuntimeConfiguration.CreateManualTestSnapshot(SelectedCashPaymentRule, Settings.AvatarScaleSafety);
-            await bridgeCoordinator.SendTestCashPaymentRuleAsync(ruleSnapshot, CancellationToken.None);
-
-            BridgeStatus = $"Sent cash payment test for '{ruleSnapshot.Name}'.";
-            RaisePropertyChanged(nameof(AvatarScaleRuntimeStatusText));
-        }
-        catch (Exception ex)
-        {
-            BridgeStatus = "Cash payment test did not run.";
-            AppendLog($"Could not test the selected cash payment rule: {ex.Message}");
-        }
-        finally
-        {
-            bridgeRefreshGate.Release();
         }
     }
 
@@ -17755,11 +17379,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         RemoveSelectedAvatarScaleSetCommand.NotifyCanExecuteChanged();
         RemoveSelectedAvatarScaleRuleCommand.NotifyCanExecuteChanged();
         TestSelectedAvatarScaleRuleCommand.NotifyCanExecuteChanged();
-        RemoveSelectedCashPaymentRuleCommand.NotifyCanExecuteChanged();
-        EnableAllCashPaymentRulesCommand.NotifyCanExecuteChanged();
-        DisableAllCashPaymentRulesCommand.NotifyCanExecuteChanged();
-        DeleteAllCashPaymentRulesCommand.NotifyCanExecuteChanged();
-        TestSelectedCashPaymentRuleCommand.NotifyCanExecuteChanged();
         OpenBroadcasterLoginCommand.NotifyCanExecuteChanged();
         OpenBotLoginCommand.NotifyCanExecuteChanged();
         DeleteSelectedAvatarProfileCommand.NotifyCanExecuteChanged();
@@ -17785,7 +17404,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         OpenSpecialRuleLockoutPickerCommand.NotifyCanExecuteChanged();
         OpenAvatarRouletPoolPickerCommand.NotifyCanExecuteChanged();
         OpenActiveFloatBoostRewardCommand.NotifyCanExecuteChanged();
-        OpenSupporterOverrideTimeSettingsCommand.NotifyCanExecuteChanged();
         EnableAllRulesCommand.NotifyCanExecuteChanged();
         DisableAllRulesCommand.NotifyCanExecuteChanged();
         DeleteAllRulesCommand.NotifyCanExecuteChanged();
@@ -17800,13 +17418,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         DeleteAllAvatarScaleRulesCommand.NotifyCanExecuteChanged();
         TestSelectedAvatarScaleRuleCommand.NotifyCanExecuteChanged();
         OpenAvatarScaleRuleLockoutPickerCommand.NotifyCanExecuteChanged();
-        AddCashPaymentRuleCommand.NotifyCanExecuteChanged();
         AddAvatarScalingCashPaymentRuleCommand.NotifyCanExecuteChanged();
-        RemoveSelectedCashPaymentRuleCommand.NotifyCanExecuteChanged();
-        EnableAllCashPaymentRulesCommand.NotifyCanExecuteChanged();
-        DisableAllCashPaymentRulesCommand.NotifyCanExecuteChanged();
-        DeleteAllCashPaymentRulesCommand.NotifyCanExecuteChanged();
-        TestSelectedCashPaymentRuleCommand.NotifyCanExecuteChanged();
         AddPowerUpRuleCommand.NotifyCanExecuteChanged();
         AddAvatarScalingPowerUpRuleCommand.NotifyCanExecuteChanged();
         RemoveSelectedPowerUpRuleCommand.NotifyCanExecuteChanged();
@@ -17821,7 +17433,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         SetSelectedAvatarProfileAsMasterCommand.NotifyCanExecuteChanged();
         ToggleSelectedAvatarRewardTestOverrideCommand.NotifyCanExecuteChanged();
         UseCurrentVrChatAvatarForProfileCommand.NotifyCanExecuteChanged();
-        UseCurrentAvatarForSupporterRuleCommand.NotifyCanExecuteChanged();
         StopRewardFireSaleCommand.NotifyCanExecuteChanged();
         ResetRewardFireSaleProgressCommand.NotifyCanExecuteChanged();
         RemoveRewardFireSaleTierCommand.NotifyCanExecuteChanged();
@@ -18752,11 +18363,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             return new ObservableCollection<TriggerRule>();
         }
 
-        if (IsViewingSupporterOverrides)
-        {
-            return Settings.GlobalOverrideRules;
-        }
-
         if (IsViewingMovementRedeems)
         {
             return SelectedMovementRedeemSet?.MovementRules ?? new ObservableCollection<TriggerRule>();
@@ -18992,7 +18598,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     private bool CanOpenAvatarRouletPoolPicker()
     {
-        return (IsViewingMasterAvatar || IsViewingCashPayments)
+        return IsViewingMasterAvatar
             && SelectedRule?.ActionType == OscActionType.AvatarRoulet
             && Settings.VrChat.IsConnected;
     }
@@ -19092,18 +18698,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         dialog.ShowDialog();
     }
 
-    private bool CanOpenSupporterOverrideTimeSettings(object? parameter = null)
-    {
-        var rule = parameter as TriggerRule ?? SelectedRule;
-        return IsViewingSupporterOverrides
-            && rule is not null
-            && rule.UsesSupporterAmountTimerSettings;
-    }
-
     private void OpenSupporterOverrideTimeSettings(object? parameter)
     {
         var rule = parameter as TriggerRule ?? SelectedRule;
-        if (rule is null || !CanOpenSupporterOverrideTimeSettings(rule))
+        if (rule is null || !rule.UsesSupporterAmountTimerSettings)
         {
             return;
         }
@@ -19329,15 +18927,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         RaisePropertyChanged(nameof(IsViewingAvatarTriggers));
         RaisePropertyChanged(nameof(IsViewingMasterAvatar));
         RaisePropertyChanged(nameof(IsViewingMovementRedeems));
-        RaisePropertyChanged(nameof(IsViewingSupporterOverrides));
         RaisePropertyChanged(nameof(IsViewingPowerUps));
         RaisePropertyChanged(nameof(IsViewingAvatarScaling));
-        RaisePropertyChanged(nameof(IsViewingCashPayments));
         RaisePropertyChanged(nameof(IsViewingRewardFireSale));
         RaisePropertyChanged(nameof(MovementRedeemSets));
         RaisePropertyChanged(nameof(AvatarScaleSets));
         RaisePropertyChanged(nameof(AvatarScaleRules));
-        RaisePropertyChanged(nameof(CashPaymentRules));
         RaisePropertyChanged(nameof(PowerUpRules));
         RaisePropertyChanged(nameof(MasterAvatarDisplayName));
         RaisePropertyChanged(nameof(MasterAvatarRules));
@@ -19357,8 +18952,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         RaisePropertyChanged(nameof(ManagedChannelPointRewardHelpText));
         RaisePropertyChanged(nameof(UniversalManagedChannelPointRewardHelpText));
         RaisePropertyChanged(nameof(AvatarScaleRuntimeStatusText));
-        RaisePropertyChanged(nameof(CashPaymentRuleStatusText));
-        RaisePropertyChanged(nameof(CashPaymentActionEditorHelpText));
         RaisePropertyChanged(nameof(PowerUpRuleStatusText));
         RaisePropertyChanged(nameof(PowerUpActionEditorHelpText));
         RefreshRewardFireSaleStateProperties();
@@ -19881,9 +19474,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         var avatarId = GetSelectedParameterCacheAvatarId();
         if (string.IsNullOrWhiteSpace(avatarId))
         {
-            VrChatOscParameterStatus = IsViewingSupporterOverrides
-                ? T("Refresh avatars first so Crystal Relay knows which avatar you are using.")
-                : T("Pick the avatar first, then refresh its OSC parameters.");
+            VrChatOscParameterStatus = T("Pick the avatar first, then refresh its OSC parameters.");
             return;
         }
 
@@ -20035,9 +19626,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         }
         else if (string.IsNullOrWhiteSpace(selectedAvatarId))
         {
-            VrChatOscParameterStatus = IsViewingSupporterOverrides
-                ? T("Refresh avatars once so Crystal Relay can match supporter overrides to your current avatar.")
-                : T("Pick the avatar first, then Crystal Relay can use its saved OSC parameters.");
+            VrChatOscParameterStatus = T("Pick the avatar first, then Crystal Relay can use its saved OSC parameters.");
         }
         else if (cachedVrChatParametersByAvatarId.TryGetValue(selectedAvatarId, out var avatarParameters) && avatarParameters.Count > 0)
         {
@@ -20062,22 +19651,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     private string GetSelectedParameterCacheAvatarId()
     {
-        if (IsViewingSupporterOverrides)
-        {
-            var supporterAvatarId = SelectedRule?.SupporterAvatarId?.Trim() ?? string.Empty;
-            if (!string.IsNullOrWhiteSpace(supporterAvatarId))
-            {
-                return supporterAvatarId;
-            }
-
-            return Settings.VrChat.CurrentAvatarId?.Trim() ?? string.Empty;
-        }
-
-        if (IsViewingCashPayments)
-        {
-            return Settings.VrChat.CurrentAvatarId?.Trim() ?? string.Empty;
-        }
-
         if (IsViewingPowerUps)
         {
             var powerUpAvatarId = SelectedPowerUpRule?.AvatarScoped == true
@@ -21411,11 +20984,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         AvatarTriggers,
         MasterAvatar,
         MovementRedeems,
-        SupporterOverrides,
         PowerUps,
         UniversalTriggers,
         AvatarScaling,
-        CashPayments,
         RewardFireSale,
         Wardrobe
     }

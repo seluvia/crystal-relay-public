@@ -32,6 +32,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
         _onSettingsChanged = onSettingsChanged;
 
         TwitchRewardOptions = _twitchRewardSource.RewardOptions;
+        PowerUpOptions = _twitchRewardSource.PowerUpOptions;
         RefreshTwitchRewardsCommand = _twitchRewardSource.RefreshTwitchRewardsCommand;
         UnlinkTwitchRewardCommand = _twitchRewardSource.UnlinkTwitchRewardCommand;
 
@@ -123,6 +124,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
     public ObservableCollection<AvatarRouletteCardViewModel> RouletteCards { get; } = new();
 
     public ObservableCollection<TwitchRewardOption> TwitchRewardOptions { get; }
+    public ObservableCollection<TwitchPowerUpOption> PowerUpOptions { get; }
     public IReadOnlyList<ChatCommandPermission> ChatCommandPermissionOptions { get; } = Enum.GetValues<ChatCommandPermission>();
     public ICommand RefreshTwitchRewardsCommand { get; }
     public ICommand UnlinkTwitchRewardCommand { get; }

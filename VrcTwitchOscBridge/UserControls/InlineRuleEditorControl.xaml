@@ -139,6 +139,37 @@
                 </Border>
             </StackPanel>
 
+            <!-- Power Up trigger fields -->
+            <StackPanel Margin="0,8,0,0">
+                <StackPanel.Style>
+                    <Style TargetType="StackPanel">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Rule.TriggerType}" Value="PowerUp">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </StackPanel.Style>
+                <Border Background="{DynamicResource NestedPanelBrush}" CornerRadius="4" Padding="10" Margin="0,0,0,8">
+                    <StackPanel>
+                        <TextBlock Text="{loc:Translate 'Twitch Custom Power-up'}" Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" Margin="0,0,0,8" />
+                        <TextBlock Text="{loc:Translate 'Existing Twitch Power Up'}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
+                        <ComboBox ItemsSource="{Binding DataContext.PowerUpOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                  DisplayMemberPath="DisplayLabel"
+                                  SelectedValuePath="Id"
+                                  SelectedValue="{Binding Rule.PowerUpId, UpdateSourceTrigger=PropertyChanged}" />
+                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                            <Button Content="{loc:Translate 'Refresh Power Ups'}" Command="{Binding DataContext.RefreshTwitchRewardsCommand, RelativeSource={RelativeSource AncestorType=Window}}" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,6,0" />
+                        </StackPanel>
+                        <TextBlock Margin="0,6,0,0"
+                                   Text="{loc:Translate 'Safe beta links existing Twitch Custom Power-ups only. Create, edit, hide, and reprice controls stay unavailable until Twitch documents write APIs.'}"
+                                   Foreground="{DynamicResource MutedBrush}"
+                                   TextWrapping="Wrap" FontSize="10" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
             <!-- Ready/Cooldown color fields (Channel Points only) -->
             <StackPanel Margin="0,8,0,0">
                 <StackPanel.Style>

@@ -7,6 +7,7 @@ namespace VrcTwitchOscBridge.ViewModels;
 public interface ITwitchRewardSource
 {
     ObservableCollection<TwitchRewardOption> RewardOptions { get; }
+    ObservableCollection<TwitchPowerUpOption> PowerUpOptions { get; }
     ICommand RefreshTwitchRewardsCommand { get; }
     ICommand UnlinkTwitchRewardCommand { get; }
 }
