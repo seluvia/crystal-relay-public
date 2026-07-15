@@ -277,7 +277,7 @@
         <DataTemplate x:Key="TwitchPowerUpOptionTemplate">
             <StackPanel>
                 <TextBlock Text="{Binding DisplayLabel}"
-                           Foreground="{DynamicResource ComboTextBrush}"
+                           Foreground="{DynamicResource TitleBarTextBrush}"
                            TextWrapping="Wrap" />
                 <TextBlock Margin="0,2,0,0"
                            Text="{Binding DetailText}"
@@ -298,6 +298,10 @@
                 </TextBlock>
             </StackPanel>
         </DataTemplate>
+
+        <SolidColorBrush x:Key="TitleBarTextBrush" Color="#F5EEFF" />
+        <SolidColorBrush x:Key="ComboTextBrush" Color="#F5EEFF" />
+        <SolidColorBrush x:Key="TextBrush" Color="#F5EEFF" />
 
         <Style x:Key="HeadingTextStyle" TargetType="TextBlock">
             <Setter Property="FontFamily" Value="{DynamicResource HeadingFontFamily}" />
