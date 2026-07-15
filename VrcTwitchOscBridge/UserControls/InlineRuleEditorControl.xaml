@@ -22,7 +22,7 @@
                                 Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="0,14,14,0">
+                                                                CornerRadius="0,8,8,0">
                             <Path x:Name="DropArrow"
                                   Width="11" Height="7" Stretch="Fill"
                                   HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -139,13 +139,13 @@
 
         <Style TargetType="ComboBox">
             <Setter Property="FontFamily" Value="{DynamicResource BodyFontFamily}" />
-            <Setter Property="Padding" Value="12,8" />
-            <Setter Property="Background" Value="{DynamicResource ComboSurfaceBrush}" />
-            <Setter Property="Foreground" Value="{DynamicResource ComboTextBrush}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="MinHeight" Value="32" />
+            <Setter Property="Padding" Value="8,4" />
+            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TitleBarTextBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Margin" Value="0,6,0,0" />
-            <Setter Property="MinHeight" Value="44" />
             <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
             <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
             <Setter Property="Template">
@@ -156,33 +156,37 @@
                                     Background="{TemplateBinding Background}"
                                     BorderBrush="{TemplateBinding BorderBrush}"
                                     BorderThickness="{TemplateBinding BorderThickness}"
-                                    CornerRadius="14">
+                                    CornerRadius="8">
                                 <Grid>
+                                    <Grid.Resources>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{DynamicResource TitleBarTextBrush}" />
+                                        </Style>
+                                    </Grid.Resources>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="42" />
+                                        <ColumnDefinition Width="30" />
                                     </Grid.ColumnDefinitions>
                                     <ContentPresenter x:Name="ContentSite"
                                                       Grid.Column="0"
-                                                      Margin="14,0,8,0"
-                                                      VerticalAlignment="Center"
+                                                      Margin="10,0,4,0"
                                                       HorizontalAlignment="Left"
+                                                      VerticalAlignment="Center"
                                                       Content="{TemplateBinding SelectionBoxItem}"
                                                       ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
                                                       ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
                                                       ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"
-                                                      TextElement.Foreground="{TemplateBinding Foreground}"
+                                                      TextElement.Foreground="{DynamicResource TitleBarTextBrush}"
                                                       IsHitTestVisible="False" />
                                     <TextBox x:Name="PART_EditableTextBox"
                                              Grid.Column="0"
-                                             Margin="14,0,8,0"
-                                             Foreground="{TemplateBinding Foreground}"
+                                             Margin="10,0,4,0"
+                                             Foreground="{DynamicResource TitleBarTextBrush}"
                                              Background="Transparent"
+                                             BorderThickness="0"
                                              Visibility="Hidden"
-                                             Style="{x:Null}"
                                              IsReadOnly="{TemplateBinding IsReadOnly}" />
-                                    <ToggleButton x:Name="DropDownToggle"
-                                                  Grid.Column="1"
+                                    <ToggleButton Grid.Column="1"
                                                   IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
                                                   Style="{StaticResource ComboBoxToggleButtonStyle}" />
                                 </Grid>
@@ -195,13 +199,14 @@
                                    PopupAnimation="Slide">
                                 <Grid MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
                                       MaxHeight="{TemplateBinding MaxDropDownHeight}"
-                                      Background="{DynamicResource ComboSurfaceBrush}">
-                                    <Border Margin="0,8,0,0"
-                                            Padding="8"
-                                            Background="{DynamicResource ComboSurfaceBrush}"
+                                      Background="{DynamicResource InputBrush}">
+                                    <Border Margin="0,4,0,0"
+                                            Padding="4"
+                                            Background="{DynamicResource InputBrush}"
+                                            TextElement.Foreground="{DynamicResource TitleBarTextBrush}"
                                             BorderBrush="{DynamicResource PopupBorderBrush}"
                                             BorderThickness="1"
-                                            CornerRadius="16">
+                                            CornerRadius="10">
                                         <ScrollViewer SnapsToDevicePixels="True">
                                             <ScrollViewer.Resources>
                                                 <Style TargetType="ScrollBar" BasedOn="{StaticResource ComboPopupScrollBarStyle}" />
@@ -213,9 +218,6 @@
                             </Popup>
                         </Grid>
                         <ControlTemplate.Triggers>
-                            <Trigger Property="HasItems" Value="False">
-                                <Setter TargetName="PART_Popup" Property="MinHeight" Value="44" />
-                            </Trigger>
                             <Trigger Property="IsKeyboardFocusWithin" Value="True">
                                 <Setter TargetName="ComboBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                             </Trigger>
@@ -237,8 +239,8 @@
 
         <Style TargetType="ComboBoxItem">
             <Setter Property="FontFamily" Value="{DynamicResource BodyFontFamily}" />
-            <Setter Property="Background" Value="{DynamicResource ComboSurfaceBrush}" />
-            <Setter Property="Foreground" Value="{DynamicResource ComboTextBrush}" />
+            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TitleBarTextBrush}" />
             <Setter Property="Padding" Value="10,8" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="Template">
@@ -249,7 +251,12 @@
                                 Padding="{TemplateBinding Padding}"
                                 Background="{TemplateBinding Background}"
                                 CornerRadius="10">
-                            <ContentPresenter />
+                            <Border.Resources>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{DynamicResource TitleBarTextBrush}" />
+                                </Style>
+                            </Border.Resources>
+                            <ContentPresenter TextElement.Foreground="{DynamicResource TitleBarTextBrush}" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsHighlighted" Value="True">
