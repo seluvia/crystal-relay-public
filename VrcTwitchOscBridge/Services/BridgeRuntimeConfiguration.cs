@@ -620,6 +620,16 @@ public sealed record BridgeRuntimeConfiguration(
                 }
             }
 
+            var powerUpSnapshots = new List<TriggerRuleSnapshot>();
+            foreach (var rule in swapProfile.PowerUpRules)
+            {
+                if (TryToSnapshot(rule, isGlobalOverride: true, profile: null, linkedRewardCooldownSecondsById, out var snapshot))
+                {
+                    powerUpSnapshots.Add(snapshot);
+                    rules.Add(snapshot);
+                }
+            }
+
             var paymentSnapshots = new List<TriggerRuleSnapshot>();
             foreach (var rule in swapProfile.PaymentRules)
             {
@@ -651,7 +661,7 @@ public sealed record BridgeRuntimeConfiguration(
                 bitsSnapshots.ToArray(),
                 subsSnapshots.ToArray(),
                 paymentSnapshots.ToArray(),
-                Array.Empty<TriggerRuleSnapshot>()));
+                powerUpSnapshots.ToArray()));
         }
 
         var avatarRouletteProfiles = new List<AvatarRouletteProfileSnapshot>();
