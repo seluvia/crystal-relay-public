@@ -71,6 +71,7 @@ public sealed record TriggerRuleSnapshot(
     TwitchTriggerType TriggerType,
     string ChannelPointRewardId,
     string ChannelPointRewardTitle,
+    string PowerUpId,
     string ManagedRewardReadyColor,
     string ManagedRewardCooldownColor,
     bool ChatCommandEnabled,
@@ -165,6 +166,7 @@ public sealed record TriggerRuleSnapshot(
             TriggerType: rule.TriggerType,
             ChannelPointRewardId: rule.ChannelPointRewardId ?? string.Empty,
             ChannelPointRewardTitle: rule.ChannelPointRewardTitle ?? string.Empty,
+            PowerUpId: rule.PowerUpId ?? string.Empty,
             ManagedRewardReadyColor: rule.ManagedRewardReadyColor ?? string.Empty,
             ManagedRewardCooldownColor: rule.ManagedRewardCooldownColor ?? string.Empty,
             ChatCommandEnabled: rule.ChatCommandEnabled,
@@ -413,7 +415,8 @@ public sealed record AvatarSwapProfileSnapshot(
     IReadOnlyList<TriggerRuleSnapshot> ChannelPointRules,
     IReadOnlyList<TriggerRuleSnapshot> BitsRules,
     IReadOnlyList<TriggerRuleSnapshot> SubsRules,
-    IReadOnlyList<TriggerRuleSnapshot> PaymentRules);
+    IReadOnlyList<TriggerRuleSnapshot> PaymentRules,
+    IReadOnlyList<TriggerRuleSnapshot> PowerUpRules);
 
 public sealed record RouletteAvatarEntrySnapshot(
     string AvatarId,
@@ -647,7 +650,8 @@ public sealed record BridgeRuntimeConfiguration(
                 channelPointSnapshots.ToArray(),
                 bitsSnapshots.ToArray(),
                 subsSnapshots.ToArray(),
-                paymentSnapshots.ToArray()));
+                paymentSnapshots.ToArray(),
+                Array.Empty<TriggerRuleSnapshot>()));
         }
 
         var avatarRouletteProfiles = new List<AvatarRouletteProfileSnapshot>();
@@ -1083,6 +1087,7 @@ public sealed record BridgeRuntimeConfiguration(
             rule.TriggerType,
             channelPointRewardId,
             channelPointRewardTitle,
+            rule.PowerUpId ?? string.Empty,
             ManagedRewardPresentation.NormalizeReadyBackgroundColor(readyColor),
             ManagedRewardPresentation.NormalizeCooldownBackgroundColor(cooldownColor),
             rule.ChatCommandEnabled,
