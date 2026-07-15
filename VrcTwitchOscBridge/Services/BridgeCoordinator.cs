@@ -3717,6 +3717,24 @@ internal BridgeCoordinator(
                 await ExecuteRuleAsync(rule.TriggerAction, bridgeEvent, cancellationToken);
             }
         }
+
+        var swapPowerUpRules = configuration.AvatarSwapProfiles
+            .SelectMany(profile => profile.PowerUpRules.Select(rule => (Profile: profile, Rule: rule)))
+            .Where(t => t.Rule.IsEnabled
+                && !temporarilyDisabledRuleIds.Contains(t.Rule.Id)
+                && PowerUpSnapshotIdentityMatches(t.Rule, bridgeEvent))
+            .ToArray();
+
+        foreach (var (profile, rule) in swapPowerUpRules)
+        {
+            if (AreRedeemsPaused())
+            {
+                LogRedeemsPaused();
+                return;
+            }
+
+            await ExecuteRuleAsync(rule, bridgeEvent, cancellationToken);
+        }
     }
 
     private PowerUpRuleSnapshot[] SelectMatchingPowerUpRules(
@@ -3772,6 +3790,18 @@ internal BridgeCoordinator(
         var incomingTitle = NormalizePowerUpTitle(bridgeEvent.RewardTitle);
         return !string.IsNullOrWhiteSpace(configuredTitle)
             && string.Equals(configuredTitle, incomingTitle, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool PowerUpSnapshotIdentityMatches(TriggerRuleSnapshot rule, BridgeIncomingEvent bridgeEvent)
+    {
+        var configuredId = rule.PowerUpId.Trim();
+        var incomingId = bridgeEvent.RewardId?.Trim() ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(configuredId))
+        {
+            return string.Equals(configuredId, incomingId, StringComparison.Ordinal);
+        }
+
+        return false;
     }
 
     private static bool PowerUpRuleIsActiveForCurrentAvatar(
