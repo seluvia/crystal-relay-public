@@ -416,6 +416,7 @@ public sealed class SettingsStore
             settings.PermanentSwapModeEnabled = profile.PermanentSwapModeEnabled ?? settings.PermanentSwapModeEnabled;
             settings.AvatarSwapManagerUseFullRuleEditor = profile.AvatarSwapManagerUseFullRuleEditor ?? settings.AvatarSwapManagerUseFullRuleEditor;
             settings.AvatarSwapMigrationNoticeShown = profile.AvatarSwapMigrationNoticeShown ?? settings.AvatarSwapMigrationNoticeShown;
+            settings.CashPaymentMigrationNoticeShown = profile.CashPaymentMigrationNoticeShown ?? settings.CashPaymentMigrationNoticeShown;
             settings.EmergencyRedeemStopEnabled = profile.EmergencyRedeemStopEnabled ?? settings.EmergencyRedeemStopEnabled;
             settings.DesktopModeInputLockEnabled = profile.DesktopModeInputLockEnabled ?? settings.DesktopModeInputLockEnabled;
             settings.RestartVrChatInDesktopMode = profile.RestartVrChatInDesktopMode ?? settings.RestartVrChatInDesktopMode;
@@ -599,6 +600,7 @@ public sealed class SettingsStore
             PermanentSwapModeEnabled = settings.PermanentSwapModeEnabled,
             AvatarSwapManagerUseFullRuleEditor = settings.AvatarSwapManagerUseFullRuleEditor,
             AvatarSwapMigrationNoticeShown = settings.AvatarSwapMigrationNoticeShown,
+            CashPaymentMigrationNoticeShown = settings.CashPaymentMigrationNoticeShown,
             EmergencyRedeemStopEnabled = settings.EmergencyRedeemStopEnabled,
             DesktopModeInputLockEnabled = settings.DesktopModeInputLockEnabled,
             RestartVrChatInDesktopMode = settings.RestartVrChatInDesktopMode,
@@ -1870,6 +1872,8 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             CountBits = settings.CountBits,
             CountManagedRewards = settings.CountManagedRewards,
             DiscountManagedPowerUpsEnabled = settings.DiscountManagedPowerUpsEnabled,
+            CountCashPayments = settings.CountCashPayments,
+            CashPaymentProgressRatio = settings.CashPaymentProgressRatio,
             FundingRewardEnabled = settings.FundingRewardEnabled,
             FundingRewardId = settings.FundingRewardId,
             FundingRewardTitle = settings.FundingRewardTitle,
@@ -1915,6 +1919,8 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             CountBits = settings.CountBits ?? true,
             CountManagedRewards = settings.CountManagedRewards ?? true,
             DiscountManagedPowerUpsEnabled = settings.DiscountManagedPowerUpsEnabled ?? false,
+            CountCashPayments = settings.CountCashPayments ?? false,
+            CashPaymentProgressRatio = settings.CashPaymentProgressRatio <= 0 ? 100 : settings.CashPaymentProgressRatio,
             FundingRewardEnabled = settings.FundingRewardEnabled,
             FundingRewardId = settings.FundingRewardId?.Trim() ?? string.Empty,
             FundingRewardTitle = string.IsNullOrWhiteSpace(settings.FundingRewardTitle)
@@ -2837,6 +2843,9 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
         [JsonPropertyName("avatarSwapMigrationNoticeShown")]
         public bool? AvatarSwapMigrationNoticeShown { get; set; }
 
+        [JsonPropertyName("cashPaymentMigrationNoticeShown")]
+        public bool? CashPaymentMigrationNoticeShown { get; set; }
+
         public bool? EmergencyRedeemStopEnabled { get; set; }
 
         public bool? DesktopModeInputLockEnabled { get; set; }
@@ -3706,6 +3715,10 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
         public bool? CountManagedRewards { get; set; }
 
         public bool? DiscountManagedPowerUpsEnabled { get; set; }
+
+        public bool? CountCashPayments { get; set; }
+
+        public int CashPaymentProgressRatio { get; set; }
 
         public bool FundingRewardEnabled { get; set; }
 

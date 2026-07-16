@@ -19,7 +19,8 @@ public enum OscSessionMode
 public enum RewardFireSaleContributionType
 {
     Bits,
-    ManagedReward
+    ManagedReward,
+    CashPayment
 }
 
 public sealed record RewardFireSaleContribution(
