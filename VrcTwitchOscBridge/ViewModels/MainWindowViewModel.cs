@@ -39,7 +39,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         BroadcasterTokenRefreshRequired
     }
 
-    private enum ManagedRewardSyncReason
+    internal enum ManagedRewardSyncReason
     {
         SettingsEdit,
         Startup,
@@ -417,6 +417,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     private readonly Dispatcher dispatcher;
     private readonly DesktopInputLockService desktopInputLockService;
     private readonly BridgeCoordinator bridgeCoordinator;
+    public BridgeCoordinator BridgeCoordinator => bridgeCoordinator;
     private readonly SemaphoreSlim bridgeRefreshGate = new(1, 1);
     private readonly SemaphoreSlim managedRewardSyncGate = new(1, 1);
     private readonly SemaphoreSlim vrChatLocalStateRefreshGate = new(1, 1);
@@ -9551,7 +9552,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         }
     }
 
-    private void QueueSave(int delayMilliseconds = 500)
+    internal void QueueSave(int delayMilliseconds = 500)
     {
         if (!isInitialized || isShuttingDown)
         {
@@ -10904,7 +10905,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     // Debounced entry point for managed Twitch reward syncing.
     // Many editor changes land here, so older pending syncs get canceled in favor of the latest state.
-    private void QueueManagedRewardSync(
+    internal void QueueManagedRewardSync(
         int delayMilliseconds = 1100,
         ManagedRewardSyncReason reason = ManagedRewardSyncReason.SettingsEdit)
     {
@@ -16646,7 +16647,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         }
     }
 
-    private void AppendLog(string message)
+    internal void AppendLog(string message)
     {
         DebugLogService.Write(message);
         var timestampedMessage = $"[{DateTime.Now:HH:mm:ss}] {message}";
@@ -16666,7 +16667,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         return null;
     }
 
-    private void AppendThrottledLog(string key, string message, TimeSpan throttleWindow)
+    internal void AppendThrottledLog(string key, string message, TimeSpan throttleWindow)
     {
         var now = DateTimeOffset.UtcNow;
         PruneExpiredTimestampEntries(throttledLogExpiryByKey, now);
