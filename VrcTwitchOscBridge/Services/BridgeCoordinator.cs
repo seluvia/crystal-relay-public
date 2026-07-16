@@ -3654,6 +3654,15 @@ internal BridgeCoordinator(
             WriteLog($"{bridgeEvent.UserDisplayName} triggered cash payment rule '{rule.Name}' through {DescribeCashPaymentProvider(paymentEvent.Provider)}.");
             await ExecuteRuleAsync(rule.TriggerAction, bridgeEvent, cancellationToken);
         }
+
+        var cashAmountUnits = Math.Max(1, (int)Math.Floor(paymentEvent.Amount));
+        var cashContribution = new RewardFireSaleContribution(
+            RewardFireSaleContributionType.CashPayment,
+            cashAmountUnits,
+            null,
+            null,
+            string.IsNullOrWhiteSpace(paymentEvent.UserDisplayName) ? "Cash supporter" : paymentEvent.UserDisplayName);
+        RewardFireSaleContributionReceived?.Invoke(cashContribution);
     }
 
     private async Task HandlePowerUpEventAsync(
