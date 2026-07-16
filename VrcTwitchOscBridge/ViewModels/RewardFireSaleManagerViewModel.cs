@@ -702,8 +702,6 @@ public sealed class RewardFireSaleManagerViewModel : ObservableObject, IDisposab
 
     private void WireTiers(RewardFireSaleSettings sale)
     {
-        sale.PropertyChanged += OnRewardFireSaleChanged;
-        sale.Tiers.CollectionChanged += OnRewardFireSaleTiersCollectionChanged;
         foreach (var tier in sale.Tiers)
         {
             tier.PropertyChanged += OnRewardFireSaleTierChanged;
@@ -712,8 +710,6 @@ public sealed class RewardFireSaleManagerViewModel : ObservableObject, IDisposab
 
     private void UnwireTiers(RewardFireSaleSettings sale)
     {
-        sale.PropertyChanged -= OnRewardFireSaleChanged;
-        sale.Tiers.CollectionChanged -= OnRewardFireSaleTiersCollectionChanged;
         foreach (var tier in sale.Tiers)
         {
             tier.PropertyChanged -= OnRewardFireSaleTierChanged;

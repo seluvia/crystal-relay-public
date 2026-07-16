@@ -711,6 +711,10 @@
                             <TextBlock Text="{loc:Translate 'Goal Sources'}"
                                        Foreground="{DynamicResource TextBrush}"
                                        FontWeight="SemiBold" />
+                            <CheckBox Margin="0,10,0,8"
+                                      IsChecked="{Binding Settings.IsEnabled, UpdateSourceTrigger=PropertyChanged}">
+                                <TextBlock Text="{loc:Translate 'Enable Reward Fire Sale'}" TextWrapping="Wrap" />
+                            </CheckBox>
                             <Grid Margin="0,10,0,0">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
