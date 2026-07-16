@@ -1312,5 +1312,13 @@
   "Use {user}, {rule}, {duration}, {cooldown} as template variables.": "Usa {user}, {rule}, {duration}, {cooldown} como variables de plantilla.",
   "VR Only": "Solo VR",
   "Movement Redeem Notice": "Aviso de recompensas de movimiento",
-  "OSC movement redeems may not work as intended for all users. Some movement directions work in VR but not on desktop, and movement inputs or counter-inputs from redeems may not always produce the expected results.": "Las recompensas de movimiento por OSC pueden no funcionar como se espera para todos los usuarios. Algunas direcciones funcionan en VR pero no en escritorio, y las entradas o contra-entradas de movimiento de las recompensas no siempre dan el resultado esperado."
+  "OSC movement redeems may not work as intended for all users. Some movement directions work in VR but not on desktop, and movement inputs or counter-inputs from redeems may not always produce the expected results.": "Las recompensas de movimiento por OSC pueden no funcionar como se espera para todos los usuarios. Algunas direcciones funcionan en VR pero no en escritorio, y las entradas o contra-entradas de movimiento de las recompensas no siempre dan el resultado esperado.",
+  "Stop Sale": "Detener venta",
+  "Count Cash Payments": "Contar pagos en efectivo",
+  "Points per progress": "Puntos por progreso",
+  "Progress ratio (cents per 1 progress)": "Proporción de progreso (centavos por 1 de progreso)",
+  "At a ratio of ": "Con una proporción de ",
+  " cents per progress, each $1 adds ": " centavos por progreso, cada $1 añade ",
+  " progress.": " de progreso.",
+  "Connected payment services feed into Fire Sale progress when Count Cash Payments is enabled above.": "Los servicios de pago conectados contribuyen al progreso de la venta cuando Contar pagos en efectivo está activado arriba."
 }

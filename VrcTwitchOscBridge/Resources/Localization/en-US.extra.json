@@ -1308,5 +1308,13 @@
   "Permanent No Return": "Permanent (No Return)",
   "Will return to the avatar you were wearing before this swap": "Will return to the avatar you were wearing before this swap",
   "Movement Redeem Notice": "Movement Redeem Notice",
-  "OSC movement redeems may not work as intended for all users. Some movement directions work in VR but not on desktop, and movement inputs or counter-inputs from redeems may not always produce the expected results.": "OSC movement redeems may not work as intended for all users. Some movement directions work in VR but not on desktop, and movement inputs or counter-inputs from redeems may not always produce the expected results."
+  "OSC movement redeems may not work as intended for all users. Some movement directions work in VR but not on desktop, and movement inputs or counter-inputs from redeems may not always produce the expected results.": "OSC movement redeems may not work as intended for all users. Some movement directions work in VR but not on desktop, and movement inputs or counter-inputs from redeems may not always produce the expected results.",
+  "Stop Sale": "Stop Sale",
+  "Count Cash Payments": "Count Cash Payments",
+  "Points per progress": "Points per progress",
+  "Progress ratio (cents per 1 progress)": "Progress ratio (cents per 1 progress)",
+  "At a ratio of ": "At a ratio of ",
+  " cents per progress, each $1 adds ": " cents per progress, each $1 adds ",
+  " progress.": " progress.",
+  "Connected payment services feed into Fire Sale progress when Count Cash Payments is enabled above.": "Connected payment services feed into Fire Sale progress when Count Cash Payments is enabled above."
 }

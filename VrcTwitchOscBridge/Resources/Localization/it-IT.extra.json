@@ -1374,5 +1374,13 @@
 
   "normal": "normal"
 
-  "other": "other"
+  "other": "other",
+  "Stop Sale": "Ferma la vendita",
+  "Count Cash Payments": "Conta i pagamenti",
+  "Points per progress": "Punti per progresso",
+  "Progress ratio (cents per 1 progress)": "Rapporto di progresso (centesimi per 1 di progresso)",
+  "At a ratio of ": "Con un rapporto di ",
+  " cents per progress, each $1 adds ": " centesimi per progresso, ogni $1 aggiunge ",
+  " progress.": " di progresso.",
+  "Connected payment services feed into Fire Sale progress when Count Cash Payments is enabled above.": "I servizi di pagamento collegati contribuiscono al progresso della vendita quando Conta i pagamenti è attivato sopra."
 }
