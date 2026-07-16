@@ -38,11 +38,6 @@ public sealed class RewardFireSaleManagerViewModel : ObservableObject, IDisposab
         foreach (var tier in fireSale.Tiers)
             tier.PropertyChanged += OnRewardFireSaleTierChanged;
 
-        if (mainWindowViewModel?.BridgeCoordinator is not null)
-        {
-            mainWindowViewModel.BridgeCoordinator.RewardFireSaleContributionReceived += OnContributionReceived;
-        }
-
         AddTierCommand = new RelayCommand(AddTier);
         RemoveTierCommand = new RelayCommand(RemoveTier, _ => fireSale.Tiers.Count > 1);
         StopSaleCommand = new RelayCommand(() => StopSale(expired: false), () => fireSale.IsSaleActive);
@@ -134,37 +129,6 @@ public sealed class RewardFireSaleManagerViewModel : ObservableObject, IDisposab
     public ICommand RemoveTierCommand { get; }
     public ICommand StopSaleCommand { get; }
     public ICommand ResetProgressCommand { get; }
-
-    private bool OnContributionReceived(RewardFireSaleContribution contribution)
-    {
-        return RunOnUi(() => HandleContribution(contribution));
-    }
-
-    private bool HandleContribution(RewardFireSaleContribution contribution)
-    {
-        ExpireIfNeeded();
-        var isFundingReward = contribution.Type == RewardFireSaleContributionType.ManagedReward
-            && IsFundingReward(contribution.RewardId, contribution.RewardTitle);
-        if (!fireSale.IsEnabled)
-            return isFundingReward;
-        if (IsActiveNow() && !CanAdvanceToLaterTier())
-        {
-            AppendThrottledLog("reward-fire-sale-active-progress-paused",
-                "Reward Fire Sale is already active at its final available tier, so new Bits and funding reward redeems are not adding progress right now.");
-            return isFundingReward;
-        }
-        var contributionAmount = ResolveContributionAmount(contribution);
-        if (contributionAmount <= 0)
-            return isFundingReward;
-        fireSale.CurrentProgress += contributionAmount;
-        if (isFundingReward)
-            StartFundingRewardCooldown();
-        AppendLog($"Reward Fire Sale added {contributionAmount:N0} progress from {contribution.UserDisplayName}. Total: {fireSale.CurrentProgress:N0}.");
-        ActivateIfGoalReached();
-        RefreshStateProperties();
-        QueueSave();
-        return isFundingReward;
-    }
 
     private void NormalizeSettings()
     {
@@ -776,8 +740,6 @@ public sealed class RewardFireSaleManagerViewModel : ObservableObject, IDisposab
         fireSale.Tiers.CollectionChanged -= OnRewardFireSaleTiersCollectionChanged;
         foreach (var tier in fireSale.Tiers)
             tier.PropertyChanged -= OnRewardFireSaleTierChanged;
-        if (mainWindowViewModel?.BridgeCoordinator is not null)
-            mainWindowViewModel.BridgeCoordinator.RewardFireSaleContributionReceived -= OnContributionReceived;
         CancelAndDisposeQueuedCancellationSource(ref rewardFireSaleExpirationCancellation);
         CancelAndDisposeQueuedCancellationSource(ref rewardFireSaleFundingCooldownCancellation);
     }

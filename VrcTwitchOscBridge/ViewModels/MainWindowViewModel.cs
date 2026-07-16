@@ -1023,6 +1023,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         });
         bridgeCoordinator.AvatarScaleStatusChanged += () => RunOnUi(HandleAvatarScaleStatusChanged);
         bridgeCoordinator.FloatLimitStatusChanged += () => RunOnUi(HandleFloatLimitStatusChanged);
+        bridgeCoordinator.RewardFireSaleContributionReceived += contribution => RunOnUi(() => HandleRewardFireSaleContribution(contribution));
         bridgeCoordinator.DevFireSaleRequested += request => RunOnUi(() => HandleDevFireSaleRequest(request));
         bridgeCoordinator.PauseCommandRequested += () => RunOnUi(() => ToggleEmergencyRedeemStop());
         bridgeCoordinator.GroupToggleRequested += groupName => RunOnUi(() => ToggleRedeemGroupByName(groupName));
@@ -5466,6 +5467,48 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         return true;
     }
 
+    private bool HandleRewardFireSaleContribution(RewardFireSaleContribution contribution)
+    {
+        if (!isInitialized || isShuttingDown)
+        {
+            return false;
+        }
+
+        ExpireRewardFireSaleIfNeeded();
+        var fireSale = Settings.RewardFireSale;
+        var isFundingReward = contribution.Type == RewardFireSaleContributionType.ManagedReward
+            && IsRewardFireSaleFundingReward(contribution.RewardId, contribution.RewardTitle);
+        if (!fireSale.IsEnabled)
+        {
+            return isFundingReward;
+        }
+
+        if (IsRewardFireSaleActiveNow() && !CanRewardFireSaleAdvanceToLaterTier())
+        {
+            AppendThrottledLog("reward-fire-sale-active-progress-paused",
+                "Reward Fire Sale is already active at its final available tier, so new Bits and funding reward redeems are not adding progress right now.",
+                ThrottledRewardSyncLogWindow);
+            return isFundingReward;
+        }
+
+        var contributionAmount = ResolveRewardFireSaleContributionAmount(contribution);
+        if (contributionAmount <= 0)
+        {
+            return isFundingReward;
+        }
+
+        fireSale.CurrentProgress += contributionAmount;
+        if (isFundingReward)
+        {
+            StartRewardFireSaleFundingRewardCooldown();
+        }
+
+        AppendLog($"Reward Fire Sale added {contributionAmount:N0} progress from {contribution.UserDisplayName}. Total: {fireSale.CurrentProgress:N0}.");
+        ActivateRewardFireSaleIfGoalReached();
+        QueueSave();
+        return isFundingReward;
+    }
+
     private bool HandleDevFireSaleRequest(DevFireSaleRequest request)
     {
         if (!isInitialized || isShuttingDown)
@@ -5499,6 +5542,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         if (contribution.Type == RewardFireSaleContributionType.Bits)
         {
             return fireSale.CountBits ? Math.Max(0, contribution.Amount) : 0;
+        }
+
+        if (contribution.Type == RewardFireSaleContributionType.CashPayment)
+        {
+            return fireSale.CountCashPayments ? Math.Max(0, contribution.Amount) * fireSale.CashPaymentProgressRatio : 0;
         }
 
         if (!fireSale.FundingRewardEnabled || !IsRewardFireSaleFundingReward(contribution.RewardId, contribution.RewardTitle))
