@@ -18,6 +18,7 @@
         MinHeight="480"
         WindowStyle="None"
         WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize"
         FontFamily="{DynamicResource BodyFontFamily}"
         UseLayoutRounding="True"
         SnapsToDevicePixels="True"
