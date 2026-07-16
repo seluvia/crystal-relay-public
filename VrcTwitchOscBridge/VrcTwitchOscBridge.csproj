@@ -53,6 +53,7 @@
     <Page Include="AvatarSwapManagerWindow.xaml" />
     <Page Include="MovementRedeemsManagerWindow.xaml" />
     <Page Include="CashPaymentManagerWindow.xaml" />
+    <Page Include="RewardFireSaleManagerWindow.xaml" />
     <Page Include="VrChatLoginWindow.xaml" />
     <Page Include="VrChatTwoFactorWindow.xaml" />
     <Page Include="RedeemGroupEditorDialog.xaml" />
@@ -121,6 +122,9 @@
     </Compile>
     <Compile Include="CashPaymentManagerWindow.xaml.cs">
       <DependentUpon>CashPaymentManagerWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="RewardFireSaleManagerWindow.xaml.cs">
+      <DependentUpon>RewardFireSaleManagerWindow.xaml</DependentUpon>
     </Compile>
     <Compile Include="ViewModels\UniversalTriggersManagerViewModel.cs" />
     <Compile Include="ViewModels\UniversalTriggerCardViewModel.cs" />
