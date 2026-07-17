@@ -1630,14 +1630,12 @@
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="1.14*" />
+                <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="20" />
-                <ColumnDefinition Width="1.2*" />
-                <ColumnDefinition Width="20" />
-                <ColumnDefinition Width="1.66*" />
+                <ColumnDefinition Width="2*" />
             </Grid.ColumnDefinitions>
 
-            <Grid Grid.Row="0" Grid.ColumnSpan="5" Margin="0,8,0,16">
+            <Grid Grid.Row="0" Grid.ColumnSpan="3" Margin="0,8,0,16">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
@@ -4046,7 +4044,7 @@
             </Grid>
 
             <Border Grid.Row="1"
-                    Grid.ColumnSpan="5"
+                    Grid.ColumnSpan="3"
                     Background="{DynamicResource PanelBrush}">
                 <Border.Style>
                     <Style TargetType="Border" BasedOn="{StaticResource PanelBorderStyle}">
@@ -4096,7 +4094,7 @@
             </Border>
 
             <Border Grid.Row="1"
-                    Grid.ColumnSpan="5"
+                    Grid.ColumnSpan="3"
                     Background="Transparent">
                 <Border.Style>
                     <Style TargetType="Border">
