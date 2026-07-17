@@ -413,6 +413,7 @@
   "Use the Reward Fire Sale setup to edit sale sources, tiers, and duration.": "Use the Reward Fire Sale setup to edit sale sources, tiers, and duration.",
   "Add Reward Growth": "Add Reward Growth",
   "Add Supporter Growth": "Add Supporter Growth",
+  "Enable chat command": "Enable chat command",
   "Add Cash Payment": "Add Cash Payment",
   "Delete": "Delete",
   "Duration (seconds)": "Duration (seconds)",
@@ -1316,5 +1317,14 @@
   "At a ratio of ": "At a ratio of ",
   " cents per progress, each $1 adds ": " cents per progress, each $1 adds ",
   " progress.": " progress.",
-  "Connected payment services feed into Fire Sale progress when Count Cash Payments is enabled above.": "Connected payment services feed into Fire Sale progress when Count Cash Payments is enabled above."
+  "Connected payment services feed into Fire Sale progress when Count Cash Payments is enabled above.": "Connected payment services feed into Fire Sale progress when Count Cash Payments is enabled above.",
+  "Manage →": "Manage →",
+  "Group redeems by avatar set": "Group redeems by avatar set",
+  "Organize avatar swap and scale rules into themed sets": "Organize avatar swap and scale rules into themed sets",
+  "Swap, scale, and roulette": "Swap, scale, and roulette",
+  "Change avatars, height, or run avatar roulette": "Change avatars, height, or run avatar roulette",
+  "Universal triggers and movement": "Universal triggers and movement",
+  "Chat commands, channel points, bits, subs, and movement redeems": "Chat commands, channel points, bits, subs, and movement redeems",
+  "Tips, donations, and sales": "Tips, donations, and sales",
+  "StreamElements, Streamlabs, Ko-fi payments and reward fire sales": "StreamElements, Streamlabs, Ko-fi payments and reward fire sales"
 }

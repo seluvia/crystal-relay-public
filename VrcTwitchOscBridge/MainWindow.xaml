@@ -3425,419 +3425,159 @@
                                    Foreground="{DynamicResource TextBrush}"
                                    TextAlignment="Center"
                                    HorizontalAlignment="Center" />
-                           <!-- Avatar Sets group -->
-                          <Border Margin="0,10,0,0"
-                                  Background="{DynamicResource NestedPanelBrush}"
-                                  BorderBrush="{DynamicResource HighlightBorderBrush}"
-                                  BorderThickness="1"
-                                  CornerRadius="14"
-                                  Padding="12">
-                              <StackPanel>
-                                  <TextBlock Text="{loc:Translate 'Avatar Sets'}"
-                                             FontFamily="{DynamicResource HeadingFontFamily}"
-                                             FontSize="12"
-                                             FontWeight="SemiBold"
-                                             Foreground="{DynamicResource MutedBrush}"
-                                             HorizontalAlignment="Center"
-                                             TextAlignment="Center" />
-                                  <Button Style="{StaticResource RuleLibraryPrimaryButtonStyle}"
-                                          Margin="0,10,0,0"
-                                          Content="{loc:Translate 'Manage Avatar Sets'}"
-                                          Command="{Binding OpenAvatarSetsManagerCommand}" />
-                              </StackPanel>
-                          </Border>
-                          <!-- Avatar Actions group -->
-                          <Border Margin="0,10,0,0"
-                                  Background="{DynamicResource NestedPanelBrush}"
-                                  BorderBrush="{DynamicResource HighlightBorderBrush}"
-                                  BorderThickness="1"
-                                  CornerRadius="14"
-                                  Padding="12">
-                             <StackPanel>
-                                 <TextBlock Text="{loc:Translate 'Avatar Actions'}"
-                                            FontFamily="{DynamicResource HeadingFontFamily}"
-                                            FontSize="12"
-                                            FontWeight="SemiBold"
-                                            Foreground="{DynamicResource MutedBrush}"
-                                            HorizontalAlignment="Center"
-                                            TextAlignment="Center" />
-                                 <UniformGrid Margin="0,8,0,0"
-                                              Columns="2">
-                                     <Button Content="{loc:Translate 'Avatar Swap'}"
-                                             Command="{Binding OpenAvatarSwapManagerCommand}">
-                                         <Button.Style>
-                                             <Style TargetType="Button" BasedOn="{StaticResource RuleLibraryTabButtonStyle}">
-                                                 <Setter Property="Margin" Value="0,0,5,0" />
-                                             </Style>
-                                         </Button.Style>
-                                     </Button>
-                                      <Button Content="{loc:Translate 'Avatar Scaling'}"
-                                              Command="{Binding OpenAvatarScalingManagerCommand}">
-                                          <Button.Style>
-                                              <Style TargetType="Button" BasedOn="{StaticResource RuleLibraryTabButtonStyle}">
-                                                  <Setter Property="Margin" Value="5,0,0,0" />
-                                              </Style>
-                                          </Button.Style>
-                                      </Button>
-                                 </UniformGrid>
-                             </StackPanel>
-                         </Border>
-                         <!-- Trigger Systems group -->
-                         <Border Margin="0,10,0,0"
-                                 Background="{DynamicResource NestedPanelBrush}"
-                                 BorderBrush="{DynamicResource HighlightBorderBrush}"
-                                 BorderThickness="1"
-                                 CornerRadius="14"
-                                 Padding="12">
-                             <StackPanel>
-                                 <TextBlock Text="{loc:Translate 'Trigger Systems'}"
-                                            FontFamily="{DynamicResource HeadingFontFamily}"
-                                            FontSize="12"
-                                            FontWeight="SemiBold"
-                                            Foreground="{DynamicResource MutedBrush}"
-                                            HorizontalAlignment="Center"
-                                            TextAlignment="Center" />
-                                 <UniformGrid Margin="0,8,0,0"
-                                              Columns="2">
-                                      <Button Content="{loc:Translate 'Universal Triggers'}"
-                                               Command="{Binding OpenUniversalTriggersManagerCommand}">
-                                          <Button.Style>
-                                              <Style TargetType="Button" BasedOn="{StaticResource RuleLibraryTabButtonStyle}">
-                                                  <Setter Property="Margin" Value="0,0,5,0" />
-                                              </Style>
-                                          </Button.Style>
-                                      </Button>
-                                      <Button Content="{loc:Translate 'Movement Redeems'}"
-                                               Command="{Binding ShowMovementRedeemsCommand}">
-                                          <Button.Style>
-                                              <Style TargetType="Button" BasedOn="{StaticResource RuleLibraryTabButtonStyle}">
-                                                  <Setter Property="Margin" Value="5,0,0,0" />
-                                              </Style>
-                                          </Button.Style>
-                                      </Button>
-                                  </UniformGrid>
-                             </StackPanel>
-                         </Border>
-                         <!-- Viewer Support group -->
-                         <Border Margin="0,10,0,0"
-                                 Background="{DynamicResource NestedPanelBrush}"
-                                 BorderBrush="{DynamicResource HighlightBorderBrush}"
-                                 BorderThickness="1"
-                                 CornerRadius="14"
-                                 Padding="12">
-                             <StackPanel>
-                                 <TextBlock Text="{loc:Translate 'Viewer Support'}"
-                                            FontFamily="{DynamicResource HeadingFontFamily}"
-                                            FontSize="12"
-                                            FontWeight="SemiBold"
-                                            Foreground="{DynamicResource MutedBrush}"
-                                            HorizontalAlignment="Center"
-                                            TextAlignment="Center" />
-                                 <UniformGrid Margin="0,8,0,0"
-                                              Columns="2">
-                                     <Button Content="{loc:Translate 'Cash Payments'}"
-                                             Command="{Binding OpenCashPaymentManagerCommand}">
-                                         <Button.Style>
-                                             <Style TargetType="Button" BasedOn="{StaticResource RuleLibraryTabButtonStyle}">
-                                                 <Setter Property="Margin" Value="0,0,5,0" />
-                                             </Style>
-                                         </Button.Style>
-                                     </Button>
-                                     <Button Content="{loc:Translate 'Reward Fire Sale'}"
-                                             Command="{Binding OpenRewardFireSaleManagerCommand}">
-                                         <Button.Style>
-                                             <Style TargetType="Button" BasedOn="{StaticResource RuleLibraryTabButtonStyle}">
-                                                 <Setter Property="Margin" Value="5,0,0,0" />
-                                             </Style>
-                                         </Button.Style>
-                                     </Button>
-                                 </UniformGrid>
-                              </StackPanel>
-                          </Border>
-                         <StackPanel Margin="0,16,0,0"
-                                     Width="340"
-                                     HorizontalAlignment="Center">
-                             <DockPanel LastChildFill="False"
-                                        HorizontalAlignment="Center">
-                                 <TextBlock Text="{loc:Translate 'Tab Actions'}"
-                                            FontFamily="{DynamicResource HeadingFontFamily}"
-                                            FontSize="12"
-                                            Foreground="{DynamicResource MutedBrush}"
-                                            HorizontalAlignment="Center"
-                                            TextAlignment="Center" />
-                                 <Button Style="{StaticResource HelpIconButtonStyle}"
-                                         Width="24"
-                                         Height="24"
-                                         MinWidth="24"
-                                         MinHeight="24"
-                                         Margin="8,0,0,0"
-                                         Click="OnHelpButtonClicked"
-                                         CommandParameter="Redeem Library"
-                                         Tag="{Binding RuleLibraryHelpText}" />
-                             </DockPanel>
-                             <Border Margin="18,8,18,0"
-                                     Height="1"
-                                     Background="{DynamicResource HighlightBorderBrush}"
-                                     Opacity="0.7" />
-                         </StackPanel>
+                       <Grid Margin="0,10,0,0">
+                           <Grid.Resources>
+                               <Style x:Key="NavCardStyle" TargetType="Border">
+                                   <Setter Property="Background" Value="{DynamicResource NestedPanelBrush}" />
+                                   <Setter Property="BorderBrush" Value="{DynamicResource HighlightBorderBrush}" />
+                                   <Setter Property="BorderThickness" Value="1" />
+                                   <Setter Property="CornerRadius" Value="14" />
+                                   <Setter Property="Padding" Value="18" />
+                               </Style>
+                               <Style x:Key="NavCardButtonStyle" TargetType="Button">
+                                   <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
+                                   <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                   <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+                                   <Setter Property="BorderThickness" Value="1" />
+                                   <Setter Property="Padding" Value="8,10" />
+                                   <Setter Property="Cursor" Value="Hand" />
+                                   <Setter Property="FontSize" Value="11" />
+                               </Style>
+                               <Style x:Key="NavCardActionButtonStyle" TargetType="Button" BasedOn="{StaticResource NavCardButtonStyle}">
+                                   <Setter Property="FontWeight" Value="Bold" />
+                                   <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                               </Style>
+                           </Grid.Resources>
 
-                        <StackPanel Margin="0,14,0,0"
-                                    Width="340"
-                                    HorizontalAlignment="Center">
-                            <StackPanel.Style>
-                                <Style TargetType="StackPanel">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsViewingCashPayments}" Value="True">
-                                            <Setter Property="Visibility" Value="Visible" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </StackPanel.Style>
-                            <Button Style="{StaticResource RuleLibraryPrimaryButtonStyle}"
-                                    Content="{loc:Translate 'Add Cash Rule'}"
-                                    Command="{Binding AddCashPaymentRuleCommand}" />
-                            <UniformGrid Margin="0,10,0,0"
-                                         Columns="2">
-                                <Button Style="{StaticResource RuleLibraryButtonStyle}"
-                                        Margin="0,0,10,0"
-                                        Content="{loc:Translate 'Enable All'}"
-                                        Command="{Binding EnableAllCashPaymentRulesCommand}" />
-                                <Button Style="{StaticResource RuleLibraryButtonStyle}"
-                                        Margin="10,0,0,0"
-                                        Content="{loc:Translate 'Disable All'}"
-                                        Command="{Binding DisableAllCashPaymentRulesCommand}" />
-                            </UniformGrid>
-                            <Button Style="{StaticResource RuleLibraryButtonStyle}"
-                                    Margin="0,10,0,0"
-                                    Width="188"
-                                    HorizontalAlignment="Center"
-                                    Content="{loc:Translate 'Delete Cash Rule'}"
-                                    Command="{Binding RemoveSelectedCashPaymentRuleCommand}" />
-                            <Button Style="{StaticResource RuleLibraryDangerButtonStyle}"
-                                    Margin="0,10,0,0"
-                                    Width="214"
-                                    HorizontalAlignment="Center"
-                                    Content="{loc:Translate 'Delete All Cash Rules'}"
-                                    Command="{Binding DeleteAllCashPaymentRulesCommand}" />
-                            <Border Margin="0,16,0,0"
-                                    Padding="14"
-                                    Background="{DynamicResource NestedPanelBrush}"
-                                    BorderBrush="{DynamicResource HighlightBorderBrush}"
-                                    BorderThickness="1"
-                                    CornerRadius="14">
-                                <StackPanel>
-                                    <DockPanel LastChildFill="False">
-                                        <TextBlock Text="{loc:Translate 'Provider Connections'}"
-                                                   Foreground="{DynamicResource TextBrush}"
-                                                   FontWeight="SemiBold"
-                                                   TextWrapping="Wrap" />
-                                        <Button Style="{StaticResource HelpIconButtonStyle}"
-                                                Width="22"
-                                                Height="22"
-                                                MinWidth="22"
-                                                MinHeight="22"
-                                                Margin="6,0,0,0"
-                                                Click="OnHelpButtonClicked"
-                                                CommandParameter="Cash Payment Connections"
-                                                Tag="{Binding CashPaymentConnectionHelpText}" />
-                                    </DockPanel>
+                           <Grid.ColumnDefinitions>
+                               <ColumnDefinition Width="*" />
+                               <ColumnDefinition Width="12" />
+                               <ColumnDefinition Width="*" />
+                           </Grid.ColumnDefinitions>
+                           <Grid.RowDefinitions>
+                               <RowDefinition Height="Auto" />
+                               <RowDefinition Height="12" />
+                               <RowDefinition Height="Auto" />
+                           </Grid.RowDefinitions>
 
-                                    <Expander Margin="0,10,0,0"
-                                              IsExpanded="False"
-                                              Foreground="{DynamicResource TextBrush}">
-                                        <Expander.Header>
-                                            <Border Padding="10,5"
-                                                    Background="{DynamicResource StatusChipBrush}"
-                                                    BorderBrush="{DynamicResource InputBorderBrush}"
-                                                    BorderThickness="1"
-                                                    CornerRadius="12">
-                                                <TextBlock Text="{loc:Translate 'Settings'}"
-                                                           Foreground="{DynamicResource TextBrush}"
-                                                           FontWeight="SemiBold"
-                                                           FontSize="12" />
-                                            </Border>
-                                        </Expander.Header>
-                                        <StackPanel Margin="0,10,0,0">
-                                            <CheckBox Content="{loc:Translate 'Enable StreamElements'}"
-                                                      IsChecked="{Binding Settings.CashPayments.StreamElementsEnabled, UpdateSourceTrigger=PropertyChanged}" />
-                                            <TextBlock Margin="0,8,0,0"
-                                                       Text="{loc:Translate 'StreamElements account / room ID'}"
-                                                       Foreground="{DynamicResource TextBrush}"
-                                                       FontWeight="SemiBold" />
-                                            <TextBox Text="{Binding Settings.CashPayments.StreamElementsAccountId, UpdateSourceTrigger=PropertyChanged}" />
-                                            <TextBlock Margin="0,8,0,0"
-                                                       Text="{loc:Translate 'StreamElements JWT token'}"
-                                                       Foreground="{DynamicResource TextBrush}"
-                                                       FontWeight="SemiBold" />
-                                            <TextBox Text="{Binding Settings.CashPayments.StreamElementsJwtToken, UpdateSourceTrigger=PropertyChanged}" />
+                           <!-- Card 1: Avatar Sets (top-left) -->
+                           <Border Grid.Row="0" Grid.Column="0" Style="{StaticResource NavCardStyle}">
+                               <StackPanel>
+                                   <TextBlock Text="{loc:Translate 'Avatar Sets'}"
+                                              FontFamily="{DynamicResource HeadingFontFamily}"
+                                              FontSize="10"
+                                              FontWeight="SemiBold"
+                                              Foreground="{DynamicResource MutedBrush}" />
+                                   <TextBlock Margin="0,4,0,0"
+                                              Text="{loc:Translate 'Group redeems by avatar set'}"
+                                              FontWeight="Bold"
+                                              FontSize="15"
+                                              Foreground="{DynamicResource TextBrush}" />
+                                   <TextBlock Margin="0,6,0,14"
+                                              Text="{loc:Translate 'Organize avatar swap and scale rules into themed sets'}"
+                                              Foreground="{DynamicResource MutedBrush}"
+                                              FontSize="11"
+                                              TextWrapping="Wrap" />
+                                   <Button Content="{loc:Translate 'Manage →'}"
+                                           Style="{StaticResource NavCardActionButtonStyle}"
+                                           Command="{Binding OpenAvatarSetsManagerCommand}"
+                                           HorizontalAlignment="Left" />
+                               </StackPanel>
+                           </Border>
 
-                                            <CheckBox Margin="0,14,0,0"
-                                                      Content="{loc:Translate 'Enable Streamlabs'}"
-                                                      IsChecked="{Binding Settings.CashPayments.StreamlabsEnabled, UpdateSourceTrigger=PropertyChanged}" />
-                                            <TextBlock Margin="0,8,0,0"
-                                                       Text="{loc:Translate 'Streamlabs access token'}"
-                                                       Foreground="{DynamicResource TextBrush}"
-                                                       FontWeight="SemiBold" />
-                                            <TextBox Text="{Binding Settings.CashPayments.StreamlabsAccessToken, UpdateSourceTrigger=PropertyChanged}" />
+                           <!-- Card 2: Avatar Actions (top-right) -->
+                           <Border Grid.Row="0" Grid.Column="2" Style="{StaticResource NavCardStyle}">
+                               <StackPanel>
+                                   <TextBlock Text="{loc:Translate 'Avatar Actions'}"
+                                              FontFamily="{DynamicResource HeadingFontFamily}"
+                                              FontSize="10"
+                                              FontWeight="SemiBold"
+                                              Foreground="{DynamicResource MutedBrush}" />
+                                   <TextBlock Margin="0,4,0,0"
+                                              Text="{loc:Translate 'Swap, scale, and roulette'}"
+                                              FontWeight="Bold"
+                                              FontSize="15"
+                                              Foreground="{DynamicResource TextBrush}" />
+                                   <TextBlock Margin="0,6,0,14"
+                                              Text="{loc:Translate 'Change avatars, height, or run avatar roulette'}"
+                                              Foreground="{DynamicResource MutedBrush}"
+                                              FontSize="11"
+                                              TextWrapping="Wrap" />
+                                   <UniformGrid Columns="2">
+                                       <Button Content="{loc:Translate 'Avatar Swap'}"
+                                               Style="{StaticResource NavCardButtonStyle}"
+                                               Command="{Binding OpenAvatarSwapManagerCommand}"
+                                               Margin="0,0,6,0" />
+                                       <Button Content="{loc:Translate 'Avatar Scaling'}"
+                                               Style="{StaticResource NavCardButtonStyle}"
+                                               Command="{Binding OpenAvatarScalingManagerCommand}"
+                                               Margin="6,0,0,0" />
+                                   </UniformGrid>
+                               </StackPanel>
+                           </Border>
 
-                                            <CheckBox Margin="0,14,0,0"
-                                                      Content="{loc:Translate 'Enable Ko-fi'}"
-                                                      IsChecked="{Binding Settings.CashPayments.KoFiEnabled, UpdateSourceTrigger=PropertyChanged}" />
-                                            <CheckBox Margin="0,8,0,0"
-                                                      Content="{loc:Translate 'Use Crystal Relay hosted Ko-fi relay'}"
-                                                      IsChecked="{Binding Settings.CashPayments.KoFiUseHostedRelay, UpdateSourceTrigger=PropertyChanged}" />
-                                            <StackPanel Margin="0,8,0,0">
-                                                <StackPanel.Style>
-                                                    <Style TargetType="StackPanel">
-                                                        <Setter Property="Visibility" Value="Collapsed" />
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding Settings.CashPayments.KoFiUseHostedRelay}" Value="True">
-                                                                <Setter Property="Visibility" Value="Visible" />
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </StackPanel.Style>
-                                                <TextBlock Text="{loc:Translate 'Ko-fi webhook URL'}"
-                                                           Foreground="{DynamicResource TextBrush}"
-                                                           FontWeight="SemiBold" />
-                                                <TextBox Text="{Binding Settings.CashPayments.KoFiRelayWebhookUrl, Mode=OneWay}"
-                                                         IsReadOnly="True" />
-                                                <Button Margin="0,8,0,0"
-                                                        Style="{StaticResource RuleLibraryButtonStyle}"
-                                                        Content="{loc:Translate 'Regenerate Ko-fi Relay Link'}"
-                                                        Command="{Binding RegenerateKoFiRelayIdentityCommand}" />
-                                                <TextBlock Margin="0,8,0,0"
-                                                           Text="{loc:Translate 'Paste this webhook URL into Ko-fi. Crystal Relay connects outward to the hosted relay, so streamers do not need Cloudflare, ngrok, port forwarding, or a public local URL.'}"
-                                                           Foreground="{DynamicResource MutedBrush}"
-                                                           TextWrapping="Wrap" />
-                                                <Button Margin="0,8,0,0"
-                                                        Style="{StaticResource RuleLibraryButtonStyle}"
-                                                        Content="{loc:Translate 'Open Ko-fi Webhooks Page'}"
-                                                        Command="{Binding OpenKoFiWebhooksCommand}" />
-                                            </StackPanel>
-                                            <StackPanel Margin="0,8,0,0">
-                                                <StackPanel.Style>
-                                                    <Style TargetType="StackPanel">
-                                                        <Setter Property="Visibility" Value="Collapsed" />
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding Settings.CashPayments.KoFiUseLocalWebhook}" Value="True">
-                                                                <Setter Property="Visibility" Value="Visible" />
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </StackPanel.Style>
-                                                <UniformGrid Columns="2">
-                                                    <StackPanel Margin="0,0,10,0">
-                                                        <TextBlock Text="{loc:Translate 'Local port'}"
-                                                                   Foreground="{DynamicResource TextBrush}"
-                                                                   FontWeight="SemiBold" />
-                                                        <TextBox Text="{Binding Settings.CashPayments.KoFiLocalPort, UpdateSourceTrigger=PropertyChanged}" />
-                                                    </StackPanel>
-                                                    <StackPanel Margin="10,0,0,0">
-                                                        <TextBlock Text="{loc:Translate 'Webhook path'}"
-                                                                   Foreground="{DynamicResource TextBrush}"
-                                                                   FontWeight="SemiBold" />
-                                                        <TextBox Text="{Binding Settings.CashPayments.KoFiWebhookPath, UpdateSourceTrigger=PropertyChanged}" />
-                                                    </StackPanel>
-                                                </UniformGrid>
-                                                <TextBlock Margin="0,8,0,0"
-                                                           Text="{loc:Translate 'Ko-fi public webhook URL'}"
-                                                           Foreground="{DynamicResource TextBrush}"
-                                                           FontWeight="SemiBold" />
-                                                <TextBox Text="{Binding Settings.CashPayments.KoFiPublicWebhookUrl, UpdateSourceTrigger=PropertyChanged}" />
-                                                <TextBlock Margin="0,8,0,0"
-                                                           Text="{Binding Settings.CashPayments.KoFiLocalWebhookUrl}"
-                                                           Foreground="{DynamicResource MutedBrush}"
-                                                           TextWrapping="Wrap" />
-                                            </StackPanel>
-                                            <TextBlock Margin="0,8,0,0"
-                                                       Text="{loc:Translate 'Ko-fi verification token'}"
-                                                       Foreground="{DynamicResource TextBrush}"
-                                                       FontWeight="SemiBold" />
-                                            <PasswordBox local:PasswordBoxBinding.BindPassword="True"
-                                                         local:PasswordBoxBinding.BoundPassword="{Binding Settings.CashPayments.KoFiVerificationToken, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                                        </StackPanel>
-                                    </Expander>
-                                </StackPanel>
-                            </Border>
-                        </StackPanel>
+                           <!-- Card 3: Trigger Systems (bottom-left) -->
+                           <Border Grid.Row="2" Grid.Column="0" Style="{StaticResource NavCardStyle}">
+                               <StackPanel>
+                                   <TextBlock Text="{loc:Translate 'Trigger Systems'}"
+                                              FontFamily="{DynamicResource HeadingFontFamily}"
+                                              FontSize="10"
+                                              FontWeight="SemiBold"
+                                              Foreground="{DynamicResource MutedBrush}" />
+                                   <TextBlock Margin="0,4,0,0"
+                                              Text="{loc:Translate 'Universal triggers and movement'}"
+                                              FontWeight="Bold"
+                                              FontSize="15"
+                                              Foreground="{DynamicResource TextBrush}" />
+                                   <TextBlock Margin="0,6,0,14"
+                                              Text="{loc:Translate 'Chat commands, channel points, bits, subs, and movement redeems'}"
+                                              Foreground="{DynamicResource MutedBrush}"
+                                              FontSize="11"
+                                              TextWrapping="Wrap" />
+                                   <UniformGrid Columns="2">
+                                       <Button Content="{loc:Translate 'Universal Triggers'}"
+                                               Style="{StaticResource NavCardButtonStyle}"
+                                               Command="{Binding OpenUniversalTriggersManagerCommand}"
+                                               Margin="0,0,6,0" />
+                                       <Button Content="{loc:Translate 'Movement Redeems'}"
+                                               Style="{StaticResource NavCardButtonStyle}"
+                                               Command="{Binding ShowMovementRedeemsCommand}"
+                                               Margin="6,0,0,0" />
+                                   </UniformGrid>
+                               </StackPanel>
+                           </Border>
 
-
-
-
-
-
-                        <ListBox ItemsSource="{Binding CashPaymentRules}"
-                                 SelectedItem="{Binding SelectedCashPaymentRule}"
-                                 ScrollViewer.CanContentScroll="True"
-                                 VirtualizingStackPanel.IsVirtualizing="True"
-                                 VirtualizingStackPanel.VirtualizationMode="Recycling">
-                            <ListBox.Style>
-                                <Style TargetType="ListBox" BasedOn="{StaticResource {x:Type ListBox}}">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsViewingCashPayments}" Value="True">
-                                            <Setter Property="Visibility" Value="Visible" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </ListBox.Style>
-                            <ListBox.ItemTemplate>
-                                <DataTemplate DataType="{x:Type models:CashPaymentRule}">
-                                    <Border Margin="0,0,0,10"
-                                            Padding="12"
-                                            Background="{DynamicResource RuleCardBrush}"
-                                            BorderBrush="{DynamicResource HighlightBorderBrush}"
-                                            BorderThickness="1"
-                                            CornerRadius="14">
-                                        <StackPanel>
-                                            <TextBlock Text="{Binding DisplayTitle}"
-                                                       Foreground="{DynamicResource TextBrush}"
-                                                       FontWeight="SemiBold"
-                                                       TextWrapping="Wrap" />
-                                            <TextBlock Margin="0,5,0,0"
-                                                       Text="{Binding TriggerSummary}"
-                                                       Foreground="{DynamicResource MutedBrush}"
-                                                       TextWrapping="Wrap" />
-                                        </StackPanel>
-                                    </Border>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
-                        </ListBox>
-
-
-
-                        <TextBlock HorizontalAlignment="Center"
-                                   VerticalAlignment="Center"
-                                   Foreground="{DynamicResource MutedBrush}"
-                                   TextWrapping="Wrap"
-                                   TextAlignment="Center">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                    <Setter Property="Text" Value="{loc:Translate 'Add an avatar set to get started.'}" />
-                                    <Style.Triggers>
-                                        <MultiDataTrigger>
-                                            <MultiDataTrigger.Conditions>
-                                                <Condition Binding="{Binding IsViewingAvatarTriggers}" Value="True" />
-                                                <Condition Binding="{Binding AvatarRuleProfiles.Count}" Value="0" />
-                                            </MultiDataTrigger.Conditions>
-                                            <Setter Property="Visibility" Value="Visible" />
-                                        </MultiDataTrigger>
-                                        <MultiDataTrigger>
-                                            <MultiDataTrigger.Conditions>
-                                                <Condition Binding="{Binding IsViewingCashPayments}" Value="True" />
-                                                <Condition Binding="{Binding Settings.CashPaymentRules.Count}" Value="0" />
-                                            </MultiDataTrigger.Conditions>
-                                            <Setter Property="Visibility" Value="Visible" />
-                                            <Setter Property="Text" Value="{loc:Translate 'Add a cash payment rule to get started.'}" />
-                                        </MultiDataTrigger>
-
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
+                           <!-- Card 4: Viewer Support (bottom-right) -->
+                           <Border Grid.Row="2" Grid.Column="2" Style="{StaticResource NavCardStyle}">
+                               <StackPanel>
+                                   <TextBlock Text="{loc:Translate 'Viewer Support'}"
+                                              FontFamily="{DynamicResource HeadingFontFamily}"
+                                              FontSize="10"
+                                              FontWeight="SemiBold"
+                                              Foreground="{DynamicResource MutedBrush}" />
+                                   <TextBlock Margin="0,4,0,0"
+                                              Text="{loc:Translate 'Tips, donations, and sales'}"
+                                              FontWeight="Bold"
+                                              FontSize="15"
+                                              Foreground="{DynamicResource TextBrush}" />
+                                   <TextBlock Margin="0,6,0,14"
+                                              Text="{loc:Translate 'StreamElements, Streamlabs, Ko-fi payments and reward fire sales'}"
+                                              Foreground="{DynamicResource MutedBrush}"
+                                              FontSize="11"
+                                              TextWrapping="Wrap" />
+                                   <UniformGrid Columns="2">
+                                       <Button Content="{loc:Translate 'Cash Payments'}"
+                                               Style="{StaticResource NavCardButtonStyle}"
+                                               Command="{Binding OpenCashPaymentManagerCommand}"
+                                               Margin="0,0,6,0" />
+                                       <Button Content="{loc:Translate 'Reward Fire Sale'}"
+                                               Style="{StaticResource NavCardButtonStyle}"
+                                               Command="{Binding OpenRewardFireSaleManagerCommand}"
+                                               Margin="6,0,0,0" />
+                                   </UniformGrid>
+                               </StackPanel>
+                           </Border>
+                       </Grid>
                     </StackPanel>
                 </ScrollViewer>
             </Border>
