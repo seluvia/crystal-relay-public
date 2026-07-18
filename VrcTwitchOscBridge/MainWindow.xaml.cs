@@ -147,6 +147,7 @@ private static readonly string[] LoadingStoryboardKeys =
         RestoreRestartSessionWindows();
         QueueApplicationUpdateCheck();
         ShowAvatarSwapMigrationNoticeIfNeeded();
+        ShowUiUpdateNoticeIfNeeded();
         _ = viewModel.CheckForPendingCrashReportAsync();
     }
 
@@ -165,6 +166,33 @@ private static readonly string[] LoadingStoryboardKeys =
             MessageBoxButton.OK,
             MessageBoxImage.Information);
         viewModel.DismissMigrationNoticeCommand.Execute(null);
+    }
+
+    private void ShowUiUpdateNoticeIfNeeded()
+    {
+        if (!viewModel.ShowUiUpdateNotice)
+        {
+            return;
+        }
+
+        ThemedDialogWindow.ShowNotice(
+            this,
+            viewModel.SelectedTheme,
+            LocalizationService.Translate("Major UI Update — Please Verify Your Rewards"),
+            LocalizationService.Translate(
+                "Crystal Relay's main layout has been reorganized. " +
+                "Your reward configurations are still here, but some sections may have moved or look different.\n\n" +
+                "Please review each of your reward systems to make sure everything transferred correctly:"),
+            finePrint:
+                " • Avatar Sets & Avatar Change\n" +
+                " • Avatar Roulette\n" +
+                " • Bits / Subs / Payment overrides\n" +
+                " • Avatar Scaling\n" +
+                " • Power Ups & Channel Point Rewards\n" +
+                " • Universal Triggers\n" +
+                " • Cash Payment rules\n\n" +
+                LocalizationService.Translate("This notice will not appear again."));
+        viewModel.DismissUiUpdateNoticeCommand.Execute(null);
     }
 
     private async void OnClosing(object? sender, CancelEventArgs e)

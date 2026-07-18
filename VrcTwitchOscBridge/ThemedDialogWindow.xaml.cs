@@ -24,9 +24,17 @@ public partial class ThemedDialogWindow : Window
         string primaryButtonText,
         string? secondaryButtonText = null,
         string? tertiaryButtonText = null,
-        string? finePrint = null)
+        string? finePrint = null,
+        bool isNotice = false)
     {
         InitializeComponent();
+        if (isNotice)
+        {
+            IsNotice = true;
+            HeadingFontSize = 28;
+            BodyFontSize = 15;
+            FinePrintFontSize = 13;
+        }
         ThemeManager.ApplyToResources(Resources, theme);
         ThemeManager.ThemeChanged += OnThemeManagerThemeChanged;
         Closed += OnWindowClosed;
@@ -54,6 +62,12 @@ public partial class ThemedDialogWindow : Window
     }
 
     public ThemedDialogChoice SelectedChoice { get; private set; } = ThemedDialogChoice.None;
+
+    public bool IsNotice { get; }
+    public double HeadingFontSize { get; } = 24;
+    public double BodyFontSize { get; } = 13;
+    public double FinePrintFontSize { get; } = 11;
+    public Visibility AccentStripVisibility => IsNotice ? Visibility.Visible : Visibility.Collapsed;
 
     public static void ShowOk(
         Window? owner,
@@ -111,6 +125,27 @@ public partial class ThemedDialogWindow : Window
             : dialog.SelectedChoice == ThemedDialogChoice.Tertiary
                 ? ThemedDialogChoice.Tertiary
                 : ThemedDialogChoice.Secondary;
+    }
+
+    public static void ShowNotice(
+        Window? owner,
+        AppTheme theme,
+        string title,
+        string message,
+        string? finePrint = null,
+        string buttonText = "")
+    {
+        buttonText = string.IsNullOrWhiteSpace(buttonText)
+            ? LocalizationService.Translate("I Understand")
+            : buttonText;
+        var dialog = new ThemedDialogWindow(theme, title, message, buttonText, null, null, finePrint, isNotice: true)
+        {
+            Owner = owner,
+            Width = 680,
+            MinWidth = 680
+        };
+
+        dialog.ShowDialog();
     }
 
     private void OnPrimaryClicked(object sender, RoutedEventArgs e)

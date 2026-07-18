@@ -417,6 +417,7 @@ public sealed class SettingsStore
             settings.AvatarSwapManagerUseFullRuleEditor = profile.AvatarSwapManagerUseFullRuleEditor ?? settings.AvatarSwapManagerUseFullRuleEditor;
             settings.AvatarSwapMigrationNoticeShown = profile.AvatarSwapMigrationNoticeShown ?? settings.AvatarSwapMigrationNoticeShown;
             settings.CashPaymentMigrationNoticeShown = profile.CashPaymentMigrationNoticeShown ?? settings.CashPaymentMigrationNoticeShown;
+            settings.UiUpdateNoticeShown = profile.UiUpdateNoticeShown ?? settings.UiUpdateNoticeShown;
             settings.EmergencyRedeemStopEnabled = profile.EmergencyRedeemStopEnabled ?? settings.EmergencyRedeemStopEnabled;
             settings.DesktopModeInputLockEnabled = profile.DesktopModeInputLockEnabled ?? settings.DesktopModeInputLockEnabled;
             settings.RestartVrChatInDesktopMode = profile.RestartVrChatInDesktopMode ?? settings.RestartVrChatInDesktopMode;
@@ -601,6 +602,7 @@ public sealed class SettingsStore
             AvatarSwapManagerUseFullRuleEditor = settings.AvatarSwapManagerUseFullRuleEditor,
             AvatarSwapMigrationNoticeShown = settings.AvatarSwapMigrationNoticeShown,
             CashPaymentMigrationNoticeShown = settings.CashPaymentMigrationNoticeShown,
+            UiUpdateNoticeShown = settings.UiUpdateNoticeShown,
             EmergencyRedeemStopEnabled = settings.EmergencyRedeemStopEnabled,
             DesktopModeInputLockEnabled = settings.DesktopModeInputLockEnabled,
             RestartVrChatInDesktopMode = settings.RestartVrChatInDesktopMode,
@@ -2845,6 +2847,9 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
 
         [JsonPropertyName("cashPaymentMigrationNoticeShown")]
         public bool? CashPaymentMigrationNoticeShown { get; set; }
+
+        [JsonPropertyName("uiUpdateNoticeShown")]
+        public bool? UiUpdateNoticeShown { get; set; }
 
         public bool? EmergencyRedeemStopEnabled { get; set; }
 

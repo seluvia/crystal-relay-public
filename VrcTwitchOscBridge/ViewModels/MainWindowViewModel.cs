@@ -907,6 +907,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         RefreshWorldCommandBlacklistCommand = new AsyncRelayCommand(RefreshWorldCommandBlacklistManuallyAsync);
         DismissMigrationNoticeCommand = new RelayCommand(DismissMigrationNotice);
         DismissCashPaymentMigrationNoticeCommand = new RelayCommand(DismissCashPaymentMigrationNotice);
+        DismissUiUpdateNoticeCommand = new RelayCommand(DismissUiUpdateNotice);
         ShowSettingsTwitchSectionCommand = new RelayCommand(() => SetActiveSettingsSection(SettingsSectionView.Twitch));
         ShowSettingsVrChatSectionCommand = new RelayCommand(() => SetActiveSettingsSection(SettingsSectionView.VrChat));
         ShowSettingsAppSectionCommand = new RelayCommand(() => SetActiveSettingsSection(SettingsSectionView.App));
@@ -1371,6 +1372,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     public bool ShowCashPaymentMigrationNotice =>
         !Settings.CashPaymentMigrationNoticeShown;
+
+    public bool ShowUiUpdateNotice =>
+        !Settings.UiUpdateNoticeShown;
 
     public string UiOpacityStatusText => TF("UI Opacity: {0}%", Settings.InterfaceOpacityPercent);
 
@@ -2942,6 +2946,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     public RelayCommand DismissCashPaymentMigrationNoticeCommand { get; }
 
+    public RelayCommand DismissUiUpdateNoticeCommand { get; }
+
     public RelayCommand ShowSettingsTwitchSectionCommand { get; }
 
     public RelayCommand ShowSettingsVrChatSectionCommand { get; }
@@ -3677,6 +3683,17 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         }
 
         Settings.CashPaymentMigrationNoticeShown = true;
+        _ = SaveSettingsAsync();
+    }
+
+    private void DismissUiUpdateNotice()
+    {
+        if (Settings.UiUpdateNoticeShown)
+        {
+            return;
+        }
+
+        Settings.UiUpdateNoticeShown = true;
         _ = SaveSettingsAsync();
     }
 

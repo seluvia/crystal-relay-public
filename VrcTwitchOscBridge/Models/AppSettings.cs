@@ -521,6 +521,8 @@ public sealed class AppSettings : ObservableObject
 
     public bool AvatarSwapManagerUseFullRuleEditor { get; set; } = true;
     public bool AvatarSwapMigrationNoticeShown { get; set; }
+    public bool CashPaymentMigrationNoticeShown { get; set; }
+    public bool UiUpdateNoticeShown { get; set; }
 
     public bool EmergencyRedeemStopEnabled
     {
