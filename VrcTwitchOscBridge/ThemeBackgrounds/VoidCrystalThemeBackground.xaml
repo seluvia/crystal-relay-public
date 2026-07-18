@@ -2,204 +2,110 @@
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Grid.Background>
         <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-            <GradientStop Color="#06030A" Offset="0" />
-            <GradientStop Color="#0E0718" Offset="0.2" />
-            <GradientStop Color="#1A0E2A" Offset="0.45" />
-            <GradientStop Color="#150A22" Offset="0.7" />
-            <GradientStop Color="#0A0512" Offset="0.9" />
-            <GradientStop Color="#040206" Offset="1" />
+            <GradientStop Color="#070311" Offset="0" />
+            <GradientStop Color="#120A20" Offset="0.3" />
+            <GradientStop Color="#1A0D30" Offset="0.5" />
+            <GradientStop Color="#140A28" Offset="0.7" />
+            <GradientStop Color="#0E061C" Offset="0.88" />
+            <GradientStop Color="#050209" Offset="1" />
         </LinearGradientBrush>
     </Grid.Background>
     <Canvas ClipToBounds="True">
 
-        <!-- Central atmospheric glow -->
-        <Ellipse Width="900" Height="700"
-                 Canvas.Left="600" Canvas.Top="250"
-                 Opacity="0.35">
-            <Ellipse.Fill>
-                <RadialGradientBrush Center="0.5,0.5" RadiusX="0.5" RadiusY="0.5">
-                    <GradientStop Color="#2A1050" Offset="0" />
-                    <GradientStop Color="#150828" Offset="0.5" />
-                    <GradientStop Color="Transparent" Offset="1" />
-                </RadialGradientBrush>
-            </Ellipse.Fill>
-        </Ellipse>
-
-        <!-- Secondary warm atmospheric glow -->
-        <Ellipse Width="500" Height="500"
-                 Canvas.Left="1000" Canvas.Top="400"
-                 Opacity="0.2">
-            <Ellipse.Fill>
-                <RadialGradientBrush Center="0.5,0.5" RadiusX="0.5" RadiusY="0.5">
-                    <GradientStop Color="#3A1860" Offset="0" />
-                    <GradientStop Color="#1A0A30" Offset="0.4" />
-                    <GradientStop Color="Transparent" Offset="1" />
-                </RadialGradientBrush>
-            </Ellipse.Fill>
-        </Ellipse>
-
-        <!-- Subtle upper-left glow -->
-        <Ellipse Width="400" Height="400"
-                 Canvas.Left="-50" Canvas.Top="-50"
-                 Opacity="0.15">
-            <Ellipse.Fill>
-                <RadialGradientBrush Center="0.5,0.5" RadiusX="0.5" RadiusY="0.5">
-                    <GradientStop Color="#4D2080" Offset="0" />
-                    <GradientStop Color="Transparent" Offset="1" />
-                </RadialGradientBrush>
-            </Ellipse.Fill>
-        </Ellipse>
-
-        <!-- Vignette overlay - top -->
-        <Rectangle Width="1920" Height="300" Canvas.Left="0" Canvas.Top="0"
-                   IsHitTestVisible="False">
-            <Rectangle.Fill>
-                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                    <GradientStop Color="#08040E" Offset="0" />
-                    <GradientStop Color="Transparent" Offset="1" />
-                </LinearGradientBrush>
-            </Rectangle.Fill>
-        </Rectangle>
-
-        <!-- Vignette overlay - bottom -->
-        <Rectangle Width="1920" Height="350" Canvas.Left="0" Canvas.Top="730"
-                   IsHitTestVisible="False">
-            <Rectangle.Fill>
-                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                    <GradientStop Color="Transparent" Offset="0" />
-                    <GradientStop Color="#06030C" Offset="1" />
-                </LinearGradientBrush>
-            </Rectangle.Fill>
-        </Rectangle>
-
-        <!-- Vignette overlay - left -->
-        <Rectangle Width="200" Height="1080" Canvas.Left="0" Canvas.Top="0"
-                   IsHitTestVisible="False">
-            <Rectangle.Fill>
-                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                    <GradientStop Color="#08040E" Offset="0" />
-                    <GradientStop Color="Transparent" Offset="1" />
-                </LinearGradientBrush>
-            </Rectangle.Fill>
-        </Rectangle>
-
-        <!-- Main crystal cluster (center-right focal piece) -->
-        <Polygon Points="1040,180 1090,120 1140,180 1120,260 1060,260"
-                 Fill="#184820A0" Stroke="#B16BFF" StrokeThickness="1.5"
-                 Opacity="0.5" />
-        <Polygon Points="1060,260 1120,260 1160,340 1080,380 1030,340"
-                 Fill="#14381880" Stroke="#9A74F0" StrokeThickness="1.3"
-                 Opacity="0.45" />
-        <Polygon Points="1122,168 1160,118 1198,168 1182,240 1138,240"
-                 Fill="#15402090" Stroke="#A978FF" StrokeThickness="1.4"
-                 Opacity="0.55" />
-        <Polygon Points="1138,240 1182,240 1210,310 1150,350 1108,310"
-                 Fill="#11381880" Stroke="#8B63E8" StrokeThickness="1.2"
-                 Opacity="0.4" />
-        <Polygon Points="1080,196 1114,156 1148,196 1136,250 1096,250"
-                 Fill="#1C5028B0" Stroke="#C78AFF" StrokeThickness="1.6"
+        <!-- Main crystal cluster (right side, upper area) -->
+        <Polygon Points="880,200 920,148 960,200 944,268 896,268"
+                 Fill="#285030D0" Stroke="#B16BFF" StrokeThickness="1.6"
                  Opacity="0.6" />
-        <Polygon Points="1096,250 1136,250 1156,300 1116,324 1082,300"
-                 Fill="#16442090" Stroke="#A978FF" StrokeThickness="1.3"
+        <Polygon Points="896,268 944,268 978,340 926,378 886,340"
+                 Fill="#1E4028B0" Stroke="#A978FF" StrokeThickness="1.4"
+                 Opacity="0.55" />
+        <Polygon Points="950,190 982,146 1014,190 1000,252 964,252"
+                 Fill="#2C5838D0" Stroke="#C78AFF" StrokeThickness="1.7"
+                 Opacity="0.65" />
+        <Polygon Points="964,252 1000,252 1024,314 976,346 950,314"
+                 Fill="#204828A0" Stroke="#9A74F0" StrokeThickness="1.3"
                  Opacity="0.5" />
+        <Polygon Points="910,220 938,184 966,220 954,268 926,268"
+                 Fill="#306040E0" Stroke="#D49BFF" StrokeThickness="1.8"
+                 Opacity="0.7" />
+        <Polygon Points="926,268 954,268 974,318 944,338 914,318"
+                 Fill="#245030B0" Stroke="#B16BFF" StrokeThickness="1.4"
+                 Opacity="0.6" />
 
-        <!-- Secondary crystal cluster (top-left area) -->
-        <Polygon Points="180,260 214,220 248,260 236,310 196,310"
-                 Fill="#14381880" Stroke="#7C52D8" StrokeThickness="1.2"
-                 Opacity="0.35" />
-        <Polygon Points="196,310 236,310 254,354 218,376 186,354"
-                 Fill="#10301070" Stroke="#6E47C2" StrokeThickness="1.1"
-                 Opacity="0.3" />
-        <Polygon Points="200,268 226,236 252,268 242,308 212,308"
-                 Fill="#18402090" Stroke="#8C65E6" StrokeThickness="1.3"
+        <!-- Left cluster (upper left edge) -->
+        <Polygon Points="120,260 148,226 176,260 166,300 134,300"
+                 Fill="#1C4028A0" Stroke="#8C65E6" StrokeThickness="1.3"
+                 Opacity="0.45" />
+        <Polygon Points="134,300 166,300 182,340 152,360 124,340"
+                 Fill="#18382090" Stroke="#7C52D8" StrokeThickness="1.2"
                  Opacity="0.4" />
-
-        <!-- Small crystal cluster (bottom-right) -->
-        <Polygon Points="1480,740 1508,704 1536,740 1524,786 1494,786"
-                 Fill="#14381880" Stroke="#845EDD" StrokeThickness="1.2"
-                 Opacity="0.35" />
-        <Polygon Points="1494,786 1524,786 1540,822 1510,844 1486,822"
-                 Fill="#10301070" Stroke="#7550CA" StrokeThickness="1.1"
-                 Opacity="0.3" />
-        <Polygon Points="1504,748 1524,718 1544,748 1536,782 1514,782"
-                 Fill="#18402090" Stroke="#9A74F0" StrokeThickness="1.3"
-                 Opacity="0.4" />
+        <Polygon Points="136,266 158,240 180,266 172,298 148,298"
+                 Fill="#204828B0" Stroke="#9A74F0" StrokeThickness="1.4"
+                 Opacity="0.5" />
 
         <!-- Scattered medium shards -->
-        <Polygon Points="720,420 746,378 772,420 758,466 734,466"
-                 Fill="#0E3D2070" Stroke="#7C52D8" StrokeThickness="1.1"
-                 Opacity="0.3" />
-        <Polygon Points="630,640 654,604 678,640 666,678 642,678"
-                 Fill="#10442480" Stroke="#8B63E8" StrokeThickness="1.15"
+        <Polygon Points="380,420 402,388 424,420 414,452 392,452"
+                 Fill="#1C4028A0" Stroke="#845EDD" StrokeThickness="1.2"
+                 Opacity="0.45" />
+        <Polygon Points="550,580 570,548 590,580 580,612 560,612"
+                 Fill="#204828B0" Stroke="#9A74F0" StrokeThickness="1.2"
+                 Opacity="0.5" />
+        <Polygon Points="740,280 760,248 780,280 770,312 750,312"
+                 Fill="#18382090" Stroke="#7550CA" StrokeThickness="1.15"
+                 Opacity="0.4" />
+        <Polygon Points="1050,500 1070,468 1090,500 1080,532 1060,532"
+                 Fill="#1C4028A0" Stroke="#8C65E6" StrokeThickness="1.2"
+                 Opacity="0.45" />
+        <Polygon Points="650,720 670,688 690,720 680,752 660,752"
+                 Fill="#204828B0" Stroke="#7C52D8" StrokeThickness="1.2"
+                 Opacity="0.5" />
+
+        <!-- Small shards -->
+        <Polygon Points="270,140 286,120 302,140 294,160 278,160"
+                 Fill="#18382090" Stroke="#6E47C2" StrokeThickness="1"
                  Opacity="0.35" />
-        <Polygon Points="1320,580 1344,544 1368,580 1356,618 1332,618"
-                 Fill="#0E3D2070" Stroke="#6E47C2" StrokeThickness="1.1"
+        <Polygon Points="490,260 506,240 522,260 514,280 498,280"
+                 Fill="#14301880" Stroke="#6B49BA" StrokeThickness="1"
                  Opacity="0.3" />
-        <Polygon Points="460,760 484,724 508,760 496,798 472,798"
-                 Fill="#10442480" Stroke="#7C52D8" StrokeThickness="1.15"
+        <Polygon Points="690,460 706,440 722,460 714,480 698,480"
+                 Fill="#18382090" Stroke="#7C52D8" StrokeThickness="1"
                  Opacity="0.35" />
-        <Polygon Points="820,820 846,784 872,820 858,860 834,860"
-                 Fill="#0E3D2070" Stroke="#6B49BA" StrokeThickness="1.1"
+        <Polygon Points="1120,360 1138,338 1156,360 1148,382 1130,382"
+                 Fill="#14301880" Stroke="#7550CA" StrokeThickness="1"
+                 Opacity="0.3" />
+        <Polygon Points="320,580 336,560 352,580 344,600 328,600"
+                 Fill="#18382090" Stroke="#6E47C2" StrokeThickness="1"
+                 Opacity="0.35" />
+        <Polygon Points="870,580 886,560 902,580 894,600 878,600"
+                 Fill="#14301880" Stroke="#6B49BA" StrokeThickness="1"
+                 Opacity="0.3" />
+        <Polygon Points="1090,720 1106,700 1122,720 1114,740 1098,740"
+                 Fill="#18382090" Stroke="#7C52D8" StrokeThickness="1"
+                 Opacity="0.35" />
+        <Polygon Points="220,500 236,480 252,500 244,520 228,520"
+                 Fill="#14301880" Stroke="#6E47C2" StrokeThickness="1"
                  Opacity="0.3" />
 
-        <!-- Small scattered shards -->
-        <Polygon Points="320,150 340,124 360,150 350,176 330,176"
-                 Fill="#0E382070" Stroke="#6E47C2" StrokeThickness="1"
-                 Opacity="0.25" />
-        <Polygon Points="520,340 538,318 556,340 548,362 530,362"
-                 Fill="#0C302060" Stroke="#7550CA" StrokeThickness="1"
-                 Opacity="0.2" />
-        <Polygon Points="920,480 938,458 956,480 948,502 930,502"
-                 Fill="#0E382070" Stroke="#6E47C2" StrokeThickness="1"
-                 Opacity="0.25" />
-        <Polygon Points="1180,480 1200,454 1220,480 1210,506 1190,506"
-                 Fill="#0C302060" Stroke="#7C52D8" StrokeThickness="1"
-                 Opacity="0.2" />
-        <Polygon Points="1420,360 1438,338 1456,360 1448,382 1430,382"
-                 Fill="#0E382070" Stroke="#6E47C2" StrokeThickness="1"
-                 Opacity="0.25" />
-        <Polygon Points="380,500 398,478 416,500 408,522 390,522"
-                 Fill="#0C302060" Stroke="#7550CA" StrokeThickness="1"
-                 Opacity="0.2" />
-        <Polygon Points="1580,560 1598,538 1616,560 1608,582 1590,582"
-                 Fill="#0E382070" Stroke="#6E47C2" StrokeThickness="1"
-                 Opacity="0.25" />
-        <Polygon Points="680,280 696,262 712,280 704,298 690,298"
-                 Fill="#0C302060" Stroke="#6B49BA" StrokeThickness="1"
-                 Opacity="0.2" />
-        <Polygon Points="110,700 128,678 146,700 138,722 120,722"
-                 Fill="#0E382070" Stroke="#6E47C2" StrokeThickness="1"
-                 Opacity="0.25" />
-        <Polygon Points="1620,840 1638,818 1656,840 1648,862 1630,862"
-                 Fill="#0C302060" Stroke="#6B49BA" StrokeThickness="1"
-                 Opacity="0.2" />
-
-        <!-- Tiny floating dust/shard specks -->
-        <Ellipse Width="4" Height="4" Canvas.Left="240" Canvas.Top="380"
-                 Fill="#7C52D8" Opacity="0.15" />
-        <Ellipse Width="3" Height="3" Canvas.Left="560" Canvas.Top="180"
-                 Fill="#9A74F0" Opacity="0.12" />
-        <Ellipse Width="5" Height="5" Canvas.Left="850" Canvas.Top="320"
-                 Fill="#845EDD" Opacity="0.1" />
-        <Ellipse Width="3" Height="3" Canvas.Left="1250" Canvas.Top="220"
-                 Fill="#B16BFF" Opacity="0.15" />
-        <Ellipse Width="4" Height="4" Canvas.Left="1400" Canvas.Top="500"
-                 Fill="#7C52D8" Opacity="0.12" />
-        <Ellipse Width="3" Height="3" Canvas.Left="350" Canvas.Top="620"
-                 Fill="#9A74F0" Opacity="0.1" />
-        <Ellipse Width="4" Height="4" Canvas.Left="750" Canvas.Top="500"
-                 Fill="#8C65E6" Opacity="0.12" />
-        <Ellipse Width="3" Height="3" Canvas.Left="1100" Canvas.Top="640"
-                 Fill="#6E47C2" Opacity="0.15" />
-        <Ellipse Width="5" Height="5" Canvas.Left="1600" Canvas.Top="320"
-                 Fill="#9A74F0" Opacity="0.1" />
-        <Ellipse Width="3" Height="3" Canvas.Left="480" Canvas.Top="900"
-                 Fill="#7C52D8" Opacity="0.12" />
-        <Ellipse Width="4" Height="4" Canvas.Left="1350" Canvas.Top="860"
-                 Fill="#845EDD" Opacity="0.1" />
-        <Ellipse Width="3" Height="3" Canvas.Left="100" Canvas.Top="480"
-                 Fill="#B16BFF" Opacity="0.12" />
-        <Ellipse Width="4" Height="4" Canvas.Left="1720" Canvas.Top="680"
-                 Fill="#6E47C2" Opacity="0.1" />
+        <!-- Tiny dust specks -->
+        <Ellipse Width="3" Height="3" Canvas.Left="200" Canvas.Top="360"
+                 Fill="#A978FF" Opacity="0.3" />
+        <Ellipse Width="4" Height="4" Canvas.Left="440" Canvas.Top="180"
+                 Fill="#C78AFF" Opacity="0.25" />
+        <Ellipse Width="3" Height="3" Canvas.Left="640" Canvas.Top="340"
+                 Fill="#8C65E6" Opacity="0.28" />
+        <Ellipse Width="4" Height="4" Canvas.Left="820" Canvas.Top="520"
+                 Fill="#9A74F0" Opacity="0.3" />
+        <Ellipse Width="3" Height="3" Canvas.Left="1020" Canvas.Top="620"
+                 Fill="#B16BFF" Opacity="0.25" />
+        <Ellipse Width="4" Height="4" Canvas.Left="360" Canvas.Top="680"
+                 Fill="#A978FF" Opacity="0.28" />
+        <Ellipse Width="3" Height="3" Canvas.Left="780" Canvas.Top="140"
+                 Fill="#7C52D8" Opacity="0.3" />
+        <Ellipse Width="3" Height="3" Canvas.Left="1120" Canvas.Top="220"
+                 Fill="#9A74F0" Opacity="0.25" />
+        <Ellipse Width="4" Height="4" Canvas.Left="520" Canvas.Top="660"
+                 Fill="#C78AFF" Opacity="0.28" />
+        <Ellipse Width="3" Height="3" Canvas.Left="240" Canvas.Top="740"
+                 Fill="#8C65E6" Opacity="0.25" />
     </Canvas>
 </Grid>

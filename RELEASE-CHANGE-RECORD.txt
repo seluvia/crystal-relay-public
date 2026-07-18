@@ -28,11 +28,27 @@ v3.1.9 beta 5
 Added:
 - VRChat login now handles both 200 OK and 401 responses when two-factor authentication is required, so the 2FA fields appear correctly regardless of which API response shape VRChat returns.
 - Redesigned the VRChat login window: the 2FA code field appears inline below the password instead of in a separate popup window, keeping the login window open through both steps.
-- Added a per-rule "Return Behavior" three-way choice in the Avatar Swap rule editor: Return to Global Return Avatar (default), Return to Previous Avatar (stamps the current avatar before swapping, returns to it when the timer ends), and Permanent (No Return) — the swap fires once and the reward is hidden afterward with no timed return.
+- Added a per-rule "Return Behavior" three-way choice in the Avatar Swap rule editor: Return to Global Return Avatar (default), Return to Previous Avatar (stamps the current avatar before swapping, returns to it when the timer ends), and Permanent (No Return) — the swap fires once and the reward is hidden afterward with no re-triggering.
 - Permanent (No Return) mode suppresses the global return avatar update so your other swaps are not affected, and hides the rule's Twitch reward after a successful activation to prevent re-triggering.
+- Dedicated Reward Fire Sale manager window with themed popup UI, replacing the embedded Fire Sale panel in the main window.
+- Cash Payment contribution support for Reward Fire Sale, so StreamElements, Streamlabs, and Ko-fi payments can contribute to sale funding.
+- Power Up rule selection in the Avatar Swap inline editor, with runtime matching and persistent PowerUpRules storage per swap profile.
+- Main window content grid reduced from 5 columns to 3, removing unused left/right sidebar columns and the empty Redeem Workspace column.
+- Redeem Library restructured into a 2x2 navigation grid with Avatar Sets, Avatar Actions, Trigger Systems, and Viewer Support cards.
+- Connection status cards below the Redeem Library nav grid showing VRChat, OSC, Twitch, and Stream connection state.
+- Connection Status section in Settings: new 2x2 status grid with live connected/disconnected indicators and a compact OSC Controls panel with summary text, detail line, restart buttons, and desktop mode checkbox.
+- Home panel branding card redesigned with version display, beta badge, and the new tagline "Your crystal bridge from Twitch to VRChat". Support section updated to card-style entries with themed vector icons and descriptions for Ko-fi, Discord, and Open Folder.
 Changed:
 - Restructured release and beta packages: install folder is now always "Crystal Relay", the main executable is always "Crystal Relay.exe", and version info is shown via a `<version>.txt` dummy file instead of being embedded in folder and exe names.
 - The self-updater is compatible with both old and new naming for a clean transition.
+- OSC status card now updates in real time: fixed a missing PropertyChanged notification that kept the OSC card stuck on "Disconnected" even when VRChat was discovered and the OSC router was running.
+- Streaming Status panel removed from Home (covered by the new Connection Status section).
+- Old OSC Status panel removed from Home (folded into the new Connection Status section in Settings).
+- Streaming Status ViewModel properties and helper methods removed as dead code.
+- Bits+Subs and Power Up removed from the Viewer Support sidebar and workspace cards.
+- Reworked the Void Crystal theme background with a richer 6-stop gradient, compound crystal clusters as focal pieces, and scattered shard dust specks for deeper atmosphere.
+Removed:
+- Embedded Reward Fire Sale UI removed from the main window and replaced with the dedicated manager window.
 
 v3.1.9 beta 4 (in progress)
 Added:
