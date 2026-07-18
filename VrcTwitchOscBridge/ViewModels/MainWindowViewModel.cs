@@ -16037,44 +16037,32 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             OscBridgeSummary = bridgeCoordinator.HasDiscoveredVrChat
                 ? T("OSC is transmitting and working.")
                 : T("OSC is waiting for VRChat.");
-            return;
         }
-
-        if (!Settings.Broadcaster.IsConnected)
+        else if (!Settings.Broadcaster.IsConnected)
         {
             OscBridgeSummary = T("OSC waiting for broadcaster login.");
-            return;
         }
-
-        if (BridgeStatus.Contains("could not", StringComparison.OrdinalIgnoreCase)
+        else if (BridgeStatus.Contains("could not", StringComparison.OrdinalIgnoreCase)
             || BridgeStatus.Contains("failed", StringComparison.OrdinalIgnoreCase)
             || BridgeStatus.Contains("error", StringComparison.OrdinalIgnoreCase))
         {
             OscBridgeSummary = T("OSC needs attention.");
-            return;
         }
-
-        if (BridgeStatus.Contains("stopped", StringComparison.OrdinalIgnoreCase))
+        else if (BridgeStatus.Contains("stopped", StringComparison.OrdinalIgnoreCase))
         {
             OscBridgeSummary = T("OSC is offline.");
-            return;
         }
-
-        if (BridgeStatus.Contains("refresh", StringComparison.OrdinalIgnoreCase))
+        else if (BridgeStatus.Contains("refresh", StringComparison.OrdinalIgnoreCase))
         {
             OscBridgeSummary = T("OSC is refreshing.");
-            return;
         }
-
-        if (BridgeStatus.Contains("VRChat", StringComparison.OrdinalIgnoreCase)
+        else if (BridgeStatus.Contains("VRChat", StringComparison.OrdinalIgnoreCase)
             && (BridgeStatus.Contains("waiting", StringComparison.OrdinalIgnoreCase)
                 || BridgeStatus.Contains("looking", StringComparison.OrdinalIgnoreCase)))
         {
             OscBridgeSummary = T("OSC is waiting for VRChat.");
-            return;
         }
-
-        if (BridgeStatus.Contains("reconnect", StringComparison.OrdinalIgnoreCase)
+        else if (BridgeStatus.Contains("reconnect", StringComparison.OrdinalIgnoreCase)
             || BridgeStatus.Contains("connect", StringComparison.OrdinalIgnoreCase)
             || BridgeStatus.Contains("live", StringComparison.OrdinalIgnoreCase)
             || BridgeStatus.Contains("listening", StringComparison.OrdinalIgnoreCase))
@@ -16084,11 +16072,14 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             {
                 OscBridgeSummary = T("OSC is starting up.");
             }
-
-            return;
+        }
+        else
+        {
+            OscBridgeSummary = T("OSC standing by.");
         }
 
-        OscBridgeSummary = T("OSC standing by.");
+        RaisePropertyChanged(nameof(IsOscConnected));
+        RaisePropertyChanged(nameof(IsOscDisconnected));
     }
 
     private void UpdateChatboxListenerStatus()
