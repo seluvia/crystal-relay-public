@@ -2076,7 +2076,15 @@ internal BridgeCoordinator(
         var laneLeaseId = laneKeys.Count == 0 ? Guid.Empty : Guid.NewGuid();
         var activeUntil = DateTimeOffset.UtcNow.Add(duration);
 
-        await SendPacketsToVrChatAsync(action.Packets, cancellationToken);
+        var comfortPackets = GetDevComfortTurnPackets(executionRule.MovementDirection);
+
+        var allStartPackets = new List<byte[]>(action.Packets);
+        if (comfortPackets is { } cp)
+        {
+            allStartPackets.AddRange(cp.start);
+        }
+
+        await SendPacketsToVrChatAsync(allStartPackets, cancellationToken);
         lock (stateGate)
         {
             foreach (var laneKey in laneKeys)
@@ -2108,7 +2116,13 @@ internal BridgeCoordinator(
             {
                 if (laneKeys.Count == 0 || laneKeys.Any(laneKey => IsMovementLaneLeaseActive(laneKey, laneLeaseId)))
                 {
-                    await SendPacketsToVrChatAsync(action.ResetPackets, CancellationToken.None);
+                    var allResetPackets = new List<byte[]>(action.ResetPackets);
+                    if (comfortPackets is not null)
+                    {
+                        allResetPackets.AddRange(comfortPackets.Value.stop);
+                    }
+
+                    await SendPacketsToVrChatAsync(allResetPackets, CancellationToken.None);
                 }
             }
             catch (Exception ex)
@@ -2126,6 +2140,27 @@ internal BridgeCoordinator(
             }
         }
     }
+
+    private (IReadOnlyList<byte[]> start, IReadOnlyList<byte[]> stop)? GetDevComfortTurnPackets(PlayerMovementDirection direction)
+    {
+        var comfortAddress = direction switch
+        {
+            PlayerMovementDirection.SpinLeft or PlayerMovementDirection.SnapTurnLeft => "/input/ComfortLeft",
+            PlayerMovementDirection.SpinRight or PlayerMovementDirection.SnapTurnRight => "/input/ComfortRight",
+            _ => null
+        };
+
+        if (comfortAddress is null)
+        {
+            return null;
+        }
+
+        return (
+            new[] { vrChatOscClient.BuildInputButtonPacket(comfortAddress, true) },
+            new[] { vrChatOscClient.BuildInputButtonPacket(comfortAddress, false) });
+    }
+
+
 
     private async Task RunDevJumpMovementOverlayAsync(
         ResolvedRuleAction action,
@@ -3292,7 +3327,7 @@ internal BridgeCoordinator(
     private static string GetEventSubSubscriptionVersion(string subscriptionType) => subscriptionType switch
     {
         "channel.follow" => "2",
-        "channel.custom_power_up_redemption.add" => "beta",
+        "channel.custom_power_up_redemption.add" => "1",
         _ => "1"
     };
 
@@ -3364,6 +3399,12 @@ internal BridgeCoordinator(
             return;
         }
 
+        if (bridgeEvent is { TriggerType: TwitchTriggerType.ChannelPoints }
+            && !string.IsNullOrWhiteSpace(bridgeEvent.RewardTitle))
+        {
+            WriteLog($"Channel point redemption received: reward='{bridgeEvent.RewardTitle}' (ID: {bridgeEvent.RewardId ?? "none"}), user='{bridgeEvent.UserDisplayName}', cost={bridgeEvent.Amount}");
+        }
+
         if (bridgeEvent is { IsChatCommandTrigger: true }
             && await TryHandleDevChatCommandAsync(bridgeEvent, cancellationToken))
         {
@@ -3403,8 +3444,14 @@ internal BridgeCoordinator(
         var avatarScaleHandled = false;
         if (universalEvent is not null)
         {
+            var universalCount = configuration.UniversalTriggers.Count;
             await ExecuteMatchingUniversalTriggersAsync(configuration.UniversalTriggers, universalEvent, cancellationToken);
             avatarScaleHandled = StartMatchingAvatarScaleRules(configuration.AvatarScaleRules, universalEvent);
+            if (bridgeEvent is { TriggerType: TwitchTriggerType.ChannelPoints }
+                && !string.IsNullOrWhiteSpace(bridgeEvent.RewardTitle))
+            {
+                WriteLog($"Universal trigger check done for '{bridgeEvent.RewardTitle}': {universalCount} configured, avatarScaleHandled={avatarScaleHandled}");
+            }
         }
 
         if (bridgeEvent is null)
@@ -3470,6 +3517,12 @@ internal BridgeCoordinator(
                 currentAvatarId,
                 avatarChangeTransitionActive,
                 temporarilyDisabledRuleIds);
+
+        if (bridgeEvent is { TriggerType: TwitchTriggerType.ChannelPoints, IsChatCommandTrigger: false }
+            && !string.IsNullOrWhiteSpace(bridgeEvent.RewardTitle))
+        {
+            WriteLog($"Avatar set rule matching for '{bridgeEvent.RewardTitle}': {matchingRules.Length} matched");
+        }
 
         if (bridgeEvent.IsChatCommandTrigger && matchingRules.Length == 0)
         {
@@ -3617,7 +3670,8 @@ internal BridgeCoordinator(
                     false,
                     false);
                 WriteLog($"{paymentEvent.UserDisplayName} triggered cash payment scale '{rule.Name}' through {DescribeCashPaymentProvider(paymentEvent.Provider)}.");
-                await ExecuteAvatarScaleRuleAsync(rule.ScaleAction, incomingEvent, isTest: false, cancellationToken, isResuming: false);
+                var scaleResult = await ExecuteAvatarScaleRuleAsync(rule.ScaleAction, incomingEvent, isTest: false, cancellationToken, isResuming: false);
+                WriteLog($"CR-DIAG: Cash payment scale rule '{rule.Name}' completed (result={scaleResult}). Proceeding to Fire Sale contribution.");
                 continue;
             }
 
@@ -3662,7 +3716,9 @@ internal BridgeCoordinator(
             null,
             null,
             string.IsNullOrWhiteSpace(paymentEvent.UserDisplayName) ? "Cash supporter" : paymentEvent.UserDisplayName);
+        WriteLog($"CR-DIAG: Firing Fire Sale contribution for {paymentEvent.UserDisplayName}, amount={cashAmountUnits} units.");
         RewardFireSaleContributionReceived?.Invoke(cashContribution);
+        WriteLog($"CR-DIAG: Fire Sale contribution handled. Total cash payment processing complete for {paymentEvent.UserDisplayName}.");
     }
 
     private async Task HandlePowerUpEventAsync(
@@ -3674,6 +3730,12 @@ internal BridgeCoordinator(
         bool avatarScaleHandled,
         CancellationToken cancellationToken)
     {
+        WriteLog($"PowerUp event received: rewardId='{bridgeEvent.RewardId}', title='{bridgeEvent.RewardTitle}', bits={bridgeEvent.Amount}, configured rules={configuration.PowerUpRules.Count}");
+        foreach (var debugRule in configuration.PowerUpRules)
+        {
+            WriteLog($"  Configured rule: id='{debugRule.PowerUpId}', title='{debugRule.PowerUpTitle}', enabled={debugRule.IsEnabled}, action={debugRule.ActionKind}");
+        }
+
         var matchingRules = SelectMatchingPowerUpRules(
             configuration.PowerUpRules,
             bridgeEvent,
@@ -4596,6 +4658,14 @@ internal BridgeCoordinator(
                             if (!nextOperation.IsTest)
                             {
                                 var currentRule = activeConfiguration?.AvatarScaleRules.FirstOrDefault(rule => rule.Id == nextOperation.Rule.Id);
+                                if (currentRule is null && activeConfiguration?.PowerUpRules is not null)
+                                {
+                                    currentRule = activeConfiguration.PowerUpRules
+                                        .Where(p => p.ScaleAction is not null)
+                                        .Select(p => p.ScaleAction!)
+                                        .FirstOrDefault(s => s.Id == nextOperation.Rule.Id);
+                                }
+
                                 if (currentRule is null || !currentRule.IsEnabled)
                                 {
                                     queuedAvatarScaleOperations.Dequeue();
@@ -4844,6 +4914,7 @@ internal BridgeCoordinator(
             isTest);
         if (operation is null)
         {
+            WriteLog($"CR-DIAG: Avatar scale '{rule.Name}' failed to begin operation (returned null).");
             return false;
         }
 
@@ -5010,8 +5081,8 @@ internal BridgeCoordinator(
             }
 
             WriteLog(isTest
-                ? $"Sent avatar scale test/simulated effect for '{rule.Name}' to {targetHeight:0.###}m."
-                : $"{incomingEvent.UserDisplayName} triggered avatar scale '{rule.Name}' to {targetHeight:0.###}m.");
+                ? $"CR-DIAG: Sent avatar scale test/simulated effect for '{rule.Name}' to {targetHeight:0.###}m."
+                : $"CR-DIAG: {incomingEvent.UserDisplayName} triggered avatar scale '{rule.Name}' to {targetHeight:0.###}m.");
             return true;
         }
         finally
@@ -7626,10 +7697,10 @@ internal BridgeCoordinator(
             return;
         }
 
-        var isReturnToPreviousAvatar = rule.ActionType is OscActionType.AvatarChange
+        var isReturnToPreviousAvatar = rule.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet
             && rule.Rule.ReturnToPreviousAvatar
             && rule.DurationSeconds > 0;
-        var isPermanentAvatarChange = rule.ActionType is OscActionType.AvatarChange
+        var isPermanentAvatarChange = rule.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet
             && (activeConfiguration?.PermanentSwapModeEnabled == true || rule.Rule.PermanentAvatarChange)
             && !isReturnToPreviousAvatar;
         var suppressSharedReturnAvatarUpdate = IsCooldownOnlyDirectAvatarChange(rule) || isPermanentAvatarChange;
@@ -8998,6 +9069,8 @@ internal BridgeCoordinator(
             PlayerMovementDirection.LookRight => "/input/LookRight",
             PlayerMovementDirection.ComfortLeft => "/input/ComfortLeft",
             PlayerMovementDirection.ComfortRight => "/input/ComfortRight",
+            PlayerMovementDirection.SnapTurnLeft => "/input/ComfortLeft",
+            PlayerMovementDirection.SnapTurnRight => "/input/ComfortRight",
             PlayerMovementDirection.GrabLeft => "/input/GrabLeft",
             PlayerMovementDirection.GrabRight => "/input/GrabRight",
             PlayerMovementDirection.UseLeft => "/input/UseLeft",
@@ -10188,7 +10261,7 @@ internal BridgeCoordinator(
         PlayerMovementDirection.Forward or PlayerMovementDirection.Backward => "player-movement-vertical",
         PlayerMovementDirection.Left or PlayerMovementDirection.Right => "player-movement-horizontal",
         PlayerMovementDirection.Jump => "player-movement-jump",
-        PlayerMovementDirection.SpinLeft or PlayerMovementDirection.SpinRight => "player-movement-look",
+        PlayerMovementDirection.SpinLeft or PlayerMovementDirection.SpinRight or PlayerMovementDirection.SnapTurnLeft or PlayerMovementDirection.SnapTurnRight => "player-movement-look",
         _ => null
     };
 
@@ -15717,7 +15790,13 @@ internal BridgeCoordinator(
 
     private static int GetPowerUpBitsCost(JsonElement eventData)
     {
-        var bits = GetInt(eventData, "custom_power_up", "bits");
+        var bits = GetInt(eventData, "custom_power_up", "bits_cost");
+        if (bits > 0)
+        {
+            return bits;
+        }
+
+        bits = GetInt(eventData, "custom_power_up", "bits");
         if (bits > 0)
         {
             return bits;
@@ -19342,6 +19421,8 @@ internal BridgeCoordinator(
         PlayerMovementDirection.Jump => "Jump",
         PlayerMovementDirection.SpinLeft => "Spin Left",
         PlayerMovementDirection.SpinRight => "Spin Right",
+        PlayerMovementDirection.SnapTurnLeft => "Snap Turn Left",
+        PlayerMovementDirection.SnapTurnRight => "Snap Turn Right",
         PlayerMovementDirection.StopMovement => "Stop Movement",
         PlayerMovementDirection.StopTurning => "Stop Turning",
         PlayerMovementDirection.StopAll => "Stop All",

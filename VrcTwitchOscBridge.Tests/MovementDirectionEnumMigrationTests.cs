@@ -34,6 +34,13 @@ public sealed class MovementDirectionEnumMigrationTests
     }
 
     [Fact]
+    public void NewEnumValues_SnapTurnPositions()
+    {
+        Assert.Equal(36, (int)PlayerMovementDirection.SnapTurnLeft);
+        Assert.Equal(37, (int)PlayerMovementDirection.SnapTurnRight);
+    }
+
+    [Fact]
     public void MovementTypeClassifier_CategorizesForwardAsMovement()
     {
         Assert.Equal(MovementCategory.Movement, MovementTypeClassifier.GetCategory(PlayerMovementDirection.Forward));

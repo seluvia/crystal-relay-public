@@ -1,4 +1,4 @@
-﻿{
+{
   "OSC parameter paths must match VRChat exactly: capitalization, spacing, slashes, and the parameter name all need to be 1-to-1. Wrong value type, missing target/default values, duration resets, or a parameter that does not exist on the current avatar can make a trigger look like it did nothing. Channel point triggers also need a reward name or linked reward before Twitch can match them. Linked rewards are listen-only, and incomplete triggers stay local until setup is complete.": "OSC-parameters—kv—gar m—ste matcha VRChat exakt: versaler, mellanrum, snedstreck och parameternamnet m—ste alla vara 1-till-1. Fel v—rdetyp, saknade m—l-/standardv—rden, varaktighets—terst—llningar eller en parameter som inte finns p— den aktuella avatar kan f— en utl—sare att se ut som om den inte gjorde n—got. Kanalpo—ngsutl—sare beh—ver ocks— ett bel—ningsnamn eller en l—nkad bel—ning innan Twitch kan matcha dem. L—nkade bel—ningar —r lyssna-bara och ofullst—ndiga utl—sare f—rblir lokala tills installationen —r klar.",
   "Unconfigured": "Ej konfigurerad",
   "Universal Trigger Setup Warning": "Varning f—r universell utl—sar-installation",
@@ -1311,5 +1311,15 @@
   "scaling": "skalning",
   "ui-theme": "ui-tema",
   "Movement Redeem Notice": "Meddelande om rörelsebelöningar",
-  "OSC movement redeems may not work as intended for all users. Some movement directions work in VR but not on desktop, and movement inputs or counter-inputs from redeems may not always produce the expected results.": "OSC-rörelsebelöningar fungerar kanske inte som tänkt för alla användare. Vissa rörelseriktningar fungerar i VR men inte på skrivbordet, och rörelseinputs eller motinputs från belöningar ger inte alltid förväntat resultat."
+  "OSC movement redeems may not work as intended for all users. Some movement directions work in VR but not on desktop, and movement inputs or counter-inputs from redeems may not always produce the expected results.": "OSC-rörelsebelöningar fungerar kanske inte som tänkt för alla användare. Vissa rörelseriktningar fungerar i VR men inte på skrivbordet, och rörelseinputs eller motinputs från belöningar ger inte alltid förväntat resultat.",
+  "Enable chat command": "Aktivera chattkommando",
+  "Manage →": "Hantera →",
+  "Group redeems by avatar set": "Gruppera redeems efter avataruppsättning",
+  "Organize avatar swap and scale rules into themed sets": "Organisera avatarbytes- och skalregler i temautsättningar",
+  "Swap, scale, and roulette": "Byt, skala och roulette",
+  "Change avatars, height, or run avatar roulette": "Byt avatarer, höjd eller kör avatarroulette",
+  "Universal triggers and movement": "Universella triggers och rörelse",
+  "Chat commands, channel points, bits, subs, and movement redeems": "Chattkommandon, kanalpoäng, bits, subs och rörelseredeems",
+  "Tips, donations, and sales": "Dricks, donationer och försäljning",
+  "StreamElements, Streamlabs, Ko-fi payments and reward fire sales": "StreamElements, Streamlabs, Ko-fi-betalningar och reward fire sales"
 }

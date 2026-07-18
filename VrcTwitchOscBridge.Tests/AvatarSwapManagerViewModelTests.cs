@@ -519,6 +519,69 @@ public sealed class AvatarSwapManagerViewModelTests
     }
 
     [Fact]
+    public async Task ManagedRouletteReward_UsesNewUiProfilePoolAndProfileEnabledState()
+    {
+        await using var vm = new MainWindowViewModel();
+        vm.Settings.MasterAvatarSwapReturnId = "avtr_return";
+
+        var roulette = new AvatarRouletteProfile { Name = "Managed Roulette" };
+        roulette.Pool.Add(new RouletteAvatarEntry
+        {
+            AvatarId = "avtr_pool",
+            AvatarName = "Pool Avatar"
+        });
+        var rule = new TriggerRule
+        {
+            Name = "Roulette Reward",
+            TriggerType = TwitchTriggerType.ChannelPoints,
+            ActionType = OscActionType.AvatarRoulet,
+            RewardSyncMode = TwitchRewardSyncMode.CreateOrManage,
+            ChannelPointRewardTitle = "Roulette Reward",
+            ChannelPointRewardCost = 100
+        };
+        roulette.Triggers.Add(rule);
+
+        var method = typeof(MainWindowViewModel).GetMethod(
+            "CreateManagedRewardTargetForRouletteRule",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        Assert.NotNull(method);
+
+        var target = method.Invoke(vm, new object[]
+        {
+            roulette,
+            rule,
+            "avtr_return",
+            false,
+            true,
+            Array.Empty<Guid>(),
+            Array.Empty<Guid>(),
+            Array.Empty<Guid>(),
+            Array.Empty<Guid>()
+        });
+        Assert.NotNull(target);
+
+        var desiredEnabled = target.GetType().GetProperty("DesiredEnabled");
+        Assert.NotNull(desiredEnabled);
+        Assert.True((bool)desiredEnabled.GetValue(target)!);
+
+        roulette.IsEnabled = false;
+        var disabledTarget = method.Invoke(vm, new object[]
+        {
+            roulette,
+            rule,
+            "avtr_return",
+            false,
+            true,
+            Array.Empty<Guid>(),
+            Array.Empty<Guid>(),
+            Array.Empty<Guid>(),
+            Array.Empty<Guid>()
+        });
+        Assert.NotNull(disabledTarget);
+        Assert.False((bool)desiredEnabled.GetValue(disabledTarget)!);
+    }
+
+    [Fact]
     public void RuleListPaneViewModel_StoresKindAndTitle()
     {
         var pane = new RuleListPaneViewModel(RuleListPaneKind.Swap, "Avatar Name");
@@ -529,6 +592,7 @@ public sealed class AvatarSwapManagerViewModelTests
     private sealed class StubTwitchRewardSource : ITwitchRewardSource
     {
         public ObservableCollection<TwitchRewardOption> RewardOptions { get; } = new();
+        public ObservableCollection<TwitchPowerUpOption> PowerUpOptions { get; } = new();
         public ICommand RefreshTwitchRewardsCommand { get; } = new RelayCommand(() => { });
         public ICommand UnlinkTwitchRewardCommand { get; } = new RelayCommand(p => { });
     }

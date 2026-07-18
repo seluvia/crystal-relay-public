@@ -1008,6 +1008,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             "move" => devCommands.BuildMove(
                 GetSelectedMoveDirection(),
                 ClampReadInt(MoveSecondsBox, 1, 60, 5)),
+            "snapleft" => devCommands.BuildSnapLeft(
+                ClampReadInt(SnapSecondsBox, 1, 60, 5)),
+            "snapright" => devCommands.BuildSnapRight(
+                ClampReadInt(SnapSecondsBox, 1, 60, 5)),
             "moverandom" => devCommands.BuildMoveRandom(
                 ClampReadInt(MoveRandomSecondsBox, 1, 120, 12)),
             "firesale" => devCommands.BuildFireSale(
@@ -1116,6 +1120,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         ScaleRandomSecondsBox.Text = RandomIntText(10, 60);
         MoveDirectionBox.SelectedIndex = Random.Shared.Next(0, Math.Max(1, MoveDirectionBox.Items.Count));
         MoveSecondsBox.Text = RandomIntText(2, 12);
+        SnapSecondsBox.Text = RandomIntText(2, 12);
         MoveRandomSecondsBox.Text = RandomIntText(5, 20);
         FireSalePercentBox.Text = RandomIntText(10, 75);
         FireSaleSecondsBox.Text = RandomIntText(60, 300);

@@ -685,6 +685,7 @@ public sealed record BridgeRuntimeConfiguration(
                     rouletteProfile: rouletteProfile))
                 {
                     triggerSnapshots.Add(snapshot);
+                    rules.Add(snapshot);
                 }
             }
 

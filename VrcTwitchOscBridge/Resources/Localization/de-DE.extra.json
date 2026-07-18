@@ -1,4 +1,4 @@
-﻿{
+{
   "OSC parameter paths must match VRChat exactly: capitalization, spacing, slashes, and the parameter name all need to be 1-to-1. Wrong value type, missing target/default values, duration resets, or a parameter that does not exist on the current avatar can make a trigger look like it did nothing. Channel point triggers also need a reward name or linked reward before Twitch can match them. Linked rewards are listen-only, and incomplete triggers stay local until setup is complete.": "OSC-Parameterpfade m—ssen exakt zu VRChat passen: Gro—-/Kleinschreibung, Leerzeichen, Slashes und Parametername m—ssen 1:1 —bereinstimmen. Falscher Wert-Typ, fehlende Ziel-/Standardwerte, Dauer-Resets oder ein Parameter, der auf dem aktuellen Avatar nicht existiert, k—nnen einen Trigger so wirken lassen, als w—rde er nichts tun. Kanalpunkte-Trigger brauchen au—erdem einen Belohnungs-Namen oder eine verkn—pfte Belohnung, bevor Twitch sie zuordnen kann. Verkn—pfte Belohnungen sind listen-only, und unvollst—ndige Trigger bleiben lokal, bis das Setup fertig ist.",
   "Unconfigured": "Nicht konfiguriert",
   "Universal Trigger Setup Warning": "Universal-Trigger-Setup-Warnung",
@@ -1313,5 +1313,15 @@
 
   "normal": "normal"
 
-  "other": "other"
+  "other": "other",
+  "Enable chat command": "Chat-Befehl aktivieren",
+  "Manage →": "Verwalten →",
+  "Group redeems by avatar set": "Redeems nach Avatar-Set gruppieren",
+  "Organize avatar swap and scale rules into themed sets": "Avatar-Tausch- und Skalierungsregeln in thematische Sets organisieren",
+  "Swap, scale, and roulette": "Tauschen, skalieren und Roulette",
+  "Change avatars, height, or run avatar roulette": "Avatare wechseln, Höhe ändern oder Avatar-Roulette starten",
+  "Universal triggers and movement": "Universelle Trigger und Bewegung",
+  "Chat commands, channel points, bits, subs, and movement redeems": "Chat-Befehle, Kanalpunkte, Bits, Subs und Bewegungs-Redeems",
+  "Tips, donations, and sales": "Trinkgelder, Spenden und Verkäufe",
+  "StreamElements, Streamlabs, Ko-fi payments and reward fire sales": "StreamElements, Streamlabs, Ko-fi-Zahlungen und Reward Fire Sales"
 }

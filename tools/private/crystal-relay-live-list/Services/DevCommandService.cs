@@ -35,6 +35,12 @@ public sealed class DevCommandService
     public string BuildMove(string direction, int seconds) =>
         string.Format(CultureInfo.InvariantCulture, "!screm move {0} {1}", direction, seconds);
 
+    public string BuildSnapLeft(int seconds) =>
+        string.Format(CultureInfo.InvariantCulture, "!screm move snapleft {0}", seconds);
+
+    public string BuildSnapRight(int seconds) =>
+        string.Format(CultureInfo.InvariantCulture, "!screm move snapright {0}", seconds);
+
     public string BuildMoveRandom(int seconds) =>
         string.Format(CultureInfo.InvariantCulture, "!screm moverandom {0}", seconds);
 

@@ -43,6 +43,20 @@ public sealed class DevCommandServiceTests
     }
 
     [Fact]
+    public void BuildSnapLeft_FormatsSeconds()
+    {
+        var svc = new DevCommandService();
+        Assert.Equal("!screm move snapleft 10", svc.BuildSnapLeft(10));
+    }
+
+    [Fact]
+    public void BuildSnapRight_FormatsSeconds()
+    {
+        var svc = new DevCommandService();
+        Assert.Equal("!screm move snapright 15", svc.BuildSnapRight(15));
+    }
+
+    [Fact]
     public void BuildFiresale_FormatsPercentSeconds()
     {
         var svc = new DevCommandService();

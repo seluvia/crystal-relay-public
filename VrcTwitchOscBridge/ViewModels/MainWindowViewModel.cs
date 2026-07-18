@@ -451,13 +451,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     private string runtimeConfigStatus = string.Empty;
     private string oscBridgeSummary = "OSC waiting for setup.";
     private string oscStatusDetail = "OSCQuery is waiting to start.";
-    private string streamingStatusSummary = "Broadcaster not connected.";
-    private string streamingStatusDetail = "Connect Twitch to monitor stream and listener status.";
-    private string streamingStatusVisualState = "Disconnected";
-    private string streamingStreamStateText = "Unavailable";
-    private string streamingStreamStateVisual = "Disconnected";
-    private string streamingListenerStateText = "Offline";
-    private string streamingListenerStateVisual = "Disconnected";
     private bool isBroadcasterLive;
     private bool hasResolvedBroadcasterLiveState;
     private string broadcasterExpiryStatus = string.Empty;
@@ -666,13 +659,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         botStatus = T("Bot account not connected. This is optional.");
         oscBridgeSummary = T("OSC waiting for setup.");
         oscStatusDetail = T("OSCQuery is waiting to start.");
-        streamingStatusSummary = T("Broadcaster not connected.");
-        streamingStatusDetail = T("Connect Twitch to monitor stream and listener status.");
-        streamingStatusVisualState = "Disconnected";
-        streamingStreamStateText = T("Unavailable");
-        streamingStreamStateVisual = "Disconnected";
-        streamingListenerStateText = T("Offline");
-        streamingListenerStateVisual = "Disconnected";
         vrChatStatus = T("VRChat avatar access is not connected.");
         vrChatAvatarStatus = T("Connect VRChat to load avatar choices.");
         vrChatOscParameterStatus = T("Pick an avatar set to load its saved OSC parameters.");
@@ -2382,48 +2368,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     {
         get => oscStatusDetail;
         private set => SetProperty(ref oscStatusDetail, value);
-    }
-
-    public string StreamingStatusSummary
-    {
-        get => streamingStatusSummary;
-        private set => SetProperty(ref streamingStatusSummary, value);
-    }
-
-    public string StreamingStatusDetail
-    {
-        get => streamingStatusDetail;
-        private set => SetProperty(ref streamingStatusDetail, value);
-    }
-
-    public string StreamingStatusVisualState
-    {
-        get => streamingStatusVisualState;
-        private set => SetProperty(ref streamingStatusVisualState, value);
-    }
-
-    public string StreamingStreamStateText
-    {
-        get => streamingStreamStateText;
-        private set => SetProperty(ref streamingStreamStateText, value);
-    }
-
-    public string StreamingStreamStateVisual
-    {
-        get => streamingStreamStateVisual;
-        private set => SetProperty(ref streamingStreamStateVisual, value);
-    }
-
-    public string StreamingListenerStateText
-    {
-        get => streamingListenerStateText;
-        private set => SetProperty(ref streamingListenerStateText, value);
-    }
-
-    public string StreamingListenerStateVisual
-    {
-        get => streamingListenerStateVisual;
-        private set => SetProperty(ref streamingListenerStateVisual, value);
     }
 
     public string BroadcasterExpiryStatus
@@ -15422,147 +15366,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     private void RefreshStreamingStatusCard()
     {
-        var broadcasterConnected = HasRecoverableBroadcasterSession;
-        var normalizedBridgeStatus = BridgeStatus?.Trim() ?? string.Empty;
-        var normalizedBroadcasterStatus = BroadcasterStatus?.Trim() ?? string.Empty;
-
-        if (!broadcasterConnected)
-        {
-            hasResolvedBroadcasterLiveState = false;
-            SetStreamingStatusCard(
-                "Broadcaster not connected.",
-                "Connect Twitch to monitor stream and listener status.",
-                "Disconnected",
-                "Unavailable",
-                "Disconnected",
-                "Offline",
-                "Disconnected");
-            return;
-        }
-
-        if (IsStreamingListenerInErrorState(normalizedBridgeStatus, normalizedBroadcasterStatus))
-        {
-            SetStreamingStatusCard(
-                "Streaming needs attention.",
-                BuildStreamingErrorDetail(normalizedBridgeStatus, normalizedBroadcasterStatus),
-                "Error",
-                "Unknown",
-                "Error",
-                "Down",
-                "Error");
-            return;
-        }
-
-        if (IsStreamingListenerConnectingState(normalizedBridgeStatus))
-        {
-            if (bridgeCoordinator.IsRunning && hasResolvedBroadcasterLiveState)
-            {
-                SetResolvedStreamingStatusCard(listenerIsReconnecting: true);
-                return;
-            }
-
-            var isReconnect = normalizedBridgeStatus.Contains("reconnect", StringComparison.OrdinalIgnoreCase);
-            SetStreamingStatusCard(
-                "Checking Twitch status...",
-                isReconnect
-                    ? "Crystal Relay is reconnecting the Twitch listener and checking your stream status."
-                    : "Crystal Relay is connecting the Twitch listener and checking your stream status.",
-                "Checking",
-                "Checking",
-                "Checking",
-                "Connecting",
-                "Checking");
-            return;
-        }
-
-        if (bridgeCoordinator.IsRunning)
-        {
-            if (IsBroadcasterLive)
-            {
-                SetResolvedStreamingStatusCard(listenerIsReconnecting: false);
-                return;
-            }
-
-            SetResolvedStreamingStatusCard(listenerIsReconnecting: false);
-            return;
-        }
-
-        SetStreamingStatusCard(
-            "Checking Twitch status...",
-            "Crystal Relay is connecting the Twitch listener and checking your stream status.",
-            "Checking",
-            "Checking",
-            "Checking",
-            "Connecting",
-            "Checking");
-    }
-
-    private void SetResolvedStreamingStatusCard(bool listenerIsReconnecting)
-    {
-        var listenerText = listenerIsReconnecting ? "Reconnecting" : "Connected";
-        var listenerVisual = listenerIsReconnecting ? "Checking" : "Healthy";
-
-        if (IsBroadcasterLive)
-        {
-            SetStreamingStatusCard(
-                "You are live.",
-                listenerIsReconnecting
-                    ? "Twitch listener is reconnecting in the background. Your last checked stream state is live."
-                    : "Twitch listener is connected and streaming status is updating normally.",
-                "Live",
-                "Live",
-                "Live",
-                listenerText,
-                listenerVisual);
-            return;
-        }
-
-        SetStreamingStatusCard(
-            "You are offline.",
-            listenerIsReconnecting
-                ? "Twitch listener is reconnecting in the background. Your last checked stream state is offline."
-                : "Twitch listener is connected and waiting for you to go live.",
-            "Healthy",
-            "Offline",
-            "Healthy",
-            listenerText,
-            listenerVisual);
-    }
-
-    private void SetStreamingStatusCard(
-        string summary,
-        string detail,
-        string cardVisualState,
-        string streamStateText,
-        string streamVisualState,
-        string listenerStateText,
-        string listenerVisualState)
-    {
-        StreamingStatusSummary = T(summary);
-        StreamingStatusDetail = T(detail);
-        StreamingStatusVisualState = cardVisualState;
-        StreamingStreamStateText = T(streamStateText);
-        StreamingStreamStateVisual = streamVisualState;
-        StreamingListenerStateText = T(listenerStateText);
-        StreamingListenerStateVisual = listenerVisualState;
-    }
-
-    private static bool IsStreamingListenerInErrorState(string bridgeStatus, string broadcasterStatus)
-    {
-        if (string.IsNullOrWhiteSpace(bridgeStatus) && string.IsNullOrWhiteSpace(broadcasterStatus))
-        {
-            return false;
-        }
-
-        return bridgeStatus.Contains("Twitch listener needs attention", StringComparison.OrdinalIgnoreCase)
-            || bridgeStatus.Contains("Twitch listener needs reconnect", StringComparison.OrdinalIgnoreCase)
-            || bridgeStatus.Contains("Bridge error", StringComparison.OrdinalIgnoreCase)
-            || bridgeStatus.Contains("OAuth session expired", StringComparison.OrdinalIgnoreCase)
-            || bridgeStatus.Contains("Listener disconnected", StringComparison.OrdinalIgnoreCase)
-            || bridgeStatus.Contains("Twitch connection issue", StringComparison.OrdinalIgnoreCase)
-            || bridgeStatus.Contains("Background bridge could not start", StringComparison.OrdinalIgnoreCase)
-            || broadcasterStatus.Contains("reconnect", StringComparison.OrdinalIgnoreCase)
-            || broadcasterStatus.Contains("expired", StringComparison.OrdinalIgnoreCase);
     }
 
     private sealed record ManagedRewardOwnershipEntry(
@@ -15992,42 +15795,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
                 lookup.Remove(key);
             }
         }
-    }
-
-    private bool IsStreamingListenerConnectingState(string bridgeStatus)
-    {
-        if (!bridgeCoordinator.IsRunning)
-        {
-            return true;
-        }
-
-        return bridgeStatus.Contains("Connecting background listener", StringComparison.OrdinalIgnoreCase)
-            || bridgeStatus.Contains("Reconnecting background listener", StringComparison.OrdinalIgnoreCase)
-            || bridgeStatus.Contains("starting", StringComparison.OrdinalIgnoreCase)
-            || bridgeStatus.Contains("Listener disconnected", StringComparison.OrdinalIgnoreCase)
-            || bridgeStatus.Contains("Twitch connection issue", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private string BuildStreamingErrorDetail(string bridgeStatus, string broadcasterStatus)
-    {
-        if (bridgeStatus.Contains("OAuth session expired", StringComparison.OrdinalIgnoreCase)
-            || bridgeStatus.Contains("Twitch listener needs reconnect", StringComparison.OrdinalIgnoreCase)
-            || bridgeStatus.Contains("Bridge error", StringComparison.OrdinalIgnoreCase)
-            || broadcasterStatus.Contains("reconnect", StringComparison.OrdinalIgnoreCase)
-            || broadcasterStatus.Contains("expired", StringComparison.OrdinalIgnoreCase))
-        {
-            return T("Reconnect Twitch to restore the background listener.");
-        }
-
-        if (bridgeStatus.Contains("Twitch listener needs attention", StringComparison.OrdinalIgnoreCase)
-            || bridgeStatus.Contains("Listener disconnected", StringComparison.OrdinalIgnoreCase)
-            || bridgeStatus.Contains("Twitch connection issue", StringComparison.OrdinalIgnoreCase)
-            || bridgeStatus.Contains("Background bridge could not start", StringComparison.OrdinalIgnoreCase))
-        {
-            return T("Twitch listener is having trouble and may need a moment or a reconnect.");
-        }
-
-        return T("Twitch listener is down and needs attention before streaming status can update normally.");
     }
 
     private void UpdateOscStatusSummary()

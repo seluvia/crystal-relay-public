@@ -37,5 +37,7 @@ public enum PlayerMovementDirection
     QuickMenuToggleLeft,
     QuickMenuToggleRight,
     PanicButton,
-    Voice
+    Voice,
+    SnapTurnLeft,
+    SnapTurnRight
 }

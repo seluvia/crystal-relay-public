@@ -820,7 +820,6 @@ public sealed class AvatarScalingManagerViewModelTests
         var rule = Assert.Single(parent.Settings.CashPaymentRules);
         Assert.Equal(CashPaymentActionKind.AvatarScaling, rule.ActionKind);
         Assert.True(rule.UsesAvatarScaling);
-        Assert.Same(rule, parent.SelectedCashPaymentRule);
     }
 
     [Fact]

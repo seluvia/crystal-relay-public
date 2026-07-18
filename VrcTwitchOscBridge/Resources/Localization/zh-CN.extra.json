@@ -1,4 +1,4 @@
-﻿{
+{
   "OSC parameter paths must match VRChat exactly: capitalization, spacing, slashes, and the parameter name all need to be 1-to-1. Wrong value type, missing target/default values, duration resets, or a parameter that does not exist on the current avatar can make a trigger look like it did nothing. Channel point triggers also need a reward name or linked reward before Twitch can match them. Linked rewards are listen-only, and incomplete triggers stay local until setup is complete.": "OSC ??????? VRChat ????:??????????????? 1 ? 1 ?????????????/????????,???????????,????????????????????? Twitch ?????,?????????????????????????,????????????????????",
   "Unconfigured": "???",
   "Universal Trigger Setup Warning": "????????",
@@ -1383,5 +1383,15 @@
 
   "Test": "Test"
 
-  "UI": "UI"
+  "UI": "UI",
+  "Enable chat command": "启用聊天命令",
+  "Manage →": "管理 →",
+  "Group redeems by avatar set": "按换装分组兑换",
+  "Organize avatar swap and scale rules into themed sets": "将换装和缩放规则整理到主题分组中",
+  "Swap, scale, and roulette": "换装、缩放和轮盘",
+  "Change avatars, height, or run avatar roulette": "更换头像、调整身高或运行头像轮盘",
+  "Universal triggers and movement": "通用触发器和动作",
+  "Chat commands, channel points, bits, subs, and movement redeems": "聊天命令、频道积分、Bits、Subs 和动作兑换",
+  "Tips, donations, and sales": "小费、捐赠和促销",
+  "StreamElements, Streamlabs, Ko-fi payments and reward fire sales": "StreamElements、Streamlabs、Ko-fi 付款和 Reward Fire Sale"
 }

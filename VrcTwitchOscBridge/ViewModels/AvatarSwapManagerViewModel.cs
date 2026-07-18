@@ -55,6 +55,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
         AddPowerUpRuleCommand = new RelayCommand(AddPowerUpRule, () => SelectedSwapCard is not null);
         AddAdvancedTriggerCommand = new RelayCommand(p => AddAdvancedTrigger(p as string));
         AddRoulettePoolEntryCommand = new RelayCommand(AddRoulettePoolEntry, () => SelectedRouletteCard is not null);
+        RemoveRoulettePoolEntryCommand = new RelayCommand(p => RemoveRoulettePoolEntry(p as RoulettePoolEntryRowViewModel), _ => SelectedRouletteCard is not null);
         DeleteRuleCommand = new RelayCommand(p => DeleteRule(p as IRuleRowViewModel));
         BackToListCommand = new RelayCommand(BackToList);
         PickGlobalReturnAvatarCommand = new RelayCommand(PickGlobalReturnAvatar);
@@ -311,6 +312,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
     public RelayCommand AddPowerUpRuleCommand { get; }
     public RelayCommand AddAdvancedTriggerCommand { get; }
     public RelayCommand AddRoulettePoolEntryCommand { get; }
+    public RelayCommand RemoveRoulettePoolEntryCommand { get; }
     public RelayCommand DeleteRuleCommand { get; }
     public RelayCommand BackToListCommand { get; }
     public RelayCommand PickGlobalReturnAvatarCommand { get; }
@@ -506,7 +508,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
         AddBitsRuleCommand.NotifyCanExecuteChanged();
         AddSubsRuleCommand.NotifyCanExecuteChanged();
         AddPaymentRuleCommand.NotifyCanExecuteChanged();
-        AddPowerUpRuleCommand.NotifyCanExecuteChanged();
+        AddPowerUpRuleCommand?.NotifyCanExecuteChanged();
         AddRoulettePoolEntryCommand.NotifyCanExecuteChanged();
     }
 
@@ -747,6 +749,20 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
     private void AddRoulettePoolEntry()
     {
         // Pool selection requires the window-owned avatar picker; never create blank entries.
+    }
+
+    private void RemoveRoulettePoolEntry(RoulettePoolEntryRowViewModel? row)
+    {
+        if (row is null || SelectedRouletteCard is null) return;
+
+        var pool = SelectedRouletteCard.Roulette.Pool;
+        var entry = pool.FirstOrDefault(e => string.Equals(e.AvatarId, row.AvatarId, StringComparison.Ordinal));
+        if (entry is not null)
+        {
+            pool.Remove(entry);
+            RebuildRoulettePoolRows();
+            NotifySettingsChanged();
+        }
     }
 
     private void RebuildRoulettePoolRows()

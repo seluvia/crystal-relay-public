@@ -1,4 +1,4 @@
-﻿{
+{
   "OSC parameter paths must match VRChat exactly: capitalization, spacing, slashes, and the parameter name all need to be 1-to-1. Wrong value type, missing target/default values, duration resets, or a parameter that does not exist on the current avatar can make a trigger look like it did nothing. Channel point triggers also need a reward name or linked reward before Twitch can match them. Linked rewards are listen-only, and incomplete triggers stay local until setup is complete.": "Sciezki parametr—w OSC musza dokladnie odpowiadac VRChat: wielkosc liter, spacje, ukosniki i nazwa parametru musza byc identyczne 1-do-1. Zly typ wartosci, brakujace wartosci docelowe/domyslne, reset czasu trwania albo parametr, kt—ry nie istnieje na biezacym avatarze, moga sprawic, ze wyzwalacz bedzie wygladal, jakby nic nie zrobil. Wyzwalacze punkt—w kanalu potrzebuja tez nazwy nagrody albo powiazanej nagrody, zanim Twitch bedzie m—gl je dopasowac. Powiazane nagrody sa tylko do nasluchiwania, a niekompletne wyzwalacze pozostaja lokalne do zakonczenia konfiguracji.",
   "Unconfigured": "Nieskonfigurowane",
   "Universal Trigger Setup Warning": "Ostrzezenie konfiguracji wyzwalacza uniwersalnego",
@@ -1303,5 +1303,15 @@
   "normal": "normalna",
   "other": "inne",
   "Movement Redeem Notice": "Uwaga dotycząca wykupów ruchu",
-  "OSC movement redeems may not work as intended for all users. Some movement directions work in VR but not on desktop, and movement inputs or counter-inputs from redeems may not always produce the expected results.": "Wykupy ruchu przez OSC mogą nie działać zgodnie z oczekiwaniami dla wszystkich użytkowników. Niektóre kierunki ruchu działają w VR, ale nie na pulpicie, a wejścia ruchu lub przeciw-ruch z wykupów nie zawsze dają spodziewane rezultaty."
+  "OSC movement redeems may not work as intended for all users. Some movement directions work in VR but not on desktop, and movement inputs or counter-inputs from redeems may not always produce the expected results.": "Wykupy ruchu przez OSC mogą nie działać zgodnie z oczekiwaniami dla wszystkich użytkowników. Niektóre kierunki ruchu działają w VR, ale nie na pulpicie, a wejścia ruchu lub przeciw-ruch z wykupów nie zawsze dają spodziewane rezultaty.",
+  "Enable chat command": "Włącz komendę czatu",
+  "Manage →": "Zarządzaj →",
+  "Group redeems by avatar set": "Grupuj redeemy według zestawów awatarów",
+  "Organize avatar swap and scale rules into themed sets": "Organizuj reguły zamiany i skali awatarów w zestawy tematyczne",
+  "Swap, scale, and roulette": "Zamiana, skala i ruletka",
+  "Change avatars, height, or run avatar roulette": "Zmieniaj awatary, wysokość lub uruchom ruletkę awatarów",
+  "Universal triggers and movement": "Uniwersalne wyzwalacze i ruch",
+  "Chat commands, channel points, bits, subs, and movement redeems": "Komendy czatu, punkty kanału, bits, subs i redeemy ruchu",
+  "Tips, donations, and sales": "Napiwki, darowizny i wyprzedaże",
+  "StreamElements, Streamlabs, Ko-fi payments and reward fire sales": "Płatności StreamElements, Streamlabs, Ko-fi i reward fire sales"
 }

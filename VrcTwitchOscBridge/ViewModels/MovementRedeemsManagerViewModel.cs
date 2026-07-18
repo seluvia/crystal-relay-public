@@ -83,6 +83,7 @@ public sealed class MovementRedeemsManagerViewModel : ObservableObject, IDisposa
             {
                 RaisePropertyChanged(nameof(UsesChannelPointReward));
                 RaisePropertyChanged(nameof(UsesChatCommand));
+                RaisePropertyChanged(nameof(UsesChatCommandFallback));
                 RaisePropertyChanged(nameof(UsesBits));
                 RaisePropertyChanged(nameof(UsesSubscription));
                 RaisePropertyChanged(nameof(UsesFollow));
@@ -122,6 +123,7 @@ public sealed class MovementRedeemsManagerViewModel : ObservableObject, IDisposa
 
     public bool UsesChannelPointReward => selectedRule?.TriggerType == TwitchTriggerType.ChannelPoints;
     public bool UsesChatCommand => selectedRule?.TriggerType == TwitchTriggerType.ChatCommand;
+    public bool UsesChatCommandFallback => selectedRule?.ChatCommandEnabled == true && selectedRule?.TriggerType != TwitchTriggerType.ChatCommand;
     public bool UsesBits => selectedRule?.TriggerType == TwitchTriggerType.Bits;
     public bool UsesSubscription => selectedRule?.TriggerType == TwitchTriggerType.Subscriptions;
     public bool UsesGiftSub => selectedRule?.TriggerType == TwitchTriggerType.GiftSubscription;

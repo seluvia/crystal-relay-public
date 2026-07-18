@@ -1844,6 +1844,40 @@
                                         BorderThickness="1"
                                         CornerRadius="10">
                                     <StackPanel>
+                                        <TextBlock Text="snap turn"
+                                                   FontWeight="Bold" />
+                                        <TextBlock Text="Uses Comfort Turn input — works for snap-turn users on Desktop and VR."
+                                                   Foreground="{StaticResource MutedBrush}"
+                                                   FontSize="10"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,2,0,5" />
+                                        <WrapPanel Margin="0,5,0,0">
+                                            <StackPanel>
+                                                <TextBlock Text="seconds" Foreground="{StaticResource MutedBrush}" FontSize="10" />
+                                                <TextBox x:Name="SnapSecondsBox" Text="5" Style="{StaticResource CommandInputStyle}" />
+                                            </StackPanel>
+                                        </WrapPanel>
+                                        <WrapPanel Margin="0,8,0,0">
+                                            <Button Margin="0,0,8,0"
+                                                    Style="{StaticResource GhostButtonStyle}"
+                                                    Content="Copy snap left"
+                                                    Tag="snapleft"
+                                                    Click="OnCopyDevCommandClicked" />
+                                            <Button Style="{StaticResource GhostButtonStyle}"
+                                                    Content="Copy snap right"
+                                                    Tag="snapright"
+                                                    Click="OnCopyDevCommandClicked" />
+                                        </WrapPanel>
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Margin="0,0,0,10"
+                                        Padding="10"
+                                        Background="{StaticResource PanelInsetBrush}"
+                                        BorderBrush="{StaticResource SubtleBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="10">
+                                    <StackPanel>
                                         <TextBlock Text="moverandom"
                                                    FontWeight="Bold" />
                                         <WrapPanel Margin="0,5,0,0">
