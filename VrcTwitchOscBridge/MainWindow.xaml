@@ -1857,33 +1857,6 @@
                         </StackPanel>
                     </Border>
 
-                    <Border Style="{StaticResource PanelBorderStyle}" Margin="0,16,0,0" Background="{DynamicResource PanelSecondaryBrush}" Padding="18">
-                        <StackPanel>
-                            <TextBlock Text="{loc:Translate 'OSC Status'}" Style="{StaticResource HeadingTextStyle}" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
-                            <TextBlock Margin="0,10,0,0" Text="{Binding OscBridgeSummary}" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
-                            <TextBlock Margin="0,6,0,0" Text="{Binding OscStatusDetail}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
-                            <WrapPanel Margin="0,12,0,0">
-                                <Button Margin="0,0,8,8"
-                                        Style="{StaticResource SecondaryButtonStyle}"
-                                        Content="{loc:Translate 'Restart Crystal Relay'}"
-                                        Click="OnRestartCrystalRelayClicked" />
-                                <Button Margin="0,0,0,8"
-                                        Style="{StaticResource SecondaryButtonStyle}"
-                                        Content="{loc:Translate 'Restart VRChat + Crystal Relay'}"
-                                        Click="OnRestartVrChatAndCrystalRelayClicked" />
-                            </WrapPanel>
-                            <CheckBox Margin="0,4,0,0"
-                                      IsChecked="{Binding Settings.RestartVrChatInDesktopMode, UpdateSourceTrigger=PropertyChanged}">
-                                <TextBlock Text="{loc:Translate 'Restart VRChat in desktop mode'}"
-                                           TextWrapping="Wrap" />
-                            </CheckBox>
-                            <TextBlock Margin="26,6,0,0"
-                                       Text="{loc:Translate 'When checked, the VRChat restart button launches VRChat with --no-vr.'}"
-                                                Foreground="{DynamicResource MutedBrush}"
-                                                TextWrapping="Wrap" />
-                        </StackPanel>
-                    </Border>
-
                     </StackPanel>
                 </ScrollViewer>
 
