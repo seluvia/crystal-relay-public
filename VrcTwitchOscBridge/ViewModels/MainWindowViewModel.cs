@@ -1348,6 +1348,21 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     public string WindowHeaderSubtitle => TF("Twitch to OSC | v{0}", GetAppVersionDisplay());
 
+    public string HomeVersionDisplay
+    {
+        get
+        {
+            var display = $"v{AppVersion}";
+            if (!string.IsNullOrWhiteSpace(BetaBuildLabel))
+            {
+                display += $" {BetaBuildLabel}";
+            }
+            return display;
+        }
+    }
+
+    public bool HasBetaBuildLabel => !string.IsNullOrWhiteSpace(BetaBuildLabel);
+
     public bool IsLanguageRestartNoticeVisible => Settings.Language != activeLanguageAtStartup;
 
     public string LanguageRestartNoticeText => T("Language changes apply after you restart Crystal Relay.");

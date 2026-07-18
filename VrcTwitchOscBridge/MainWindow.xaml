@@ -1752,8 +1752,8 @@
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
-                                 <Button Width="138"
-                                         Height="138"
+                                 <Button Width="130"
+                                         Height="130"
                                          Margin="0,0,8,0"
                                          Padding="0"
                                          Background="Transparent"
@@ -1768,8 +1768,8 @@
                                              <ContentPresenter />
                                          </ControlTemplate>
                                      </Button.Template>
-                                    <Grid Width="138"
-                                          Height="138">
+                                    <Grid Width="130"
+                                          Height="130">
                                          <Border Background="{DynamicResource PanelHighlightBrush}"
                                                  BorderBrush="{DynamicResource AccentBrush}"
                                                  BorderThickness="3"
@@ -1781,7 +1781,7 @@
                                                  CornerRadius="20">
                                              <Grid>
                                                  <Grid.Clip>
-                                                     <RectangleGeometry Rect="0,0,124,124"
+                                                     <RectangleGeometry Rect="0,0,116,116"
                                                                         RadiusX="20"
                                                                         RadiusY="20" />
                                                  </Grid.Clip>
@@ -1796,64 +1796,178 @@
                                          </Border>
                                      </Grid>
                                  </Button>
-                                 <TextBlock Grid.Column="1"
-                                            Margin="14,0,0,0"
-                                            Text="{loc:Translate 'Crystal Relay'}"
-                                            Style="{StaticResource HeadingTextStyle}"
-                                            FontSize="{DynamicResource HomeTitleFontSize}"
-                                            FontWeight="Bold"
-                                            VerticalAlignment="Center"
-                                            TextWrapping="NoWrap"
-                                            TextTrimming="CharacterEllipsis"
-                                            Foreground="{DynamicResource TextBrush}" />
+                                 <StackPanel Grid.Column="1"
+                                             VerticalAlignment="Center"
+                                             Margin="14,0,0,0">
+                                     <TextBlock Text="{loc:Translate 'Crystal Relay'}"
+                                                Style="{StaticResource HeadingTextStyle}"
+                                                FontSize="26"
+                                                FontWeight="Bold"
+                                                TextWrapping="NoWrap"
+                                                TextTrimming="CharacterEllipsis"
+                                                Foreground="{DynamicResource TextBrush}" />
+                                     <WrapPanel Margin="0,4,0,0">
+                                         <TextBlock Text="{Binding HomeVersionDisplay}"
+                                                    FontSize="14"
+                                                    Foreground="{DynamicResource MutedBrush}"
+                                                    VerticalAlignment="Center" />
+                                         <Border Margin="8,0,0,0"
+                                                 Padding="6,1,6,2"
+                                                 CornerRadius="4"
+                                                 Background="{DynamicResource AccentBrush}"
+                                                 BorderThickness="0"
+                                                 VerticalAlignment="Center"
+                                                 Opacity="0.85"
+                                                 Visibility="{Binding HasBetaBuildLabel, Converter={StaticResource BoolToVisibilityConverter}}">
+                                             <TextBlock Text="beta"
+                                                        FontSize="10"
+                                                        FontWeight="SemiBold"
+                                                        Foreground="White" />
+                                         </Border>
+                                     </WrapPanel>
+                                 </StackPanel>
                             </Grid>
-                            <TextBlock Margin="0,10,0,0" Text="{loc:Translate 'Twitch to OSC for VRChat'}" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" />
-                            <Border Margin="0,16,0,0" Background="{DynamicResource StatusChipBrush}" BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1" CornerRadius="14" Padding="12,10">
-                                <TextBlock Text="{Binding RuntimeConfigStatus}" Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" />
+
+                            <Border Margin="0,16,0,0"
+                                    BorderBrush="{DynamicResource InputBorderBrush}"
+                                    BorderThickness="0,1,0,0"
+                                    Padding="0,14,0,0">
+                                <TextBlock FontSize="16"
+                                           Foreground="{DynamicResource MutedBrush}"
+                                           FontWeight="Medium"
+                                           FontStyle="Italic"
+                                           Text="{loc:Translate 'Your crystal bridge from Twitch to VRChat'}"
+                                           TextWrapping="Wrap" />
                             </Border>
-                            <StackPanel Margin="0,14,0,0">
-                                <WrapPanel VerticalAlignment="Center">
-                                    <TextBlock Text="{loc:Translate 'Support Crystal Relay'}"
-                                               Style="{StaticResource HeadingTextStyle}"
-                                               FontSize="17"
-                                               FontWeight="SemiBold"
-                                               Foreground="{DynamicResource TextBrush}"
-                                               VerticalAlignment="Center"
-                                               TextTrimming="CharacterEllipsis" />
-                                    <Button Style="{StaticResource HelpIconButtonStyle}"
-                                            Click="OnHelpButtonClicked"
-                                            CommandParameter="Support Crystal Relay"
-                                            Tag="Crystal Relay is free for everyone. If it helps your stream and you want to support development, you can leave a tip on Ko-fi." />
-                                </WrapPanel>
-                                <WrapPanel Margin="0,6,0,0" VerticalAlignment="Center">
-                                    <Border Background="{DynamicResource StatusChipBrush}"
-                                            BorderBrush="{DynamicResource InputBorderBrush}"
-                                            BorderThickness="1"
-                                            CornerRadius="12"
-                                            Padding="9,4"
-                                            Margin="0,0,10,0"
-                                            VerticalAlignment="Center">
-                                        <TextBlock Text="{loc:Translate '100% free, always'}"
-                                                   FontSize="12"
-                                                   FontWeight="SemiBold"
-                                                   Foreground="{DynamicResource MutedBrush}" />
-                                    </Border>
-                                    <Button MinWidth="158"
-                                            Padding="18,10"
-                                            Margin="0,0,8,0"
-                                            Style="{StaticResource PrimaryButtonStyle}"
-                                            Content="{loc:Translate 'Support on Ko-fi'}"
-                                            Command="{Binding OpenKoFiSupportCommand}" />
-                                    <Button MinWidth="136"
-                                            Padding="16,9"
-                                            Style="{StaticResource SecondaryButtonStyle}"
-                                            Content="{loc:Translate 'Join Discord'}"
-                                            Command="{Binding OpenDiscordInviteCommand}" />
-                                </WrapPanel>
+
+                            <StackPanel Margin="0,16,0,0">
+                                <TextBlock Text="{loc:Translate 'Support Crystal Relay'}"
+                                           Style="{StaticResource HeadingTextStyle}"
+                                           FontSize="15"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextBrush}" />
+                                <TextBlock Margin="0,4,0,10"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource MutedBrush}"
+                                           Text="{loc:Translate 'Crystal Relay is free for everyone. If it helps your stream, you can leave a tip or join the community.'}"
+                                           TextWrapping="Wrap" />
+
+                                <Border Background="{DynamicResource PanelSecondaryBrush}"
+                                        BorderBrush="{DynamicResource InputBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="10"
+                                        Padding="12"
+                                        Margin="0,0,0,8">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <Border Width="32" Height="32"
+                                                CornerRadius="8"
+                                                Background="{DynamicResource StatusChipBrush}"
+                                                VerticalAlignment="Center"
+                                                HorizontalAlignment="Center">
+                                            <TextBlock Text="☕" FontSize="16"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center" />
+                                        </Border>
+                                        <StackPanel Grid.Column="1" Margin="10,0,10,0" VerticalAlignment="Center">
+                                            <TextBlock Text="{loc:Translate 'Support on Ko-fi'}"
+                                                       FontSize="13" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource TextBrush}" />
+                                            <TextBlock Text="{loc:Translate 'One-time tips help keep development going'}"
+                                                       FontSize="11"
+                                                       Foreground="{DynamicResource MutedBrush}" />
+                                        </StackPanel>
+                                        <Button Grid.Column="2"
+                                                Style="{StaticResource SecondaryButtonStyle}"
+                                                Padding="10,5"
+                                                FontSize="11"
+                                                Content="{loc:Translate 'Tip'}"
+                                                Command="{Binding OpenKoFiSupportCommand}"
+                                                VerticalAlignment="Center" />
+                                    </Grid>
+                                </Border>
+
+                                <Border Background="{DynamicResource PanelSecondaryBrush}"
+                                        BorderBrush="{DynamicResource InputBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="10"
+                                        Padding="12"
+                                        Margin="0,0,0,8">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <Border Width="32" Height="32"
+                                                CornerRadius="8"
+                                                Background="{DynamicResource StatusChipBrush}"
+                                                VerticalAlignment="Center"
+                                                HorizontalAlignment="Center">
+                                            <TextBlock Text="💬" FontSize="16"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center" />
+                                        </Border>
+                                        <StackPanel Grid.Column="1" Margin="10,0,10,0" VerticalAlignment="Center">
+                                            <TextBlock Text="{loc:Translate 'Join Discord'}"
+                                                       FontSize="13" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource TextBrush}" />
+                                            <TextBlock Text="{loc:Translate 'Get help, share setups, and see what is coming next'}"
+                                                       FontSize="11"
+                                                       Foreground="{DynamicResource MutedBrush}" />
+                                        </StackPanel>
+                                        <Button Grid.Column="2"
+                                                Style="{StaticResource SecondaryButtonStyle}"
+                                                Padding="10,5"
+                                                FontSize="11"
+                                                Content="{loc:Translate 'Join'}"
+                                                Command="{Binding OpenDiscordInviteCommand}"
+                                                VerticalAlignment="Center" />
+                                    </Grid>
+                                </Border>
+
+                                <Border Background="{DynamicResource PanelSecondaryBrush}"
+                                        BorderBrush="{DynamicResource InputBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="10"
+                                        Padding="12">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <Border Width="32" Height="32"
+                                                CornerRadius="8"
+                                                Background="{DynamicResource StatusChipBrush}"
+                                                VerticalAlignment="Center"
+                                                HorizontalAlignment="Center">
+                                            <TextBlock Text="📁" FontSize="16"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center" />
+                                        </Border>
+                                        <StackPanel Grid.Column="1" Margin="10,0,10,0" VerticalAlignment="Center">
+                                            <TextBlock Text="{loc:Translate 'Open Crystal Relay Folder'}"
+                                                       FontSize="13" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource TextBrush}" />
+                                            <TextBlock Text="{loc:Translate 'Access saves, backups, and config files'}"
+                                                       FontSize="11"
+                                                       Foreground="{DynamicResource MutedBrush}" />
+                                        </StackPanel>
+                                        <Button Grid.Column="2"
+                                                Style="{StaticResource SecondaryButtonStyle}"
+                                                Padding="10,5"
+                                                FontSize="11"
+                                                Content="{loc:Translate 'Open'}"
+                                                Command="{Binding OpenSaveFolderCommand}"
+                                                VerticalAlignment="Center" />
+                                    </Grid>
+                                </Border>
                             </StackPanel>
-                            <WrapPanel Margin="0,14,0,0">
-                                <Button Style="{StaticResource SecondaryButtonStyle}" Content="{loc:Translate 'Open Crystal Relay Folder'}" Command="{Binding OpenSaveFolderCommand}" />
-                            </WrapPanel>
                         </StackPanel>
                     </Border>
 
