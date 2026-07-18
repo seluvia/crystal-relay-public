@@ -873,6 +873,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         OpenDiscordInviteCommand = new RelayCommand(OpenDiscordInvite);
         OpenBugReportCommand = new AsyncRelayCommand(() => OpenBugReportAsync());
         RefreshTwitchRewardsCommand = new AsyncRelayCommand(RefreshTwitchRewardsAsync);
+        RefreshPowerUpsCommand = new AsyncRelayCommand(RefreshPowerUpsAsync);
         UnlinkTwitchRewardCommand = new RelayCommand(UnlinkTwitchReward);
         UnlinkWardrobeMasterRewardCommand = new RelayCommand(UnlinkWardrobeMasterReward);
         TestSelectedRuleCommand = new AsyncRelayCommand(TestSelectedRuleAsync, () => SelectedRule is not null);
@@ -1011,6 +1012,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         bridgeCoordinator.ManagedRewardAvailabilityChanged += () => RunOnUi(() =>
         {
             RaisePropertyChanged(nameof(AvatarScaleMasterRewardStatusText));
+            // Rule lockout state (disable pairing), avatar-scale active/inactive, and
+            // supporter-override windows are Twitch-visible state flips that need to reach
+            // the reward sync. Queue a passive sync so the fingerprint check can decide
+            // whether a Twitch PATCH is actually needed.
+            QueueManagedRewardSync(1100, ManagedRewardSyncReason.RuntimeAvailability);
         });
         bridgeCoordinator.RewardCooldownColorChanged += ruleId => _ = HandleRewardCooldownColorChangedAsync(ruleId);
         bridgeCoordinator.AvatarScaleMasterRewardUnlockStateChanged += () => RunOnUi(() =>
@@ -1665,18 +1671,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         : IsViewingMasterAvatar
             ? T("Delete All Avatar Switches")
             : T("Delete All Redeems");
-
-    public string SelectedRuleEmptyStateText => IsViewingPowerUps
-        ? T("Add or select a Power Up rule to edit it.")
-        : IsViewingAvatarScaling
-        ? T("Select or add a scale set, then add a scale redeem to edit it.")
-        : IsViewingMovementRedeems
-            ? T("Select a movement set, then add a movement redeem to edit it.")
-        : IsViewingMasterAvatar
-            ? T("Add an avatar-switch redeem to edit it.")
-        : SelectedAvatarProfile is null
-            ? T("Select or create an avatar set first.")
-            : T("Add a redeem in this avatar set to edit it.");
 
     public string ManagedChannelPointRewardHelpText
     {
@@ -2498,6 +2492,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     public bool IsBotDisconnected => !IsBotConnected;
 
+    public bool IsOscConnected => bridgeCoordinator.IsOscActive;
+
+    public bool IsOscDisconnected => !IsOscConnected;
+
     public string EffectiveBotSenderStatusText => BuildEffectiveBotSenderStatusText();
 
     public string BuiltInCommandsSummaryText => BuildBuiltInCommandsSummaryText();
@@ -2870,6 +2868,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     public AsyncRelayCommand RefreshTwitchRewardsCommand { get; }
 
+    public AsyncRelayCommand RefreshPowerUpsCommand { get; }
+
     ICommand ITwitchRewardSource.RefreshTwitchRewardsCommand => RefreshTwitchRewardsCommand;
 
     public RelayCommand UnlinkTwitchRewardCommand { get; }
@@ -3235,6 +3235,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
             try
             {
+                var fireSale = Settings.RewardFireSale;
+                fireSale.CurrentProgress = 0;
+                fireSale.IsSaleActive = false;
+                fireSale.ActiveDiscountPercent = 0;
+                fireSale.ActiveTierGoalAmount = 0;
+                fireSale.ActiveUntilUtc = null;
                 await settingsStore.SaveAsync(Settings, CancellationToken.None);
             }
             catch
@@ -5210,11 +5216,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             Owner = System.Windows.Application.Current?.MainWindow,
             DataContext = managerVm
         };
-        IsAvatarSetsManagerOpen = true;
         _avatarSetsManagerWindow.Closed += (_, _) =>
         {
             _avatarSetsManagerWindow = null;
-            IsAvatarSetsManagerOpen = false;
         };
         _avatarSetsManagerWindow.Show();
     }
@@ -5392,13 +5396,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         }, ct);
     }
 
-    private bool _isAvatarSetsManagerOpen;
-    public bool IsAvatarSetsManagerOpen
-    {
-        get => _isAvatarSetsManagerOpen;
-        set => SetProperty(ref _isAvatarSetsManagerOpen, value);
-    }
-
     public void TestAvatarSet(AvatarTriggerProfile profile)
     {
         if (profile == null) return;
@@ -5485,9 +5482,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
         if (IsRewardFireSaleActiveNow() && !CanRewardFireSaleAdvanceToLaterTier())
         {
-            AppendThrottledLog("reward-fire-sale-active-progress-paused",
-                "Reward Fire Sale is already active at its final available tier, so new Bits and funding reward redeems are not adding progress right now.",
-                ThrottledRewardSyncLogWindow);
+        AppendThrottledLog("reward-fire-sale-active-progress-paused",
+            "CR-DIAG: Reward Fire Sale is already active at its final available tier, so new contributions are not adding progress right now.",
+            ThrottledRewardSyncLogWindow);
             return isFundingReward;
         }
 
@@ -9992,6 +9989,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         await QueuePowerUpRefreshAsync();
     }
 
+    public async Task RefreshPowerUpsAsync()
+    {
+        await QueuePowerUpRefreshAsync();
+    }
+
     private async Task<ManagedRewardSyncOutcome> EnsureBroadcasterRewardManagementReadyAsync(
         string status,
         string logKey,
@@ -11735,7 +11737,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             && ruleIsVisibleForCurrentAvatar
             && !isActiveFloatBoostParent
             && !floatLimitReached;
-        var backgroundColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(rule.ManagedRewardReadyColor);
+        var backgroundColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(
+            isOnLocalCooldown ? rule.ManagedRewardCooldownColor : rule.ManagedRewardReadyColor);
 
         return new ManagedRewardSyncTarget(
             rule.Id,
@@ -11818,7 +11821,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             && !isActiveFloatBoostParent
             && !floatLimitReached
             && !permanentSwapBlocked;
-        var backgroundColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(rule.ManagedRewardReadyColor);
+        var backgroundColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(
+            isOnLocalCooldown ? rule.ManagedRewardCooldownColor : rule.ManagedRewardReadyColor);
 
         return new ManagedRewardSyncTarget(
             rule.Id,
@@ -11833,8 +11837,74 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             requireUserInput: false,
             desiredEnabled: desiredEnabled,
             isCooldownActive: isOnLocalCooldown,
-            deleteWhenInactive: rule.DeleteManagedRewardWhenInactive && !isCooldownOnlyDirectAvatarChange && !temporarilyDisabledRuleIds.Contains(rule.Id) && !isActiveFloatBoostParent && !floatLimitReached,
-            protectFromCapReclaim: desiredEnabled || isOnLocalCooldown || temporarilyDisabledRuleIds.Contains(rule.Id) || isActiveFloatBoostParent || isCooldownOnlyDirectAvatarChange || floatLimitReached,
+            deleteWhenInactive: rule.DeleteManagedRewardWhenInactive && !isCooldownOnlyDirectAvatarChange && !temporarilyDisabledRuleIds.Contains(rule.Id) && !isActiveFloatBoostParent && !floatLimitReached && !permanentSwapBlocked,
+            protectFromCapReclaim: desiredEnabled || isOnLocalCooldown || temporarilyDisabledRuleIds.Contains(rule.Id) || isActiveFloatBoostParent || isCooldownOnlyDirectAvatarChange || floatLimitReached || permanentSwapBlocked,
+            applyRewardId: rewardId => rule.ChannelPointRewardId = rewardId);
+    }
+
+    private ManagedRewardSyncTarget CreateManagedRewardTargetForRouletteRule(
+        AvatarRouletteProfile rouletteProfile,
+        TriggerRule rule,
+        string currentAvatarId,
+        bool avatarChangeTransitionActive,
+        bool allowManagedRewardActivation,
+        IReadOnlyCollection<Guid> temporarilyDisabledRuleIds,
+        IReadOnlyCollection<Guid> cooldownRuleIds,
+        IReadOnlyCollection<Guid> activeTimedRuleIds,
+        IReadOnlyCollection<Guid> activeFloatLimitReachedRuleIds)
+    {
+        var ruleHasRuntimeReadyAction = rule.ActionType == OscActionType.AvatarRoulet
+            ? rouletteProfile.Pool.Any(entry => !string.IsNullOrWhiteSpace(entry.AvatarId))
+            : HasRuntimeReadyAction(rule);
+        var isOnLocalCooldown = cooldownRuleIds.Contains(rule.Id);
+        var returnAvatarId = !string.IsNullOrWhiteSpace(rouletteProfile.ReturnAvatarId)
+            ? rouletteProfile.ReturnAvatarId.Trim()
+            : !string.IsNullOrWhiteSpace(Settings.MasterAvatarSwapReturnId)
+                ? Settings.MasterAvatarSwapReturnId.Trim()
+                : string.Empty;
+        var isActiveFloatBoostParent = IsActiveFloatBoostParentRule(rule) && activeTimedRuleIds.Contains(rule.Id);
+        var floatLimitReached = activeFloatLimitReachedRuleIds.Contains(rule.Id)
+            && rule.UsesFloatHideOnLimit
+            && (rule.HideRewardWhenFloatMaxReached || rule.HideRewardWhenFloatMinReached);
+        var ruleIsVisibleForCurrentAvatar = string.IsNullOrWhiteSpace(returnAvatarId)
+            || AvatarRuleActivationPolicy.IsRuleActiveForCurrentAvatar(
+                isGlobalOverride: false,
+                belongsToMasterAvatarProfile: true,
+                actionType: rule.ActionType,
+                avatarChangeTargetId: string.Empty,
+                requiredAvatarId: returnAvatarId,
+                currentAvatarId: currentAvatarId,
+                avatarChangeTransitionActive: avatarChangeTransitionActive,
+                avatarChangeCooldownOnlyModeEnabled: false,
+                permanentAvatarChange: false,
+                permanentChangeCompleted: false);
+        var desiredEnabled = allowManagedRewardActivation
+            && ruleHasRuntimeReadyAction
+            && rouletteProfile.Pool.Count > 0
+            && rouletteProfile.IsEnabled
+            && rule.IsEnabled
+            && !temporarilyDisabledRuleIds.Contains(rule.Id)
+            && ruleIsVisibleForCurrentAvatar
+            && !isActiveFloatBoostParent
+            && !floatLimitReached;
+        var backgroundColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(
+            isOnLocalCooldown ? rule.ManagedRewardCooldownColor : rule.ManagedRewardReadyColor);
+
+        return new ManagedRewardSyncTarget(
+            rule.Id,
+            rule.DisplayTitle,
+            rule.ChannelPointRewardId,
+            rule.ChannelPointRewardTitle,
+            ApplyRewardFireSaleDiscount(rule.ChannelPointRewardCost, rule.RewardSyncMode),
+            rule.RewardSyncMode,
+            rule.CooldownSeconds,
+            backgroundColor,
+            prompt: BuildManagedRewardPrompt(rule.ChannelPointRewardDescription),
+            requireUserInput: false,
+            desiredEnabled: desiredEnabled,
+            isCooldownActive: isOnLocalCooldown,
+            deleteWhenInactive: rule.DeleteManagedRewardWhenInactive && !temporarilyDisabledRuleIds.Contains(rule.Id) && !isActiveFloatBoostParent && !floatLimitReached,
+            protectFromCapReclaim: desiredEnabled || isOnLocalCooldown || temporarilyDisabledRuleIds.Contains(rule.Id) || isActiveFloatBoostParent || floatLimitReached,
             applyRewardId: rewardId => rule.ChannelPointRewardId = rewardId);
     }
 
@@ -12022,7 +12092,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         var readyColor = group.UsesSetTriggerMasterReward
             ? profile.SetTriggerMasterRewardReadyColor
             : owner.ManagedRewardReadyColor;
-        var backgroundColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(readyColor);
+        var cooldownColor = group.UsesSetTriggerMasterReward
+            ? profile.SetTriggerMasterRewardCooldownColor
+            : owner.ManagedRewardCooldownColor;
+        var backgroundColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(
+            anyChoiceInCooldown ? cooldownColor : readyColor);
         var rewardId = group.UsesSetTriggerMasterReward
             ? GetSetTriggerMasterRewardId(profile, group)
             : GetSharedAvatarSetRewardGroupRewardId(group);
@@ -12345,7 +12419,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             && !isHiddenAtRelativeLimit
             && !isTemporarilyDisabledByPairing
             && masterGateAllowsReward;
-        var backgroundColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(rule.ManagedRewardReadyColor);
+        var backgroundColor = ManagedRewardPresentation.NormalizeReadyBackgroundColor(
+            isOnLocalCooldown ? rule.ManagedRewardCooldownColor : rule.ManagedRewardReadyColor);
         var shouldDeleteWhenInactive = isHiddenByMasterLock
             ? freeChildRewardSlotsWhenLocked
             : rule.DeleteManagedRewardWhenInactive;
@@ -12786,6 +12861,24 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
                 }
             }
 
+            var rouletteTargets = new List<ManagedRewardSyncTarget>();
+            foreach (var rouletteProfile in Settings.AvatarRouletteProfiles)
+            {
+                foreach (var rule in rouletteProfile.Triggers.Where(t => t.TriggerType == TwitchTriggerType.ChannelPoints && t.RewardSyncMode != TwitchRewardSyncMode.LinkExisting))
+                {
+                    rouletteTargets.Add(CreateManagedRewardTargetForRouletteRule(
+                        rouletteProfile,
+                        rule,
+                        currentAvatarId,
+                        avatarChangeTransitionActive,
+                        allowManagedRewardActivation,
+                        temporarilyDisabledRuleIds,
+                        cooldownRuleIds,
+                        activeTimedRuleIds,
+                        activeFloatLimitReachedRuleIds));
+                }
+            }
+
             var movementTargets = supportedMovementRules
                 .Select(rule => CreateManagedRewardTargetForRule(
                     profile: null,
@@ -12827,6 +12920,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
             allSyncTargets.AddRange(avatarProfileTargets);
             allSyncTargets.AddRange(avatarSwapTargets);
+            allSyncTargets.AddRange(rouletteTargets);
             allSyncTargets.AddRange(movementTargets);
             allSyncTargets.AddRange(universalTargets);
             allSyncTargets.AddRange(avatarScaleTargets);
@@ -17971,6 +18065,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     private IEnumerable<TriggerRule> EnumerateAllRules()
     {
         return Settings.AvatarProfiles.SelectMany(profile => profile.ChannelPointRules)
+            .Concat(Settings.AvatarSwapProfiles.SelectMany(p => p.ChannelPointRules))
+            .Concat(Settings.AvatarSwapProfiles.SelectMany(p => p.BitsRules))
+            .Concat(Settings.AvatarSwapProfiles.SelectMany(p => p.SubsRules))
+            .Concat(Settings.AvatarSwapProfiles.SelectMany(p => p.PowerUpRules))
+            .Concat(Settings.AvatarRouletteProfiles.SelectMany(r => r.Triggers))
             .Concat(GetAllMovementRules())
             .Concat(Settings.GlobalOverrideRules);
     }
@@ -18560,7 +18659,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         RaisePropertyChanged(nameof(AddRuleButtonText));
         RaisePropertyChanged(nameof(DeleteRuleButtonText));
         RaisePropertyChanged(nameof(DeleteAllRulesButtonText));
-        RaisePropertyChanged(nameof(SelectedRuleEmptyStateText));
         RaisePropertyChanged(nameof(SelectedAvatarProfileStatusText));
         RaisePropertyChanged(nameof(SelectedAvatarSetupTitle));
         RaisePropertyChanged(nameof(SelectedAvatarNameFieldLabel));

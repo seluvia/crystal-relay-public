@@ -3606,21 +3606,37 @@
                                         <StackPanel>
                                             <StackPanel Orientation="Horizontal">
                                                 <Ellipse Width="8" Height="8"
-                                                         Fill="{DynamicResource AccentBrush}"
+                                                         Fill="{DynamicResource MutedBrush}"
                                                          VerticalAlignment="Center"
-                                                         Margin="0,0,6,0" />
+                                                         Margin="0,0,6,0">
+                                                    <Ellipse.Style>
+                                                        <Style TargetType="Ellipse">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsVrChatConnected}" Value="True">
+                                                                    <Setter Property="Fill" Value="{DynamicResource AccentBrush}" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Ellipse.Style>
+                                                </Ellipse>
                                                 <TextBlock Text="VRChat"
                                                            FontSize="10"
                                                            FontWeight="SemiBold"
                                                            Foreground="{DynamicResource MutedBrush}"
                                                            VerticalAlignment="Center" />
                                             </StackPanel>
-                                            <TextBlock Text="{Binding VrChatStatus}"
+                                            <TextBlock Text="Connected"
                                                        Margin="0,4,0,0"
                                                        FontSize="13"
                                                        FontWeight="SemiBold"
-                                                       Foreground="{DynamicResource TextBrush}"
-                                                       TextTrimming="CharacterEllipsis" />
+                                                       Foreground="{DynamicResource AccentBrush}"
+                                                       Visibility="{Binding IsVrChatConnected, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                            <TextBlock Text="Disconnected"
+                                                       Margin="0,4,0,0"
+                                                       FontSize="13"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource MutedBrush}"
+                                                       Visibility="{Binding IsVrChatDisconnected, Converter={StaticResource BoolToVisibilityConverter}}" />
                                         </StackPanel>
                                     </Border>
 
@@ -3634,21 +3650,37 @@
                                         <StackPanel>
                                             <StackPanel Orientation="Horizontal">
                                                 <Ellipse Width="8" Height="8"
-                                                         Fill="{DynamicResource AccentBrush}"
+                                                         Fill="{DynamicResource MutedBrush}"
                                                          VerticalAlignment="Center"
-                                                         Margin="0,0,6,0" />
+                                                         Margin="0,0,6,0">
+                                                    <Ellipse.Style>
+                                                        <Style TargetType="Ellipse">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsOscConnected}" Value="True">
+                                                                    <Setter Property="Fill" Value="{DynamicResource AccentBrush}" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Ellipse.Style>
+                                                </Ellipse>
                                                 <TextBlock Text="OSC"
                                                            FontSize="10"
                                                            FontWeight="SemiBold"
                                                            Foreground="{DynamicResource MutedBrush}"
                                                            VerticalAlignment="Center" />
                                             </StackPanel>
-                                            <TextBlock Text="{Binding OscBridgeSummary}"
+                                            <TextBlock Text="Connected"
                                                        Margin="0,4,0,0"
                                                        FontSize="13"
                                                        FontWeight="SemiBold"
-                                                       Foreground="{DynamicResource TextBrush}"
-                                                       TextTrimming="CharacterEllipsis" />
+                                                       Foreground="{DynamicResource AccentBrush}"
+                                                       Visibility="{Binding IsOscConnected, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                            <TextBlock Text="Disconnected"
+                                                       Margin="0,4,0,0"
+                                                       FontSize="13"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource MutedBrush}"
+                                                       Visibility="{Binding IsOscDisconnected, Converter={StaticResource BoolToVisibilityConverter}}" />
                                         </StackPanel>
                                     </Border>
 
@@ -3662,21 +3694,37 @@
                                         <StackPanel>
                                             <StackPanel Orientation="Horizontal">
                                                 <Ellipse Width="8" Height="8"
-                                                         Fill="{DynamicResource AccentBrush}"
+                                                         Fill="{DynamicResource MutedBrush}"
                                                          VerticalAlignment="Center"
-                                                         Margin="0,0,6,0" />
+                                                         Margin="0,0,6,0">
+                                                    <Ellipse.Style>
+                                                        <Style TargetType="Ellipse">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsBroadcasterConnected}" Value="True">
+                                                                    <Setter Property="Fill" Value="{DynamicResource AccentBrush}" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Ellipse.Style>
+                                                </Ellipse>
                                                 <TextBlock Text="Twitch"
                                                            FontSize="10"
                                                            FontWeight="SemiBold"
                                                            Foreground="{DynamicResource MutedBrush}"
                                                            VerticalAlignment="Center" />
                                             </StackPanel>
-                                            <TextBlock Text="{Binding BroadcasterStatusDisplayText}"
+                                            <TextBlock Text="Connected"
                                                        Margin="0,4,0,0"
                                                        FontSize="13"
                                                        FontWeight="SemiBold"
-                                                       Foreground="{DynamicResource TextBrush}"
-                                                       TextTrimming="CharacterEllipsis" />
+                                                       Foreground="{DynamicResource AccentBrush}"
+                                                       Visibility="{Binding IsBroadcasterConnected, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                            <TextBlock Text="Disconnected"
+                                                       Margin="0,4,0,0"
+                                                       FontSize="13"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource MutedBrush}"
+                                                       Visibility="{Binding IsBroadcasterDisconnected, Converter={StaticResource BoolToVisibilityConverter}}" />
                                         </StackPanel>
                                     </Border>
 
@@ -3709,23 +3757,18 @@
                                                            Foreground="{DynamicResource MutedBrush}"
                                                            VerticalAlignment="Center" />
                                             </StackPanel>
-                                            <TextBlock Margin="0,4,0,0"
+                                            <TextBlock Text="Live"
+                                                       Margin="0,4,0,0"
                                                        FontSize="13"
                                                        FontWeight="SemiBold"
-                                                       TextTrimming="CharacterEllipsis">
-                                                <TextBlock.Style>
-                                                    <Style TargetType="TextBlock">
-                                                        <Setter Property="Text" Value="{loc:Translate 'Offline'}" />
-                                                        <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding IsBroadcasterLive}" Value="True">
-                                                                <Setter Property="Text" Value="{loc:Translate 'Live'}" />
-                                                                <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </TextBlock.Style>
-                                            </TextBlock>
+                                                       Foreground="{DynamicResource AccentBrush}"
+                                                       Visibility="{Binding IsBroadcasterLive, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                            <TextBlock Text="Offline"
+                                                       Margin="0,4,0,0"
+                                                       FontSize="13"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource MutedBrush}"
+                                                       Visibility="{Binding IsBroadcasterLive, Converter={StaticResource InverseBoolToVisibilityConverter}}" />
                                         </StackPanel>
                                     </Border>
                                 </Grid>
