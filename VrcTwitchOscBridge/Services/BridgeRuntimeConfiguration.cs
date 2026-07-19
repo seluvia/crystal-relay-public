@@ -146,7 +146,10 @@ public sealed record TriggerRuleSnapshot(
     bool SubscriptionTier3Enabled = true,
     bool ExtendCurrentActivity = false,
     double ExtendSeconds = 0,
-    float? FloatValue = null)
+    float? FloatValue = null,
+    int SubsTriggerCount = 1,
+    bool SubsAccumulationEnabled = false,
+    bool SubsCarryOverEnabled = false)
 {
     public static TriggerRuleSnapshot FromRule(TriggerRule rule)
     {
@@ -186,6 +189,9 @@ public sealed record TriggerRuleSnapshot(
             AddBitsToSwapTime: rule.AddBitsToSwapTime,
             MaxAccumulatedDurationEnabled: rule.MaxAccumulatedDurationEnabled,
             MaxAccumulatedDurationSeconds: rule.MaxAccumulatedDurationSeconds,
+            SubsTriggerCount: Math.Max(1, rule.SubsTriggerCount),
+            SubsAccumulationEnabled: rule.SubsAccumulationEnabled,
+            SubsCarryOverEnabled: rule.SubsCarryOverEnabled,
             ActionType: rule.ActionType,
             MovementDirection: rule.MovementDirection,
             ParameterName: rule.ParameterName ?? string.Empty,
