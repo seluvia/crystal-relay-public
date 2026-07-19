@@ -45,11 +45,28 @@ public sealed class InlineSubsRuleRowViewModel : ObservableObject, IRuleRowViewM
         var name = string.IsNullOrWhiteSpace(_rule.Name) ? "Untitled" : _rule.Name;
         var sb = new StringBuilder();
         sb.Append("⭐ ").Append(name);
+
+        sb.Append(" — trigger: ").Append(Math.Max(1, _rule.SubsTriggerCount)).Append(" subs");
+
         var parts = new List<string>();
         if (_rule.SubscriptionTier1SecondsPerSub > 0) parts.Add($"T1:{_rule.SubscriptionTier1SecondsPerSub}s");
         if (_rule.SubscriptionTier2SecondsPerSub > 0) parts.Add($"T2:{_rule.SubscriptionTier2SecondsPerSub}s");
         if (_rule.SubscriptionTier3SecondsPerSub > 0) parts.Add($"T3:{_rule.SubscriptionTier3SecondsPerSub}s");
-        if (parts.Count > 0) sb.Append(" — ").Append(string.Join(" ", parts));
+        if (parts.Count > 0) sb.Append(", ").Append(string.Join(" ", parts));
+
+        if (_rule.SubsAccumulationEnabled)
+        {
+            sb.Append(", accumulate ON");
+            if (_rule.SubsCarryOverEnabled)
+            {
+                sb.Append(", carryover ON");
+            }
+        }
+        else
+        {
+            sb.Append(", accumulate OFF");
+        }
+
         if (_rule.SubscriptionsAmountUnitsPerDuration > 0 && _rule.SubscriptionsSecondsPerAmountUnit > 0)
         {
             sb.Append(", ").Append(_rule.SubscriptionsSecondsPerAmountUnit)
