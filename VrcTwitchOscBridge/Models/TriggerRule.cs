@@ -47,7 +47,7 @@ public sealed class SupporterFloatAddRange : ObservableObject
     }
 }
 
-public sealed class TriggerRule : ObservableObject
+public sealed class TriggerRule : ObservableObject, IJsonOnDeserialized
 {
     private static string T(string sourceText) => LocalizationService.Translate(sourceText);
 
@@ -165,6 +165,20 @@ public sealed class TriggerRule : ObservableObject
         supporterFloatAddRanges.CollectionChanged += OnSupporterFloatAddRangesChanged;
         WireSupporterFloatAddRanges(supporterFloatAddRanges);
         setTriggerActions.CollectionChanged += OnSetTriggerActionsChanged;
+    }
+
+    void IJsonOnDeserialized.OnDeserialized()
+    {
+        MigrateSubsTriggerCount();
+    }
+
+    private void MigrateSubsTriggerCount()
+    {
+        if (TriggerType == TwitchTriggerType.Subscriptions && subsTriggerCount == 1 && minimumAmount > 1)
+        {
+            subsTriggerCount = minimumAmount;
+            RaisePropertyChanged(nameof(SubsTriggerSummary));
+        }
     }
 
     public Guid Id

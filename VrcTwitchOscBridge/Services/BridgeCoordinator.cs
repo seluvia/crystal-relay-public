@@ -194,7 +194,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private readonly Dictionary<Guid, DateTimeOffset> activeAvatarScaleEffects = [];
     private readonly Dictionary<Guid, CancellationTokenSource> avatarScaleEffectStateNotifications = [];
     private readonly Dictionary<Guid, ActiveAvatarScaleHeightSessionState> activeAvatarScaleHeightSessions = [];
-    private readonly Dictionary<Guid, int> _subsAccumulator = new();
+    private readonly Dictionary<Guid, int> subsAccumulator = new();
     private readonly Dictionary<string, PendingAvatarScaleHeightRestoreState> pendingAvatarScaleHeightRestores = new(StringComparer.Ordinal);
     private readonly Queue<QueuedAvatarScaleOperation> queuedAvatarScaleOperations = [];
     // Avatar scale writes share one OSC parameter, so operations are ordered by priority:
@@ -14005,6 +14005,13 @@ internal BridgeCoordinator(
         int amount,
         string currentAvatarId)
     {
+        var activeRuleIds = rules.Select(r => r.Id).ToHashSet();
+        var staleIds = subsAccumulator.Keys.Where(id => !activeRuleIds.Contains(id)).ToList();
+        foreach (var id in staleIds)
+        {
+            subsAccumulator.Remove(id);
+        }
+
         var nonAccumulationRules = rules
             .Where(r => !r.SubsAccumulationEnabled)
             .ToArray();
@@ -14053,7 +14060,7 @@ internal BridgeCoordinator(
         {
             foreach (var rule in accumulationRules)
             {
-                if (!_subsAccumulator.TryGetValue(rule.Id, out var accumulator))
+                if (!subsAccumulator.TryGetValue(rule.Id, out var accumulator))
                 {
                     accumulator = 0;
                 }
@@ -14080,7 +14087,7 @@ internal BridgeCoordinator(
                     }
                 }
 
-                _subsAccumulator[rule.Id] = accumulator;
+                subsAccumulator[rule.Id] = accumulator;
             }
         }
 
