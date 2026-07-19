@@ -1637,18 +1637,21 @@ public sealed class TriggerRule : ObservableObject
         get
         {
             var sb = new System.Text.StringBuilder();
-            sb.Append("Trigger: ").Append(Math.Max(1, SubsTriggerCount)).Append(" subs");
+            sb.Append(TF("Trigger: {0} subs", Math.Max(1, SubsTriggerCount)));
             if (SubsAccumulationEnabled)
             {
-                sb.Append(", accumulate ON");
+                sb.Append(", ");
+                sb.Append(T("accumulate ON"));
                 if (SubsCarryOverEnabled)
                 {
-                    sb.Append(", carryover ON");
+                    sb.Append(", ");
+                    sb.Append(T("carryover ON"));
                 }
             }
             else
             {
-                sb.Append(", accumulate OFF");
+                sb.Append(", ");
+                sb.Append(T("accumulate OFF"));
             }
             return sb.ToString();
         }
