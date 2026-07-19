@@ -955,8 +955,20 @@
                     </StackPanel>
                 </Border>
 
-                <StackPanel Margin="0,10,0,0"
-                            Visibility="{Binding UsesAmountThreshold, Converter={StaticResource BoolToVisibilityConverter}}">
+                <StackPanel Margin="0,10,0,0">
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding UsesAmountThreshold}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding UsesSubsTriggerSettings}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
                     <DockPanel LastChildFill="False">
                         <TextBlock Foreground="{DynamicResource TextBrush}"
                                    FontWeight="SemiBold">
@@ -984,6 +996,56 @@
                                 Tag="This setting is only for bits and subscriptions overrides. For bits, it is the minimum number of bits needed in one cheer event. For subs, it is the minimum number of subscriptions or gift subs the event must include before Crystal Relay runs the rule. Paid overrides ignore avatar matching and can fire no matter which avatar you are using." />
                     </DockPanel>
                     <TextBox Text="{Binding MinimumAmount, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+
+                <StackPanel Margin="0,10,0,0"
+                            Visibility="{Binding UsesSubsTriggerSettings, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <Border Background="{DynamicResource PanelSecondaryBrush}"
+                            BorderBrush="{DynamicResource InputBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="14"
+                            Padding="12">
+                        <StackPanel>
+                            <TextBlock Text="{loc:Translate 'Subscription Trigger Settings'}"
+                                       Foreground="{DynamicResource TextBrush}"
+                                       FontWeight="SemiBold"
+                                       FontSize="14" />
+                            <StackPanel Margin="0,10,0,0">
+                                <TextBlock Text="{loc:Translate 'Subs to Trigger'}"
+                                           Foreground="{DynamicResource TextBrush}"
+                                           FontWeight="SemiBold" />
+                                <TextBox Text="{Binding SubsTriggerCount, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Margin="0,6,0,0"
+                                           Foreground="{DynamicResource MutedBrush}"
+                                           TextWrapping="Wrap"
+                                           Text="{loc:Translate 'How many subs are needed before this rule fires. Gift subs count by the total gifted.'}" />
+                            </StackPanel>
+                            <CheckBox Margin="0,12,0,0"
+                                      IsChecked="{Binding SubsAccumulationEnabled, UpdateSourceTrigger=PropertyChanged}">
+                                <TextBlock Text="{loc:Translate 'Accumulate subs across events'}"
+                                           TextWrapping="Wrap" />
+                            </CheckBox>
+                            <TextBlock Margin="26,4,0,0"
+                                       Foreground="{DynamicResource MutedBrush}"
+                                       TextWrapping="Wrap"
+                                       Text="{loc:Translate 'Subs, resubs, and gift subs add to a running count until the trigger is reached.'}" />
+                            <StackPanel Margin="26,8,0,0"
+                                        Visibility="{Binding SubsAccumulationEnabled, Converter={StaticResource BoolToVisibilityConverter}}">
+                                <CheckBox IsChecked="{Binding SubsCarryOverEnabled, UpdateSourceTrigger=PropertyChanged}">
+                                    <TextBlock Text="{loc:Translate 'Carry over excess subs'}"
+                                               TextWrapping="Wrap" />
+                                </CheckBox>
+                                <TextBlock Margin="26,4,0,0"
+                                           Foreground="{DynamicResource MutedBrush}"
+                                           TextWrapping="Wrap"
+                                           Text="{loc:Translate 'Extra subs past the threshold carry to the next round instead of resetting to zero.'}" />
+                            </StackPanel>
+                            <TextBlock Margin="0,12,0,0"
+                                       Foreground="{DynamicResource AccentBrush}"
+                                       TextWrapping="Wrap"
+                                       Text="{Binding SubsTriggerSummary}" />
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
 
                 <StackPanel Margin="0,14,0,0"
