@@ -194,6 +194,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private readonly Dictionary<Guid, DateTimeOffset> activeAvatarScaleEffects = [];
     private readonly Dictionary<Guid, CancellationTokenSource> avatarScaleEffectStateNotifications = [];
     private readonly Dictionary<Guid, ActiveAvatarScaleHeightSessionState> activeAvatarScaleHeightSessions = [];
+    private readonly Dictionary<Guid, int> _subsAccumulator = new();
     private readonly Dictionary<string, PendingAvatarScaleHeightRestoreState> pendingAvatarScaleHeightRestores = new(StringComparer.Ordinal);
     private readonly Queue<QueuedAvatarScaleOperation> queuedAvatarScaleOperations = [];
     // Avatar scale writes share one OSC parameter, so operations are ordered by priority:
@@ -13999,38 +14000,116 @@ internal BridgeCoordinator(
             bridgeEvent.Amount);
     }
 
-    private static TriggerRuleSnapshot[] SelectSubscriptionMatchingRules(
+    private TriggerRuleSnapshot[] SelectSubscriptionMatchingRules(
         IReadOnlyList<TriggerRuleSnapshot> rules,
         int amount,
         string currentAvatarId)
     {
-        var currentAvatarRules = rules
-            .Where(rule => IsSupporterRuleScopedToCurrentAvatar(rule, currentAvatarId))
+        var nonAccumulationRules = rules
+            .Where(r => !r.SubsAccumulationEnabled)
             .ToArray();
-        var currentAvatarMatch = SelectBestThresholdMatch(currentAvatarRules, amount);
-        if (currentAvatarMatch.Length > 0)
+        var accumulationRules = rules
+            .Where(r => r.SubsAccumulationEnabled)
+            .ToArray();
+
+        var results = new List<TriggerRuleSnapshot>();
+
+        if (nonAccumulationRules.Length > 0)
         {
-            return currentAvatarMatch;
+            var currentAvatarRules = nonAccumulationRules
+                .Where(rule => IsSupporterRuleScopedToCurrentAvatar(rule, currentAvatarId))
+                .ToArray();
+            var currentAvatarMatch = SelectBestSubscriptionThresholdMatch(currentAvatarRules, amount);
+            if (currentAvatarMatch is not null)
+            {
+                results.Add(currentAvatarMatch);
+            }
+            else
+            {
+                var globalRules = nonAccumulationRules
+                    .Where(IsGlobalSupporterRule)
+                    .ToArray();
+                var overrideMatch = SelectBestSubscriptionThresholdMatch(
+                    globalRules.Where(IsAvatarChangeOverrideRule).ToArray(),
+                    amount);
+                if (overrideMatch is not null)
+                {
+                    results.Add(overrideMatch);
+                }
+                else
+                {
+                    var fallback = SelectBestSubscriptionThresholdMatch(
+                        globalRules.Where(rule => !IsAvatarChangeOverrideRule(rule)).ToArray(),
+                        amount);
+                    if (fallback is not null)
+                    {
+                        results.Add(fallback);
+                    }
+                }
+            }
         }
 
-        var globalRules = rules
-            .Where(IsGlobalSupporterRule)
-            .ToArray();
-        var avatarChangeOverrideMatch = SelectBestThresholdMatch(
-            globalRules
-                .Where(IsAvatarChangeOverrideRule)
-                .ToArray(),
-            amount);
-        if (avatarChangeOverrideMatch.Length > 0)
+        if (accumulationRules.Length > 0)
         {
-            return avatarChangeOverrideMatch;
+            foreach (var rule in accumulationRules)
+            {
+                if (!_subsAccumulator.TryGetValue(rule.Id, out var accumulator))
+                {
+                    accumulator = 0;
+                }
+
+                accumulator += amount;
+
+                var cap = Math.Max(1, rule.SubsTriggerCount) * 10;
+                if (accumulator > cap)
+                {
+                    accumulator = cap;
+                }
+
+                if (accumulator >= Math.Max(1, rule.SubsTriggerCount))
+                {
+                    results.Add(rule);
+
+                    if (rule.SubsCarryOverEnabled)
+                    {
+                        accumulator -= Math.Max(1, rule.SubsTriggerCount);
+                    }
+                    else
+                    {
+                        accumulator = 0;
+                    }
+                }
+
+                _subsAccumulator[rule.Id] = accumulator;
+            }
         }
 
-        return SelectBestThresholdMatch(
-            globalRules
-                .Where(rule => !IsAvatarChangeOverrideRule(rule))
-                .ToArray(),
-            amount);
+        return results.ToArray();
+    }
+
+    private static TriggerRuleSnapshot? SelectBestSubscriptionThresholdMatch(
+        IReadOnlyList<TriggerRuleSnapshot> rules,
+        int amount)
+    {
+        TriggerRuleSnapshot? bestMatch = null;
+        var bestThreshold = int.MinValue;
+
+        foreach (var rule in rules)
+        {
+            var threshold = Math.Max(1, rule.SubsTriggerCount);
+            if (amount < threshold)
+            {
+                continue;
+            }
+
+            if (threshold > bestThreshold)
+            {
+                bestThreshold = threshold;
+                bestMatch = rule;
+            }
+        }
+
+        return bestMatch;
     }
 
     private static bool IsSupporterRuleScopedToCurrentAvatar(TriggerRuleSnapshot rule, string currentAvatarId)
