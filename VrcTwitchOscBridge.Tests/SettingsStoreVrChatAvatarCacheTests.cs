@@ -21,16 +21,24 @@ public sealed class SettingsStoreVrChatAvatarCacheTests
         var store = new SettingsStore();
         var avatars = new List<VrChatAvatarSummary>
         {
-            new("avtr_1", "API Name 1", "Uploaded", true, null),
-            new("avtr_2", "Local Name 2", "Local OSC", false, null),
-            new("avtr_3", "Fav Name 3", "Favorites", false, null),
+            new(Id: "avtr_1", Name: "API Name 1", AuthorName: "", ThumbnailUrl: null,
+                IsCurrentAvatar: true, IsUploaded: true, IsFavorited: false, IsLicensed: false,
+                Platform: "", StyleTags: Array.Empty<string>(), ContentTags: Array.Empty<string>(),
+                FavoriteGroupName: null),
+            new(Id: "avtr_2", Name: "Local Name 2", AuthorName: "", ThumbnailUrl: null,
+                IsCurrentAvatar: false, IsUploaded: false, IsFavorited: false, IsLicensed: false,
+                Platform: "", StyleTags: Array.Empty<string>(), ContentTags: Array.Empty<string>(),
+                FavoriteGroupName: null),
+            new(Id: "avtr_3", Name: "Fav Name 3", AuthorName: "", ThumbnailUrl: null,
+                IsCurrentAvatar: false, IsUploaded: false, IsFavorited: true, IsLicensed: false,
+                Platform: "", StyleTags: Array.Empty<string>(), ContentTags: Array.Empty<string>(),
+                FavoriteGroupName: null),
         };
 
         await store.SaveVrChatAvatarCacheAsync("usr_test", avatars, default);
         var loaded = await store.LoadVrChatAvatarCacheAsync("usr_test", default);
 
         Assert.Equal(3, loaded.Count);
-        Assert.Equal("Local OSC", loaded[1].SourceLabel);
         Assert.Equal("Local Name 2", loaded[1].Name);
     }
 
@@ -40,7 +48,10 @@ public sealed class SettingsStoreVrChatAvatarCacheTests
         var store = new SettingsStore();
         var avatars = new List<VrChatAvatarSummary>
         {
-            new("avtr_1", "Name", "Local OSC", false, null),
+            new(Id: "avtr_1", Name: "Name", AuthorName: "", ThumbnailUrl: null,
+                IsCurrentAvatar: false, IsUploaded: false, IsFavorited: false, IsLicensed: false,
+                Platform: "", StyleTags: Array.Empty<string>(), ContentTags: Array.Empty<string>(),
+                FavoriteGroupName: null),
         };
         await store.SaveVrChatAvatarCacheAsync("usr_one", avatars, default);
         var loaded = await store.LoadVrChatAvatarCacheAsync("usr_two", default);

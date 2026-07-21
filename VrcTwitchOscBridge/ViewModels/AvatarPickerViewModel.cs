@@ -676,7 +676,7 @@ public sealed record AvatarPickerItem(
         ? Name
         : "Unknown Avatar";
 
-    public string SearchText => $"{Id} {Name} {AuthorName} {FavoriteGroupName}";
+    public string SearchText => $"{Id} {Name} {AuthorName} {FavoriteGroupName} {string.Join(" ", StyleTags)} {string.Join(" ", ContentTags)}";
 
     public string SourceLabel
     {

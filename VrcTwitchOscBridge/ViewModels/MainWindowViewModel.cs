@@ -17813,8 +17813,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         var merged = OscAvatarChangeMerger.MergeIntoList(
             availableVrChatAvatars,
             avatarId,
-            resolvedName ?? string.Empty,
-            "Local OSC");
+            resolvedName ?? string.Empty);
         ReplaceAvailableVrChatAvatars(merged);
 
         var currentUserId = ResolveCurrentUserIdForCache();

@@ -9,8 +9,7 @@ internal static class OscAvatarChangeMerger
     public static IReadOnlyList<VrChatAvatarSummary> MergeIntoList(
         IReadOnlyList<VrChatAvatarSummary> existing,
         string avatarId,
-        string resolvedName,
-        string newSourceLabel)
+        string resolvedName)
     {
         if (string.IsNullOrWhiteSpace(avatarId)) return existing;
         if (!avatarId.StartsWith("avtr_", StringComparison.Ordinal)) return existing;

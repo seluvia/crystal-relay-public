@@ -454,8 +454,16 @@ public sealed class AvatarSwapManagerViewModelTests
             new[] { "avtr_b", "avtr_a", "avtr_b", "" },
             new[]
             {
-                new VrChatAvatarSummary("avtr_a", "Avatar A", "VRChat", false, "thumb-a"),
-                new VrChatAvatarSummary("avtr_b", "Avatar B", "VRChat", false, "thumb-b")
+                new VrChatAvatarSummary(
+                    Id: "avtr_a", Name: "Avatar A", AuthorName: "", ThumbnailUrl: "thumb-a",
+                    IsCurrentAvatar: false, IsUploaded: false, IsFavorited: false, IsLicensed: false,
+                    Platform: "", StyleTags: Array.Empty<string>(), ContentTags: Array.Empty<string>(),
+                    FavoriteGroupName: null),
+                new VrChatAvatarSummary(
+                    Id: "avtr_b", Name: "Avatar B", AuthorName: "", ThumbnailUrl: "thumb-b",
+                    IsCurrentAvatar: false, IsUploaded: false, IsFavorited: false, IsLicensed: false,
+                    Platform: "", StyleTags: Array.Empty<string>(), ContentTags: Array.Empty<string>(),
+                    FavoriteGroupName: null)
             });
 
         Assert.Collection(
@@ -486,7 +494,14 @@ public sealed class AvatarSwapManagerViewModelTests
 
         vm.SetRoulettePoolSelection(
             new[] { "avtr_a" },
-            new[] { new VrChatAvatarSummary("avtr_a", "Avatar A", "VRChat", false, "thumb-a") });
+            new[]
+            {
+                new VrChatAvatarSummary(
+                    Id: "avtr_a", Name: "Avatar A", AuthorName: "", ThumbnailUrl: "thumb-a",
+                    IsCurrentAvatar: false, IsUploaded: false, IsFavorited: false, IsLicensed: false,
+                    Platform: "", StyleTags: Array.Empty<string>(), ContentTags: Array.Empty<string>(),
+                    FavoriteGroupName: null)
+            });
 
         var row = Assert.Single(vm.RoulettePoolRows);
         Assert.Equal("Avatar A", row.AvatarName);
