@@ -420,7 +420,7 @@ public sealed class AvatarPickerViewModel : ObservableObject
         RaisePropertyChanged(nameof(FilteredCountText));
     }
 
-    private static bool MatchesSection(AvatarPickerItem avatar, BrowseSection section, IReadOnlyList<string> recentIds)
+    private bool MatchesSection(AvatarPickerItem avatar, BrowseSection section, IReadOnlyList<string> recentIds)
     {
         return section switch
         {
@@ -429,31 +429,30 @@ public sealed class AvatarPickerViewModel : ObservableObject
             BrowseSection.Favorites => avatar.IsFavorited,
             BrowseSection.FavoritesGroup1 or BrowseSection.FavoritesGroup2
                 or BrowseSection.FavoritesGroup3 or BrowseSection.FavoritesGroup4
-                => avatar.IsFavorited && MatchesFavoriteGroup(avatar, section),
-            BrowseSection.Uploaded => !string.IsNullOrWhiteSpace(avatar.SourceLabel)
-                && avatar.SourceLabel.Contains("Uploaded", StringComparison.OrdinalIgnoreCase),
-            BrowseSection.Purchased => !string.IsNullOrWhiteSpace(avatar.SourceLabel)
-                && avatar.SourceLabel.Contains("Licensed", StringComparison.OrdinalIgnoreCase),
-            BrowseSection.LocalOsc => true,
-            BrowseSection.UserGroup => true,
-            BrowseSection.Ungrouped => true,
+                => avatar.IsFavorited && avatar.FavoriteGroupName == GetFavoriteGroupNameForSection(section),
+            BrowseSection.Uploaded => avatar.IsUploaded,
+            BrowseSection.Purchased => avatar.IsLicensed,
+            BrowseSection.LocalOsc => !avatar.IsUploaded && !avatar.IsFavorited && !avatar.IsLicensed,
+            BrowseSection.UserGroup => MatchesUserGroup(avatar),
+            BrowseSection.Ungrouped => string.IsNullOrWhiteSpace(avatarLibrary?.GetEntry(avatar.Id)?.GroupId),
             _ => true
         };
     }
 
-    private static bool MatchesFavoriteGroup(AvatarPickerItem avatar, BrowseSection section)
+    private string? GetFavoriteGroupNameForSection(BrowseSection section)
     {
-        var groupIndex = section switch
-        {
-            BrowseSection.FavoritesGroup1 => 0,
-            BrowseSection.FavoritesGroup2 => 1,
-            BrowseSection.FavoritesGroup3 => 2,
-            BrowseSection.FavoritesGroup4 => 3,
-            _ => -1
-        };
-        if (groupIndex < 0 || string.IsNullOrEmpty(avatar.FavoriteGroupName))
-            return false;
-        return true;
+        var index = section - BrowseSection.FavoritesGroup1;
+        if (index >= 0 && index < (favoriteGroups?.Count ?? 0))
+            return favoriteGroups![index].DisplayName;
+        return null;
+    }
+
+    private bool MatchesUserGroup(AvatarPickerItem avatar)
+    {
+        if (avatarLibrary is null || SelectedSidebarItem is null) return false;
+        var groupId = avatarLibrary.Groups
+            .FirstOrDefault(g => g.Name == SelectedSidebarItem.Label)?.Id;
+        return groupId is not null && avatarLibrary.GetEntry(avatar.Id)?.GroupId == groupId;
     }
 
     private string GetSectionDescription()
@@ -530,7 +529,7 @@ public sealed class AvatarPickerViewModel : ObservableObject
             {
                 var group = favoriteGroups[i];
                 var groupCount = AllAvatars.Count(a =>
-                    a.IsFavorited && string.Equals(a.FavoriteGroupName, group.Name, StringComparison.Ordinal));
+                    a.IsFavorited && string.Equals(a.FavoriteGroupName, group.DisplayName, StringComparison.Ordinal));
                 favChildren.Add(new SidebarItem(
                     group.DisplayName,
                     favSections[i],
@@ -548,23 +547,43 @@ public sealed class AvatarPickerViewModel : ObservableObject
             IsExpandable: favChildren.Count > 0,
             Children: favChildren.Count > 0 ? favChildren : null));
 
-        var uploadedCount = AllAvatars.Count(a =>
-            !string.IsNullOrWhiteSpace(a.SourceLabel)
-            && a.SourceLabel.Contains("Uploaded", StringComparison.OrdinalIgnoreCase));
+        var uploadedCount = AllAvatars.Count(a => a.IsUploaded);
         items.Add(new SidebarItem(
             LocalizationService.Translate("Uploaded"),
             BrowseSection.Uploaded,
             "\uE7B7",
             uploadedCount));
 
-        var purchasedCount = AllAvatars.Count(a =>
-            !string.IsNullOrWhiteSpace(a.SourceLabel)
-            && a.SourceLabel.Contains("Licensed", StringComparison.OrdinalIgnoreCase));
+        var purchasedCount = AllAvatars.Count(a => a.IsLicensed);
         items.Add(new SidebarItem(
             LocalizationService.Translate("Purchased"),
             BrowseSection.Purchased,
             "\uE738",
             purchasedCount));
+
+        var localOscCount = AllAvatars.Count(a => !a.IsUploaded && !a.IsFavorited && !a.IsLicensed);
+        items.Add(new SidebarItem(
+            LocalizationService.Translate("Local OSC"),
+            BrowseSection.LocalOsc,
+            "\U0001F4BB",
+            localOscCount));
+
+        if (avatarLibrary?.Groups is { Count: > 0 })
+        {
+            foreach (var group in avatarLibrary.Groups.OrderBy(g => g.SortOrder).ThenBy(g => g.Name))
+            {
+                var count = AllAvatars.Count(a => avatarLibrary.GetEntry(a.Id)?.GroupId == group.Id);
+                items.Add(new SidebarItem(group.Name, BrowseSection.UserGroup,
+                    "\u25CF", count));
+            }
+        }
+
+        var ungroupedCount = AllAvatars.Count(a => string.IsNullOrWhiteSpace(avatarLibrary?.GetEntry(a.Id)?.GroupId));
+        items.Add(new SidebarItem(
+            LocalizationService.Translate("Ungrouped"),
+            BrowseSection.Ungrouped,
+            "\U0001F4C2",
+            ungroupedCount));
 
         SidebarItems = new ObservableCollection<SidebarItem>(items);
         RaisePropertyChanged(nameof(SidebarItems));
@@ -593,7 +612,9 @@ public sealed class AvatarPickerViewModel : ObservableObject
             summary.ThumbnailUrl,
             IsSelected: string.Equals(summary.Id, selectedAvatarId, StringComparison.Ordinal),
             summary.IsCurrentAvatar,
+            IsUploaded: summary.IsUploaded,
             summary.IsFavorited,
+            IsLicensed: summary.IsLicensed,
             favGroupName,
             summary.Platform,
             summary.StyleTags,
@@ -642,7 +663,9 @@ public sealed record AvatarPickerItem(
     string? ThumbnailUrl,
     bool IsSelected,
     bool IsCurrentAvatar,
+    bool IsUploaded,
     bool IsFavorited,
+    bool IsLicensed,
     string? FavoriteGroupName,
     string Platform,
     IReadOnlyList<string> StyleTags,
@@ -660,9 +683,9 @@ public sealed record AvatarPickerItem(
         get
         {
             var sources = new List<string>(3);
+            if (IsUploaded) sources.Add("Uploaded");
             if (IsFavorited) sources.Add("Favorites");
-            if (!string.IsNullOrWhiteSpace(FavoriteGroupName)) sources.Add(FavoriteGroupName);
-            if (!string.IsNullOrWhiteSpace(Platform)) sources.Add(Platform);
+            if (IsLicensed) sources.Add("Licensed");
             return string.Join(" / ", sources);
         }
     }
