@@ -43,7 +43,6 @@
     <Page Include="TwitchChatboxWindow.xaml" />
     <Page Include="ThemedDialogWindow.xaml" />
     <Page Include="RuleLockoutPickerWindow.xaml" />
-    <Page Include="AvatarRouletPickerWindow.xaml" />
     <Page Include="AvatarPickerWindow.xaml" />
     <Page Include="AvatarLibraryManagerWindow.xaml" />
     <Page Include="ThemedInputDialog.xaml" />
@@ -103,7 +102,6 @@
     <Compile Include="TwitchChatboxWindow.xaml.cs" />
     <Compile Include="ThemedDialogWindow.xaml.cs" />
     <Compile Include="RuleLockoutPickerWindow.xaml.cs" />
-    <Compile Include="AvatarRouletPickerWindow.xaml.cs" />
     <Compile Include="AvatarPickerWindow.xaml.cs" />
     <Compile Include="AvatarLibraryManagerWindow.xaml.cs" />
     <Compile Include="ThemedInputDialog.xaml.cs" />
