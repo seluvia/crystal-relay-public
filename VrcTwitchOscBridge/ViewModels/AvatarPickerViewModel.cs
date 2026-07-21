@@ -49,6 +49,17 @@ public sealed class AvatarPickerViewModel : ObservableObject
     private string? selectedAvatarId;
     private string? selectedAvatarName;
     private bool isMultiSelectMode;
+    private bool favoritesExpanded = true;
+
+    public bool IsFavoritesExpanded
+    {
+        get => favoritesExpanded;
+        set
+        {
+            if (SetProperty(ref favoritesExpanded, value))
+                BuildSidebarItems();
+        }
+    }
 
     public AvatarPickerViewModel(
         IReadOnlyList<VrChatAvatarSummary> avatars,
@@ -506,14 +517,14 @@ public sealed class AvatarPickerViewModel : ObservableObject
         items.Add(new SidebarItem(
             LocalizationService.Translate("All Avatars"),
             BrowseSection.AllAvatars,
-            "\uE80F",
+            "\U0001F4C1",
             AllAvatars.Count));
 
         var recentCount = avatarLibrary?.RecentAvatarIds.Count ?? 0;
         items.Add(new SidebarItem(
             LocalizationService.Translate("Recent"),
             BrowseSection.Recent,
-            "\uE81C",
+            "\U0001F550",
             recentCount));
 
         // ── SOURCES section ─────────────────────────────────────────
@@ -538,7 +549,7 @@ public sealed class AvatarPickerViewModel : ObservableObject
                 favChildren.Add(new SidebarItem(
                     group.DisplayName,
                     favSections[i],
-                    "\uE734",
+                    "\u25CF",
                     groupCount,
                     ColorHex: "#F472B6"));
             }
@@ -548,34 +559,38 @@ public sealed class AvatarPickerViewModel : ObservableObject
         items.Add(new SidebarItem(
             LocalizationService.Translate("Favorites"),
             BrowseSection.Favorites,
-            "\uE734",
+            "\u2764\uFE0F",
             favoritesCount,
-            IsExpandable: favChildren.Count > 0));
+            IsExpandable: favChildren.Count > 0,
+            IsExpanded: favoritesExpanded));
 
-        // Favorites sub-groups (indented, flattened into list)
-        foreach (var child in favChildren)
+        // Favorites sub-groups (only when expanded)
+        if (favoritesExpanded)
         {
-            items.Add(new SidebarItem(
-                child.Label,
-                child.Section,
-                "\uE734",
-                child.Count,
-                ColorHex: child.ColorHex,
-                IsExpanded: true));
+            foreach (var child in favChildren)
+            {
+                items.Add(new SidebarItem(
+                    child.Label,
+                    child.Section,
+                    "",
+                    child.Count,
+                    ColorHex: child.ColorHex,
+                    IsExpanded: true));
+            }
         }
 
         var uploadedCount = AllAvatars.Count(a => a.IsUploaded);
         items.Add(new SidebarItem(
             LocalizationService.Translate("Uploaded"),
             BrowseSection.Uploaded,
-            "\uE7B7",
+            "\u2B06\uFE0F",
             uploadedCount));
 
         var purchasedCount = AllAvatars.Count(a => a.IsLicensed);
         items.Add(new SidebarItem(
             LocalizationService.Translate("Purchased"),
             BrowseSection.Purchased,
-            "\uE738",
+            "\U0001F6CD",
             purchasedCount));
 
         var localOscCount = AllAvatars.Count(a => !a.IsUploaded && !a.IsFavorited && !a.IsLicensed);
@@ -594,7 +609,7 @@ public sealed class AvatarPickerViewModel : ObservableObject
             {
                 var count = AllAvatars.Count(a => avatarLibrary.GetEntry(a.Id)?.GroupId == group.Id);
                 items.Add(new SidebarItem(group.Name, BrowseSection.UserGroup,
-                    "", count));
+                    "", count, ColorHex: "#A855F7"));
             }
         }
 

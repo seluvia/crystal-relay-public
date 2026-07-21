@@ -653,7 +653,14 @@ public partial class AvatarPickerWindow : Window
     {
         if (sender is FrameworkElement element && element.DataContext is SidebarItem sidebarItem)
         {
-            viewModel.SelectedSidebarItem = sidebarItem;
+            if (sidebarItem.IsExpandable)
+            {
+                viewModel.IsFavoritesExpanded = !viewModel.IsFavoritesExpanded;
+            }
+            else
+            {
+                viewModel.SelectedSidebarItem = sidebarItem;
+            }
         }
     }
 
