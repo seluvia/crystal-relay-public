@@ -469,7 +469,7 @@ public partial class AvatarPickerWindow : Window
         var index = allAvatars.IndexOf(item);
         if (index >= 0)
         {
-            var updated = new AvatarPickerItem(item.Id, item.Name, item.SourceLabel, newImage, item.ThumbnailUrl, item.IsSelected, item.Tags);
+            var updated = item with { Image = newImage };
             allAvatars[index] = updated;
             viewModel.RefreshFilter();
         }

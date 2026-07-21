@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using System.Windows;
 using System.Windows.Media;
@@ -8,6 +9,33 @@ using VrcTwitchOscBridge.Models;
 using VrcTwitchOscBridge.Services;
 
 namespace VrcTwitchOscBridge.ViewModels;
+
+public enum BrowseSection
+{
+    AllAvatars,
+    Recent,
+    Favorites,
+    FavoritesGroup1,
+    FavoritesGroup2,
+    FavoritesGroup3,
+    FavoritesGroup4,
+    Uploaded,
+    Purchased,
+    LocalOsc,
+    UserGroup,
+    Ungrouped
+}
+
+public sealed record SidebarItem(
+    string Label,
+    BrowseSection Section,
+    string Icon,
+    int Count,
+    bool IsExpandable = false,
+    bool IsExpanded = false,
+    IReadOnlyList<SidebarItem>? Children = null,
+    string? ColorHex = null
+);
 
 public sealed class AvatarPickerViewModel : ObservableObject
 {
@@ -18,8 +46,6 @@ public sealed class AvatarPickerViewModel : ObservableObject
     private readonly IReadOnlyDictionary<string, string>? avatarFavoriteGroups;
     private string searchText = string.Empty;
     private AvatarPickerViewMode viewMode = AvatarPickerViewMode.Grid;
-    private string? selectedFilterGroupId;
-    private string? selectedFilterTagId;
     private string? selectedAvatarId;
     private string? selectedAvatarName;
     private bool isMultiSelectMode;
@@ -39,7 +65,6 @@ public sealed class AvatarPickerViewModel : ObservableObject
         this.favoriteGroups = favoriteGroups;
         this.avatarFavoriteGroups = avatarFavoriteGroups;
 
-        // Prune library entries whose avatar is no longer in the VRChat list.
         avatarLibrary?.PruneMissingEntries(avatars);
 
         if (multiSelectCurrentIds is { Count: > 0 })
@@ -58,7 +83,7 @@ public sealed class AvatarPickerViewModel : ObservableObject
             if (current is not null)
             {
                 selectedAvatarName = current.Name;
-                var selected = new AvatarPickerItem(current.Id, current.Name, current.SourceLabel, current.Image, current.ThumbnailUrl, true, current.Tags);
+                var selected = current with { IsSelected = true };
                 var index = AllAvatars.IndexOf(current);
                 if (index >= 0) AllAvatars[index] = selected;
             }
@@ -66,7 +91,9 @@ public sealed class AvatarPickerViewModel : ObservableObject
 
         viewMode = avatarLibrary?.LastViewMode ?? AvatarPickerViewMode.Grid;
 
-        RebuildFilterOptions();
+        CollectFilterTags();
+        BuildSidebarItems();
+        selectedSidebarItem = SidebarItems.FirstOrDefault(s => s.Section == BrowseSection.AllAvatars);
         ApplyFilter();
     }
 
@@ -86,10 +113,6 @@ public sealed class AvatarPickerViewModel : ObservableObject
         }
     }
 
-    /// <summary>
-    /// Loads VRChat thumbnail images in parallel (up to 3 concurrent downloads).
-    /// Call after the window is shown.
-    /// </summary>
     public async Task LoadImagesAsync()
     {
         imageLoadCancellation?.Cancel();
@@ -136,7 +159,7 @@ public sealed class AvatarPickerViewModel : ObservableObject
                             var index = AllAvatars.IndexOf(av);
                             if (index >= 0)
                             {
-                                var updated = new AvatarPickerItem(av.Id, av.Name, av.SourceLabel, img, av.ThumbnailUrl, av.IsSelected, av.Tags);
+                                var updated = av with { Image = img };
                                 AllAvatars[index] = updated;
                                 var filteredIndex = FilteredAvatars.IndexOf(av);
                                 if (filteredIndex >= 0)
@@ -157,7 +180,6 @@ public sealed class AvatarPickerViewModel : ObservableObject
             }
             catch (OperationCanceledException)
             {
-                // Expected on cancellation
             }
         });
 
@@ -181,9 +203,6 @@ public sealed class AvatarPickerViewModel : ObservableObject
         return false;
     }
 
-    /// <summary>
-    /// Cancels any pending image loading.
-    /// </summary>
     public void CancelImageLoading()
     {
         imageLoadCancellation?.Cancel();
@@ -191,9 +210,6 @@ public sealed class AvatarPickerViewModel : ObservableObject
         imageLoadCancellation = null;
     }
 
-    /// <summary>
-    /// Clears all cached thumbnails and re-downloads them from the VRChat API.
-    /// </summary>
     public async Task RefreshAllImagesAsync()
     {
         CancelImageLoading();
@@ -204,7 +220,7 @@ public sealed class AvatarPickerViewModel : ObservableObject
         for (var i = 0; i < AllAvatars.Count; i++)
         {
             var avatar = AllAvatars[i];
-            var reset = new AvatarPickerItem(avatar.Id, avatar.Name, avatar.SourceLabel, placeholder, avatar.ThumbnailUrl, avatar.IsSelected, avatar.Tags);
+            var reset = avatar with { Image = placeholder };
             AllAvatars[i] = reset;
         }
 
@@ -223,11 +239,10 @@ public sealed class AvatarPickerViewModel : ObservableObject
         {
             if (value is not null)
             {
-                // Clear previous selection's IsSelected
                 var previous = FilteredAvatars.FirstOrDefault(a => string.Equals(a.Id, selectedAvatarId, StringComparison.Ordinal));
                 if (previous is not null)
                 {
-                    var cleared = new AvatarPickerItem(previous.Id, previous.Name, previous.SourceLabel, previous.Image, previous.ThumbnailUrl, false, previous.Tags);
+                    var cleared = previous with { IsSelected = false };
                     var prevIndex = AllAvatars.IndexOf(previous);
                     if (prevIndex >= 0) AllAvatars[prevIndex] = cleared;
                     var prevFilteredIndex = FilteredAvatars.IndexOf(previous);
@@ -237,8 +252,7 @@ public sealed class AvatarPickerViewModel : ObservableObject
                 selectedAvatarId = value.Id;
                 selectedAvatarName = value.Name;
 
-                // Set new selection's IsSelected
-                var selected = new AvatarPickerItem(value.Id, value.Name, value.SourceLabel, value.Image, value.ThumbnailUrl, true, value.Tags);
+                var selected = value with { IsSelected = true };
                 var index = AllAvatars.IndexOf(value);
                 if (index >= 0) AllAvatars[index] = selected;
                 var filteredIndex = FilteredAvatars.IndexOf(value);
@@ -276,37 +290,48 @@ public sealed class AvatarPickerViewModel : ObservableObject
         }
     }
 
-    public ObservableCollection<FilterOption> GroupFilterOptions { get; } = [];
-    public ObservableCollection<FilterOption> TagFilterOptions { get; } = [];
+    public ObservableCollection<SidebarItem> SidebarItems { get; private set; } = [];
 
-    private FilterOption? selectedGroupFilterOption;
-    private FilterOption? selectedTagFilterOption;
-
-    public FilterOption? SelectedGroupFilterOption
+    private SidebarItem? selectedSidebarItem;
+    public SidebarItem? SelectedSidebarItem
     {
-        get => selectedGroupFilterOption;
+        get => selectedSidebarItem;
         set
         {
-            if (SetProperty(ref selectedGroupFilterOption, value))
+            if (SetProperty(ref selectedSidebarItem, value))
             {
-                selectedFilterGroupId = value?.Id;
                 ApplyFilter();
+                RaisePropertyChanged(nameof(SectionTitle));
+                RaisePropertyChanged(nameof(SectionDescription));
             }
         }
     }
 
-    public FilterOption? SelectedTagFilterOption
+    public ObservableCollection<string> AllStyleTags { get; } = [];
+    public ObservableCollection<string> AllContentTags { get; } = [];
+    public ObservableCollection<string> SelectedStyleTags { get; } = [];
+    public ObservableCollection<string> SelectedContentTags { get; } = [];
+
+    private string? selectedPlatform;
+    public string? SelectedPlatform
     {
-        get => selectedTagFilterOption;
+        get => selectedPlatform;
         set
         {
-            if (SetProperty(ref selectedTagFilterOption, value))
-            {
-                selectedFilterTagId = value?.Id;
+            if (SetProperty(ref selectedPlatform, value))
                 ApplyFilter();
-            }
         }
     }
+
+    private bool filtersExpanded;
+    public bool FiltersExpanded
+    {
+        get => filtersExpanded;
+        set => SetProperty(ref filtersExpanded, value);
+    }
+
+    public string SectionTitle => SelectedSidebarItem?.Label ?? "All Avatars";
+    public string SectionDescription => GetSectionDescription();
 
     public AvatarLibrary? Library => avatarLibrary;
 
@@ -367,57 +392,191 @@ public sealed class AvatarPickerViewModel : ObservableObject
     {
         FilteredAvatars.Clear();
         var search = searchText.Trim().ToLowerInvariant();
+        var section = selectedSidebarItem?.Section ?? BrowseSection.AllAvatars;
+        var recentIds = avatarLibrary?.RecentAvatarIds ?? [];
 
         foreach (var avatar in AllAvatars)
         {
-            var entry = avatarLibrary?.GetEntry(avatar.Id);
+            if (!MatchesSection(avatar, section, recentIds)) continue;
 
             if (!string.IsNullOrWhiteSpace(search))
             {
-                var groupName = entry is not null && !string.IsNullOrWhiteSpace(entry.GroupId)
-                    ? avatarLibrary?.Groups.FirstOrDefault(g => g.Id == entry.GroupId)?.Name?.ToLowerInvariant()
-                    : null;
-                var tagNames = entry?.TagIds
-                    .Select(id => avatarLibrary?.Tags.FirstOrDefault(t => t.Id == id)?.Name)
-                    .Where(n => n is not null)
-                    .Select(n => n!.ToLowerInvariant())
-                    .ToList() ?? [];
-
-                var matchesSearch = avatar.SearchText.Contains(search, StringComparison.OrdinalIgnoreCase)
-                    || (groupName is not null && groupName.Contains(search, StringComparison.OrdinalIgnoreCase))
-                    || tagNames.Any(n => n.Contains(search, StringComparison.OrdinalIgnoreCase));
-
+                var matchesSearch = avatar.SearchText.Contains(search, StringComparison.OrdinalIgnoreCase);
                 if (!matchesSearch) continue;
             }
 
-            // Group filter: null = all, "ungrouped" = empty GroupId, real id = exact match.
-            if (!string.IsNullOrWhiteSpace(selectedFilterGroupId))
-            {
-                if (selectedFilterGroupId == "ungrouped")
-                {
-                    if (!string.IsNullOrWhiteSpace(entry?.GroupId)) continue;
-                }
-                else
-                {
-                    if (entry?.GroupId != selectedFilterGroupId) continue;
-                }
-            }
+            if (SelectedStyleTags.Count > 0 && !SelectedStyleTags.Any(t => avatar.StyleTags.Contains(t, StringComparer.OrdinalIgnoreCase)))
+                continue;
 
-            if (!string.IsNullOrWhiteSpace(selectedFilterTagId))
-            {
-                if (entry?.TagIds.Contains(selectedFilterTagId) != true) continue;
-            }
+            if (SelectedContentTags.Count > 0 && !SelectedContentTags.Any(t => avatar.ContentTags.Contains(t, StringComparer.OrdinalIgnoreCase)))
+                continue;
 
-            // Ensure tags are fresh on the filtered item.
-            var tags = ResolveTags(entry);
-            var withTags = avatar.Tags is null || avatar.Tags.Count != tags.Count
-                ? new AvatarPickerItem(avatar.Id, avatar.Name, avatar.SourceLabel, avatar.Image, avatar.ThumbnailUrl, avatar.IsSelected, tags)
-                : avatar;
+            if (!string.IsNullOrWhiteSpace(selectedPlatform) && !string.Equals(avatar.Platform, selectedPlatform, StringComparison.OrdinalIgnoreCase))
+                continue;
 
-            FilteredAvatars.Add(withTags);
+            FilteredAvatars.Add(avatar);
         }
 
         RaisePropertyChanged(nameof(FilteredCountText));
+    }
+
+    private static bool MatchesSection(AvatarPickerItem avatar, BrowseSection section, IReadOnlyList<string> recentIds)
+    {
+        return section switch
+        {
+            BrowseSection.AllAvatars => true,
+            BrowseSection.Recent => recentIds.Contains(avatar.Id),
+            BrowseSection.Favorites => avatar.IsFavorited,
+            BrowseSection.FavoritesGroup1 or BrowseSection.FavoritesGroup2
+                or BrowseSection.FavoritesGroup3 or BrowseSection.FavoritesGroup4
+                => avatar.IsFavorited && MatchesFavoriteGroup(avatar, section),
+            BrowseSection.Uploaded => !string.IsNullOrWhiteSpace(avatar.SourceLabel)
+                && avatar.SourceLabel.Contains("Uploaded", StringComparison.OrdinalIgnoreCase),
+            BrowseSection.Purchased => !string.IsNullOrWhiteSpace(avatar.SourceLabel)
+                && avatar.SourceLabel.Contains("Licensed", StringComparison.OrdinalIgnoreCase),
+            BrowseSection.LocalOsc => true,
+            BrowseSection.UserGroup => true,
+            BrowseSection.Ungrouped => true,
+            _ => true
+        };
+    }
+
+    private static bool MatchesFavoriteGroup(AvatarPickerItem avatar, BrowseSection section)
+    {
+        var groupIndex = section switch
+        {
+            BrowseSection.FavoritesGroup1 => 0,
+            BrowseSection.FavoritesGroup2 => 1,
+            BrowseSection.FavoritesGroup3 => 2,
+            BrowseSection.FavoritesGroup4 => 3,
+            _ => -1
+        };
+        if (groupIndex < 0 || string.IsNullOrEmpty(avatar.FavoriteGroupName))
+            return false;
+        return true;
+    }
+
+    private string GetSectionDescription()
+    {
+        var section = selectedSidebarItem?.Section ?? BrowseSection.AllAvatars;
+        return section switch
+        {
+            BrowseSection.AllAvatars => LocalizationService.Translate("All avatars from your VRChat account"),
+            BrowseSection.Recent => LocalizationService.Translate("Recently selected avatars"),
+            BrowseSection.Favorites => LocalizationService.Translate("Your favorited avatars"),
+            BrowseSection.FavoritesGroup1 or BrowseSection.FavoritesGroup2
+                or BrowseSection.FavoritesGroup3 or BrowseSection.FavoritesGroup4
+                => LocalizationService.Translate("Avatars in this favorites group"),
+            BrowseSection.Uploaded => LocalizationService.Translate("Avatars you have uploaded"),
+            BrowseSection.Purchased => LocalizationService.Translate("Avatars you have purchased or licensed"),
+            BrowseSection.LocalOsc => LocalizationService.Translate("Avatars detected via local OSC cache"),
+            BrowseSection.UserGroup => LocalizationService.Translate("Avatars in your custom user group"),
+            BrowseSection.Ungrouped => LocalizationService.Translate("Avatars not assigned to any group"),
+            _ => string.Empty
+        };
+    }
+
+    private void CollectFilterTags()
+    {
+        var styleTags = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var contentTags = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var summary in avatarSummaries)
+        {
+            foreach (var tag in summary.StyleTags)
+                styleTags.Add(tag);
+            foreach (var tag in summary.ContentTags)
+                contentTags.Add(tag);
+        }
+
+        AllStyleTags.Clear();
+        foreach (var tag in styleTags.OrderBy(t => t, StringComparer.OrdinalIgnoreCase))
+            AllStyleTags.Add(tag);
+
+        AllContentTags.Clear();
+        foreach (var tag in contentTags.OrderBy(t => t, StringComparer.OrdinalIgnoreCase))
+            AllContentTags.Add(tag);
+    }
+
+    private void BuildSidebarItems()
+    {
+        var items = new List<SidebarItem>();
+
+        items.Add(new SidebarItem(
+            LocalizationService.Translate("All Avatars"),
+            BrowseSection.AllAvatars,
+            "\uE80F",
+            AllAvatars.Count));
+
+        var recentCount = avatarLibrary?.RecentAvatarIds.Count ?? 0;
+        items.Add(new SidebarItem(
+            LocalizationService.Translate("Recent"),
+            BrowseSection.Recent,
+            "\uE81C",
+            recentCount));
+
+        var favoritesCount = AllAvatars.Count(a => a.IsFavorited);
+        var favChildren = new List<SidebarItem>();
+        if (favoriteGroups is not null)
+        {
+            var favSections = new[]
+            {
+                BrowseSection.FavoritesGroup1,
+                BrowseSection.FavoritesGroup2,
+                BrowseSection.FavoritesGroup3,
+                BrowseSection.FavoritesGroup4
+            };
+            for (var i = 0; i < favoriteGroups.Count && i < favSections.Length; i++)
+            {
+                var group = favoriteGroups[i];
+                var groupCount = AllAvatars.Count(a =>
+                    a.IsFavorited && string.Equals(a.FavoriteGroupName, group.Name, StringComparison.Ordinal));
+                favChildren.Add(new SidebarItem(
+                    group.DisplayName,
+                    favSections[i],
+                    "\uE734",
+                    groupCount,
+                    ColorHex: "#A855F7"));
+            }
+        }
+
+        items.Add(new SidebarItem(
+            LocalizationService.Translate("Favorites"),
+            BrowseSection.Favorites,
+            "\uE734",
+            favoritesCount,
+            IsExpandable: favChildren.Count > 0,
+            Children: favChildren.Count > 0 ? favChildren : null));
+
+        var uploadedCount = AllAvatars.Count(a =>
+            !string.IsNullOrWhiteSpace(a.SourceLabel)
+            && a.SourceLabel.Contains("Uploaded", StringComparison.OrdinalIgnoreCase));
+        items.Add(new SidebarItem(
+            LocalizationService.Translate("Uploaded"),
+            BrowseSection.Uploaded,
+            "\uE7B7",
+            uploadedCount));
+
+        var purchasedCount = AllAvatars.Count(a =>
+            !string.IsNullOrWhiteSpace(a.SourceLabel)
+            && a.SourceLabel.Contains("Licensed", StringComparison.OrdinalIgnoreCase));
+        items.Add(new SidebarItem(
+            LocalizationService.Translate("Purchased"),
+            BrowseSection.Purchased,
+            "\uE738",
+            purchasedCount));
+
+        SidebarItems = new ObservableCollection<SidebarItem>(items);
+        RaisePropertyChanged(nameof(SidebarItems));
+    }
+
+    public void RebuildFilterOptions()
+    {
+        CollectFilterTags();
+        BuildSidebarItems();
+        if (selectedSidebarItem is null)
+            selectedSidebarItem = SidebarItems.FirstOrDefault(s => s.Section == BrowseSection.AllAvatars);
+        RaisePropertyChanged(nameof(SelectedSidebarItem));
     }
 
     private AvatarPickerItem CreatePickerItem(VrChatAvatarSummary summary)
@@ -425,13 +584,21 @@ public sealed class AvatarPickerViewModel : ObservableObject
         var image = imageService.GetPlaceholderImage();
         var entry = avatarLibrary?.GetEntry(summary.Id);
         var tags = ResolveTags(entry);
+        var favGroupName = avatarFavoriteGroups?.GetValueOrDefault(summary.Id);
         return new AvatarPickerItem(
             summary.Id,
             summary.Name,
-            summary.SourceLabel,
+            summary.AuthorName,
             image,
             summary.ThumbnailUrl,
-            Tags: tags);
+            IsSelected: string.Equals(summary.Id, selectedAvatarId, StringComparison.Ordinal),
+            summary.IsCurrentAvatar,
+            summary.IsFavorited,
+            favGroupName,
+            summary.Platform,
+            summary.StyleTags,
+            summary.ContentTags,
+            UserTags: tags);
     }
 
     private IReadOnlyList<AvatarTagDisplay> ResolveTags(AvatarLibraryEntry? entry)
@@ -453,15 +620,11 @@ public sealed class AvatarPickerViewModel : ObservableObject
         return tags;
     }
 
-    /// <summary>
-    /// Rebuilds an item with fresh Tags/Image/IsSelected and replaces it in both
-    /// AllAvatars and FilteredAvatars. Consolidates the scattered replace logic.
-    /// </summary>
     public void RebuildItem(AvatarPickerItem item)
     {
         var entry = avatarLibrary?.GetEntry(item.Id);
         var tags = ResolveTags(entry);
-        var updated = new AvatarPickerItem(item.Id, item.Name, item.SourceLabel, item.Image, item.ThumbnailUrl, item.IsSelected, tags);
+        var updated = item with { UserTags = tags };
 
         var allIndex = AllAvatars.IndexOf(item);
         if (allIndex >= 0) AllAvatars[allIndex] = updated;
@@ -469,78 +632,40 @@ public sealed class AvatarPickerViewModel : ObservableObject
         var filteredIndex = FilteredAvatars.IndexOf(item);
         if (filteredIndex >= 0) FilteredAvatars[filteredIndex] = updated;
     }
-
-    public void RebuildFilterOptions()
-    {
-        GroupFilterOptions.Clear();
-        TagFilterOptions.Clear();
-
-        GroupFilterOptions.Add(new FilterOption(null, LocalizationService.Translate("All")));
-        GroupFilterOptions.Add(new FilterOption("ungrouped", LocalizationService.Translate("Ungrouped")));
-        TagFilterOptions.Add(new FilterOption(null, LocalizationService.Translate("All")));
-        if (avatarLibrary is not null)
-        {
-            foreach (var group in avatarLibrary.Groups.OrderBy(g => g.SortOrder).ThenBy(g => g.Name))
-            {
-                GroupFilterOptions.Add(new FilterOption(group.Id, group.Name));
-            }
-
-            foreach (var tag in avatarLibrary.Tags.OrderBy(t => t.Name))
-            {
-                TagFilterOptions.Add(new FilterOption(tag.Id, tag.Name));
-            }
-        }
-
-        // Preserve current selection if still present, else reset to "All".
-        selectedGroupFilterOption = GroupFilterOptions.FirstOrDefault(o => o.Id == selectedFilterGroupId)
-            ?? GroupFilterOptions[0];
-        selectedFilterGroupId = selectedGroupFilterOption.Id;
-        selectedTagFilterOption = TagFilterOptions.FirstOrDefault(o => o.Id == selectedFilterTagId)
-            ?? TagFilterOptions.FirstOrDefault() ?? new FilterOption(null, LocalizationService.Translate("All"));
-        selectedFilterTagId = selectedTagFilterOption.Id;
-        RaisePropertyChanged(nameof(SelectedGroupFilterOption));
-        RaisePropertyChanged(nameof(SelectedTagFilterOption));
-    }
 }
 
 public sealed record AvatarPickerItem(
     string Id,
     string Name,
-    string SourceLabel,
+    string AuthorName,
     ImageSource? Image,
-    string? ThumbnailUrl = null,
-    bool IsSelected = false,
-    IReadOnlyList<AvatarTagDisplay>? Tags = null)
+    string? ThumbnailUrl,
+    bool IsSelected,
+    bool IsCurrentAvatar,
+    bool IsFavorited,
+    string? FavoriteGroupName,
+    string Platform,
+    IReadOnlyList<string> StyleTags,
+    IReadOnlyList<string> ContentTags,
+    IReadOnlyList<AvatarTagDisplay>? UserTags = null)
 {
-    public string SearchText => $"{Id} {Name} {SourceLabel}";
     public string DisplayName => !string.IsNullOrWhiteSpace(Name) && !string.Equals(Name, Id, StringComparison.Ordinal)
         ? Name
         : "Unknown Avatar";
-}
 
-public static class AvatarLibraryFilterOptionsBuilder
-{
-    public static IReadOnlyList<FilterOption> BuildGroupOptions(AvatarLibrary library)
+    public string SearchText => $"{Id} {Name} {AuthorName} {FavoriteGroupName}";
+
+    public string SourceLabel
     {
-        var options = new List<FilterOption>
+        get
         {
-            new(null, "All"),
-            new("ungrouped", "Ungrouped")
-        };
-        foreach (var group in library.Groups.OrderBy(g => g.SortOrder).ThenBy(g => g.Name))
-        {
-            options.Add(new FilterOption(group.Id, group.Name));
+            var sources = new List<string>(3);
+            if (IsFavorited) sources.Add("Favorites");
+            if (!string.IsNullOrWhiteSpace(FavoriteGroupName)) sources.Add(FavoriteGroupName);
+            if (!string.IsNullOrWhiteSpace(Platform)) sources.Add(Platform);
+            return string.Join(" / ", sources);
         }
-        return options;
     }
 
-    public static IReadOnlyList<FilterOption> BuildTagOptions(AvatarLibrary library)
-    {
-        var options = new List<FilterOption> { new(null, "All") };
-        foreach (var tag in library.Tags.OrderBy(t => t.Name))
-        {
-            options.Add(new FilterOption(tag.Id, tag.Name));
-        }
-        return options;
-    }
+    public IReadOnlyList<AvatarTagDisplay>? Tags => UserTags;
 }
