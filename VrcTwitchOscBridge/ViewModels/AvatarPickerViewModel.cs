@@ -57,7 +57,7 @@ public sealed class AvatarPickerViewModel : ObservableObject
         set
         {
             if (SetProperty(ref favoritesExpanded, value))
-                BuildSidebarItems();
+                RebuildSidebarInPlace();
         }
     }
 
@@ -348,7 +348,26 @@ public sealed class AvatarPickerViewModel : ObservableObject
 
     public IReadOnlyList<VrChatAvatarSummary> AvatarSummaries => avatarSummaries;
 
-    public void RefreshFilter() => ApplyFilter();
+    public void RefreshFilter()
+    {
+        ApplyFilter();
+        RaisePropertyChanged(nameof(ActiveFilterCount));
+        RaisePropertyChanged(nameof(ActiveFilterText));
+    }
+
+    public int ActiveFilterCount
+    {
+        get
+        {
+            var count = SelectedStyleTags.Count + SelectedContentTags.Count;
+            if (!string.IsNullOrWhiteSpace(selectedPlatform)) count++;
+            return count;
+        }
+    }
+
+    public string ActiveFilterText => ActiveFilterCount > 0
+        ? $"Filters ({ActiveFilterCount} active)"
+        : "Filters";
 
     public bool IsMultiSelectMode => isMultiSelectMode;
     public bool CanConfirm => isMultiSelectMode ? SelectedMultiAvatarIds.Count > 0 : !string.IsNullOrWhiteSpace(selectedAvatarId);
@@ -511,100 +530,78 @@ public sealed class AvatarPickerViewModel : ObservableObject
     private void BuildSidebarItems()
     {
         var items = new List<SidebarItem>();
+        BuildSidebarItemsInto(items);
+        SidebarItems = new ObservableCollection<SidebarItem>(items);
+        RaisePropertyChanged(nameof(SidebarItems));
+    }
 
-        // ── BROWSE section ──────────────────────────────────────────
+    private void RebuildSidebarInPlace()
+    {
+        if (SidebarItems is null) { BuildSidebarItems(); return; }
+
+        var items = new List<SidebarItem>();
+        BuildSidebarItemsInto(items);
+
+        SidebarItems.Clear();
+        foreach (var item in items)
+            SidebarItems.Add(item);
+
+        RaisePropertyChanged(nameof(SidebarItems));
+    }
+
+    private void BuildSidebarItemsInto(List<SidebarItem> items)
+    {
         items.Add(new SidebarItem("", BrowseSection.AllAvatars, "", 0));
         items.Add(new SidebarItem(
             LocalizationService.Translate("All Avatars"),
-            BrowseSection.AllAvatars,
-            "\U0001F4C1",
-            AllAvatars.Count));
+            BrowseSection.AllAvatars, "\U0001F4C1", AllAvatars.Count));
 
         var recentCount = avatarLibrary?.RecentAvatarIds.Count ?? 0;
         items.Add(new SidebarItem(
             LocalizationService.Translate("Recent"),
-            BrowseSection.Recent,
-            "\U0001F550",
-            recentCount));
+            BrowseSection.Recent, "\U0001F550", recentCount));
 
-        // ── SOURCES section ─────────────────────────────────────────
         items.Add(new SidebarItem("", BrowseSection.AllAvatars, "", 0));
 
         var favoritesCount = AllAvatars.Count(a => a.IsFavorited);
         var favChildren = new List<SidebarItem>();
         if (favoriteGroups is not null)
         {
-            var favSections = new[]
-            {
-                BrowseSection.FavoritesGroup1,
-                BrowseSection.FavoritesGroup2,
-                BrowseSection.FavoritesGroup3,
-                BrowseSection.FavoritesGroup4
+            var favSections = new[] {
+                BrowseSection.FavoritesGroup1, BrowseSection.FavoritesGroup2,
+                BrowseSection.FavoritesGroup3, BrowseSection.FavoritesGroup4
             };
             for (var i = 0; i < favoriteGroups.Count && i < favSections.Length; i++)
             {
                 var group = favoriteGroups[i];
                 var groupCount = AllAvatars.Count(a =>
                     a.IsFavorited && string.Equals(a.FavoriteGroupName, group.DisplayName, StringComparison.Ordinal));
-                favChildren.Add(new SidebarItem(
-                    group.DisplayName,
-                    favSections[i],
-                    "\u25CF",
-                    groupCount,
-                    ColorHex: "#F472B6"));
+                favChildren.Add(new SidebarItem(group.DisplayName, favSections[i],
+                    "", groupCount, ColorHex: "#F472B6", IsExpanded: true));
             }
         }
 
-        // Favorites parent
-        items.Add(new SidebarItem(
-            LocalizationService.Translate("Favorites"),
-            BrowseSection.Favorites,
-            "\u2764\uFE0F",
-            favoritesCount,
-            IsExpandable: favChildren.Count > 0,
-            IsExpanded: favoritesExpanded));
+        items.Add(new SidebarItem(LocalizationService.Translate("Favorites"),
+            BrowseSection.Favorites, "\u2764\uFE0F", favoritesCount,
+            IsExpandable: favChildren.Count > 0, IsExpanded: favoritesExpanded));
 
-        // Favorites sub-groups (only when expanded)
         if (favoritesExpanded)
         {
             foreach (var child in favChildren)
-            {
-                items.Add(new SidebarItem(
-                    child.Label,
-                    child.Section,
-                    "",
-                    child.Count,
-                    ColorHex: child.ColorHex,
-                    IsExpanded: true));
-            }
+                items.Add(child);
         }
 
-        var uploadedCount = AllAvatars.Count(a => a.IsUploaded);
-        items.Add(new SidebarItem(
-            LocalizationService.Translate("Uploaded"),
-            BrowseSection.Uploaded,
-            "\u2B06\uFE0F",
-            uploadedCount));
+        items.Add(new SidebarItem(LocalizationService.Translate("Uploaded"),
+            BrowseSection.Uploaded, "\u2B06\uFE0F", AllAvatars.Count(a => a.IsUploaded)));
+        items.Add(new SidebarItem(LocalizationService.Translate("Purchased"),
+            BrowseSection.Purchased, "\U0001F6CD", AllAvatars.Count(a => a.IsLicensed)));
+        items.Add(new SidebarItem(LocalizationService.Translate("Local OSC"),
+            BrowseSection.LocalOsc, "\U0001F4BB",
+            AllAvatars.Count(a => !a.IsUploaded && !a.IsFavorited && !a.IsLicensed)));
 
-        var purchasedCount = AllAvatars.Count(a => a.IsLicensed);
-        items.Add(new SidebarItem(
-            LocalizationService.Translate("Purchased"),
-            BrowseSection.Purchased,
-            "\U0001F6CD",
-            purchasedCount));
-
-        var localOscCount = AllAvatars.Count(a => !a.IsUploaded && !a.IsFavorited && !a.IsLicensed);
-        items.Add(new SidebarItem(
-            LocalizationService.Translate("Local OSC"),
-            BrowseSection.LocalOsc,
-            "\U0001F4BB",
-            localOscCount));
-
-        // ── MY GROUPS section ───────────────────────────────────────
         if (avatarLibrary?.Groups is { Count: > 0 })
         {
             items.Add(new SidebarItem("", BrowseSection.AllAvatars, "", 0));
-
             foreach (var group in avatarLibrary.Groups.OrderBy(g => g.SortOrder).ThenBy(g => g.Name))
             {
                 var count = AllAvatars.Count(a => avatarLibrary.GetEntry(a.Id)?.GroupId == group.Id);
@@ -613,15 +610,9 @@ public sealed class AvatarPickerViewModel : ObservableObject
             }
         }
 
-        var ungroupedCount = AllAvatars.Count(a => string.IsNullOrWhiteSpace(avatarLibrary?.GetEntry(a.Id)?.GroupId));
-        items.Add(new SidebarItem(
-            LocalizationService.Translate("Ungrouped"),
-            BrowseSection.Ungrouped,
-            "\U0001F4C2",
-            ungroupedCount));
-
-        SidebarItems = new ObservableCollection<SidebarItem>(items);
-        RaisePropertyChanged(nameof(SidebarItems));
+        items.Add(new SidebarItem(LocalizationService.Translate("Ungrouped"),
+            BrowseSection.Ungrouped, "\U0001F4C2",
+            AllAvatars.Count(a => string.IsNullOrWhiteSpace(avatarLibrary?.GetEntry(a.Id)?.GroupId))));
     }
 
     public void RebuildFilterOptions()

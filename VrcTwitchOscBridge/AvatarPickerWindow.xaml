@@ -68,14 +68,14 @@
         <local:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
 
         <Style x:Key="ScrollBarThumbStyle" TargetType="Thumb">
-            <Setter Property="MinHeight" Value="32" />
+            <Setter Property="MinHeight" Value="24" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Thumb">
                         <Border x:Name="ThumbChrome"
-                                Margin="2"
+                                Margin="1"
                                 Background="{DynamicResource ScrollThumbBrush}"
-                                CornerRadius="8" />
+                                CornerRadius="5" />
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="ThumbChrome" Property="Background" Value="{DynamicResource RuleCardHoverBrush}" />
@@ -1090,7 +1090,7 @@
                                            FontSize="10"
                                            VerticalAlignment="Center"
                                            Margin="0,0,6,0" />
-                                <TextBlock Text="{loc:Translate 'Filters'}"
+                                <TextBlock Text="{Binding ActiveFilterText}"
                                            Foreground="{DynamicResource TextBrush}"
                                            FontSize="12"
                                            VerticalAlignment="Center" />
