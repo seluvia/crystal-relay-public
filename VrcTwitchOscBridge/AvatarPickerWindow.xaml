@@ -65,6 +65,7 @@
         <local:InverseBooleanConverter x:Key="InverseBooleanConverter" />
         <local:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter" />
         <local:CountToVisibilityConverter x:Key="CountToVisibilityConverter" />
+        <local:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
 
         <Style x:Key="ScrollBarThumbStyle" TargetType="Thumb">
             <Setter Property="MinHeight" Value="32" />
@@ -519,7 +520,6 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
                     <Border Grid.Row="0"
@@ -623,20 +623,7 @@
                         </ItemsControl.ItemsPanel>
                     </ItemsControl>
 
-                    <Border Grid.Row="4"
-                            Background="{DynamicResource SecondaryButtonBrush}"
-                            Padding="0,6"
-                            Margin="0,0,0,0">
-                        <Button Content="{loc:Translate 'Select'}"
-                                Background="Transparent"
-                                Foreground="{DynamicResource TextBrush}"
-                                BorderThickness="0"
-                                Padding="10,4"
-                                FontSize="11"
-                                Cursor="Hand"
-                                Click="OnAvatarSelectClicked"
-                                Tag="{Binding}" />
-                    </Border>
+                    <!-- Card click selects it; no separate Select button needed -->
                 </Grid>
             </Border>
             <DataTemplate.Triggers>
@@ -658,7 +645,8 @@
                     CornerRadius="8"
                     Padding="10,8"
                     Margin="0,3"
-                    Cursor="Hand">
+                    Cursor="Hand"
+                    MouseLeftButtonDown="OnAvatarCardClicked">
                 <Border.ContextMenu>
                     <ContextMenu>
                         <MenuItem Header="{loc:Translate 'Set Custom Icon...'}" Click="OnSetCustomIconClicked" />
@@ -672,7 +660,6 @@
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="40" />
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
@@ -740,13 +727,7 @@
                                VerticalAlignment="Center"
                                Margin="0,0,8,0" />
 
-                    <Button Grid.Column="5"
-                            Content="{loc:Translate 'Select'}"
-                            Style="{StaticResource PrimaryButtonStyle}"
-                            Padding="12,6"
-                            FontSize="11"
-                            Click="OnAvatarSelectClicked"
-                            Tag="{Binding}" />
+                    <!-- Click row to select; no separate Select button needed -->
                 </Grid>
             </Border>
             <DataTemplate.Triggers>
@@ -761,42 +742,91 @@
         </DataTemplate>
 
         <DataTemplate x:Key="SidebarItemTemplate">
-            <Border x:Name="SidebarItemBorder"
-                    Background="Transparent"
-                    CornerRadius="8"
-                    Padding="10,8"
-                    Margin="4,1"
-                    Cursor="Hand"
-                    MouseLeftButtonDown="OnSidebarItemClicked">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="24" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0"
-                               Text="{Binding Icon}"
-                               Foreground="{DynamicResource MutedBrush}"
-                               FontSize="14"
-                               VerticalAlignment="Center" />
-                    <TextBlock Grid.Column="1"
-                               Text="{Binding Label}"
-                               Foreground="{DynamicResource TextBrush}"
-                               FontSize="12"
-                               VerticalAlignment="Center"
-                               TextTrimming="CharacterEllipsis" />
-                    <TextBlock Grid.Column="2"
-                               Text="{Binding Count}"
-                               Foreground="{DynamicResource MutedBrush}"
-                               FontSize="10"
-                               VerticalAlignment="Center"
-                               Margin="4,0,0,0" />
-                </Grid>
-            </Border>
+            <Grid>
+                <!-- Section header (icon empty + count 0 = section header) -->
+                <TextBlock x:Name="SidebarSectionHeader"
+                           Text="{Binding Label}"
+                           Foreground="{DynamicResource AccentBrush}"
+                           FontSize="10"
+                           FontWeight="Bold"
+                           Margin="12,12,0,4"
+                           TextWrapping="NoWrap"
+                           Visibility="Collapsed" />
+
+                <!-- Regular sidebar item -->
+                <Border x:Name="SidebarItemBorder"
+                        Background="Transparent"
+                        CornerRadius="8"
+                        Padding="10,7"
+                        Margin="4,1"
+                        Cursor="Hand"
+                        MouseLeftButtonDown="OnSidebarItemClicked">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="22" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Icon (shown when no ColorHex) -->
+                        <TextBlock x:Name="SidebarIcon"
+                                   Grid.Column="0"
+                                   Text="{Binding Icon}"
+                                   Foreground="{DynamicResource MutedBrush}"
+                                   FontSize="12"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Center" />
+
+                        <!-- Color dot (shown for group items with ColorHex) -->
+                        <Border x:Name="SidebarColorDot"
+                                Grid.Column="0"
+                                Width="8"
+                                Height="8"
+                                CornerRadius="2"
+                                Background="{Binding ColorHex}"
+                                VerticalAlignment="Center"
+                                HorizontalAlignment="Center"
+                                Visibility="Collapsed" />
+
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding Label}"
+                                   Foreground="{DynamicResource TextBrush}"
+                                   FontSize="12"
+                                   VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis" />
+
+                        <TextBlock Grid.Column="2"
+                                   Text="{Binding Count}"
+                                   Foreground="{DynamicResource MutedBrush}"
+                                   FontSize="10"
+                                   VerticalAlignment="Center"
+                                   Margin="6,0,0,0" />
+                    </Grid>
+                </Border>
+            </Grid>
             <DataTemplate.Triggers>
+                <!-- Section header detection: Icon is empty AND Count is 0 -->
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding Icon}" Value="" />
+                        <Condition Binding="{Binding Count}" Value="0" />
+                    </MultiDataTrigger.Conditions>
+                    <MultiDataTrigger.Setters>
+                        <Setter Property="Visibility" TargetName="SidebarItemBorder" Value="Collapsed" />
+                        <Setter Property="Visibility" TargetName="SidebarSectionHeader" Value="Visible" />
+                    </MultiDataTrigger.Setters>
+                </MultiDataTrigger>
+
+                <!-- Mouse over for regular items -->
                 <Trigger Property="IsMouseOver" Value="True">
                     <Setter TargetName="SidebarItemBorder" Property="Background" Value="{DynamicResource SidebarHoverBrush}" />
                 </Trigger>
+
+                <!-- Color dot for group items -->
+                <DataTrigger Binding="{Binding ColorHex, Converter={StaticResource NullToVisibilityConverter}}" Value="Visible">
+                    <Setter Property="Visibility" TargetName="SidebarColorDot" Value="Visible" />
+                    <Setter Property="Visibility" TargetName="SidebarIcon" Value="Collapsed" />
+                </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
 
@@ -857,7 +887,6 @@
             </Setter>
         </Style>
 
-        <local:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
     </Window.Resources>
 
     <Border Margin="1"

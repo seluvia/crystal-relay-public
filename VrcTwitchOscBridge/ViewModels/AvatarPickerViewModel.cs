@@ -501,6 +501,8 @@ public sealed class AvatarPickerViewModel : ObservableObject
     {
         var items = new List<SidebarItem>();
 
+        // ── BROWSE section ──────────────────────────────────────────
+        items.Add(new SidebarItem("", BrowseSection.AllAvatars, "", 0));
         items.Add(new SidebarItem(
             LocalizationService.Translate("All Avatars"),
             BrowseSection.AllAvatars,
@@ -513,6 +515,9 @@ public sealed class AvatarPickerViewModel : ObservableObject
             BrowseSection.Recent,
             "\uE81C",
             recentCount));
+
+        // ── SOURCES section ─────────────────────────────────────────
+        items.Add(new SidebarItem("", BrowseSection.AllAvatars, "", 0));
 
         var favoritesCount = AllAvatars.Count(a => a.IsFavorited);
         var favChildren = new List<SidebarItem>();
@@ -535,17 +540,29 @@ public sealed class AvatarPickerViewModel : ObservableObject
                     favSections[i],
                     "\uE734",
                     groupCount,
-                    ColorHex: "#A855F7"));
+                    ColorHex: "#F472B6"));
             }
         }
 
+        // Favorites parent
         items.Add(new SidebarItem(
             LocalizationService.Translate("Favorites"),
             BrowseSection.Favorites,
             "\uE734",
             favoritesCount,
-            IsExpandable: favChildren.Count > 0,
-            Children: favChildren.Count > 0 ? favChildren : null));
+            IsExpandable: favChildren.Count > 0));
+
+        // Favorites sub-groups (indented, flattened into list)
+        foreach (var child in favChildren)
+        {
+            items.Add(new SidebarItem(
+                child.Label,
+                child.Section,
+                "\uE734",
+                child.Count,
+                ColorHex: child.ColorHex,
+                IsExpanded: true));
+        }
 
         var uploadedCount = AllAvatars.Count(a => a.IsUploaded);
         items.Add(new SidebarItem(
@@ -568,13 +585,16 @@ public sealed class AvatarPickerViewModel : ObservableObject
             "\U0001F4BB",
             localOscCount));
 
+        // ── MY GROUPS section ───────────────────────────────────────
         if (avatarLibrary?.Groups is { Count: > 0 })
         {
+            items.Add(new SidebarItem("", BrowseSection.AllAvatars, "", 0));
+
             foreach (var group in avatarLibrary.Groups.OrderBy(g => g.SortOrder).ThenBy(g => g.Name))
             {
                 var count = AllAvatars.Count(a => avatarLibrary.GetEntry(a.Id)?.GroupId == group.Id);
                 items.Add(new SidebarItem(group.Name, BrowseSection.UserGroup,
-                    "\u25CF", count));
+                    "", count));
             }
         }
 
