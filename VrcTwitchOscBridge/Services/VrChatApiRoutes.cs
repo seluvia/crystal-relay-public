@@ -8,6 +8,12 @@ internal static class VrChatApiRoutes
     public const string FavoriteAvatars = "avatars/favorites";
     public const string LicensedAvatars = "avatars/licensed";
 
+    public const string FavoriteGroups = "favorite/groups";
+    public const string AddFavorite = "favorites";
+    public const string ListFavorites = "favorites";
+    public static string RemoveFavorite(string favoriteId) =>
+        $"favorites/{Uri.EscapeDataString(favoriteId)}";
+
     public static string World(string worldId) => $"worlds/{Uri.EscapeDataString(worldId)}";
 
     public static string InviteMyselfToInstance(string location) =>

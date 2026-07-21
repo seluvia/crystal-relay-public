@@ -244,6 +244,54 @@ public sealed class VrChatApiClient : IDisposable
         return true;
     }
 
+    public async Task<IReadOnlyList<FavoriteGroupRecord>> GetFavoriteGroupsAsync(
+        string authCookie,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Get, $"{VrChatApiRoutes.FavoriteGroups}?type=avatar", authCookie);
+        using var response = await SendAsync(request, cancellationToken);
+        return await ReadAsJsonAsync<List<FavoriteGroupRecord>>(response, cancellationToken) ?? [];
+    }
+
+    public async Task<List<FavoriteEntryRecord>> GetFavoriteEntriesAsync(
+        string authCookie,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Get, $"{VrChatApiRoutes.ListFavorites}?type=avatar", authCookie);
+        using var response = await SendAsync(request, cancellationToken);
+        return await ReadAsJsonAsync<List<FavoriteEntryRecord>>(response, cancellationToken) ?? [];
+    }
+
+    public async Task<string?> AddFavoriteAsync(
+        string authCookie,
+        string avatarId,
+        string groupTag,
+        CancellationToken cancellationToken = default)
+    {
+        var body = new { type = "avatar", favoriteId = avatarId, tags = new[] { groupTag } };
+        using var request = CreateRequest(HttpMethod.Post, VrChatApiRoutes.AddFavorite, authCookie);
+        request.Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+
+        using var response = await SendAsync(request, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            return null;
+        }
+
+        var result = await ReadAsJsonAsync<FavoriteEntryRecord>(response, cancellationToken);
+        return result?.Id;
+    }
+
+    public async Task<bool> RemoveFavoriteAsync(
+        string authCookie,
+        string favoriteId,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Delete, VrChatApiRoutes.RemoveFavorite(favoriteId), authCookie);
+        using var response = await SendAsync(request, cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
     public void Dispose() => httpClient.Dispose();
 
     private static string ResolveCurrentWorldId(VrChatCurrentUserEnvelope payload)
@@ -691,6 +739,12 @@ public sealed class VrChatApiClient : IDisposable
         public string ReleaseStatus { get; set; } = string.Empty;
     }
 
+    private sealed class UnityPackageRecord
+    {
+        [JsonPropertyName("platform")]
+        public string? Platform { get; set; }
+    }
+
     private sealed class VrChatAvatarRecord
     {
         [JsonPropertyName("id")]
@@ -704,6 +758,48 @@ public sealed class VrChatApiClient : IDisposable
 
         [JsonPropertyName("thumbnailImageUrl")]
         public string? ThumbnailImageUrl { get; set; }
+
+        [JsonPropertyName("authorName")]
+        public string? AuthorName { get; set; }
+
+        [JsonPropertyName("authorId")]
+        public string? AuthorId { get; set; }
+
+        [JsonPropertyName("tags")]
+        public List<string>? Tags { get; set; }
+
+        [JsonPropertyName("unityPackages")]
+        public List<UnityPackageRecord>? UnityPackages { get; set; }
+    }
+
+    public sealed class FavoriteGroupRecord
+    {
+        [JsonPropertyName("id")]
+        public string? Id { get; set; }
+
+        [JsonPropertyName("displayName")]
+        public string? DisplayName { get; set; }
+
+        [JsonPropertyName("name")]
+        public string? Name { get; set; }
+
+        [JsonPropertyName("type")]
+        public string? Type { get; set; }
+    }
+
+    public sealed class FavoriteEntryRecord
+    {
+        [JsonPropertyName("id")]
+        public string? Id { get; set; }
+
+        [JsonPropertyName("favoriteId")]
+        public string? FavoriteId { get; set; }
+
+        [JsonPropertyName("tags")]
+        public List<string>? Tags { get; set; }
+
+        [JsonPropertyName("type")]
+        public string? Type { get; set; }
     }
 
     private sealed class MutableAvatar
