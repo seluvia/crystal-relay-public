@@ -2321,52 +2321,56 @@
                                                     Style="{StaticResource ChatboxSecondaryButtonStyle}"
                                                     Padding="8,2"
                                                     Command="{Binding AddBlockedWordCommand}">+ Add</Button>
-                                            <TextBox Text="{Binding NewBlockedWordText, UpdateSourceTrigger=PropertyChanged}"
+                                            <TextBox Style="{StaticResource ChatboxTextBoxStyle}"
+                                                     Text="{Binding NewBlockedWordText, UpdateSourceTrigger=PropertyChanged}"
                                                      ToolTip="Enter a word to block" />
                                         </DockPanel>
 
                                         <!-- Word list -->
-                                        <ItemsControl ItemsSource="{Binding BlockedWordItems}"
-                                                      MaxHeight="200">
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
-                                                    <DockPanel Margin="0,1">
-                                                        <Button DockPanel.Dock="Right"
-                                                                Style="{StaticResource ChatboxSecondaryButtonStyle}"
-                                                                Padding="4,0"
-                                                                FontSize="11"
-                                                                Command="{Binding DataContext.RemoveBlockedWordCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                CommandParameter="{Binding}"
-                                                                Visibility="{Binding IsCustom, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                                                ToolTip="Remove this word">✕</Button>
-                                                        <Button DockPanel.Dock="Right"
-                                                                Style="{StaticResource ChatboxSecondaryButtonStyle}"
-                                                                Padding="4,0"
-                                                                FontSize="11"
-                                                                Command="{Binding DataContext.RestoreBlockedWordCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                CommandParameter="{Binding}"
-                                                                Visibility="{Binding IsSuppressed, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                                                ToolTip="Restore this word">Restore</Button>
-                                                        <TextBlock Text="{Binding Word}"
-                                                                   VerticalAlignment="Center"
-                                                                   FontFamily="Consolas"
-                                                                   FontSize="12">
-                                                            <TextBlock.Style>
-                                                                <Style TargetType="TextBlock">
-                                                                    <Setter Property="Opacity" Value="1.0" />
-                                                                    <Style.Triggers>
-                                                                        <DataTrigger Binding="{Binding IsSuppressed}" Value="True">
-                                                                            <Setter Property="Opacity" Value="0.4" />
-                                                                            <Setter Property="TextDecorations" Value="Strikethrough" />
-                                                                        </DataTrigger>
-                                                                    </Style.Triggers>
-                                                                </Style>
-                                                            </TextBlock.Style>
-                                                        </TextBlock>
-                                                    </DockPanel>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
+                                        <ScrollViewer MaxHeight="200"
+                                                      VerticalScrollBarVisibility="Auto">
+                                            <ItemsControl ItemsSource="{Binding BlockedWordItems}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <DockPanel Margin="0,1">
+                                                            <Button DockPanel.Dock="Right"
+                                                                    Style="{StaticResource ChatboxSecondaryButtonStyle}"
+                                                                    Padding="4,0"
+                                                                    FontSize="11"
+                                                                    Command="{Binding DataContext.RemoveBlockedWordCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                    CommandParameter="{Binding}"
+                                                                    Visibility="{Binding IsCustom, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                                    ToolTip="Remove this word">✕</Button>
+                                                            <Button DockPanel.Dock="Right"
+                                                                    Style="{StaticResource ChatboxSecondaryButtonStyle}"
+                                                                    Padding="4,0"
+                                                                    FontSize="11"
+                                                                    Command="{Binding DataContext.RestoreBlockedWordCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                    CommandParameter="{Binding}"
+                                                                    Visibility="{Binding IsSuppressed, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                                    ToolTip="Restore this word">Restore</Button>
+                                                            <TextBlock Text="{Binding DisplayWord}"
+                                                                       VerticalAlignment="Center"
+                                                                       FontFamily="Consolas"
+                                                                       FontSize="12">
+                                                                <TextBlock.Style>
+                                                                    <Style TargetType="TextBlock">
+                                                                        <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+                                                                        <Setter Property="Opacity" Value="1.0" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding IsSuppressed}" Value="True">
+                                                                                <Setter Property="Opacity" Value="0.4" />
+                                                                                <Setter Property="TextDecorations" Value="Strikethrough" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </TextBlock.Style>
+                                                            </TextBlock>
+                                                        </DockPanel>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </ScrollViewer>
                                     </StackPanel>
                                 </StackPanel>
                             </Border>

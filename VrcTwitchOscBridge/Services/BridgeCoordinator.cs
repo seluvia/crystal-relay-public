@@ -5053,9 +5053,9 @@ internal BridgeCoordinator(
                 return firstScaleSendStarted;
             }
 
-            if (rule.ActiveTimeSeconds > 0)
+            if (rule.ActiveTimeSeconds > 0 && rule.RestoreMode != AvatarScaleRestoreMode.None)
             {
-                ScheduleAvatarScaleRestoreSequence(rule, isTest, targetHeight);
+                ScheduleAvatarScaleRestoreSequence(rule, isTest, targetHeight, previousHeight);
                 if (!isTest && !isResuming)
                 {
                     var effectDurationSeconds = GetAvatarScaleEffectDurationSeconds(rule);
@@ -5494,7 +5494,8 @@ internal BridgeCoordinator(
     private void ScheduleAvatarScaleRestoreSequence(
         AvatarScaleRuleSnapshot rule,
         bool isTest,
-        double carriedHeightMeters)
+        double carriedHeightMeters,
+        double? previousHeightMeters = null)
     {
         var now = DateTimeOffset.UtcNow;
         var avatarId = GetCurrentVrChatAvatarId();
@@ -5549,6 +5550,7 @@ internal BridgeCoordinator(
                 currentScaleWindowHighestSeenActiveTimeSeconds = newHighestSeen;
             }
 
+            var resolvedPreviousHeight = previousHeightMeters ?? carriedHeightMeters;
             sequence = new ActiveAvatarScaleRestoreSequenceState(
                 ++nextAvatarScaleRestoreSequenceId,
                 avatarId,
@@ -5561,7 +5563,8 @@ internal BridgeCoordinator(
                 isTest,
                 rule,
                 HighestSeenActiveTimeSeconds: newHighestSeen,
-                IsPaySystemTier: isPaySystem);
+                IsPaySystemTier: isPaySystem,
+                PreviousHeightMeters: resolvedPreviousHeight);
             previousCancellation = avatarScaleRestoreSequenceCancellation;
             avatarScaleRestoreSequenceCancellation = newCancellation;
             activeAvatarScaleRestoreSequence = sequence;
@@ -5759,7 +5762,18 @@ internal BridgeCoordinator(
                         return;
                     }
 
-                    var restoreHeightMeters = sequence.RestoreHeightMeters;
+                    var restoreMode = sequence.Rule?.RestoreMode ?? AvatarScaleRestoreMode.ConfiguredHeight;
+                    if (restoreMode == AvatarScaleRestoreMode.None)
+                    {
+                        ClearPendingAvatarScaleHeightRestoreForCurrentAvatar();
+                        ClearAvatarScaleRestoreSequenceIfCurrent(sequence.SequenceId);
+                        WriteLog($"Avatar scale timer for '{sequence.SourceRuleName}' ended with No Return mode. Height not restored.");
+                        return;
+                    }
+
+                    var restoreHeightMeters = restoreMode == AvatarScaleRestoreMode.PreviousHeight
+                        ? sequence.PreviousHeightMeters
+                        : sequence.RestoreHeightMeters;
                     var restoringToPaidGrowth = false;
                     if (sequence.RestoreToPaidGrowthIfActive
                         && TryGetActiveSupporterGrowthPaidTargetHeight(out var paidTargetHeight, out _))
@@ -5783,7 +5797,9 @@ internal BridgeCoordinator(
                     ClearAvatarScaleRestoreSequenceIfCurrent(sequence.SequenceId);
                     WriteLog(restoringToPaidGrowth
                         ? $"Avatar scale returned to the active paid Supporter Growth height of {restoreHeightMeters:0.###}m after the reward timer ended."
-                        : $"Avatar scale returned to the configured return height of {restoreHeightMeters:0.###}m after the inactive timer ended.");
+                        : restoreMode == AvatarScaleRestoreMode.PreviousHeight
+                            ? $"Avatar scale returned to the previous height of {restoreHeightMeters:0.###}m after the reward timer ended."
+                            : $"Avatar scale returned to the configured return height of {restoreHeightMeters:0.###}m after the inactive timer ended.");
                     return;
                 }
                 finally
@@ -20129,7 +20145,8 @@ internal BridgeCoordinator(
         bool IsTest,
         AvatarScaleRuleSnapshot? Rule,
         double HighestSeenActiveTimeSeconds = 0,
-        bool IsPaySystemTier = false);
+        bool IsPaySystemTier = false,
+        double PreviousHeightMeters = 0);
 
     private sealed record ActiveAvatarScaleCarryoverState(
         Guid CarryoverId,

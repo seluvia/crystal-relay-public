@@ -1337,5 +1337,13 @@
   "Trigger: {0} subs": "Trigger: {0} subs",
   "accumulate ON": "accumulate ON",
   "accumulate OFF": "accumulate OFF",
-  "carryover ON": "carryover ON"
+  "carryover ON": "carryover ON",
+  "Bug Fix Push {0} for Crystal Relay v{1}": "Bug Fix Push {0} for Crystal Relay v{1}",
+  "Update Now": "Update Now",
+  "Later": "Later",
+  "View on GitHub": "View on GitHub",
+  "This Bug Fix Push cannot be permanently skipped. Choose Later to be reminded the next time Crystal Relay starts.": "This Bug Fix Push cannot be permanently skipped. Choose Later to be reminded the next time Crystal Relay starts.",
+  "This Bug Fix Push does not include release notes. View the GitHub release page for details.": "This Bug Fix Push does not include release notes. View the GitHub release page for details.",
+  "BUG FIX {0}": "BUG FIX {0}",
+  "Bug Fix {0}": "Bug Fix {0}"
 }

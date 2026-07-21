@@ -210,6 +210,8 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
 
                         <Border x:Name="AccentStrip"
@@ -252,15 +254,37 @@
                                        TextWrapping="Wrap" />
                         </Border>
 
+                        <ScrollViewer x:Name="DetailsScrollViewer"
+                                      Grid.Row="3"
+                                      Margin="4,14,4,0"
+                                      MaxHeight="280"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      VerticalScrollBarVisibility="Auto"
+                                      Visibility="Collapsed">
+                            <TextBlock x:Name="DetailsBodyTextBlock"
+                                       Foreground="{DynamicResource TextBrush}"
+                                       FontSize="{Binding BodyFontSize, RelativeSource={RelativeSource FindAncestor, AncestorType=Window}}"
+                                       TextWrapping="Wrap" />
+                        </ScrollViewer>
+
+                        <Button x:Name="DetailsLinkButton"
+                                Grid.Row="4"
+                                Margin="4,10,4,0"
+                                Padding="12,7"
+                                HorizontalAlignment="Left"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Visibility="Collapsed"
+                                Click="OnDetailsLinkClicked" />
+
                         <TextBlock x:Name="FinePrintTextBlock"
-                                   Grid.Row="3"
+                                   Grid.Row="5"
                                    Margin="6,10,6,0"
                                    Foreground="{DynamicResource MutedBrush}"
                                    FontSize="{Binding FinePrintFontSize, RelativeSource={RelativeSource FindAncestor, AncestorType=Window}}"
                                    TextWrapping="Wrap"
                                    Visibility="Collapsed" />
 
-                        <WrapPanel Grid.Row="4"
+                        <WrapPanel Grid.Row="6"
                                    Margin="0,16,0,0"
                                    Orientation="Horizontal"
                                    HorizontalAlignment="Right"

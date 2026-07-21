@@ -225,7 +225,8 @@ public sealed partial class AvatarSetsManagerViewModel : ObservableObject, IDisp
         if ((DateTime.UtcNow - _lastOscReload).TotalMilliseconds < 500) return;
         _lastOscReload = DateTime.UtcNow;
 
-        await LoadAvailableParametersAsync();
+        if (Application.Current?.Dispatcher is not { } dispatcher) return;
+        await dispatcher.InvokeAsync(() => LoadAvailableParametersAsync()).Task.Unwrap();
     }
 
     private void SetMode(object? parameter, bool useWardrobe)

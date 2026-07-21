@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using VrcTwitchOscBridge.Services;
 
 namespace CrystalRelayUpdater;
 
@@ -11,10 +12,8 @@ internal static class Program
     private const string PackageManifestFileName = "crystal-relay-update.json";
     private const string ProductName = "Crystal Relay";
     private const string RuntimeName = "win-x64";
-    private const string PackageFolderPrefix = "CrystalRelay-v";
     private const string SourceBackupFolderName = "source";
     private const string TargetBackupFolderName = "target";
-    private const string ExecutableSearchPattern = "Crystal Relay.exe";
     private const int FileOperationRetryCount = 20;
     private static readonly TimeSpan ProcessExitTimeout = TimeSpan.FromSeconds(75);
     private static readonly TimeSpan FileOperationRetryDelay = TimeSpan.FromMilliseconds(500);
@@ -114,6 +113,16 @@ internal static class Program
             throw new UpdaterException("The Crystal Relay update apply manifest is incomplete.");
         }
 
+        if (!string.Equals(manifest.Runtime, RuntimeName, StringComparison.OrdinalIgnoreCase)
+            || !ApplicationUpdatePackageRules.TryParseManifestChannel(manifest.Channel, out var manifestChannel)
+            || !ApplicationUpdatePackageRules.IsExpectedEntryExecutableName(
+                manifestChannel,
+                manifest.Version,
+                manifest.EntryExecutableName))
+        {
+            throw new UpdaterException("The Crystal Relay update apply manifest channel or entry executable is invalid.");
+        }
+
         var packageRoot = NormalizeDirectoryPath(manifest.PackageRoot);
         var installDirectory = NormalizeDirectoryPath(manifest.InstallDirectory);
         var backupDirectory = NormalizeDirectoryPath(manifest.BackupDirectory);
@@ -128,12 +137,34 @@ internal static class Program
             throw new UpdaterException("The staged Crystal Relay update folder is outside updater storage.");
         }
 
+        ValidateBuildMarker(packageRoot, manifestChannel, manifest.Version);
+
         ValidateInstallDirectory(installDirectory);
 
         var backupRoot = NormalizeDirectoryPath(UpdateBackupsFolder);
         if (!IsPathInside(backupRoot, backupDirectory))
         {
             throw new UpdaterException("The update backup folder is outside Crystal Relay's updater storage.");
+        }
+    }
+
+    private static void ValidateBuildMarker(
+        string packageRoot,
+        ApplicationUpdateChannel channel,
+        string version)
+    {
+        var expectedMarker = ApplicationUpdatePackageRules.GetExpectedBuildMarker(channel, version);
+        if (channel != ApplicationUpdateChannel.BugFix)
+        {
+            return;
+        }
+
+        var markerPath = Path.Combine(packageRoot, "bugfix-build.flag");
+        var markerText = File.Exists(markerPath) ? File.ReadAllText(markerPath) : null;
+        if (string.IsNullOrWhiteSpace(expectedMarker)
+            || !ApplicationUpdatePackageRules.IsExpectedBuildMarker(channel, version, markerText))
+        {
+            throw new UpdaterException("The Bug Fix update package marker is missing or invalid.");
         }
     }
 
@@ -210,16 +241,17 @@ internal static class Program
     {
         var sourceDirectory = NormalizeDirectoryPath(manifest.InstallDirectory);
         var packageRoot = NormalizeDirectoryPath(manifest.PackageRoot);
-        var packageFolderName = Path.GetFileName(packageRoot);
-        var sourceFolderName = Path.GetFileName(sourceDirectory);
-        var targetDirectory = sourceDirectory;
 
-        if (IsPackageInstallFolderName(sourceFolderName) && IsPackageInstallFolderName(packageFolderName))
+        if (!ApplicationUpdatePackageRules.TryParseManifestChannel(manifest.Channel, out var channel))
         {
-            var sourceParent = Path.GetDirectoryName(sourceDirectory)
-                ?? throw new UpdaterException("The Crystal Relay install folder path is invalid.");
-            targetDirectory = NormalizeDirectoryPath(Path.Combine(sourceParent, packageFolderName));
+            throw new UpdaterException("The Crystal Relay update apply manifest channel is invalid.");
         }
+
+        var targetDirectory = NormalizeDirectoryPath(
+            ApplicationUpdatePackageRules.GetInstallTargetDirectory(
+                channel,
+                sourceDirectory,
+                packageRoot));
 
         return new UpdateInstallPlan(
             sourceDirectory,
@@ -483,8 +515,8 @@ internal static class Program
 
     private static string ResolveSingleExecutable(string root)
     {
-        var executables = Directory.GetFiles(root, ExecutableSearchPattern, SearchOption.AllDirectories)
-            .Where(path => Path.GetFileName(path).EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+        var executables = Directory.GetFiles(root, "*.exe", SearchOption.AllDirectories)
+            .Where(path => ApplicationUpdatePackageRules.IsApplicationExecutableName(Path.GetFileName(path)))
             .ToArray();
         return executables.Length == 1
             ? executables[0]
@@ -586,14 +618,31 @@ internal static class Program
         if (manifest is null
             || !string.Equals(manifest.ProductName, ProductName, StringComparison.Ordinal)
             || !string.Equals(manifest.Runtime, RuntimeName, StringComparison.OrdinalIgnoreCase)
+            || !ApplicationUpdatePackageRules.TryParseManifestChannel(manifest.Channel, out var channel)
             || string.IsNullOrWhiteSpace(manifest.EntryExecutableName)
             || Path.IsPathRooted(manifest.EntryExecutableName)
             || manifest.EntryExecutableName.Contains(Path.DirectorySeparatorChar)
             || manifest.EntryExecutableName.Contains(Path.AltDirectorySeparatorChar)
-            || !manifest.EntryExecutableName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+            || !ApplicationUpdatePackageRules.IsExpectedEntryExecutableName(
+                channel,
+                manifest.Version,
+                manifest.EntryExecutableName))
         {
             validationError = "The package manifest is not a Crystal Relay install manifest.";
             return false;
+        }
+
+        if (channel == ApplicationUpdateChannel.BugFix)
+        {
+            var markerPath = Path.Combine(fullDirectoryPath, "bugfix-build.flag");
+            var markerText = File.Exists(markerPath) ? File.ReadAllText(markerPath) : null;
+            if (string.IsNullOrWhiteSpace(
+                    ApplicationUpdatePackageRules.GetExpectedBuildMarker(channel, manifest.Version))
+                || !ApplicationUpdatePackageRules.IsExpectedBuildMarker(channel, manifest.Version, markerText))
+            {
+                validationError = "The Bug Fix package marker is missing or invalid.";
+                return false;
+            }
         }
 
         var entryExecutablePath = Path.Combine(fullDirectoryPath, manifest.EntryExecutableName);
@@ -607,12 +656,7 @@ internal static class Program
     }
 
     private static bool IsPackageInstallFolderName(string? folderName) =>
-        !string.IsNullOrWhiteSpace(folderName)
-        && !folderName.Contains(Path.DirectorySeparatorChar)
-        && !folderName.Contains(Path.AltDirectorySeparatorChar)
-        && (string.Equals(folderName, "Crystal Relay", StringComparison.OrdinalIgnoreCase)
-            || (folderName.StartsWith(PackageFolderPrefix, StringComparison.OrdinalIgnoreCase)
-                && folderName.EndsWith($"-{RuntimeName}", StringComparison.OrdinalIgnoreCase)));
+        ApplicationUpdatePackageRules.IsPackageInstallFolderName(folderName);
 
     private static string NormalizeDirectoryPath(string path)
     {

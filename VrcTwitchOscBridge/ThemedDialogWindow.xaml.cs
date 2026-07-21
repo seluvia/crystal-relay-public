@@ -17,6 +17,8 @@ public enum ThemedDialogChoice
 
 public partial class ThemedDialogWindow : Window
 {
+    private readonly Action? detailsLinkAction;
+
     private ThemedDialogWindow(
         AppTheme theme,
         string title,
@@ -25,7 +27,10 @@ public partial class ThemedDialogWindow : Window
         string? secondaryButtonText = null,
         string? tertiaryButtonText = null,
         string? finePrint = null,
-        bool isNotice = false)
+        bool isNotice = false,
+        string? detailsBody = null,
+        string? detailsLinkText = null,
+        Action? detailsLinkAction = null)
     {
         InitializeComponent();
         if (isNotice)
@@ -45,6 +50,16 @@ public partial class ThemedDialogWindow : Window
         PrimaryButton.Content = primaryButtonText;
         FinePrintTextBlock.Text = finePrint ?? string.Empty;
         FinePrintTextBlock.Visibility = string.IsNullOrWhiteSpace(finePrint)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+
+        this.detailsLinkAction = detailsLinkAction;
+        DetailsBodyTextBlock.Text = detailsBody ?? string.Empty;
+        DetailsScrollViewer.Visibility = string.IsNullOrWhiteSpace(detailsBody)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+        DetailsLinkButton.Content = detailsLinkText ?? string.Empty;
+        DetailsLinkButton.Visibility = detailsLinkAction is null || string.IsNullOrWhiteSpace(detailsLinkText)
             ? Visibility.Collapsed
             : Visibility.Visible;
 
@@ -146,6 +161,53 @@ public partial class ThemedDialogWindow : Window
         };
 
         dialog.ShowDialog();
+    }
+
+    public static ThemedDialogChoice ShowBugFixUpdate(
+        Window? owner,
+        AppTheme theme,
+        string heading,
+        string releaseTitle,
+        string releaseBody,
+        string finePrint,
+        string updateNowText,
+        string laterText,
+        string viewOnGitHubText,
+        Action viewOnGitHub)
+    {
+        ArgumentNullException.ThrowIfNull(viewOnGitHub);
+        var dialog = new ThemedDialogWindow(
+            theme,
+            heading,
+            releaseTitle,
+            updateNowText,
+            secondaryButtonText: laterText,
+            finePrint: finePrint,
+            isNotice: true,
+            detailsBody: releaseBody,
+            detailsLinkText: viewOnGitHubText,
+            detailsLinkAction: viewOnGitHub)
+        {
+            Owner = owner,
+            Width = 720,
+            MinWidth = 640,
+            MaxHeight = 760
+        };
+
+        return dialog.ShowDialog() == true
+            ? ThemedDialogChoice.Primary
+            : ThemedDialogChoice.Secondary;
+    }
+
+    private void OnDetailsLinkClicked(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            detailsLinkAction?.Invoke();
+        }
+        catch
+        {
+        }
     }
 
     private void OnPrimaryClicked(object sender, RoutedEventArgs e)

@@ -7,8 +7,8 @@ Purpose:
 - This file is for internal release prep and record-keeping. It should stay out of the public repo unless you explicitly choose otherwise.
 
 Current Baseline:
-- Last published version: v3.1.8
-- Current working source version: v3.1.9
+- Last published version: v3.1.9
+- Current working source version: v3.1.10
 
 How To Use:
 1. Add new lines under Added, Changed, or Removed while work is happening.
@@ -18,13 +18,13 @@ How To Use:
 5. Retired release drafts (versions that already shipped) are removed from the working area once their content is captured in CHANGELOG.txt. The release checklist is always kept.
 
 Pending Release Draft
-- Target version: v3.1.9
-- Release lane: beta
-- Next build: (none — active beta cycle in progress)
-- Last beta build: v3.1.9 beta 5
-- Source files reflect v3.1.9; csproj and updater project will be updated when new work begins.
+- Target version: v3.1.10
+- Release lane: (not started)
+- Next build: (none)
+- Last build: (none)
+- Source files and project versions now reflect v3.2.0 active development.
 
-v3.1.9 beta 5
+v3.1.9 beta 5 (shipped — rolled into v3.1.9 stable)
 Added:
 - VRChat login now handles both 200 OK and 401 responses when two-factor authentication is required, so the 2FA fields appear correctly regardless of which API response shape VRChat returns.
 - Redesigned the VRChat login window: the 2FA code field appears inline below the password instead of in a separate popup window, keeping the login window open through both steps.
@@ -50,7 +50,7 @@ Changed:
 Removed:
 - Embedded Reward Fire Sale UI removed from the main window and replaced with the dedicated manager window.
 
-v3.1.9 beta 4 (in progress)
+v3.1.9 beta 4 (shipped — rolled into v3.1.9 stable)
 Added:
 - Float action modes for channel point rewards with Float parameter type: Set (existing), Random, Add, Subtract, Add/Subtract, Multiply, Toggle, Cycle, Glitchy, and Pulse. Random picks a value in a configurable min/max range. Add and Subtract adjust the current avatar value by a configurable amount. Add/Subtract picks a direction each time. Multiply scales the current value by a factor (with optional clamp). Toggle switches between two user-defined values. Cycle increments by a step and wraps at max. Glitchy continuously re-rolls random values during the active time. Pulse sends the value and restores after a short configurable delay (independent of Active Time).
 Changed:
@@ -63,14 +63,14 @@ Changed:
 - Avatar Set Float redeem: split the single `FloatTransitionSeconds` field into `FloatTransitionInSeconds` and `FloatTransitionOutSeconds`. The transition now applies to every Float avatar parameter redeem (timed, instant, and all action modes including Glitchy), so values smoothly glide to and from the target. Old saves migrate: the legacy `FloatTransitionSeconds` value copies into both new fields on first load and is then dropped from the save file.
 Removed:
 
-v3.1.9 beta 3 (already shipped)
+v3.1.9 beta 3 (shipped — rolled into v3.1.9 stable)
 Added:
 - Rebuilt the Universal Triggers manager as its own themed window with a search bar, type/status/source filters, and per-section collapse controls.
 - Added a slide-out editor panel for editing triggers without leaving the manager, including trigger type, Twitch reward, avatar readiness check, and OSC action list.
 - Added Ready / Needs attention / Disabled status pills, type pills for each trigger type, and Source pills (Fooma / Manual) on every Universal Triggers card.
 - Added a one-click Test button on every Universal Triggers card.
 
-v3.1.9 beta 3 (already shipped)
+v3.1.9 beta 3 (shipped — rolled into v3.1.9 stable)
 Added:
 - Rebuilt the Universal Triggers manager as its own themed window with a search bar, type/status/source filters, and per-section collapse controls.
 - Added a slide-out editor panel for editing triggers without leaving the manager, including trigger type, Twitch reward, avatar readiness check, and OSC action list.
@@ -87,7 +87,7 @@ Removed:
 - Fixed an issue where the Twitch background listener could fail to recover after a temporary drop, requiring a manual app restart.
 - Fixed an issue where the bridge could stop running when the optional bot account needed reconnecting. With broadcaster-as-bot enabled, the bridge now keeps running and only bot-driven chat announcements stay disabled.
 
-v3.1.9 beta 2 (already shipped)
+v3.1.9 beta 2 (shipped — rolled into v3.1.9 stable)
 Added:
 - Added Activity Resume so Crystal Relay remembers active redeems and picks up where it left off after a restart.
 - Added a Multiplier direction option for Avatar Scaling multiplier mode.
@@ -113,7 +113,7 @@ Changed:
 - Fixed Wardrobe so the "Link existing Twitch reward" picker now shows the channel's available rewards, matching the Avatar Sets section. Already-linked wardrobe rewards also stay in the dropdown after a Twitch reward catalog refresh.
 - Moved Wardrobe editor from main window into the Avatar Sets manager (Step 4) with per-outfit managed reward ready/cooldown color pickers and a full Create vs Link existing reward branch.
 
-v3.1.9 beta 1 (already shipped)
+v3.1.9 beta 1 (shipped — rolled into v3.1.9 stable)
 Added:
 - Added a richer loading overlay animation with a pulsing crystal glow, orbiting accents, shimmer, and calm loading text that stops when initialization completes.
 - Added a lightweight settings read path during startup that only loads language and theme preferences, so the correct theme is applied immediately without a flash.

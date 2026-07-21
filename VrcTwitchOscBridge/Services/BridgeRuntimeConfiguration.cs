@@ -1182,7 +1182,10 @@ public sealed record BridgeRuntimeConfiguration(
             rule.SubscriptionTier3Enabled,
             rule.ExtendCurrentActivity,
             rule.ExtendSeconds,
-            rule.FloatValue);
+            rule.FloatValue,
+            Math.Max(1, rule.SubsTriggerCount),
+            rule.SubsAccumulationEnabled,
+            rule.SubsCarryOverEnabled);
     }
 
     private static SetTriggerActionSnapshot ToSetTriggerActionSnapshot(SetTriggerAction action)
@@ -1464,7 +1467,7 @@ public sealed record BridgeRuntimeConfiguration(
             Math.Clamp(rule.SmoothTransitionSeconds, 0, 30),
             rule.Preset,
             Math.Max(0, rule.ActiveTimeSeconds),
-            AvatarScaleRestoreMode.ConfiguredHeight,
+            rule.RestoreMode,
             ClampScaleHeight(rule.RestoreHeightMeters, rule.AdvancedRangeEnabled, safety),
             rule.AdvancedRangeEnabled,
             rule.BypassVrChatScaleLimits,

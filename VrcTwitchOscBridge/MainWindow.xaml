@@ -1231,7 +1231,7 @@
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
             <Setter Property="Margin" Value="0,6,0,0" />
             <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Background" Value="{DynamicResource InputBackgroundBrush}" />
+            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Padding" Value="0" />
@@ -1812,19 +1812,32 @@
                                                     Foreground="{DynamicResource MutedBrush}"
                                                     VerticalAlignment="Center" />
                                          <Border Margin="8,0,0,0"
-                                                 Padding="6,1,6,2"
-                                                 CornerRadius="4"
-                                                 Background="{DynamicResource AccentBrush}"
-                                                 BorderThickness="0"
-                                                 VerticalAlignment="Center"
-                                                 Opacity="0.85"
-                                                 Visibility="{Binding HasBetaBuildLabel, Converter={StaticResource BoolToVisibilityConverter}}">
-                                             <TextBlock Text="beta"
-                                                        FontSize="10"
-                                                        FontWeight="SemiBold"
-                                                        Foreground="White" />
-                                         </Border>
-                                     </WrapPanel>
+                                                  Padding="6,1,6,2"
+                                                  CornerRadius="4"
+                                                  Background="{DynamicResource AccentBrush}"
+                                                  BorderThickness="0"
+                                                  VerticalAlignment="Center"
+                                                  Opacity="0.85"
+                                                  Visibility="{Binding HasBetaBuildLabel, Converter={StaticResource BoolToVisibilityConverter}}">
+                                              <TextBlock Text="beta"
+                                                         FontSize="10"
+                                                         FontWeight="SemiBold"
+                                                         Foreground="White" />
+                                          </Border>
+                                          <Border Margin="8,0,0,0"
+                                                  Padding="6,1,6,2"
+                                                  CornerRadius="4"
+                                                  Background="{DynamicResource AccentBrush}"
+                                                  BorderThickness="0"
+                                                  VerticalAlignment="Center"
+                                                  Opacity="0.9"
+                                                  Visibility="{Binding HasBugFixBuildLabel, Converter={StaticResource BoolToVisibilityConverter}}">
+                                              <TextBlock Text="{Binding BugFixBuildBadgeText}"
+                                                         FontSize="10"
+                                                         FontWeight="SemiBold"
+                                                         Foreground="White" />
+                                          </Border>
+                                      </WrapPanel>
                                  </StackPanel>
                             </Grid>
 

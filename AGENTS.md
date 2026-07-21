@@ -3,11 +3,12 @@
 ## Project Identity
 - Product name: `Crystal Relay`
 - Legacy source/project name may still appear as `VrcTwitchOscBridge`
-- Last stable release: `v3.1.8`
-- Current source version: `v3.1.9`
-- Next post-release development version: `v3.1.10`
-- Active development build: `v3.1.9`
-- Active build lane: `beta5`
+- Last stable release: `v3.1.9`
+- Current source version: `v3.2.0`
+- Next post-release development version: `v3.2.0`
+- Active development build: `v3.2.0`
+- Active build lane: `none`
+- Active bug fix push: `none`
 - Platform: Windows desktop app
 - Primary purpose: Twitch-to-OSC / OSCQuery control for VRChat
 - Public GitHub repo: `seluvia/crystal-relay-public`
@@ -23,6 +24,7 @@
 
 ## OSC / VRChat API Source Of Truth
 - Trust the vendored OSCQuery library in `oscquery-lib` and Crystal Relay's internal `VrChatApiClient` / `VrChatApiRoutes` wrapper for OSCQuery and VRChat API behavior.
+- The canonical community API reference is `https://vrchat.community` — use this as the authoritative source for VRChat API endpoints, data structures, and behavior before implementing or modifying API calls.
 - Do not guess VRChat API endpoints or add external VRChat API SDK packages unless the wrapper is deliberately updated as part of the change.
 - When adding VRChat API behavior, add the endpoint to the internal route helper first, keep auth/cookie handling inside the wrapper, and document any community API reference used during implementation.
 - VRChat LocalLow OSC and LocalAvatarData files are read-only inputs. Use the avatar OSC JSON as the authority for OSC parameter address and type, then match LocalAvatarData values onto those declared parameters.
@@ -34,6 +36,7 @@
 - Twitch Custom Power-up (Bits) Redeem Library: linked-existing and Crystal Relay-managed Power-up rules, Bits-paid triggers, avatar scope, fixed float add, OSC, Set Trigger, Avatar Change, Avatar Roulette, movement, and Avatar Scaling actions
 - Twitch Power-up Bits count toward Reward Fire Sale progress when Bits counting is enabled, while linked Power-ups stay listen-only
 - GitHub latest-release update notifications for `seluvia/crystal-relay-public`
+- Bug Fix Push channel for exact stable version corrections with mandatory, non-skippable notifications
 - Dedicated self-updater helper and update package manifest validation
 - VRChat login with 2FA
 - VRChat avatar cache and OSC parameter cache
@@ -80,6 +83,8 @@ Use these locations only unless a change is explicitly required.
   `E:\!!!Program to work on\Proper Crystal Relay\Build-Crystal-Relay-Release.ps1`
 - Beta release script:
   `E:\!!!Program to work on\Proper Crystal Relay\Build-Crystal-Relay-Beta.ps1`
+- Bug Fix release script:
+  `E:\!!!Program to work on\Proper Crystal Relay\Build-Crystal-Relay-BugFix.ps1`
 - Test build script:
   `E:\!!!Program to work on\Proper Crystal Relay\Build-Crystal-Relay-Test.ps1`
 - Raw source backup script:
@@ -209,6 +214,9 @@ Do not store runtime data in the repo.
 - Update `CHANGELOG.txt` for official releases.
 - Use `RELEASE-CHANGE-RECORD.txt` for in-progress release notes before finalizing `CHANGELOG.txt`.
 - Follow the Changelog and Release Notes Workflow below for what goes into beta vs. stable entries and how betas roll up into the next stable.
+- `Active build lane` accepts only `none`, `test`, `beta`, or `bugfix`.
+- `Active bug fix push` is `none` outside an active Bug Fix build, otherwise it is the exact identity `v<version>-bugfix<N>`.
+- Before a Bug Fix package is built, set `Active build lane` to `bugfix` and `Active bug fix push` to the exact package identity. After publication, reset both to `none` without changing the normal next-development version.
 
 ## Changelog and Release Notes Workflow
 
@@ -237,8 +245,17 @@ Two files drive release notes:
   - Update the "Current Baseline" block (`Last published version` and `Current working source version`) to match the new stable.
   - Clear the draft sections that are now represented by the stable entry, but keep the release checklist.
 
+### Bug Fix Push cycle
+- A Bug Fix Push targets one already-published stable base version and never targets a beta or test build.
+- Add a new public section at the top of `CHANGELOG.txt` using the exact heading `v<version> bug fix <N>`.
+- Describe only changes since the previous stable or Bug Fix package for that base. Each later Bug Fix Push is cumulative and includes all earlier Bug Fix Push changes for the same base.
+- Keep earlier Bug Fix sections in `CHANGELOG.txt` as public history and mirror every section into `RELEASE-CHANGE-RECORD.txt`.
+- Publish the complete matching changelog section as the normal GitHub release notes. Bug Fix releases are not prereleases.
+- The next stable changelog rolls up every surviving Bug Fix change into its fresh stable summary without deleting prior Bug Fix entries.
+- Bug Fix Pushes do not update README stable highlights or the Void Crystal website download URL.
+
 ### GitHub release publication
-- Public GitHub release notes mirror the matching `CHANGELOG.txt` entry. For a beta, use the `v<version> beta <N>` section. For a stable, use the `v<version>` section.
+- Public GitHub release notes mirror the matching `CHANGELOG.txt` entry. For a beta, use the `v<version> beta <N>` section. For a stable, use the `v<version>` section. For a Bug Fix, use the `v<version> bug fix <N>` section.
 - Do not paste internal workflow notes, dev-only wording, or `RELEASE-CHANGE-RECORD.txt` content into GitHub release notes.
 - Asset names on the public GitHub release must follow the existing patterns:
   - Stable: `CrystalRelayTwitchOsc-v<version>-win-x64.zip`
@@ -255,16 +272,17 @@ Two files drive release notes:
   - `RELEASE-CHANGE-RECORD.txt` baseline and draft sections are updated.
   - `README.md` `Current Release Highlights` reflects the new stable.
   - `AGENTS.md` "Project Identity" updates `Last stable release`, `Current source version`, and `Next post-release development version`, and resets `Active build lane` to `none` with `Active development build` set to the next patch version.
-  - Void Crystal Website download button is updated to the new stable build URL before the release goes live. Edit `E:\!!!Program to work on\Void Crystal Website\src\lib\site-data.ts` and change `siteConfig.links.crystalRelayDownload` from the previous stable URL to the GitHub release asset URL for the newly released version. The URL pattern is `https://github.com/seluvia/crystal-relay-public/releases/download/v<version>/CrystalRelayTwitchOsc-v<version>-win-x64.zip` (use the `v<version>` tag, not `latest`, so the link stays pinned to the stable version that's actually being shipped). That single value drives the top-right Navbar `Download` button (`src/components/Navbar.tsx`), the Hero `Download Crystal Relay` button (`src/components/sections/HeroSection.tsx`), and the `Download Latest Release` button in the Crystal Relay section (`src/components/sections\CrystalRelaySection.tsx` via the `crystalRelayActions` array). Run `npm run build` inside the website folder to verify, then deploy with `wrangler pages deploy <website-folder>\dist --project-name void-crystal` (the Pages project is `void-crystal`, serving `void-crystal.com`). The wrangler deploy step stays manual: never push a website download-URL change live without explicit user confirmation. Beta and test builds must NOT change the website download URL; it always tracks the most recent stable release only.
+  - Void Crystal Website download button is updated to the new stable build URL before the release goes live. Edit `E:\!!!Program to work on\Void Crystal Website\src\lib\site-data.ts` and change `siteConfig.links.crystalRelayDownload` from the previous stable URL to the GitHub release asset URL for the newly released version. The URL pattern is `https://github.com/seluvia/crystal-relay-public/releases/download/v<version>/CrystalRelayTwitchOsc-v<version>-win-x64.zip` (use the `v<version>` tag, not `latest`, so the link stays pinned to the stable version that's actually being shipped). That single value drives the top-right Navbar `Download` button (`src/components/Navbar.tsx`), the Hero `Download Crystal Relay` button (`src/components/sections/HeroSection.tsx`), and the `Download Latest Release` button in the Crystal Relay section (`src/components/sections\CrystalRelaySection.tsx` via the `crystalRelayActions` array). Run `npm run build` inside the website folder to verify, then deploy with `wrangler pages deploy <website-folder>\dist --project-name void-crystal` (the Pages project is `void-crystal`, serving `void-crystal.com`). The wrangler deploy step stays manual: never push a website download-URL change live without explicit user confirmation. Beta, test, and Bug Fix builds must NOT change the website download URL; it always tracks the most recent stable release only.
 
 ## Build and Release Rules
 - Test build first when a change is visual, risky, runtime-affecting, or user-requested.
-- All three build scripts enforce pre-flight gates before publishing. A build refuses to run if:
-  - `CHANGELOG.txt` does not contain the expected `v<version>` section (release), `v<version> beta <N>` section (beta), or either form (test).
-  - `RELEASE-CHANGE-RECORD.txt` "Current working source version" does not match the csproj (warning for test/beta, throw for release).
-  - The working tree has uncommitted changes (opt-out: `CR_SKIP_GIT_CHECK=1`).
-  - A `Remove-Item -Recurse -Force` targets a path that is not a Crystal Relay-shaped package path under the expected parent. Guarded by `Assert-SafeBuildPath` in each script.
-  Set `CR_SKIP_GIT_CHECK=1` to override the working tree check, but never disable the changelog or record gates.
+- Stable, beta, test, and Bug Fix build scripts enforce pre-flight gates before publishing. A build refuses to run if:
+  - `CHANGELOG.txt` lacks the expected `v<version>` section (release), `v<version> beta <N>` section (beta), either form (test), or exact `v<version> bug fix <N>` section (Bug Fix).
+  - `RELEASE-CHANGE-RECORD.txt` does not match the source version policy for that lane. Test/beta retain their current warning behavior; release and Bug Fix builds throw.
+  - The working tree has uncommitted changes, unless `CR_SKIP_GIT_CHECK=1` is used for local package testing.
+  - A recursive removal path is outside the expected package/temp parent or fails its Crystal Relay shape check.
+  - A Bug Fix build lacks the matching stable tag ancestry, exact active Bug Fix identity, exact release-record heading, or unchanged app/updater base versions.
+- `CR_SKIP_GIT_CHECK=1` overrides only the working-tree gate. It never disables changelog, release-record, ancestry, identity, version, package-shape, or path-safety checks.
 - Release builds go in a version folder:
   - Example: `Releases\v2.9.2`
 - Beta builds for the same stable version go in the same version folder, alongside the eventual stable. Example: `Releases\v3.1.8\` holds `CrystalRelayTwitchOsc-v3.1.8-beta1-win-x64`, `CrystalRelayTwitchOsc-v3.1.8-beta2-win-x64`, and the eventual `CrystalRelayTwitchOsc-v3.1.8-win-x64` stable.
@@ -277,8 +295,8 @@ Two files drive release notes:
 - Use `Build-Crystal-Relay-Test.ps1` for organized test packages.
 - Use `Build-Crystal-Relay-Release.ps1` for official release packages.
 - Use `Build-Crystal-Relay-Beta.ps1` for beta packages; beta packages use a `-beta<N>` version suffix, prerelease channel manifest, and `beta-build.flag`.
-- Release, beta, and test build scripts run the localization audit before publishing.
-- Release and beta packages should include `CrystalRelayUpdater.exe` and a valid `crystal-relay-update.json` manifest.
+- Release, beta, test, and Bug Fix package scripts run the localization audit before publishing files.
+- Release, beta, and Bug Fix packages include `CrystalRelayUpdater.exe` and a valid `crystal-relay-update.json` manifest. Bug Fix packages additionally include the exact `bugfix-build.flag` marker.
 - Test packages should include `CrystalRelayUpdater.exe` and `test-build.flag`; do not treat test packages as public self-update assets unless the user explicitly asks.
 - Current test package layout should stay:
   - root shortcut: `Crystal Relay Test.lnk`
@@ -291,12 +309,16 @@ Two files drive release notes:
   - Release packages use `PublishSingleFile=true` for the main app and are zipped
   - `crystal-relay-update.json` lives at the package root with `channel: stable` and `entryExecutableName: CrystalRelayTwitchOsc-v<version>.exe`
 - Beta packages mirror the release layout but append `-beta<N>` to the version, the executable name, and the JSON `version` field, use `channel: beta`, and add a `beta-build.flag` at the package root.
+- Bug Fix packages use a distinct asset prefix and carry `bugfix-build.flag`. Entry executable is versioned: `CrystalRelayTwitchOsc-v<version>.exe`.
 - Stable release ZIP assets must keep the self-update naming pattern:
   `CrystalRelayTwitchOsc-v<version>-win-x64.zip`
 - Beta release ZIP assets must keep the beta naming pattern:
   `CrystalRelayTwitchOsc-v<version>-beta<N>-win-x64.zip`
+- Bug Fix release ZIP assets must keep the Bug Fix naming pattern:
+  `CrystalRelayBugFix-v<version>-win-x64.zip`
 - The release script accepts `-Bump major|minor|patch|mid|small` (`mid` is an alias for `minor`, `small` is an alias for `patch`) or `-Version <ver>` to set the target version explicitly. The beta and test scripts accept `-Version <ver>`. When `-Version` is not supplied, the scripts normalize the version already in the project file.
-- All three build scripts rewrite the `<Version>` / `<AssemblyVersion>` / `<FileVersion>` / `<InformationalVersion>` fields of `VrcTwitchOscBridge.csproj` and `CrystalRelayUpdater.csproj` in place so the project file stays the single source of truth.
+- The release, beta, and test scripts rewrite the `<Version>` / `<AssemblyVersion>` / `<FileVersion>` / `<InformationalVersion>` fields of both project files in place so the project file stays their source of truth.
+- `Build-Crystal-Relay-BugFix.ps1` never rewrites project versions; it refuses to build unless the app and updater already equal the requested stable base.
 - Do not change update asset names, manifest fields, or ZIP layout without updating `ApplicationUpdateService`, `ApplicationSelfUpdateService`, and `CrystalRelayUpdater` together.
 - Release zips should be kept; loose old release folders may be cleaned up only if the user requests it.
 - Do not leave temporary developer-only controls in release builds.
@@ -319,6 +341,7 @@ Two files drive release notes:
 - Update packages must include exactly one visible versioned Crystal Relay executable matching `CrystalRelayTwitchOsc-v*.exe`.
 - Update packages must include `crystal-relay-update.json` with the expected product, runtime, channel, version, and entry executable.
 - Stable self-update expects GitHub release assets named `CrystalRelayTwitchOsc-v<LatestVersion>-win-x64.zip`.
+- Bug Fix self-update expects GitHub release assets named `CrystalRelayBugFix-v<LatestVersion>-win-x64.zip`.
 - The app validates update downloads through HTTPS GitHub asset URLs, SHA-256 digests, safe ZIP extraction, package manifest checks, and dedicated-updater presence.
 - Keep updater path-safety checks strict. The updater must not apply packages into filesystem roots, AppData runtime folders, or targets outside the expected package parent.
 - `AppDataPaths.UpdatesFolder` and `AppDataPaths.UpdateBackupsFolder` are updater-owned; portable saves, secure metadata, crash logs, and runtime config are not updater cleanup targets.
@@ -494,9 +517,10 @@ None of these folders should be committed, public-synced, or treated as part of 
 - Suspicious and restricted chatter badges show alongside chat and activity entries for follows, support events, rewards, chat clears, deleted messages, and moderation results.
 
 ## UI Rules
-- Preserve custom themed window chrome.
+- Always use Crystal Relay's custom theme system (`ThemeManager`, `ThemePaletteFactory`, themed styles/templates, palette-bound resources) for all new UI elements, windows, controls, and surfaces. Never use default Windows/WPF styles, chrome, fonts, or visuals for any app UI.
+- Preserve custom themed window chrome on existing windows.
 - Preserve theme-specific fonts and theme-specific visuals.
-- Avoid default Windows-looking controls when a custom themed version already exists.
+- Avoid default Windows-looking controls anywhere; if no custom themed version exists yet, create one instead of falling back to default styles.
 - Keep layouts centered, readable, and uncluttered.
 - Prefer compact cards, grouped/collapsible sections, and workspace editors over long flat lists.
 - Avoid clipping in small windows and across longer localized labels.

@@ -1163,6 +1163,36 @@ private static readonly string[] LoadingStoryboardKeys =
                 availableUpdate.CurrentVersion,
                 availableUpdate.LatestVersion);
 
+            if (availableUpdate.IsBugFix)
+            {
+                var releaseBody = string.IsNullOrWhiteSpace(availableUpdate.ReleaseBody)
+                    ? LocalizationService.Translate(
+                        "This Bug Fix Push does not include release notes. View the GitHub release page for details.")
+                    : availableUpdate.ReleaseBody;
+                var choice = ThemedDialogWindow.ShowBugFixUpdate(
+                    this,
+                    viewModel.SelectedTheme,
+                    LocalizationService.Format(
+                        "Bug Fix Push {0} for Crystal Relay v{1}",
+                        availableUpdate.BugFixSequence,
+                        availableUpdate.LatestBaseVersion),
+                    availableUpdate.ReleaseTitle,
+                    releaseBody,
+                    LocalizationService.Translate(
+                        "This Bug Fix Push cannot be permanently skipped. Choose Later to be reminded the next time Crystal Relay starts."),
+                    LocalizationService.Translate("Update Now"),
+                    LocalizationService.Translate("Later"),
+                    LocalizationService.Translate("View on GitHub"),
+                    () => OpenExternalUri(availableUpdate.ReleasePageUrl));
+
+                if (choice == ThemedDialogChoice.Primary)
+                {
+                    await StartApplicationSelfUpdateAsync(availableUpdate, cancellationToken);
+                }
+
+                return;
+            }
+
             if (availableUpdate.IsBeta)
             {
                 var betaChoice = ThemedDialogWindow.ShowThreeChoice(

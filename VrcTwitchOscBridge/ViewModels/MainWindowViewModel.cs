@@ -147,10 +147,14 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     ];
     private const int VrChatOscParameterAutoRefreshPassCount = 4;
     private static readonly string AppVersion = GetAppVersion();
-    private static readonly string BetaBuildLabel = DetectBetaBuildLabel();
-    private static readonly string AppUpdateVersion = GetAppUpdateVersion();
-    private static readonly bool IsTestBuild = DetectTestBuild();
-    private static readonly string BuildChannel = GetBuildChannel();
+    private static readonly ApplicationBuildIdentity AppBuildIdentity =
+        ApplicationBuildIdentity.Detect(AppVersion, AppContext.BaseDirectory);
+    private static readonly string BetaBuildLabel = AppBuildIdentity.HasBetaLabel
+        ? AppBuildIdentity.DisplayLabel
+        : string.Empty;
+    private static readonly string AppUpdateVersion = AppBuildIdentity.UpdateVersion;
+    private static readonly bool IsTestBuild = AppBuildIdentity.IsTestBuild;
+    private static readonly string BuildChannel = AppBuildIdentity.BuildChannel;
     private static readonly HashSet<string> KnownViewerNotificationBotLogins = new(StringComparer.OrdinalIgnoreCase)
     {
         "nightbot",
@@ -1361,7 +1365,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         }
     }
 
-    public bool HasBetaBuildLabel => !string.IsNullOrWhiteSpace(BetaBuildLabel);
+    public bool HasBetaBuildLabel => AppBuildIdentity.HasBetaLabel;
+    public bool HasBugFixBuildLabel => AppBuildIdentity.HasBugFixLabel;
+    public string BugFixBuildBadgeText => AppBuildIdentity.HasBugFixLabel
+        ? TF("BUG FIX {0}", AppBuildIdentity.BugFixSequence)
+        : string.Empty;
 
     public bool IsLanguageRestartNoticeVisible => Settings.Language != activeLanguageAtStartup;
 
@@ -4822,7 +4830,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
                 avatarsById,
                 avatar.Id,
                 avatar.Name,
-                avatar.SourceLabel,
                 avatar.IsCurrentAvatar || string.Equals(avatar.Id, currentAvatarId, StringComparison.Ordinal));
         }
 
@@ -4830,7 +4837,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             avatarsById,
             currentAvatarId,
             ResolveVrChatAvatarName(currentAvatarId),
-            "Current avatar",
             isCurrentAvatar: true);
 
         foreach (var profile in Settings.AvatarProfiles)
@@ -4839,12 +4845,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
                 avatarsById,
                 profile.AvatarId,
                 profile.AvatarName,
-                profile.IsMasterProfile ? "Return avatar" : "Avatar profile",
                 string.Equals(profile.AvatarId?.Trim() ?? string.Empty, currentAvatarId, StringComparison.Ordinal));
 
             foreach (var rule in profile.ChannelPointRules)
             {
-                AddKnownSelectableAvatarTargets(avatarsById, rule, currentAvatarId, "Avatar reward");
+                AddKnownSelectableAvatarTargets(avatarsById, rule, currentAvatarId);
             }
         }
 
@@ -4854,9 +4859,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
                 avatarsById,
                 rule.SupporterAvatarId,
                 rule.SupporterAvatarName,
-                "Supporter avatar",
                 string.Equals(rule.SupporterAvatarId?.Trim() ?? string.Empty, currentAvatarId, StringComparison.Ordinal));
-            AddKnownSelectableAvatarTargets(avatarsById, rule, currentAvatarId, "Supporter target");
+            AddKnownSelectableAvatarTargets(avatarsById, rule, currentAvatarId);
         }
 
         foreach (var rule in Settings.PowerUpRules)
@@ -4865,9 +4869,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
                 avatarsById,
                 rule.AvatarId,
                 rule.AvatarName,
-                "Power Up avatar",
                 string.Equals(rule.AvatarId?.Trim() ?? string.Empty, currentAvatarId, StringComparison.Ordinal));
-            AddKnownSelectableAvatarTargets(avatarsById, rule.ActionRule, currentAvatarId, "Power Up target");
+            AddKnownSelectableAvatarTargets(avatarsById, rule.ActionRule, currentAvatarId);
         }
 
         return avatarsById.Values.ToArray();
@@ -4876,8 +4879,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     private static void AddKnownSelectableAvatarTargets(
         IDictionary<string, VrChatAvatarSummary> avatarsById,
         TriggerRule rule,
-        string currentAvatarId,
-        string sourceLabel)
+        string currentAvatarId)
     {
         if (rule.ActionType != OscActionType.AvatarChange)
         {
@@ -4888,13 +4890,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             avatarsById,
             rule.AvatarChangeTargetId,
             rule.AvatarTargetName,
-            sourceLabel,
             string.Equals(rule.AvatarChangeTargetId?.Trim() ?? string.Empty, currentAvatarId, StringComparison.Ordinal));
         AddKnownSelectableVrChatAvatar(
             avatarsById,
             rule.AvatarChangeResetId,
             rule.ResetAvatarName,
-            sourceLabel,
             string.Equals(rule.AvatarChangeResetId?.Trim() ?? string.Empty, currentAvatarId, StringComparison.Ordinal));
     }
 
@@ -4902,7 +4902,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         IDictionary<string, VrChatAvatarSummary> avatarsById,
         string? avatarId,
         string? avatarName,
-        string sourceLabel,
         bool isCurrentAvatar)
     {
         var normalizedId = avatarId?.Trim() ?? string.Empty;
@@ -4934,8 +4933,16 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         avatarsById[normalizedId] = new VrChatAvatarSummary(
             normalizedId,
             displayName,
-            sourceLabel,
-            isCurrentAvatar);
+            AuthorName: string.Empty,
+            ThumbnailUrl: null,
+            isCurrentAvatar,
+            IsUploaded: false,
+            IsFavorited: false,
+            IsLicensed: false,
+            Platform: string.Empty,
+            StyleTags: Array.Empty<string>(),
+            ContentTags: Array.Empty<string>(),
+            FavoriteGroupName: null);
     }
 
     private static void ReplaceCollectionIfChanged<T>(
@@ -6115,7 +6122,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     private void OpenAvatarPicker(object? parameter)
     {
         var avatars = availableVrChatAvatars
-            .Select(a => new VrChatAvatarSummary(a.Id, a.Name, a.SourceLabel, a.IsCurrentAvatar, a.ThumbnailUrl))
+            .Select(a => a with { })
             .ToList();
 
         var context = parameter as string ?? "Profile";
@@ -6485,7 +6492,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     public IReadOnlyList<VrChatAvatarSummary> GetAllVrChatAvatars()
         => availableVrChatAvatars
-            .Select(a => new VrChatAvatarSummary(a.Id, a.Name, a.SourceLabel, a.IsCurrentAvatar, a.ThumbnailUrl))
+            .Select(a => a with { })
             .ToList();
 
     public string? TryGetVrChatAvatarThumbnailUrl(string? avatarId)
@@ -9269,10 +9276,10 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         try
         {
             result = await applicationUpdateService.CheckForUpdateAsync(
-                AppUpdateVersion,
+                AppBuildIdentity,
                 Settings.IgnoredUpdateVersion,
                 Settings.IgnoredBetaUpdateBaseVersion,
-                Settings.BetaApplicationUpdatesEnabled || !string.IsNullOrWhiteSpace(BetaBuildLabel),
+                Settings.BetaApplicationUpdatesEnabled || AppBuildIdentity.Channel == ApplicationUpdateChannel.Beta,
                 cancellationToken);
         }
         catch (OperationCanceledException)
@@ -11437,8 +11444,16 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
                 mergedAvatars[normalizedLocalAvatarId] = new VrChatAvatarSummary(
                     normalizedLocalAvatarId,
                     fallbackName,
-                    "Local OSC",
-                    string.Equals(normalizedLocalAvatarId, currentAvatarId, StringComparison.Ordinal));
+                    AuthorName: string.Empty,
+                    ThumbnailUrl: null,
+                    IsCurrentAvatar: string.Equals(normalizedLocalAvatarId, currentAvatarId, StringComparison.Ordinal),
+                    IsUploaded: false,
+                    IsFavorited: false,
+                    IsLicensed: false,
+                    Platform: string.Empty,
+                    StyleTags: Array.Empty<string>(),
+                    ContentTags: Array.Empty<string>(),
+                    FavoriteGroupName: null);
                 availableVrChatAvatarNamesById[normalizedLocalAvatarId] = fallbackName;
                 changed = true;
                 continue;
@@ -17006,7 +17021,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
                 : Settings.Broadcaster.DisplayName,
             Settings.Broadcaster.Login,
             runtimeConfig.LiveFeedbackHeartbeatEndpoint,
-            GetAppUpdateVersion(),
+            AppUpdateVersion,
             BuildChannel);
     }
 
@@ -18123,7 +18138,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             .ToList();
 
         var avatars = availableVrChatAvatars
-            .Select(a => new VrChatAvatarSummary(a.Id, a.Name, a.SourceLabel, a.IsCurrentAvatar, a.ThumbnailUrl))
+            .Select(a => a with { })
             .ToList();
 
         var result = AvatarPickerService.OpenMulti(
@@ -20361,77 +20376,16 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         return "0.0.0";
     }
 
-    private static string DetectBetaBuildLabel()
-    {
-        try
-        {
-            var markerPath = Path.Combine(AppContext.BaseDirectory, BetaBuildMarkerFileName);
-            if (!File.Exists(markerPath))
-            {
-                return string.Empty;
-            }
-
-            var label = File.ReadAllText(markerPath).Trim();
-            if (string.IsNullOrWhiteSpace(label))
-            {
-                return "Beta";
-            }
-
-            if (label.StartsWith("beta", StringComparison.OrdinalIgnoreCase))
-            {
-                var betaNumber = label[4..].Trim(' ', '-', '_');
-                if (int.TryParse(betaNumber, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedBetaNumber) &&
-                    parsedBetaNumber > 0)
-                {
-                    return $"Beta {parsedBetaNumber.ToString(CultureInfo.InvariantCulture)}";
-                }
-            }
-
-            return label.Length <= 40 ? label : label[..40];
-        }
-        catch
-        {
-            return string.Empty;
-        }
-    }
-
-    private static bool DetectTestBuild()
-    {
-        try
-        {
-            return File.Exists(Path.Combine(AppContext.BaseDirectory, TestBuildMarkerFileName));
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    private static string GetAppUpdateVersion()
-    {
-        if (string.IsNullOrWhiteSpace(BetaBuildLabel))
-        {
-            return AppVersion;
-        }
-
-        var compactLabel = new string(BetaBuildLabel
-            .Trim()
-            .ToLowerInvariant()
-            .Where(char.IsLetterOrDigit)
-            .ToArray());
-        var betaIdentity = compactLabel.StartsWith("beta", StringComparison.Ordinal)
-            ? compactLabel
-            : "beta";
-        return $"{AppVersion}-{betaIdentity}";
-    }
-
     private static string GetAppVersionDisplay()
     {
-        var builder = new StringBuilder(AppVersion);
-        if (!string.IsNullOrWhiteSpace(BetaBuildLabel))
+        var builder = new StringBuilder(
+            AppBuildIdentity.HasBugFixLabel
+                ? AppBuildIdentity.UpdateVersion
+                : AppVersion);
+        if (AppBuildIdentity.HasBetaLabel)
         {
             builder.Append(" - ");
-            builder.Append(BetaBuildLabel);
+            builder.Append(AppBuildIdentity.DisplayLabel);
         }
 
         if (IsTestBuild)
@@ -20444,27 +20398,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 #endif
 
         return builder.ToString();
-    }
-
-    private static string GetBuildChannel()
-    {
-        if (IsTestBuild)
-        {
-            return "test";
-        }
-
-        if (string.IsNullOrWhiteSpace(BetaBuildLabel))
-        {
-            return "stable";
-        }
-
-        var compactLabel = new string(BetaBuildLabel
-            .Trim()
-            .ToLowerInvariant()
-            .Where(char.IsLetterOrDigit)
-            .ToArray());
-
-        return compactLabel;
     }
 
     private enum SectionView

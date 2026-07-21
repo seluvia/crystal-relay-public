@@ -5,7 +5,7 @@ using System.Text.Json.Serialization;
 
 namespace VrcTwitchOscBridge.Services;
 
-internal enum ApplicationUpdateCheckStatus
+public enum ApplicationUpdateCheckStatus
 {
     NoUpdate,
     UpdateAvailable,
@@ -13,50 +13,58 @@ internal enum ApplicationUpdateCheckStatus
     RequestFailed
 }
 
-internal sealed record ApplicationUpdateInfo(
+public sealed record ApplicationUpdateInfo(
     string CurrentVersion,
     string LatestVersion,
     string LatestBaseVersion,
+    ApplicationUpdateChannel Channel,
+    int BugFixSequence,
+    string ReleaseTitle,
+    string ReleaseBody,
     string ReleasePageUrl,
     string AssetName,
     string AssetDownloadUrl,
     long AssetSizeBytes,
-    string Sha256Digest,
-    bool IsBeta = false);
+    string Sha256Digest)
+{
+    public bool IsBeta => Channel == ApplicationUpdateChannel.Beta;
+    public bool IsBugFix => Channel == ApplicationUpdateChannel.BugFix;
+}
 
-internal sealed record ApplicationUpdateCheckResult(
+public sealed record ApplicationUpdateCheckResult(
     ApplicationUpdateCheckStatus Status,
     ApplicationUpdateInfo? Update = null);
 
-/// <summary>
-/// Checks the latest public Crystal Relay GitHub release so the app can prompt
-/// users when a newer published version is available.
-/// </summary>
-internal sealed class ApplicationUpdateService : IDisposable
+public sealed class ApplicationUpdateService : IDisposable
 {
-    private static readonly Uri ReleasesEndpoint = new("https://api.github.com/repos/seluvia/crystal-relay-public/releases?per_page=30");
+    private static readonly Uri ReleasesEndpoint = new(
+        "https://api.github.com/repos/seluvia/crystal-relay-public/releases?per_page=100");
     private static readonly TimeSpan DefaultRequestTimeout = TimeSpan.FromSeconds(6);
-    private const string RuntimeName = "win-x64";
 
-    private readonly HttpClient httpClient = new()
-    {
-        Timeout = DefaultRequestTimeout
-    };
+    private readonly HttpClient httpClient;
 
     public ApplicationUpdateService()
+        : this(new HttpClient { Timeout = DefaultRequestTimeout })
     {
-        httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
-        httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("CrystalRelay-DesktopApp");
+    }
+
+    internal ApplicationUpdateService(HttpClient httpClient)
+    {
+        this.httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+        this.httpClient.DefaultRequestHeaders.Accept.Add(
+            new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+        this.httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("CrystalRelay-DesktopApp");
     }
 
     public async Task<ApplicationUpdateCheckResult> CheckForUpdateAsync(
-        string currentVersionText,
+        ApplicationBuildIdentity currentBuild,
         string ignoredVersionText,
         string ignoredBetaBaseVersionText,
         bool includeBetaUpdates,
         CancellationToken cancellationToken = default)
     {
-        if (!TryParseReleaseVersion(currentVersionText, out var currentVersion))
+        ArgumentNullException.ThrowIfNull(currentBuild);
+        if (!TryParseReleaseVersion(currentBuild.UpdateVersion, out var currentVersion))
         {
             return new ApplicationUpdateCheckResult(ApplicationUpdateCheckStatus.NoUpdate);
         }
@@ -70,7 +78,8 @@ internal sealed class ApplicationUpdateService : IDisposable
                 return new ApplicationUpdateCheckResult(ApplicationUpdateCheckStatus.RequestFailed);
             }
 
-            releases = await response.Content.ReadFromJsonAsync<List<GitHubReleaseResponse>>(cancellationToken: cancellationToken);
+            releases = await response.Content.ReadFromJsonAsync<List<GitHubReleaseResponse>>(
+                cancellationToken: cancellationToken);
         }
         catch (OperationCanceledException)
         {
@@ -91,24 +100,35 @@ internal sealed class ApplicationUpdateService : IDisposable
             .Select(release => TryCreateCandidate(release, out var candidate) ? candidate : null)
             .OfType<ReleaseCandidate>()
             .ToArray();
-
         if (candidates.Length == 0)
         {
             return new ApplicationUpdateCheckResult(ApplicationUpdateCheckStatus.ReleaseVersionUnreadable);
         }
 
-        var betaUpdatesAllowed = includeBetaUpdates || currentVersion.IsPrerelease;
+        var betaUpdatesAllowed = includeBetaUpdates
+            || currentBuild.Channel == ApplicationUpdateChannel.Beta;
         var bestStable = candidates
-            .Where(candidate => !candidate.IsBeta)
-            .Where(candidate => candidate.Version.CompareTo(currentVersion) > 0)
+            .Where(candidate => candidate.Channel == ApplicationUpdateChannel.Stable)
+            .Where(candidate => IsNewerStableCandidate(candidate.Version, currentVersion, currentBuild.Channel))
             .Where(candidate => !IsIgnoredUpdate(ignoredVersionText, candidate.Version, betaCandidate: false))
             .OrderByDescending(candidate => candidate.Version)
             .ThenByDescending(candidate => candidate.PublishedAt)
             .FirstOrDefault();
 
+        var bestBugFix = !currentBuild.IsTestBuild
+            && currentBuild.Channel is ApplicationUpdateChannel.Stable or ApplicationUpdateChannel.BugFix
+                ? candidates
+                    .Where(candidate => candidate.Channel == ApplicationUpdateChannel.BugFix)
+                    .Where(candidate => candidate.Version.CompareBaseTo(currentVersion) == 0)
+                    .Where(candidate => candidate.BugFixSequence > currentBuild.BugFixSequence)
+                    .OrderByDescending(candidate => candidate.BugFixSequence)
+                    .ThenByDescending(candidate => candidate.PublishedAt)
+                    .FirstOrDefault()
+                : null;
+
         var bestBeta = betaUpdatesAllowed
             ? candidates
-                .Where(candidate => candidate.IsBeta)
+                .Where(candidate => candidate.Channel == ApplicationUpdateChannel.Beta)
                 .Where(candidate => IsNewerBetaCandidate(candidate.Version, currentVersion))
                 .Where(candidate => !IsIgnoredUpdate(ignoredVersionText, candidate.Version, betaCandidate: true))
                 .Where(candidate => !IsIgnoredBetaBaseVersion(ignoredBetaBaseVersionText, candidate.Version))
@@ -117,7 +137,7 @@ internal sealed class ApplicationUpdateService : IDisposable
                 .FirstOrDefault()
             : null;
 
-        var update = ChooseBestCandidate(bestStable, bestBeta);
+        var update = bestStable ?? bestBugFix ?? bestBeta;
         if (update is null)
         {
             return new ApplicationUpdateCheckResult(ApplicationUpdateCheckStatus.NoUpdate);
@@ -126,15 +146,18 @@ internal sealed class ApplicationUpdateService : IDisposable
         return new ApplicationUpdateCheckResult(
             ApplicationUpdateCheckStatus.UpdateAvailable,
             new ApplicationUpdateInfo(
-                currentVersion.ToDisplayString(),
+                currentBuild.UpdateVersion,
                 update.Version.ToDisplayString(),
                 update.Version.ToBaseDisplayString(),
+                update.Channel,
+                update.BugFixSequence,
+                update.ReleaseTitle,
+                update.ReleaseBody,
                 update.ReleasePageUrl,
                 update.AssetName,
                 update.AssetDownloadUrl,
                 update.AssetSizeBytes,
-                update.Sha256Digest,
-                update.IsBeta));
+                update.Sha256Digest));
     }
 
     public void Dispose() => httpClient.Dispose();
@@ -142,30 +165,58 @@ internal sealed class ApplicationUpdateService : IDisposable
     private static bool TryCreateCandidate(GitHubReleaseResponse release, out ReleaseCandidate candidate)
     {
         candidate = default!;
-        if (!TryParseReleaseVersion(release.TagName, out var version))
+        ApplicationUpdateChannel channel;
+        AppReleaseVersion version;
+        var bugFixSequence = 0;
+
+        var tagText = release.TagName ?? string.Empty;
+        if (tagText.StartsWith("v", StringComparison.Ordinal)
+            && ApplicationUpdatePackageRules.TryParseBugFixVersion(
+                tagText[1..],
+                out var bugFixBaseVersion,
+                out bugFixSequence))
         {
-            return false;
+            if (release.Prerelease
+                || !TryParseReleaseVersion(bugFixBaseVersion, out var baseVersion))
+            {
+                return false;
+            }
+
+            channel = ApplicationUpdateChannel.BugFix;
+            version = baseVersion with { Prerelease = $"bugfix{bugFixSequence}" };
+        }
+        else
+        {
+            if (!TryParseReleaseVersion(release.TagName, out version))
+            {
+                return false;
+            }
+
+            var isBeta = IsBetaRelease(release, version);
+            if (!isBeta && (release.Prerelease || version.IsPrerelease))
+            {
+                return false;
+            }
+
+            channel = isBeta ? ApplicationUpdateChannel.Beta : ApplicationUpdateChannel.Stable;
         }
 
-        var isBeta = IsBetaRelease(release, version);
-        if (!isBeta && (release.Prerelease || version.IsPrerelease))
-        {
-            return false;
-        }
-
-        if (!TryFindReleaseAsset(release, version, out var asset))
+        if (!TryFindReleaseAsset(release, version, channel, out var asset))
         {
             return false;
         }
 
         candidate = new ReleaseCandidate(
             version,
+            channel,
+            bugFixSequence,
+            string.IsNullOrWhiteSpace(release.Name) ? version.ToDisplayString() : release.Name.Trim(),
+            release.Body ?? string.Empty,
             release.HtmlUrl ?? string.Empty,
             asset.Name ?? string.Empty,
             asset.BrowserDownloadUrl ?? string.Empty,
             Math.Max(0, asset.Size),
             asset.Digest ?? string.Empty,
-            isBeta,
             release.PublishedAt ?? DateTimeOffset.MinValue);
         return true;
     }
@@ -173,13 +224,22 @@ internal sealed class ApplicationUpdateService : IDisposable
     private static bool TryFindReleaseAsset(
         GitHubReleaseResponse release,
         AppReleaseVersion version,
+        ApplicationUpdateChannel channel,
         out GitHubReleaseAssetResponse asset)
     {
         asset = default!;
-        var expectedAssetName = GetExpectedAssetName(version);
+        var expectedAssetName = ApplicationUpdatePackageRules.GetExpectedAssetName(
+            channel,
+            version.ToDisplayString());
+        var nameComparison = channel == ApplicationUpdateChannel.BugFix
+            ? StringComparison.Ordinal
+            : StringComparison.OrdinalIgnoreCase;
         var match = (release.Assets ?? [])
             .Where(candidate => !string.IsNullOrWhiteSpace(candidate.Name))
-            .FirstOrDefault(candidate => string.Equals(candidate.Name, expectedAssetName, StringComparison.OrdinalIgnoreCase));
+            .FirstOrDefault(candidate => string.Equals(
+                candidate.Name,
+                expectedAssetName,
+                nameComparison));
         if (match is null || string.IsNullOrWhiteSpace(match.BrowserDownloadUrl))
         {
             return false;
@@ -189,36 +249,13 @@ internal sealed class ApplicationUpdateService : IDisposable
         return true;
     }
 
-    private static string GetExpectedAssetName(AppReleaseVersion version) =>
-        $"CrystalRelayTwitchOsc-v{version.ToDisplayString()}-{RuntimeName}.zip";
-
-    private static ReleaseCandidate? ChooseBestCandidate(ReleaseCandidate? stableCandidate, ReleaseCandidate? betaCandidate)
-    {
-        if (stableCandidate is null)
-        {
-            return betaCandidate;
-        }
-
-        if (betaCandidate is null)
-        {
-            return stableCandidate;
-        }
-
-        var versionComparison = stableCandidate.Version.CompareTo(betaCandidate.Version);
-        if (versionComparison > 0)
-        {
-            return stableCandidate;
-        }
-
-        if (versionComparison < 0)
-        {
-            return betaCandidate;
-        }
-
-        return stableCandidate.PublishedAt >= betaCandidate.PublishedAt
-            ? stableCandidate
-            : betaCandidate;
-    }
+    private static bool IsNewerStableCandidate(
+        AppReleaseVersion stableVersion,
+        AppReleaseVersion currentVersion,
+        ApplicationUpdateChannel currentChannel) =>
+        currentChannel == ApplicationUpdateChannel.BugFix
+            ? stableVersion.CompareBaseTo(currentVersion) > 0
+            : stableVersion.CompareTo(currentVersion) > 0;
 
     private static bool IsNewerBetaCandidate(AppReleaseVersion betaVersion, AppReleaseVersion currentVersion)
     {
@@ -331,12 +368,15 @@ internal sealed class ApplicationUpdateService : IDisposable
 
     private sealed record ReleaseCandidate(
         AppReleaseVersion Version,
+        ApplicationUpdateChannel Channel,
+        int BugFixSequence,
+        string ReleaseTitle,
+        string ReleaseBody,
         string ReleasePageUrl,
         string AssetName,
         string AssetDownloadUrl,
         long AssetSizeBytes,
         string Sha256Digest,
-        bool IsBeta,
         DateTimeOffset PublishedAt);
 
     private readonly record struct AppReleaseVersion(int Major, int Minor, int Patch, string Prerelease)
@@ -465,6 +505,9 @@ internal sealed class ApplicationUpdateService : IDisposable
 
         [JsonPropertyName("name")]
         public string? Name { get; set; }
+
+        [JsonPropertyName("body")]
+        public string? Body { get; set; }
 
         [JsonPropertyName("html_url")]
         public string? HtmlUrl { get; set; }

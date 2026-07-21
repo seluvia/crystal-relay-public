@@ -743,7 +743,7 @@
                           GridLinesVisibility="None"
                           Background="Transparent"
                           BorderThickness="0"
-                          AlternatingRowBackground="#22181730"
+                           AlternatingRowBackground="{DynamicResource PanelSecondaryBrush}"
                           AlternationCount="2"
                           RowHeaderWidth="0"
                           SelectionMode="Single"

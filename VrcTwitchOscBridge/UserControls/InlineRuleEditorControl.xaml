@@ -672,9 +672,28 @@
                 <Border Background="{DynamicResource NestedPanelBrush}" CornerRadius="4" Padding="10" Margin="0,0,0,8">
                     <StackPanel>
                         <TextBlock Text="Subscription Settings" Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" Margin="0,0,0,8" />
+
+                        <TextBlock Text="{loc:Translate 'Subs to Trigger'}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
+                        <TextBox Text="{Binding Rule.SubsTriggerCount, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6" />
+
+                        <CheckBox Content="{loc:Translate 'Accumulate subs across events'}"
+                                  IsChecked="{Binding Rule.SubsAccumulationEnabled, UpdateSourceTrigger=PropertyChanged}"
+                                  Margin="0,0,0,4" />
+                        <StackPanel Margin="26,0,0,6"
+                                    Visibility="{Binding Rule.SubsAccumulationEnabled, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <CheckBox Content="{loc:Translate 'Carry over excess subs'}"
+                                      IsChecked="{Binding Rule.SubsCarryOverEnabled, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+
+                        <TextBlock Text="{Binding Rule.SubsTriggerSummary}"
+                                   Foreground="{DynamicResource AccentBrush}"
+                                   FontSize="10"
+                                   TextWrapping="Wrap"
+                                   Margin="0,4,0,8" />
+
                         <CheckBox Content="{loc:Translate 'Add sub time to swap'}"
                                   IsChecked="{Binding Rule.AddBitsToSwapTime, UpdateSourceTrigger=PropertyChanged}"
-                                  Margin="0,0,0,8" />
+                                  Margin="0,0,0,4" />
                         <StackPanel Visibility="{Binding Rule.AddBitsToSwapTime, Converter={StaticResource BoolToVisibilityConverter}}">
                             <UniformGrid Columns="3">
                                 <StackPanel Margin="0,0,6,0">

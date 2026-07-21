@@ -1,0 +1,406 @@
+# Crystal Relay Bug Fix Push Channel Design
+
+Date: 2026-07-19
+Status: Approved design, implementation plan complete
+
+## Context
+
+Crystal Relay currently discovers and installs two kinds of GitHub releases:
+
+- Stable releases such as `v3.1.10`.
+- Optional beta releases such as `v3.1.11-beta1`.
+
+The current stable release is `v3.1.9`. The new channel support will first ship in `v3.1.10`, so clients older than `v3.1.10` must continue using the existing stable-update path before they can receive a Bug Fix Push.
+
+A Bug Fix Push is an installable, production-quality correction for one exact stable version. It is not a semantic-version release and is not a beta. It uses GitHub Releases for startup discovery and Crystal Relay's existing self-updater for installation.
+
+## Goals
+
+- Add a third first-class update channel named `BugFix` alongside `Stable` and `Beta`.
+- Let the maintainer publish a full replacement package without incrementing the stable three-part version.
+- Show affected stable users what the fix addresses so they can update now or defer until the next launch.
+- Prevent users from permanently ignoring a Bug Fix Push.
+- Reuse the existing HTTPS download, SHA-256 validation, safe extraction, backup, replacement, relaunch, and cleanup flow.
+- Keep Bug Fix Pushes cumulative and scoped to one exact stable base version.
+- Keep beta installations isolated from stable Bug Fix Pushes.
+- Provide an explicit build-and-publish script and complete maintainer instructions in `AGENTS.md`.
+- Prevent older clients from misclassifying or attempting to install the new package type.
+
+## Non-Goals
+
+- No real-time socket, Cloudflare, or notification service is added. Discovery remains a single GitHub check during app startup.
+- Bug Fix Pushes do not target beta builds. Beta corrections use a new beta number.
+- Bug Fix Pushes do not change the website's stable download URL.
+- Bug Fix Pushes do not contain deltas or individual patched files. Every package is a complete Crystal Relay installation.
+- The publish script does not commit or push source changes. Source synchronization and pushes remain explicit prerequisites.
+
+## Release Identity And Naming
+
+For stable base `3.1.10` and Bug Fix sequence `1`:
+
+| Item | Value |
+| --- | --- |
+| GitHub tag | `v3.1.10-bugfix1` |
+| GitHub title | `Crystal Relay v3.1.10 Bug Fix Push 1` |
+| GitHub release type | Normal production release, not prerelease |
+| Changelog heading | `v3.1.10 bug fix 1` |
+| Package asset | `CrystalRelayBugFix-v3.1.10-bugfix1-win-x64.zip` |
+| Package manifest version | `3.1.10-bugfix1` |
+| Package manifest channel | `bugfix` |
+| Entry executable | `CrystalRelayTwitchOsc-v3.1.10-bugfix1.exe` |
+| Build marker | `bugfix-build.flag` containing `bugfix1` |
+| Output folder | `Releases\v3.1.10` |
+
+Bug Fix sequence numbers are positive integers with no gaps required by the app. Publishing tooling should normally use ascending values: `bugfix1`, `bugfix2`, and so on.
+
+Each later Bug Fix Push for the same stable base is cumulative. For example, `v3.1.10-bugfix2` contains the fixes from `bugfix1` plus the new fixes, and users only need to install `bugfix2`.
+
+The project and assembly base version remain `3.1.10`. The package manifest, executable name, GitHub identity, and `bugfix-build.flag` distinguish the installed Bug Fix build.
+
+## Update Domain Model
+
+The update model will represent channel explicitly instead of using `IsBeta` as the sole distinction:
+
+```text
+ApplicationUpdateChannel
+  Stable
+  Beta
+  BugFix
+```
+
+`ApplicationUpdateInfo` will carry:
+
+- Current installed identity.
+- Candidate identity.
+- Stable base version.
+- Update channel.
+- Bug Fix sequence when the channel is `BugFix`.
+- GitHub release title.
+- GitHub release description/body.
+- Release page URL.
+- Asset name, URL, size, and SHA-256 digest.
+
+Convenience properties such as `IsBeta` and `IsBugFix` may remain as derived properties when they simplify existing call sites. Channel decisions must use the enum as the source of truth.
+
+GitHub release JSON parsing will add the release `body` field. Bug Fix tags are accepted only when they match the exact form:
+
+```text
+v<major>.<minor>.<patch>-bugfix<positive integer>
+```
+
+A Bug Fix release is accepted only when it also contains the exact dedicated asset name derived from that identity. Classification happens before stable/beta candidate selection so a Bug Fix release can never also become a stable or beta candidate.
+
+## Installed Build Identity
+
+At startup, Crystal Relay determines its identity in this order:
+
+1. Test build marker, preserving current test behavior.
+2. Beta build marker, preserving current beta behavior.
+3. Bug Fix build marker.
+4. Stable build when no channel marker exists.
+
+`bugfix-build.flag` must contain exactly `bugfix<number>`. Invalid or empty content is not treated as an installed Bug Fix identity. Release packages generated by the Bug Fix script always contain a valid marker.
+
+User-visible identity:
+
+- Home version: `v3.1.10`.
+- Home badge: `BUG FIX 1`.
+- Build/update identity: `v3.1.10-bugfix1`.
+- Title bar or other existing build-channel surfaces use the same Bug Fix identity where beta/test identity is currently shown.
+
+This identity lets update selection suppress an already-installed sequence and offer only a greater cumulative sequence.
+
+## Candidate Selection And Precedence
+
+The update check still runs once during startup. It discovers stable, beta, and Bug Fix candidates in one GitHub Releases request. The request page size increases from 30 to GitHub's 100-item maximum so the third channel does not crowd recent valid releases out of the discovery window without adding pagination requests.
+
+Eligibility rules:
+
+- A stable candidate is eligible under the existing newer-version and ignored-version rules.
+- A Bug Fix candidate is eligible only when the installed channel is `Stable` or `BugFix` and its base version exactly equals the installed base version.
+- A Bug Fix candidate is eligible only when its sequence is greater than the installed sequence, where a plain stable build has installed sequence `0`.
+- Existing stable and beta ignore settings never suppress a Bug Fix candidate.
+- A beta candidate remains eligible only when beta updates are enabled and the existing beta rules accept it.
+- Beta and test installations never receive stable Bug Fix candidates.
+
+Selection order among eligible candidates:
+
+1. A newer, non-ignored stable release.
+2. The highest eligible Bug Fix sequence for the installed stable base.
+3. The best eligible beta release.
+4. No update.
+
+Consequences:
+
+- A user on `v3.1.9` sees normal stable `v3.1.10`, even if `v3.1.10-bugfix2` exists.
+- After installing stable `v3.1.10`, that user sees `v3.1.10-bugfix2` on the next launch.
+- A user on `v3.1.10` sees `v3.1.11` instead of an older-base Bug Fix Push when the newer stable is eligible.
+- If the user previously ignored `v3.1.11`, an eligible mandatory `v3.1.10` Bug Fix Push can still be shown.
+- A user on `v3.1.10` with beta updates enabled sees an eligible Bug Fix Push before an optional beta.
+- A user already on `v3.1.10-bugfix1` sees only `bugfix2` or higher.
+- A beta installation is never replaced by a stable Bug Fix package.
+
+## Bug Fix Notification UI
+
+Add a themed `Bug Fix Push Available` modal to the startup update flow. It is separate from stable and beta dialogs so it cannot accidentally inherit ignore behavior.
+
+The dialog contains:
+
+- Heading: `Bug Fix Push <N> for Crystal Relay v<base version>`.
+- GitHub release title.
+- Full GitHub release description in a bounded, scrollable text area.
+- A clear notice that the push cannot be permanently skipped.
+- `Update Now` primary action.
+- `Later` secondary action.
+- `View on GitHub` link that opens the release page without acting as a permanent dismissal.
+
+GitHub release text is displayed as text, preserving line breaks and bullet readability. Crystal Relay does not execute release HTML, scripts, or embedded content.
+
+Behavior:
+
+- `Update Now` starts the existing progress, download, shutdown, and self-update flow.
+- `Later` dismisses the dialog for the current session only.
+- No ignore value is written to settings.
+- There is no `Skip`, `Ignore`, or `Hide` action for Bug Fix Pushes.
+- Because update discovery is startup-only, a deferred dialog does not interrupt the same session again.
+- The same eligible push returns on the next launch until installed or superseded by a newer eligible stable release.
+
+If the release body is empty, the dialog shows a safe fallback explaining that the details are available on the GitHub release page.
+
+All new user-facing strings use the localization system and are translated into every supported language before completion.
+
+## Package And Self-Update Flow
+
+Bug Fix packages mirror the stable package layout and contain a complete install:
+
+- One visible versioned Crystal Relay executable.
+- `CrystalRelayUpdater.exe`.
+- `crystal-relay-update.json`.
+- `bugfix-build.flag`.
+- Normal packaged documentation and runtime dependencies.
+
+`ApplicationSelfUpdateService` will derive expected asset naming and expected manifest channel from `ApplicationUpdateChannel`:
+
+- Stable expects the current stable asset pattern and `channel: stable`.
+- Beta expects the current beta asset pattern and `channel: beta`.
+- Bug Fix expects the dedicated Bug Fix asset pattern and `channel: bugfix`.
+
+Manifest structure stays compatible; the existing `Version` field carries `3.1.10-bugfix1`, and `Channel` carries `bugfix`. Version parsing validates the stable base and Bug Fix sequence against the selected GitHub candidate.
+
+Both the main app self-update service and `CrystalRelayUpdater` must understand and validate the Bug Fix channel. Their duplicated package, apply-manifest, entry-executable, and path-safety expectations must remain aligned.
+
+The existing application process remains unchanged after validation:
+
+1. Download the complete ZIP over HTTPS.
+2. Validate asset identity and SHA-256 digest.
+3. Extract into the updater-owned staging folder with ZIP path-safety checks.
+4. Validate product, runtime, channel, version, updater presence, and entry executable.
+5. Write the apply manifest.
+6. Launch the dedicated updater and close Crystal Relay.
+7. Back up the current installation.
+8. Replace the install in its current folder.
+9. Relaunch the Bug Fix executable from that installation.
+10. Clean update staging and expired backups through the existing cleanup flow.
+
+For the Bug Fix channel, the apply plan always targets the current `InstallDirectory`. After creating the rollback backup, the updater clears that directory and copies the complete Bug Fix package into it. It does not relocate the installation merely because the package has a different channel identity. Runtime data remains safe because it continues to live under the existing AppData paths rather than in the install folder.
+
+Any package-folder allowlists used by the main app and dedicated updater must recognize the Bug Fix package shape for validation without changing this in-place target rule.
+
+## Backward Compatibility
+
+The dedicated asset prefix `CrystalRelayBugFix-` is a compatibility boundary. Existing clients such as `v3.1.9` search only for the standard `CrystalRelayTwitchOsc-...zip` name and therefore ignore Bug Fix releases safely, even though they may parse the GitHub tag.
+
+The first stable version containing Bug Fix channel support is `v3.1.10`. An older client must install that normal stable release before it can discover and install a `v3.1.10-bugfixN` package.
+
+Bug Fix releases are normal GitHub releases, but they do not replace the website's pinned stable download asset. New users continue downloading the latest full stable package from the website and can receive any applicable cumulative Bug Fix Push after startup.
+
+## Build Script
+
+Add `Build-Crystal-Relay-BugFix.ps1` with this interface:
+
+```powershell
+.\Build-Crystal-Relay-BugFix.ps1 -Version 3.1.10 -BugFix 1
+.\Build-Crystal-Relay-BugFix.ps1 -Version 3.1.10 -BugFix 1 -Publish
+```
+
+The script follows existing release-script safety patterns:
+
+- Validate three-part base version and positive Bug Fix sequence.
+- Require `VrcTwitchOscBridge.csproj` and updater project base versions to equal the target stable base.
+- Require an exact, line-anchored `CHANGELOG.txt` heading: `v<version> bug fix <N>`.
+- Require the release change record baseline to be compatible with the target stable base.
+- Require a clean tree unless the existing explicit development override is set.
+- Run localization audit, tests/build gates used by release packaging, and guarded cleanup.
+- Reuse `Assert-SafeBuildPath` protections for every recursive deletion.
+- Publish the main app as a flat, single-file `win-x64` package.
+- Build and include the dedicated updater.
+- Write the `bugfix` package manifest and `bugfix-build.flag`.
+- Validate package shape, manifest, entry executable, and asset naming before completing.
+- Create the loose package and ZIP under `Releases\v<base version>` alongside stable/beta artifacts.
+- Never alter the normal website download link.
+
+The Bug Fix build/publish script is private maintainer tooling because it enforces internal `AGENTS.md` and private/public repository publication gates. Public export excludes the script and its contract test, and public safety blocks accidental copies; the runtime channel implementation and runtime tests remain public source.
+
+## Stable-Source Isolation
+
+A Bug Fix Push must be built from the affected stable source, not from a development branch containing unfinished work.
+
+Required workflow:
+
+1. Start a dedicated hotfix branch/worktree from stable tag `v<base version>`.
+2. Apply only the selected fix commits and their tests.
+3. Add the Bug Fix changelog and private release-record entries.
+4. Build and verify the Bug Fix package in that isolated source tree.
+5. Update and verify the private repository first.
+6. Export, safety-check, commit, and push the public repository.
+7. Publish the GitHub release only after both repository copies are confirmed.
+
+The build script validates that the stable tag is an ancestor of the hotfix commit and records the source commit in build output. It cannot infer whether every descendant commit is appropriate, so code review remains a required publication gate.
+
+## Optional GitHub Publication
+
+`-Publish` performs release publication only after packaging succeeds. It never commits or pushes source code.
+
+Publication prerequisites:
+
+- Private repository update is committed and pushed.
+- Public export and public-safety preflight have passed.
+- Public repository update is committed, pushed, clean, and synchronized with its upstream branch.
+- The intended public commit is available as the GitHub release target.
+- The tag and release do not already exist.
+- The asset name does not conflict with an existing release asset.
+
+Publication actions:
+
+1. Extract the exact, line-anchored `v<version> bug fix <N>` changelog section into a temporary notes file, ending at the next release heading.
+2. Create normal GitHub release tag `v<version>-bugfix<N>` against the verified public commit.
+3. Set title `Crystal Relay v<version> Bug Fix Push <N>`.
+4. Use the extracted changelog section as release notes.
+5. Upload the verified ZIP asset.
+6. Query GitHub after publication to verify tag, title, release type, asset name, size, and digest availability, using a bounded wait if GitHub has not populated the digest immediately.
+
+Any failed prerequisite stops before GitHub mutation. Any partial GitHub publication is reported clearly and is not hidden by automatic retries or destructive cleanup.
+
+## Changelog And Release Record
+
+Each Bug Fix Push adds a public section at the top of `CHANGELOG.txt`:
+
+```text
+v3.1.10 bug fix 1
+- Fixed ...
+- Prevented ...
+```
+
+Rules:
+
+- Wording is user-facing and explains the impact well enough to choose Update Now or Later.
+- The section describes changes since the previous stable/Bug Fix package for that base.
+- Previous Bug Fix sections remain as public history.
+- Each new Bug Fix section is mirrored into `RELEASE-CHANGE-RECORD.txt` so the next stable summary can include all surviving fixes.
+- The next stable release rolls all applicable Bug Fix changes into its fresh user-facing stable summary without deleting prior Bug Fix entries.
+- Bug Fix Pushes do not update README stable highlights or the website stable download URL.
+
+## `AGENTS.md` Workflow Additions
+
+`AGENTS.md` becomes the source of truth for all four build lanes: `none`, `test`, `beta`, and `bugfix`.
+
+Project Identity adds:
+
+```text
+Active build lane: none|test|beta|bugfix
+Active bug fix push: none|v<version>-bugfix<N>
+```
+
+The Bug Fix rules must state:
+
+- Bug Fix Pushes target one exact stable base and never a beta.
+- The base project version is not incremented for a Bug Fix Push.
+- Tag, title, changelog heading, asset, executable, manifest channel/version, flag, and output naming are fixed by this design.
+- Every Bug Fix package is cumulative for its base version.
+- Build from the stable tag in an isolated hotfix branch/worktree and include only approved fixes.
+- Run a test build or direct verification before publication.
+- Update `AGENTS.md` active lane and Bug Fix identity before building.
+- Reset the active Bug Fix identity and lane after publication while preserving the normal next-development version.
+- Keep stable, beta, and Bug Fix changelog workflows distinct.
+- Update private repository first, then public repository, then publish the release asset.
+- Run public safety preflight before `-Publish`.
+- Never change the website stable URL for beta, test, or Bug Fix packages.
+- Never create or publish a Bug Fix release unless explicitly requested.
+
+Existing stable and beta instructions will be reconciled with these additions so there is one unambiguous precedence and publication workflow.
+
+## Error Handling
+
+- GitHub unavailable, timed out, or rate-limited: launch normally and retry next startup.
+- Malformed or incomplete Bug Fix release: skip it without blocking valid stable/beta candidates.
+- Wrong base version: ignore the Bug Fix candidate.
+- Missing or wrong dedicated asset: ignore the candidate.
+- Missing digest, wrong digest, unsafe ZIP, manifest mismatch, channel mismatch, version mismatch, missing updater, or wrong entry executable: refuse installation through existing error handling.
+- Download failure: preserve the current installation and show the existing update error flow.
+- Apply failure: preserve or restore the installation through existing updater backup protections.
+- Deferred or failed Bug Fix Push: offer it again on the next startup while it remains eligible.
+- Duplicate tag, release, sequence, or asset during publication: stop before publishing or report the partial state without overwriting it.
+
+## Security
+
+- Continue using only HTTPS GitHub release and asset URLs.
+- Continue validating SHA-256 before extraction.
+- Keep ZIP traversal and install-path protections strict.
+- Keep update staging and backups under their existing AppData paths.
+- Never place credentials, GitHub tokens, auth cookies, or runtime state in packages, manifests, release notes, logs, or source files.
+- Render GitHub release notes as text rather than executable content.
+- Keep GitHub publication authentication in the existing `gh` credential flow; do not introduce repository secrets into scripts.
+
+## Testing Strategy
+
+Refactor update discovery only enough to inject deterministic GitHub responses, such as an `HttpClient` or message handler. Keep parsing and candidate selection in focused, testable units.
+
+Required automated tests:
+
+- Parse exact Bug Fix tags and reject malformed variants.
+- Match the dedicated Bug Fix asset and reject stable/beta asset substitutions.
+- Classify stable, beta, and Bug Fix releases without overlap.
+- Offer only Bug Fix candidates whose base exactly matches the installed stable/Bug Fix base.
+- Choose the greatest cumulative Bug Fix sequence.
+- Suppress already-installed and lower Bug Fix sequences.
+- Let a newer eligible stable release supersede an older-base Bug Fix Push.
+- Let an eligible Bug Fix Push precede an optional beta.
+- Ignore Bug Fix candidates on beta and test installations.
+- Confirm stable/beta ignored-version settings do not suppress Bug Fix candidates.
+- Preserve current stable and beta selection behavior.
+- Carry release title, body, URL, asset metadata, and digest into the UI/update flow.
+- Ensure the Bug Fix dialog has Update Now, Later, and View on GitHub but no permanent-ignore action.
+- Read and validate `bugfix-build.flag` and expose the expected user-visible identity.
+- Validate Bug Fix package name, manifest channel/version, entry executable, and marker.
+- Keep main-app and dedicated-updater Bug Fix validation aligned.
+- Validate script version/sequence input, changelog heading, package naming, safe output paths, and publish preconditions.
+- Verify extracted GitHub notes match the changelog section.
+
+Required completion verification:
+
+- Targeted update-service and updater tests pass.
+- Complete app test suite is run and all failures are resolved or explicitly proven pre-existing and unrelated.
+- Localization audit passes for every supported language.
+- Direct app build succeeds.
+- Dedicated updater build succeeds.
+- A generated Bug Fix test package passes manifest and package-shape validation.
+- Manual startup check shows full notes and no ignore option.
+- Manual update applies into the same installation location, relaunches, shows `BUG FIX <N>`, and does not offer the same sequence again.
+- Public safety preflight passes before any publication test.
+
+## Acceptance Criteria
+
+The design is complete when all of the following are true:
+
+1. Crystal Relay `v3.1.10` can distinguish Stable, Beta, and Bug Fix GitHub releases.
+2. `v3.1.9` and other older clients safely ignore dedicated Bug Fix assets.
+3. An eligible Bug Fix Push is shown to every affected stable installation regardless of beta or ignore settings.
+4. Users can update immediately or defer only until the next launch.
+5. The dialog displays the complete GitHub release description and offers a GitHub link.
+6. The existing self-updater safely replaces the current installation and relaunches from the same location.
+7. The installed build visibly identifies its Bug Fix sequence and does not receive the same push again.
+8. A newer stable release supersedes an older-base Bug Fix Push.
+9. Beta/test installations are never replaced by a stable Bug Fix package.
+10. The build script creates a valid cumulative package and publishes only with explicit `-Publish`.
+11. `AGENTS.md` unambiguously documents stable, beta, test, and Bug Fix workflows.
+12. No Bug Fix operation changes the website's pinned stable download URL.

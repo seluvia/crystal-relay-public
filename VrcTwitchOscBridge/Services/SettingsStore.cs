@@ -144,9 +144,16 @@ public sealed class SettingsStore
             .Select(avatar => new VrChatAvatarSummary(
                 avatar.Id ?? string.Empty,
                 avatar.Name ?? (avatar.Id ?? string.Empty),
-                avatar.SourceLabel ?? "Cached",
+                AuthorName: string.Empty,
+                avatar.ThumbnailUrl,
                 avatar.IsCurrentAvatar,
-                avatar.ThumbnailUrl))
+                IsUploaded: false,
+                IsFavorited: false,
+                IsLicensed: false,
+                Platform: string.Empty,
+                StyleTags: Array.Empty<string>(),
+                ContentTags: Array.Empty<string>(),
+                FavoriteGroupName: null))
             .ToArray();
     }
 
@@ -166,7 +173,6 @@ public sealed class SettingsStore
             {
                 Id = avatar.Id,
                 Name = avatar.Name,
-                SourceLabel = avatar.SourceLabel,
                 IsCurrentAvatar = avatar.IsCurrentAvatar,
                 ThumbnailUrl = avatar.ThumbnailUrl
             }).ToList()
@@ -3205,8 +3211,6 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
         public string? Id { get; set; }
 
         public string? Name { get; set; }
-
-        public string? SourceLabel { get; set; }
 
         public bool IsCurrentAvatar { get; set; }
 

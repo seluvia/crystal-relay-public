@@ -150,9 +150,16 @@ public sealed class VrChatApiClient : IDisposable
             .Select(avatar => new VrChatAvatarSummary(
                 avatar.Id,
                 avatar.Name,
-                string.Join(" / ", avatar.Sources.OrderBy(source => source, StringComparer.OrdinalIgnoreCase)),
+                avatar.AuthorName,
+                avatar.ThumbnailUrl,
                 avatar.IsCurrentAvatar,
-                avatar.ThumbnailUrl))
+                avatar.IsUploaded,
+                avatar.IsFavorited,
+                avatar.IsLicensed,
+                avatar.Platform,
+                avatar.StyleTags,
+                avatar.ContentTags,
+                FavoriteGroupName: null))
             .ToArray();
     }
 
@@ -431,19 +438,73 @@ public sealed class VrChatApiClient : IDisposable
         {
             if (!merged.TryGetValue(avatar.Id, out var current))
             {
+                var platform = ResolvePlatform(avatar.UnityPackages);
+                var (styleTags, contentTags) = ExtractTags(avatar.Tags);
+
                 current = new MutableAvatar
                 {
                     Id = avatar.Id,
                     Name = string.IsNullOrWhiteSpace(avatar.Name) ? avatar.Id : avatar.Name,
+                    AuthorName = avatar.AuthorName?.Trim() ?? string.Empty,
                     ThumbnailUrl = avatar.ThumbnailImageUrl ?? avatar.ImageUrl,
-                    IsCurrentAvatar = string.Equals(avatar.Id, currentAvatarId, StringComparison.Ordinal)
+                    IsCurrentAvatar = string.Equals(avatar.Id, currentAvatarId, StringComparison.Ordinal),
+                    Platform = platform,
+                    StyleTags = styleTags,
+                    ContentTags = contentTags
                 };
                 merged[avatar.Id] = current;
             }
 
             current.Sources.Add(sourceLabel);
             current.IsCurrentAvatar |= string.Equals(avatar.Id, currentAvatarId, StringComparison.Ordinal);
+
+            if (string.Equals(sourceLabel, "Uploaded", StringComparison.OrdinalIgnoreCase))
+                current.IsUploaded = true;
+            else if (string.Equals(sourceLabel, "Favorites", StringComparison.OrdinalIgnoreCase))
+                current.IsFavorited = true;
+            else if (string.Equals(sourceLabel, "Licensed", StringComparison.OrdinalIgnoreCase))
+                current.IsLicensed = true;
         }
+    }
+
+    private static string ResolvePlatform(IReadOnlyList<UnityPackageRecord>? unityPackages)
+    {
+        if (unityPackages is null || unityPackages.Count == 0)
+            return string.Empty;
+
+        var hasPc = false;
+        var hasQuest = false;
+        foreach (var pkg in unityPackages)
+        {
+            var p = pkg.Platform?.Trim();
+            if (string.Equals(p, "standalonewindows", StringComparison.OrdinalIgnoreCase))
+                hasPc = true;
+            else if (string.Equals(p, "android", StringComparison.OrdinalIgnoreCase))
+                hasQuest = true;
+        }
+
+        if (hasPc && hasQuest) return "Both";
+        if (hasPc) return "PC";
+        if (hasQuest) return "Quest";
+        return string.Empty;
+    }
+
+    private static (IReadOnlyList<string> StyleTags, IReadOnlyList<string> ContentTags) ExtractTags(IReadOnlyList<string>? tags)
+    {
+        if (tags is null || tags.Count == 0)
+            return (Array.Empty<string>(), Array.Empty<string>());
+
+        var style = new List<string>();
+        var content = new List<string>();
+        foreach (var tag in tags)
+        {
+            if (tag.StartsWith("avatar_", StringComparison.Ordinal))
+                style.Add(tag["avatar_".Length..]);
+            else if (tag.StartsWith("content_", StringComparison.Ordinal))
+                content.Add(tag["content_".Length..]);
+        }
+
+        return (style, content);
     }
 
     private static HttpRequestMessage CreateRequest(HttpMethod method, string relativePath, string authCookie)
@@ -808,9 +869,23 @@ public sealed class VrChatApiClient : IDisposable
 
         public string Name { get; init; } = string.Empty;
 
+        public string AuthorName { get; init; } = string.Empty;
+
         public string? ThumbnailUrl { get; init; }
 
         public bool IsCurrentAvatar { get; set; }
+
+        public bool IsUploaded { get; set; }
+
+        public bool IsFavorited { get; set; }
+
+        public bool IsLicensed { get; set; }
+
+        public string Platform { get; init; } = string.Empty;
+
+        public IReadOnlyList<string> StyleTags { get; init; } = Array.Empty<string>();
+
+        public IReadOnlyList<string> ContentTags { get; init; } = Array.Empty<string>();
 
         public HashSet<string> Sources { get; } = new(StringComparer.OrdinalIgnoreCase);
     }
