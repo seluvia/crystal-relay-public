@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using VrcTwitchOscBridge.Models;
@@ -646,5 +647,86 @@ public partial class AvatarPickerWindow : Window
         var hitTest = VisualTreeHelper.HitTest(ListViewControl, point);
         var item = FindListBoxItem(hitTest?.VisualHit);
         return item?.DataContext as AvatarPickerItem;
+    }
+
+    private void OnSidebarItemClicked(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement element && element.DataContext is SidebarItem sidebarItem)
+        {
+            viewModel.SelectedSidebarItem = sidebarItem;
+        }
+    }
+
+    private void OnAvatarCardClicked(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement element && element.DataContext is AvatarPickerItem item)
+        {
+            SelectAvatarItem(item);
+            UpdateSelectionDisplay();
+        }
+    }
+
+    private void OnStyleFilterChipClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is ToggleButton toggle && toggle.Content is string tag)
+        {
+            if (toggle.IsChecked == true)
+            {
+                if (!viewModel.SelectedStyleTags.Contains(tag))
+                    viewModel.SelectedStyleTags.Add(tag);
+            }
+            else
+            {
+                viewModel.SelectedStyleTags.Remove(tag);
+            }
+            viewModel.RefreshFilter();
+            UpdateFilteredCountText();
+        }
+    }
+
+    private void OnContentFilterChipClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is ToggleButton toggle && toggle.Content is string tag)
+        {
+            if (toggle.IsChecked == true)
+            {
+                if (!viewModel.SelectedContentTags.Contains(tag))
+                    viewModel.SelectedContentTags.Add(tag);
+            }
+            else
+            {
+                viewModel.SelectedContentTags.Remove(tag);
+            }
+            viewModel.RefreshFilter();
+            UpdateFilteredCountText();
+        }
+    }
+
+    private void OnPlatformAllClicked(object sender, RoutedEventArgs e)
+    {
+        viewModel.SelectedPlatform = null;
+        viewModel.RefreshFilter();
+        UpdateFilteredCountText();
+    }
+
+    private void OnPlatformPcClicked(object sender, RoutedEventArgs e)
+    {
+        viewModel.SelectedPlatform = "PC";
+        viewModel.RefreshFilter();
+        UpdateFilteredCountText();
+    }
+
+    private void OnPlatformQuestClicked(object sender, RoutedEventArgs e)
+    {
+        viewModel.SelectedPlatform = "Quest";
+        viewModel.RefreshFilter();
+        UpdateFilteredCountText();
+    }
+
+    private void OnPlatformBothClicked(object sender, RoutedEventArgs e)
+    {
+        viewModel.SelectedPlatform = "Both";
+        viewModel.RefreshFilter();
+        UpdateFilteredCountText();
     }
 }
