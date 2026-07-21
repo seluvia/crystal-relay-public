@@ -20,7 +20,9 @@ public partial class AvatarPickerWindow : Window
         AvatarImageService imageSvc,
         AvatarLibrary? avatarLibrary = null,
         string? currentAvatarId = null,
-        IReadOnlyList<string>? multiSelectCurrentIds = null)
+        IReadOnlyList<string>? multiSelectCurrentIds = null,
+        IReadOnlyList<VrChatFavoriteGroup>? favoriteGroups = null,
+        IReadOnlyDictionary<string, string>? avatarFavoriteGroups = null)
     {
         this.imageService = imageSvc;
 
@@ -29,7 +31,9 @@ public partial class AvatarPickerWindow : Window
             imageSvc,
             avatarLibrary,
             currentAvatarId,
-            multiSelectCurrentIds);
+            multiSelectCurrentIds,
+            favoriteGroups,
+            avatarFavoriteGroups);
 
         DataContext = viewModel;
 

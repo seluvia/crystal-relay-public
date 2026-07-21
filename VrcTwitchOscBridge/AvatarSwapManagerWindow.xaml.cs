@@ -62,7 +62,7 @@ public partial class AvatarSwapManagerWindow : Window
             avatars,
             mainVm.Settings.AvatarLibrary,
             mainVm.Settings.MasterAvatarSwapReturnId,
-            this);
+            owner: this);
         if (result is null) return;
         mainVm.ApplySharedReturnAvatarSelection(result.AvatarId, result.AvatarName, saveImmediately: true);
         _viewModel.SetGlobalReturnAvatar(result.AvatarId, result.AvatarName);
@@ -90,7 +90,7 @@ public partial class AvatarSwapManagerWindow : Window
             avatars,
             mainVm.Settings.AvatarLibrary,
             currentTargetId,
-            this);
+            owner: this);
         if (result is null) return;
         _viewModel.SetTargetAvatar(result.AvatarId, result.AvatarName);
     }
@@ -123,7 +123,7 @@ public partial class AvatarSwapManagerWindow : Window
             avatars,
             mainVm.Settings.AvatarLibrary,
             currentPool,
-            this);
+            owner: this);
 
         _viewModel.SetRoulettePoolSelection(selectedIds, avatars);
     }

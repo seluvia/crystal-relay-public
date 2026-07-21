@@ -5309,7 +5309,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             avatars,
             Settings.AvatarLibrary,
             Settings.MasterAvatarSwapReturnId,
-            Application.Current?.MainWindow);
+            owner: Application.Current?.MainWindow);
         if (result is null) return;
         ApplySharedReturnAvatarSelection(result.AvatarId, result.AvatarName, saveImmediately: true);
         AppendLog($"Picked return avatar '{result.AvatarName}'.");
@@ -6139,7 +6139,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             avatars,
             Settings.AvatarLibrary,
             currentAvatarId,
-            Application.Current.MainWindow);
+            owner: Application.Current.MainWindow);
 
         if (result is null)
         {
@@ -18146,7 +18146,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             avatars,
             Settings.AvatarLibrary,
             configuredIds,
-            Application.Current.MainWindow);
+            owner: Application.Current.MainWindow);
 
         if (result is null)
         {

@@ -21,6 +21,8 @@ public static class AvatarPickerService
         IReadOnlyList<VrChatAvatarSummary> avatars,
         AvatarLibrary? avatarLibrary = null,
         string? currentAvatarId = null,
+        IReadOnlyList<VrChatFavoriteGroup>? favoriteGroups = null,
+        IReadOnlyDictionary<string, string>? avatarFavoriteGroups = null,
         Window? owner = null)
     {
         var window = new AvatarPickerWindow(
@@ -28,7 +30,9 @@ public static class AvatarPickerService
             avatars,
             Instance,
             avatarLibrary,
-            currentAvatarId);
+            currentAvatarId: currentAvatarId,
+            favoriteGroups: favoriteGroups,
+            avatarFavoriteGroups: avatarFavoriteGroups);
 
         if (owner is not null)
         {
@@ -65,6 +69,8 @@ public static class AvatarPickerService
         IReadOnlyList<VrChatAvatarSummary> avatars,
         AvatarLibrary? avatarLibrary = null,
         IReadOnlyList<string>? currentPool = null,
+        IReadOnlyList<VrChatFavoriteGroup>? favoriteGroups = null,
+        IReadOnlyDictionary<string, string>? avatarFavoriteGroups = null,
         Window? owner = null)
     {
         var window = new AvatarPickerWindow(
@@ -72,7 +78,9 @@ public static class AvatarPickerService
             avatars,
             Instance,
             avatarLibrary,
-            multiSelectCurrentIds: currentPool);
+            multiSelectCurrentIds: currentPool,
+            favoriteGroups: favoriteGroups,
+            avatarFavoriteGroups: avatarFavoriteGroups);
 
         if (owner is not null)
         {

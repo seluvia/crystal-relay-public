@@ -14,6 +14,8 @@ public sealed class AvatarPickerViewModel : ObservableObject
     private readonly AvatarImageService imageService;
     private readonly AvatarLibrary? avatarLibrary;
     private readonly IReadOnlyList<VrChatAvatarSummary> avatarSummaries;
+    private readonly IReadOnlyList<VrChatFavoriteGroup>? favoriteGroups;
+    private readonly IReadOnlyDictionary<string, string>? avatarFavoriteGroups;
     private string searchText = string.Empty;
     private AvatarPickerViewMode viewMode = AvatarPickerViewMode.Grid;
     private string? selectedFilterGroupId;
@@ -27,11 +29,15 @@ public sealed class AvatarPickerViewModel : ObservableObject
         AvatarImageService imageService,
         AvatarLibrary? avatarLibrary = null,
         string? currentAvatarId = null,
-        IReadOnlyList<string>? multiSelectCurrentIds = null)
+        IReadOnlyList<string>? multiSelectCurrentIds = null,
+        IReadOnlyList<VrChatFavoriteGroup>? favoriteGroups = null,
+        IReadOnlyDictionary<string, string>? avatarFavoriteGroups = null)
     {
         this.imageService = imageService;
         this.avatarLibrary = avatarLibrary;
         this.avatarSummaries = avatars;
+        this.favoriteGroups = favoriteGroups;
+        this.avatarFavoriteGroups = avatarFavoriteGroups;
 
         // Prune library entries whose avatar is no longer in the VRChat list.
         avatarLibrary?.PruneMissingEntries(avatars);
