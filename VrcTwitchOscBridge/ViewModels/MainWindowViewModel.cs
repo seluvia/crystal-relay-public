@@ -6119,7 +6119,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         AppendLog($"Assigned '{CurrentVrChatAvatarDisplayName}' to avatar set '{SelectedAvatarProfile.DisplayTitle}'.");
     }
 
-    private void OpenAvatarPicker(object? parameter)
+    private async void OpenAvatarPicker(object? parameter)
     {
         var avatars = availableVrChatAvatars
             .Select(a => a with { })
@@ -6134,17 +6134,52 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             _ => SelectedAvatarProfile?.AvatarId,
         };
 
+        IReadOnlyList<VrChatFavoriteGroup>? favGroups = null;
+        Dictionary<string, string>? avatarFavGroups = null;
+
+        if (Settings.VrChat.IsConnected && !string.IsNullOrWhiteSpace(Settings.VrChat.AuthCookie))
+        {
+            try
+            {
+                var authCookie = Settings.VrChat.AuthCookie;
+                var groups = await vrChatApiClient.GetFavoriteGroupsAsync(authCookie);
+                var entries = await vrChatApiClient.GetFavoriteEntriesAsync(authCookie);
+                favGroups = groups.Select(g => new VrChatFavoriteGroup(
+                    g.Id ?? string.Empty,
+                    g.DisplayName ?? g.Name ?? string.Empty,
+                    g.Name ?? string.Empty,
+                    entries.Count(e => e.Tags?.Contains(g.Name ?? string.Empty) == true))).ToList();
+
+                avatarFavGroups = new Dictionary<string, string>();
+                foreach (var entry in entries)
+                {
+                    if (entry.FavoriteId is not null && entry.Tags?.Count > 0)
+                    {
+                        var groupName = groups.FirstOrDefault(g => g.Name == entry.Tags[0])?.DisplayName ?? entry.Tags[0];
+                        avatarFavGroups[entry.FavoriteId] = groupName;
+                    }
+                }
+            }
+            catch
+            {
+            }
+        }
+
         var result = AvatarPickerService.OpenSingle(
             ThemeManager.CurrentTheme,
             avatars,
             Settings.AvatarLibrary,
             currentAvatarId,
-            owner: Application.Current.MainWindow);
+            favGroups,
+            avatarFavGroups,
+            Application.Current.MainWindow);
 
         if (result is null)
         {
             return;
         }
+
+        Settings.AvatarLibrary?.TrackRecentAvatar(result.AvatarId);
 
         switch (context)
         {
