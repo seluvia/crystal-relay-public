@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -24,6 +25,43 @@ public partial class InlineRuleEditorControl : UserControl
     public InlineRuleEditorControl()
     {
         InitializeComponent();
+        Loaded += OnLoaded;
+    }
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is IRuleRowViewModel rowVm && rowVm.Rule is TriggerRule rule)
+        {
+            UpdateRadioButtons(rule);
+        }
+    }
+
+    private void UpdateRadioButtons(TriggerRule rule)
+    {
+        var global = FindName("ReturnToGlobalRadio") as RadioButton;
+        var previous = FindName("ReturnToPreviousRadio") as RadioButton;
+        if (global is null || previous is null) return;
+
+        if (rule.ReturnToPreviousAvatar)
+            previous.IsChecked = true;
+        else
+            global.IsChecked = true;
+    }
+
+    private void OnReturnToGlobalChecked(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is IRuleRowViewModel rowVm && rowVm.Rule is TriggerRule rule)
+        {
+            rule.ReturnToPreviousAvatar = false;
+        }
+    }
+
+    private void OnReturnToPreviousChecked(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is IRuleRowViewModel rowVm && rowVm.Rule is TriggerRule rule)
+        {
+            rule.ReturnToPreviousAvatar = true;
+        }
     }
 
     private void OnPickReadyColorClicked(object sender, RoutedEventArgs e)

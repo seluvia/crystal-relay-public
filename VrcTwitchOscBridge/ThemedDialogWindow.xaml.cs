@@ -17,6 +17,8 @@ public enum ThemedDialogChoice
 
 public partial class ThemedDialogWindow : Window
 {
+    private readonly Action? detailsLinkAction;
+
     private ThemedDialogWindow(
         AppTheme theme,
         string title,
@@ -24,9 +26,20 @@ public partial class ThemedDialogWindow : Window
         string primaryButtonText,
         string? secondaryButtonText = null,
         string? tertiaryButtonText = null,
-        string? finePrint = null)
+        string? finePrint = null,
+        bool isNotice = false,
+        string? detailsBody = null,
+        string? detailsLinkText = null,
+        Action? detailsLinkAction = null)
     {
         InitializeComponent();
+        if (isNotice)
+        {
+            IsNotice = true;
+            HeadingFontSize = 28;
+            BodyFontSize = 15;
+            FinePrintFontSize = 13;
+        }
         ThemeManager.ApplyToResources(Resources, theme);
         ThemeManager.ThemeChanged += OnThemeManagerThemeChanged;
         Closed += OnWindowClosed;
@@ -37,6 +50,16 @@ public partial class ThemedDialogWindow : Window
         PrimaryButton.Content = primaryButtonText;
         FinePrintTextBlock.Text = finePrint ?? string.Empty;
         FinePrintTextBlock.Visibility = string.IsNullOrWhiteSpace(finePrint)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+
+        this.detailsLinkAction = detailsLinkAction;
+        DetailsBodyTextBlock.Text = detailsBody ?? string.Empty;
+        DetailsScrollViewer.Visibility = string.IsNullOrWhiteSpace(detailsBody)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+        DetailsLinkButton.Content = detailsLinkText ?? string.Empty;
+        DetailsLinkButton.Visibility = detailsLinkAction is null || string.IsNullOrWhiteSpace(detailsLinkText)
             ? Visibility.Collapsed
             : Visibility.Visible;
 
@@ -54,6 +77,12 @@ public partial class ThemedDialogWindow : Window
     }
 
     public ThemedDialogChoice SelectedChoice { get; private set; } = ThemedDialogChoice.None;
+
+    public bool IsNotice { get; }
+    public double HeadingFontSize { get; } = 24;
+    public double BodyFontSize { get; } = 13;
+    public double FinePrintFontSize { get; } = 11;
+    public Visibility AccentStripVisibility => IsNotice ? Visibility.Visible : Visibility.Collapsed;
 
     public static void ShowOk(
         Window? owner,
@@ -111,6 +140,74 @@ public partial class ThemedDialogWindow : Window
             : dialog.SelectedChoice == ThemedDialogChoice.Tertiary
                 ? ThemedDialogChoice.Tertiary
                 : ThemedDialogChoice.Secondary;
+    }
+
+    public static void ShowNotice(
+        Window? owner,
+        AppTheme theme,
+        string title,
+        string message,
+        string? finePrint = null,
+        string buttonText = "")
+    {
+        buttonText = string.IsNullOrWhiteSpace(buttonText)
+            ? LocalizationService.Translate("I Understand")
+            : buttonText;
+        var dialog = new ThemedDialogWindow(theme, title, message, buttonText, null, null, finePrint, isNotice: true)
+        {
+            Owner = owner,
+            Width = 680,
+            MinWidth = 680
+        };
+
+        dialog.ShowDialog();
+    }
+
+    public static ThemedDialogChoice ShowBugFixUpdate(
+        Window? owner,
+        AppTheme theme,
+        string heading,
+        string releaseTitle,
+        string releaseBody,
+        string finePrint,
+        string updateNowText,
+        string laterText,
+        string viewOnGitHubText,
+        Action viewOnGitHub)
+    {
+        ArgumentNullException.ThrowIfNull(viewOnGitHub);
+        var dialog = new ThemedDialogWindow(
+            theme,
+            heading,
+            releaseTitle,
+            updateNowText,
+            secondaryButtonText: laterText,
+            finePrint: finePrint,
+            isNotice: true,
+            detailsBody: releaseBody,
+            detailsLinkText: viewOnGitHubText,
+            detailsLinkAction: viewOnGitHub)
+        {
+            Owner = owner,
+            Width = 720,
+            MinWidth = 640,
+            MaxHeight = 760
+        };
+
+        return dialog.ShowDialog() == true
+            ? ThemedDialogChoice.Primary
+            : ThemedDialogChoice.Secondary;
+    }
+
+    private void OnDetailsLinkClicked(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            detailsLinkAction?.Invoke();
+        }
+        catch
+        {
+        }
     }
 
     private void OnPrimaryClicked(object sender, RoutedEventArgs e)

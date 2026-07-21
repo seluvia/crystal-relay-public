@@ -47,7 +47,7 @@ public sealed class SupporterFloatAddRange : ObservableObject
     }
 }
 
-public sealed class TriggerRule : ObservableObject
+public sealed class TriggerRule : ObservableObject, IJsonOnDeserialized
 {
     private static string T(string sourceText) => LocalizationService.Translate(sourceText);
 
@@ -153,6 +153,9 @@ public sealed class TriggerRule : ObservableObject
     private SpecialRulePairingMode specialRulePairingMode = SpecialRulePairingMode.HidePairedWhileActive;
     private ObservableCollection<Guid> temporarilyDisabledRuleIds = [];
     private string supporterAvatarScopeLabel = string.Empty;
+    private int subsTriggerCount = 1;
+    private bool subsAccumulationEnabled;
+    private bool subsCarryOverEnabled;
 
     public TriggerRule()
     {
@@ -162,6 +165,20 @@ public sealed class TriggerRule : ObservableObject
         supporterFloatAddRanges.CollectionChanged += OnSupporterFloatAddRangesChanged;
         WireSupporterFloatAddRanges(supporterFloatAddRanges);
         setTriggerActions.CollectionChanged += OnSetTriggerActionsChanged;
+    }
+
+    void IJsonOnDeserialized.OnDeserialized()
+    {
+        MigrateSubsTriggerCount();
+    }
+
+    private void MigrateSubsTriggerCount()
+    {
+        if (TriggerType == TwitchTriggerType.Subscriptions && subsTriggerCount == 1 && minimumAmount > 1)
+        {
+            subsTriggerCount = minimumAmount;
+            RaisePropertyChanged(nameof(SubsTriggerSummary));
+        }
     }
 
     public Guid Id
@@ -217,6 +234,8 @@ public sealed class TriggerRule : ObservableObject
                 RaisePropertyChanged(nameof(DurationHelpText));
                 RaisePropertyChanged(nameof(SupporterTimeSettingsSummary));
                 RaisePropertyChanged(nameof(TriggerSummary));
+                RaisePropertyChanged(nameof(UsesSubsTriggerSettings));
+                RaisePropertyChanged(nameof(SubsTriggerSummary));
             }
         }
     }
@@ -1088,7 +1107,48 @@ public sealed class TriggerRule : ObservableObject
     public string? PowerUpId { get; set; }
     public string? CashPaymentRuleId { get; set; }
     public bool IsGiftSubscription { get; set; }
+
+    public int SubsTriggerCount
+    {
+        get => subsTriggerCount;
+        set
+        {
+            var normalizedValue = Math.Max(1, value);
+            if (SetProperty(ref subsTriggerCount, normalizedValue))
+            {
+                RaisePropertyChanged(nameof(TriggerSummary));
+                RaisePropertyChanged(nameof(SubsTriggerSummary));
+            }
+        }
+    }
+
+    public bool SubsAccumulationEnabled
+    {
+        get => subsAccumulationEnabled;
+        set
+        {
+            if (SetProperty(ref subsAccumulationEnabled, value))
+            {
+                RaisePropertyChanged(nameof(TriggerSummary));
+                RaisePropertyChanged(nameof(SubsTriggerSummary));
+            }
+        }
+    }
+
+    public bool SubsCarryOverEnabled
+    {
+        get => subsCarryOverEnabled;
+        set
+        {
+            if (SetProperty(ref subsCarryOverEnabled, value))
+            {
+                RaisePropertyChanged(nameof(TriggerSummary));
+                RaisePropertyChanged(nameof(SubsTriggerSummary));
+            }
+        }
+    }
     public bool PermanentAvatarChange { get; set; }
+    public bool ReturnToPreviousAvatar { get; set; }
     public bool CooldownOnlyAvatarChange { get; set; }
 
     [JsonPropertyName("fv")]
@@ -1584,6 +1644,33 @@ public sealed class TriggerRule : ObservableObject
 
     public bool UsesAmountThreshold => TriggerType is TwitchTriggerType.Bits or TwitchTriggerType.Subscriptions;
 
+    public bool UsesSubsTriggerSettings => TriggerType == TwitchTriggerType.Subscriptions;
+
+    public string SubsTriggerSummary
+    {
+        get
+        {
+            var sb = new System.Text.StringBuilder();
+            sb.Append(TF("Trigger: {0} subs", Math.Max(1, SubsTriggerCount)));
+            if (SubsAccumulationEnabled)
+            {
+                sb.Append(", ");
+                sb.Append(T("accumulate ON"));
+                if (SubsCarryOverEnabled)
+                {
+                    sb.Append(", ");
+                    sb.Append(T("carryover ON"));
+                }
+            }
+            else
+            {
+                sb.Append(", ");
+                sb.Append(T("accumulate OFF"));
+            }
+            return sb.ToString();
+        }
+    }
+
     public bool UsesAmountScaledDuration => UsesAmountThreshold && AmountScaledDurationEnabled;
 
     public bool UsesAddBitsToSwapTime => UsesAmountThreshold && AddBitsToSwapTime;
@@ -1950,9 +2037,12 @@ public sealed class TriggerRule : ObservableObject
                     ? TF("Bits >= {0} ({1}s per {2} bits)", Math.Max(1, MinimumAmount), Math.Max(1, BitsSecondsPerAmountUnit), Math.Max(1, BitsAmountUnitsPerDuration))
                     : TF("Bits >= {0}", Math.Max(1, MinimumAmount)),
                 TwitchTriggerType.Subscriptions when UsesActiveSupporterFloatAdd => SupporterFloatAddSummary,
+                TwitchTriggerType.Subscriptions when SubsAccumulationEnabled => (AmountScaledDurationEnabled || AddBitsToSwapTime)
+                    ? TF("Accumulate {0} subs (T1 {1}s, T2 {2}s, T3 {3}s)", Math.Max(1, SubsTriggerCount), Math.Max(1, SubscriptionTier1SecondsPerSub), Math.Max(1, SubscriptionTier2SecondsPerSub), Math.Max(1, SubscriptionTier3SecondsPerSub))
+                    : TF("Accumulate {0} subs", Math.Max(1, SubsTriggerCount)),
                 TwitchTriggerType.Subscriptions => (AmountScaledDurationEnabled || AddBitsToSwapTime)
-                    ? TF("Subs >= {0} (T1 {1}s, T2 {2}s, T3 {3}s)", Math.Max(1, MinimumAmount), Math.Max(1, SubscriptionTier1SecondsPerSub), Math.Max(1, SubscriptionTier2SecondsPerSub), Math.Max(1, SubscriptionTier3SecondsPerSub))
-                    : TF("Subs >= {0}", Math.Max(1, MinimumAmount)),
+                    ? TF("Subs >= {0} (T1 {1}s, T2 {2}s, T3 {3}s)", Math.Max(1, SubsTriggerCount), Math.Max(1, SubscriptionTier1SecondsPerSub), Math.Max(1, SubscriptionTier2SecondsPerSub), Math.Max(1, SubscriptionTier3SecondsPerSub))
+                    : TF("Subs >= {0}", Math.Max(1, SubsTriggerCount)),
                 TwitchTriggerType.PowerUp => T("Power Up"),
                 _ => Name
             };

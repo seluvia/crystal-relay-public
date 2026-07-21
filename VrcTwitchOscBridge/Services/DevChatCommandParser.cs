@@ -356,6 +356,18 @@ internal static class DevChatCommandParser
                 direction = PlayerMovementDirection.SpinRight;
                 return true;
 
+            case "snapleft":
+            case "snaptureleft":
+            case "spl":
+                direction = PlayerMovementDirection.SnapTurnLeft;
+                return true;
+
+            case "snapright":
+            case "snapturnright":
+            case "spr":
+                direction = PlayerMovementDirection.SnapTurnRight;
+                return true;
+
             default:
                 return false;
         }

@@ -71,6 +71,7 @@ public sealed record TriggerRuleSnapshot(
     TwitchTriggerType TriggerType,
     string ChannelPointRewardId,
     string ChannelPointRewardTitle,
+    string PowerUpId,
     string ManagedRewardReadyColor,
     string ManagedRewardCooldownColor,
     bool ChatCommandEnabled,
@@ -145,7 +146,10 @@ public sealed record TriggerRuleSnapshot(
     bool SubscriptionTier3Enabled = true,
     bool ExtendCurrentActivity = false,
     double ExtendSeconds = 0,
-    float? FloatValue = null)
+    float? FloatValue = null,
+    int SubsTriggerCount = 1,
+    bool SubsAccumulationEnabled = false,
+    bool SubsCarryOverEnabled = false)
 {
     public static TriggerRuleSnapshot FromRule(TriggerRule rule)
     {
@@ -165,6 +169,7 @@ public sealed record TriggerRuleSnapshot(
             TriggerType: rule.TriggerType,
             ChannelPointRewardId: rule.ChannelPointRewardId ?? string.Empty,
             ChannelPointRewardTitle: rule.ChannelPointRewardTitle ?? string.Empty,
+            PowerUpId: rule.PowerUpId ?? string.Empty,
             ManagedRewardReadyColor: rule.ManagedRewardReadyColor ?? string.Empty,
             ManagedRewardCooldownColor: rule.ManagedRewardCooldownColor ?? string.Empty,
             ChatCommandEnabled: rule.ChatCommandEnabled,
@@ -184,6 +189,9 @@ public sealed record TriggerRuleSnapshot(
             AddBitsToSwapTime: rule.AddBitsToSwapTime,
             MaxAccumulatedDurationEnabled: rule.MaxAccumulatedDurationEnabled,
             MaxAccumulatedDurationSeconds: rule.MaxAccumulatedDurationSeconds,
+            SubsTriggerCount: Math.Max(1, rule.SubsTriggerCount),
+            SubsAccumulationEnabled: rule.SubsAccumulationEnabled,
+            SubsCarryOverEnabled: rule.SubsCarryOverEnabled,
             ActionType: rule.ActionType,
             MovementDirection: rule.MovementDirection,
             ParameterName: rule.ParameterName ?? string.Empty,
@@ -413,7 +421,8 @@ public sealed record AvatarSwapProfileSnapshot(
     IReadOnlyList<TriggerRuleSnapshot> ChannelPointRules,
     IReadOnlyList<TriggerRuleSnapshot> BitsRules,
     IReadOnlyList<TriggerRuleSnapshot> SubsRules,
-    IReadOnlyList<TriggerRuleSnapshot> PaymentRules);
+    IReadOnlyList<TriggerRuleSnapshot> PaymentRules,
+    IReadOnlyList<TriggerRuleSnapshot> PowerUpRules);
 
 public sealed record RouletteAvatarEntrySnapshot(
     string AvatarId,
@@ -453,6 +462,7 @@ public sealed record BridgeRuntimeConfiguration(
     ChatCommandPermission WorldCommandPermission,
     bool ChannelPointRewardTestModeEnabled,
     bool AvatarChangeCooldownOnlyModeEnabled,
+    bool PermanentSwapModeEnabled,
     bool EmergencyRedeemStopEnabled,
     bool DesktopModeInputLockEnabled,
     bool PauseCommandEnabled,
@@ -616,6 +626,15 @@ public sealed record BridgeRuntimeConfiguration(
                 }
             }
 
+            var powerUpSnapshots = new List<TriggerRuleSnapshot>();
+            foreach (var rule in swapProfile.PowerUpRules)
+            {
+                if (TryToSnapshot(rule, isGlobalOverride: true, profile: null, linkedRewardCooldownSecondsById, out var snapshot))
+                {
+                    powerUpSnapshots.Add(snapshot);
+                }
+            }
+
             var paymentSnapshots = new List<TriggerRuleSnapshot>();
             foreach (var rule in swapProfile.PaymentRules)
             {
@@ -646,7 +665,8 @@ public sealed record BridgeRuntimeConfiguration(
                 channelPointSnapshots.ToArray(),
                 bitsSnapshots.ToArray(),
                 subsSnapshots.ToArray(),
-                paymentSnapshots.ToArray()));
+                paymentSnapshots.ToArray(),
+                powerUpSnapshots.ToArray()));
         }
 
         var avatarRouletteProfiles = new List<AvatarRouletteProfileSnapshot>();
@@ -671,6 +691,7 @@ public sealed record BridgeRuntimeConfiguration(
                     rouletteProfile: rouletteProfile))
                 {
                     triggerSnapshots.Add(snapshot);
+                    rules.Add(snapshot);
                 }
             }
 
@@ -721,6 +742,7 @@ public sealed record BridgeRuntimeConfiguration(
                 : ChatCommandPermission.Everyone,
             settings.ChannelPointRewardTestModeEnabled,
             settings.AvatarChangeCooldownOnlyModeEnabled,
+            settings.PermanentSwapModeEnabled,
             settings.EmergencyRedeemStopEnabled,
             settings.DesktopModeInputLockEnabled,
             settings.PauseCommandEnabled,
@@ -759,6 +781,8 @@ public sealed record BridgeRuntimeConfiguration(
             if (profile.SubsRules.Any(r => ReferenceEquals(r.Rule, rule)))
                 return profile;
             if (profile.PaymentRules.Any(r => ReferenceEquals(r.Rule, rule)))
+                return profile;
+            if (profile.PowerUpRules.Any(r => ReferenceEquals(r.Rule, rule)))
                 return profile;
         }
         return null;
@@ -1081,6 +1105,7 @@ public sealed record BridgeRuntimeConfiguration(
             rule.TriggerType,
             channelPointRewardId,
             channelPointRewardTitle,
+            rule.PowerUpId ?? string.Empty,
             ManagedRewardPresentation.NormalizeReadyBackgroundColor(readyColor),
             ManagedRewardPresentation.NormalizeCooldownBackgroundColor(cooldownColor),
             rule.ChatCommandEnabled,
@@ -1157,7 +1182,10 @@ public sealed record BridgeRuntimeConfiguration(
             rule.SubscriptionTier3Enabled,
             rule.ExtendCurrentActivity,
             rule.ExtendSeconds,
-            rule.FloatValue);
+            rule.FloatValue,
+            Math.Max(1, rule.SubsTriggerCount),
+            rule.SubsAccumulationEnabled,
+            rule.SubsCarryOverEnabled);
     }
 
     private static SetTriggerActionSnapshot ToSetTriggerActionSnapshot(SetTriggerAction action)
@@ -1802,11 +1830,18 @@ internal static class AvatarRuleActivationPolicy
         string? requiredAvatarId,
         string? currentAvatarId,
         bool avatarChangeTransitionActive,
-        bool avatarChangeCooldownOnlyModeEnabled = false)
+        bool avatarChangeCooldownOnlyModeEnabled = false,
+        bool permanentAvatarChange = false,
+        bool permanentChangeCompleted = false)
     {
         if (isGlobalOverride)
         {
             return true;
+        }
+
+        if (permanentAvatarChange && permanentChangeCompleted)
+        {
+            return false;
         }
 
         var normalizedCurrentAvatarId = currentAvatarId?.Trim() ?? string.Empty;

@@ -147,6 +147,7 @@ private static readonly string[] LoadingStoryboardKeys =
         RestoreRestartSessionWindows();
         QueueApplicationUpdateCheck();
         ShowAvatarSwapMigrationNoticeIfNeeded();
+        ShowUiUpdateNoticeIfNeeded();
         _ = viewModel.CheckForPendingCrashReportAsync();
     }
 
@@ -165,6 +166,33 @@ private static readonly string[] LoadingStoryboardKeys =
             MessageBoxButton.OK,
             MessageBoxImage.Information);
         viewModel.DismissMigrationNoticeCommand.Execute(null);
+    }
+
+    private void ShowUiUpdateNoticeIfNeeded()
+    {
+        if (!viewModel.ShowUiUpdateNotice)
+        {
+            return;
+        }
+
+        ThemedDialogWindow.ShowNotice(
+            this,
+            viewModel.SelectedTheme,
+            LocalizationService.Translate("Major UI Update — Please Verify Your Rewards"),
+            LocalizationService.Translate(
+                "Crystal Relay's main layout has been reorganized. " +
+                "Your reward configurations are still here, but some sections may have moved or look different.\n\n" +
+                "Please review each of your reward systems to make sure everything transferred correctly:"),
+            finePrint:
+                " • Avatar Sets & Avatar Change\n" +
+                " • Avatar Roulette\n" +
+                " • Bits / Subs / Payment overrides\n" +
+                " • Avatar Scaling\n" +
+                " • Power Ups & Channel Point Rewards\n" +
+                " • Universal Triggers\n" +
+                " • Cash Payment rules\n\n" +
+                LocalizationService.Translate("This notice will not appear again."));
+        viewModel.DismissUiUpdateNoticeCommand.Execute(null);
     }
 
     private async void OnClosing(object? sender, CancelEventArgs e)
@@ -1134,6 +1162,36 @@ private static readonly string[] LoadingStoryboardKeys =
                 "A newer Crystal Relay update is available.\n\nCurrent version: {0}\nLatest version: {1}\n\nIf you continue, Crystal Relay will download the update, close, replace the app files, and reopen.",
                 availableUpdate.CurrentVersion,
                 availableUpdate.LatestVersion);
+
+            if (availableUpdate.IsBugFix)
+            {
+                var releaseBody = string.IsNullOrWhiteSpace(availableUpdate.ReleaseBody)
+                    ? LocalizationService.Translate(
+                        "This Bug Fix Push does not include release notes. View the GitHub release page for details.")
+                    : availableUpdate.ReleaseBody;
+                var choice = ThemedDialogWindow.ShowBugFixUpdate(
+                    this,
+                    viewModel.SelectedTheme,
+                    LocalizationService.Format(
+                        "Bug Fix Push {0} for Crystal Relay v{1}",
+                        availableUpdate.BugFixSequence,
+                        availableUpdate.LatestBaseVersion),
+                    availableUpdate.ReleaseTitle,
+                    releaseBody,
+                    LocalizationService.Translate(
+                        "This Bug Fix Push cannot be permanently skipped. Choose Later to be reminded the next time Crystal Relay starts."),
+                    LocalizationService.Translate("Update Now"),
+                    LocalizationService.Translate("Later"),
+                    LocalizationService.Translate("View on GitHub"),
+                    () => OpenExternalUri(availableUpdate.ReleasePageUrl));
+
+                if (choice == ThemedDialogChoice.Primary)
+                {
+                    await StartApplicationSelfUpdateAsync(availableUpdate, cancellationToken);
+                }
+
+                return;
+            }
 
             if (availableUpdate.IsBeta)
             {

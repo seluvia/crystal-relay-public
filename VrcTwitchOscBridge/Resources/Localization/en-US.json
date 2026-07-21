@@ -1,4 +1,4 @@
-﻿{
+{
   " - Test Build": " - Test Build",
   "{0} | Crystal Relay": "{0} | Crystal Relay",
   "12-hour": "12-hour",
@@ -772,5 +772,16 @@
   "Cooldown-only avatar change": "Cooldown-only avatar change",
   "Roulette Pool": "Roulette Pool",
   "Add bits time to swap": "Add bits time to swap",
-  "Add sub time to swap": "Add sub time to swap"
+  "Add sub time to swap": "Add sub time to swap",
+  "Subscription Trigger Settings": "Subscription Trigger Settings",
+  "Subs to Trigger": "Subs to Trigger",
+  "How many subs are needed before this rule fires. Gift subs count by the total gifted.": "How many subs are needed before this rule fires. Gift subs count by the total gifted.",
+  "Accumulate subs across events": "Accumulate subs across events",
+  "Subs, resubs, and gift subs add to a running count until the trigger is reached.": "Subs, resubs, and gift subs add to a running count until the trigger is reached.",
+  "Carry over excess subs": "Carry over excess subs",
+  "Extra subs past the threshold carry to the next round instead of resetting to zero.": "Extra subs past the threshold carry to the next round instead of resetting to zero.",
+  "Trigger: {0} subs": "Trigger: {0} subs",
+  "accumulate ON": "accumulate ON",
+  "accumulate OFF": "accumulate OFF",
+  "carryover ON": "carryover ON"
 }

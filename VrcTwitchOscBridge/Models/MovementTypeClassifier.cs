@@ -13,7 +13,8 @@ public static class MovementTypeClassifier
 
         PlayerMovementDirection.LookHorizontal or PlayerMovementDirection.LookLeft
             or PlayerMovementDirection.LookRight or PlayerMovementDirection.ComfortLeft
-            or PlayerMovementDirection.ComfortRight
+            or PlayerMovementDirection.ComfortRight or PlayerMovementDirection.SnapTurnLeft
+            or PlayerMovementDirection.SnapTurnRight
             => MovementCategory.Turning,
 
         PlayerMovementDirection.GrabLeft or PlayerMovementDirection.GrabRight
@@ -35,8 +36,7 @@ public static class MovementTypeClassifier
 
     public static bool IsVrOnly(PlayerMovementDirection direction) => direction switch
     {
-        PlayerMovementDirection.ComfortLeft or PlayerMovementDirection.ComfortRight
-            or PlayerMovementDirection.GrabLeft or PlayerMovementDirection.GrabRight
+        PlayerMovementDirection.GrabLeft or PlayerMovementDirection.GrabRight
             or PlayerMovementDirection.UseLeft or PlayerMovementDirection.UseRight
             or PlayerMovementDirection.DropLeft or PlayerMovementDirection.DropRight
             or PlayerMovementDirection.UseAxisRight or PlayerMovementDirection.GrabAxisRight
@@ -67,6 +67,8 @@ public static class MovementTypeClassifier
             => "Smooth on Desktop. Snap-turn in VR if Comfort Turning is ON.",
         PlayerMovementDirection.ComfortLeft or PlayerMovementDirection.ComfortRight
             => "VR-only. Always snap-turn regardless of Comfort Turning setting.",
+        PlayerMovementDirection.SnapTurnLeft or PlayerMovementDirection.SnapTurnRight
+            => "Snap-turn on Desktop and VR. Uses Comfort Turn VRChat input.",
         PlayerMovementDirection.GrabLeft or PlayerMovementDirection.GrabRight
             or PlayerMovementDirection.UseLeft or PlayerMovementDirection.UseRight
             or PlayerMovementDirection.DropLeft or PlayerMovementDirection.DropRight

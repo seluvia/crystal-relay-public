@@ -156,9 +156,6 @@
                 <DataTrigger Binding="{Binding DataContext.IsViewingAvatarTriggers, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=True}" Value="True">
                     <Setter Property="Text" Value="{loc:Translate 'Redeem Editor'}" />
                 </DataTrigger>
-                <DataTrigger Binding="{Binding DataContext.IsViewingCashPayments, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=False}" Value="True">
-                    <Setter Property="Text" Value="{loc:Translate 'Cash Payment Action'}" />
-                </DataTrigger>
                 <DataTrigger Binding="{Binding DataContext.IsViewingPowerUps, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=False}" Value="True">
                     <Setter Property="Text" Value="{loc:Translate 'Power Up Action'}" />
                 </DataTrigger>
@@ -258,6 +255,106 @@
                            TextWrapping="Wrap" />
             </StackPanel>
         </DataTemplate>
+
+        <Style TargetType="CheckBox">
+            <Setter Property="FontFamily" Value="{DynamicResource BodyFontFamily}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Grid SnapsToDevicePixels="True">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Width="20" Height="20" VerticalAlignment="Center" Background="Transparent">
+                                <Grid>
+                                    <Border x:Name="CheckChrome"
+                                            Background="{TemplateBinding Background}"
+                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="{TemplateBinding BorderThickness}"
+                                            CornerRadius="7" />
+                                    <Path x:Name="CheckMark"
+                                          Width="11" Height="8"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          Data="M 1 5 L 4.5 8 L 11 1"
+                                          Stroke="White"
+                                          StrokeThickness="2.2"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"
+                                          StrokeLineJoin="Round"
+                                          Visibility="Collapsed" />
+                                </Grid>
+                            </Border>
+                            <ContentPresenter Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center"
+                                              RecognizesAccessKey="True" ContentSource="Content" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="CheckChrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="CheckChrome" Property="Background" Value="{DynamicResource AccentBrush}" />
+                                <Setter TargetName="CheckChrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                <Setter TargetName="CheckMark" Property="Visibility" Value="Visible" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="CheckChrome" Property="Opacity" Value="0.45" />
+                                <Setter Property="Opacity" Value="0.55" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="RadioButton">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Margin" Value="0,4,0,0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border x:Name="OuterMark"
+                                    Width="18" Height="18"
+                                    Margin="0,1,9,0"
+                                    VerticalAlignment="Top"
+                                    CornerRadius="9"
+                                    BorderBrush="{DynamicResource InputBorderBrush}"
+                                    BorderThickness="2"
+                                    Background="{DynamicResource InputBrush}">
+                                <Ellipse x:Name="InnerMark"
+                                         Width="8" Height="8"
+                                         HorizontalAlignment="Center"
+                                         VerticalAlignment="Center"
+                                         Fill="{DynamicResource AccentBrush}"
+                                         Visibility="Collapsed" />
+                            </Border>
+                            <ContentPresenter Grid.Column="1" VerticalAlignment="Top" RecognizesAccessKey="True" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="OuterMark" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                <Setter TargetName="InnerMark" Property="Visibility" Value="Visible" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.5" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </UserControl.Resources>
 
     <StackPanel>
@@ -314,13 +411,6 @@
                         <Style.Triggers>
                             <MultiDataTrigger>
                                 <MultiDataTrigger.Conditions>
-                                    <Condition Binding="{Binding DataContext.IsViewingSupporterOverrides, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=False}" Value="True" />
-                                    <Condition Binding="{Binding UsesChannelPointReward}" Value="False" />
-                                </MultiDataTrigger.Conditions>
-                                <Setter Property="Visibility" Value="Visible" />
-                            </MultiDataTrigger>
-                            <MultiDataTrigger>
-                                <MultiDataTrigger.Conditions>
                                     <Condition Binding="{Binding IsInAvatarSwapManager, RelativeSource={RelativeSource AncestorType=UserControl}, FallbackValue=False}" Value="True" />
                                     <Condition Binding="{Binding UsesChannelPointReward}" Value="False" />
                                 </MultiDataTrigger.Conditions>
@@ -340,14 +430,6 @@
                         <Setter Property="Grid.Column" Value="0" />
                         <Setter Property="Grid.ColumnSpan" Value="3" />
                         <Style.Triggers>
-                            <MultiDataTrigger>
-                                <MultiDataTrigger.Conditions>
-                                    <Condition Binding="{Binding DataContext.IsViewingSupporterOverrides, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=False}" Value="True" />
-                                    <Condition Binding="{Binding UsesChannelPointReward}" Value="False" />
-                                </MultiDataTrigger.Conditions>
-                                <Setter Property="Grid.Column" Value="2" />
-                                <Setter Property="Grid.ColumnSpan" Value="1" />
-                            </MultiDataTrigger>
                         </Style.Triggers>
                     </Style>
                 </Grid.Style>
@@ -356,9 +438,6 @@
                         <Style TargetType="StackPanel">
                             <Setter Property="Visibility" Value="Collapsed" />
                             <Style.Triggers>
-                                <DataTrigger Binding="{Binding DataContext.IsViewingSupporterOverrides, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=False}" Value="True">
-                                    <Setter Property="Visibility" Value="Visible" />
-                                </DataTrigger>
                                 <DataTrigger Binding="{Binding IsInAvatarSwapManager, RelativeSource={RelativeSource AncestorType=UserControl}, FallbackValue=False}" Value="True">
                                     <Setter Property="Visibility" Value="Visible" />
                                 </DataTrigger>
@@ -376,9 +455,6 @@
                         <Style TargetType="StackPanel">
                             <Setter Property="Visibility" Value="Visible" />
                             <Style.Triggers>
-                                <DataTrigger Binding="{Binding DataContext.IsViewingSupporterOverrides, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=False}" Value="True">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                </DataTrigger>
                             </Style.Triggers>
                         </Style>
                     </StackPanel.Style>
@@ -434,9 +510,6 @@
                         <Style TargetType="Border">
                             <Setter Property="Visibility" Value="Collapsed" />
                             <Style.Triggers>
-                                <DataTrigger Binding="{Binding DataContext.IsViewingSupporterOverrides, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=False}" Value="True">
-                                    <Setter Property="Visibility" Value="Visible" />
-                                </DataTrigger>
                                 <DataTrigger Binding="{Binding UsesAvatarChange}" Value="True">
                                     <Setter Property="Visibility" Value="Collapsed" />
                                 </DataTrigger>
@@ -882,8 +955,20 @@
                     </StackPanel>
                 </Border>
 
-                <StackPanel Margin="0,10,0,0"
-                            Visibility="{Binding UsesAmountThreshold, Converter={StaticResource BoolToVisibilityConverter}}">
+                <StackPanel Margin="0,10,0,0">
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding UsesAmountThreshold}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding UsesSubsTriggerSettings}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
                     <DockPanel LastChildFill="False">
                         <TextBlock Foreground="{DynamicResource TextBrush}"
                                    FontWeight="SemiBold">
@@ -911,6 +996,56 @@
                                 Tag="This setting is only for bits and subscriptions overrides. For bits, it is the minimum number of bits needed in one cheer event. For subs, it is the minimum number of subscriptions or gift subs the event must include before Crystal Relay runs the rule. Paid overrides ignore avatar matching and can fire no matter which avatar you are using." />
                     </DockPanel>
                     <TextBox Text="{Binding MinimumAmount, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+
+                <StackPanel Margin="0,10,0,0"
+                            Visibility="{Binding UsesSubsTriggerSettings, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <Border Background="{DynamicResource PanelSecondaryBrush}"
+                            BorderBrush="{DynamicResource InputBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="14"
+                            Padding="12">
+                        <StackPanel>
+                            <TextBlock Text="{loc:Translate 'Subscription Trigger Settings'}"
+                                       Foreground="{DynamicResource TextBrush}"
+                                       FontWeight="SemiBold"
+                                       FontSize="14" />
+                            <StackPanel Margin="0,10,0,0">
+                                <TextBlock Text="{loc:Translate 'Subs to Trigger'}"
+                                           Foreground="{DynamicResource TextBrush}"
+                                           FontWeight="SemiBold" />
+                                <TextBox Text="{Binding SubsTriggerCount, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Margin="0,6,0,0"
+                                           Foreground="{DynamicResource MutedBrush}"
+                                           TextWrapping="Wrap"
+                                           Text="{loc:Translate 'How many subs are needed before this rule fires. Gift subs count by the total gifted.'}" />
+                            </StackPanel>
+                            <CheckBox Margin="0,12,0,0"
+                                      IsChecked="{Binding SubsAccumulationEnabled, UpdateSourceTrigger=PropertyChanged}">
+                                <TextBlock Text="{loc:Translate 'Accumulate subs across events'}"
+                                           TextWrapping="Wrap" />
+                            </CheckBox>
+                            <TextBlock Margin="26,4,0,0"
+                                       Foreground="{DynamicResource MutedBrush}"
+                                       TextWrapping="Wrap"
+                                       Text="{loc:Translate 'Subs, resubs, and gift subs add to a running count until the trigger is reached.'}" />
+                            <StackPanel Margin="26,8,0,0"
+                                        Visibility="{Binding SubsAccumulationEnabled, Converter={StaticResource BoolToVisibilityConverter}}">
+                                <CheckBox IsChecked="{Binding SubsCarryOverEnabled, UpdateSourceTrigger=PropertyChanged}">
+                                    <TextBlock Text="{loc:Translate 'Carry over excess subs'}"
+                                               TextWrapping="Wrap" />
+                                </CheckBox>
+                                <TextBlock Margin="26,4,0,0"
+                                           Foreground="{DynamicResource MutedBrush}"
+                                           TextWrapping="Wrap"
+                                           Text="{loc:Translate 'Extra subs past the threshold carry to the next round instead of resetting to zero.'}" />
+                            </StackPanel>
+                            <TextBlock Margin="0,12,0,0"
+                                       Foreground="{DynamicResource AccentBrush}"
+                                       TextWrapping="Wrap"
+                                       Text="{Binding SubsTriggerSummary}" />
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
 
                 <StackPanel Margin="0,14,0,0"
@@ -1086,10 +1221,7 @@
                                 <DataTrigger Binding="{Binding DataContext.IsViewingSupporterOverrides, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=False}" Value="True">
                                     <Setter Property="Visibility" Value="Visible" />
                                 </DataTrigger>
-                                <DataTrigger Binding="{Binding DataContext.IsViewingCashPayments, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=False}" Value="True">
-                                    <Setter Property="Visibility" Value="Visible" />
-                                </DataTrigger>
-                                <DataTrigger Binding="{Binding DataContext.IsViewingPowerUps, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=False}" Value="True">
+                        <DataTrigger Binding="{Binding DataContext.IsViewingPowerUps, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=False}" Value="True">
                                     <Setter Property="Visibility" Value="Visible" />
                                 </DataTrigger>
                                 <MultiDataTrigger>

@@ -27,11 +27,9 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
     private const string ApplyManifestFileName = "crystal-relay-apply-update.json";
     private const string ProductName = "Crystal Relay";
     private const string RuntimeName = "win-x64";
-    private const string PackageFolderPrefix = "CrystalRelayTwitchOsc-v";
     private const string DedicatedUpdaterExecutableName = "CrystalRelayUpdater.exe";
     private const string SourceBackupFolderName = "source";
     private const string TargetBackupFolderName = "target";
-    private const string ExecutableSearchPattern = "Crystal Relay.exe";
     private const int FileOperationRetryCount = 20;
     private static readonly TimeSpan DownloadTimeout = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan ProcessExitTimeout = TimeSpan.FromSeconds(75);
@@ -267,7 +265,7 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
 
     public void Dispose() => httpClient.Dispose();
 
-    private static void ValidateReleaseAsset(ApplicationUpdateInfo update)
+    internal static void ValidateReleaseAsset(ApplicationUpdateInfo update)
     {
         if (string.IsNullOrWhiteSpace(update.AssetName)
             || !update.AssetName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
@@ -275,10 +273,13 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
             throw new ApplicationSelfUpdateException("The GitHub release does not include a usable Crystal Relay ZIP asset.");
         }
 
-        var expectedAssetName = update.IsBeta
-            ? $"CrystalRelayTwitchOsc-v{update.LatestVersion}-win-x64.zip"
-            : $"CrystalRelayTwitchOsc-v{update.LatestVersion}-win-x64.zip";
-        if (!string.Equals(update.AssetName, expectedAssetName, StringComparison.OrdinalIgnoreCase))
+        var expectedAssetName = ApplicationUpdatePackageRules.GetExpectedAssetName(
+            update.Channel,
+            update.LatestVersion);
+        var nameComparison = update.Channel == ApplicationUpdateChannel.BugFix
+            ? StringComparison.Ordinal
+            : StringComparison.OrdinalIgnoreCase;
+        if (!string.Equals(update.AssetName, expectedAssetName, nameComparison))
         {
             throw new ApplicationSelfUpdateException("The GitHub release asset name does not match Crystal Relay's update package format.");
         }
@@ -382,6 +383,7 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
                     JsonOptions)
                 ?? throw new ApplicationSelfUpdateException("The update package manifest could not be read.");
             ValidatePackageManifest(manifest, update);
+            ValidatePackageMarker(packageRoot, manifest);
 
             var entryPath = Path.Combine(packageRoot, manifest.EntryExecutableName);
             if (!File.Exists(entryPath))
@@ -392,17 +394,54 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
             return new UpdatePackage(packageRoot, manifest, entryPath);
         }
 
+        if (update.IsBugFix)
+        {
+            throw new ApplicationSelfUpdateException("The Bug Fix update package manifest is missing.");
+        }
+
         var executablePath = ResolveSingleExecutable(stagingRoot);
         var fallbackManifest = new ApplicationUpdatePackageManifest(
             ProductName,
             update.LatestVersion,
-            update.IsBeta ? "beta" : "stable",
+            ApplicationUpdatePackageRules.GetManifestChannel(update.Channel),
             RuntimeName,
             Path.GetFileName(executablePath));
         return new UpdatePackage(Path.GetDirectoryName(executablePath)!, fallbackManifest, executablePath);
     }
 
-    private static void ValidatePackageManifest(ApplicationUpdatePackageManifest manifest, ApplicationUpdateInfo update)
+    internal static void ValidatePackageMarker(
+        string packageRoot,
+        ApplicationUpdatePackageManifest manifest)
+    {
+        if (!ApplicationUpdatePackageRules.TryParseManifestChannel(manifest.Channel, out var channel))
+        {
+            throw new ApplicationSelfUpdateException("The update package channel is invalid.");
+        }
+
+        var expectedMarker = ApplicationUpdatePackageRules.GetExpectedBuildMarker(
+            channel,
+            manifest.Version);
+        if (channel != ApplicationUpdateChannel.BugFix || string.IsNullOrWhiteSpace(expectedMarker))
+        {
+            if (channel == ApplicationUpdateChannel.BugFix)
+            {
+                throw new ApplicationSelfUpdateException("The Bug Fix update package version is invalid.");
+            }
+
+            return;
+        }
+
+        var markerPath = Path.Combine(packageRoot, "bugfix-build.flag");
+        var markerText = File.Exists(markerPath) ? File.ReadAllText(markerPath) : null;
+        if (!ApplicationUpdatePackageRules.IsExpectedBuildMarker(channel, manifest.Version, markerText))
+        {
+            throw new ApplicationSelfUpdateException("The Bug Fix update package marker does not match the selected release.");
+        }
+    }
+
+    internal static void ValidatePackageManifest(
+        ApplicationUpdatePackageManifest manifest,
+        ApplicationUpdateInfo update)
     {
         if (!string.Equals(manifest.ProductName, ProductName, StringComparison.Ordinal))
         {
@@ -414,13 +453,13 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
             throw new ApplicationSelfUpdateException("The update package runtime does not match this Crystal Relay build.");
         }
 
-        var expectedChannel = update.IsBeta ? "beta" : "stable";
-        if (!string.Equals(manifest.Channel, expectedChannel, StringComparison.OrdinalIgnoreCase))
+        if (!ApplicationUpdatePackageRules.TryParseManifestChannel(manifest.Channel, out var manifestChannel)
+            || manifestChannel != update.Channel)
         {
             throw new ApplicationSelfUpdateException("The update package channel does not match the selected release.");
         }
 
-        if (!string.Equals(manifest.Version, update.LatestVersion, StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(manifest.Version, update.LatestVersion, StringComparison.Ordinal))
         {
             throw new ApplicationSelfUpdateException("The update package version does not match the selected release.");
         }
@@ -429,7 +468,10 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
             || Path.IsPathRooted(manifest.EntryExecutableName)
             || manifest.EntryExecutableName.Contains(Path.DirectorySeparatorChar)
             || manifest.EntryExecutableName.Contains(Path.AltDirectorySeparatorChar)
-            || !manifest.EntryExecutableName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+            || !ApplicationUpdatePackageRules.IsExpectedEntryExecutableName(
+                manifestChannel,
+                manifest.Version,
+                manifest.EntryExecutableName))
         {
             throw new ApplicationSelfUpdateException("The update package entry executable name is invalid.");
         }
@@ -492,6 +534,16 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
             throw new ApplicationSelfUpdateException("The Crystal Relay update apply manifest is incomplete.");
         }
 
+        if (!string.Equals(manifest.Runtime, RuntimeName, StringComparison.OrdinalIgnoreCase)
+            || !ApplicationUpdatePackageRules.TryParseManifestChannel(manifest.Channel, out var manifestChannel)
+            || !ApplicationUpdatePackageRules.IsExpectedEntryExecutableName(
+                manifestChannel,
+                manifest.Version,
+                manifest.EntryExecutableName))
+        {
+            throw new ApplicationSelfUpdateException("The Crystal Relay update apply manifest channel or entry executable is invalid.");
+        }
+
         var packageRoot = NormalizeDirectoryPath(manifest.PackageRoot);
         var installDirectory = NormalizeDirectoryPath(manifest.InstallDirectory);
         var backupDirectory = NormalizeDirectoryPath(manifest.BackupDirectory);
@@ -505,6 +557,15 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
         {
             throw new ApplicationSelfUpdateException("The staged Crystal Relay update folder is outside updater storage.");
         }
+
+        ValidatePackageMarker(
+            packageRoot,
+            new ApplicationUpdatePackageManifest(
+                manifest.ProductName,
+                manifest.Version,
+                manifest.Channel,
+                manifest.Runtime,
+                manifest.EntryExecutableName));
 
         ValidateInstallDirectory(installDirectory);
 
@@ -623,16 +684,17 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
     {
         var sourceDirectory = NormalizeDirectoryPath(manifest.InstallDirectory);
         var packageRoot = NormalizeDirectoryPath(manifest.PackageRoot);
-        var packageFolderName = Path.GetFileName(packageRoot);
-        var sourceFolderName = Path.GetFileName(sourceDirectory);
-        var targetDirectory = sourceDirectory;
 
-        if (IsPackageInstallFolderName(sourceFolderName) && IsPackageInstallFolderName(packageFolderName))
+        if (!ApplicationUpdatePackageRules.TryParseManifestChannel(manifest.Channel, out var channel))
         {
-            var sourceParent = Path.GetDirectoryName(sourceDirectory)
-                ?? throw new ApplicationSelfUpdateException("The Crystal Relay install folder path is invalid.");
-            targetDirectory = NormalizeDirectoryPath(Path.Combine(sourceParent, packageFolderName));
+            throw new ApplicationSelfUpdateException("The Crystal Relay update apply manifest channel is invalid.");
         }
+
+        var targetDirectory = NormalizeDirectoryPath(
+            ApplicationUpdatePackageRules.GetInstallTargetDirectory(
+                channel,
+                sourceDirectory,
+                packageRoot));
 
         return new UpdateInstallPlan(
             sourceDirectory,
@@ -896,8 +958,8 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
 
     private static string ResolveSingleExecutable(string root)
     {
-        var executables = Directory.GetFiles(root, ExecutableSearchPattern, SearchOption.AllDirectories)
-            .Where(path => Path.GetFileName(path).EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+        var executables = Directory.GetFiles(root, "*.exe", SearchOption.AllDirectories)
+            .Where(path => ApplicationUpdatePackageRules.IsApplicationExecutableName(Path.GetFileName(path)))
             .ToArray();
         return executables.Length == 1
             ? executables[0]
@@ -1043,14 +1105,31 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
         if (manifest is null
             || !string.Equals(manifest.ProductName, ProductName, StringComparison.Ordinal)
             || !string.Equals(manifest.Runtime, RuntimeName, StringComparison.OrdinalIgnoreCase)
+            || !ApplicationUpdatePackageRules.TryParseManifestChannel(manifest.Channel, out var channel)
             || string.IsNullOrWhiteSpace(manifest.EntryExecutableName)
             || Path.IsPathRooted(manifest.EntryExecutableName)
             || manifest.EntryExecutableName.Contains(Path.DirectorySeparatorChar)
             || manifest.EntryExecutableName.Contains(Path.AltDirectorySeparatorChar)
-            || !manifest.EntryExecutableName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+            || !ApplicationUpdatePackageRules.IsExpectedEntryExecutableName(
+                channel,
+                manifest.Version,
+                manifest.EntryExecutableName))
         {
             validationError = "The package manifest is not a Crystal Relay install manifest.";
             return false;
+        }
+
+        var expectedMarker = ApplicationUpdatePackageRules.GetExpectedBuildMarker(channel, manifest.Version);
+        if (channel == ApplicationUpdateChannel.BugFix)
+        {
+            var markerPath = Path.Combine(fullDirectoryPath, "bugfix-build.flag");
+            var markerText = File.Exists(markerPath) ? File.ReadAllText(markerPath) : null;
+            if (string.IsNullOrWhiteSpace(expectedMarker)
+                || !ApplicationUpdatePackageRules.IsExpectedBuildMarker(channel, manifest.Version, markerText))
+            {
+                validationError = "The Bug Fix package marker is missing or invalid.";
+                return false;
+            }
         }
 
         var entryExecutablePath = Path.Combine(fullDirectoryPath, manifest.EntryExecutableName);
@@ -1064,12 +1143,7 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
     }
 
     private static bool IsPackageInstallFolderName(string? folderName) =>
-        !string.IsNullOrWhiteSpace(folderName)
-        && !folderName.Contains(Path.DirectorySeparatorChar)
-        && !folderName.Contains(Path.AltDirectorySeparatorChar)
-        && (string.Equals(folderName, "Crystal Relay", StringComparison.OrdinalIgnoreCase)
-            || (folderName.StartsWith(PackageFolderPrefix, StringComparison.OrdinalIgnoreCase)
-                && folderName.EndsWith($"-{RuntimeName}", StringComparison.OrdinalIgnoreCase)));
+        ApplicationUpdatePackageRules.IsPackageInstallFolderName(folderName);
 
     private static string NormalizeSha256Digest(string? digest)
     {

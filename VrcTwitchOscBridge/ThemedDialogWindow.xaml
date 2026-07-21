@@ -209,9 +209,20 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
 
-                        <DockPanel>
+                        <Border x:Name="AccentStrip"
+                                Grid.Row="0"
+                                Height="4"
+                                Margin="0,0,0,14"
+                                CornerRadius="2"
+                                Background="{DynamicResource AccentBrush}"
+                                Visibility="{Binding AccentStripVisibility, RelativeSource={RelativeSource FindAncestor, AncestorType=Window}}" />
+
+                        <DockPanel Grid.Row="1">
                             <Image Source="Assets/crystal-relay-icon.png"
                                    Width="36"
                                    Height="36"
@@ -220,16 +231,17 @@
                             <StackPanel>
                                 <TextBlock x:Name="HeaderTextBlock"
                                            Style="{StaticResource HeadingTextStyle}"
-                                           FontSize="24"
+                                           FontSize="{Binding HeadingFontSize, RelativeSource={RelativeSource FindAncestor, AncestorType=Window}}"
                                            FontWeight="Bold"
-                                           Foreground="{DynamicResource TextBrush}" />
+                                           Foreground="{DynamicResource TextBrush}"
+                                           TextWrapping="Wrap" />
                                 <TextBlock Margin="0,6,0,0"
                                            Text="Crystal Relay"
                                            Foreground="{DynamicResource MutedBrush}" />
                             </StackPanel>
                         </DockPanel>
 
-                        <Border Grid.Row="1"
+                        <Border Grid.Row="2"
                                 Margin="0,18,0,0"
                                 Padding="14,12"
                                 Background="{DynamicResource StatusChipBrush}"
@@ -238,18 +250,41 @@
                                 CornerRadius="16">
                             <TextBlock x:Name="MessageTextBlock"
                                        Foreground="{DynamicResource TextBrush}"
+                                       FontSize="{Binding BodyFontSize, RelativeSource={RelativeSource FindAncestor, AncestorType=Window}}"
                                        TextWrapping="Wrap" />
                         </Border>
 
+                        <ScrollViewer x:Name="DetailsScrollViewer"
+                                      Grid.Row="3"
+                                      Margin="4,14,4,0"
+                                      MaxHeight="280"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      VerticalScrollBarVisibility="Auto"
+                                      Visibility="Collapsed">
+                            <TextBlock x:Name="DetailsBodyTextBlock"
+                                       Foreground="{DynamicResource TextBrush}"
+                                       FontSize="{Binding BodyFontSize, RelativeSource={RelativeSource FindAncestor, AncestorType=Window}}"
+                                       TextWrapping="Wrap" />
+                        </ScrollViewer>
+
+                        <Button x:Name="DetailsLinkButton"
+                                Grid.Row="4"
+                                Margin="4,10,4,0"
+                                Padding="12,7"
+                                HorizontalAlignment="Left"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Visibility="Collapsed"
+                                Click="OnDetailsLinkClicked" />
+
                         <TextBlock x:Name="FinePrintTextBlock"
-                                   Grid.Row="2"
+                                   Grid.Row="5"
                                    Margin="6,10,6,0"
                                    Foreground="{DynamicResource MutedBrush}"
-                                   FontSize="11"
+                                   FontSize="{Binding FinePrintFontSize, RelativeSource={RelativeSource FindAncestor, AncestorType=Window}}"
                                    TextWrapping="Wrap"
                                    Visibility="Collapsed" />
 
-                        <WrapPanel Grid.Row="3"
+                        <WrapPanel Grid.Row="6"
                                    Margin="0,16,0,0"
                                    Orientation="Horizontal"
                                    HorizontalAlignment="Right"

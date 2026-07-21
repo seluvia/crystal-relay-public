@@ -32,6 +32,29 @@ public sealed class AvatarRouletteProfileDispatchTests
     }
 
     [Fact]
+    public void FromSettings_IncludesRouletteTriggersInRulesIndex()
+    {
+        var s = new AppSettings();
+        var roulette = new AvatarRouletteProfile { Name = "Demo" };
+        roulette.Pool.Add(new RouletteAvatarEntry { AvatarId = "a1", AvatarName = "One" });
+        var trigger = new TriggerRule
+        {
+            TriggerType = TwitchTriggerType.ChannelPoints,
+            ActionType = OscActionType.AvatarRoulet,
+            ChannelPointRewardId = "rew_roulette",
+            ChannelPointRewardTitle = "Roulette Reward",
+        };
+        roulette.Triggers.Add(trigger);
+        s.AvatarRouletteProfiles.Add(roulette);
+
+        var config = BridgeRuntimeConfiguration.FromSettings(s, RuntimeConfig.CreateDefault(), null);
+
+        var matched = config.Rules.FirstOrDefault(r => r.Rule == trigger);
+        Assert.NotNull(matched);
+        Assert.Equal("rew_roulette", matched.ChannelPointRewardId);
+    }
+
+    [Fact]
     public void CreateManualTestSnapshot_AllowsRouletteProfilePool()
     {
         var roulette = new AvatarRouletteProfile { Name = "Demo" };

@@ -208,6 +208,8 @@ public sealed class AvatarScalingManagerViewModel : ObservableObject, IDisposabl
 
     public AsyncRelayCommand? RefreshTwitchRewardsCommand => mainWindowViewModel?.RefreshTwitchRewardsCommand;
 
+    public AsyncRelayCommand? RefreshPowerUpsCommand => mainWindowViewModel?.RefreshPowerUpsCommand;
+
     public RelayCommand? UnlinkTwitchRewardCommand => mainWindowViewModel?.UnlinkTwitchRewardCommand;
 
     public RelayCommand DeleteCardCommand { get; }
@@ -232,6 +234,14 @@ public sealed class AvatarScalingManagerViewModel : ObservableObject, IDisposabl
     public IReadOnlyList<TwitchRewardSyncModeOption> RewardSyncModeOptions => mainWindowViewModel?.RewardSyncModeOptions ?? [];
 
     public ObservableCollection<TwitchRewardOption> RewardOptions => mainWindowViewModel?.RewardOptions ?? [];
+
+    public IReadOnlyList<TwitchRewardSyncModeOption> PowerUpSourceModeOptions => mainWindowViewModel?.PowerUpSourceModeOptions ?? [];
+
+    public ObservableCollection<TwitchPowerUpOption> PowerUpOptions => mainWindowViewModel?.PowerUpOptions ?? [];
+
+    public RelayCommand? UnlinkPowerUpCommand => mainWindowViewModel?.UnlinkPowerUpCommand;
+
+    public RelayCommand? UseCurrentAvatarForPowerUpRuleCommand => mainWindowViewModel?.UseCurrentAvatarForPowerUpRuleCommand;
 
     public string AvatarScaleRuleLockoutSummaryText => mainWindowViewModel?.AvatarScaleRuleLockoutSummaryText ?? string.Empty;
 
@@ -316,6 +326,7 @@ public sealed class AvatarScalingManagerViewModel : ObservableObject, IDisposabl
         {
             mainWindowViewModel.SelectedAvatarScaleSet = owningSet;
             mainWindowViewModel.SelectedAvatarScaleRule = selectedRule;
+            mainWindowViewModel.SelectedPowerUpRule = SelectedPowerUpRule;
         }
 
         RaisePropertyChanged(nameof(SelectedCardUsesScaleSetCommands));

@@ -32,6 +32,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
         _onSettingsChanged = onSettingsChanged;
 
         TwitchRewardOptions = _twitchRewardSource.RewardOptions;
+        PowerUpOptions = _twitchRewardSource.PowerUpOptions;
         RefreshTwitchRewardsCommand = _twitchRewardSource.RefreshTwitchRewardsCommand;
         UnlinkTwitchRewardCommand = _twitchRewardSource.UnlinkTwitchRewardCommand;
 
@@ -51,8 +52,10 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
         AddBitsRuleCommand = new RelayCommand(AddBitsRule, () => SelectedSwapCard is not null);
         AddSubsRuleCommand = new RelayCommand(AddSubsRule, () => SelectedSwapCard is not null);
         AddPaymentRuleCommand = new RelayCommand(AddPaymentRule, () => SelectedSwapCard is not null);
+        AddPowerUpRuleCommand = new RelayCommand(AddPowerUpRule, () => SelectedSwapCard is not null);
         AddAdvancedTriggerCommand = new RelayCommand(p => AddAdvancedTrigger(p as string));
         AddRoulettePoolEntryCommand = new RelayCommand(AddRoulettePoolEntry, () => SelectedRouletteCard is not null);
+        RemoveRoulettePoolEntryCommand = new RelayCommand(p => RemoveRoulettePoolEntry(p as RoulettePoolEntryRowViewModel), _ => SelectedRouletteCard is not null);
         DeleteRuleCommand = new RelayCommand(p => DeleteRule(p as IRuleRowViewModel));
         BackToListCommand = new RelayCommand(BackToList);
         PickGlobalReturnAvatarCommand = new RelayCommand(PickGlobalReturnAvatar);
@@ -122,6 +125,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
     public ObservableCollection<AvatarRouletteCardViewModel> RouletteCards { get; } = new();
 
     public ObservableCollection<TwitchRewardOption> TwitchRewardOptions { get; }
+    public ObservableCollection<TwitchPowerUpOption> PowerUpOptions { get; }
     public IReadOnlyList<ChatCommandPermission> ChatCommandPermissionOptions { get; } = Enum.GetValues<ChatCommandPermission>();
     public ICommand RefreshTwitchRewardsCommand { get; }
     public ICommand UnlinkTwitchRewardCommand { get; }
@@ -133,6 +137,8 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
     public ObservableCollection<InlineSubsRuleRowViewModel> SubsRows { get; } = new();
 
     public ObservableCollection<InlinePaymentRuleRowViewModel> PaymentRows { get; } = new();
+
+    public ObservableCollection<InlinePowerUpRuleRowViewModel> PowerUpRows { get; } = new();
 
     public ObservableCollection<IRuleRowViewModel> RouletteTriggerRows { get; } = new();
 
@@ -150,6 +156,20 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
     public string GlobalReturnAvatarDisplayName => _settings.MasterAvatarSwapReturnDisplayName;
 
     public bool HasGlobalReturnAvatar => !string.IsNullOrWhiteSpace(GlobalReturnAvatarId);
+
+    public bool PermanentSwapModeEnabled
+    {
+        get => _settings.PermanentSwapModeEnabled;
+        set
+        {
+            if (_settings.PermanentSwapModeEnabled != value)
+            {
+                _settings.PermanentSwapModeEnabled = value;
+                RaisePropertyChanged();
+                NotifySettingsChanged();
+            }
+        }
+    }
 
     private AvatarSwapCardViewModel? _selectedSwapCard;
     public AvatarSwapCardViewModel? SelectedSwapCard
@@ -289,8 +309,10 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
     public RelayCommand AddBitsRuleCommand { get; }
     public RelayCommand AddSubsRuleCommand { get; }
     public RelayCommand AddPaymentRuleCommand { get; }
+    public RelayCommand AddPowerUpRuleCommand { get; }
     public RelayCommand AddAdvancedTriggerCommand { get; }
     public RelayCommand AddRoulettePoolEntryCommand { get; }
+    public RelayCommand RemoveRoulettePoolEntryCommand { get; }
     public RelayCommand DeleteRuleCommand { get; }
     public RelayCommand BackToListCommand { get; }
     public RelayCommand PickGlobalReturnAvatarCommand { get; }
@@ -322,6 +344,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
         BitsRows.Clear();
         SubsRows.Clear();
         PaymentRows.Clear();
+        PowerUpRows.Clear();
         RouletteTriggerRows.Clear();
         RoulettePoolRows.Clear();
         RouletteChannelPointRows.Clear();
@@ -355,6 +378,12 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
                 var row = new InlinePaymentRuleRowViewModel(r, swapProfile);
                 WireRowCommands(row);
                 PaymentRows.Add(row);
+            }
+            foreach (var r in swapProfile.PowerUpRules)
+            {
+                var row = new InlinePowerUpRuleRowViewModel(r, swapProfile);
+                WireRowCommands(row);
+                PowerUpRows.Add(row);
             }
         }
 
@@ -479,6 +508,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
         AddBitsRuleCommand.NotifyCanExecuteChanged();
         AddSubsRuleCommand.NotifyCanExecuteChanged();
         AddPaymentRuleCommand.NotifyCanExecuteChanged();
+        AddPowerUpRuleCommand?.NotifyCanExecuteChanged();
         AddRoulettePoolEntryCommand.NotifyCanExecuteChanged();
     }
 
@@ -601,6 +631,24 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
         NotifySettingsChanged();
     }
 
+    private void AddPowerUpRule()
+    {
+        if (SelectedSwapCard is null) return;
+        var rule = new TriggerRule
+        {
+            TriggerType = TwitchTriggerType.PowerUp,
+            ActionType = OscActionType.AvatarChange,
+            AvatarChangeTargetId = SelectedSwapCard.Profile.TargetAvatarId,
+            AvatarTargetName = SelectedSwapCard.Profile.TargetAvatarName,
+            Name = "New Power Up Swap"
+        };
+        SelectedSwapCard.Profile.PowerUpRules.Add(rule);
+        var row = new InlinePowerUpRuleRowViewModel(rule, SelectedSwapCard.Profile);
+        WireRowCommands(row);
+        PowerUpRows.Add(row);
+        NotifySettingsChanged();
+    }
+
     private void AddAdvancedTrigger(string? triggerSource)
     {
         if (string.IsNullOrEmpty(triggerSource)) return;
@@ -703,6 +751,20 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
         // Pool selection requires the window-owned avatar picker; never create blank entries.
     }
 
+    private void RemoveRoulettePoolEntry(RoulettePoolEntryRowViewModel? row)
+    {
+        if (row is null || SelectedRouletteCard is null) return;
+
+        var pool = SelectedRouletteCard.Roulette.Pool;
+        var entry = pool.FirstOrDefault(e => string.Equals(e.AvatarId, row.AvatarId, StringComparison.Ordinal));
+        if (entry is not null)
+        {
+            pool.Remove(entry);
+            RebuildRoulettePoolRows();
+            NotifySettingsChanged();
+        }
+    }
+
     private void RebuildRoulettePoolRows()
     {
         RoulettePoolRows.Clear();
@@ -788,6 +850,11 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
                 && SelectedSwapCard.Profile.PaymentRules.Remove((CashPaymentRule)pay.Rule))
             {
                 PaymentRows.Remove(pay);
+            }
+            else if (row is InlinePowerUpRuleRowViewModel pow
+                && SelectedSwapCard.Profile.PowerUpRules.Remove((TriggerRule)pow.Rule))
+            {
+                PowerUpRows.Remove(pow);
             }
         }
 

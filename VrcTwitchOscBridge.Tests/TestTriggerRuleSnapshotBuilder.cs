@@ -22,6 +22,7 @@ internal static class TestTriggerRuleSnapshotBuilder
         TriggerType: TwitchTriggerType.Bits,
         ChannelPointRewardId: string.Empty,
         ChannelPointRewardTitle: string.Empty,
+        PowerUpId: string.Empty,
         ManagedRewardReadyColor: string.Empty,
         ManagedRewardCooldownColor: string.Empty,
         ChatCommandEnabled: false,

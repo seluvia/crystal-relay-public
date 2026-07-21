@@ -7,6 +7,297 @@
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
         <uc:EnumToBoolConverter x:Key="EnumToBoolConverter" />
+        <uc:EnumToVisibilityConverter x:Key="EnumToVisibilityConverter" />
+
+        <Style x:Key="ComboBoxToggleButtonStyle" TargetType="ToggleButton">
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Background" Value="{DynamicResource ComboDropButtonBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1,0,0,0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="DropButtonBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                                                CornerRadius="0,8,8,0">
+                            <Path x:Name="DropArrow"
+                                  Width="11" Height="7" Stretch="Fill"
+                                  HorizontalAlignment="Center" VerticalAlignment="Center"
+                                  Data="M 0 0 L 5.5 6 L 11 0"
+                                  Stroke="{DynamicResource TitleBarTextBrush}"
+                                  StrokeThickness="1.8"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="DropButtonBorder" Property="Background" Value="{DynamicResource ComboDropButtonHoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="DropButtonBorder" Property="Background" Value="{DynamicResource ComboDropButtonPressedBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="DropButtonBorder" Property="Background" Value="{DynamicResource ComboDropButtonHoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="DropButtonBorder" Property="Opacity" Value="0.55" />
+                                <Setter TargetName="DropArrow" Property="Opacity" Value="0.55" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ComboPopupTrackButtonStyle" TargetType="RepeatButton">
+            <Setter Property="OverridesDefaultStyle" Value="True" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RepeatButton">
+                        <Border Background="{TemplateBinding Background}" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ComboPopupThumbStyle" TargetType="Thumb">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Border x:Name="ComboPopupThumbBorder"
+                                Width="8" HorizontalAlignment="Center"
+                                Background="{DynamicResource ScrollThumbBrush}"
+                                CornerRadius="4" />
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ComboPopupThumbBorder" Property="Background" Value="{DynamicResource ScrollThumbHoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsDragging" Value="True">
+                                <Setter TargetName="ComboPopupThumbBorder" Property="Background" Value="{DynamicResource ScrollThumbPressedBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <ControlTemplate x:Key="ComboPopupVerticalScrollBarTemplate" TargetType="ScrollBar">
+            <Grid Width="{TemplateBinding Width}" Background="Transparent">
+                <Border Width="8" HorizontalAlignment="Center" Margin="0,2"
+                        Background="{DynamicResource ScrollTrackBrush}"
+                        BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1" CornerRadius="4" />
+                <Track x:Name="PART_Track" Margin="0,2" IsDirectionReversed="True">
+                    <Track.DecreaseRepeatButton>
+                        <RepeatButton Style="{StaticResource ComboPopupTrackButtonStyle}" Command="{x:Static ScrollBar.PageUpCommand}" />
+                    </Track.DecreaseRepeatButton>
+                    <Track.Thumb>
+                        <Thumb Style="{StaticResource ComboPopupThumbStyle}" MinHeight="30" />
+                    </Track.Thumb>
+                    <Track.IncreaseRepeatButton>
+                        <RepeatButton Style="{StaticResource ComboPopupTrackButtonStyle}" Command="{x:Static ScrollBar.PageDownCommand}" />
+                    </Track.IncreaseRepeatButton>
+                </Track>
+            </Grid>
+        </ControlTemplate>
+
+        <ControlTemplate x:Key="ComboPopupHorizontalScrollBarTemplate" TargetType="ScrollBar">
+            <Grid Height="{TemplateBinding Height}" Background="Transparent">
+                <Border Height="8" VerticalAlignment="Center" Margin="2,0"
+                        Background="{DynamicResource ScrollTrackBrush}"
+                        BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1" CornerRadius="4" />
+                <Track x:Name="PART_Track" Margin="2,0">
+                    <Track.DecreaseRepeatButton>
+                        <RepeatButton Style="{StaticResource ComboPopupTrackButtonStyle}" Command="{x:Static ScrollBar.PageLeftCommand}" />
+                    </Track.DecreaseRepeatButton>
+                    <Track.Thumb>
+                        <Thumb Style="{StaticResource ComboPopupThumbStyle}" MinWidth="30" />
+                    </Track.Thumb>
+                    <Track.IncreaseRepeatButton>
+                        <RepeatButton Style="{StaticResource ComboPopupTrackButtonStyle}" Command="{x:Static ScrollBar.PageRightCommand}" />
+                    </Track.IncreaseRepeatButton>
+                </Track>
+            </Grid>
+        </ControlTemplate>
+
+        <Style x:Key="ComboPopupScrollBarStyle" TargetType="ScrollBar">
+            <Setter Property="Width" Value="12" />
+            <Setter Property="Height" Value="Auto" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Template" Value="{StaticResource ComboPopupVerticalScrollBarTemplate}" />
+            <Style.Triggers>
+                <Trigger Property="Orientation" Value="Horizontal">
+                    <Setter Property="Width" Value="Auto" />
+                    <Setter Property="Height" Value="12" />
+                    <Setter Property="Template" Value="{StaticResource ComboPopupHorizontalScrollBarTemplate}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style TargetType="ComboBox">
+            <Setter Property="FontFamily" Value="{DynamicResource BodyFontFamily}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="MinHeight" Value="32" />
+            <Setter Property="Padding" Value="8,4" />
+            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TitleBarTextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <Border x:Name="ComboBorder"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="8">
+                                <Grid>
+                                    <Grid.Resources>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{DynamicResource TitleBarTextBrush}" />
+                                        </Style>
+                                    </Grid.Resources>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="30" />
+                                    </Grid.ColumnDefinitions>
+                                    <ContentPresenter x:Name="ContentSite"
+                                                      Grid.Column="0"
+                                                      Margin="10,0,4,0"
+                                                      HorizontalAlignment="Left"
+                                                      VerticalAlignment="Center"
+                                                      Content="{TemplateBinding SelectionBoxItem}"
+                                                      ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                                      ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+                                                      ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"
+                                                      TextElement.Foreground="{DynamicResource TitleBarTextBrush}"
+                                                      IsHitTestVisible="False" />
+                                    <TextBox x:Name="PART_EditableTextBox"
+                                             Grid.Column="0"
+                                             Margin="10,0,4,0"
+                                             Foreground="{DynamicResource TitleBarTextBrush}"
+                                             Background="Transparent"
+                                             BorderThickness="0"
+                                             Visibility="Hidden"
+                                             IsReadOnly="{TemplateBinding IsReadOnly}" />
+                                    <ToggleButton Grid.Column="1"
+                                                  IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                                  Style="{StaticResource ComboBoxToggleButtonStyle}" />
+                                </Grid>
+                            </Border>
+                            <Popup x:Name="PART_Popup"
+                                   AllowsTransparency="True"
+                                   Focusable="False"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}"
+                                   Placement="Bottom"
+                                   PopupAnimation="Slide">
+                                <Grid MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
+                                      MaxHeight="{TemplateBinding MaxDropDownHeight}"
+                                      Background="{DynamicResource InputBrush}">
+                                    <Border Margin="0,4,0,0"
+                                            Padding="4"
+                                            Background="{DynamicResource InputBrush}"
+                                            TextElement.Foreground="{DynamicResource TitleBarTextBrush}"
+                                            BorderBrush="{DynamicResource PopupBorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="10">
+                                        <ScrollViewer SnapsToDevicePixels="True">
+                                            <ScrollViewer.Resources>
+                                                <Style TargetType="ScrollBar" BasedOn="{StaticResource ComboPopupScrollBarStyle}" />
+                                            </ScrollViewer.Resources>
+                                            <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" />
+                                        </ScrollViewer>
+                                    </Border>
+                                </Grid>
+                            </Popup>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                <Setter TargetName="ComboBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsDropDownOpen" Value="True">
+                                <Setter TargetName="ComboBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsEditable" Value="True">
+                                <Setter TargetName="ContentSite" Property="Visibility" Value="Hidden" />
+                                <Setter TargetName="PART_EditableTextBox" Property="Visibility" Value="Visible" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ComboBorder" Property="Opacity" Value="0.55" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="ComboBoxItem">
+            <Setter Property="FontFamily" Value="{DynamicResource BodyFontFamily}" />
+            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TitleBarTextBrush}" />
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBoxItem">
+                        <Border x:Name="ItemBorder"
+                                Margin="0,2,0,2"
+                                Padding="{TemplateBinding Padding}"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="10">
+                            <Border.Resources>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{DynamicResource TitleBarTextBrush}" />
+                                </Style>
+                            </Border.Resources>
+                            <ContentPresenter TextElement.Foreground="{DynamicResource TitleBarTextBrush}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource ComboHighlightBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource ComboHighlightBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.55" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <DataTemplate x:Key="TwitchPowerUpOptionTemplate">
+            <StackPanel>
+                <TextBlock Text="{Binding DisplayLabel}"
+                           Foreground="{DynamicResource TitleBarTextBrush}"
+                           TextWrapping="Wrap" />
+                <TextBlock Margin="0,2,0,0"
+                           Text="{Binding DetailText}"
+                           Foreground="{DynamicResource MutedBrush}"
+                           FontSize="11"
+                           TextWrapping="Wrap"
+                           Visibility="Collapsed">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding HasDetailText}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </StackPanel>
+        </DataTemplate>
 
         <Style x:Key="HeadingTextStyle" TargetType="TextBlock">
             <Setter Property="FontFamily" Value="{DynamicResource HeadingFontFamily}" />
@@ -26,7 +317,103 @@
         </Style>
 
         <Style TargetType="CheckBox">
+            <Setter Property="FontFamily" Value="{DynamicResource BodyFontFamily}" />
+            <Setter Property="FontSize" Value="12" />
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Grid SnapsToDevicePixels="True">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Width="20" Height="20" VerticalAlignment="Center" Background="Transparent">
+                                <Grid>
+                                    <Border x:Name="CheckChrome"
+                                            Background="{TemplateBinding Background}"
+                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="{TemplateBinding BorderThickness}"
+                                            CornerRadius="7" />
+                                    <Path x:Name="CheckMark"
+                                          Width="11" Height="8"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          Data="M 1 5 L 4.5 8 L 11 1"
+                                          Stroke="White"
+                                          StrokeThickness="2.2"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"
+                                          StrokeLineJoin="Round"
+                                          Visibility="Collapsed" />
+                                </Grid>
+                            </Border>
+                            <ContentPresenter Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center"
+                                              RecognizesAccessKey="True" ContentSource="Content" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="CheckChrome" Property="BorderBrush" Value="{DynamicResource RuleCardHoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="CheckChrome" Property="Background" Value="{DynamicResource AccentBrush}" />
+                                <Setter TargetName="CheckChrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                <Setter TargetName="CheckMark" Property="Visibility" Value="Visible" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="CheckChrome" Property="Opacity" Value="0.45" />
+                                <Setter Property="Opacity" Value="0.55" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="RadioButton">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Margin" Value="0,4,0,0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border x:Name="OuterMark"
+                                    Width="18" Height="18"
+                                    Margin="0,1,9,0"
+                                    VerticalAlignment="Top"
+                                    CornerRadius="9"
+                                    BorderBrush="{DynamicResource InputBorderBrush}"
+                                    BorderThickness="2"
+                                    Background="{DynamicResource InputBrush}">
+                                <Ellipse x:Name="InnerMark"
+                                         Width="8" Height="8"
+                                         HorizontalAlignment="Center"
+                                         VerticalAlignment="Center"
+                                         Fill="{DynamicResource AccentBrush}"
+                                         Visibility="Collapsed" />
+                            </Border>
+                            <ContentPresenter Grid.Column="1" VerticalAlignment="Top" RecognizesAccessKey="True" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="OuterMark" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                <Setter TargetName="InnerMark" Property="Visibility" Value="Visible" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.5" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <Style x:Key="SecondaryButtonStyle" TargetType="Button">
@@ -134,6 +521,37 @@
                             </StackPanel>
                         </StackPanel>
                         <CheckBox IsChecked="{Binding Rule.DeleteManagedRewardWhenInactive}" Content="{loc:Translate 'Free Twitch reward slots when inactive'}" Margin="0,8,0,0" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <!-- Power Up trigger fields -->
+            <StackPanel Margin="0,8,0,0">
+                <StackPanel.Style>
+                    <Style TargetType="StackPanel">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Rule.TriggerType}" Value="PowerUp">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </StackPanel.Style>
+                <Border Background="{DynamicResource NestedPanelBrush}" CornerRadius="4" Padding="10" Margin="0,0,0,8">
+                    <StackPanel>
+                        <TextBlock Text="{loc:Translate 'Twitch Custom Power-up'}" Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" Margin="0,0,0,8" />
+                        <TextBlock Text="{loc:Translate 'Existing Twitch Power Up'}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
+                        <ComboBox ItemsSource="{Binding DataContext.PowerUpOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                  ItemTemplate="{StaticResource TwitchPowerUpOptionTemplate}"
+                                  SelectedValuePath="Id"
+                                  SelectedValue="{Binding Rule.PowerUpId, UpdateSourceTrigger=PropertyChanged}" />
+                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                            <Button Content="{loc:Translate 'Refresh Power Ups'}" Command="{Binding DataContext.RefreshTwitchRewardsCommand, RelativeSource={RelativeSource AncestorType=Window}}" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,6,0" />
+                        </StackPanel>
+                        <TextBlock Margin="0,6,0,0"
+                                   Text="{loc:Translate 'Safe beta links existing Twitch Custom Power-ups only. Create, edit, hide, and reprice controls stay unavailable until Twitch documents write APIs.'}"
+                                   Foreground="{DynamicResource MutedBrush}"
+                                   TextWrapping="Wrap" FontSize="10" />
                     </StackPanel>
                 </Border>
             </StackPanel>
@@ -254,9 +672,28 @@
                 <Border Background="{DynamicResource NestedPanelBrush}" CornerRadius="4" Padding="10" Margin="0,0,0,8">
                     <StackPanel>
                         <TextBlock Text="Subscription Settings" Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" Margin="0,0,0,8" />
+
+                        <TextBlock Text="{loc:Translate 'Subs to Trigger'}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
+                        <TextBox Text="{Binding Rule.SubsTriggerCount, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6" />
+
+                        <CheckBox Content="{loc:Translate 'Accumulate subs across events'}"
+                                  IsChecked="{Binding Rule.SubsAccumulationEnabled, UpdateSourceTrigger=PropertyChanged}"
+                                  Margin="0,0,0,4" />
+                        <StackPanel Margin="26,0,0,6"
+                                    Visibility="{Binding Rule.SubsAccumulationEnabled, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <CheckBox Content="{loc:Translate 'Carry over excess subs'}"
+                                      IsChecked="{Binding Rule.SubsCarryOverEnabled, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+
+                        <TextBlock Text="{Binding Rule.SubsTriggerSummary}"
+                                   Foreground="{DynamicResource AccentBrush}"
+                                   FontSize="10"
+                                   TextWrapping="Wrap"
+                                   Margin="0,4,0,8" />
+
                         <CheckBox Content="{loc:Translate 'Add sub time to swap'}"
                                   IsChecked="{Binding Rule.AddBitsToSwapTime, UpdateSourceTrigger=PropertyChanged}"
-                                  Margin="0,0,0,8" />
+                                  Margin="0,0,0,4" />
                         <StackPanel Visibility="{Binding Rule.AddBitsToSwapTime, Converter={StaticResource BoolToVisibilityConverter}}">
                             <UniformGrid Columns="3">
                                 <StackPanel Margin="0,0,6,0">
@@ -291,6 +728,37 @@
                 </Border>
             </StackPanel>
 
+            <!-- Avatar Change Return Behavior -->
+            <Border x:Name="ReturnBehaviorBorder" Background="{DynamicResource NestedPanelBrush}" CornerRadius="4" Padding="10">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Rule.ActionType}" Value="{x:Static models:OscActionType.AvatarChange}">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding Rule.ActionType}" Value="{x:Static models:OscActionType.AvatarRoulet}">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <StackPanel>
+                    <TextBlock Text="{loc:Translate 'Return Behavior'}" Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" Margin="0,0,0,8" />
+                    <RadioButton x:Name="ReturnToPreviousRadio"
+                                 GroupName="AvatarReturnMode"
+                                 IsChecked="{Binding Rule.ReturnToPreviousAvatar, Mode=TwoWay}"
+                                 Checked="OnReturnToPreviousChecked"
+                                 Content="{loc:Translate 'Return to Previous Avatar'}"
+                                 Foreground="{DynamicResource TextBrush}" />
+                    <RadioButton x:Name="ReturnToGlobalRadio"
+                                 GroupName="AvatarReturnMode"
+                                 Checked="OnReturnToGlobalChecked"
+                                 Content="{loc:Translate 'Return to Global Return Avatar'}"
+                                 Foreground="{DynamicResource TextBrush}" />
+                </StackPanel>
+            </Border>
+
             <!-- Common fields -->
             <Border Background="{DynamicResource NestedPanelBrush}" CornerRadius="4" Padding="10">
                 <StackPanel>
@@ -301,8 +769,33 @@
                             <TextBox Text="{Binding Rule.DurationSeconds, UpdateSourceTrigger=PropertyChanged}" />
                         </StackPanel>
                         <StackPanel Margin="8,0,0,0">
+                            <StackPanel.Style>
+                                <Style TargetType="StackPanel">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Rule.TriggerType}" Value="PowerUp">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </StackPanel.Style>
                             <TextBlock Text="{loc:Translate 'Cooldown (seconds)'}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
                             <TextBox Text="{Binding Rule.CooldownSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                        <StackPanel Margin="8,0,0,0">
+                            <StackPanel.Style>
+                                <Style TargetType="StackPanel">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Rule.TriggerType}" Value="PowerUp">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </StackPanel.Style>
+                            <TextBlock Text="{loc:Translate 'Cooldown (seconds)'}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
+                            <TextBox Text="{Binding Rule.CooldownSeconds, UpdateSourceTrigger=PropertyChanged}" IsEnabled="False" />
+                            <TextBlock Text="{loc:Translate 'Cooldown is managed by Twitch for linked Power Ups.'}" Foreground="{DynamicResource MutedBrush}" FontSize="10" FontStyle="Italic" Margin="0,4,0,0" TextWrapping="Wrap" />
                         </StackPanel>
                     </UniformGrid>
                     <StackPanel Margin="0,8,0,0"

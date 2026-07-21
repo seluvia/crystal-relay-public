@@ -57,6 +57,8 @@ public sealed class RewardFireSaleSettings : ObservableObject
     private bool countBits = true;
     private bool countManagedRewards = true;
     private bool discountManagedPowerUpsEnabled;
+    private bool countCashPayments;
+    private int cashPaymentProgressRatio = 100;
     private bool fundingRewardEnabled;
     private string fundingRewardId = string.Empty;
     private string fundingRewardTitle = "Fire Sale Fund";
@@ -101,6 +103,18 @@ public sealed class RewardFireSaleSettings : ObservableObject
     {
         get => discountManagedPowerUpsEnabled;
         set => SetProperty(ref discountManagedPowerUpsEnabled, value);
+    }
+
+    public bool CountCashPayments
+    {
+        get => countCashPayments;
+        set => SetProperty(ref countCashPayments, value);
+    }
+
+    public int CashPaymentProgressRatio
+    {
+        get => cashPaymentProgressRatio;
+        set => SetProperty(ref cashPaymentProgressRatio, Math.Max(1, value));
     }
 
     public bool FundingRewardEnabled

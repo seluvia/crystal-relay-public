@@ -437,11 +437,9 @@
                                 </Grid>
                             </Border>
                             <Popup x:Name="PART_Popup"
-                                   AllowsTransparency="True"
                                    Focusable="False"
                                    IsOpen="{TemplateBinding IsDropDownOpen}"
-                                   Placement="Bottom"
-                                   PopupAnimation="Slide">
+                                   Placement="Bottom">
                                 <Grid MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
                                       MaxHeight="{TemplateBinding MaxDropDownHeight}">
                                     <Border Margin="0,4,0,0"
@@ -493,7 +491,7 @@
                         <Border x:Name="ItemBorder"
                                 Margin="0,1"
                                 Padding="{TemplateBinding Padding}"
-                                Background="Transparent"
+                                Background="{TemplateBinding Background}"
                                 CornerRadius="6">
                             <Border.Resources>
                                 <Style TargetType="TextBlock">
@@ -838,15 +836,15 @@
                                      GroupName="AvatarScalingSources"
                                      Style="{StaticResource NavRadioButtonStyle}"
                                      IsChecked="{Binding ActiveSourceView, Converter={StaticResource EnumBooleanConverter}, ConverterParameter=SupporterGrowth, Mode=TwoWay}" />
-                        <RadioButton Content="{loc:Translate 'Cash Payments'}"
+                         <RadioButton Content="{loc:Translate 'Cash Payments'}"
                                      GroupName="AvatarScalingSources"
                                      Style="{StaticResource NavRadioButtonStyle}"
                                      IsChecked="{Binding ActiveSourceView, Converter={StaticResource EnumBooleanConverter}, ConverterParameter=CashPayments, Mode=TwoWay}" />
-                        <RadioButton Content="{loc:Translate 'Power Ups'}"
-                                     GroupName="AvatarScalingSources"
-                                     Style="{StaticResource NavRadioButtonStyle}"
-                                     IsChecked="{Binding ActiveSourceView, Converter={StaticResource EnumBooleanConverter}, ConverterParameter=PowerUps, Mode=TwoWay}" />
-                    </StackPanel>
+                         <RadioButton Content="{loc:Translate 'Power Ups'}"
+                                      GroupName="AvatarScalingSources"
+                                      Style="{StaticResource NavRadioButtonStyle}"
+                                      IsChecked="{Binding ActiveSourceView, Converter={StaticResource EnumBooleanConverter}, ConverterParameter=PowerUps, Mode=TwoWay}" />
+                     </StackPanel>
                 </Border>
 
                 <GridSplitter Grid.Column="2"
@@ -919,6 +917,19 @@
                         </Border>
 
                         <StackPanel Margin="0,0,0,12">
+                            <StackPanel.Style>
+                                <Style TargetType="StackPanel">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding ActiveSourceView}" Value="TwitchRewards">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding ActiveSourceView}" Value="AllSources">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </StackPanel.Style>
                             <TextBlock Text="{loc:Translate 'Twitch Reward Scaling'}"
                                        FontFamily="{DynamicResource HeadingFontFamily}"
                                        FontWeight="Bold"
@@ -1090,7 +1101,7 @@
                                                    Foreground="{DynamicResource TitleBarSubTextBrush}" />
                                         <ItemsControl ItemsSource="{Binding CashPaymentCards}" ItemTemplate="{StaticResource SourceCardTemplate}" />
                                     </StackPanel>
-                                </Border>
+                                 </Border>
 
                                 <!-- Power Ups -->
                                 <Border>
@@ -1110,10 +1121,15 @@
                                     <StackPanel>
                                         <DockPanel LastChildFill="True">
                                             <Button DockPanel.Dock="Right"
+                                                    Content="{loc:Translate 'Refresh Power Ups'}"
+                                                    Command="{Binding RefreshPowerUpsCommand}"
+                                                    Style="{StaticResource SecondaryButtonStyle}"
+                                                    Margin="8,0,0,0" />
+                                            <Button DockPanel.Dock="Right"
                                                     Content="{loc:Translate 'Add Power Up'}"
                                                     Command="{Binding AddAvatarScalingPowerUpRuleCommand}"
                                                     Style="{StaticResource SecondaryButtonStyle}"
-                                                    Margin="8,0,0,0" />
+                                                    Margin="0,0,4,0" />
                                             <TextBlock Text="{loc:Translate 'Power Ups'}" FontWeight="Bold" FontSize="14" />
                                         </DockPanel>
                                         <TextBlock Margin="0,4,0,10"
@@ -1122,7 +1138,8 @@
                                         <ItemsControl ItemsSource="{Binding PowerUpCards}" ItemTemplate="{StaticResource SourceCardTemplate}" />
                                     </StackPanel>
                                 </Border>
-                            </StackPanel>
+
+                             </StackPanel>
                         </Grid>
                     </StackPanel>
                 </ScrollViewer>
@@ -1461,18 +1478,66 @@
                                                                 <Button Margin="10,0,0,0" Content="{loc:Translate 'Cooldown Color'}" Click="OnPickManagedRewardColorClicked" Tag="Cooldown" Style="{StaticResource SecondaryButtonStyle}" />
                                                             </DockPanel>
                                                         </StackPanel>
+                                                         </StackPanel>
                                                     </StackPanel>
-                                                </StackPanel>
-                                            </Border>
+                                                </Border>
 
-                                            <Border Margin="0,12,0,0"
-                                                    Padding="12"
-                                                    CornerRadius="14"
-                                                    Background="{DynamicResource NestedPanelBrush}"
-                                                    BorderBrush="{DynamicResource BorderBrush}"
-                                                    BorderThickness="1">
-                                                <StackPanel>
-                                                    <TextBlock Text="{loc:Translate 'Height Change'}" FontWeight="Bold" FontSize="15" />
+                                                <Border Margin="0,12,0,0"
+                                                        Padding="12"
+                                                        CornerRadius="14"
+                                                        Background="{DynamicResource NestedPanelBrush}"
+                                                        BorderBrush="{DynamicResource BorderBrush}"
+                                                        BorderThickness="1">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{loc:Translate 'Bits Trigger Range'}" FontWeight="Bold" FontSize="15" />
+                                                        <TextBlock Margin="0,6,0,0"
+                                                                   Text="{loc:Translate 'Use minimum and maximum bits to decide which cheer amounts trigger this scale action.'}"
+                                                                   Foreground="{DynamicResource TitleBarSubTextBrush}" />
+                                                        <UniformGrid Columns="2" Margin="0,10,0,0">
+                                                            <StackPanel Margin="0,0,6,0">
+                                                                <TextBlock Text="{loc:Translate 'Minimum Bits'}" FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding ScaleAction.MinimumBits, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                            <StackPanel Margin="6,0,0,0">
+                                                                <TextBlock Text="{loc:Translate 'Maximum Bits'}" FontWeight="SemiBold" />
+                                                                <TextBox Text="{Binding ScaleAction.MaximumBits, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </StackPanel>
+                                                        </UniformGrid>
+                                                    </StackPanel>
+                                                </Border>
+
+                                                <Border Margin="0,12,0,0"
+                                                        Padding="12"
+                                                        CornerRadius="14"
+                                                        Background="{DynamicResource NestedPanelBrush}"
+                                                        BorderBrush="{DynamicResource BorderBrush}"
+                                                        BorderThickness="1">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{loc:Translate 'Avatar Scope'}" FontWeight="Bold" FontSize="15" />
+                                                        <CheckBox Margin="0,10,0,0"
+                                                                  Content="{loc:Translate 'Restrict to this avatar only'}"
+                                                                  IsChecked="{Binding AvatarScoped, UpdateSourceTrigger=PropertyChanged}" />
+                                                        <StackPanel Margin="0,10,0,0"
+                                                                    Visibility="{Binding HasAvatarScope, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                            <TextBlock Text="{loc:Translate 'Avatar'}" FontWeight="SemiBold" />
+                                                            <TextBlock Text="{Binding AvatarDisplayName}" Foreground="{DynamicResource TitleBarSubTextBrush}" />
+                                                        </StackPanel>
+                                                        <WrapPanel Margin="0,8,0,0">
+                                                            <Button Content="{loc:Translate 'Use Current Avatar'}"
+                                                                    Command="{Binding DataContext.UseCurrentAvatarForPowerUpRuleCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                    Style="{StaticResource SecondaryButtonStyle}" />
+                                                        </WrapPanel>
+                                                    </StackPanel>
+                                                </Border>
+
+                                                <Border Margin="0,12,0,0"
+                                                        Padding="12"
+                                                        CornerRadius="14"
+                                                        Background="{DynamicResource NestedPanelBrush}"
+                                                        BorderBrush="{DynamicResource BorderBrush}"
+                                                        BorderThickness="1">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{loc:Translate 'Height Change'}" FontWeight="Bold" FontSize="15" />
                                                     <UniformGrid Columns="3" Margin="0,10,0,0">
                                                         <Button Content="{loc:Translate 'Set Height'}" Tag="SetHeight" Click="ScaleActionModeButton_Click" Style="{StaticResource SecondaryButtonStyle}" />
                                                         <Button Content="{loc:Translate 'Random'}" Tag="RandomHeight" Click="ScaleActionModeButton_Click" Style="{StaticResource SecondaryButtonStyle}" />
@@ -2025,7 +2090,7 @@
                                             </StackPanel>
                                         </DataTemplate>
                                     </ContentControl.ContentTemplate>
-                                </ContentControl>
+                                 </ContentControl>
 
                                 <ContentControl Content="{Binding SelectedPowerUpRule}">
                                     <ContentControl.Style>
@@ -2058,27 +2123,34 @@
                                                         BorderBrush="{DynamicResource BorderBrush}"
                                                         BorderThickness="1">
                                                     <StackPanel>
-                                                        <TextBlock Text="{loc:Translate 'Power Up Title'}" FontWeight="Bold" FontSize="15" />
+                                                        <TextBlock Text="{loc:Translate 'Linked Power Up'}" FontWeight="Bold" FontSize="15" />
+                                                        <StackPanel Margin="0,10,0,0">
+                                                            <TextBlock Text="{loc:Translate 'Select Power Up'}" FontWeight="SemiBold" />
+                                                            <ComboBox ItemsSource="{Binding DataContext.PowerUpOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                      DisplayMemberPath="DisplayLabel"
+                                                                      SelectedValuePath="Id"
+                                                                      SelectedValue="{Binding PowerUpId, UpdateSourceTrigger=PropertyChanged}" />
+                                                        </StackPanel>
                                                         <UniformGrid Columns="2" Margin="0,10,0,0">
                                                             <StackPanel Margin="0,0,6,0">
-                                                                <TextBlock Text="{loc:Translate 'Rule Name'}" FontWeight="SemiBold" />
-                                                                <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" />
+                                                                <TextBlock Text="{loc:Translate 'Title'}" FontWeight="SemiBold" Foreground="{DynamicResource TitleBarSubTextBrush}" />
+                                                                <TextBox Text="{Binding PowerUpTitle}" IsReadOnly="True" Opacity="0.6" />
                                                             </StackPanel>
                                                             <StackPanel Margin="6,0,0,0">
-                                                                <TextBlock Text="{loc:Translate 'Power Up Title'}" FontWeight="SemiBold" />
-                                                                <TextBox Text="{Binding PowerUpTitle, UpdateSourceTrigger=PropertyChanged}" />
+                                                                <TextBlock Text="{loc:Translate 'Bits Cost'}" FontWeight="SemiBold" Foreground="{DynamicResource TitleBarSubTextBrush}" />
+                                                                <TextBox Text="{Binding BitsCost}" IsReadOnly="True" Opacity="0.6" />
                                                             </StackPanel>
                                                         </UniformGrid>
-                                                        <UniformGrid Columns="2" Margin="0,10,0,0">
-                                                            <StackPanel Margin="0,0,6,0">
-                                                                <TextBlock Text="{loc:Translate 'Bits Cost'}" FontWeight="SemiBold" />
-                                                                <TextBox Text="{Binding BitsCost, UpdateSourceTrigger=PropertyChanged}" />
-                                                            </StackPanel>
-                                                            <StackPanel Margin="6,0,0,0">
-                                                                <TextBlock Text="{loc:Translate 'Cooldown Seconds'}" FontWeight="SemiBold" />
-                                                                <TextBox Text="{Binding CooldownSeconds, UpdateSourceTrigger=PropertyChanged}" />
-                                                            </StackPanel>
-                                                        </UniformGrid>
+                                                        <WrapPanel Margin="0,8,0,0">
+                                                            <Button Content="{loc:Translate 'Refresh Power Ups'}"
+                                                                    Command="{Binding DataContext.RefreshPowerUpsCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                    Style="{StaticResource SecondaryButtonStyle}"
+                                                                    Margin="0,0,6,0" />
+                                                            <Button Content="{loc:Translate 'Unlink Power Up'}"
+                                                                    Command="{Binding DataContext.UnlinkPowerUpCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                    CommandParameter="{Binding}"
+                                                                    Style="{StaticResource SecondaryButtonStyle}" />
+                                                        </WrapPanel>
                                                     </StackPanel>
                                                 </Border>
 
@@ -2185,16 +2257,38 @@
                                                             </StackPanel>
                                                             <StackPanel Margin="6,0,0,0">
                                                                 <TextBlock Text="{loc:Translate 'Smooth Transition Seconds'}" FontWeight="SemiBold" />
-                                                                <TextBox Text="{Binding ScaleAction.SmoothTransitionSeconds, UpdateSourceTrigger=LostFocus}" />
-                                                            </StackPanel>
-                                                        </UniformGrid>
+                                                        <TextBox Text="{Binding ScaleAction.SmoothTransitionSeconds, UpdateSourceTrigger=LostFocus}" />
+                                                        </StackPanel>
+                                                    </UniformGrid>
+                                                </StackPanel>
+                                            </Border>
+
+                                            <Border Background="{DynamicResource NestedPanelBrush}"
+                                                    BorderBrush="{DynamicResource BorderBrush}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="10"
+                                                    Padding="10"
+                                                    Margin="0,8,0,0">
+                                                <StackPanel>
+                                                    <CheckBox IsChecked="{Binding ScaleAction.ExtendCurrentActivity, Mode=TwoWay}"
+                                                              Content="{loc:Translate &quot;Extend the current active activity instead of running this rule's action&quot;}"
+                                                              Margin="0,0,0,6" />
+                                                    <StackPanel Orientation="Horizontal"
+                                                                Visibility="{Binding ScaleAction.ExtendCurrentActivity, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                        <TextBlock Text="{loc:Translate 'Extend by (seconds)'}"
+                                                                   VerticalAlignment="Center"
+                                                                   Margin="0,0,8,0" />
+                                                        <TextBox Text="{Binding ScaleAction.ExtendSeconds, UpdateSourceTrigger=PropertyChanged}"
+                                                                 MinWidth="80" />
                                                     </StackPanel>
-                                                </Border>
-                                            </StackPanel>
-                                        </DataTemplate>
-                                    </ContentControl.ContentTemplate>
+                                                </StackPanel>
+                                            </Border>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ContentControl.ContentTemplate>
                                 </ContentControl>
-                            </StackPanel>
+
+                             </StackPanel>
                         </ScrollViewer>
                     </Grid>
                 </Border>

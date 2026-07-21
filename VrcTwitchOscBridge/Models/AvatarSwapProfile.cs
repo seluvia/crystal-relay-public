@@ -54,16 +54,18 @@ public partial class AvatarSwapProfile : ObservableObject
     public ObservableCollection<TriggerRule> BitsRules { get; } = new();
     public ObservableCollection<TriggerRule> SubsRules { get; } = new();
     public ObservableCollection<CashPaymentRule> PaymentRules { get; } = new();
+    public ObservableCollection<TriggerRule> PowerUpRules { get; } = new();
 
     public bool HasRules =>
-        ChannelPointRules.Count + BitsRules.Count + SubsRules.Count + PaymentRules.Count > 0;
+        ChannelPointRules.Count + BitsRules.Count + SubsRules.Count + PaymentRules.Count + PowerUpRules.Count > 0;
     public bool UsesChannelPointRules => ChannelPointRules.Count > 0;
     public bool UsesBitsRules => BitsRules.Count > 0;
     public bool UsesSubsRules => SubsRules.Count > 0;
     public bool UsesPaymentRules => PaymentRules.Count > 0;
+    public bool UsesPowerUpRules => PowerUpRules.Count > 0;
 
     public string AvatarSubtitle =>
-        $"{ChannelPointRules.Count} cp · {BitsRules.Count} bits · {SubsRules.Count} subs · {PaymentRules.Count} pay";
+        $"{ChannelPointRules.Count} cp · {BitsRules.Count} bits · {SubsRules.Count} subs · {PaymentRules.Count} pay · {PowerUpRules.Count} pow";
 
     public AvatarSwapProfile()
     {
@@ -71,6 +73,7 @@ public partial class AvatarSwapProfile : ObservableObject
         BitsRules.CollectionChanged += (_, _) => Bump();
         SubsRules.CollectionChanged += (_, _) => Bump();
         PaymentRules.CollectionChanged += (_, _) => Bump();
+        PowerUpRules.CollectionChanged += (_, _) => Bump();
     }
 
     private void Bump()
@@ -81,6 +84,7 @@ public partial class AvatarSwapProfile : ObservableObject
         RaisePropertyChanged(nameof(UsesBitsRules));
         RaisePropertyChanged(nameof(UsesSubsRules));
         RaisePropertyChanged(nameof(UsesPaymentRules));
+        RaisePropertyChanged(nameof(UsesPowerUpRules));
         RaisePropertyChanged(nameof(AvatarSubtitle));
     }
 }

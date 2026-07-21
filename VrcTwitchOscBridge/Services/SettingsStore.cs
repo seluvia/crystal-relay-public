@@ -413,8 +413,11 @@ public sealed class SettingsStore
                     : settings.WorldCommandPermission;
             settings.ChannelPointRewardTestModeEnabled = profile.ChannelPointRewardTestModeEnabled ?? settings.ChannelPointRewardTestModeEnabled;
             settings.AvatarChangeCooldownOnlyModeEnabled = profile.AvatarChangeCooldownOnlyModeEnabled ?? settings.AvatarChangeCooldownOnlyModeEnabled;
+            settings.PermanentSwapModeEnabled = profile.PermanentSwapModeEnabled ?? settings.PermanentSwapModeEnabled;
             settings.AvatarSwapManagerUseFullRuleEditor = profile.AvatarSwapManagerUseFullRuleEditor ?? settings.AvatarSwapManagerUseFullRuleEditor;
             settings.AvatarSwapMigrationNoticeShown = profile.AvatarSwapMigrationNoticeShown ?? settings.AvatarSwapMigrationNoticeShown;
+            settings.CashPaymentMigrationNoticeShown = profile.CashPaymentMigrationNoticeShown ?? settings.CashPaymentMigrationNoticeShown;
+            settings.UiUpdateNoticeShown = profile.UiUpdateNoticeShown ?? settings.UiUpdateNoticeShown;
             settings.EmergencyRedeemStopEnabled = profile.EmergencyRedeemStopEnabled ?? settings.EmergencyRedeemStopEnabled;
             settings.DesktopModeInputLockEnabled = profile.DesktopModeInputLockEnabled ?? settings.DesktopModeInputLockEnabled;
             settings.RestartVrChatInDesktopMode = profile.RestartVrChatInDesktopMode ?? settings.RestartVrChatInDesktopMode;
@@ -595,8 +598,11 @@ public sealed class SettingsStore
             WorldCommandPermission = settings.WorldCommandPermission,
             ChannelPointRewardTestModeEnabled = settings.ChannelPointRewardTestModeEnabled,
             AvatarChangeCooldownOnlyModeEnabled = settings.AvatarChangeCooldownOnlyModeEnabled,
+            PermanentSwapModeEnabled = settings.PermanentSwapModeEnabled,
             AvatarSwapManagerUseFullRuleEditor = settings.AvatarSwapManagerUseFullRuleEditor,
             AvatarSwapMigrationNoticeShown = settings.AvatarSwapMigrationNoticeShown,
+            CashPaymentMigrationNoticeShown = settings.CashPaymentMigrationNoticeShown,
+            UiUpdateNoticeShown = settings.UiUpdateNoticeShown,
             EmergencyRedeemStopEnabled = settings.EmergencyRedeemStopEnabled,
             DesktopModeInputLockEnabled = settings.DesktopModeInputLockEnabled,
             RestartVrChatInDesktopMode = settings.RestartVrChatInDesktopMode,
@@ -1117,6 +1123,10 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             SetTriggerRestoreMode = rule.SetTriggerRestoreMode,
             SpecialRulePairingMode = rule.SpecialRulePairingMode,
             BotMessageTemplate = rule.BotMessageTemplate,
+            ReturnToPreviousAvatar = rule.ReturnToPreviousAvatar,
+            PermanentAvatarChange = rule.PermanentAvatarChange,
+            CooldownOnlyAvatarChange = rule.CooldownOnlyAvatarChange,
+            IsGiftSubscription = rule.IsGiftSubscription,
             TemporarilyDisabledRuleIds = [.. rule.TemporarilyDisabledRuleIds]
 };
     }
@@ -1187,7 +1197,8 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             BitsRules = [.. profile.BitsRules.Select(ToPersistedRule)],
             SubsRules = [.. profile.SubsRules.Select(ToPersistedRule)],
-            PaymentRules = [.. profile.PaymentRules.Select(ToPersistedCashPaymentRule)]
+            PaymentRules = [.. profile.PaymentRules.Select(ToPersistedCashPaymentRule)],
+            PowerUpRules = [.. profile.PowerUpRules.Select(ToPersistedRule)]
         };
     }
 
@@ -1225,6 +1236,14 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
         foreach (var paymentRule in (profile.PaymentRules ?? []).Select(ToCashPaymentRule))
         {
             result.PaymentRules.Add(paymentRule);
+        }
+        if (profile.PowerUpRules is { Count: > 0 })
+        {
+            foreach (var persistedRule in profile.PowerUpRules)
+            {
+                var rule = ToRule(persistedRule);
+                result.PowerUpRules.Add(rule);
+            }
         }
         return result;
     }
@@ -1445,7 +1464,11 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
                 .Distinct()),
             BotMessageTemplate = string.IsNullOrWhiteSpace(rule.BotMessageTemplate)
                 ? "{user} triggered {rule}. Active for {duration}. Cooldown {cooldown}."
-                : rule.BotMessageTemplate
+                : rule.BotMessageTemplate,
+            ReturnToPreviousAvatar = rule.ReturnToPreviousAvatar,
+            PermanentAvatarChange = rule.PermanentAvatarChange,
+            CooldownOnlyAvatarChange = rule.CooldownOnlyAvatarChange,
+            IsGiftSubscription = rule.IsGiftSubscription
 };
     }
 
@@ -1851,6 +1874,8 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             CountBits = settings.CountBits,
             CountManagedRewards = settings.CountManagedRewards,
             DiscountManagedPowerUpsEnabled = settings.DiscountManagedPowerUpsEnabled,
+            CountCashPayments = settings.CountCashPayments,
+            CashPaymentProgressRatio = settings.CashPaymentProgressRatio,
             FundingRewardEnabled = settings.FundingRewardEnabled,
             FundingRewardId = settings.FundingRewardId,
             FundingRewardTitle = settings.FundingRewardTitle,
@@ -1896,6 +1921,8 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             CountBits = settings.CountBits ?? true,
             CountManagedRewards = settings.CountManagedRewards ?? true,
             DiscountManagedPowerUpsEnabled = settings.DiscountManagedPowerUpsEnabled ?? false,
+            CountCashPayments = settings.CountCashPayments ?? false,
+            CashPaymentProgressRatio = settings.CashPaymentProgressRatio <= 0 ? 100 : settings.CashPaymentProgressRatio,
             FundingRewardEnabled = settings.FundingRewardEnabled,
             FundingRewardId = settings.FundingRewardId?.Trim() ?? string.Empty,
             FundingRewardTitle = string.IsNullOrWhiteSpace(settings.FundingRewardTitle)
@@ -2809,11 +2836,20 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
 
         public bool? AvatarChangeCooldownOnlyModeEnabled { get; set; }
 
+        [JsonPropertyName("permanentSwapModeEnabled")]
+        public bool? PermanentSwapModeEnabled { get; set; }
+
         [JsonPropertyName("avatarSwapManagerUseFullRuleEditor")]
         public bool? AvatarSwapManagerUseFullRuleEditor { get; set; }
 
         [JsonPropertyName("avatarSwapMigrationNoticeShown")]
         public bool? AvatarSwapMigrationNoticeShown { get; set; }
+
+        [JsonPropertyName("cashPaymentMigrationNoticeShown")]
+        public bool? CashPaymentMigrationNoticeShown { get; set; }
+
+        [JsonPropertyName("uiUpdateNoticeShown")]
+        public bool? UiUpdateNoticeShown { get; set; }
 
         public bool? EmergencyRedeemStopEnabled { get; set; }
 
@@ -3274,6 +3310,8 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
 
         public List<PersistedCashPaymentRule>? PaymentRules { get; set; }
 
+        public List<PersistedTriggerRule>? PowerUpRules { get; set; }
+
         [Obsolete("Migrated to BitsRules and SubsRules in V4. Kept for loading legacy saves.")]
         public List<PersistedTriggerRule>? BitsSubsRules { get; set; }
 
@@ -3543,6 +3581,10 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
         public List<Guid>? TemporarilyDisabledRuleIds { get; set; }
 
         public string? BotMessageTemplate { get; set; }
+        public bool ReturnToPreviousAvatar { get; set; }
+        public bool PermanentAvatarChange { get; set; }
+        public bool CooldownOnlyAvatarChange { get; set; }
+        public bool IsGiftSubscription { get; set; }
     }
 
     internal sealed class PersistedSupporterFloatAddRange
@@ -3678,6 +3720,10 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
         public bool? CountManagedRewards { get; set; }
 
         public bool? DiscountManagedPowerUpsEnabled { get; set; }
+
+        public bool? CountCashPayments { get; set; }
+
+        public int CashPaymentProgressRatio { get; set; }
 
         public bool FundingRewardEnabled { get; set; }
 

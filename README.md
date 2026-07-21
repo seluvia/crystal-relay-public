@@ -79,23 +79,20 @@ Crystal Relay connects Twitch events to VRChat through local OSC and OSCQuery co
 
 Recent releases include larger systems shaped by streamer feedback:
 
-- **Power Up Redeem Library**: Twitch Custom Power-ups paid with Bits can link existing Twitch rewards, run OSC actions, Avatar Change, Avatar Roulette, movement, and Avatar Scaling without interfering with normal cheers.
-- **Twitch Chatbox Activity + Moderation drawer**: quick timeouts, ban, purge, message delete, and suspicious-user controls alongside recent activity and chatter badges.
-- **Protected World Guard**: always-on world protection managed through a secure web admin panel with date pickers, search, and name labels for guarded worlds and creators.
-- **Bits/Subs Add float mode**: supporter rules can add to the current float avatar parameter by amount ranges while clamping to a configured maximum.
-- **Follow-type Avatar Scale fix**: repeated unfollow/refollow cycles no longer re-trigger the same scale rule.
-- **Cash Payments and Ko-fi hosted relay**: StreamElements, Streamlabs, and Ko-fi tips can trigger Crystal Relay actions, and Ko-fi can use a Crystal Relay relay so streamers do not need Cloudflare Tunnel, ngrok, router forwarding, or a public local webhook.
-- **Reward Fire Sale**: builds a Bits or channel-point funding goal, then discounts Crystal Relay-owned `VRC:` rewards by the reached tier.
-- **Fire Sale funding reward**: optional dedicated `VRC: Fire Sale Fund` reward with editable point-to-progress conversion, cooldown, and ready/cooldown colors.
-- **Reward descriptions**: Crystal Relay-created channel-point rewards can now use editable Twitch descriptions while linked rewards stay listen-only.
-- **Float redeem controls**: float Avatar Parameter redeems can use decimal or percent input, optional smooth transitions, and active boost rewards while a timed float redeem is running.
-- **Supporter Growth scale bank**: bits, subs, resubs, and gift subs feed one paid Avatar Scaling timer instead of replacing each other.
-- **Supporter Growth cheer keywords**: `Cheer100 grow` and `Cheer100 shrink` can choose positive or negative Bits scaling while still adding paid time.
-- **Reward scale overlay during paid growth**: optional channel-point or chat scale changes can temporarily overlay paid growth without shortening the paid timer.
-- **Set Trigger outfit restore**: outfit triggers learn changed safe LocalAvatarData parameters after a 70-second diff window and restore from the copied pre-trigger snapshot.
-- **In-app bug reports**: About page reports can create GitHub issues through a secure Cloudflare Worker without requiring a GitHub account.
-- **Beta update notifications**: the app can notify stable and beta users when a newer beta is available.
-- **Twitch API safety work**: reward sync is fingerprinted, redundant syncs are skipped, linked rewards remain listen-only, and rate-limit backoff is respected.
+- **Rebuilt Avatar Swap manager**: dedicated themed window with per-target-avatar cards, inline rule editing for Channel Points, Bits, Subs, and Payment triggers, and three-way Return Behavior (Global, Previous Avatar, or Permanent with auto-hide).
+- **Avatar Roulette first-class card**: gold-bordered card type with pool thumbnail strip alongside regular swap rules.
+- **10 Float Action Modes**: Set, Random, Add, Subtract, Add/Subtract, Multiply, Toggle, Cycle, Glitchy, and Pulse for channel-point rewards, each with independent Transition In and Transition Out timing.
+- **Rebuilt Universal Triggers manager**: dedicated themed window with search bar, type/status/source filters, slide-out editor, status pills, Test button, and Avatar Readiness section.
+- **Activity Resume**: active redeems survive app restarts — avatar changes, movement redeems, and scaling actions pick up where they left off.
+- **Restructured packages**: install folder is always "Crystal Relay", executable is always "Crystal Relay.exe", version info via `<version>.txt`.
+- **Dedicated Reward Fire Sale manager window** with themed popup UI and Cash Payment contribution support for StreamElements, Streamlabs, and Ko-fi.
+- **Redeem Library navigation grid**: 2x2 layout with Avatar Sets, Avatar Actions, Trigger Systems, Viewer Support cards, plus live connection status cards.
+- **VRChat login with inline 2FA**: code field appears below the password instead of a separate popup, handling both 200 OK and 401 API responses.
+- **Avatar Scaling improvements**: redesigned manager UI, compact mode-driven setup, Multiplier direction option, bypasses world limits with custom Min/Max.
+- **Activity + Moderation drawer**: quick timeouts, ban, purge, message delete, and suspicious-user controls alongside recent Twitch activity and chatter badges.
+- **Power Up Redeem Library**: Twitch Custom Power-ups paid with Bits can link existing Twitch rewards, run OSC actions, Avatar Change, Avatar Roulette, movement, and Avatar Scaling.
+- **Protected World Guard**: always-on protection managed through a secure web admin panel with search and name labels for guarded worlds and creators.
+- **Cash Payments and Ko-fi hosted relay**: StreamElements, Streamlabs, and Ko-fi tips can trigger actions; Ko-fi relay works without Cloudflare Tunnel, ngrok, or router forwarding.
 
 ## Trigger Areas and Actions
 

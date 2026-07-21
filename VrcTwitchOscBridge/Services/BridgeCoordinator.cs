@@ -19,7 +19,8 @@ public enum OscSessionMode
 public enum RewardFireSaleContributionType
 {
     Bits,
-    ManagedReward
+    ManagedReward,
+    CashPayment
 }
 
 public sealed record RewardFireSaleContribution(
@@ -143,6 +144,8 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     // Runtime state for cooldowns, queued redeems, movement lanes, active timed resets,
     // and the temporary disable-pairing system used by avatar-set redeems.
     private readonly Dictionary<Guid, DateTimeOffset> cooldowns = [];
+    private readonly HashSet<Guid> permanentChangeCompletedRules = [];
+    private DateTimeOffset? permanentSwapModeBlockedUntil;
     private readonly Dictionary<Guid, Queue<QueuedRuleTrigger>> queuedTriggers = [];
     private readonly HashSet<Guid> drainingQueuedRules = [];
     private readonly Dictionary<string, ActiveMovementLaneState> actionLanes = [];
@@ -191,6 +194,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private readonly Dictionary<Guid, DateTimeOffset> activeAvatarScaleEffects = [];
     private readonly Dictionary<Guid, CancellationTokenSource> avatarScaleEffectStateNotifications = [];
     private readonly Dictionary<Guid, ActiveAvatarScaleHeightSessionState> activeAvatarScaleHeightSessions = [];
+    private readonly Dictionary<Guid, int> subsAccumulator = new();
     private readonly Dictionary<string, PendingAvatarScaleHeightRestoreState> pendingAvatarScaleHeightRestores = new(StringComparer.Ordinal);
     private readonly Queue<QueuedAvatarScaleOperation> queuedAvatarScaleOperations = [];
     // Avatar scale writes share one OSC parameter, so operations are ordered by priority:
@@ -721,6 +725,31 @@ internal BridgeCoordinator(
         }
 
         await ExecuteRuleActionAsync(rule, null, cancellationToken, isTest: true, queuedReplay: false, allowLaneQueue: true, isResuming: false);
+    }
+
+    public bool IsPermanentChangeCompleted(Guid ruleId)
+    {
+        lock (stateGate)
+        {
+            return permanentChangeCompletedRules.Contains(ruleId);
+        }
+    }
+
+    public void ClearAllPermanentChangeCompleted()
+    {
+        lock (stateGate)
+        {
+            permanentChangeCompletedRules.Clear();
+            permanentSwapModeBlockedUntil = null;
+        }
+    }
+
+    public DateTimeOffset? GetPermanentSwapModeBlockedUntil()
+    {
+        lock (stateGate)
+        {
+            return permanentSwapModeBlockedUntil;
+        }
     }
 
     public void QuickTestRule(TriggerRule rule)
@@ -2048,7 +2077,15 @@ internal BridgeCoordinator(
         var laneLeaseId = laneKeys.Count == 0 ? Guid.Empty : Guid.NewGuid();
         var activeUntil = DateTimeOffset.UtcNow.Add(duration);
 
-        await SendPacketsToVrChatAsync(action.Packets, cancellationToken);
+        var comfortPackets = GetDevComfortTurnPackets(executionRule.MovementDirection);
+
+        var allStartPackets = new List<byte[]>(action.Packets);
+        if (comfortPackets is { } cp)
+        {
+            allStartPackets.AddRange(cp.start);
+        }
+
+        await SendPacketsToVrChatAsync(allStartPackets, cancellationToken);
         lock (stateGate)
         {
             foreach (var laneKey in laneKeys)
@@ -2080,7 +2117,13 @@ internal BridgeCoordinator(
             {
                 if (laneKeys.Count == 0 || laneKeys.Any(laneKey => IsMovementLaneLeaseActive(laneKey, laneLeaseId)))
                 {
-                    await SendPacketsToVrChatAsync(action.ResetPackets, CancellationToken.None);
+                    var allResetPackets = new List<byte[]>(action.ResetPackets);
+                    if (comfortPackets is not null)
+                    {
+                        allResetPackets.AddRange(comfortPackets.Value.stop);
+                    }
+
+                    await SendPacketsToVrChatAsync(allResetPackets, CancellationToken.None);
                 }
             }
             catch (Exception ex)
@@ -2098,6 +2141,27 @@ internal BridgeCoordinator(
             }
         }
     }
+
+    private (IReadOnlyList<byte[]> start, IReadOnlyList<byte[]> stop)? GetDevComfortTurnPackets(PlayerMovementDirection direction)
+    {
+        var comfortAddress = direction switch
+        {
+            PlayerMovementDirection.SpinLeft or PlayerMovementDirection.SnapTurnLeft => "/input/ComfortLeft",
+            PlayerMovementDirection.SpinRight or PlayerMovementDirection.SnapTurnRight => "/input/ComfortRight",
+            _ => null
+        };
+
+        if (comfortAddress is null)
+        {
+            return null;
+        }
+
+        return (
+            new[] { vrChatOscClient.BuildInputButtonPacket(comfortAddress, true) },
+            new[] { vrChatOscClient.BuildInputButtonPacket(comfortAddress, false) });
+    }
+
+
 
     private async Task RunDevJumpMovementOverlayAsync(
         ResolvedRuleAction action,
@@ -2786,7 +2850,7 @@ internal BridgeCoordinator(
                     continue;
                 }
 
-                var message = BuildTriggerInfoAnnouncement(configuration, currentAvatarId);
+                var message = BuildTriggerInfoAnnouncement(configuration, currentAvatarId, permanentChangeCompletedRules);
                 if (string.IsNullOrWhiteSpace(message))
                 {
                     nextTriggerInfoAnnouncementAt = now.Add(interval);
@@ -2856,7 +2920,7 @@ internal BridgeCoordinator(
         }
 
         var currentAvatarId = GetCurrentVrChatAvatarId();
-        var message = BuildTriggerInfoAnnouncement(configuration, currentAvatarId);
+        var message = BuildTriggerInfoAnnouncement(configuration, currentAvatarId, permanentChangeCompletedRules);
         if (string.IsNullOrWhiteSpace(message))
         {
             message = T("No current trigger info is available right now.");
@@ -3264,7 +3328,7 @@ internal BridgeCoordinator(
     private static string GetEventSubSubscriptionVersion(string subscriptionType) => subscriptionType switch
     {
         "channel.follow" => "2",
-        "channel.custom_power_up_redemption.add" => "beta",
+        "channel.custom_power_up_redemption.add" => "1",
         _ => "1"
     };
 
@@ -3336,6 +3400,12 @@ internal BridgeCoordinator(
             return;
         }
 
+        if (bridgeEvent is { TriggerType: TwitchTriggerType.ChannelPoints }
+            && !string.IsNullOrWhiteSpace(bridgeEvent.RewardTitle))
+        {
+            WriteLog($"Channel point redemption received: reward='{bridgeEvent.RewardTitle}' (ID: {bridgeEvent.RewardId ?? "none"}), user='{bridgeEvent.UserDisplayName}', cost={bridgeEvent.Amount}");
+        }
+
         if (bridgeEvent is { IsChatCommandTrigger: true }
             && await TryHandleDevChatCommandAsync(bridgeEvent, cancellationToken))
         {
@@ -3375,8 +3445,14 @@ internal BridgeCoordinator(
         var avatarScaleHandled = false;
         if (universalEvent is not null)
         {
+            var universalCount = configuration.UniversalTriggers.Count;
             await ExecuteMatchingUniversalTriggersAsync(configuration.UniversalTriggers, universalEvent, cancellationToken);
             avatarScaleHandled = StartMatchingAvatarScaleRules(configuration.AvatarScaleRules, universalEvent);
+            if (bridgeEvent is { TriggerType: TwitchTriggerType.ChannelPoints }
+                && !string.IsNullOrWhiteSpace(bridgeEvent.RewardTitle))
+            {
+                WriteLog($"Universal trigger check done for '{bridgeEvent.RewardTitle}': {universalCount} configured, avatarScaleHandled={avatarScaleHandled}");
+            }
         }
 
         if (bridgeEvent is null)
@@ -3433,7 +3509,8 @@ internal BridgeCoordinator(
                 bridgeEvent,
                 currentAvatarId,
                 avatarChangeTransitionActive,
-                temporarilyDisabledRuleIds)
+                temporarilyDisabledRuleIds,
+                permanentChangeCompletedRules)
             : SelectMatchingRules(
                 configuration,
                 ruleIndex,
@@ -3441,6 +3518,12 @@ internal BridgeCoordinator(
                 currentAvatarId,
                 avatarChangeTransitionActive,
                 temporarilyDisabledRuleIds);
+
+        if (bridgeEvent is { TriggerType: TwitchTriggerType.ChannelPoints, IsChatCommandTrigger: false }
+            && !string.IsNullOrWhiteSpace(bridgeEvent.RewardTitle))
+        {
+            WriteLog($"Avatar set rule matching for '{bridgeEvent.RewardTitle}': {matchingRules.Length} matched");
+        }
 
         if (bridgeEvent.IsChatCommandTrigger && matchingRules.Length == 0)
         {
@@ -3588,7 +3671,8 @@ internal BridgeCoordinator(
                     false,
                     false);
                 WriteLog($"{paymentEvent.UserDisplayName} triggered cash payment scale '{rule.Name}' through {DescribeCashPaymentProvider(paymentEvent.Provider)}.");
-                await ExecuteAvatarScaleRuleAsync(rule.ScaleAction, incomingEvent, isTest: false, cancellationToken, isResuming: false);
+                var scaleResult = await ExecuteAvatarScaleRuleAsync(rule.ScaleAction, incomingEvent, isTest: false, cancellationToken, isResuming: false);
+                WriteLog($"CR-DIAG: Cash payment scale rule '{rule.Name}' completed (result={scaleResult}). Proceeding to Fire Sale contribution.");
                 continue;
             }
 
@@ -3625,6 +3709,17 @@ internal BridgeCoordinator(
             WriteLog($"{bridgeEvent.UserDisplayName} triggered cash payment rule '{rule.Name}' through {DescribeCashPaymentProvider(paymentEvent.Provider)}.");
             await ExecuteRuleAsync(rule.TriggerAction, bridgeEvent, cancellationToken);
         }
+
+        var cashAmountUnits = Math.Max(1, (int)Math.Floor(paymentEvent.Amount));
+        var cashContribution = new RewardFireSaleContribution(
+            RewardFireSaleContributionType.CashPayment,
+            cashAmountUnits,
+            null,
+            null,
+            string.IsNullOrWhiteSpace(paymentEvent.UserDisplayName) ? "Cash supporter" : paymentEvent.UserDisplayName);
+        WriteLog($"CR-DIAG: Firing Fire Sale contribution for {paymentEvent.UserDisplayName}, amount={cashAmountUnits} units.");
+        RewardFireSaleContributionReceived?.Invoke(cashContribution);
+        WriteLog($"CR-DIAG: Fire Sale contribution handled. Total cash payment processing complete for {paymentEvent.UserDisplayName}.");
     }
 
     private async Task HandlePowerUpEventAsync(
@@ -3636,6 +3731,12 @@ internal BridgeCoordinator(
         bool avatarScaleHandled,
         CancellationToken cancellationToken)
     {
+        WriteLog($"PowerUp event received: rewardId='{bridgeEvent.RewardId}', title='{bridgeEvent.RewardTitle}', bits={bridgeEvent.Amount}, configured rules={configuration.PowerUpRules.Count}");
+        foreach (var debugRule in configuration.PowerUpRules)
+        {
+            WriteLog($"  Configured rule: id='{debugRule.PowerUpId}', title='{debugRule.PowerUpTitle}', enabled={debugRule.IsEnabled}, action={debugRule.ActionKind}");
+        }
+
         var matchingRules = SelectMatchingPowerUpRules(
             configuration.PowerUpRules,
             bridgeEvent,
@@ -3665,29 +3766,56 @@ internal BridgeCoordinator(
                 var label = !string.IsNullOrWhiteSpace(bridgeEvent.RewardTitle)
                     ? bridgeEvent.RewardTitle
                     : bridgeEvent.RewardId ?? "unknown Power Up";
-                WriteLog($"No active Power Up rule matched '{label}'.");
+                WriteLog($"No active top-level Power Up rule matched '{label}'.");
             }
+        }
+        else
+        {
+            foreach (var rule in matchingRules)
+            {
+                if (rule.ActionKind == PowerUpActionKind.AvatarScaling && rule.ScaleAction is not null)
+                {
+                    StartAvatarScaleRuleExecution(rule.ScaleAction, ToUniversalPowerUpEvent(bridgeEvent));
+                    continue;
+                }
 
+                if (rule.TriggerAction is not null)
+                {
+                    if (rule.TriggerAction is { ExtendCurrentActivity: true, ExtendSeconds: > 0 })
+                    {
+                        ExtendActiveActivityTimers(TimeSpan.FromSeconds(rule.TriggerAction.ExtendSeconds), bridgeEvent.TriggerLabel);
+                        continue;
+                    }
+                    await ExecuteRuleAsync(rule.TriggerAction, bridgeEvent, cancellationToken);
+                }
+            }
+        }
+
+        var swapPowerUpRules = configuration.AvatarSwapProfiles
+            .SelectMany(profile => profile.PowerUpRules)
+            .Where(rule => rule.IsEnabled
+                && !temporarilyDisabledRuleIds.Contains(rule.Id)
+                && PowerUpSnapshotIdentityMatches(rule, bridgeEvent))
+            .ToArray();
+
+        if (swapPowerUpRules.Length == 0 && matchingRules.Length == 0 && !avatarScaleHandled && !fireSaleContributionHandled)
+        {
+            var label = !string.IsNullOrWhiteSpace(bridgeEvent.RewardTitle)
+                ? bridgeEvent.RewardTitle
+                : bridgeEvent.RewardId ?? "unknown Power Up";
+            WriteLog($"No active Power Up rule matched '{label}'.");
             return;
         }
 
-        foreach (var rule in matchingRules)
+        foreach (var rule in swapPowerUpRules)
         {
-            if (rule.ActionKind == PowerUpActionKind.AvatarScaling && rule.ScaleAction is not null)
+            if (AreRedeemsPaused())
             {
-                StartAvatarScaleRuleExecution(rule.ScaleAction, ToUniversalPowerUpEvent(bridgeEvent));
-                continue;
+                LogRedeemsPaused();
+                return;
             }
 
-            if (rule.TriggerAction is not null)
-            {
-                if (rule.TriggerAction is { ExtendCurrentActivity: true, ExtendSeconds: > 0 })
-                {
-                    ExtendActiveActivityTimers(TimeSpan.FromSeconds(rule.TriggerAction.ExtendSeconds), bridgeEvent.TriggerLabel);
-                    continue;
-                }
-                await ExecuteRuleAsync(rule.TriggerAction, bridgeEvent, cancellationToken);
-            }
+            await ExecuteRuleAsync(rule, bridgeEvent, cancellationToken);
         }
     }
 
@@ -3713,7 +3841,12 @@ internal BridgeCoordinator(
                 continue;
             }
 
-            if (!PowerUpRuleIsActiveForCurrentAvatar(rule, currentAvatarId, avatarChangeTransitionActive))
+            var powerUpPermanentAvatarChange = rule.TriggerAction?.Rule.PermanentAvatarChange ?? false;
+            var powerUpPermanentChangeCompleted = rule.TriggerAction is not null
+                && permanentChangeCompletedRules.Contains(rule.TriggerAction.Id);
+
+            if (!PowerUpRuleIsActiveForCurrentAvatar(rule, currentAvatarId, avatarChangeTransitionActive,
+                powerUpPermanentAvatarChange, powerUpPermanentChangeCompleted))
             {
                 inactiveMatches.Add(rule);
                 continue;
@@ -3741,10 +3874,24 @@ internal BridgeCoordinator(
             && string.Equals(configuredTitle, incomingTitle, StringComparison.OrdinalIgnoreCase);
     }
 
+    private static bool PowerUpSnapshotIdentityMatches(TriggerRuleSnapshot rule, BridgeIncomingEvent bridgeEvent)
+    {
+        var configuredId = rule.PowerUpId.Trim();
+        var incomingId = bridgeEvent.RewardId?.Trim() ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(configuredId))
+        {
+            return string.Equals(configuredId, incomingId, StringComparison.Ordinal);
+        }
+
+        return false;
+    }
+
     private static bool PowerUpRuleIsActiveForCurrentAvatar(
         PowerUpRuleSnapshot rule,
         string currentAvatarId,
-        bool avatarChangeTransitionActive)
+        bool avatarChangeTransitionActive,
+        bool permanentAvatarChange = false,
+        bool permanentChangeCompleted = false)
     {
         if (rule.TriggerAction is not null)
         {
@@ -3755,7 +3902,9 @@ internal BridgeCoordinator(
                 rule.TriggerAction.AvatarChangeTargetId,
                 rule.TriggerAction.RequiredAvatarId,
                 currentAvatarId,
-                avatarChangeTransitionActive);
+                avatarChangeTransitionActive,
+                permanentAvatarChange: permanentAvatarChange,
+                permanentChangeCompleted: permanentChangeCompleted);
         }
 
         if (!rule.AvatarScoped)
@@ -4510,6 +4659,14 @@ internal BridgeCoordinator(
                             if (!nextOperation.IsTest)
                             {
                                 var currentRule = activeConfiguration?.AvatarScaleRules.FirstOrDefault(rule => rule.Id == nextOperation.Rule.Id);
+                                if (currentRule is null && activeConfiguration?.PowerUpRules is not null)
+                                {
+                                    currentRule = activeConfiguration.PowerUpRules
+                                        .Where(p => p.ScaleAction is not null)
+                                        .Select(p => p.ScaleAction!)
+                                        .FirstOrDefault(s => s.Id == nextOperation.Rule.Id);
+                                }
+
                                 if (currentRule is null || !currentRule.IsEnabled)
                                 {
                                     queuedAvatarScaleOperations.Dequeue();
@@ -4758,6 +4915,7 @@ internal BridgeCoordinator(
             isTest);
         if (operation is null)
         {
+            WriteLog($"CR-DIAG: Avatar scale '{rule.Name}' failed to begin operation (returned null).");
             return false;
         }
 
@@ -4924,8 +5082,8 @@ internal BridgeCoordinator(
             }
 
             WriteLog(isTest
-                ? $"Sent avatar scale test/simulated effect for '{rule.Name}' to {targetHeight:0.###}m."
-                : $"{incomingEvent.UserDisplayName} triggered avatar scale '{rule.Name}' to {targetHeight:0.###}m.");
+                ? $"CR-DIAG: Sent avatar scale test/simulated effect for '{rule.Name}' to {targetHeight:0.###}m."
+                : $"CR-DIAG: {incomingEvent.UserDisplayName} triggered avatar scale '{rule.Name}' to {targetHeight:0.###}m.");
             return true;
         }
         finally
@@ -7076,7 +7234,9 @@ internal BridgeCoordinator(
                     rule.RequiredAvatarId,
                     activationAvatarId,
                     avatarChangeTransitionActive: false,
-                    avatarChangeCooldownOnlyModeEnabled))
+                    avatarChangeCooldownOnlyModeEnabled,
+                    permanentAvatarChange: rule.Rule.PermanentAvatarChange,
+                    permanentChangeCompleted: permanentChangeCompletedRules.Contains(rule.Id)))
             .ToArray();
         if (candidates.Length == 0)
         {
@@ -7129,7 +7289,9 @@ internal BridgeCoordinator(
                     rule.RequiredAvatarId,
                     activationAvatarId,
                     avatarChangeTransitionActive: false,
-                    avatarChangeCooldownOnlyModeEnabled))
+                    avatarChangeCooldownOnlyModeEnabled,
+                    permanentAvatarChange: rule.Rule.PermanentAvatarChange,
+                    permanentChangeCompleted: permanentChangeCompletedRules.Contains(rule.Id)))
             .ToArray();
         if (candidates.Length == 0)
         {
@@ -7521,7 +7683,8 @@ internal BridgeCoordinator(
         bool isTest,
         bool queuedReplay,
         bool allowLaneQueue,
-        bool isResuming = false)
+        bool isResuming = false,
+        string? resumePreviousAvatarId = null)
     {
         if (!isTest && AreRedeemsPaused())
         {
@@ -7535,8 +7698,18 @@ internal BridgeCoordinator(
             return;
         }
 
-        var suppressSharedReturnAvatarUpdate = IsCooldownOnlyDirectAvatarChange(rule);
+        var isReturnToPreviousAvatar = rule.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet
+            && rule.Rule.ReturnToPreviousAvatar
+            && rule.DurationSeconds > 0;
+        var isPermanentAvatarChange = rule.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet
+            && (activeConfiguration?.PermanentSwapModeEnabled == true || rule.Rule.PermanentAvatarChange)
+            && !isReturnToPreviousAvatar;
+        var suppressSharedReturnAvatarUpdate = IsCooldownOnlyDirectAvatarChange(rule) || isPermanentAvatarChange;
         if (suppressSharedReturnAvatarUpdate)
+        {
+            rule = rule with { DurationSeconds = 0 };
+        }
+        if (isPermanentAvatarChange)
         {
             rule = rule with { DurationSeconds = 0 };
         }
@@ -7561,14 +7734,25 @@ internal BridgeCoordinator(
 
         var isMovementStopAction = executionRule.ActionType == OscActionType.PlayerMovement && IsSoftLockMovement(executionRule.MovementDirection);
         var cooldownSeconds = GetCooldownSeconds(executionRule);
-        var capturedReturnAvatar = (executionRule.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet) && executionRule.DurationSeconds > 0
-            ? GetSharedReturnAvatarSnapshot()
-            : SharedReturnAvatarSnapshot.Empty;
+        var capturedReturnAvatar = !string.IsNullOrWhiteSpace(resumePreviousAvatarId)
+            ? new SharedReturnAvatarSnapshot(resumePreviousAvatarId, string.Empty)
+            : (executionRule.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet) && executionRule.DurationSeconds > 0
+                ? GetSharedReturnAvatarSnapshot()
+                : SharedReturnAvatarSnapshot.Empty;
         if (executionRule.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet
             && executionRule.DurationSeconds > 0
-            && string.IsNullOrWhiteSpace(capturedReturnAvatar.AvatarId))
+            && string.IsNullOrWhiteSpace(capturedReturnAvatar.AvatarId)
+            && !isReturnToPreviousAvatar)
         {
             throw new InvalidOperationException("Pick the return avatar first before timed avatar-switch redeems can switch back.");
+        }
+
+        if (isReturnToPreviousAvatar)
+        {
+            var previousAvatarId = GetCurrentVrChatAvatarId();
+            capturedReturnAvatar = !string.IsNullOrWhiteSpace(previousAvatarId)
+                ? new SharedReturnAvatarSnapshot(previousAvatarId, string.Empty)
+                : capturedReturnAvatar;
         }
 
         if (isMovementStopAction)
@@ -7817,18 +8001,49 @@ internal BridgeCoordinator(
             }
         }
 
+        if (!isTest && isPermanentAvatarChange && !string.IsNullOrWhiteSpace(action.AvatarTargetId))
+        {
+            lock (stateGate)
+            {
+                permanentChangeCompletedRules.Add(rule.Id);
+            }
+            ManagedRewardAvailabilityChanged?.Invoke();
+        }
+
+        if (!isTest && activeConfiguration?.PermanentSwapModeEnabled == true
+            && executionRule.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet
+            && !string.IsNullOrWhiteSpace(action.AvatarTargetId))
+        {
+            var blockSeconds = isReturnToPreviousAvatar ? executionRule.DurationSeconds : cooldownSeconds;
+            if (blockSeconds > 0)
+            {
+                lock (stateGate)
+                {
+                    permanentSwapModeBlockedUntil = DateTimeOffset.UtcNow.AddSeconds(blockSeconds);
+                }
+                ManagedRewardAvailabilityChanged?.Invoke();
+            }
+        }
+
         if (!isTest && !isResuming && executionRule.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet)
         {
-            var expiresAt = executionRule.DurationSeconds > 0 ? DateTimeOffset.UtcNow.AddSeconds(executionRule.DurationSeconds) : (DateTimeOffset?)null;
+            var payload = new Dictionary<string, object>
+            {
+                ["avatarTargetId"] = action.AvatarTargetId ?? string.Empty
+            };
+            if (isReturnToPreviousAvatar)
+            {
+                payload["previousAvatarId"] = capturedReturnAvatar.AvatarId ?? string.Empty;
+            }
+            var expiresAt = executionRule.DurationSeconds > 0
+                ? DateTimeOffset.UtcNow.AddSeconds(executionRule.DurationSeconds)
+                : (DateTimeOffset?)null;
             await activityResumeService.RecordActivityStartedAsync(new ResumeActivity
             {
                 Type = ResumeActivityType.AvatarChange,
                 RuleId = rule.Id,
                 ExpiresAt = expiresAt,
-                Payload = new Dictionary<string, object>
-                {
-                    ["avatarTargetId"] = action.AvatarTargetId ?? string.Empty
-                }
+                Payload = payload
             }, action.AvatarTargetId ?? string.Empty);
         }
 
@@ -8855,6 +9070,8 @@ internal BridgeCoordinator(
             PlayerMovementDirection.LookRight => "/input/LookRight",
             PlayerMovementDirection.ComfortLeft => "/input/ComfortLeft",
             PlayerMovementDirection.ComfortRight => "/input/ComfortRight",
+            PlayerMovementDirection.SnapTurnLeft => "/input/ComfortLeft",
+            PlayerMovementDirection.SnapTurnRight => "/input/ComfortRight",
             PlayerMovementDirection.GrabLeft => "/input/GrabLeft",
             PlayerMovementDirection.GrabRight => "/input/GrabRight",
             PlayerMovementDirection.UseLeft => "/input/UseLeft",
@@ -10045,7 +10262,7 @@ internal BridgeCoordinator(
         PlayerMovementDirection.Forward or PlayerMovementDirection.Backward => "player-movement-vertical",
         PlayerMovementDirection.Left or PlayerMovementDirection.Right => "player-movement-horizontal",
         PlayerMovementDirection.Jump => "player-movement-jump",
-        PlayerMovementDirection.SpinLeft or PlayerMovementDirection.SpinRight => "player-movement-look",
+        PlayerMovementDirection.SpinLeft or PlayerMovementDirection.SpinRight or PlayerMovementDirection.SnapTurnLeft or PlayerMovementDirection.SnapTurnRight => "player-movement-look",
         _ => null
     };
 
@@ -13609,7 +13826,9 @@ internal BridgeCoordinator(
                 currentAvatarId,
                 temporarilyDisabledRuleIds,
                 avatarChangeTransitionActive,
-                configuration.AvatarChangeCooldownOnlyModeEnabled),
+                configuration.AvatarChangeCooldownOnlyModeEnabled,
+                configuration.PermanentSwapModeEnabled,
+                permanentChangeCompletedRules),
             TwitchTriggerType.Bits => SelectBitsMatchingRules(
                 ruleIndex.GetGlobalOverrideRulesByTriggerType(bridgeEvent.TriggerType)
                     .Where(rule => rule.IsEnabled && !temporarilyDisabledRuleIds.Contains(rule.Id))
@@ -13647,7 +13866,9 @@ internal BridgeCoordinator(
                     rule.AvatarChangeTargetId,
                     rule.RequiredAvatarId,
                     normalizedCurrentAvatarId,
-                    avatarChangeTransitionActive))
+                    avatarChangeTransitionActive,
+                    permanentAvatarChange: rule.Rule.PermanentAvatarChange,
+                    permanentChangeCompleted: permanentChangeCompletedRules.Contains(rule.Id)))
             .ToArray();
         if (candidates.Length == 0)
         {
@@ -13779,38 +14000,123 @@ internal BridgeCoordinator(
             bridgeEvent.Amount);
     }
 
-    private static TriggerRuleSnapshot[] SelectSubscriptionMatchingRules(
+    private TriggerRuleSnapshot[] SelectSubscriptionMatchingRules(
         IReadOnlyList<TriggerRuleSnapshot> rules,
         int amount,
         string currentAvatarId)
     {
-        var currentAvatarRules = rules
-            .Where(rule => IsSupporterRuleScopedToCurrentAvatar(rule, currentAvatarId))
-            .ToArray();
-        var currentAvatarMatch = SelectBestThresholdMatch(currentAvatarRules, amount);
-        if (currentAvatarMatch.Length > 0)
+        var activeRuleIds = rules.Select(r => r.Id).ToHashSet();
+        var staleIds = subsAccumulator.Keys.Where(id => !activeRuleIds.Contains(id)).ToList();
+        foreach (var id in staleIds)
         {
-            return currentAvatarMatch;
+            subsAccumulator.Remove(id);
         }
 
-        var globalRules = rules
-            .Where(IsGlobalSupporterRule)
+        var nonAccumulationRules = rules
+            .Where(r => !r.SubsAccumulationEnabled)
             .ToArray();
-        var avatarChangeOverrideMatch = SelectBestThresholdMatch(
-            globalRules
-                .Where(IsAvatarChangeOverrideRule)
-                .ToArray(),
-            amount);
-        if (avatarChangeOverrideMatch.Length > 0)
+        var accumulationRules = rules
+            .Where(r => r.SubsAccumulationEnabled)
+            .ToArray();
+
+        var results = new List<TriggerRuleSnapshot>();
+
+        if (nonAccumulationRules.Length > 0)
         {
-            return avatarChangeOverrideMatch;
+            var currentAvatarRules = nonAccumulationRules
+                .Where(rule => IsSupporterRuleScopedToCurrentAvatar(rule, currentAvatarId))
+                .ToArray();
+            var currentAvatarMatch = SelectBestSubscriptionThresholdMatch(currentAvatarRules, amount);
+            if (currentAvatarMatch is not null)
+            {
+                results.Add(currentAvatarMatch);
+            }
+            else
+            {
+                var globalRules = nonAccumulationRules
+                    .Where(IsGlobalSupporterRule)
+                    .ToArray();
+                var overrideMatch = SelectBestSubscriptionThresholdMatch(
+                    globalRules.Where(IsAvatarChangeOverrideRule).ToArray(),
+                    amount);
+                if (overrideMatch is not null)
+                {
+                    results.Add(overrideMatch);
+                }
+                else
+                {
+                    var fallback = SelectBestSubscriptionThresholdMatch(
+                        globalRules.Where(rule => !IsAvatarChangeOverrideRule(rule)).ToArray(),
+                        amount);
+                    if (fallback is not null)
+                    {
+                        results.Add(fallback);
+                    }
+                }
+            }
         }
 
-        return SelectBestThresholdMatch(
-            globalRules
-                .Where(rule => !IsAvatarChangeOverrideRule(rule))
-                .ToArray(),
-            amount);
+        if (accumulationRules.Length > 0)
+        {
+            foreach (var rule in accumulationRules)
+            {
+                if (!subsAccumulator.TryGetValue(rule.Id, out var accumulator))
+                {
+                    accumulator = 0;
+                }
+
+                accumulator += amount;
+
+                var cap = Math.Max(1, rule.SubsTriggerCount) * 10;
+                if (accumulator > cap)
+                {
+                    accumulator = cap;
+                }
+
+                if (accumulator >= Math.Max(1, rule.SubsTriggerCount))
+                {
+                    results.Add(rule);
+
+                    if (rule.SubsCarryOverEnabled)
+                    {
+                        accumulator -= Math.Max(1, rule.SubsTriggerCount);
+                    }
+                    else
+                    {
+                        accumulator = 0;
+                    }
+                }
+
+                subsAccumulator[rule.Id] = accumulator;
+            }
+        }
+
+        return results.ToArray();
+    }
+
+    private static TriggerRuleSnapshot? SelectBestSubscriptionThresholdMatch(
+        IReadOnlyList<TriggerRuleSnapshot> rules,
+        int amount)
+    {
+        TriggerRuleSnapshot? bestMatch = null;
+        var bestThreshold = int.MinValue;
+
+        foreach (var rule in rules)
+        {
+            var threshold = Math.Max(1, rule.SubsTriggerCount);
+            if (amount < threshold)
+            {
+                continue;
+            }
+
+            if (threshold > bestThreshold)
+            {
+                bestThreshold = threshold;
+                bestMatch = rule;
+            }
+        }
+
+        return bestMatch;
     }
 
     private static bool IsSupporterRuleScopedToCurrentAvatar(TriggerRuleSnapshot rule, string currentAvatarId)
@@ -13843,7 +14149,9 @@ internal BridgeCoordinator(
         string currentAvatarId,
         IReadOnlyCollection<Guid> temporarilyDisabledRuleIds,
         bool avatarChangeTransitionActive,
-        bool avatarChangeCooldownOnlyModeEnabled)
+        bool avatarChangeCooldownOnlyModeEnabled,
+        bool permanentSwapModeEnabled = false,
+        IReadOnlySet<Guid>? permanentChangeCompletedRuleIds = null)
     {
         var normalizedRewardId = rewardId?.Trim() ?? string.Empty;
         var normalizedRewardTitle = NormalizeRewardTitle(rewardTitle);
@@ -13860,7 +14168,9 @@ internal BridgeCoordinator(
             normalizedCurrentAvatarId,
             temporarilyDisabledRuleIds,
             avatarChangeTransitionActive,
-            avatarChangeCooldownOnlyModeEnabled);
+            avatarChangeCooldownOnlyModeEnabled,
+            permanentSwapModeEnabled,
+            permanentChangeCompletedRuleIds);
 
         if (activeCandidates.Length == 0)
         {
@@ -13891,7 +14201,8 @@ internal BridgeCoordinator(
         BridgeIncomingEvent bridgeEvent,
         string currentAvatarId,
         bool avatarChangeTransitionActive,
-        IReadOnlyCollection<Guid> temporarilyDisabledRuleIds)
+        IReadOnlyCollection<Guid> temporarilyDisabledRuleIds,
+        IReadOnlySet<Guid>? permanentChangeCompletedRuleIds = null)
     {
         var normalizedCurrentAvatarId = currentAvatarId?.Trim() ?? string.Empty;
         if (!bridgeEvent.IsChatCommandTrigger || string.IsNullOrWhiteSpace(bridgeEvent.ChatCommandText))
@@ -13916,7 +14227,9 @@ internal BridgeCoordinator(
                     rule.RequiredAvatarId,
                     normalizedCurrentAvatarId,
                     avatarChangeTransitionActive,
-                    configuration.AvatarChangeCooldownOnlyModeEnabled))
+                    configuration.AvatarChangeCooldownOnlyModeEnabled,
+                    permanentAvatarChange: rule.Rule.PermanentAvatarChange,
+                    permanentChangeCompleted: permanentChangeCompletedRuleIds?.Contains(rule.Id) ?? false))
             {
                 continue;
             }
@@ -14333,7 +14646,9 @@ internal BridgeCoordinator(
         string normalizedCurrentAvatarId,
         IReadOnlyCollection<Guid> temporarilyDisabledRuleIds,
         bool avatarChangeTransitionActive,
-        bool avatarChangeCooldownOnlyModeEnabled)
+        bool avatarChangeCooldownOnlyModeEnabled,
+        bool permanentSwapModeEnabled = false,
+        IReadOnlySet<Guid>? permanentChangeCompletedRuleIds = null)
     {
         var activeCandidates = new List<TriggerRuleSnapshot>();
         foreach (var rule in ruleIndex.GetChannelPointCandidates(normalizedRewardId, normalizedRewardTitle))
@@ -14343,6 +14658,8 @@ internal BridgeCoordinator(
                 continue;
             }
 
+            var effectiveCooldownMode = avatarChangeCooldownOnlyModeEnabled || permanentSwapModeEnabled;
+            var effectivePermanentChange = permanentSwapModeEnabled || rule.Rule.PermanentAvatarChange;
             if (!AvatarRuleActivationPolicy.IsRuleActiveForCurrentAvatar(
                     rule.IsGlobalOverride,
                     rule.BelongsToMasterAvatarProfile,
@@ -14351,7 +14668,9 @@ internal BridgeCoordinator(
                     rule.RequiredAvatarId,
                     normalizedCurrentAvatarId,
                     avatarChangeTransitionActive,
-                    avatarChangeCooldownOnlyModeEnabled))
+                    effectiveCooldownMode,
+                    permanentAvatarChange: effectivePermanentChange,
+                    permanentChangeCompleted: permanentChangeCompletedRuleIds?.Contains(rule.Id) ?? false))
             {
                 continue;
             }
@@ -14697,6 +15016,8 @@ internal BridgeCoordinator(
                         return;
                     }
 
+                    var previousAvatarId = activity.Payload?.GetValueOrDefault("previousAvatarId") as string;
+
                     await ExecuteRuleActionAsync(
                         rule,
                         null,
@@ -14704,7 +15025,8 @@ internal BridgeCoordinator(
                         isTest: false,
                         queuedReplay: false,
                         allowLaneQueue: false,
-                        isResuming: true);
+                        isResuming: true,
+                        resumePreviousAvatarId: previousAvatarId);
                     break;
                 }
         }
@@ -15554,7 +15876,13 @@ internal BridgeCoordinator(
 
     private static int GetPowerUpBitsCost(JsonElement eventData)
     {
-        var bits = GetInt(eventData, "custom_power_up", "bits");
+        var bits = GetInt(eventData, "custom_power_up", "bits_cost");
+        if (bits > 0)
+        {
+            return bits;
+        }
+
+        bits = GetInt(eventData, "custom_power_up", "bits");
         if (bits > 0)
         {
             return bits;
@@ -17098,12 +17426,13 @@ internal BridgeCoordinator(
 
     private static string BuildTriggerInfoAnnouncement(
         BridgeRuntimeConfiguration configuration,
-        string currentAvatarId)
+        string currentAvatarId,
+        IReadOnlySet<Guid>? permanentChangeCompletedRuleIds = null)
     {
         string? fallbackMessage = null;
         for (var maxOptions = 4; maxOptions >= 1; maxOptions--)
         {
-            var sections = BuildTriggerInfoAnnouncementSections(configuration, currentAvatarId, maxOptions);
+            var sections = BuildTriggerInfoAnnouncementSections(configuration, currentAvatarId, maxOptions, permanentChangeCompletedRuleIds);
             if (sections.Count == 0)
             {
                 return string.Empty;
@@ -17125,7 +17454,8 @@ internal BridgeCoordinator(
     private static IReadOnlyList<string> BuildTriggerInfoAnnouncementSections(
         BridgeRuntimeConfiguration configuration,
         string currentAvatarId,
-        int maxOptions)
+        int maxOptions,
+        IReadOnlySet<Guid>? permanentChangeCompletedRuleIds = null)
     {
         var normalizedCurrentAvatarId = currentAvatarId?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(normalizedCurrentAvatarId))
@@ -17148,7 +17478,9 @@ internal BridgeCoordinator(
                     rule.AvatarChangeTargetId,
                     rule.RequiredAvatarId,
                     normalizedCurrentAvatarId,
-                    avatarChangeTransitionActive: false))
+                    avatarChangeTransitionActive: false,
+                    permanentAvatarChange: rule.Rule.PermanentAvatarChange,
+                    permanentChangeCompleted: permanentChangeCompletedRuleIds?.Contains(rule.Id) ?? false))
             .GroupBy(rule => string.IsNullOrWhiteSpace(rule.ChannelPointRewardTitle)
                 ? rule.AvatarProfileId.ToString("N")
                 : ManagedRewardPresentation.NormalizeTitleIdentityKey(rule.ChannelPointRewardTitle))
@@ -19175,6 +19507,8 @@ internal BridgeCoordinator(
         PlayerMovementDirection.Jump => "Jump",
         PlayerMovementDirection.SpinLeft => "Spin Left",
         PlayerMovementDirection.SpinRight => "Spin Right",
+        PlayerMovementDirection.SnapTurnLeft => "Snap Turn Left",
+        PlayerMovementDirection.SnapTurnRight => "Snap Turn Right",
         PlayerMovementDirection.StopMovement => "Stop Movement",
         PlayerMovementDirection.StopTurning => "Stop Turning",
         PlayerMovementDirection.StopAll => "Stop All",
