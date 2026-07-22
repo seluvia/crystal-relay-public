@@ -646,19 +646,47 @@
 
                         <!-- Item Picker -->
                         <TextBlock Text="Select Item" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,4" />
-                        <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6" />
+                        <Grid Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0"
+                                     Text="{Binding InventorySearchText, UpdateSourceTrigger=PropertyChanged}"
+                                     Margin="0,0,6,0" />
+                            <Button Grid.Column="1"
+                                    Content="Refresh"
+                                    Command="{Binding RefreshInventoryCommand}"
+                                    Style="{StaticResource SecondaryButtonStyle}" />
+                        </Grid>
                         <ListBox ItemsSource="{Binding FilteredInventoryItems}"
                                  SelectedItem="{Binding SelectedInventoryItem}"
                                  Height="160"
                                  Margin="0,0,0,12">
                             <ListBox.ItemTemplate>
                                 <DataTemplate DataType="{x:Type models:InventoryItemSummary}">
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="{Binding Name}" Foreground="{DynamicResource TextBrush}" />
-                                        <TextBlock Text=" (" FontSize="10" Foreground="{DynamicResource MutedBrush}" />
-                                        <TextBlock Text="{Binding ItemType}" FontSize="10" Foreground="{DynamicResource MutedBrush}" />
-                                        <TextBlock Text=")" FontSize="10" Foreground="{DynamicResource MutedBrush}" />
-                                    </StackPanel>
+                                    <Grid Height="36">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="36" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <Border Grid.Column="0"
+                                                Background="{DynamicResource AccentDimBrush}"
+                                                CornerRadius="4"
+                                                Width="30" Height="30"
+                                                Margin="0,0,6,0">
+                                            <TextBlock Text="{Binding Name[0]}" FontSize="13"
+                                                       FontWeight="Bold"
+                                                       Foreground="{DynamicResource TextBrush}"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center" />
+                                        </Border>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Name}" FontSize="11"
+                                                       Foreground="{DynamicResource TextBrush}"
+                                                       TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                    </Grid>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>

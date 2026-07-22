@@ -20,6 +20,7 @@ public sealed class InventoryItemSpawnManagerViewModel : ObservableObject, IDisp
     private InventoryItemSpawnRule? _selectedRule;
     private InventoryItemSummary? _selectedInventoryItem;
     private string _searchText = string.Empty;
+    private string _inventorySearchText = string.Empty;
     private bool _isEditing;
     private bool _isLoadingInventory;
     private bool _disposed;
@@ -89,6 +90,17 @@ public sealed class InventoryItemSpawnManagerViewModel : ObservableObject, IDisp
             if (SetProperty(ref _searchText, value))
             {
                 CardsView?.Refresh();
+            }
+        }
+    }
+
+    public string InventorySearchText
+    {
+        get => _inventorySearchText;
+        set
+        {
+            if (SetProperty(ref _inventorySearchText, value))
+            {
                 FilteredInventoryItems?.Refresh();
             }
         }
@@ -134,10 +146,10 @@ public sealed class InventoryItemSpawnManagerViewModel : ObservableObject, IDisp
         if (obj is not InventoryItemSummary item)
             return false;
 
-        if (string.IsNullOrWhiteSpace(SearchText))
+        if (string.IsNullOrWhiteSpace(InventorySearchText))
             return true;
 
-        return item.Name.Contains(SearchText, StringComparison.OrdinalIgnoreCase);
+        return item.Name.Contains(InventorySearchText, StringComparison.OrdinalIgnoreCase);
     }
 
     private void RebuildCards()
@@ -166,6 +178,7 @@ public sealed class InventoryItemSpawnManagerViewModel : ObservableObject, IDisp
         SelectedRule = rule;
         SelectedInventoryItem = null;
         IsEditing = true;
+        _ = TryAutoRefreshInventoryAsync();
     }
 
     private void EditRule(InventoryItemSpawnRule? rule)
@@ -174,6 +187,7 @@ public sealed class InventoryItemSpawnManagerViewModel : ObservableObject, IDisp
         SelectedRule = rule;
         SelectedInventoryItem = null;
         IsEditing = true;
+        _ = TryAutoRefreshInventoryAsync();
     }
 
     private void DeleteRule(InventoryItemSpawnRule? rule)
@@ -199,6 +213,13 @@ public sealed class InventoryItemSpawnManagerViewModel : ObservableObject, IDisp
     private void CancelEdit()
     {
         IsEditing = false;
+    }
+
+    private async Task TryAutoRefreshInventoryAsync()
+    {
+        if (AvailableInventoryItems.Count > 0)
+            return;
+        await RefreshInventoryAsync();
     }
 
     private async Task RefreshInventoryAsync()
