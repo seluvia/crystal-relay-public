@@ -221,13 +221,14 @@ public sealed class VrChatApiClient : IDisposable
         using var response = await httpClient.SendAsync(request,
             HttpCompletionOption.ResponseHeadersRead, ct);
 
+        var body = await response.Content.ReadAsStringAsync(ct);
         if (!response.IsSuccessStatusCode)
         {
             throw new VrChatApiException(response.StatusCode,
-                $"Failed to spawn inventory item: {response.ReasonPhrase}");
+                $"Failed to spawn inventory item: {response.StatusCode} {response.ReasonPhrase} - {body}");
         }
 
-        await response.Content.ReadFromJsonAsync<InventorySpawnResponse>(JsonOptions, ct);
+        System.Diagnostics.Debug.WriteLine($"[CrystalRelay] Spawn response (HTTP {response.StatusCode}): {body}");
     }
 
     public async Task<VrChatCurrentWorldLookupResult> GetCurrentWorldAsync(

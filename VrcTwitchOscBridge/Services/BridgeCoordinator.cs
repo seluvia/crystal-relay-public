@@ -1075,6 +1075,7 @@ internal BridgeCoordinator(
         string rewardId,
         string rewardTitle,
         string userId,
+        string userDisplayName,
         CancellationToken cancellationToken)
     {
         var matchedRule = configuration.InventoryItemSpawnRules
@@ -1108,7 +1109,7 @@ internal BridgeCoordinator(
                 authCookie, matchedRule.InventoryItemId, cancellationToken);
 
             ApplyInventorySpawnRuleCooldown(matchedRule.Id, matchedRule.CooldownSeconds);
-            WriteLog($"Spawned inventory item '{matchedRule.ItemName}' for user '{userId}'.");
+            WriteLog($"Spawned inventory item '{matchedRule.ItemName}' (id={matchedRule.InventoryItemId}) for viewer '{userDisplayName}'.");
             return true;
         }
         catch (Exception ex)
@@ -3546,6 +3547,7 @@ internal BridgeCoordinator(
                 bridgeEvent.RewardId,
                 bridgeEvent.RewardTitle ?? string.Empty,
                 bridgeEvent.UserId,
+                bridgeEvent.UserDisplayName,
                 cancellationToken))
         {
             return;
