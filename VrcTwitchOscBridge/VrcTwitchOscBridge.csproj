@@ -196,6 +196,8 @@
     <Compile Include="Models\FloatClampMode.cs" />
     <Compile Include="Models\FloatValueMode.cs" />
     <Compile Include="Models\IntZeroDurationMode.cs" />
+    <Compile Include="Models\InventoryItemSpawnRule.cs" />
+    <Compile Include="Models\InventoryItemSummary.cs" />
     <Compile Include="Models\MovementRedeemSet.cs" />
     <Compile Include="Models\OscActionType.cs" />
     <Compile Include="Models\OscParameterType.cs" />
