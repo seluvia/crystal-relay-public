@@ -481,6 +481,7 @@ public sealed record BridgeRuntimeConfiguration(
     IReadOnlyList<AvatarTriggerProfile> AvatarProfiles,
     IReadOnlyList<AvatarSwapProfileSnapshot> AvatarSwapProfiles,
     IReadOnlyList<AvatarRouletteProfileSnapshot> AvatarRouletteProfiles,
+    IReadOnlyList<InventoryItemSpawnRule> InventoryItemSpawnRules,
     string MasterAvatarSwapReturnId,
     string MasterAvatarSwapReturnName,
     IReadOnlyList<string> CustomBlockedWords,
@@ -705,6 +706,10 @@ public sealed record BridgeRuntimeConfiguration(
                 triggerSnapshots.ToArray()));
         }
 
+        var inventoryItemSpawnRules = settings.InventoryItemSpawnRules
+            .Where(r => r.IsEnabled)
+            .ToArray() as IReadOnlyList<InventoryItemSpawnRule> ?? [];
+
         return new BridgeRuntimeConfiguration(
             runtimeConfig.TwitchClientId.Trim(),
             ToSnapshot(settings.Broadcaster),
@@ -764,6 +769,7 @@ public sealed record BridgeRuntimeConfiguration(
             settings.AvatarProfiles.ToArray(),
             avatarSwapProfiles.ToArray(),
             avatarRouletteProfiles.ToArray(),
+            inventoryItemSpawnRules,
             settings.MasterAvatarSwapReturnId?.Trim() ?? string.Empty,
             settings.MasterAvatarSwapReturnName?.Trim() ?? string.Empty,
             settings.CustomBlockedWords?.ToList() as IReadOnlyList<string> ?? [],
