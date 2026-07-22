@@ -230,7 +230,7 @@ Current built-in themes:
 
 Built-in language support includes English, Spanish, Japanese, German, French, Portuguese (Brazil), Swedish, Italian, Simplified Chinese, Traditional Chinese, Korean, Russian, Polish, and Thai.
 
-Crystal Relay accepts public translation help through GitHub issues and pull requests. The English source file is `VrcTwitchOscBridge/Resources/Localization/en-US.extra.json`, and the translated files live beside it as `*.extra.json`.
+Crystal Relay accepts public translation help through GitHub issues and pull requests. The English source file is `VrcTwitchOscBridge/Resources/Localization/en-US.json`, and each translated language has one matching `{culture}.json` file beside it.
 
 Want to help improve wording in your language? See [TRANSLATING.md](TRANSLATING.md). You can either open a translation issue with suggested wording or submit a pull request that edits the JSON translation files directly.
 

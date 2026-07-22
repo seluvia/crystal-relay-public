@@ -2585,7 +2585,7 @@ private static readonly string[] LoadingStoryboardKeys =
             var size = random.Next(10, 22);
             var crystal = new System.Windows.Shapes.Path
             {
-                Data = System.Windows.Media.Geometry.Parse($"M0,-{size * 0.7} L{size * 0.4},0 L0,{size * 0.7} L-{size * 0.4},0 Z"),
+                Data = System.Windows.Media.Geometry.Parse(FormattableString.Invariant($"M0,-{size * 0.7} L{size * 0.4},0 L0,{size * 0.7} L-{size * 0.4},0 Z")),
                 Fill = crystalBrushes[c % crystalBrushes.Length],
                 Opacity = 0.85,
                 RenderTransformOrigin = new System.Windows.Point(0.5, 0.5),

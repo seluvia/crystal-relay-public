@@ -9,6 +9,15 @@ namespace VrcTwitchOscBridge.Tests;
 public sealed class MainWindowAvatarScalingManagerWiringTests
 {
     [Fact]
+    public void LoadingStarField_FormatsCrystalGeometryWithInvariantCulture()
+    {
+        var source = File.ReadAllText(FindSourceFile("VrcTwitchOscBridge", "MainWindow.xaml.cs"));
+        var starFieldBody = GetMethodBody(source, "private void CreateStarField()");
+
+        Assert.Contains("Geometry.Parse(FormattableString.Invariant($\"", starFieldBody, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AvatarScalingLibraryButton_OpensManagerCommandWithoutInlineSelectionHighlight()
     {
         var xaml = File.ReadAllText(FindSourceFile("VrcTwitchOscBridge", "MainWindow.xaml"));

@@ -532,11 +532,11 @@ None of these folders should be committed, public-synced, or treated as part of 
 
 ## Localization Rules
 - User-facing UI text should use the existing localization flow instead of hardcoded XAML or code strings where practical.
-- Localization files can use base `.json` files plus matching `.extra.json` files; the audit merges both.
+- Each language uses one `{culture}.json` file. The audit compares every locale directly with `en-US.json`; do not reintroduce `.extra.json` files.
 - Add new `en-US` source keys for new UI text and keep placeholder names consistent across languages.
 - Avoid empty localized values and accidental English copies in translated files unless the existing pattern clearly allows it.
 - Run the localization audit after adding or changing UI text, XAML labels, tooltips, or user-facing activity messages.
-- The world guard message `"This world is currently guarded. Reason: {0}"` is used in `BridgeCoordinator.cs` and must be present in all `.extra.json` localization files.
+- The world guard message `"This world is currently guarded. Reason: {0}"` is used in `BridgeCoordinator.cs` and must be present in every locale `.json` file.
 
 ## Localization Translation Quality Rules
 - All non-English translations must sound natural and conversational in the target language, not stiff or machine-translated.

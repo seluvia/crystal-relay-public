@@ -163,6 +163,73 @@ public sealed class VrChatApiClient : IDisposable
             .ToArray();
     }
 
+    public async Task<List<InventoryItemSummary>> GetInventoryPropsAsync(
+        string authCookie, CancellationToken ct = default)
+    {
+        var result = new List<InventoryItemSummary>();
+        const int pageSize = 100;
+        var offset = 0;
+
+        while (true)
+        {
+            var request = CreateRequest(HttpMethod.Get,
+                $"inventory?types=prop&flags=instantiatable&n={pageSize}&offset={offset}",
+                authCookie);
+
+            using var response = await httpClient.SendAsync(request,
+                HttpCompletionOption.ResponseHeadersRead, ct);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new VrChatApiException(response.StatusCode,
+                    $"Failed to fetch inventory: {response.ReasonPhrase}");
+            }
+
+            var body = await response.Content.ReadFromJsonAsync<InventoryListResponse>(JsonOptions, ct);
+            if (body?.Data is null || body.Data.Count == 0)
+                break;
+
+            foreach (var item in body.Data)
+            {
+                result.Add(new InventoryItemSummary(
+                    item.Id,
+                    item.Name ?? "Unknown",
+                    item.ImageUrl ?? string.Empty,
+                    item.Description ?? string.Empty,
+                    item.ItemType ?? "prop",
+                    item.Tags ?? [],
+                    item.Flags ?? []));
+            }
+
+            offset += pageSize;
+            if (offset >= body.TotalCount)
+                break;
+        }
+
+        return result;
+    }
+
+    public async Task SpawnInventoryItemAsync(
+        string authCookie, string inventoryItemId, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(inventoryItemId))
+            throw new ArgumentException("Inventory item ID is required.", nameof(inventoryItemId));
+
+        var request = CreateRequest(HttpMethod.Get,
+            VrChatApiRoutes.SpawnInventoryItem(inventoryItemId), authCookie);
+
+        using var response = await httpClient.SendAsync(request,
+            HttpCompletionOption.ResponseHeadersRead, ct);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new VrChatApiException(response.StatusCode,
+                $"Failed to spawn inventory item: {response.ReasonPhrase}");
+        }
+
+        await response.Content.ReadFromJsonAsync<InventorySpawnResponse>(JsonOptions, ct);
+    }
+
     public async Task<VrChatCurrentWorldLookupResult> GetCurrentWorldAsync(
         string authCookie,
         CancellationToken cancellationToken = default)
@@ -784,6 +851,23 @@ public sealed class VrChatApiClient : IDisposable
         [JsonPropertyName("travelingToWorld")]
         public string? TravelingToWorld { get; set; }
     }
+
+    private sealed record InventoryRecord(
+        string Id,
+        string Name,
+        string? Description,
+        string? ImageUrl,
+        string? ItemType,
+        IReadOnlyList<string>? Tags,
+        IReadOnlyList<string>? Flags);
+
+    private sealed record InventoryListResponse(
+        List<InventoryRecord>? Data,
+        int TotalCount);
+
+    private sealed record InventorySpawnResponse(
+        string? Token,
+        int Version);
 
     private sealed class VrChatWorldRecord
     {

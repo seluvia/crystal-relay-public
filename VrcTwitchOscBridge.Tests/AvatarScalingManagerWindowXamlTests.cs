@@ -66,7 +66,7 @@ public sealed class AvatarScalingManagerWindowXamlTests
     }
 
     [Fact]
-    public void Window_BrainstormLayoutStringsAreLocalizedInAllExtraFiles()
+    public void Window_BrainstormLayoutStringsAreLocalizedInAllLocaleFiles()
     {
         var expectedKeys = new[]
         {
@@ -78,10 +78,10 @@ public sealed class AvatarScalingManagerWindowXamlTests
             "Supporter Growth, Cash Payments & Power Ups"
         };
         var localizationFolder = FindSourceDirectory("VrcTwitchOscBridge", "Resources", "Localization");
-        var extraFiles = Directory.GetFiles(localizationFolder, "*.extra.json");
+        var localeFiles = Directory.GetFiles(localizationFolder, "*.json");
 
-        Assert.NotEmpty(extraFiles);
-        foreach (var file in extraFiles)
+        Assert.Equal(14, localeFiles.Length);
+        foreach (var file in localeFiles)
         {
             var content = File.ReadAllText(file);
             foreach (var key in expectedKeys)
@@ -565,7 +565,7 @@ public sealed class AvatarScalingManagerWindowXamlTests
     }
 
     [Fact]
-    public void Window_DedicatedAddButtonStringsAreLocalizedInAllExtraFiles()
+    public void Window_DedicatedAddButtonStringsAreLocalizedInAllLocaleFiles()
     {
         var expectedKeys = new[]
         {
@@ -573,10 +573,10 @@ public sealed class AvatarScalingManagerWindowXamlTests
             "Add Cash Payment"
         };
         var localizationFolder = FindSourceDirectory("VrcTwitchOscBridge", "Resources", "Localization");
-        var extraFiles = Directory.GetFiles(localizationFolder, "*.extra.json");
+        var localeFiles = Directory.GetFiles(localizationFolder, "*.json");
 
-        Assert.NotEmpty(extraFiles);
-        foreach (var file in extraFiles)
+        Assert.Equal(14, localeFiles.Length);
+        foreach (var file in localeFiles)
         {
             var content = File.ReadAllText(file);
             foreach (var key in expectedKeys)

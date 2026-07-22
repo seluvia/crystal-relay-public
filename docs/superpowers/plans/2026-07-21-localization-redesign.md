@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Redo Crystal Relay's translation system from the ground up — consolidate to single-file-per-language, remove stale artifacts, and re-translate all 13 non-English languages with natural conversational quality.
+**Goal:** Redo Crystal Relay's translation system from the ground up — consolidate to single-file-per-language, remove stale artifacts, and rebuild all 13 non-English locale files.
 
-**Architecture:** Keep the existing source-text-as-key pattern and `LocalizationService.Translate()`/`Format()`/`TranslateExtension` interface untouched. Only change: each language has one `.json` file (not base + extra), `LocalizationService` loads single files, `LocalizationAudit` compares single files. Translations are produced by 13 parallel subagents.
+**Architecture:** Keep the existing localization lookup keys and `LocalizationService.Translate()`/`Format()`/`TranslateExtension` interface untouched. Each language has one `.json` file (not base + extra), `LocalizationService` loads single files, and `LocalizationAudit` compares single files.
 
 **Tech Stack:** C#, .NET 10, WPF/XAML, System.Text.Json, LocalizationAudit (console app)
 
@@ -13,7 +13,7 @@
 - All existing `{loc:Translate '...'}` references in 33 XAML files and 282+ C# call sites must continue to work unchanged
 - Brand/tech terms stay in English: `Bits`, `Subs`, `OSC`, `OSCQuery`, `VRChat`, `Twitch`, `Crystal Relay`, `StreamElements`, `Streamlabs`, `Ko-fi`
 - All `{0}`, `{1}`, `{0:N0}`, `{0:0.##}` etc. placeholders preserved exactly — never modified, reordered, or renamed
-- en-US keys kept verbatim (key == value) — these are the lookup keys
+- en-US keys and values kept verbatim; most keys are source text, while established semantic lookup keys retain their user-facing English values
 - Informal/friendly register for all non-English translations
 - cs-CZ files are dropped (orphan language, never exposed in UI)
 - App must build with `dotnet build` after changes
@@ -29,26 +29,24 @@
 
 - [ ] **Step 1: Write and run merge script**
 
-Run the following PowerShell to merge en-US base + extra, deduplicate keys, and sort:
+Merge en-US base + extra with an ordinal, case-sensitive `Dictionary<string, string>`, deduplicate keys, and sort them ordinally. Do not use PowerShell's case-insensitive `ConvertFrom-Json -AsHashtable`, because valid case-distinct keys would collapse.
 
 ```powershell
-$base = Get-Content "VrcTwitchOscBridge\Resources\Localization\en-US.json" | ConvertFrom-Json -AsHashTable
-$extra = Get-Content "VrcTwitchOscBridge\Resources\Localization\en-US.extra.json" | ConvertFrom-Json -AsHashTable
-$merged = [ordered]@{}
-foreach ($key in $base.Keys) { $merged[$key] = $base[$key] }
-foreach ($key in $extra.Keys) { $merged[$key] = $extra[$key] }
-$merged.Keys | Sort-Object | ForEach-Object { $sorted[$_] = $merged[$_] }
-$sorted | ConvertTo-Json -Depth 1 | Set-Content "VrcTwitchOscBridge\Resources\Localization\en-US.json" -Encoding UTF8
+# Use System.Text.Json with Dictionary<string, string> and StringComparer.Ordinal.
+# Preserve existing English values for semantic lookup keys.
 ```
 
 - [ ] **Step 2: Verify merged file**
 
 Check that line count and key count look reasonable:
 ```powershell
-$json = Get-Content "VrcTwitchOscBridge\Resources\Localization\en-US.json" -Raw | ConvertFrom-Json -AsHashTable
+$dictionaryType = [System.Collections.Generic.Dictionary[string, string]]
+$json = [System.Text.Json.JsonSerializer]::Deserialize(
+    [System.IO.File]::ReadAllText("VrcTwitchOscBridge\Resources\Localization\en-US.json"),
+    $dictionaryType)
 Write-Host "Total keys: $($json.Count)"
 ```
-Expected: ~2123 keys (784 base + 1339 extra, minus any exact dupes)
+Expected: 2115 keys after the merge and source-reference reconciliation.
 
 - [ ] **Step 3: Delete stale files**
 
@@ -111,9 +109,9 @@ private static IReadOnlyDictionary<string, string> LoadTranslations(AppLanguage 
 
 Delete the entire `MergeTranslations` method (lines 169-190).
 
-- [ ] **Step 3: Remove unused `System.IO` using**
+- [ ] **Step 3: Keep required `System.IO` using**
 
-`System.IO` was only used by `Path.GetFileNameWithoutExtension` in the removed merge logic. Verify it's not needed elsewhere. If the only `Path` reference was in `MergeTranslations`, remove the import.
+`System.IO` remains required by `StreamReader` in the single-file loader.
 
 - [ ] **Step 4: Build to verify**
 
@@ -161,18 +159,17 @@ Expected: Build succeeds.
 
 ---
 
-### Task 3-15: Translate 13 non-English languages (parallel)
+### Task 3-15: Translate 13 non-English languages
 
 **Each task (3 = de-DE, 4 = es-ES, 5 = fr-FR, 6 = pt-BR, 7 = sv-SE, 8 = it-IT, 9 = ja-JP, 10 = ko-KR, 11 = zh-CN, 12 = zh-TW, 13 = ru-RU, 14 = pl-PL, 15 = th-TH)**
 
-- [ ] **Step 1: Dispatch subagent for `{language}`**
+- [ ] **Step 1: Translate `{language}` from the clean English source**
 
-Each subagent receives:
-- The full `en-US.json` content (~2123 key-value pairs)
+Each translation pass receives:
+- The full `en-US.json` content (2115 key-value pairs)
 - A strict translation brief (see below)
-- The polyglot-reviewer agent type for quality verification
 
-**Subagent prompt template:**
+**Translation brief template:**
 
 ```
 Translate this en-US localization file into {LANGUAGE NAME} ({LANG CODE}) for a C# WPF desktop app called Crystal Relay.
@@ -185,14 +182,10 @@ Translation rules (MANDATORY):
 5. Gaming/streaming vocabulary: use terms native speakers actually use, not literal translations
 6. Every key MUST be present in the output - no gaps
 
-After writing the file, run polyglot-reviewer on the output to verify naturalness and fix any issues.
-
 Return only the complete translated JSON file content.
 ```
 
-Each subagent writes the result to `{language}.json` in `VrcTwitchOscBridge\Resources\Localization\`.
-
-All 13 subagents run in parallel.
+Each pass writes the result to `{language}.json` in `VrcTwitchOscBridge\Resources\Localization\`.
 
 ---
 
@@ -203,7 +196,7 @@ All 13 subagents run in parallel.
 ```powershell
 dotnet run --project "LocalizationAudit\LocalizationAudit.csproj"
 ```
-Expected: "Localization audit passed." with exit code 0.
+The locale-file structural checks must pass. Existing hardcoded-XAML findings and temporarily accepted English machine-translation fallbacks remain deferred audit findings for this pass.
 
 If failures exist (missing keys, placeholder mismatches, likely untranslated values), fix the specific language file and re-run.
 

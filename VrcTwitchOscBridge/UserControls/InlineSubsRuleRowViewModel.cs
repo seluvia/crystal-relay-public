@@ -76,8 +76,7 @@ public sealed class InlineSubsRuleRowViewModel : ObservableObject, IRuleRowViewM
         {
             sb.Append(", cap ").Append(_rule.MaxAccumulatedDurationSeconds).Append("s");
         }
-        var subType = _rule.IsGiftSubscription ? "regular+gift" : "regular";
-        sb.Append(", sub-type: ").Append(subType);
+        sb.Append(", includes gift subs");
         if (!string.IsNullOrWhiteSpace(_rule.SupporterKeywordText))
         {
             sb.Append(", keyword: ").Append(_rule.SupporterKeywordText);

@@ -8,7 +8,7 @@ Purpose:
 
 Current Baseline:
 - Last published version: v3.1.9
-- Current working source version: v3.1.10
+- Current working source version: v3.2.0
 
 How To Use:
 1. Add new lines under Added, Changed, or Removed while work is happening.
@@ -18,11 +18,13 @@ How To Use:
 5. Retired release drafts (versions that already shipped) are removed from the working area once their content is captured in CHANGELOG.txt. The release checklist is always kept.
 
 Pending Release Draft
-- Target version: v3.1.10
+- Target version: v3.2.0
 - Release lane: (not started)
 - Next build: (none)
 - Last build: (none)
 - Source files and project versions now reflect v3.2.0 active development.
+Changed:
+- Consolidated each built-in language into one locale file and refreshed the translation catalog across all supported languages.
 
 v3.1.9 beta 5 (shipped — rolled into v3.1.9 stable)
 Added:

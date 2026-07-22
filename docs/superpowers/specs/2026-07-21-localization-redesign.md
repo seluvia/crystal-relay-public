@@ -2,11 +2,11 @@
 
 ## Goal
 
-Redo the entire translation system from the ground up: clean up accumulated file cruft, remove the base/extra file split, re-translate every non-English language from scratch with natural conversational quality, and keep backward compatibility with all existing `{loc:Translate '...'}` XAML/C# call sites.
+Redo the entire translation system from the ground up: clean up accumulated file cruft, remove the base/extra file split, rebuild every non-English locale, and keep backward compatibility with all existing `{loc:Translate '...'}` XAML/C# call sites.
 
 ## Scope
 
-- Keep the existing **source-text-as-key** pattern (English sentences are dictionary keys)
+- Keep the existing lookup-key pattern (mostly English source text plus established semantic keys)
 - Keep the existing `LocalizationService.Translate()` / `Format()` / `TranslateExtension` interface unchanged
 - Keep all 33 XAML files and 282+ C# call sites untouched
 
@@ -62,7 +62,7 @@ Produced by merging `en-US.json` + `en-US.extra.json`, deduplicating keys, and v
 - No empty values
 - Sorted alphabetically for diff-friendly maintenance
 
-The en-US file is kept **verbatim** — every key-value pair is identity (key == value) and every key matches existing `{loc:Translate '...'}` references across the codebase.
+The merged en-US keys and values are kept verbatim. Most keys are source text; established semantic keys retain their separate user-facing English values.
 
 ### 3. LocalizationService Changes
 
@@ -106,15 +106,17 @@ cs-CZ is dropped.
 2. Delete stale files
 3. Update `LocalizationService.cs`
 4. Update `LocalizationAudit` `Program.cs`
-5. Dispatch 13 subagents in **parallel**, each receiving:
+5. Translate each of the 13 locale files directly from:
    - The clean en-US.json
    - A strict translation brief (natural, conversational, informal register, preserve all `{N}` placeholders, keep brand/tech terms in English)
-   - A quality gate: after producing the file, run polyglot-reviewer to verify naturalness and fix issues
+   - Deterministic checks for key coverage, placeholders, UTF-8 integrity, and protected terms
 6. Run `LocalizationAudit` across all resulting files
 7. Build the app project to verify no regressions
 8. Commit
 
 ## Quality Requirements
+
+Natural native-speaker review remains the long-term target. For this implementation pass, the user accepted lower-quality machine output with English safety fallbacks where placeholders or protected terms could not be preserved safely.
 
 - Every non-English translation must sound natural and conversational in the target language (informal register: du, tú, tu, du, etc.)
 - Brand and technical terms stay in English: `Bits`, `Subs`, `OSC`, `OSCQuery`, `VRChat`, `Twitch`, `Crystal Relay`, `StreamElements`, `Streamlabs`, `Ko-fi`
@@ -124,7 +126,9 @@ cs-CZ is dropped.
 
 ## Success Criteria
 
-- `LocalizationAudit` passes with zero errors across all 14 files
+- All 14 locale files have identical key coverage, no empty values, and exact placeholder sequences
 - App builds successfully with `dotnet build`
 - All XAML `{loc:Translate '...'}` references resolve correctly
 - All C# `LocalizationService.Translate()` / `Format()` calls continue to work
+
+Zero likely-untranslated and hardcoded-XAML audit findings remain the follow-up quality target after native-language review and the separate XAML localization cleanup.
