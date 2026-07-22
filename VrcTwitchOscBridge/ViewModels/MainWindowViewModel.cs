@@ -416,6 +416,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     private readonly LiveFeedbackHeartbeatService liveFeedbackHeartbeatService = new();
     private readonly WorldCommandBlacklistService worldCommandBlacklistService = new();
     private readonly VrChatApiClient vrChatApiClient = new();
+    internal VrChatApiClient VrChatApiClient => vrChatApiClient;
     private readonly VrChatLocalClientStateService vrChatLocalClientStateService = new();
     private readonly VrChatLocalOscCacheService vrChatLocalOscCacheService = new();
     private readonly Dispatcher dispatcher;
