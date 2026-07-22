@@ -29,6 +29,11 @@ public sealed class InventoryItemSpawnManagerViewModel : ObservableObject, IDisp
     {
         _mainVm = mainVm ?? throw new ArgumentNullException(nameof(mainVm));
         _imageService = new InventoryItemImageService();
+        var authCookie = _mainVm.Settings.VrChat.AuthCookie;
+        if (!string.IsNullOrWhiteSpace(authCookie))
+        {
+            _imageService.SetAuthCookie(authCookie);
+        }
 
         _mainVm.Settings.InventoryItemSpawnRules.CollectionChanged += OnRulesCollectionChanged;
 
@@ -235,6 +240,7 @@ public sealed class InventoryItemSpawnManagerViewModel : ObservableObject, IDisp
 
             _imageService.SetAuthCookie(authCookie);
             _imageService.ClearCache();
+            RebuildCards();
             var items = await _mainVm.VrChatApiClient.GetInventoryPropsAsync(authCookie);
 
             foreach (var item in items)

@@ -54,7 +54,6 @@ public sealed class InventoryItemImageService : IDisposable
         }
         catch
         {
-            _cache[imageUrl] = null;
             return null;
         }
     }
