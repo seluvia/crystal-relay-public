@@ -130,6 +130,7 @@
     <Compile Include="ViewModels\AvatarScalingSourceCardViewModel.cs" />
     <Compile Include="ViewModels\AvatarSetsManagerViewModel.cs" />
     <Compile Include="ViewModels\AvatarSetCardViewModel.cs" />
+    <Compile Include="ViewModels\InventoryItemSpawnCardViewModel.cs" />
     <Compile Include="ViewModels\CashPaymentManagerViewModel.cs" />
     <Compile Include="ViewModels\RewardFireSaleManagerViewModel.cs" />
     <Compile Include="Converters.cs" />
