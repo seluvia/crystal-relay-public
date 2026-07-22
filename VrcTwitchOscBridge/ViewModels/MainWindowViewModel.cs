@@ -11565,7 +11565,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         IReadOnlyCollection<TriggerRule> supportedMovementRules,
         IReadOnlyCollection<UniversalTriggerRule> managedUniversalTriggers,
         IReadOnlyCollection<AvatarScaleRule> managedAvatarScaleRules,
-        AvatarScaleMasterRewardSettings? avatarScaleMasterReward)
+        AvatarScaleMasterRewardSettings? avatarScaleMasterReward,
+        IReadOnlyCollection<InventoryItemSpawnRule> inventorySpawnRules)
     {
         foreach (var profile in Settings.AvatarProfiles)
         {
@@ -11715,6 +11716,18 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
                 fireSale.FundingRewardId,
                 fireSale.FundingRewardTitle,
                 TwitchRewardSyncMode.CreateOrManage);
+        }
+
+        foreach (var rule in Settings.InventoryItemSpawnRules)
+        {
+            if (!string.IsNullOrWhiteSpace(rule.RewardId) || !string.IsNullOrWhiteSpace(rule.RewardTitle))
+            {
+                yield return new ManagedRewardOwnershipEntry(
+                    Guid.Parse(rule.Id),
+                    rule.RewardId ?? string.Empty,
+                    rule.RewardTitle,
+                    rule.SyncMode);
+            }
         }
     }
 
@@ -12539,6 +12552,36 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             applyRewardId: rewardId => fireSale.FundingRewardId = rewardId);
     }
 
+    private ManagedRewardSyncTarget CreateManagedRewardTargetForInventorySpawnRule(
+        InventoryItemSpawnRule rule,
+        bool allowManagedRewardActivation,
+        IReadOnlyCollection<Guid> temporarilyDisabledRuleIds,
+        IReadOnlyCollection<Guid> cooldownRuleIds)
+    {
+        var ruleId = Guid.Parse(rule.Id);
+        var isOnCooldown = cooldownRuleIds.Contains(ruleId);
+        var desiredEnabled = allowManagedRewardActivation
+            && rule.IsEnabled
+            && !temporarilyDisabledRuleIds.Contains(ruleId);
+
+        return new ManagedRewardSyncTarget(
+            ruleId,
+            rule.DisplayTitle,
+            rule.RewardId ?? string.Empty,
+            rule.RewardTitle,
+            rule.RewardCost,
+            rule.SyncMode,
+            rule.CooldownSeconds,
+            ManagedRewardPresentation.ReadyBackgroundColor,
+            prompt: string.Empty,
+            requireUserInput: false,
+            desiredEnabled: desiredEnabled,
+            isCooldownActive: isOnCooldown,
+            deleteWhenInactive: false,
+            protectFromCapReclaim: desiredEnabled || isOnCooldown,
+            applyRewardId: rewardId => rule.RewardId = rewardId);
+    }
+
     private static string GetAvatarScaleManagedRewardTitle(AvatarScaleRule rule)
     {
         var rewardTitle = rule.RewardTitle?.Trim() ?? string.Empty;
@@ -12783,7 +12826,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
                     supportedMovementRules,
                     managedUniversalTriggers,
                     managedAvatarScaleRules,
-                    managedAvatarScaleMasterReward)
+                    managedAvatarScaleMasterReward,
+                    Settings.InventoryItemSpawnRules)
                 .ToArray();
             var claimedRewardIds = ownershipEntries
                 .Select(entry => entry.RewardId?.Trim())
@@ -12931,6 +12975,16 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
                 }
             }
 
+            var inventorySpawnTargets = new List<ManagedRewardSyncTarget>();
+            foreach (var rule in Settings.InventoryItemSpawnRules)
+            {
+                inventorySpawnTargets.Add(CreateManagedRewardTargetForInventorySpawnRule(
+                    rule,
+                    allowManagedRewardActivation,
+                    temporarilyDisabledRuleIds,
+                    cooldownRuleIds));
+            }
+
             var movementTargets = supportedMovementRules
                 .Select(rule => CreateManagedRewardTargetForRule(
                     profile: null,
@@ -12973,6 +13027,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             allSyncTargets.AddRange(avatarProfileTargets);
             allSyncTargets.AddRange(avatarSwapTargets);
             allSyncTargets.AddRange(rouletteTargets);
+            allSyncTargets.AddRange(inventorySpawnTargets);
             allSyncTargets.AddRange(movementTargets);
             allSyncTargets.AddRange(universalTargets);
             allSyncTargets.AddRange(avatarScaleTargets);
