@@ -21,6 +21,9 @@ internal static class VrChatApiRoutes
     public static string SpawnInventoryItem(string itemId) =>
         $"inventory/spawn?id={Uri.EscapeDataString(itemId)}";
 
+    public static string ShareInventoryItemPedestal(string itemId) =>
+        $"inventory/share/pedestal?id={Uri.EscapeDataString(itemId)}";
+
     public static string InviteMyselfToInstance(string location) =>
         $"invite/myself/to/{Uri.EscapeDataString(location)}";
 }

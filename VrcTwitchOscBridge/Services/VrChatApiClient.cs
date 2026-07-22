@@ -216,7 +216,7 @@ public sealed class VrChatApiClient : IDisposable
             throw new ArgumentException("Inventory item ID is required.", nameof(inventoryItemId));
 
         var request = CreateRequest(HttpMethod.Get,
-            VrChatApiRoutes.SpawnInventoryItem(inventoryItemId), authCookie);
+            VrChatApiRoutes.ShareInventoryItemPedestal(inventoryItemId), authCookie);
 
         using var response = await httpClient.SendAsync(request,
             HttpCompletionOption.ResponseHeadersRead, ct);
@@ -228,7 +228,7 @@ public sealed class VrChatApiClient : IDisposable
                 $"Failed to spawn inventory item: {response.StatusCode} {response.ReasonPhrase} - {body}");
         }
 
-        System.Diagnostics.Debug.WriteLine($"[CrystalRelay] Spawn response (HTTP {response.StatusCode}): {body}");
+        System.Diagnostics.Debug.WriteLine($"[CrystalRelay] SharePedestal response (HTTP {response.StatusCode}): {body}");
     }
 
     public async Task<VrChatCurrentWorldLookupResult> GetCurrentWorldAsync(
