@@ -187,6 +187,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private readonly Dictionary<Guid, SemaphoreSlim> universalTriggerQueueGates = [];
     private readonly SemaphoreSlim universalTriggerGlobalGate = new(1, 1);
     private readonly Dictionary<string, DateTimeOffset> triggerInfoCommandCooldowns = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, DateTimeOffset> inventorySpawnCooldowns = new(StringComparer.Ordinal);
     private readonly Dictionary<Guid, DateTimeOffset> powerUpInactiveAvatarLogTimes = [];
     private readonly SemaphoreSlim worldCommandLookupGate = new(1, 1);
     private readonly Dictionary<Guid, ActiveAvatarScaleSupporterGrowthState> avatarScaleSupporterGrowthStates = [];
@@ -1067,6 +1068,71 @@ internal BridgeCoordinator(
         }
 
         return false;
+    }
+
+    private async Task<bool> TryExecuteInventoryItemSpawnFromRedemptionAsync(
+        BridgeRuntimeConfiguration configuration,
+        string rewardId,
+        string rewardTitle,
+        string userId,
+        CancellationToken cancellationToken)
+    {
+        var matchedRule = configuration.InventoryItemSpawnRules
+            .FirstOrDefault(rule =>
+                rule.IsEnabled &&
+                (string.Equals(rule.RewardId?.Trim(), rewardId, StringComparison.Ordinal) ||
+                 string.Equals(rule.RewardTitle?.Trim(), rewardTitle, StringComparison.Ordinal)));
+
+        if (matchedRule is null)
+            return false;
+
+        if (string.IsNullOrWhiteSpace(matchedRule.InventoryItemId))
+            return false;
+
+        if (IsInventorySpawnRuleOnCooldown(matchedRule.Id, matchedRule.CooldownSeconds))
+        {
+            WriteLog($"Inventory item spawn '{matchedRule.ItemName}' is on cooldown.");
+            return true;
+        }
+
+        try
+        {
+            var authCookie = configuration.VrChatSession.AuthCookie;
+            if (string.IsNullOrWhiteSpace(authCookie))
+            {
+                WriteLog("Cannot spawn inventory item: VRChat auth cookie not available.");
+                return false;
+            }
+
+            await vrChatApiClient.SpawnInventoryItemAsync(
+                authCookie, matchedRule.InventoryItemId, cancellationToken);
+
+            ApplyInventorySpawnRuleCooldown(matchedRule.Id, matchedRule.CooldownSeconds);
+            WriteLog($"Spawned inventory item '{matchedRule.ItemName}' for user '{userId}'.");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            WriteLog($"Failed to spawn inventory item '{matchedRule.ItemName}': {SensitiveTextSanitizer.Sanitize(ex.Message)}");
+            return false;
+        }
+    }
+
+    private bool IsInventorySpawnRuleOnCooldown(string ruleId, int cooldownSeconds)
+    {
+        if (cooldownSeconds <= 0) return false;
+        if (inventorySpawnCooldowns.TryGetValue(ruleId, out var until))
+        {
+            if (DateTimeOffset.UtcNow < until) return true;
+            inventorySpawnCooldowns.TryRemove(ruleId, out _);
+        }
+        return false;
+    }
+
+    private void ApplyInventorySpawnRuleCooldown(string ruleId, int cooldownSeconds)
+    {
+        if (cooldownSeconds > 0)
+            inventorySpawnCooldowns[ruleId] = DateTimeOffset.UtcNow.AddSeconds(cooldownSeconds);
     }
 
     private async Task<bool> TryHandleDevChatCommandAsync(
@@ -3467,6 +3533,19 @@ internal BridgeCoordinator(
                 configuration,
                 bridgeEvent.RewardId?.Trim() ?? string.Empty,
                 bridgeEvent.RewardUserInput,
+                cancellationToken))
+        {
+            return;
+        }
+
+        if (!bridgeEvent.IsChatCommandTrigger
+            && bridgeEvent.TriggerType == TwitchTriggerType.ChannelPoints
+            && bridgeEvent.RewardId is not null
+            && await TryExecuteInventoryItemSpawnFromRedemptionAsync(
+                configuration,
+                bridgeEvent.RewardId,
+                bridgeEvent.RewardTitle ?? string.Empty,
+                bridgeEvent.UserId,
                 cancellationToken))
         {
             return;
