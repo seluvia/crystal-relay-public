@@ -13,6 +13,7 @@ public sealed class InventoryItemSpawnRule : ObservableObject, IJsonOnDeserializ
     private string itemType = string.Empty;
     private string? rewardId;
     private string rewardTitle = string.Empty;
+    private string rewardDescription = string.Empty;
     private int rewardCost = 100;
     private TwitchRewardSyncMode syncMode = TwitchRewardSyncMode.CreateOrManage;
     private bool isEnabled = true;
@@ -59,6 +60,12 @@ public sealed class InventoryItemSpawnRule : ObservableObject, IJsonOnDeserializ
     {
         get => rewardTitle;
         set => SetProperty(ref rewardTitle, value ?? string.Empty);
+    }
+
+    public string RewardDescription
+    {
+        get => rewardDescription;
+        set => SetProperty(ref rewardDescription, value ?? string.Empty);
     }
 
     public int RewardCost

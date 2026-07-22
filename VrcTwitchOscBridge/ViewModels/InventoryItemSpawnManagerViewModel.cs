@@ -185,6 +185,7 @@ public sealed class InventoryItemSpawnManagerViewModel : ObservableObject, IDisp
             SelectedRule = null;
             IsEditing = false;
         }
+        _mainVm.QueueSave(0);
         _mainVm.QueueManagedRewardSyncPublic();
     }
 

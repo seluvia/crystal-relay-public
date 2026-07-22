@@ -667,6 +667,10 @@
                         <TextBlock Text="Reward Title" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,4" />
                         <TextBox Text="{Binding SelectedRule.RewardTitle, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" />
 
+                        <TextBlock Text="Reward Description" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,4" />
+                        <TextBox Text="{Binding SelectedRule.RewardDescription, UpdateSourceTrigger=PropertyChanged}"
+                                 MaxLines="3" TextWrapping="Wrap" AcceptsReturn="True" Margin="0,0,0,8" />
+
                         <TextBlock Text="Reward Cost (points)" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,4" />
                         <TextBox Text="{Binding SelectedRule.RewardCost, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" />
 
