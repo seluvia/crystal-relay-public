@@ -75,7 +75,7 @@ public sealed class InventoryItemSpawnManagerViewModel : ObservableObject, IDisp
                 SelectedRule.ItemType = value.ItemType;
                 if (string.IsNullOrWhiteSpace(SelectedRule.RewardTitle))
                 {
-                    SelectedRule.RewardTitle = value.Name;
+                    SelectedRule.RewardTitle = $"VRC: {value.Name}";
                 }
             }
         }

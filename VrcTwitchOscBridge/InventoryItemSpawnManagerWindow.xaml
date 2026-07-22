@@ -671,11 +671,11 @@
                         <TextBox Text="{Binding SelectedRule.RewardCost, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" />
 
                         <TextBlock Text="Sync Mode" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,4" />
-                        <ComboBox SelectedItem="{Binding SelectedRule.SyncMode}" Margin="0,0,0,8">
-                            <ComboBox.Items>
-                                <ComboBoxItem Content="Create &amp; Manage" />
-                                <ComboBoxItem Content="Link Existing" />
-                            </ComboBox.Items>
+                        <ComboBox SelectedValue="{Binding SelectedRule.SyncMode, UpdateSourceTrigger=PropertyChanged}"
+                                  SelectedValuePath="Tag"
+                                  Margin="0,0,0,8">
+                            <ComboBoxItem Content="Create &amp; Manage" Tag="{x:Static models:TwitchRewardSyncMode.CreateOrManage}" />
+                            <ComboBoxItem Content="Link Existing" Tag="{x:Static models:TwitchRewardSyncMode.LinkExisting}" />
                         </ComboBox>
 
                         <TextBlock Text="Cooldown (seconds)" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" Margin="0,0,0,4" />
