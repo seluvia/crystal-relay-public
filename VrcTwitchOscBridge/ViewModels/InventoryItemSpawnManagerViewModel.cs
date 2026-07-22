@@ -15,6 +15,7 @@ public sealed class InventoryItemSpawnManagerViewModel : ObservableObject, IDisp
 {
     private readonly MainWindowViewModel _mainVm;
     private readonly InventoryItemImageService _imageService;
+    private readonly Action? _onSave;
     private readonly ObservableCollection<InventoryItemSpawnCardViewModel> _cardsBacking = [];
     private ICollectionView? _cardsView;
     private InventoryItemSpawnRule? _selectedRule;
@@ -25,9 +26,10 @@ public sealed class InventoryItemSpawnManagerViewModel : ObservableObject, IDisp
     private bool _isLoadingInventory;
     private bool _disposed;
 
-    public InventoryItemSpawnManagerViewModel(MainWindowViewModel mainVm)
+    public InventoryItemSpawnManagerViewModel(MainWindowViewModel mainVm, Action? onSave = null)
     {
         _mainVm = mainVm ?? throw new ArgumentNullException(nameof(mainVm));
+        _onSave = onSave;
         _imageService = new InventoryItemImageService();
         var authCookie = _mainVm.Settings.VrChat.AuthCookie;
         if (!string.IsNullOrWhiteSpace(authCookie))
@@ -204,15 +206,13 @@ public sealed class InventoryItemSpawnManagerViewModel : ObservableObject, IDisp
             SelectedRule = null;
             IsEditing = false;
         }
-        _mainVm.QueueSave(0);
-        _mainVm.QueueManagedRewardSyncPublic();
+        _onSave?.Invoke();
     }
 
     private void SaveRule()
     {
         IsEditing = false;
-        _mainVm.QueueSave(0);
-        _mainVm.QueueManagedRewardSyncPublic();
+        _onSave?.Invoke();
     }
 
     private void CancelEdit()

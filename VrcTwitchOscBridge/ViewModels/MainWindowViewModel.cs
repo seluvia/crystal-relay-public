@@ -5300,7 +5300,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             return;
         }
 
-        var managerVm = new InventoryItemSpawnManagerViewModel(this);
+        var managerVm = new InventoryItemSpawnManagerViewModel(this, () =>
+        {
+            QueueSave(0);
+            QueueBridgeRefresh();
+            QueueManagedRewardSync(0, ManagedRewardSyncReason.SettingsEdit);
+        });
         _inventoryItemSpawnManagerWindow = new InventoryItemSpawnManagerWindow
         {
             Owner = System.Windows.Application.Current?.MainWindow,
