@@ -2999,11 +2999,13 @@
                                </Style>
                            </Grid.Resources>
 
-                           <Grid.ColumnDefinitions>
-                               <ColumnDefinition Width="*" />
-                               <ColumnDefinition Width="12" />
-                               <ColumnDefinition Width="*" />
-                           </Grid.ColumnDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
                            <Grid.RowDefinitions>
                                <RowDefinition Height="Auto" />
                                <RowDefinition Height="12" />
@@ -3035,8 +3037,28 @@
                                </StackPanel>
                            </Border>
 
-                           <!-- Card 2: Avatar Actions (top-right) -->
-                           <Border Grid.Row="0" Grid.Column="2" Style="{StaticResource NavCardStyle}">
+                             <!-- Card 2: Inventory Item Spawns (top-middle) -->
+                             <Border Grid.Row="0" Grid.Column="2" Style="{StaticResource NavCardStyle}">
+                                 <StackPanel>
+                                     <TextBlock Text="{loc:Translate 'Inventory Item Spawns'}"
+                                                FontFamily="{DynamicResource HeadingFontFamily}"
+                                                FontSize="10" FontWeight="SemiBold"
+                                                Foreground="{DynamicResource MutedBrush}" />
+                                     <TextBlock Text="{loc:Translate 'Spawn props in-world'}"
+                                                FontWeight="Bold" FontSize="15"
+                                                Foreground="{DynamicResource TextBrush}" />
+                                     <TextBlock Text="{loc:Translate 'Let viewers spawn inventory items'}"
+                                                Foreground="{DynamicResource MutedBrush}"
+                                                FontSize="11" TextWrapping="Wrap" />
+                                     <Button Content="{loc:Translate 'Manage →'}"
+                                             Style="{StaticResource NavCardActionButtonStyle}"
+                                             Command="{Binding OpenInventoryItemSpawnManagerCommand}"
+                                             HorizontalAlignment="Left" />
+                                 </StackPanel>
+                             </Border>
+
+                            <!-- Card 3: Avatar Actions (top-right) -->
+                            <Border Grid.Row="0" Grid.Column="4" Style="{StaticResource NavCardStyle}">
                                <StackPanel>
                                    <TextBlock Text="{loc:Translate 'Avatar Actions'}"
                                               FontFamily="{DynamicResource HeadingFontFamily}"
@@ -3066,7 +3088,7 @@
                                </StackPanel>
                            </Border>
 
-                           <!-- Card 3: Trigger Systems (bottom-left) -->
+                            <!-- Card 4: Trigger Systems (bottom-left) -->
                            <Border Grid.Row="2" Grid.Column="0" Style="{StaticResource NavCardStyle}">
                                <StackPanel>
                                    <TextBlock Text="{loc:Translate 'Trigger Systems'}"
@@ -3097,8 +3119,8 @@
                                </StackPanel>
                            </Border>
 
-                           <!-- Card 4: Viewer Support (bottom-right) -->
-                           <Border Grid.Row="2" Grid.Column="2" Style="{StaticResource NavCardStyle}">
+                            <!-- Card 5: Viewer Support (bottom-right) -->
+                            <Border Grid.Row="2" Grid.Column="4" Style="{StaticResource NavCardStyle}">
                                <StackPanel>
                                    <TextBlock Text="{loc:Translate 'Viewer Support'}"
                                               FontFamily="{DynamicResource HeadingFontFamily}"
