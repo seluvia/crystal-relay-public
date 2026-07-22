@@ -913,6 +913,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         OpenAvatarSwapManagerCommand = new RelayCommand(OpenAvatarSwapManager);
         OpenCashPaymentManagerCommand = new RelayCommand(OpenCashPaymentManager);
         OpenRewardFireSaleManagerCommand = new RelayCommand(OpenRewardFireSaleManager);
+        OpenInventoryItemSpawnManagerCommand = new RelayCommand(OpenInventoryItemSpawnManager);
         PickReturnAvatarCommand = new RelayCommand(PickReturnAvatar);
         UseCurrentAvatarForReturnCommand = new RelayCommand(UseCurrentAvatarForReturn);
         ClearReturnAvatarCommand = new RelayCommand(ClearReturnAvatar);
@@ -2943,6 +2944,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     public RelayCommand ShowAvatarScalingCommand { get; }
 
     public RelayCommand OpenRewardFireSaleManagerCommand { get; }
+
+    public RelayCommand OpenInventoryItemSpawnManagerCommand { get; }
 
     public RelayCommand AddAvatarProfileCommand { get; }
 
@@ -5146,6 +5149,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     private MovementRedeemsManagerWindow? _movementRedeemsManagerWindow;
     private CashPaymentManagerWindow? _cashPaymentManagerWindow;
     private RewardFireSaleManagerWindow? _rewardFireSaleManagerWindow;
+    private InventoryItemSpawnManagerWindow? _inventoryItemSpawnManagerWindow;
 
     private readonly AvatarImageService _masterAvatarReturnImageService = new();
     private System.Windows.Media.ImageSource? _masterAvatarReturnImage;
@@ -5286,6 +5290,27 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         };
         _rewardFireSaleManagerWindow.Closed += (_, _) => _rewardFireSaleManagerWindow = null;
         _rewardFireSaleManagerWindow.Show();
+    }
+
+    private void OpenInventoryItemSpawnManager()
+    {
+        if (_inventoryItemSpawnManagerWindow is { IsVisible: true })
+        {
+            _inventoryItemSpawnManagerWindow.Activate();
+            return;
+        }
+
+        var managerVm = new InventoryItemSpawnManagerViewModel(this);
+        _inventoryItemSpawnManagerWindow = new InventoryItemSpawnManagerWindow
+        {
+            Owner = System.Windows.Application.Current?.MainWindow,
+            DataContext = managerVm
+        };
+        _inventoryItemSpawnManagerWindow.Closed += (_, _) =>
+        {
+            _inventoryItemSpawnManagerWindow = null;
+        };
+        _inventoryItemSpawnManagerWindow.Show();
     }
 
     public System.Windows.Media.ImageSource? MasterAvatarReturnImage
