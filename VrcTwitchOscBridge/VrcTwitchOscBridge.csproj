@@ -292,6 +292,7 @@
     <Compile Include="Services\ActivityResumeService.cs" />
     <Compile Include="Services\IActivityResumeService.cs" />
     <Compile Include="Services\WorldCommandBlacklistService.cs" />
+    <Compile Include="Services\XSOverlayNotificationService.cs" />
     <Compile Include="ViewModels\MainWindowViewModel.cs" />
     <Compile Include="ViewModels\AvatarPickerViewModel.cs" />
     <Compile Include="ViewModels\AvatarLibraryManagerViewModel.cs" />
