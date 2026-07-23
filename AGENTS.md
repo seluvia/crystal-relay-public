@@ -3,10 +3,10 @@
 ## Project Identity
 - Product name: `Crystal Relay`
 - Legacy source/project name may still appear as `VrcTwitchOscBridge`
-- Last stable release: `v3.1.9`
+- Last stable release: `v3.2.0`
 - Current source version: `v3.2.0`
-- Next post-release development version: `v3.2.0`
-- Active development build: `v3.2.0`
+- Next post-release development version: `v3.2.1`
+- Active development build: `v3.2.1`
 - Active build lane: `none`
 - Active bug fix push: `none`
 - Platform: Windows desktop app
