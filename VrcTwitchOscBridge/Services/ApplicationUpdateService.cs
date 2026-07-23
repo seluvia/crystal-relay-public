@@ -63,6 +63,31 @@ public sealed class ApplicationUpdateService : IDisposable
         bool includeBetaUpdates,
         CancellationToken cancellationToken = default)
     {
+        return await CheckForUpdateCoreAsync(
+            currentBuild, ignoredVersionText, ignoredBetaBaseVersionText,
+            includeBetaUpdates, forceCheck: false, cancellationToken);
+    }
+
+    public async Task<ApplicationUpdateCheckResult> CheckForUpdateAlwaysAsync(
+        ApplicationBuildIdentity currentBuild,
+        string ignoredVersionText,
+        string ignoredBetaBaseVersionText,
+        bool includeBetaUpdates,
+        CancellationToken cancellationToken = default)
+    {
+        return await CheckForUpdateCoreAsync(
+            currentBuild, ignoredVersionText, ignoredBetaBaseVersionText,
+            includeBetaUpdates, forceCheck: true, cancellationToken);
+    }
+
+    private async Task<ApplicationUpdateCheckResult> CheckForUpdateCoreAsync(
+        ApplicationBuildIdentity currentBuild,
+        string ignoredVersionText,
+        string ignoredBetaBaseVersionText,
+        bool includeBetaUpdates,
+        bool forceCheck,
+        CancellationToken cancellationToken = default)
+    {
         ArgumentNullException.ThrowIfNull(currentBuild);
         if (!TryParseReleaseVersion(currentBuild.UpdateVersion, out var currentVersion))
         {
@@ -109,7 +134,7 @@ public sealed class ApplicationUpdateService : IDisposable
             || currentBuild.Channel == ApplicationUpdateChannel.Beta;
         var bestStable = candidates
             .Where(candidate => candidate.Channel == ApplicationUpdateChannel.Stable)
-            .Where(candidate => IsNewerStableCandidate(candidate.Version, currentVersion, currentBuild.Channel))
+            .Where(candidate => forceCheck || IsNewerStableCandidate(candidate.Version, currentVersion, currentBuild.Channel))
             .Where(candidate => !IsIgnoredUpdate(ignoredVersionText, candidate.Version, betaCandidate: false))
             .OrderByDescending(candidate => candidate.Version)
             .ThenByDescending(candidate => candidate.PublishedAt)
@@ -120,7 +145,7 @@ public sealed class ApplicationUpdateService : IDisposable
                 ? candidates
                     .Where(candidate => candidate.Channel == ApplicationUpdateChannel.BugFix)
                     .Where(candidate => candidate.Version.CompareBaseTo(currentVersion) == 0)
-                    .Where(candidate => candidate.BugFixSequence > currentBuild.BugFixSequence)
+                    .Where(candidate => forceCheck || candidate.BugFixSequence > currentBuild.BugFixSequence)
                     .OrderByDescending(candidate => candidate.BugFixSequence)
                     .ThenByDescending(candidate => candidate.PublishedAt)
                     .FirstOrDefault()
@@ -129,7 +154,7 @@ public sealed class ApplicationUpdateService : IDisposable
         var bestBeta = betaUpdatesAllowed
             ? candidates
                 .Where(candidate => candidate.Channel == ApplicationUpdateChannel.Beta)
-                .Where(candidate => IsNewerBetaCandidate(candidate.Version, currentVersion))
+                .Where(candidate => forceCheck || IsNewerBetaCandidate(candidate.Version, currentVersion))
                 .Where(candidate => !IsIgnoredUpdate(ignoredVersionText, candidate.Version, betaCandidate: true))
                 .Where(candidate => !IsIgnoredBetaBaseVersion(ignoredBetaBaseVersionText, candidate.Version))
                 .OrderByDescending(candidate => candidate.Version)

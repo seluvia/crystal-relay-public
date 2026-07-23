@@ -118,6 +118,7 @@ private static readonly string[] LoadingStoryboardKeys =
         StateChanged += OnStateChanged;
         LocationChanged += OnLocationChanged;
         PreviewKeyDown += OnPreviewKeyDown;
+        viewModel.UpdateCheckRequested = QueueApplicationUpdateCheck;
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
         ThemeManager.ThemeChanged += OnThemeManagerThemeChanged;
         AttachSettingsHandlers(viewModel.Settings);
@@ -1128,7 +1129,9 @@ private static readonly string[] LoadingStoryboardKeys =
     {
         try
         {
-            var availableUpdate = await viewModel.GetPendingApplicationUpdateAsync(cancellationToken);
+            var forceCheck = viewModel.IsManualUpdateCheckPending;
+            viewModel.IsManualUpdateCheckPending = false;
+            var availableUpdate = await viewModel.GetPendingApplicationUpdateAsync(cancellationToken, forceCheck);
             if (availableUpdate is null
                 || cancellationToken.IsCancellationRequested
                 || isGracefulShutdownInProgress

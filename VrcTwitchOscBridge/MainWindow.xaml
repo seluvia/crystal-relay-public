@@ -2139,6 +2139,11 @@
                                                               Style="{StaticResource RuleToggleStyle}"
                                                               IsChecked="{Binding Settings.BetaApplicationUpdatesEnabled, UpdateSourceTrigger=PropertyChanged}" />
                                             </Grid>
+                                            <Button Margin="0,12,0,0"
+                                                    Content="{loc:Translate 'Check for Update'}"
+                                                    Style="{StaticResource SecondaryButtonStyle}"
+                                                    Command="{Binding CheckForUpdateCommand}"
+                                                    HorizontalAlignment="Left" />
                                         </StackPanel>
                                     </Border>
 
@@ -2919,6 +2924,126 @@
                                                       Style="{StaticResource RuleToggleStyle}"
                                                       IsChecked="{Binding Settings.EasterEggsEnabled, UpdateSourceTrigger=PropertyChanged}" />
                                     </Grid>
+
+                                    <Border Margin="0,14,0,0" Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1" CornerRadius="18" Padding="16">
+                                        <StackPanel>
+                                            <TextBlock Text="{loc:Translate 'XSOverlay Notifications'}"
+                                                       Style="{StaticResource HeadingTextStyle}"
+                                                       FontSize="17"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource TextBrush}"
+                                                       TextWrapping="Wrap" />
+                                            <TextBlock Margin="0,8,0,0"
+                                                       Text="{loc:Translate 'Send VR toast notifications to XSOverlay for Twitch events.'}"
+                                                       Foreground="{DynamicResource MutedBrush}"
+                                                       TextWrapping="Wrap" />
+
+                                            <!-- Follow -->
+                                            <Grid Margin="0,12,0,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                </Grid.RowDefinitions>
+
+                                                <TextBlock Grid.Row="0" Grid.Column="0" Text="{loc:Translate 'Follows'}" VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" />
+                                                <ToggleButton Grid.Row="0" Grid.Column="1" VerticalAlignment="Center"
+                                                              Style="{StaticResource RuleToggleStyle}"
+                                                              IsChecked="{Binding Settings.XSOverlay.EnableFollowNotifications, UpdateSourceTrigger=PropertyChanged}" />
+
+                                                <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,6,0,0">
+                                                    <TextBlock Text="{loc:Translate 'Timeout:'}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                                                    <Slider Minimum="1" Maximum="30" TickFrequency="0.5" IsSnapToTickEnabled="True" Width="120" Margin="8,0"
+                                                            Value="{Binding Settings.XSOverlay.FollowTimeout, UpdateSourceTrigger=PropertyChanged}" />
+                                                    <TextBlock Text="{Binding Settings.XSOverlay.FollowTimeout, StringFormat={}{0:N1}s}"
+                                                               Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" Width="40" />
+                                                </StackPanel>
+
+                                                <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,4,0,0">
+                                                    <TextBlock Text="{loc:Translate 'Debounce:'}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                                                    <Slider Minimum="0.5" Maximum="10" TickFrequency="0.5" IsSnapToTickEnabled="True" Width="120" Margin="8,0"
+                                                            Value="{Binding Settings.XSOverlay.FollowDebounceWindow, UpdateSourceTrigger=PropertyChanged}" />
+                                                    <TextBlock Text="{Binding Settings.XSOverlay.FollowDebounceWindow, StringFormat={}{0:N1}s}"
+                                                               Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" Width="40" />
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <!-- Raid -->
+                                            <Grid Margin="0,12,0,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                </Grid.RowDefinitions>
+
+                                                <TextBlock Grid.Row="0" Grid.Column="0" Text="{loc:Translate 'Raids'}" VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" />
+                                                <ToggleButton Grid.Row="0" Grid.Column="1" VerticalAlignment="Center"
+                                                              Style="{StaticResource RuleToggleStyle}"
+                                                              IsChecked="{Binding Settings.XSOverlay.EnableRaidNotifications, UpdateSourceTrigger=PropertyChanged}" />
+
+                                                <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,6,0,0">
+                                                    <TextBlock Text="{loc:Translate 'Timeout:'}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                                                    <Slider Minimum="1" Maximum="30" TickFrequency="0.5" IsSnapToTickEnabled="True" Width="120" Margin="8,0"
+                                                            Value="{Binding Settings.XSOverlay.RaidTimeout, UpdateSourceTrigger=PropertyChanged}" />
+                                                    <TextBlock Text="{Binding Settings.XSOverlay.RaidTimeout, StringFormat={}{0:N1}s}"
+                                                               Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" Width="40" />
+                                                </StackPanel>
+
+                                                <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,4,0,0">
+                                                    <TextBlock Text="{loc:Translate 'Debounce:'}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                                                    <Slider Minimum="0.5" Maximum="10" TickFrequency="0.5" IsSnapToTickEnabled="True" Width="120" Margin="8,0"
+                                                            Value="{Binding Settings.XSOverlay.RaidDebounceWindow, UpdateSourceTrigger=PropertyChanged}" />
+                                                    <TextBlock Text="{Binding Settings.XSOverlay.RaidDebounceWindow, StringFormat={}{0:N1}s}"
+                                                               Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" Width="40" />
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <!-- Gift Subs -->
+                                            <Grid Margin="0,12,0,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                </Grid.RowDefinitions>
+
+                                                <TextBlock Grid.Row="0" Grid.Column="0" Text="{loc:Translate 'Gift Subs'}" VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" />
+                                                <ToggleButton Grid.Row="0" Grid.Column="1" VerticalAlignment="Center"
+                                                              Style="{StaticResource RuleToggleStyle}"
+                                                              IsChecked="{Binding Settings.XSOverlay.EnableGiftSubNotifications, UpdateSourceTrigger=PropertyChanged}" />
+
+                                                <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,6,0,0">
+                                                    <TextBlock Text="{loc:Translate 'Timeout:'}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                                                    <Slider Minimum="1" Maximum="30" TickFrequency="0.5" IsSnapToTickEnabled="True" Width="120" Margin="8,0"
+                                                            Value="{Binding Settings.XSOverlay.GiftSubTimeout, UpdateSourceTrigger=PropertyChanged}" />
+                                                    <TextBlock Text="{Binding Settings.XSOverlay.GiftSubTimeout, StringFormat={}{0:N1}s}"
+                                                               Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" Width="40" />
+                                                </StackPanel>
+
+                                                <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,4,0,0">
+                                                    <TextBlock Text="{loc:Translate 'Debounce:'}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                                                    <Slider Minimum="0.5" Maximum="10" TickFrequency="0.5" IsSnapToTickEnabled="True" Width="120" Margin="8,0"
+                                                            Value="{Binding Settings.XSOverlay.GiftSubDebounceWindow, UpdateSourceTrigger=PropertyChanged}" />
+                                                    <TextBlock Text="{Binding Settings.XSOverlay.GiftSubDebounceWindow, StringFormat={}{0:N1}s}"
+                                                               Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" Width="40" />
+                                                </StackPanel>
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
                                 </StackPanel>
                             </Border>
 
@@ -2999,13 +3124,11 @@
                                </Style>
                            </Grid.Resources>
 
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="12" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="12" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
+                             <Grid.ColumnDefinitions>
+                                 <ColumnDefinition Width="*" />
+                                 <ColumnDefinition Width="12" />
+                                 <ColumnDefinition Width="*" />
+                             </Grid.ColumnDefinitions>
                            <Grid.RowDefinitions>
                                <RowDefinition Height="Auto" />
                                <RowDefinition Height="12" />
@@ -3037,28 +3160,8 @@
                                </StackPanel>
                            </Border>
 
-                             <!-- Card 2: Inventory Item Spawns (top-middle) -->
+                             <!-- Card 2: Avatar Actions (top-right) -->
                              <Border Grid.Row="0" Grid.Column="2" Style="{StaticResource NavCardStyle}">
-                                 <StackPanel>
-                                     <TextBlock Text="{loc:Translate 'Inventory Item Spawns'}"
-                                                FontFamily="{DynamicResource HeadingFontFamily}"
-                                                FontSize="10" FontWeight="SemiBold"
-                                                Foreground="{DynamicResource MutedBrush}" />
-                                     <TextBlock Text="{loc:Translate 'Spawn props in-world'}"
-                                                FontWeight="Bold" FontSize="15"
-                                                Foreground="{DynamicResource TextBrush}" />
-                                     <TextBlock Text="{loc:Translate 'Let viewers spawn inventory items'}"
-                                                Foreground="{DynamicResource MutedBrush}"
-                                                FontSize="11" TextWrapping="Wrap" />
-                                     <Button Content="{loc:Translate 'Manage →'}"
-                                             Style="{StaticResource NavCardActionButtonStyle}"
-                                             Command="{Binding OpenInventoryItemSpawnManagerCommand}"
-                                             HorizontalAlignment="Left" />
-                                 </StackPanel>
-                             </Border>
-
-                            <!-- Card 3: Avatar Actions (top-right) -->
-                            <Border Grid.Row="0" Grid.Column="4" Style="{StaticResource NavCardStyle}">
                                <StackPanel>
                                    <TextBlock Text="{loc:Translate 'Avatar Actions'}"
                                               FontFamily="{DynamicResource HeadingFontFamily}"
@@ -3119,8 +3222,8 @@
                                </StackPanel>
                            </Border>
 
-                            <!-- Card 5: Viewer Support (bottom-right) -->
-                            <Border Grid.Row="2" Grid.Column="4" Style="{StaticResource NavCardStyle}">
+                             <!-- Card 5: Viewer Support (bottom-right) -->
+                             <Border Grid.Row="2" Grid.Column="2" Style="{StaticResource NavCardStyle}">
                                <StackPanel>
                                    <TextBlock Text="{loc:Translate 'Viewer Support'}"
                                               FontFamily="{DynamicResource HeadingFontFamily}"
