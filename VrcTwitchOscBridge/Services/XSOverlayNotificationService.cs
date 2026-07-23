@@ -1,5 +1,5 @@
 using System;
-using System.Collections.Generic;
+using System.Diagnostics;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
@@ -92,7 +92,7 @@ public sealed class XSOverlayNotificationService : IDisposable
         }
     }
 
-    public sealed class DebounceAccumulator
+    private sealed class DebounceAccumulator
     {
         public int TotalCount { get; set; }
         public string? FirstUserName { get; set; }
@@ -130,6 +130,8 @@ public sealed class XSOverlayNotificationService : IDisposable
 
     public void Start()
     {
+        if (_cts is not null)
+            return;
         _cts = new CancellationTokenSource();
         _ = ConnectAndRunAsync(_cts.Token);
     }
@@ -167,8 +169,9 @@ public sealed class XSOverlayNotificationService : IDisposable
             {
                 break;
             }
-            catch
+            catch (Exception ex)
             {
+                Debug.WriteLine($"[XSOverlay] Connection failed: {ex.Message}");
             }
 
             if (!ct.IsCancellationRequested)
@@ -221,8 +224,9 @@ public sealed class XSOverlayNotificationService : IDisposable
             var bytes = Encoding.UTF8.GetBytes(json);
             await _webSocket.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, CancellationToken.None);
         }
-        catch
+        catch (Exception ex)
         {
+            Debug.WriteLine($"[XSOverlay] Send failed: {ex.Message}");
         }
     }
 
