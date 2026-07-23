@@ -412,6 +412,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     private readonly RuntimeConfigStore runtimeConfigStore = new();
     private readonly TwitchApiClient twitchApiClient = new();
     private readonly ApplicationUpdateService applicationUpdateService = new();
+    internal Action? UpdateCheckRequested;
     private readonly BugReportService bugReportService = new();
     private readonly LiveFeedbackHeartbeatService liveFeedbackHeartbeatService = new();
     private readonly WorldCommandBlacklistService worldCommandBlacklistService = new();
@@ -422,6 +423,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     private readonly Dispatcher dispatcher;
     private readonly DesktopInputLockService desktopInputLockService;
     private readonly BridgeCoordinator bridgeCoordinator;
+    private readonly XSOverlayNotificationService _xsOverlayNotificationService;
     public BridgeCoordinator BridgeCoordinator => bridgeCoordinator;
     private readonly SemaphoreSlim bridgeRefreshGate = new(1, 1);
     private readonly SemaphoreSlim managedRewardSyncGate = new(1, 1);
@@ -623,6 +625,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         desktopInputLockService = new DesktopInputLockService(dispatcher);
         activityResumeService = new ActivityResumeService();
         bridgeCoordinator = new BridgeCoordinator(desktopInputLockService, worldCommandBlacklistService, vrChatLocalOscCacheService, activityResumeService);
+        _xsOverlayNotificationService = new XSOverlayNotificationService(Settings.XSOverlay);
         LogEntries = [];
         ChatMessages = [];
         ChatActivityEntries = [];
@@ -898,6 +901,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         RefreshWorldCommandBlacklistCommand = new AsyncRelayCommand(RefreshWorldCommandBlacklistManuallyAsync);
         DismissMigrationNoticeCommand = new RelayCommand(DismissMigrationNotice);
         DismissCashPaymentMigrationNoticeCommand = new RelayCommand(DismissCashPaymentMigrationNotice);
+        CheckForUpdateCommand = new RelayCommand(CheckForUpdate);
         DismissUiUpdateNoticeCommand = new RelayCommand(DismissUiUpdateNotice);
         ShowSettingsTwitchSectionCommand = new RelayCommand(() => SetActiveSettingsSection(SettingsSectionView.Twitch));
         ShowSettingsVrChatSectionCommand = new RelayCommand(() => SetActiveSettingsSection(SettingsSectionView.VrChat));
@@ -913,7 +917,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         OpenAvatarSwapManagerCommand = new RelayCommand(OpenAvatarSwapManager);
         OpenCashPaymentManagerCommand = new RelayCommand(OpenCashPaymentManager);
         OpenRewardFireSaleManagerCommand = new RelayCommand(OpenRewardFireSaleManager);
-        OpenInventoryItemSpawnManagerCommand = new RelayCommand(OpenInventoryItemSpawnManager);
         PickReturnAvatarCommand = new RelayCommand(PickReturnAvatar);
         UseCurrentAvatarForReturnCommand = new RelayCommand(UseCurrentAvatarForReturn);
         ClearReturnAvatarCommand = new RelayCommand(ClearReturnAvatar);
@@ -999,6 +1002,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         });
         bridgeCoordinator.ChatMessageReceived += message => RunOnUi(() => AppendChatMessage(message));
         bridgeCoordinator.ChatActivityReceived += activity => RunOnUi(() => AppendChatActivity(activity));
+        bridgeCoordinator.ChatMessageReceived += OnBridgeChatMessageReceived;
+        bridgeCoordinator.ChatActivityReceived += OnBridgeChatActivityReceived;
         bridgeCoordinator.VrChatAvatarChanged += avatarId => RunOnUi(() => HandleVrChatAvatarChangedByBridge(avatarId));
         bridgeCoordinator.SharedReturnAvatarChanged += (avatarId, avatarName) => RunOnUi(() => HandleSharedReturnAvatarChangedByBridge(avatarId, avatarName));
         bridgeCoordinator.StreamStateChanged += (isLive, streamEnded) => RunOnUi(() => HandleBroadcasterLiveStateChanged(isLive, streamEnded));
@@ -1049,6 +1054,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     }
 
     internal bool IsApplicationSelfUpdateSupported => !IsTestBuild;
+
+    internal bool IsManualUpdateCheckPending { get; set; }
 
     public ObservableCollection<string> LogEntries { get; }
 
@@ -2915,6 +2922,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     public RelayCommand DismissCashPaymentMigrationNoticeCommand { get; }
 
+    public RelayCommand CheckForUpdateCommand { get; }
+
     public RelayCommand DismissUiUpdateNoticeCommand { get; }
 
     public RelayCommand ShowSettingsTwitchSectionCommand { get; }
@@ -2944,8 +2953,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     public RelayCommand ShowAvatarScalingCommand { get; }
 
     public RelayCommand OpenRewardFireSaleManagerCommand { get; }
-
-    public RelayCommand OpenInventoryItemSpawnManagerCommand { get; }
 
     public RelayCommand AddAvatarProfileCommand { get; }
 
@@ -3235,6 +3242,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         }
 
         await bridgeCoordinator.DisposeAsync();
+        _xsOverlayNotificationService.Dispose();
         twitchApiClient.Dispose();
         applicationUpdateService.Dispose();
         bugReportService.Dispose();
@@ -3655,6 +3663,20 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
         Settings.CashPaymentMigrationNoticeShown = true;
         _ = SaveSettingsAsync();
+    }
+
+    private void CheckForUpdate()
+    {
+        if (!string.IsNullOrWhiteSpace(Settings.IgnoredUpdateVersion)
+            || !string.IsNullOrWhiteSpace(Settings.IgnoredBetaUpdateBaseVersion))
+        {
+            Settings.IgnoredUpdateVersion = string.Empty;
+            Settings.IgnoredBetaUpdateBaseVersion = string.Empty;
+            QueueSave(0);
+        }
+
+        IsManualUpdateCheckPending = true;
+        UpdateCheckRequested?.Invoke();
     }
 
     private void DismissUiUpdateNotice()
@@ -5149,7 +5171,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     private MovementRedeemsManagerWindow? _movementRedeemsManagerWindow;
     private CashPaymentManagerWindow? _cashPaymentManagerWindow;
     private RewardFireSaleManagerWindow? _rewardFireSaleManagerWindow;
-    private InventoryItemSpawnManagerWindow? _inventoryItemSpawnManagerWindow;
 
     private readonly AvatarImageService _masterAvatarReturnImageService = new();
     private System.Windows.Media.ImageSource? _masterAvatarReturnImage;
@@ -5290,32 +5311,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         };
         _rewardFireSaleManagerWindow.Closed += (_, _) => _rewardFireSaleManagerWindow = null;
         _rewardFireSaleManagerWindow.Show();
-    }
-
-    private void OpenInventoryItemSpawnManager()
-    {
-        if (_inventoryItemSpawnManagerWindow is { IsVisible: true })
-        {
-            _inventoryItemSpawnManagerWindow.Activate();
-            return;
-        }
-
-        var managerVm = new InventoryItemSpawnManagerViewModel(this, () =>
-        {
-            QueueSave(0);
-            QueueBridgeRefresh();
-            QueueManagedRewardSync(0, ManagedRewardSyncReason.SettingsEdit);
-        });
-        _inventoryItemSpawnManagerWindow = new InventoryItemSpawnManagerWindow
-        {
-            Owner = System.Windows.Application.Current?.MainWindow,
-            DataContext = managerVm
-        };
-        _inventoryItemSpawnManagerWindow.Closed += (_, _) =>
-        {
-            _inventoryItemSpawnManagerWindow = null;
-        };
-        _inventoryItemSpawnManagerWindow.Show();
     }
 
     public System.Windows.Media.ImageSource? MasterAvatarReturnImage
@@ -9336,17 +9331,30 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         };
     }
 
-    internal async Task<ApplicationUpdateInfo?> GetPendingApplicationUpdateAsync(CancellationToken cancellationToken = default)
+    internal async Task<ApplicationUpdateInfo?> GetPendingApplicationUpdateAsync(
+        CancellationToken cancellationToken = default, bool forceCheck = false)
     {
         ApplicationUpdateCheckResult result;
         try
         {
-            result = await applicationUpdateService.CheckForUpdateAsync(
-                AppBuildIdentity,
-                Settings.IgnoredUpdateVersion,
-                Settings.IgnoredBetaUpdateBaseVersion,
-                Settings.BetaApplicationUpdatesEnabled || AppBuildIdentity.Channel == ApplicationUpdateChannel.Beta,
-                cancellationToken);
+            if (forceCheck)
+            {
+                result = await applicationUpdateService.CheckForUpdateAlwaysAsync(
+                    AppBuildIdentity,
+                    Settings.IgnoredUpdateVersion,
+                    Settings.IgnoredBetaUpdateBaseVersion,
+                    Settings.BetaApplicationUpdatesEnabled || AppBuildIdentity.Channel == ApplicationUpdateChannel.Beta,
+                    cancellationToken);
+            }
+            else
+            {
+                result = await applicationUpdateService.CheckForUpdateAsync(
+                    AppBuildIdentity,
+                    Settings.IgnoredUpdateVersion,
+                    Settings.IgnoredBetaUpdateBaseVersion,
+                    Settings.BetaApplicationUpdatesEnabled || AppBuildIdentity.Channel == ApplicationUpdateChannel.Beta,
+                    cancellationToken);
+            }
         }
         catch (OperationCanceledException)
         {
@@ -9445,6 +9453,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         {
             if (bridgeCoordinator.IsRunning)
             {
+                _xsOverlayNotificationService.Stop();
                 await bridgeCoordinator.StopAsync();
             }
 
@@ -9473,6 +9482,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         {
             if (bridgeCoordinator.IsRunning)
             {
+                _xsOverlayNotificationService.Stop();
                 await bridgeCoordinator.StopAsync();
             }
 
@@ -9513,6 +9523,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
                 return;
             }
 
+            _xsOverlayNotificationService.Stop();
             await bridgeCoordinator.StopAsync();
         }
 
@@ -9523,6 +9534,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
                 || !oscSessionWasActive
                 || bridgeCoordinator.DiscoveryState == OscDiscoveryState.Lost;
             await bridgeCoordinator.StartAsync(configuration);
+            _xsOverlayNotificationService.Start();
 
             if (shouldForceDiscoveryRefresh)
             {
@@ -11570,8 +11582,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         IReadOnlyCollection<TriggerRule> supportedMovementRules,
         IReadOnlyCollection<UniversalTriggerRule> managedUniversalTriggers,
         IReadOnlyCollection<AvatarScaleRule> managedAvatarScaleRules,
-        AvatarScaleMasterRewardSettings? avatarScaleMasterReward,
-        IReadOnlyCollection<InventoryItemSpawnRule> inventorySpawnRules)
+        AvatarScaleMasterRewardSettings? avatarScaleMasterReward)
     {
         foreach (var profile in Settings.AvatarProfiles)
         {
@@ -11723,17 +11734,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
                 TwitchRewardSyncMode.CreateOrManage);
         }
 
-        foreach (var rule in Settings.InventoryItemSpawnRules)
-        {
-            if (!string.IsNullOrWhiteSpace(rule.RewardId) || !string.IsNullOrWhiteSpace(rule.RewardTitle))
-            {
-                yield return new ManagedRewardOwnershipEntry(
-                    Guid.Parse(rule.Id),
-                    rule.RewardId ?? string.Empty,
-                    rule.RewardTitle,
-                    rule.SyncMode);
-            }
-        }
     }
 
     private string GetEffectiveRequiredAvatarIdForProfile(AvatarTriggerProfile? profile)
@@ -12557,36 +12557,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             applyRewardId: rewardId => fireSale.FundingRewardId = rewardId);
     }
 
-    private ManagedRewardSyncTarget CreateManagedRewardTargetForInventorySpawnRule(
-        InventoryItemSpawnRule rule,
-        bool allowManagedRewardActivation,
-        IReadOnlyCollection<Guid> temporarilyDisabledRuleIds,
-        IReadOnlyCollection<Guid> cooldownRuleIds)
-    {
-        var ruleId = Guid.Parse(rule.Id);
-        var isOnCooldown = cooldownRuleIds.Contains(ruleId);
-        var desiredEnabled = allowManagedRewardActivation
-            && rule.IsEnabled
-            && !temporarilyDisabledRuleIds.Contains(ruleId);
-
-        return new ManagedRewardSyncTarget(
-            ruleId,
-            rule.DisplayTitle,
-            rule.RewardId ?? string.Empty,
-            rule.RewardTitle,
-            ApplyRewardFireSaleDiscount(rule.RewardCost, rule.SyncMode),
-            rule.SyncMode,
-            rule.CooldownSeconds,
-            ManagedRewardPresentation.ReadyBackgroundColor,
-            prompt: rule.RewardDescription ?? string.Empty,
-            requireUserInput: false,
-            desiredEnabled: desiredEnabled,
-            isCooldownActive: isOnCooldown,
-            deleteWhenInactive: false,
-            protectFromCapReclaim: desiredEnabled || isOnCooldown,
-            applyRewardId: rewardId => rule.RewardId = rewardId);
-    }
-
     private static string GetAvatarScaleManagedRewardTitle(AvatarScaleRule rule)
     {
         var rewardTitle = rule.RewardTitle?.Trim() ?? string.Empty;
@@ -12831,8 +12801,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
                     supportedMovementRules,
                     managedUniversalTriggers,
                     managedAvatarScaleRules,
-                    managedAvatarScaleMasterReward,
-                    Settings.InventoryItemSpawnRules)
+                    managedAvatarScaleMasterReward)
                 .ToArray();
             var claimedRewardIds = ownershipEntries
                 .Select(entry => entry.RewardId?.Trim())
@@ -12980,16 +12949,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
                 }
             }
 
-            var inventorySpawnTargets = new List<ManagedRewardSyncTarget>();
-            foreach (var rule in Settings.InventoryItemSpawnRules)
-            {
-                inventorySpawnTargets.Add(CreateManagedRewardTargetForInventorySpawnRule(
-                    rule,
-                    allowManagedRewardActivation,
-                    temporarilyDisabledRuleIds,
-                    cooldownRuleIds));
-            }
-
             var movementTargets = supportedMovementRules
                 .Select(rule => CreateManagedRewardTargetForRule(
                     profile: null,
@@ -13032,7 +12991,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             allSyncTargets.AddRange(avatarProfileTargets);
             allSyncTargets.AddRange(avatarSwapTargets);
             allSyncTargets.AddRange(rouletteTargets);
-            allSyncTargets.AddRange(inventorySpawnTargets);
             allSyncTargets.AddRange(movementTargets);
             allSyncTargets.AddRange(universalTargets);
             allSyncTargets.AddRange(avatarScaleTargets);
@@ -20553,6 +20511,25 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     private sealed record LinkedTwitchRewardReference(string RewardId, string DisplayTitle);
 
     private sealed record LinkedPowerUpReference(string PowerUpId, string DisplayTitle);
+
+    private void OnBridgeChatMessageReceived(BridgeChatMessage message)
+    {
+        switch (message.Kind)
+        {
+            case BridgeChatMessageKind.Raid:
+                _xsOverlayNotificationService.QueueRaidEvent(message.UserDisplayName, message.SupportAmount);
+                break;
+            case BridgeChatMessageKind.GiftSubscription:
+                _xsOverlayNotificationService.QueueGiftSubEvent(message.UserDisplayName, message.SupportAmount, message.SupportTier);
+                break;
+        }
+    }
+
+    private void OnBridgeChatActivityReceived(BridgeChatActivity activity)
+    {
+        if (activity.Kind == BridgeChatActivityKind.Follow)
+            _xsOverlayNotificationService.QueueFollowEvent(activity.TargetUserDisplayName);
+    }
 }
 
 public sealed record TwitchRewardOption(
