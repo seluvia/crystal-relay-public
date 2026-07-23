@@ -53,7 +53,6 @@
     <Page Include="MovementRedeemsManagerWindow.xaml" />
     <Page Include="CashPaymentManagerWindow.xaml" />
     <Page Include="RewardFireSaleManagerWindow.xaml" />
-    <Page Include="InventoryItemSpawnManagerWindow.xaml" />
     <Page Include="VrChatLoginWindow.xaml" />
     <Page Include="VrChatTwoFactorWindow.xaml" />
     <Page Include="RedeemGroupEditorDialog.xaml" />
@@ -125,17 +124,12 @@
     <Compile Include="RewardFireSaleManagerWindow.xaml.cs">
       <DependentUpon>RewardFireSaleManagerWindow.xaml</DependentUpon>
     </Compile>
-    <Compile Include="InventoryItemSpawnManagerWindow.xaml.cs">
-      <DependentUpon>InventoryItemSpawnManagerWindow.xaml</DependentUpon>
-    </Compile>
     <Compile Include="ViewModels\UniversalTriggersManagerViewModel.cs" />
     <Compile Include="ViewModels\UniversalTriggerCardViewModel.cs" />
     <Compile Include="ViewModels\AvatarScalingManagerViewModel.cs" />
     <Compile Include="ViewModels\AvatarScalingSourceCardViewModel.cs" />
     <Compile Include="ViewModels\AvatarSetsManagerViewModel.cs" />
     <Compile Include="ViewModels\AvatarSetCardViewModel.cs" />
-    <Compile Include="ViewModels\InventoryItemSpawnCardViewModel.cs" />
-    <Compile Include="ViewModels\InventoryItemSpawnManagerViewModel.cs" />
     <Compile Include="ViewModels\CashPaymentManagerViewModel.cs" />
     <Compile Include="ViewModels\RewardFireSaleManagerViewModel.cs" />
     <Compile Include="Converters.cs" />
@@ -202,8 +196,6 @@
     <Compile Include="Models\FloatClampMode.cs" />
     <Compile Include="Models\FloatValueMode.cs" />
     <Compile Include="Models\IntZeroDurationMode.cs" />
-    <Compile Include="Models\InventoryItemSpawnRule.cs" />
-    <Compile Include="Models\InventoryItemSummary.cs" />
     <Compile Include="Models\MovementRedeemSet.cs" />
     <Compile Include="Models\OscActionType.cs" />
     <Compile Include="Models\OscParameterType.cs" />
@@ -237,10 +229,10 @@
     <Compile Include="Models\WardrobeSnapshotParam.cs" />
     <Compile Include="Models\WardrobeOutfit.cs" />
     <Compile Include="Models\WorldCommandBlacklistSettings.cs" />
+    <Compile Include="Models\XSOverlaySettings.cs" />
     <Compile Include="Models\BlockedWordItem.cs" />
     <Compile Include="Services\AppDataPaths.cs" />
     <Compile Include="Services\AvatarImageService.cs" />
-    <Compile Include="Services\InventoryItemImageService.cs" />
     <Compile Include="Services\AvatarPickerService.cs" />
     <Compile Include="Services\ApplicationRestartService.cs" />
     <Compile Include="Services\ApplicationBuildIdentity.cs" />

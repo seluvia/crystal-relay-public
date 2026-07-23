@@ -29,7 +29,7 @@ public sealed class AppSettings : ObservableObject
     private RewardFireSaleSettings rewardFireSale = new();
     private CashPaymentConnectionSettings cashPayments = new();
     private ObservableCollection<CashPaymentRule> cashPaymentRules = [];
-    private ObservableCollection<InventoryItemSpawnRule> inventoryItemSpawnRules = [];
+    private XSOverlaySettings xsOverlay = new();
     private ObservableCollection<TriggerRule> rules = [];
     private ObservableCollection<AvatarSwapProfile> avatarSwapProfiles = [];
     private string? masterAvatarSwapReturnId;
@@ -141,12 +141,6 @@ public sealed class AppSettings : ObservableObject
         set => SetProperty(ref avatarProfiles, value ?? []);
     }
 
-    public ObservableCollection<InventoryItemSpawnRule> InventoryItemSpawnRules
-    {
-        get => inventoryItemSpawnRules;
-        set => SetProperty(ref inventoryItemSpawnRules, value ?? []);
-    }
-
     public ObservableCollection<TriggerRule> GlobalOverrideRules
     {
         get => globalOverrideRules;
@@ -239,6 +233,12 @@ public sealed class AppSettings : ObservableObject
     {
         get => cashPaymentRules;
         set => SetProperty(ref cashPaymentRules, value ?? []);
+    }
+
+    public XSOverlaySettings XSOverlay
+    {
+        get => xsOverlay;
+        set => SetProperty(ref xsOverlay, value ?? new XSOverlaySettings());
     }
 
     public ObservableCollection<TriggerRule> Rules
