@@ -59,12 +59,6 @@
         <SolidColorBrush x:Key="WarnBorderBrush" Color="#A66A1F" />
         <SolidColorBrush x:Key="ScrollThumbBrush" Color="#8D56E8" />
         <SolidColorBrush x:Key="ScrollTrackBrush" Color="#1A0E22" />
-        <SolidColorBrush x:Key="ComboSurfaceBrush" Color="#1F1530" />
-        <SolidColorBrush x:Key="ComboHighlightBrush" Color="#3A2856" />
-        <SolidColorBrush x:Key="ComboDropButtonBrush" Color="#2C1C48" />
-        <SolidColorBrush x:Key="ComboDropButtonHoverBrush" Color="#3F2D5C" />
-        <SolidColorBrush x:Key="ComboDropButtonPressedBrush" Color="#553080" />
-        <SolidColorBrush x:Key="PopupBorderBrush" Color="#4B2B78" />
         <FontFamily x:Key="HeadingFontFamily">Constantia</FontFamily>
         <FontFamily x:Key="BodyFontFamily">Verdana</FontFamily>
 
@@ -266,7 +260,7 @@
             <Setter Property="Margin" Value="0,0,0,0" />
             <Setter Property="Padding" Value="8,4" />
             <Setter Property="Background" Value="{DynamicResource ComboSurfaceBrush}" />
-            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource ComboTextBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
@@ -347,7 +341,7 @@
         </Style>
         <Style TargetType="ComboBoxItem">
             <Setter Property="FontFamily" Value="{DynamicResource BodyFontFamily}" />
-            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource ComboTextBrush}" />
             <Setter Property="Padding" Value="8,6" />
             <Setter Property="Template">
                 <Setter.Value>
@@ -371,7 +365,6 @@
                 </Setter.Value>
             </Setter>
         </Style>
-
         <Style TargetType="CheckBox">
             <Setter Property="FontFamily" Value="{DynamicResource BodyFontFamily}" />
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
@@ -1400,13 +1393,12 @@
                                               SelectedValue="{Binding SelectedTrigger.RewardSyncMode, Mode=TwoWay}"
                                               SelectedValuePath="Value"
                                               Margin="0,0,0,8" />
-                                    <StackPanel Margin="0,0,0,8">
+                                     <StackPanel Margin="0,0,0,8">
                                         <StackPanel.Style>
                                             <Style TargetType="StackPanel">
-                                                <Setter Property="Visibility" Value="Collapsed" />
                                                 <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding SelectedTrigger.UsesCreateOrManageReward}" Value="True">
-                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    <DataTrigger Binding="{Binding SelectedTrigger.UsesLinkedExistingReward}" Value="True">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
@@ -1416,7 +1408,52 @@
                                                    FontSize="10" />
                                         <TextBox Text="{Binding SelectedTrigger.RewardTitle, UpdateSourceTrigger=PropertyChanged}" />
                                     </StackPanel>
+                                    <StackPanel Margin="0,0,0,8">
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding SelectedTrigger.UsesLinkedExistingReward}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <ComboBox Grid.Column="0"
+                                                      ItemsSource="{Binding AvailableTwitchRewards}"
+                                                      SelectedValue="{Binding SelectedTrigger.RewardId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                      SelectedValuePath="Id"
+                                                      DisplayMemberPath="Title"
+                                                      IsEditable="False"
+                                                      Margin="0,0,4,0" />
+                                            <Button Grid.Column="1"
+                                                    Content="↻"
+                                                    ToolTip="Reload Twitch rewards"
+                                                    Padding="6,2"
+                                                    Style="{StaticResource SecondaryButtonStyle}"
+                                                    Command="{Binding LoadTwitchRewardsCommand}" />
+                                        </Grid>
+                                        <TextBlock Text="{Binding TwitchRewardsLoadStatus}"
+                                                   Foreground="{DynamicResource MutedBrush}"
+                                                   FontSize="10"
+                                                   Margin="0,4,0,0" />
+                                    </StackPanel>
                                     <UniformGrid Columns="2">
+                                        <UniformGrid.Style>
+                                            <Style TargetType="UniformGrid">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding SelectedTrigger.UsesCreateOrManageReward}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </UniformGrid.Style>
                                         <StackPanel Margin="0,0,8,0">
                                             <TextBlock Text="{loc:Translate 'Cost'}"
                                                        Foreground="{DynamicResource MutedBrush}"
@@ -1430,40 +1467,40 @@
                                             <TextBox Text="{Binding SelectedTrigger.RewardCooldownSeconds, UpdateSourceTrigger=PropertyChanged}" />
                                         </StackPanel>
                                     </UniformGrid>
-                                    <UniformGrid Columns="2" Margin="0,8,0,0">
-                                        <StackPanel Margin="0,0,8,0">
-                                            <StackPanel.Style>
-                                                <Style TargetType="StackPanel">
-                                                    <Setter Property="Visibility" Value="Collapsed" />
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding SelectedTrigger.UsesCreateOrManageReward}" Value="True">
-                                                            <Setter Property="Visibility" Value="Visible" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </StackPanel.Style>
-                                            <TextBlock Text="{loc:Translate 'Ready Color'}"
-                                                       Foreground="{DynamicResource MutedBrush}"
-                                                       FontSize="10" />
-                                            <TextBox Text="{Binding SelectedTrigger.ManagedRewardReadyColor, UpdateSourceTrigger=PropertyChanged}" />
-                                        </StackPanel>
-                                        <StackPanel Margin="8,0,0,0">
-                                            <StackPanel.Style>
-                                                <Style TargetType="StackPanel">
-                                                    <Setter Property="Visibility" Value="Collapsed" />
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding SelectedTrigger.UsesCreateOrManageReward}" Value="True">
-                                                            <Setter Property="Visibility" Value="Visible" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </StackPanel.Style>
-                                            <TextBlock Text="{loc:Translate 'Cooldown Color'}"
-                                                       Foreground="{DynamicResource MutedBrush}"
-                                                       FontSize="10" />
-                                            <TextBox Text="{Binding SelectedTrigger.ManagedRewardCooldownColor, UpdateSourceTrigger=PropertyChanged}" />
-                                        </StackPanel>
-                                    </UniformGrid>
+                                     <StackPanel Margin="0,8,0,0">
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding SelectedTrigger.UsesCreateOrManageReward}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
+                                        <DockPanel LastChildFill="False">
+                                            <Border Width="20" Height="20" CornerRadius="10"
+                                                    Background="{Binding SelectedTrigger.ManagedRewardReadyColorBrush}"
+                                                    BorderBrush="{DynamicResource InputBorderBrush}"
+                                                    BorderThickness="1" />
+                                            <Button Margin="8,0,0,0"
+                                                    Content="{loc:Translate 'Ready Color'}"
+                                                    Click="OnPickManagedRewardColorClicked"
+                                                    Tag="Ready"
+                                                    Style="{StaticResource SecondaryButtonStyle}"
+                                                    Padding="10,4" />
+                                            <Border Margin="14,0,0,0" Width="20" Height="20" CornerRadius="10"
+                                                    Background="{Binding SelectedTrigger.ManagedRewardCooldownColorBrush}"
+                                                    BorderBrush="{DynamicResource InputBorderBrush}"
+                                                    BorderThickness="1" />
+                                            <Button Margin="8,0,0,0"
+                                                    Content="{loc:Translate 'Cooldown Color'}"
+                                                    Click="OnPickManagedRewardColorClicked"
+                                                    Tag="Cooldown"
+                                                    Style="{StaticResource SecondaryButtonStyle}"
+                                                    Padding="10,4" />
+                                        </DockPanel>
+                                    </StackPanel>
                                     <CheckBox Content="{loc:Translate 'Delete reward when inactive'}"
                                               IsChecked="{Binding SelectedTrigger.DeleteManagedRewardWhenInactive, Mode=TwoWay}"
                                               Margin="0,8,0,0">

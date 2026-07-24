@@ -13701,11 +13701,32 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         var rewardId = target.RewardId?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(rewardId))
         {
+            var rewardTitle = ManagedRewardPresentation.StripPrefix(target.RewardTitle);
+            if (string.IsNullOrWhiteSpace(rewardTitle))
+            {
+                RunOnUi(() => AppendThrottledLog(
+                    $"linked-reward-missing-selection:{target.Id}",
+                    $"Linked reward sync skipped '{target.DisplayTitle}' because no existing Twitch reward is selected or named.",
+                    ThrottledRewardSyncLogWindow));
+                return Task.FromResult(false);
+            }
+
+            var matchedByTitle = rewardCatalog.FindByTitleVariants(rewardTitle).FirstOrDefault();
+            if (matchedByTitle is null)
+            {
+                RunOnUi(() => AppendThrottledLog(
+                    $"linked-reward-title-not-found:{target.Id}",
+                    $"Linked reward sync skipped '{target.DisplayTitle}' because no Twitch reward matched title '{rewardTitle}'.",
+                    ThrottledRewardSyncLogWindow));
+                return Task.FromResult(false);
+            }
+
             RunOnUi(() => AppendThrottledLog(
-                $"linked-reward-missing-selection:{target.Id}",
-                $"Linked reward sync skipped '{target.DisplayTitle}' because no existing Twitch reward is selected.",
+                $"linked-reward-adopted-title:{target.Id}:{matchedByTitle.Id}",
+                $"Linked reward sync linked '{target.DisplayTitle}' to Twitch reward '{matchedByTitle.Title}' by title match.",
                 ThrottledRewardSyncLogWindow));
-            return Task.FromResult(false);
+            target.ApplyRewardId(matchedByTitle.Id);
+            existingReward = matchedByTitle;
         }
 
         if (existingReward is null)

@@ -18,6 +18,11 @@ public sealed class MovementRedeemsManagerViewModel : ObservableObject, IDisposa
     private bool disposed;
     private TriggerRule? selectedRule;
     private bool isNewRule;
+    private bool isCashPaymentEnabled;
+    private CashPaymentProvider cashPaymentProvider = CashPaymentProvider.StreamElements;
+    private decimal cashPaymentMinimumAmount = 1m;
+    private string cashPaymentCurrencyCode = string.Empty;
+    private int cashPaymentCooldown;
 
     public MovementRedeemsManagerViewModel(AppSettings settings, MainWindowViewModel? mainWindowViewModel)
     {
@@ -88,11 +93,45 @@ public sealed class MovementRedeemsManagerViewModel : ObservableObject, IDisposa
                 RaisePropertyChanged(nameof(UsesSubscription));
                 RaisePropertyChanged(nameof(UsesFollow));
                 RaisePropertyChanged(nameof(UsesGiftSub));
+                RaisePropertyChanged(nameof(UsesCashPayment));
                 RaisePropertyChanged(nameof(IsAxisType));
                 RaisePropertyChanged(nameof(IsVrOnly));
                 RaisePropertyChanged(nameof(EditorTitle));
             }
+            LoadCashPaymentState();
         }
+    }
+
+    private void LoadCashPaymentState()
+    {
+        if (selectedRule?.CashPaymentRuleId is not null)
+        {
+            var cashRule = settings.CashPaymentRules.FirstOrDefault(r => r.Id.ToString() == selectedRule.CashPaymentRuleId);
+            if (cashRule is not null)
+            {
+                isCashPaymentEnabled = true;
+                cashPaymentProvider = cashRule.Provider;
+                cashPaymentMinimumAmount = cashRule.MinimumAmount;
+                cashPaymentCurrencyCode = cashRule.CurrencyCode;
+                cashPaymentCooldown = cashRule.CooldownSeconds;
+                RaisePropertyChanged(nameof(IsCashPaymentEnabled));
+                RaisePropertyChanged(nameof(CashPaymentProvider));
+                RaisePropertyChanged(nameof(CashPaymentMinimumAmount));
+                RaisePropertyChanged(nameof(CashPaymentCurrencyCode));
+                RaisePropertyChanged(nameof(CashPaymentCooldown));
+                return;
+            }
+        }
+        isCashPaymentEnabled = false;
+        cashPaymentProvider = Models.CashPaymentProvider.StreamElements;
+        cashPaymentMinimumAmount = 1m;
+        cashPaymentCurrencyCode = string.Empty;
+        cashPaymentCooldown = 0;
+        RaisePropertyChanged(nameof(IsCashPaymentEnabled));
+        RaisePropertyChanged(nameof(CashPaymentProvider));
+        RaisePropertyChanged(nameof(CashPaymentMinimumAmount));
+        RaisePropertyChanged(nameof(CashPaymentCurrencyCode));
+        RaisePropertyChanged(nameof(CashPaymentCooldown));
     }
 
     public bool IsNewRule
@@ -102,6 +141,42 @@ public sealed class MovementRedeemsManagerViewModel : ObservableObject, IDisposa
     }
 
     public string EditorTitle => IsNewRule ? "Add Movement Rule" : "Edit Movement Rule";
+
+    public bool IsCashPaymentEnabled
+    {
+        get => isCashPaymentEnabled;
+        set => SetProperty(ref isCashPaymentEnabled, value);
+    }
+
+    public CashPaymentProvider CashPaymentProvider
+    {
+        get => cashPaymentProvider;
+        set
+        {
+            var normalizedValue = Enum.IsDefined(value) ? value : Models.CashPaymentProvider.StreamElements;
+            SetProperty(ref cashPaymentProvider, normalizedValue);
+        }
+    }
+
+    public decimal CashPaymentMinimumAmount
+    {
+        get => cashPaymentMinimumAmount;
+        set => SetProperty(ref cashPaymentMinimumAmount, Math.Max(0m, value));
+    }
+
+    public string CashPaymentCurrencyCode
+    {
+        get => cashPaymentCurrencyCode;
+        set => SetProperty(ref cashPaymentCurrencyCode, value?.Trim() ?? string.Empty);
+    }
+
+    public int CashPaymentCooldown
+    {
+        get => cashPaymentCooldown;
+        set => SetProperty(ref cashPaymentCooldown, Math.Max(0, value));
+    }
+
+    public bool UsesCashPayment => selectedRule?.Source == TriggerRuleSource.CashPayment || isCashPaymentEnabled;
 
     public IList ChatCommandPermissionValues => Enum.GetValues(typeof(ChatCommandPermission));
 
@@ -120,6 +195,9 @@ public sealed class MovementRedeemsManagerViewModel : ObservableObject, IDisposa
         new(TwitchRewardSyncMode.CreateOrManage, "Create or Manage"),
         new(TwitchRewardSyncMode.LinkExisting, "Link Existing"),
     ];
+
+    public IReadOnlyList<CashPaymentProviderOption> CashPaymentProviderOptions =>
+        mainWindowViewModel?.CashPaymentProviderOptions ?? [];
 
     public bool UsesChannelPointReward => selectedRule?.TriggerType == TwitchTriggerType.ChannelPoints;
     public bool UsesChatCommand => selectedRule?.TriggerType == TwitchTriggerType.ChatCommand;
@@ -250,6 +328,16 @@ public sealed class MovementRedeemsManagerViewModel : ObservableObject, IDisposa
             if (set.MovementRules.Remove(rule))
                 break;
         }
+        if (rule.CashPaymentRuleId is not null)
+        {
+            var cashRule = settings.CashPaymentRules.FirstOrDefault(r => r.Id.ToString() == rule.CashPaymentRuleId);
+            if (cashRule is not null)
+            {
+                settings.CashPaymentRules.Remove(cashRule);
+            }
+            rule.CashPaymentRuleId = null;
+            rule.Source = TriggerRuleSource.None;
+        }
         if (SelectedCard == card)
         {
             SelectedCard = null;
@@ -285,7 +373,61 @@ public sealed class MovementRedeemsManagerViewModel : ObservableObject, IDisposa
 
     private void SaveEditor()
     {
-        if (SelectedRule is null) return;
+        var rule = selectedRule;
+        if (rule is null) return;
+
+        if (isCashPaymentEnabled)
+        {
+            var existing = rule.CashPaymentRuleId is not null
+                ? settings.CashPaymentRules.FirstOrDefault(r => r.Id.ToString() == rule.CashPaymentRuleId)
+                : null;
+            CashPaymentRule cashRule;
+            if (existing is not null)
+            {
+                cashRule = existing;
+            }
+            else
+            {
+                cashRule = new CashPaymentRule();
+                var savedName = rule.Name;
+                var savedTriggerType = rule.TriggerType;
+                var savedRewardSyncMode = rule.RewardSyncMode;
+                var savedChatCommandEnabled = rule.ChatCommandEnabled;
+                var savedChatCommandText = rule.ChatCommandText;
+                var savedChannelPointRewardId = rule.ChannelPointRewardId;
+                var savedChannelPointRewardTitle = rule.ChannelPointRewardTitle;
+                var savedMinimumAmount = rule.MinimumAmount;
+                cashRule.TriggerAction = rule;
+                rule.TriggerType = savedTriggerType;
+                rule.RewardSyncMode = savedRewardSyncMode;
+                rule.ChatCommandEnabled = savedChatCommandEnabled;
+                rule.ChatCommandText = savedChatCommandText;
+                rule.ChannelPointRewardId = savedChannelPointRewardId;
+                rule.ChannelPointRewardTitle = savedChannelPointRewardTitle;
+                rule.MinimumAmount = savedMinimumAmount;
+                if (!string.IsNullOrWhiteSpace(savedName))
+                    rule.Name = savedName;
+                rule.CashPaymentRuleId = cashRule.Id.ToString();
+                rule.Source = TriggerRuleSource.CashPayment;
+                settings.CashPaymentRules.Add(cashRule);
+            }
+            cashRule.Name = rule.Name;
+            cashRule.Provider = cashPaymentProvider;
+            cashRule.MinimumAmount = cashPaymentMinimumAmount;
+            cashRule.CurrencyCode = cashPaymentCurrencyCode;
+            cashRule.CooldownSeconds = cashPaymentCooldown;
+        }
+        else if (rule.CashPaymentRuleId is not null)
+        {
+            var existing = settings.CashPaymentRules.FirstOrDefault(r => r.Id.ToString() == rule.CashPaymentRuleId);
+            if (existing is not null)
+            {
+                settings.CashPaymentRules.Remove(existing);
+            }
+            rule.CashPaymentRuleId = null;
+            rule.Source = TriggerRuleSource.None;
+        }
+
         RefreshCards();
         IsEditorOpen = false;
     }
@@ -298,6 +440,7 @@ public sealed class MovementRedeemsManagerViewModel : ObservableObject, IDisposa
         RaisePropertyChanged(nameof(UsesSubscription));
         RaisePropertyChanged(nameof(UsesGiftSub));
         RaisePropertyChanged(nameof(UsesFollow));
+        RaisePropertyChanged(nameof(UsesCashPayment));
     }
 
     public void Dispose()

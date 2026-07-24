@@ -46,6 +46,8 @@ public class UniversalTriggersManagerViewModel : ObservableObject
     private bool _isBitsSectionCollapsed;
     private bool _isSubsSectionCollapsed;
     private bool _isFollowsSectionCollapsed;
+    private bool _isLoadingTwitchRewards;
+    private string _twitchRewardsLoadStatus = string.Empty;
     private readonly ObservableCollection<UniversalTriggerCardViewModel> _chatSectionSource = [];
     private readonly ObservableCollection<UniversalTriggerCardViewModel> _rewardSectionSource = [];
     private readonly ObservableCollection<UniversalTriggerCardViewModel> _bitsSectionSource = [];
@@ -114,6 +116,8 @@ public class UniversalTriggersManagerViewModel : ObservableObject
         AddActionCommand = new RelayCommand(AddAction);
         RemoveActionCommand = new RelayCommand(parameter => RemoveAction(parameter as UniversalTriggerAction));
         DeleteAllCommand = new AsyncRelayCommand(DeleteAllAsync);
+
+        LoadTwitchRewardsCommand = new RelayCommand(async () => await LoadTwitchRewardsAsync());
 
         PropertyChanged += OnSelfPropertyChanged;
 
@@ -250,7 +254,11 @@ public class UniversalTriggersManagerViewModel : ObservableObject
         {
             if (SelectedTrigger is null) return string.Empty;
             if (!SelectedTrigger.UsesChannelPointReward) return string.Empty;
-            if (!SelectedTrigger.UsesCreateOrManageReward) return string.Empty;
+            if (SelectedTrigger.UsesLinkedExistingReward)
+            {
+                if (string.IsNullOrWhiteSpace(SelectedTrigger.RewardId)) return "Select a Twitch reward to link";
+                return "Listen-only - Crystal Relay will not edit this reward";
+            }
             if (string.IsNullOrWhiteSpace(SelectedTrigger.RewardId)) return "Pending sync - new reward will be created on Save";
             if (MainWindowViewModel.HasUniversalTriggerAvatarParameterGate(SelectedTrigger)
                 && !_mainWindowViewModel.IsUniversalTriggerReadyForCurrentAvatarJson(SelectedTrigger, _mainWindowViewModel.CurrentVrChatAvatarId))
@@ -351,6 +359,22 @@ public class UniversalTriggersManagerViewModel : ObservableObject
 
     public AsyncRelayCommand DeleteAllCommand { get; }
 
+    public ObservableCollection<TwitchApiClient.CustomRewardResponse> AvailableTwitchRewards { get; } = [];
+
+    public bool IsLoadingTwitchRewards
+    {
+        get => _isLoadingTwitchRewards;
+        set => SetProperty(ref _isLoadingTwitchRewards, value);
+    }
+
+    public string TwitchRewardsLoadStatus
+    {
+        get => _twitchRewardsLoadStatus;
+        set => SetProperty(ref _twitchRewardsLoadStatus, value);
+    }
+
+    public RelayCommand LoadTwitchRewardsCommand { get; }
+
     public async Task ImportFoomaAsync()
     {
         await _mainWindowViewModel.ImportFoomaAndSyncAsync();
@@ -444,15 +468,40 @@ public class UniversalTriggersManagerViewModel : ObservableObject
     {
         if (rule is null)
         {
+            if (SelectedTrigger is not null)
+            {
+                SelectedTrigger.PropertyChanged -= OnSelectedTriggerPropertyChanged;
+            }
             SelectedTrigger = null;
             IsEditorOpen = false;
             RefreshAvatarReadiness();
             return;
         }
+        if (SelectedTrigger is not null)
+        {
+            SelectedTrigger.PropertyChanged -= OnSelectedTriggerPropertyChanged;
+        }
         SelectedTrigger = rule;
+        SelectedTrigger.PropertyChanged += OnSelectedTriggerPropertyChanged;
         IsEditorOpen = true;
         RefreshAvatarReadiness();
         RaisePropertyChanged(nameof(RewardVisibilityStatusText));
+        _ = LoadTwitchRewardsAsync();
+    }
+
+    private void OnSelectedTriggerPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(UniversalTriggerRule.RewardId) && sender is UniversalTriggerRule rule)
+        {
+            if (!string.IsNullOrWhiteSpace(rule.RewardId))
+            {
+                var match = AvailableTwitchRewards.FirstOrDefault(r => r.Id == rule.RewardId);
+                if (match is not null)
+                {
+                    rule.RewardTitle = match.Title;
+                }
+            }
+        }
     }
 
     private void CloseEditor()
@@ -500,6 +549,30 @@ public class UniversalTriggersManagerViewModel : ObservableObject
         SelectedTrigger = null;
         _editorSnapshot = null;
         RefreshAllSections();
+    }
+
+    public async Task LoadTwitchRewardsAsync()
+    {
+        if (IsLoadingTwitchRewards) return;
+        try
+        {
+            IsLoadingTwitchRewards = true;
+            var rewards = await _mainWindowViewModel.LoadTwitchCustomRewardsAsync();
+            AvailableTwitchRewards.Clear();
+            if (rewards.Count == 0)
+            {
+                TwitchRewardsLoadStatus = "Connect Twitch as broadcaster to load rewards";
+            }
+            else
+            {
+                foreach (var r in rewards) AvailableTwitchRewards.Add(r);
+                TwitchRewardsLoadStatus = $"{rewards.Count} reward(s) loaded";
+            }
+        }
+        finally
+        {
+            IsLoadingTwitchRewards = false;
+        }
     }
 
     private async Task DeleteSelectedTriggerAsync()

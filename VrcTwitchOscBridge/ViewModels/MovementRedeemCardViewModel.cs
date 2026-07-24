@@ -109,6 +109,12 @@ public sealed class MovementRedeemCardViewModel : ObservableObject
     {
         get
         {
+            if (rule.Source == TriggerRuleSource.CashPayment)
+            {
+                var cashDirName = GetDisplayName(rule.MovementDirection);
+                return $"Cash {cashDirName}";
+            }
+
             if (rule.TriggerType == TwitchTriggerType.ChannelPoints)
                 return string.IsNullOrWhiteSpace(rule.ChannelPointRewardTitle)
                     ? rule.HasConfiguredChatCommand
@@ -135,6 +141,7 @@ public sealed class MovementRedeemCardViewModel : ObservableObject
     public bool HasBitsTrigger => rule.TriggerType == TwitchTriggerType.Bits;
     public bool HasSubsTrigger => rule.TriggerType == TwitchTriggerType.Subscriptions;
     public bool HasFollowTrigger => rule.TriggerType == TwitchTriggerType.Follow;
+    public bool HasCashPaymentTrigger => rule.Source == TriggerRuleSource.CashPayment;
 
     public TriggerRule GetRule() => rule;
 
@@ -166,6 +173,7 @@ public sealed class MovementRedeemCardViewModel : ObservableObject
         RaisePropertyChanged(nameof(HasBitsTrigger));
         RaisePropertyChanged(nameof(HasSubsTrigger));
         RaisePropertyChanged(nameof(HasFollowTrigger));
+        RaisePropertyChanged(nameof(HasCashPaymentTrigger));
         RaisePropertyChanged(nameof(DurationWithCooldownText));
         RaisePropertyChanged(nameof(DisplayName));
     }

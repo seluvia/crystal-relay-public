@@ -6587,7 +6587,7 @@ internal BridgeCoordinator(
     private double ClampAvatarScaleHeightForSend(double value, AvatarScaleRuleSnapshot? rule)
     {
         return rule is null
-            ? ClampAvatarScaleHeightToActiveSafety(value)
+            ? Math.Clamp(value, AvatarScaleRule.AdvancedMinimumHeightMeters, AvatarScaleRule.AdvancedMaximumHeightMeters)
             : ClampAvatarScaleHeight(rule, value);
     }
 

@@ -24,6 +24,11 @@ Pending Release Draft
 - Last build: (none)
 - Source files and project versions now reflect v3.2.0 active development.
 
+v3.2.0 bug fix 1
+Added:
+- Cash Payment trigger option in the Movement Redeems manager. Movement rules can now be triggered by StreamElements, Streamlabs, and Ko-fi cash payments with configurable provider, minimum amount, currency code, and cooldown. A "P" badge and "Cash" prefix identify cash payment movement rules in the list.
+- "Link Existing" reward sync mode option was already present in the reward sync mode dropdown for Channel Point trigger types in the Movement Redeems editor. The dropdown correctly shows both "Create or Manage" and "Link Existing" choices.
+
 v3.1.9 beta 5 (shipped — rolled into v3.1.9 stable)
 Added:
 - VRChat login now handles both 200 OK and 401 responses when two-factor authentication is required, so the 2FA fields appear correctly regardless of which API response shape VRChat returns.

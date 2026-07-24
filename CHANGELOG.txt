@@ -3,6 +3,10 @@ Crystal Relay Changelog
 
 Newest updates appear first. This changelog focuses on the changes users will notice most.
 
+v3.2.0 bug fix 1
+- Fixed Movement Redeems missing the reward sync mode "Link Existing" option when the trigger type is set to Channel Points.
+- Fixed Movement Redeems missing the Cash Payment trigger option. Movement rules can now be triggered by StreamElements, Streamlabs, and Ko-fi cash payments with configurable minimum amount and currency settings. Cash payment rules created from the Movement Redeems manager show a "P" badge and a "Cash" prefix in the movement list.
+
 v3.2.0
 - Added XSOverlay VR toast notifications for Twitch follows, raids, and gift subs. Each event type has its own enable toggle, timeout duration, and debounce window to prevent notification spam. Settings are available under App Settings → XSOverlay Notifications. Requires XSOverlay running on the same machine (WebSocket API on port 42070).
 - Redesigned the Avatar Swap manager with a dedicated themed window, per-target-avatar cards, and inline rule editing per trigger source (Channel Points, Bits, Subs, Payment).
