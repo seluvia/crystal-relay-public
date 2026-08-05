@@ -13,6 +13,16 @@ namespace VrcTwitchOscBridge.Tests;
 public sealed class AvatarScalingManagerViewModelTests
 {
     [Fact]
+    public void AvatarScaleRule_RewardTitlePreservesTrailingSpaceWhileEditing()
+    {
+        var rule = new AvatarScaleRule();
+
+        rule.RewardTitle = "Grow ";
+
+        Assert.Equal("Grow ", rule.RewardTitle);
+    }
+
+    [Fact]
     public void Constructor_BuildsRewardCardsFromScaleSets()
     {
         var settings = new AppSettings();
@@ -453,6 +463,134 @@ public sealed class AvatarScalingManagerViewModelTests
 
         Assert.Equal(AvatarScalingCardStatus.Disabled, vm.MasterRewardCard.Status);
         Assert.Equal("Disabled", vm.MasterRewardCard.StatusText);
+    }
+
+    [Fact]
+    public void RewardCards_RequireLinkedIdWhileManagedTitleRemainsReady()
+    {
+        var safety = new AvatarScaleSafetySettings();
+        using var linkedRuleCard = new AvatarScalingSourceCardViewModel(
+            AvatarScalingSourceKind.TwitchReward,
+            safety,
+            scaleRule: new AvatarScaleRule
+            {
+                TriggerType = AvatarScaleTriggerType.ChannelPointReward,
+                RewardSyncMode = TwitchRewardSyncMode.LinkExisting,
+                RewardId = string.Empty,
+                RewardTitle = "Retained Linked Title"
+            });
+        using var managedRuleCard = new AvatarScalingSourceCardViewModel(
+            AvatarScalingSourceKind.TwitchReward,
+            safety,
+            scaleRule: new AvatarScaleRule
+            {
+                TriggerType = AvatarScaleTriggerType.ChannelPointReward,
+                RewardSyncMode = TwitchRewardSyncMode.CreateOrManage,
+                RewardId = string.Empty,
+                RewardTitle = "Managed Title"
+            });
+        using var linkedMasterCard = new AvatarScalingSourceCardViewModel(
+            AvatarScalingSourceKind.MasterReward,
+            safety,
+            masterReward: new AvatarScaleMasterRewardSettings
+            {
+                IsEnabled = true,
+                RewardSyncMode = TwitchRewardSyncMode.LinkExisting,
+                RewardId = string.Empty,
+                RewardTitle = "Retained Master Title"
+            });
+        using var managedMasterCard = new AvatarScalingSourceCardViewModel(
+            AvatarScalingSourceKind.MasterReward,
+            safety,
+            masterReward: new AvatarScaleMasterRewardSettings
+            {
+                IsEnabled = true,
+                RewardSyncMode = TwitchRewardSyncMode.CreateOrManage,
+                RewardId = string.Empty,
+                RewardTitle = "Managed Master Title"
+            });
+
+        Assert.Equal(AvatarScalingCardStatus.NeedsSetup, linkedRuleCard.Status);
+        Assert.Equal(AvatarScalingCardStatus.Ready, managedRuleCard.Status);
+        Assert.Equal(AvatarScalingCardStatus.NeedsSetup, linkedMasterCard.Status);
+        Assert.Equal(AvatarScalingCardStatus.Ready, managedMasterCard.Status);
+    }
+
+    [Fact]
+    public void RewardCards_EmptyLinkedIdWithCommandFallbackRemainsReady()
+    {
+        using var card = new AvatarScalingSourceCardViewModel(
+            AvatarScalingSourceKind.TwitchReward,
+            new AvatarScaleSafetySettings(),
+            scaleRule: new AvatarScaleRule
+            {
+                TriggerType = AvatarScaleTriggerType.ChannelPointReward,
+                RewardSyncMode = TwitchRewardSyncMode.LinkExisting,
+                RewardId = string.Empty,
+                RewardTitle = "Retained Linked Title",
+                ChatCommandEnabled = true,
+                CommandText = "!scale"
+            });
+
+        Assert.Equal(AvatarScalingCardStatus.Ready, card.Status);
+    }
+
+    [Fact]
+    public void RewardCards_CreateOrManageIdOnlyRemainsReady()
+    {
+        using var ruleCard = new AvatarScalingSourceCardViewModel(
+            AvatarScalingSourceKind.TwitchReward,
+            new AvatarScaleSafetySettings(),
+            scaleRule: new AvatarScaleRule
+            {
+                TriggerType = AvatarScaleTriggerType.ChannelPointReward,
+                RewardSyncMode = TwitchRewardSyncMode.CreateOrManage,
+                RewardId = "managed-scale-id",
+                RewardTitle = string.Empty
+            });
+        using var masterCard = new AvatarScalingSourceCardViewModel(
+            AvatarScalingSourceKind.MasterReward,
+            new AvatarScaleSafetySettings(),
+            masterReward: new AvatarScaleMasterRewardSettings
+            {
+                IsEnabled = true,
+                RewardSyncMode = TwitchRewardSyncMode.CreateOrManage,
+                RewardId = "managed-master-id",
+                RewardTitle = string.Empty
+            });
+
+        Assert.Equal(AvatarScalingCardStatus.Ready, ruleCard.Status);
+        Assert.Equal(AvatarScalingCardStatus.Ready, masterCard.Status);
+    }
+
+    [Fact]
+    public async Task MasterRewardStatus_LinkedTitleOnlyRequiresRewardReselection()
+    {
+        await using var parent = new MainWindowViewModel();
+        parent.Settings.AvatarScaleMasterReward.IsEnabled = true;
+        parent.Settings.AvatarScaleMasterReward.RewardSyncMode = TwitchRewardSyncMode.LinkExisting;
+        parent.Settings.AvatarScaleMasterReward.RewardId = string.Empty;
+        parent.Settings.AvatarScaleMasterReward.RewardTitle = "Retained Linked Title";
+
+        Assert.StartsWith(
+            "Select an existing Twitch reward",
+            parent.AvatarScaleMasterRewardStatusText,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task MasterRewardStatus_CreateOrManageIdOnlyIsIdentityReady()
+    {
+        await using var parent = new MainWindowViewModel();
+        parent.Settings.AvatarScaleMasterReward.IsEnabled = true;
+        parent.Settings.AvatarScaleMasterReward.RewardSyncMode = TwitchRewardSyncMode.CreateOrManage;
+        parent.Settings.AvatarScaleMasterReward.RewardId = "managed-master-id";
+        parent.Settings.AvatarScaleMasterReward.RewardTitle = string.Empty;
+
+        Assert.StartsWith(
+            "Connect the broadcaster account",
+            parent.AvatarScaleMasterRewardStatusText,
+            StringComparison.Ordinal);
     }
 
     [Fact]

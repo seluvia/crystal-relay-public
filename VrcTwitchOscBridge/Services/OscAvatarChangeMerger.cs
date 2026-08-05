@@ -9,8 +9,7 @@ internal static class OscAvatarChangeMerger
     public static IReadOnlyList<VrChatAvatarSummary> MergeIntoList(
         IReadOnlyList<VrChatAvatarSummary> existing,
         string avatarId,
-        string resolvedName,
-        string newSourceLabel)
+        string resolvedName)
     {
         if (string.IsNullOrWhiteSpace(avatarId)) return existing;
         if (!avatarId.StartsWith("avtr_", StringComparison.Ordinal)) return existing;
@@ -24,9 +23,16 @@ internal static class OscAvatarChangeMerger
             result.Add(new VrChatAvatarSummary(
                 Id: avatarId,
                 Name: finalName,
-                SourceLabel: newSourceLabel,
+                AuthorName: string.Empty,
+                ThumbnailUrl: null,
                 IsCurrentAvatar: false,
-                ThumbnailUrl: null));
+                IsUploaded: false,
+                IsFavorited: false,
+                IsLicensed: false,
+                Platform: string.Empty,
+                StyleTags: Array.Empty<string>(),
+                ContentTags: Array.Empty<string>(),
+                FavoriteGroupName: null));
         }
         else
         {
@@ -38,7 +44,6 @@ internal static class OscAvatarChangeMerger
                 result[idx] = current with
                 {
                     Name = shouldAdopt ? finalName : current.Name,
-                    SourceLabel = shouldAdopt ? newSourceLabel : current.SourceLabel,
                 };
             }
         }

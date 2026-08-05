@@ -42,6 +42,7 @@ public sealed class TwitchApiClient : IDisposable
     private DateTimeOffset cachedRewardCatalogAt = DateTimeOffset.MinValue;
     private string? cachedRewardCatalogBroadcasterId;
     private bool? cachedRewardCatalogOnlyManageable;
+    private readonly SemaphoreSlim rewardCatalogGate = new(1, 1);
 
     // Twitch device flow used for the broadcaster and bot login buttons inside Crystal Relay.
     public async Task<DeviceCodeResponse> StartDeviceAuthorizationAsync(
@@ -267,14 +268,6 @@ public sealed class TwitchApiClient : IDisposable
         CancellationToken cancellationToken = default,
         bool onlyManageableRewards = false)
     {
-        if (cachedRewardCatalog is not null
-            && cachedRewardCatalogBroadcasterId == broadcasterId
-            && cachedRewardCatalogOnlyManageable == onlyManageableRewards
-            && DateTimeOffset.UtcNow - cachedRewardCatalogAt < RewardCatalogCacheTtl)
-        {
-            return cachedRewardCatalog;
-        }
-
         var rewardsUrl = new StringBuilder("https://api.twitch.tv/helix/channel_points/custom_rewards");
         rewardsUrl.Append("?broadcaster_id=");
         rewardsUrl.Append(Uri.EscapeDataString(broadcasterId));
@@ -283,21 +276,37 @@ public sealed class TwitchApiClient : IDisposable
             rewardsUrl.Append("&only_manageable_rewards=true");
         }
 
-        using var request = CreateHelixRequest(
-            HttpMethod.Get,
-            rewardsUrl.ToString(),
-            accessToken,
-            clientId);
+        await rewardCatalogGate.WaitAsync(cancellationToken);
+        try
+        {
+            if (cachedRewardCatalog is not null
+                && cachedRewardCatalogBroadcasterId == broadcasterId
+                && cachedRewardCatalogOnlyManageable == onlyManageableRewards
+                && DateTimeOffset.UtcNow - cachedRewardCatalogAt < RewardCatalogCacheTtl)
+            {
+                return cachedRewardCatalog;
+            }
 
-        using var response = await SendAsync(request, cancellationToken);
-        var payload = await ReadAsJsonAsync<CustomRewardListResponse>(response, cancellationToken);
+            using var request = CreateHelixRequest(
+                HttpMethod.Get,
+                rewardsUrl.ToString(),
+                accessToken,
+                clientId);
 
-        cachedRewardCatalog = payload.Data;
-        cachedRewardCatalogAt = DateTimeOffset.UtcNow;
-        cachedRewardCatalogBroadcasterId = broadcasterId;
-        cachedRewardCatalogOnlyManageable = onlyManageableRewards;
+            using var response = await SendAsync(request, cancellationToken);
+            var payload = await ReadAsJsonAsync<CustomRewardListResponse>(response, cancellationToken);
 
-        return payload.Data;
+            cachedRewardCatalog = payload.Data;
+            cachedRewardCatalogAt = DateTimeOffset.UtcNow;
+            cachedRewardCatalogBroadcasterId = broadcasterId;
+            cachedRewardCatalogOnlyManageable = onlyManageableRewards;
+
+            return payload.Data;
+        }
+        finally
+        {
+            rewardCatalogGate.Release();
+        }
     }
 
     private void InvalidateRewardCatalogCache()
@@ -338,18 +347,26 @@ public sealed class TwitchApiClient : IDisposable
         string prompt = "",
         bool isUserInputRequired = false)
     {
-        using var request = CreateHelixRequest(
-            HttpMethod.Post,
-            $"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={Uri.EscapeDataString(broadcasterId)}",
-            accessToken,
-            clientId);
-        request.Content = JsonContent.Create(BuildCustomRewardPayload(title, cost, isEnabled, cooldownSeconds, backgroundColor, prompt, isUserInputRequired));
+        await rewardCatalogGate.WaitAsync(cancellationToken);
+        try
+        {
+            using var request = CreateHelixRequest(
+                HttpMethod.Post,
+                $"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={Uri.EscapeDataString(broadcasterId)}",
+                accessToken,
+                clientId);
+            request.Content = JsonContent.Create(BuildCustomRewardPayload(title, cost, isEnabled, cooldownSeconds, backgroundColor, prompt, isUserInputRequired));
 
-        using var response = await SendAsync(request, cancellationToken);
-        var payload = await ReadAsJsonAsync<CustomRewardListResponse>(response, cancellationToken);
-        InvalidateRewardCatalogCache();
-        return payload.Data.FirstOrDefault()
-            ?? throw new InvalidOperationException("Twitch created the reward, but returned no reward details.");
+            using var response = await SendAsync(request, cancellationToken);
+            var payload = await ReadAsJsonAsync<CustomRewardListResponse>(response, cancellationToken);
+            InvalidateRewardCatalogCache();
+            return payload.Data.FirstOrDefault()
+                ?? throw new InvalidOperationException("Twitch created the reward, but returned no reward details.");
+        }
+        finally
+        {
+            rewardCatalogGate.Release();
+        }
     }
 
     public async Task<CustomRewardResponse> UpdateCustomRewardAsync(
@@ -366,18 +383,59 @@ public sealed class TwitchApiClient : IDisposable
         string prompt = "",
         bool isUserInputRequired = false)
     {
-        using var request = CreateHelixRequest(
-            new HttpMethod("PATCH"),
-            $"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={Uri.EscapeDataString(broadcasterId)}&id={Uri.EscapeDataString(rewardId)}",
-            accessToken,
-            clientId);
-        request.Content = JsonContent.Create(BuildCustomRewardPayload(title, cost, isEnabled, cooldownSeconds, backgroundColor, prompt, isUserInputRequired));
+        await rewardCatalogGate.WaitAsync(cancellationToken);
+        try
+        {
+            using var request = CreateHelixRequest(
+                new HttpMethod("PATCH"),
+                $"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={Uri.EscapeDataString(broadcasterId)}&id={Uri.EscapeDataString(rewardId)}",
+                accessToken,
+                clientId);
+            request.Content = JsonContent.Create(BuildCustomRewardPayload(title, cost, isEnabled, cooldownSeconds, backgroundColor, prompt, isUserInputRequired));
 
-        using var response = await SendAsync(request, cancellationToken);
-        var payload = await ReadAsJsonAsync<CustomRewardListResponse>(response, cancellationToken);
-        InvalidateRewardCatalogCache();
-        return payload.Data.FirstOrDefault()
-            ?? throw new InvalidOperationException("Twitch updated the reward, but returned no reward details.");
+            using var response = await SendAsync(request, cancellationToken);
+            var payload = await ReadAsJsonAsync<CustomRewardListResponse>(response, cancellationToken);
+            InvalidateRewardCatalogCache();
+            return payload.Data.FirstOrDefault()
+                ?? throw new InvalidOperationException("Twitch updated the reward, but returned no reward details.");
+        }
+        finally
+        {
+            rewardCatalogGate.Release();
+        }
+    }
+
+    public async Task<CustomRewardResponse> UpdateCustomRewardColorAsync(
+        string accessToken,
+        string clientId,
+        string broadcasterId,
+        string rewardId,
+        string backgroundColor,
+        CancellationToken cancellationToken = default)
+    {
+        await rewardCatalogGate.WaitAsync(cancellationToken);
+        try
+        {
+            using var request = CreateHelixRequest(
+                new HttpMethod("PATCH"),
+                $"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={Uri.EscapeDataString(broadcasterId)}&id={Uri.EscapeDataString(rewardId)}",
+                accessToken,
+                clientId);
+            request.Content = JsonContent.Create(new CustomRewardColorMutationPayload
+            {
+                BackgroundColor = backgroundColor
+            });
+
+            using var response = await SendAsync(request, cancellationToken);
+            var payload = await ReadAsJsonAsync<CustomRewardListResponse>(response, cancellationToken);
+            InvalidateRewardCatalogCache();
+            return payload.Data.FirstOrDefault()
+                ?? throw new InvalidOperationException("Twitch updated the reward color, but returned no reward details.");
+        }
+        finally
+        {
+            rewardCatalogGate.Release();
+        }
     }
 
     public async Task<CustomRewardResponse> UpdateCustomRewardVisibilityAsync(
@@ -388,21 +446,29 @@ public sealed class TwitchApiClient : IDisposable
         bool isEnabled,
         CancellationToken cancellationToken = default)
     {
-        using var request = CreateHelixRequest(
-            new HttpMethod("PATCH"),
-            $"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={Uri.EscapeDataString(broadcasterId)}&id={Uri.EscapeDataString(rewardId)}",
-            accessToken,
-            clientId);
-        request.Content = JsonContent.Create(new CustomRewardVisibilityMutationPayload
+        await rewardCatalogGate.WaitAsync(cancellationToken);
+        try
         {
-            IsEnabled = isEnabled
-        });
+            using var request = CreateHelixRequest(
+                new HttpMethod("PATCH"),
+                $"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={Uri.EscapeDataString(broadcasterId)}&id={Uri.EscapeDataString(rewardId)}",
+                accessToken,
+                clientId);
+            request.Content = JsonContent.Create(new CustomRewardVisibilityMutationPayload
+            {
+                IsEnabled = isEnabled
+            });
 
-        using var response = await SendAsync(request, cancellationToken);
-        var payload = await ReadAsJsonAsync<CustomRewardListResponse>(response, cancellationToken);
-        InvalidateRewardCatalogCache();
-        return payload.Data.FirstOrDefault()
-            ?? throw new InvalidOperationException("Twitch updated the reward visibility, but returned no reward details.");
+            using var response = await SendAsync(request, cancellationToken);
+            var payload = await ReadAsJsonAsync<CustomRewardListResponse>(response, cancellationToken);
+            InvalidateRewardCatalogCache();
+            return payload.Data.FirstOrDefault()
+                ?? throw new InvalidOperationException("Twitch updated the reward visibility, but returned no reward details.");
+        }
+        finally
+        {
+            rewardCatalogGate.Release();
+        }
     }
 
     public async Task DeleteCustomRewardAsync(
@@ -412,15 +478,23 @@ public sealed class TwitchApiClient : IDisposable
         string rewardId,
         CancellationToken cancellationToken = default)
     {
-        using var request = CreateHelixRequest(
-            HttpMethod.Delete,
-            $"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={Uri.EscapeDataString(broadcasterId)}&id={Uri.EscapeDataString(rewardId)}",
-            accessToken,
-            clientId);
+        await rewardCatalogGate.WaitAsync(cancellationToken);
+        try
+        {
+            using var request = CreateHelixRequest(
+                HttpMethod.Delete,
+                $"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={Uri.EscapeDataString(broadcasterId)}&id={Uri.EscapeDataString(rewardId)}",
+                accessToken,
+                clientId);
 
-        using var response = await SendAsync(request, cancellationToken);
-        await EnsureSuccessAsync(response, cancellationToken);
-        InvalidateRewardCatalogCache();
+            using var response = await SendAsync(request, cancellationToken);
+            await EnsureSuccessAsync(response, cancellationToken);
+            InvalidateRewardCatalogCache();
+        }
+        finally
+        {
+            rewardCatalogGate.Release();
+        }
     }
 
     public async Task<IReadOnlyList<ChatBadgeSetResponse>> GetGlobalChatBadgesAsync(
@@ -848,6 +922,7 @@ public sealed class TwitchApiClient : IDisposable
     public void Dispose()
     {
         InvalidateRewardCatalogCache();
+        rewardCatalogGate.Dispose();
         httpClient.Dispose();
     }
 
@@ -1223,6 +1298,12 @@ public sealed class TwitchApiClient : IDisposable
     {
         [JsonPropertyName("is_enabled")]
         public bool IsEnabled { get; set; }
+    }
+
+    private sealed class CustomRewardColorMutationPayload
+    {
+        [JsonPropertyName("background_color")]
+        public string BackgroundColor { get; set; } = ManagedRewardPresentation.ReadyBackgroundColor;
     }
 
     public sealed class ChatBadgeSetListResponse

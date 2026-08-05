@@ -109,6 +109,12 @@ public sealed class MovementRedeemCardViewModel : ObservableObject
     {
         get
         {
+            if (rule.Source == TriggerRuleSource.CashPayment)
+            {
+                var cashDirName = GetDisplayName(rule.MovementDirection);
+                return $"Cash {cashDirName}";
+            }
+
             if (rule.TriggerType == TwitchTriggerType.ChannelPoints)
                 return string.IsNullOrWhiteSpace(rule.ChannelPointRewardTitle)
                     ? rule.HasConfiguredChatCommand
@@ -123,7 +129,7 @@ public sealed class MovementRedeemCardViewModel : ObservableObject
             return rule.TriggerType switch
             {
                 TwitchTriggerType.Bits => $"Bits {dirName}",
-                TwitchTriggerType.Subscriptions => rule.IsGiftSubscription ? $"Gift Subs {dirName}" : $"Subs {dirName}",
+                TwitchTriggerType.Subscriptions => $"Subs {dirName}",
                 TwitchTriggerType.Follow => $"Follow {dirName}",
                 _ => dirName
             };
@@ -134,8 +140,8 @@ public sealed class MovementRedeemCardViewModel : ObservableObject
     public bool HasChatCommandTrigger => rule.HasConfiguredChatCommand;
     public bool HasBitsTrigger => rule.TriggerType == TwitchTriggerType.Bits;
     public bool HasSubsTrigger => rule.TriggerType == TwitchTriggerType.Subscriptions;
-    public bool HasGiftSubTrigger => rule.IsGiftSubscription;
     public bool HasFollowTrigger => rule.TriggerType == TwitchTriggerType.Follow;
+    public bool HasCashPaymentTrigger => rule.Source == TriggerRuleSource.CashPayment;
 
     public TriggerRule GetRule() => rule;
 
@@ -166,8 +172,8 @@ public sealed class MovementRedeemCardViewModel : ObservableObject
         RaisePropertyChanged(nameof(HasChatCommandTrigger));
         RaisePropertyChanged(nameof(HasBitsTrigger));
         RaisePropertyChanged(nameof(HasSubsTrigger));
-        RaisePropertyChanged(nameof(HasGiftSubTrigger));
         RaisePropertyChanged(nameof(HasFollowTrigger));
+        RaisePropertyChanged(nameof(HasCashPaymentTrigger));
         RaisePropertyChanged(nameof(DurationWithCooldownText));
         RaisePropertyChanged(nameof(DisplayName));
     }

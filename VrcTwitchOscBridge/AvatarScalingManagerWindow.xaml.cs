@@ -107,7 +107,7 @@ public partial class AvatarScalingManagerWindow : Window
     private void OnPickManagedRewardColorClicked(object sender, RoutedEventArgs e)
     {
         if (sender is not FrameworkElement { Tag: string tagName }
-            || Vm.SelectedAvatarScaleRule is not { } rule)
+            || (Vm.SelectedAvatarScaleRule is null && Vm.SelectedCard?.MasterReward is null))
         {
             return;
         }
@@ -116,9 +116,11 @@ public partial class AvatarScalingManagerWindow : Window
         var fallbackColor = isCooldownColor
             ? ManagedRewardPresentation.InUseBackgroundColor
             : ManagedRewardPresentation.ReadyBackgroundColor;
-        var initialColor = isCooldownColor
-            ? rule.ManagedRewardCooldownColor
-            : rule.ManagedRewardReadyColor;
+        var childRule = Vm.SelectedAvatarScaleRule;
+        var masterReward = Vm.SelectedCard?.MasterReward;
+        var initialColor = childRule is not null
+            ? isCooldownColor ? childRule.ManagedRewardCooldownColor : childRule.ManagedRewardReadyColor
+            : isCooldownColor ? masterReward!.ManagedRewardCooldownColor : masterReward!.ManagedRewardReadyColor;
 
         using var dialog = new WinForms.ColorDialog
         {
@@ -139,13 +141,24 @@ public partial class AvatarScalingManagerWindow : Window
         }
 
         var selectedColor = ManagedRewardPresentation.ToHex(dialog.Color);
-        if (isCooldownColor)
+        if (childRule is not null)
         {
-            rule.ManagedRewardCooldownColor = selectedColor;
+            if (isCooldownColor)
+            {
+                childRule.ManagedRewardCooldownColor = selectedColor;
+            }
+            else
+            {
+                childRule.ManagedRewardReadyColor = selectedColor;
+            }
         }
-        else
+        else if (masterReward is not null && isCooldownColor)
         {
-            rule.ManagedRewardReadyColor = selectedColor;
+            masterReward.ManagedRewardCooldownColor = selectedColor;
+        }
+        else if (masterReward is not null)
+        {
+            masterReward.ManagedRewardReadyColor = selectedColor;
         }
     }
 

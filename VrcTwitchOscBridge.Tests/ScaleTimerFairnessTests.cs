@@ -71,7 +71,7 @@ public class ScaleTimerFairnessTests
         try
         {
             // First trigger: 60s grow
-            scheduleMethod!.Invoke(coordinator, [sixtySnapshot, false, 2.0]);
+            scheduleMethod!.Invoke(coordinator, [sixtySnapshot, false, 2.0, null, null, null]);
 
             var sequenceAfterFirst = GetPrivateField(coordinator, "activeAvatarScaleRestoreSequence");
             Assert.NotNull(sequenceAfterFirst);
@@ -83,7 +83,7 @@ public class ScaleTimerFairnessTests
             Assert.True((activeUntilAfterFirst - DateTimeOffset.UtcNow).TotalSeconds >= 55);
 
             // Second trigger: 30s shrink — should use highest-seen 60s, not 30s
-            scheduleMethod.Invoke(coordinator, [thirtySnapshot, false, 0.8]);
+            scheduleMethod.Invoke(coordinator, [thirtySnapshot, false, 0.8, null, null, null]);
 
             var sequenceAfterSecond = GetPrivateField(coordinator, "activeAvatarScaleRestoreSequence");
             Assert.NotNull(sequenceAfterSecond);
@@ -129,8 +129,8 @@ public class ScaleTimerFairnessTests
 
         try
         {
-            scheduleMethod!.Invoke(coordinator, [tier1Snapshot, false, 2.0]);
-            scheduleMethod.Invoke(coordinator, [tier2Snapshot, false, 1.4]);
+            scheduleMethod!.Invoke(coordinator, [tier1Snapshot, false, 2.0, null, null, null]);
+            scheduleMethod.Invoke(coordinator, [tier2Snapshot, false, 1.4, null, null, null]);
 
             var sequence = GetPrivateField(coordinator, "activeAvatarScaleRestoreSequence");
             Assert.NotNull(sequence);
@@ -171,11 +171,11 @@ public class ScaleTimerFairnessTests
 
         try
         {
-            scheduleMethod!.Invoke(coordinator, [tier2Snapshot, false, 1.4]);
+            scheduleMethod!.Invoke(coordinator, [tier2Snapshot, false, 1.4, null, null, null]);
             var sequenceAfterTier2 = GetPrivateField(coordinator, "activeAvatarScaleRestoreSequence");
             Assert.NotNull(sequenceAfterTier2);
 
-            scheduleMethod.Invoke(coordinator, [tier1Snapshot, false, 2.0]);
+            scheduleMethod.Invoke(coordinator, [tier1Snapshot, false, 2.0, null, null, null]);
             var sequenceAfterTier1 = GetPrivateField(coordinator, "activeAvatarScaleRestoreSequence");
             Assert.NotNull(sequenceAfterTier1);
 

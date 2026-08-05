@@ -266,6 +266,7 @@ public sealed record UniversalTriggerRuleSnapshot(
     ChatCommandPermission ChatCommandPermission,
     string RewardId,
     string RewardTitle,
+    bool UsesLinkedExistingReward,
     int MinimumBits,
     int MaximumBits,
     string SubscriptionTier,
@@ -286,6 +287,7 @@ public sealed record AvatarScaleMasterRewardSnapshot(
     bool IsEnabled,
     string RewardId,
     string RewardTitle,
+    bool UsesLinkedExistingReward,
     int UnlockDurationSeconds,
     int CooldownSeconds,
     bool PreventAvatarChangesDuringActiveScaling);
@@ -304,6 +306,7 @@ public sealed record AvatarScaleRuleSnapshot(
     ChatCommandPermission ChatCommandPermission,
     string RewardId,
     string RewardTitle,
+    bool UsesLinkedExistingReward,
     int MinimumBits,
     int MaximumBits,
     string SubscriptionTier,
@@ -1379,6 +1382,7 @@ public sealed record BridgeRuntimeConfiguration(
             rule.ChatCommandPermission,
             rule.RewardId.Trim(),
             rule.RewardTitle.Trim(),
+            rule.RewardSyncMode == TwitchRewardSyncMode.LinkExisting,
             Math.Max(1, rule.MinimumBits),
             Math.Max(1, rule.MaximumBits),
             rule.SubscriptionTier.Trim(),
@@ -1440,6 +1444,7 @@ public sealed record BridgeRuntimeConfiguration(
             rule.ChatCommandPermission,
             rule.RewardId.Trim(),
             rule.RewardTitle.Trim(),
+            rule.RewardSyncMode == TwitchRewardSyncMode.LinkExisting,
             Math.Max(1, rule.MinimumBits),
             Math.Max(1, rule.MaximumBits),
             rule.SubscriptionTier.Trim(),
@@ -1467,7 +1472,7 @@ public sealed record BridgeRuntimeConfiguration(
             Math.Clamp(rule.SmoothTransitionSeconds, 0, 30),
             rule.Preset,
             Math.Max(0, rule.ActiveTimeSeconds),
-            AvatarScaleRestoreMode.ConfiguredHeight,
+            rule.RestoreMode,
             ClampScaleHeight(rule.RestoreHeightMeters, rule.AdvancedRangeEnabled, safety),
             rule.AdvancedRangeEnabled,
             rule.BypassVrChatScaleLimits,
@@ -1500,9 +1505,13 @@ public sealed record BridgeRuntimeConfiguration(
         AvatarScaleMasterRewardSettings settings)
     {
         return new AvatarScaleMasterRewardSnapshot(
-            settings.IsEnabled,
+            settings.IsEnabled && ManagedRewardPresentation.HasConfiguredRewardIdentity(
+                settings.RewardSyncMode,
+                settings.RewardId,
+                settings.RewardTitle),
             settings.RewardId.Trim(),
             settings.RewardTitle.Trim(),
+            settings.RewardSyncMode == TwitchRewardSyncMode.LinkExisting,
             Math.Max(1, settings.UnlockDurationSeconds),
             Math.Max(0, settings.CooldownSeconds),
             settings.PreventAvatarChangesDuringActiveScaling);
@@ -1598,8 +1607,11 @@ public sealed record BridgeRuntimeConfiguration(
         return rule.TriggerType switch
         {
             UniversalTriggerType.ChatCommand => ChatCommandUtility.IsConfigured(rule.CommandText),
-            UniversalTriggerType.ChannelPointReward => !string.IsNullOrWhiteSpace(rule.RewardId)
-                || !string.IsNullOrWhiteSpace(rule.RewardTitle),
+            UniversalTriggerType.ChannelPointReward => ManagedRewardPresentation.HasConfiguredRewardIdentity(
+                    rule.RewardSyncMode,
+                    rule.RewardId,
+                    rule.RewardTitle)
+                || (rule.ChatCommandEnabled && ChatCommandUtility.IsConfigured(rule.CommandText)),
             UniversalTriggerType.Bits => Math.Max(1, rule.MaximumBits) >= Math.Max(1, rule.MinimumBits),
             UniversalTriggerType.Subscription or UniversalTriggerType.GiftSubscription or UniversalTriggerType.Follow => true,
             _ => false
@@ -1611,8 +1623,11 @@ public sealed record BridgeRuntimeConfiguration(
         return rule.TriggerType switch
         {
             AvatarScaleTriggerType.ChatCommand => ChatCommandUtility.IsConfigured(rule.CommandText),
-            AvatarScaleTriggerType.ChannelPointReward => !string.IsNullOrWhiteSpace(rule.RewardId)
-                || !string.IsNullOrWhiteSpace(rule.RewardTitle),
+            AvatarScaleTriggerType.ChannelPointReward => ManagedRewardPresentation.HasConfiguredRewardIdentity(
+                    rule.RewardSyncMode,
+                    rule.RewardId,
+                    rule.RewardTitle)
+                || (rule.ChatCommandEnabled && ChatCommandUtility.IsConfigured(rule.CommandText)),
             AvatarScaleTriggerType.Bits => Math.Max(1, rule.MaximumBits) >= Math.Max(1, rule.MinimumBits),
             AvatarScaleTriggerType.SupporterGrowth => true,
             AvatarScaleTriggerType.Subscription or AvatarScaleTriggerType.GiftSubscription or AvatarScaleTriggerType.Follow => true,

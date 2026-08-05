@@ -427,7 +427,7 @@ public sealed class AvatarScaleRule : ObservableObject
     public string RewardTitle
     {
         get => rewardTitle;
-        set => SetAndRaiseSummary(ref rewardTitle, value?.Trim() ?? string.Empty);
+        set => SetAndRaiseSummary(ref rewardTitle, value ?? string.Empty);
     }
 
     public string RewardDescription
@@ -658,7 +658,7 @@ public sealed class AvatarScaleRule : ObservableObject
         get => restoreMode;
         set
         {
-            var normalizedValue = Enum.IsDefined(value) ? value : AvatarScaleRestoreMode.PreviousHeight;
+            var normalizedValue = Enum.IsDefined(value) ? value : AvatarScaleRestoreMode.ConfiguredHeight;
             if (SetProperty(ref restoreMode, normalizedValue))
             {
                 RaiseScaleProperties();
@@ -1033,7 +1033,7 @@ public sealed class AvatarScaleRule : ObservableObject
         }
     }
 
-    public bool UsesConfiguredRestoreHeight => HasActiveTime;
+    public bool UsesConfiguredRestoreHeight => HasActiveTime && RestoreMode == AvatarScaleRestoreMode.ConfiguredHeight;
 
     public AvatarScaleMode ActiveMode => ScaleMode;
 

@@ -48,9 +48,21 @@ public sealed class VrChatAccountSettingsCachedModeTests
     {
         var avatars = new[]
         {
-            new VrChatAvatarSummary("avtr_uploaded", "Uploaded Avatar", "Uploaded", false, null),
-            new VrChatAvatarSummary("avtr_local", "Local Avatar", "Local OSC", true, null),
-            new VrChatAvatarSummary("avtr_favorite", "Favorite Avatar", "Favorites", false, null)
+            new VrChatAvatarSummary(
+                Id: "avtr_uploaded", Name: "Uploaded Avatar", AuthorName: "", ThumbnailUrl: null,
+                IsCurrentAvatar: false, IsUploaded: true, IsFavorited: false, IsLicensed: false,
+                Platform: "", StyleTags: Array.Empty<string>(), ContentTags: Array.Empty<string>(),
+                FavoriteGroupName: null),
+            new VrChatAvatarSummary(
+                Id: "avtr_local", Name: "Local Avatar", AuthorName: "", ThumbnailUrl: null,
+                IsCurrentAvatar: true, IsUploaded: false, IsFavorited: false, IsLicensed: false,
+                Platform: "", StyleTags: Array.Empty<string>(), ContentTags: Array.Empty<string>(),
+                FavoriteGroupName: null),
+            new VrChatAvatarSummary(
+                Id: "avtr_favorite", Name: "Favorite Avatar", AuthorName: "", ThumbnailUrl: null,
+                IsCurrentAvatar: false, IsUploaded: false, IsFavorited: true, IsLicensed: false,
+                Platform: "", StyleTags: Array.Empty<string>(), ContentTags: Array.Empty<string>(),
+                FavoriteGroupName: null)
         };
 
         var kept = MainWindowViewModel.SelectVrChatAvatarsForCachedModeAfterAuthFailure(avatars);

@@ -33,6 +33,8 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
     private const int FileOperationRetryCount = 20;
     private static readonly TimeSpan DownloadTimeout = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan ProcessExitTimeout = TimeSpan.FromSeconds(75);
+    private static readonly TimeSpan StartupAcknowledgementTimeout = ProcessExitTimeout;
+    private static readonly TimeSpan ProcessTerminationTimeout = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan CleanupProcessExitTimeout = TimeSpan.FromSeconds(20);
     private static readonly TimeSpan StaleUpdateSessionRetention = TimeSpan.FromDays(1);
     private static readonly TimeSpan FailedUpdateBackupRetention = TimeSpan.FromDays(1);
@@ -117,14 +119,19 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
         ArgumentNullException.ThrowIfNull(update);
         ValidateReleaseAsset(update);
 
+        ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(AppDataPaths.RootFolder);
+        ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(AppDataPaths.UpdatesFolder);
+        ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(AppDataPaths.UpdateBackupsFolder);
         AppDataPaths.EnsureCoreFolders();
+        ApplicationUpdatePathSafety.ValidateDirectoryTree(AppDataPaths.UpdatesFolder);
+        ApplicationUpdatePathSafety.ValidateDirectoryTree(AppDataPaths.UpdateBackupsFolder);
         Directory.CreateDirectory(AppDataPaths.UpdatesFolder);
         Directory.CreateDirectory(AppDataPaths.UpdateBackupsFolder);
         PruneStaleUpdateArtifacts();
 
         var sessionRoot = Path.Combine(
             AppDataPaths.UpdatesFolder,
-            $"{SanitizePathSegment(update.LatestVersion)}-{DateTimeOffset.UtcNow:yyyyMMddHHmmssfff}");
+            $"{SanitizePathSegment(update.LatestVersion)}-{DateTimeOffset.UtcNow:yyyyMMddHHmmssfff}-{Guid.NewGuid():N}");
         var stagingRoot = Path.Combine(sessionRoot, "staged");
         var downloadPath = Path.Combine(sessionRoot, update.AssetName);
         Directory.CreateDirectory(sessionRoot);
@@ -142,7 +149,7 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
             var package = ResolvePackage(stagingRoot, update);
             var backupDirectory = Path.Combine(
                 AppDataPaths.UpdateBackupsFolder,
-                $"{SanitizePathSegment(update.LatestVersion)}-{DateTimeOffset.UtcNow:yyyyMMddHHmmssfff}");
+                $"{SanitizePathSegment(update.LatestVersion)}-{DateTimeOffset.UtcNow:yyyyMMddHHmmssfff}-{Guid.NewGuid():N}");
             var currentExecutableName = Path.GetFileName(Environment.ProcessPath ?? string.Empty);
             var applyManifest = new ApplicationUpdateApplyManifest(
                 ProductName,
@@ -185,40 +192,77 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
         var releasePageUrl = string.Empty;
         try
         {
+            ValidateApplyManifestPath(manifestPath);
             var manifest = await ReadApplyManifestAsync(manifestPath, cancellationToken);
             releasePageUrl = manifest.ReleasePageUrl;
             WriteUpdateLog($"Applying update {manifest.Version} from '{manifest.PackageRoot}' to '{manifest.InstallDirectory}'.");
 
             ValidateApplyManifest(manifest);
+            ApplicationUpdateRollback.ClearStaleStartupAcknowledgement(manifestPath);
             var installPlan = CreateInstallPlan(manifest);
             ValidateInstallPlan(installPlan);
             await WaitForProcessExitAsync(manifest.SourceProcessId, ProcessExitTimeout, cancellationToken);
 
-            PrepareRollbackBackup(manifest, installPlan);
-
-            try
-            {
-                ReplaceInstallFiles(manifest, installPlan);
-
-                var installedEntryPath = Path.Combine(installPlan.TargetDirectory, manifest.EntryExecutableName);
-                if (!File.Exists(installedEntryPath))
+            Process? launchedProcess = null;
+            await ApplicationUpdateApplyTransaction.RunAsync(
+                prepareBackupAsync: () =>
                 {
-                    installedEntryPath = ResolveSingleExecutable(installPlan.TargetDirectory);
-                }
+                    PrepareRollbackBackup(manifest, installPlan);
+                    return Task.CompletedTask;
+                },
+                replaceInstallAsync: () =>
+                {
+                    ReplaceInstallFiles(manifest, installPlan);
+                    return Task.CompletedTask;
+                },
+                launchInstalledApplicationAsync: () =>
+                {
+                    var installedEntryPath = Path.Combine(installPlan.TargetDirectory, manifest.EntryExecutableName);
+                    if (!File.Exists(installedEntryPath))
+                    {
+                        installedEntryPath = ResolveSingleExecutable(installPlan.TargetDirectory);
+                    }
 
-                LaunchInstalledApplication(installedEntryPath, manifestPath);
-                WriteUpdateLog(
-                    installPlan.RelocatesInstallFolder
-                        ? $"Update {manifest.Version} applied successfully to '{installPlan.TargetDirectory}'."
-                        : $"Update {manifest.Version} applied successfully.");
-            }
-            catch (Exception ex)
-            {
-                WriteUpdateLog($"Update replacement failed: {ex}");
-                TryRestoreBackup(manifest, installPlan);
-                TryLaunchRestoredApplication(manifest, installPlan);
-                throw new ApplicationSelfUpdateException("Crystal Relay restored the previous version because the update could not be applied.", ex);
-            }
+                    launchedProcess = LaunchInstalledApplication(installedEntryPath, manifestPath);
+                    return Task.CompletedTask;
+                },
+                waitForAcknowledgementAsync: () =>
+                    ApplicationUpdateRollback.WaitForStartupAcknowledgementAsync(
+                        manifestPath,
+                        manifest.Version,
+                        StartupAcknowledgementTimeout,
+                        cancellationToken),
+                terminateLaunchedApplicationAsync: () =>
+                {
+                    TryTerminateProcess(launchedProcess);
+                    return Task.CompletedTask;
+                },
+                restoreBackupAsync: () =>
+                {
+                    RestoreBackup(manifest, installPlan);
+                    return Task.CompletedTask;
+                },
+                relaunchRestoredApplicationAsync: () =>
+                {
+                    LaunchRestoredApplication(manifest, installPlan);
+                    return Task.CompletedTask;
+                },
+                cleanupAfterAcknowledgementAsync: () =>
+                {
+                    if (!TryDeleteSuccessfulUpdateBackup(manifest.BackupDirectory)
+                        || !TryDeletePreviousInstallDirectory(installPlan))
+                    {
+                        throw new ApplicationSelfUpdateException(
+                            "Crystal Relay applied the update, but could not finish post-acknowledgement cleanup.");
+                    }
+
+                    return Task.CompletedTask;
+                });
+
+            WriteUpdateLog(
+                installPlan.RelocatesInstallFolder
+                    ? $"Update {manifest.Version} applied successfully to '{installPlan.TargetDirectory}'."
+                    : $"Update {manifest.Version} applied successfully.");
         }
         catch (Exception ex)
         {
@@ -227,7 +271,7 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
         }
     }
 
-    public static async Task CleanupCompletedUpdateAsync(
+    public static async Task<bool> CleanupCompletedUpdateAsync(
         ApplicationSelfUpdateCleanupRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -235,32 +279,110 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
         {
             await WaitForProcessExitAsync(request.ProcessId, CleanupProcessExitTimeout, cancellationToken);
 
-            var fullManifestPath = Path.GetFullPath(request.ManifestPath);
+            var manifestPath = Path.GetFullPath(request.ManifestPath);
+            ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(manifestPath);
             var updateRoot = Path.GetFullPath(AppDataPaths.UpdatesFolder);
-            if (!IsPathInside(updateRoot, fullManifestPath) || !File.Exists(fullManifestPath))
+            if (!IsPathInside(updateRoot, manifestPath) || !File.Exists(manifestPath))
             {
-                return;
+                WriteUpdateLog("Update cleanup could not find a manifest inside updater storage.");
+                return false;
             }
 
-            var sessionRoot = Path.GetDirectoryName(fullManifestPath);
-            if (string.IsNullOrWhiteSpace(sessionRoot) || !IsPathInside(updateRoot, sessionRoot))
+            var sessionRoot = Path.GetDirectoryName(manifestPath);
+            if (string.IsNullOrWhiteSpace(sessionRoot)
+                || AreSamePath(updateRoot, sessionRoot)
+                || !IsPathInside(updateRoot, sessionRoot))
             {
-                return;
+                WriteUpdateLog("Update cleanup found an invalid update session path.");
+                return false;
             }
 
-            var manifest = await ReadApplyManifestAsync(fullManifestPath, cancellationToken);
-            ValidateApplyManifest(manifest);
+            var manifest = await ReadApplyManifestAsync(manifestPath, cancellationToken);
             var installPlan = CreateInstallPlan(manifest);
+            ValidateCleanupManifest(manifest, installPlan);
+            await ApplicationUpdateRollback.WaitForStartupAcknowledgementAsync(
+                manifestPath,
+                manifest.Version,
+                TimeSpan.Zero,
+                cancellationToken);
 
-            DeleteDirectoryTree(sessionRoot);
-            TryDeleteSuccessfulUpdateBackup(manifest.BackupDirectory);
-            TryDeletePreviousInstallDirectory(installPlan);
-            PruneStaleUpdateArtifacts();
+            if (!TryDeleteSuccessfulUpdateBackup(manifest.BackupDirectory))
+            {
+                return false;
+            }
+
+            if (!TryDeletePreviousInstallDirectory(installPlan))
+            {
+                return false;
+            }
+
+            try
+            {
+                DeleteDirectoryTree(sessionRoot);
+                if (Directory.Exists(sessionRoot))
+                {
+                    WriteUpdateLog("Could not remove the completed Crystal Relay update session.");
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                WriteUpdateLog($"Could not remove the completed Crystal Relay update session: {ex.Message}");
+                return false;
+            }
+
+            try
+            {
+                PruneStaleUpdateArtifacts();
+            }
+            catch (Exception ex)
+            {
+                WriteUpdateLog($"Could not prune stale Crystal Relay update artifacts: {ex.Message}");
+            }
+
+            return true;
         }
         catch (Exception ex)
         {
             WriteUpdateLog($"Update cleanup skipped: {ex.Message}");
+            return false;
         }
+    }
+
+    public static async Task AcknowledgeUpdateStartupAsync(
+        ApplicationSelfUpdateCleanupRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var manifestPath = Path.GetFullPath(request.ManifestPath);
+        ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(manifestPath);
+        var updateRoot = NormalizeDirectoryPath(AppDataPaths.UpdatesFolder);
+        if (!IsPathInside(updateRoot, manifestPath) || !File.Exists(manifestPath))
+        {
+            throw new ApplicationSelfUpdateException("The Crystal Relay update apply manifest is outside updater storage.");
+        }
+
+        var sessionRoot = Path.GetDirectoryName(manifestPath);
+        if (string.IsNullOrWhiteSpace(sessionRoot)
+            || AreSamePath(updateRoot, sessionRoot)
+            || !IsPathInside(updateRoot, sessionRoot))
+        {
+            throw new ApplicationSelfUpdateException("The Crystal Relay update session path is invalid.");
+        }
+
+        var manifest = await ReadApplyManifestAsync(manifestPath, cancellationToken);
+        ValidateApplyManifest(manifest);
+        var installPlan = CreateInstallPlan(manifest);
+        ValidateInstallPlan(installPlan);
+        if (!ApplicationUpdateRollback.IsCompleteBackup(
+                manifest.BackupDirectory,
+                installPlan.RelocatesInstallFolder,
+                directory => IsValidPackageContents(directory)))
+        {
+            throw new ApplicationSelfUpdateException(
+                "The Crystal Relay rollback backup is incomplete or invalid.");
+        }
+
+        ApplicationUpdateRollback.WriteStartupAcknowledgement(manifestPath, manifest.Version);
     }
 
     public void Dispose() => httpClient.Dispose();
@@ -367,7 +489,12 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
 
     private static UpdatePackage ResolvePackage(string stagingRoot, ApplicationUpdateInfo update)
     {
-        var manifestPaths = Directory.GetFiles(stagingRoot, PackageManifestFileName, SearchOption.AllDirectories);
+        var manifestPaths = ApplicationUpdatePathSafety.GetRegularFiles(stagingRoot)
+            .Where(path => string.Equals(
+                Path.GetFileName(path),
+                PackageManifestFileName,
+                StringComparison.OrdinalIgnoreCase))
+            .ToArray();
         if (manifestPaths.Length > 1)
         {
             throw new ApplicationSelfUpdateException("The update package contains more than one Crystal Relay manifest.");
@@ -399,7 +526,10 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
             throw new ApplicationSelfUpdateException("The Bug Fix update package manifest is missing.");
         }
 
-        var executablePath = ResolveSingleExecutable(stagingRoot);
+        var executablePath = ResolveExpectedExecutable(
+            stagingRoot,
+            update.Channel,
+            update.LatestVersion);
         var fallbackManifest = new ApplicationUpdatePackageManifest(
             ProductName,
             update.LatestVersion,
@@ -468,7 +598,7 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
             || Path.IsPathRooted(manifest.EntryExecutableName)
             || manifest.EntryExecutableName.Contains(Path.DirectorySeparatorChar)
             || manifest.EntryExecutableName.Contains(Path.AltDirectorySeparatorChar)
-            || !ApplicationUpdatePackageRules.IsExpectedEntryExecutableName(
+            || !ApplicationUpdatePackageRules.IsExpectedInstalledPackageEntryExecutableName(
                 manifestChannel,
                 manifest.Version,
                 manifest.EntryExecutableName))
@@ -480,6 +610,12 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
     private static void ExtractZipSafely(string zipPath, string destinationRoot)
     {
         var fullDestinationRoot = NormalizeDirectoryPath(destinationRoot);
+        ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(fullDestinationRoot);
+        if (Directory.Exists(fullDestinationRoot))
+        {
+            ApplicationUpdatePathSafety.ValidateDirectoryTree(fullDestinationRoot);
+        }
+
         using var archive = ZipFile.OpenRead(zipPath);
         if (archive.Entries.Count == 0)
         {
@@ -499,15 +635,20 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
                 throw new ApplicationSelfUpdateException("The update ZIP contains a path outside the staging folder.");
             }
 
+            ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(destinationPath);
+
             if (string.IsNullOrWhiteSpace(entry.Name))
             {
                 Directory.CreateDirectory(destinationPath);
+                ApplicationUpdatePathSafety.ValidateDirectoryTree(destinationPath);
                 continue;
             }
 
             var destinationDirectory = Path.GetDirectoryName(destinationPath)
                 ?? throw new ApplicationSelfUpdateException("The update ZIP contains an invalid file path.");
+            ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(destinationDirectory);
             Directory.CreateDirectory(destinationDirectory);
+            ApplicationUpdatePathSafety.ValidateDirectoryTree(destinationDirectory);
             entry.ExtractToFile(destinationPath, overwrite: true);
         }
     }
@@ -520,6 +661,21 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
         var json = await File.ReadAllTextAsync(fullManifestPath, cancellationToken);
         return JsonSerializer.Deserialize<ApplicationUpdateApplyManifest>(json, JsonOptions)
             ?? throw new ApplicationSelfUpdateException("The Crystal Relay update apply manifest could not be read.");
+    }
+
+    private static void ValidateApplyManifestPath(string manifestPath)
+    {
+        var fullManifestPath = Path.GetFullPath(manifestPath);
+        ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(fullManifestPath);
+
+        var updateRoot = NormalizeDirectoryPath(AppDataPaths.UpdatesFolder);
+        var sessionRoot = Path.GetDirectoryName(fullManifestPath);
+        if (string.IsNullOrWhiteSpace(sessionRoot)
+            || AreSamePath(updateRoot, sessionRoot)
+            || !IsPathInside(updateRoot, sessionRoot))
+        {
+            throw new ApplicationSelfUpdateException("The Crystal Relay update apply manifest is outside updater storage.");
+        }
     }
 
     private static void ValidateApplyManifest(ApplicationUpdateApplyManifest manifest)
@@ -536,7 +692,10 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
 
         if (!string.Equals(manifest.Runtime, RuntimeName, StringComparison.OrdinalIgnoreCase)
             || !ApplicationUpdatePackageRules.TryParseManifestChannel(manifest.Channel, out var manifestChannel)
-            || !ApplicationUpdatePackageRules.IsExpectedEntryExecutableName(
+            || Path.IsPathRooted(manifest.EntryExecutableName)
+            || manifest.EntryExecutableName.Contains(Path.DirectorySeparatorChar)
+            || manifest.EntryExecutableName.Contains(Path.AltDirectorySeparatorChar)
+            || !ApplicationUpdatePackageRules.IsExpectedInstalledPackageEntryExecutableName(
                 manifestChannel,
                 manifest.Version,
                 manifest.EntryExecutableName))
@@ -544,9 +703,21 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
             throw new ApplicationSelfUpdateException("The Crystal Relay update apply manifest channel or entry executable is invalid.");
         }
 
+        if (!string.IsNullOrWhiteSpace(manifest.PreviousEntryExecutableName)
+            && (Path.IsPathRooted(manifest.PreviousEntryExecutableName)
+                || manifest.PreviousEntryExecutableName.Contains(Path.DirectorySeparatorChar)
+                || manifest.PreviousEntryExecutableName.Contains(Path.AltDirectorySeparatorChar)
+                || !ApplicationUpdatePackageRules.IsApplicationExecutableName(manifest.PreviousEntryExecutableName)))
+        {
+            throw new ApplicationSelfUpdateException("The Crystal Relay restored entry executable is invalid.");
+        }
+
         var packageRoot = NormalizeDirectoryPath(manifest.PackageRoot);
         var installDirectory = NormalizeDirectoryPath(manifest.InstallDirectory);
         var backupDirectory = NormalizeDirectoryPath(manifest.BackupDirectory);
+        ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(packageRoot);
+        ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(installDirectory);
+        ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(backupDirectory);
         if (!Directory.Exists(packageRoot))
         {
             throw new ApplicationSelfUpdateException("The staged Crystal Relay update folder is missing.");
@@ -558,21 +729,169 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
             throw new ApplicationSelfUpdateException("The staged Crystal Relay update folder is outside updater storage.");
         }
 
-        ValidatePackageMarker(
-            packageRoot,
-            new ApplicationUpdatePackageManifest(
-                manifest.ProductName,
-                manifest.Version,
-                manifest.Channel,
-                manifest.Runtime,
-                manifest.EntryExecutableName));
+        ValidateStagedPackageIdentity(packageRoot, manifest);
 
         ValidateInstallDirectory(installDirectory);
 
         var backupRoot = NormalizeDirectoryPath(AppDataPaths.UpdateBackupsFolder);
-        if (!IsPathInside(backupRoot, backupDirectory))
+        if (AreSamePath(backupRoot, backupDirectory)
+            || !IsPathInside(backupRoot, backupDirectory))
         {
             throw new ApplicationSelfUpdateException("The update backup folder is outside Crystal Relay's updater storage.");
+        }
+    }
+
+    private static void ValidateCleanupManifest(
+        ApplicationUpdateApplyManifest manifest,
+        UpdateInstallPlan installPlan)
+    {
+        if (!string.Equals(manifest.ProductName, ProductName, StringComparison.Ordinal)
+            || string.IsNullOrWhiteSpace(manifest.Version)
+            || string.IsNullOrWhiteSpace(manifest.EntryExecutableName)
+            || string.IsNullOrWhiteSpace(manifest.PackageRoot)
+            || string.IsNullOrWhiteSpace(manifest.InstallDirectory)
+            || string.IsNullOrWhiteSpace(manifest.BackupDirectory))
+        {
+            throw new ApplicationSelfUpdateException("The Crystal Relay update apply manifest is incomplete.");
+        }
+
+        if (!string.Equals(manifest.Runtime, RuntimeName, StringComparison.OrdinalIgnoreCase)
+            || !ApplicationUpdatePackageRules.TryParseManifestChannel(manifest.Channel, out var manifestChannel)
+            || Path.IsPathRooted(manifest.EntryExecutableName)
+            || manifest.EntryExecutableName.Contains(Path.DirectorySeparatorChar)
+            || manifest.EntryExecutableName.Contains(Path.AltDirectorySeparatorChar)
+            || !ApplicationUpdatePackageRules.IsExpectedInstalledPackageEntryExecutableName(
+                manifestChannel,
+                manifest.Version,
+                manifest.EntryExecutableName))
+        {
+            throw new ApplicationSelfUpdateException("The Crystal Relay update apply manifest channel or entry executable is invalid.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(manifest.PreviousEntryExecutableName)
+            && (Path.IsPathRooted(manifest.PreviousEntryExecutableName)
+                || manifest.PreviousEntryExecutableName.Contains(Path.DirectorySeparatorChar)
+                || manifest.PreviousEntryExecutableName.Contains(Path.AltDirectorySeparatorChar)
+                || !ApplicationUpdatePackageRules.IsApplicationExecutableName(manifest.PreviousEntryExecutableName)))
+        {
+            throw new ApplicationSelfUpdateException("The Crystal Relay restored entry executable is invalid.");
+        }
+
+        var packageRoot = NormalizeDirectoryPath(manifest.PackageRoot);
+        var backupDirectory = NormalizeDirectoryPath(manifest.BackupDirectory);
+        var updateRoot = NormalizeDirectoryPath(AppDataPaths.UpdatesFolder);
+        if (!IsPathInside(updateRoot, packageRoot))
+        {
+            throw new ApplicationSelfUpdateException("The staged Crystal Relay update folder is outside updater storage.");
+        }
+
+        var backupRoot = NormalizeDirectoryPath(AppDataPaths.UpdateBackupsFolder);
+        if (AreSamePath(backupRoot, backupDirectory)
+            || !IsPathInside(backupRoot, backupDirectory))
+        {
+            throw new ApplicationSelfUpdateException("The update backup folder is outside Crystal Relay's updater storage.");
+        }
+
+        ValidateInstallPlan(installPlan);
+        ValidateStagedPackageIdentity(packageRoot, manifest);
+
+        if (Directory.Exists(installPlan.SourceDirectory))
+        {
+            ValidatePackageInstallDirectory(installPlan.SourceDirectory, "The previous Crystal Relay install folder");
+        }
+
+        if (Directory.Exists(backupDirectory)
+            && !ApplicationUpdateRollback.IsCompleteBackup(
+                 backupDirectory,
+                 installPlan.RelocatesInstallFolder,
+                 directory => IsValidPackageContents(directory)))
+        {
+                throw new ApplicationSelfUpdateException("The Crystal Relay rollback backup is incomplete or invalid.");
+        }
+    }
+
+    private static void ValidateStagedPackageIdentity(
+        string packageRoot,
+        ApplicationUpdateApplyManifest applyManifest)
+    {
+        ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(packageRoot);
+        ApplicationUpdatePathSafety.ValidateDirectoryTree(packageRoot);
+        if (!ApplicationUpdatePackageRules.TryParseManifestChannel(
+                applyManifest.Channel,
+                out var applyChannel))
+        {
+            throw new ApplicationSelfUpdateException("The staged Crystal Relay package channel is invalid.");
+        }
+
+        if (!File.Exists(Path.Combine(packageRoot, applyManifest.EntryExecutableName)))
+        {
+            throw new ApplicationSelfUpdateException("The staged Crystal Relay update entry executable is missing.");
+        }
+
+        var packageManifestPath = Path.Combine(packageRoot, PackageManifestFileName);
+        if (!File.Exists(packageManifestPath))
+        {
+            if (applyChannel == ApplicationUpdateChannel.BugFix)
+            {
+                throw new ApplicationSelfUpdateException("The Bug Fix update package manifest is missing.");
+            }
+
+            return;
+        }
+
+        ApplicationUpdatePackageManifest? packageManifest;
+        try
+        {
+            packageManifest = JsonSerializer.Deserialize<ApplicationUpdatePackageManifest>(
+                File.ReadAllText(packageManifestPath),
+                JsonOptions);
+        }
+        catch (Exception ex)
+        {
+            throw new ApplicationSelfUpdateException(
+                "The staged Crystal Relay package manifest could not be read.",
+                ex);
+        }
+
+        if (packageManifest is null
+            || !string.Equals(packageManifest.ProductName, applyManifest.ProductName, StringComparison.Ordinal)
+            || string.IsNullOrWhiteSpace(packageManifest.Version)
+            || !string.Equals(packageManifest.Runtime, applyManifest.Runtime, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(packageManifest.Channel, applyManifest.Channel, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(packageManifest.Version, applyManifest.Version, StringComparison.Ordinal)
+            || !string.Equals(packageManifest.EntryExecutableName, applyManifest.EntryExecutableName, StringComparison.Ordinal))
+        {
+            throw new ApplicationSelfUpdateException(
+                "The staged Crystal Relay package manifest does not match the apply manifest.");
+        }
+
+        if (!ApplicationUpdatePackageRules.TryParseManifestChannel(
+                packageManifest.Channel,
+                out var packageChannel)
+            || packageChannel != applyChannel
+            || Path.IsPathRooted(packageManifest.EntryExecutableName)
+            || packageManifest.EntryExecutableName.Contains(Path.DirectorySeparatorChar)
+            || packageManifest.EntryExecutableName.Contains(Path.AltDirectorySeparatorChar)
+            || !ApplicationUpdatePackageRules.IsExpectedInstalledPackageEntryExecutableName(
+                packageChannel,
+                packageManifest.Version,
+                packageManifest.EntryExecutableName))
+        {
+            throw new ApplicationSelfUpdateException("The staged Crystal Relay package manifest is invalid.");
+        }
+
+        ValidatePackageMarker(
+            packageRoot,
+            new ApplicationUpdatePackageManifest(
+                applyManifest.ProductName,
+                applyManifest.Version,
+                applyManifest.Channel,
+                applyManifest.Runtime,
+                applyManifest.EntryExecutableName));
+
+        if (!File.Exists(Path.Combine(packageRoot, applyManifest.EntryExecutableName)))
+        {
+            throw new ApplicationSelfUpdateException("The staged Crystal Relay update entry executable is missing.");
         }
     }
 
@@ -589,6 +908,7 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
     private static void ValidatePotentialInstallDirectory(string installDirectory)
     {
         var normalizedInstallDirectory = NormalizeDirectoryPath(installDirectory);
+        ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(normalizedInstallDirectory);
 
         var root = Path.GetPathRoot(normalizedInstallDirectory);
         if (string.IsNullOrWhiteSpace(root)
@@ -607,6 +927,11 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
         if (string.IsNullOrWhiteSpace(parentDirectory) || !Directory.Exists(parentDirectory))
         {
             throw new ApplicationSelfUpdateException("The Crystal Relay install parent folder could not be found.");
+        }
+
+        if (Directory.Exists(normalizedInstallDirectory))
+        {
+            ApplicationUpdatePathSafety.ValidateDirectoryTree(normalizedInstallDirectory);
         }
     }
 
@@ -641,12 +966,14 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
     private static string PrepareDedicatedUpdaterExecutable(string sessionRoot)
     {
         var installedUpdaterPath = Path.Combine(AppContext.BaseDirectory, DedicatedUpdaterExecutableName);
+        ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(installedUpdaterPath);
         if (!File.Exists(installedUpdaterPath))
         {
             throw new ApplicationSelfUpdateException("Crystal Relay could not find its dedicated updater executable.");
         }
 
         var updaterExecutablePath = Path.Combine(sessionRoot, DedicatedUpdaterExecutableName);
+        ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(updaterExecutablePath);
         CopyFileWithRetry(installedUpdaterPath, updaterExecutablePath, overwrite: true);
         return updaterExecutablePath;
     }
@@ -666,7 +993,7 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
         Process.Start(startInfo);
     }
 
-    private static void LaunchInstalledApplication(string entryExecutablePath, string applyManifestPath)
+    private static Process LaunchInstalledApplication(string entryExecutablePath, string applyManifestPath)
     {
         var startInfo = new ProcessStartInfo
         {
@@ -677,7 +1004,28 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
         startInfo.ArgumentList.Add(CleanupUpdateArgument);
         startInfo.ArgumentList.Add(applyManifestPath);
         startInfo.ArgumentList.Add(Environment.ProcessId.ToString());
-        Process.Start(startInfo);
+        return Process.Start(startInfo)
+            ?? throw new ApplicationSelfUpdateException("Crystal Relay could not launch the installed application.");
+    }
+
+    private static void TryTerminateProcess(Process? process)
+    {
+        if (process is null)
+        {
+            return;
+        }
+
+        try
+        {
+            ApplicationUpdateRollback.TerminateProcessTreeAndWait(process, ProcessTerminationTimeout);
+        }
+        catch (Exception ex)
+        {
+            WriteUpdateLog($"Could not terminate the failed Crystal Relay process: {ex.Message}");
+            throw new ApplicationSelfUpdateException(
+                "Crystal Relay could not terminate the failed replacement process.",
+                ex);
+        }
     }
 
     private static UpdateInstallPlan CreateInstallPlan(ApplicationUpdateApplyManifest manifest)
@@ -697,6 +1045,7 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
                 packageRoot));
 
         return new UpdateInstallPlan(
+            channel,
             sourceDirectory,
             targetDirectory,
             Path.Combine(NormalizeDirectoryPath(manifest.BackupDirectory), SourceBackupFolderName),
@@ -736,20 +1085,15 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
 
     private static void PrepareRollbackBackup(ApplicationUpdateApplyManifest manifest, UpdateInstallPlan installPlan)
     {
-        Directory.CreateDirectory(manifest.BackupDirectory);
-
-        if (installPlan.RelocatesInstallFolder)
-        {
-            if (Directory.Exists(installPlan.TargetDirectory))
-            {
-                ValidatePackageInstallDirectory(installPlan.TargetDirectory, "The existing update target folder");
-                CopyDirectoryContents(installPlan.TargetDirectory, installPlan.TargetBackupDirectory);
-            }
-
-            return;
-        }
-
-        CopyDirectoryContents(installPlan.SourceDirectory, installPlan.SourceBackupDirectory);
+        ApplicationUpdateRollback.PrepareCompleteBackup(
+            backupDirectory: manifest.BackupDirectory,
+            sourceDirectory: installPlan.SourceDirectory,
+            targetDirectory: installPlan.TargetDirectory,
+            relocatesInstallFolder: installPlan.RelocatesInstallFolder,
+            copyDirectoryContents: CopyDirectoryContents,
+            validateBackupDirectory: directory =>
+                ValidatePackageContents(directory),
+            deleteDirectoryTree: DeleteDirectoryTree);
     }
 
     private static void ReplaceInstallFiles(ApplicationUpdateApplyManifest manifest, UpdateInstallPlan installPlan)
@@ -773,93 +1117,145 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
         CopyDirectoryContents(manifest.PackageRoot, installPlan.TargetDirectory);
     }
 
-    private static void TryLaunchRestoredApplication(ApplicationUpdateApplyManifest manifest, UpdateInstallPlan installPlan)
+    private static Process LaunchRestoredApplication(
+        ApplicationUpdateApplyManifest manifest,
+        UpdateInstallPlan installPlan)
     {
-        try
+        ApplicationUpdatePathSafety.ValidateDirectoryTree(installPlan.SourceDirectory);
+        var restoredExecutable = !string.IsNullOrWhiteSpace(manifest.PreviousEntryExecutableName)
+            ? Path.Combine(installPlan.SourceDirectory, manifest.PreviousEntryExecutableName)
+            : ResolveSingleExecutable(installPlan.SourceDirectory);
+        if (!IsPathInside(installPlan.SourceDirectory, restoredExecutable))
         {
-            var restoredExecutable = !string.IsNullOrWhiteSpace(manifest.PreviousEntryExecutableName)
-                ? Path.Combine(installPlan.SourceDirectory, manifest.PreviousEntryExecutableName)
-                : ResolveSingleExecutable(installPlan.SourceDirectory);
-            if (!File.Exists(restoredExecutable))
-            {
-                restoredExecutable = ResolveSingleExecutable(installPlan.SourceDirectory);
-            }
+            throw new ApplicationSelfUpdateException("The restored Crystal Relay executable is outside the previous install folder.");
+        }
 
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = restoredExecutable,
-                UseShellExecute = true,
-                WorkingDirectory = Path.GetDirectoryName(restoredExecutable)
-            });
-        }
-        catch (Exception ex)
+        if (!File.Exists(restoredExecutable))
         {
-            WriteUpdateLog($"Could not relaunch restored Crystal Relay: {ex.Message}");
+            restoredExecutable = ResolveSingleExecutable(installPlan.SourceDirectory);
         }
+
+        return Process.Start(new ProcessStartInfo
+        {
+            FileName = restoredExecutable,
+            UseShellExecute = true,
+            WorkingDirectory = Path.GetDirectoryName(restoredExecutable)
+        }) ?? throw new ApplicationSelfUpdateException("Crystal Relay could not relaunch the restored application.");
     }
 
-    private static void TryRestoreBackup(ApplicationUpdateApplyManifest manifest, UpdateInstallPlan installPlan)
+    private static void RestoreBackup(ApplicationUpdateApplyManifest manifest, UpdateInstallPlan installPlan)
     {
-        try
+        if (!ApplicationUpdateRollback.IsCompleteBackup(
+                manifest.BackupDirectory,
+                installPlan.RelocatesInstallFolder,
+                directory => IsValidPackageContents(directory)))
         {
-            if (!Directory.Exists(manifest.BackupDirectory))
-            {
-                return;
-            }
-
-            if (installPlan.RelocatesInstallFolder)
-            {
-                RestoreRelocatedTarget(installPlan);
-                return;
-            }
-
-            RestoreDirectoryBackup(installPlan.SourceBackupDirectory, installPlan.SourceDirectory);
-            WriteUpdateLog("Restored previous Crystal Relay files from update backup.");
+            throw new ApplicationSelfUpdateException(
+                "The Crystal Relay rollback backup is incomplete or invalid; the current installation was left untouched.");
         }
-        catch (Exception ex)
-        {
-            WriteUpdateLog($"Could not restore update backup: {ex}");
-        }
-    }
 
-    private static void RestoreRelocatedTarget(UpdateInstallPlan installPlan)
-    {
-        if (Directory.Exists(installPlan.TargetBackupDirectory))
+        if (installPlan.RelocatesInstallFolder)
         {
-            RestoreDirectoryBackup(installPlan.TargetBackupDirectory, installPlan.TargetDirectory);
-            WriteUpdateLog("Restored previous Crystal Relay target files from update backup.");
+            RestoreRelocatedTarget(manifest, installPlan);
             return;
         }
 
-        if (Directory.Exists(installPlan.TargetDirectory))
+        RestoreDirectoryBackup(installPlan.SourceBackupDirectory, installPlan.SourceDirectory);
+        WriteUpdateLog("Restored previous Crystal Relay files from update backup.");
+    }
+
+    private static void RestoreRelocatedTarget(
+        ApplicationUpdateApplyManifest manifest,
+        UpdateInstallPlan installPlan)
+    {
+        if (ApplicationUpdateRollback.GetRecordedTargetPresence(manifest.BackupDirectory))
         {
-            DeleteDirectoryTree(installPlan.TargetDirectory);
-            WriteUpdateLog("Removed partial Crystal Relay update target folder.");
+            if (ApplicationUpdateRollback.IsEntryMissing(installPlan.TargetBackupDirectory))
+            {
+                throw new ApplicationSelfUpdateException(
+                    "Missing target backup for a relocation target that was recorded as present.");
+            }
+
+            RestoreDirectoryBackup(installPlan.TargetBackupDirectory, installPlan.TargetDirectory);
+            WriteUpdateLog("Restored previous Crystal Relay target files from update backup.");
         }
+        else if (!ApplicationUpdateRollback.IsEntryMissing(installPlan.TargetBackupDirectory))
+        {
+            throw new ApplicationSelfUpdateException(
+                "The relocation target backup exists even though the target was recorded as absent.");
+        }
+        else
+        {
+            if (Directory.Exists(installPlan.TargetDirectory))
+            {
+                ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(installPlan.TargetDirectory);
+                DeleteDirectoryTree(installPlan.TargetDirectory);
+                if (!ApplicationUpdateRollback.IsEntryMissing(installPlan.TargetDirectory))
+                {
+                    throw new ApplicationSelfUpdateException(
+                        "Crystal Relay could not remove the newly-created relocation target folder.");
+                }
+
+                WriteUpdateLog("Removed partial Crystal Relay update target folder.");
+            }
+            else if (!ApplicationUpdateRollback.IsEntryMissing(installPlan.TargetDirectory))
+            {
+                throw new ApplicationSelfUpdateException(
+                    "The relocation target path is not a directory or a missing path.");
+            }
+        }
+
+        ValidatePackageContents(installPlan.SourceDirectory);
     }
 
     private static void RestoreDirectoryBackup(string backupDirectory, string targetDirectory)
     {
+        ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(backupDirectory);
         if (!Directory.Exists(backupDirectory))
         {
-            return;
+            throw new ApplicationSelfUpdateException(
+                "The rollback backup source is missing or is not a directory.");
         }
 
+        ApplicationUpdatePathSafety.ValidateDirectoryTree(backupDirectory);
+        ValidatePackageContents(backupDirectory);
+        ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(targetDirectory);
+        if (Directory.Exists(targetDirectory))
+        {
+            ApplicationUpdatePathSafety.ValidateDirectoryTree(targetDirectory);
+            ClearDirectoryContents(targetDirectory);
+        }
+        else if (!ApplicationUpdateRollback.IsEntryMissing(targetDirectory))
+        {
+            throw new ApplicationSelfUpdateException(
+                "The rollback destination is not a directory or a missing path.");
+        }
+
+        ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(targetDirectory);
         Directory.CreateDirectory(targetDirectory);
-        ClearDirectoryContents(targetDirectory);
+        ApplicationUpdatePathSafety.ValidateDirectoryTree(targetDirectory);
         CopyDirectoryContents(backupDirectory, targetDirectory);
+        ApplicationUpdatePathSafety.ValidateCopiedDirectoryTree(backupDirectory, targetDirectory);
+        ValidatePackageContents(targetDirectory);
     }
 
     private static void CopyDirectoryContents(string sourceDirectory, string destinationDirectory)
     {
+        ApplicationUpdatePathSafety.ValidateDirectoryTree(sourceDirectory);
+        ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(destinationDirectory);
         Directory.CreateDirectory(destinationDirectory);
+        ApplicationUpdatePathSafety.ValidateDirectoryTree(destinationDirectory);
+        ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(sourceDirectory);
         foreach (var filePath in Directory.EnumerateFiles(sourceDirectory))
         {
+            ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(filePath);
             CopyFileWithRetry(filePath, Path.Combine(destinationDirectory, Path.GetFileName(filePath)), overwrite: true);
         }
 
+        ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(sourceDirectory);
         foreach (var sourceSubDirectory in Directory.EnumerateDirectories(sourceDirectory))
         {
+            ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(sourceSubDirectory);
             var destinationSubDirectory = Path.Combine(destinationDirectory, Path.GetFileName(sourceSubDirectory));
             CopyDirectoryContents(sourceSubDirectory, destinationSubDirectory);
         }
@@ -867,32 +1263,41 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
 
     private static void ClearDirectoryContents(string directoryPath)
     {
+        ApplicationUpdatePathSafety.ValidateDirectoryTree(directoryPath);
+        ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(directoryPath);
         foreach (var filePath in Directory.EnumerateFiles(directoryPath))
         {
+            ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(filePath);
             DeleteFileWithRetry(filePath);
         }
 
+        ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(directoryPath);
         foreach (var subDirectoryPath in Directory.EnumerateDirectories(directoryPath))
         {
+            ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(subDirectoryPath);
             DeleteDirectoryTree(subDirectoryPath);
         }
     }
 
     private static void DeleteDirectoryTree(string directoryPath)
     {
+        ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(directoryPath);
         if (!Directory.Exists(directoryPath))
         {
             return;
         }
 
-        foreach (var filePath in Directory.EnumerateFiles(directoryPath, "*", SearchOption.AllDirectories))
+        ApplicationUpdatePathSafety.ValidateDirectoryTree(directoryPath);
+        ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(directoryPath);
+        foreach (var filePath in Directory.EnumerateFiles(directoryPath))
         {
-            SetAttributesNormalWithRetry(filePath);
+            DeleteFileWithRetry(filePath);
         }
 
-        foreach (var subDirectoryPath in Directory.EnumerateDirectories(directoryPath, "*", SearchOption.AllDirectories))
+        ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(directoryPath);
+        foreach (var subDirectoryPath in Directory.EnumerateDirectories(directoryPath))
         {
-            SetAttributesNormalWithRetry(subDirectoryPath);
+            DeleteDirectoryTree(subDirectoryPath);
         }
 
         SetAttributesNormalWithRetry(directoryPath);
@@ -901,6 +1306,8 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
 
     private static void CopyFileWithRetry(string sourcePath, string destinationPath, bool overwrite)
     {
+        ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(sourcePath);
+        ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(destinationPath);
         ExecuteFileOperationWithRetry(
             () => File.Copy(sourcePath, destinationPath, overwrite),
             $"copy '{sourcePath}' to '{destinationPath}'");
@@ -908,6 +1315,7 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
 
     private static void DeleteFileWithRetry(string filePath)
     {
+        ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(filePath);
         ExecuteFileOperationWithRetry(
             () =>
             {
@@ -919,13 +1327,15 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
 
     private static void DeleteDirectoryWithRetry(string directoryPath)
     {
+        ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(directoryPath);
         ExecuteFileOperationWithRetry(
-            () => Directory.Delete(directoryPath, recursive: true),
+            () => Directory.Delete(directoryPath, recursive: false),
             $"delete folder '{directoryPath}'");
     }
 
     private static void SetAttributesNormalWithRetry(string path)
     {
+        ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(path);
         ExecuteFileOperationWithRetry(
             () => File.SetAttributes(path, FileAttributes.Normal),
             $"prepare '{path}' for cleanup");
@@ -958,12 +1368,31 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
 
     private static string ResolveSingleExecutable(string root)
     {
-        var executables = Directory.GetFiles(root, "*.exe", SearchOption.AllDirectories)
+        var executables = ApplicationUpdatePathSafety.GetRegularFiles(root)
+            .Where(path => path.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
             .Where(path => ApplicationUpdatePackageRules.IsApplicationExecutableName(Path.GetFileName(path)))
             .ToArray();
         return executables.Length == 1
             ? executables[0]
             : throw new ApplicationSelfUpdateException("The update package must contain exactly one Crystal Relay executable.");
+    }
+
+    private static string ResolveExpectedExecutable(
+        string root,
+        ApplicationUpdateChannel channel,
+        string version)
+    {
+        var executables = ApplicationUpdatePathSafety.GetRegularFiles(root)
+            .Where(path => path.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+            .Where(path => ApplicationUpdatePackageRules.IsExpectedInstalledPackageEntryExecutableName(
+                channel,
+                version,
+                Path.GetFileName(path)))
+            .ToArray();
+        return executables.Length == 1
+            ? executables[0]
+            : throw new ApplicationSelfUpdateException(
+                "The update package must contain exactly one expected Crystal Relay executable.");
     }
 
     private static void PruneStaleUpdateArtifacts()
@@ -974,6 +1403,12 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
 
     private static void DeleteOldUpdateSessions(string updateRoot)
     {
+        if (!Directory.Exists(updateRoot))
+        {
+            return;
+        }
+
+        ApplicationUpdatePathSafety.ValidateDirectoryTree(updateRoot);
         var cutoff = DateTimeOffset.UtcNow.Subtract(StaleUpdateSessionRetention);
         foreach (var directory in Directory.EnumerateDirectories(updateRoot))
         {
@@ -993,6 +1428,12 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
 
     private static void DeleteOldUpdateBackups(string backupRoot)
     {
+        if (!Directory.Exists(backupRoot))
+        {
+            return;
+        }
+
+        ApplicationUpdatePathSafety.ValidateDirectoryTree(backupRoot);
         var cutoff = DateTimeOffset.UtcNow.Subtract(FailedUpdateBackupRetention);
         foreach (var directory in Directory.EnumerateDirectories(backupRoot))
         {
@@ -1010,29 +1451,66 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
         }
     }
 
-    private static void TryDeleteSuccessfulUpdateBackup(string backupDirectory)
+    private static bool TryDeleteSuccessfulUpdateBackup(string backupDirectory)
     {
         try
         {
             var backupRoot = NormalizeDirectoryPath(AppDataPaths.UpdateBackupsFolder);
             var fullBackupDirectory = NormalizeDirectoryPath(backupDirectory);
-            if (IsPathInside(backupRoot, fullBackupDirectory) && Directory.Exists(fullBackupDirectory))
+            ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(fullBackupDirectory);
+            if (AreSamePath(backupRoot, fullBackupDirectory)
+                || !IsPathInside(backupRoot, fullBackupDirectory))
             {
-                DeleteDirectoryTree(fullBackupDirectory);
-                WriteUpdateLog("Removed completed Crystal Relay update backup.");
+                WriteUpdateLog("Skipped completed update backup cleanup because the path is outside updater storage.");
+                return false;
             }
+
+            if (!Directory.Exists(fullBackupDirectory))
+            {
+                if (File.Exists(fullBackupDirectory))
+                {
+                    WriteUpdateLog("Could not remove completed update backup because a file occupies its path.");
+                    return false;
+                }
+
+                return true;
+            }
+
+            ApplicationUpdatePathSafety.ValidateDirectoryTree(fullBackupDirectory);
+
+            DeleteDirectoryTree(fullBackupDirectory);
+            if (Directory.Exists(fullBackupDirectory))
+            {
+                WriteUpdateLog("Could not confirm removal of the completed Crystal Relay update backup.");
+                return false;
+            }
+
+            WriteUpdateLog("Removed completed Crystal Relay update backup.");
+            return true;
         }
         catch (Exception ex)
         {
             WriteUpdateLog($"Could not remove completed update backup: {ex.Message}");
+            return false;
         }
     }
 
-    private static void TryDeletePreviousInstallDirectory(UpdateInstallPlan installPlan)
+    private static bool TryDeletePreviousInstallDirectory(UpdateInstallPlan installPlan)
     {
-        if (!installPlan.RelocatesInstallFolder || !Directory.Exists(installPlan.SourceDirectory))
+        if (!installPlan.RelocatesInstallFolder)
         {
-            return;
+            return true;
+        }
+
+        if (!Directory.Exists(installPlan.SourceDirectory))
+        {
+            if (File.Exists(installPlan.SourceDirectory))
+            {
+                WriteUpdateLog("Could not remove the previous Crystal Relay install folder because a file occupies its path.");
+                return false;
+            }
+
+            return true;
         }
 
         try
@@ -1040,21 +1518,29 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
             if (IsCurrentProcessInsideDirectory(installPlan.SourceDirectory))
             {
                 WriteUpdateLog("Skipped old Crystal Relay install folder cleanup because it is still running from that folder.");
-                return;
+                return true;
             }
 
             if (!TryValidatePackageInstallDirectory(installPlan.SourceDirectory, out var validationError))
             {
                 WriteUpdateLog($"Skipped old Crystal Relay install folder cleanup: {validationError}");
-                return;
+                return false;
             }
 
             DeleteDirectoryTree(installPlan.SourceDirectory);
+            if (Directory.Exists(installPlan.SourceDirectory))
+            {
+                WriteUpdateLog("Could not confirm removal of the previous Crystal Relay install folder.");
+                return false;
+            }
+
             WriteUpdateLog($"Removed previous Crystal Relay install folder '{installPlan.SourceDirectory}'.");
+            return true;
         }
         catch (Exception ex)
         {
             WriteUpdateLog($"Could not remove previous Crystal Relay install folder: {ex.Message}");
+            return false;
         }
     }
 
@@ -1066,10 +1552,23 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
         }
     }
 
+    private static void ValidatePackageContents(
+        string directoryPath)
+    {
+        if (!TryValidatePackageContents(directoryPath, out var validationError))
+        {
+            throw new ApplicationSelfUpdateException($"The rollback backup is not a validated Crystal Relay package. {validationError}");
+        }
+    }
+
+    private static bool IsValidPackageContents(string directoryPath) =>
+        TryValidatePackageContents(directoryPath, out _);
+
     private static bool TryValidatePackageInstallDirectory(string directoryPath, out string validationError)
     {
         validationError = string.Empty;
         var fullDirectoryPath = NormalizeDirectoryPath(directoryPath);
+        ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(fullDirectoryPath);
         if (!Directory.Exists(fullDirectoryPath))
         {
             validationError = "The folder does not exist.";
@@ -1082,16 +1581,62 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
             return false;
         }
 
+        return TryValidatePackageContents(fullDirectoryPath, out validationError);
+    }
+
+    private static bool TryValidatePackageContents(string directoryPath, out string validationError)
+    {
+        validationError = string.Empty;
+        var fullDirectoryPath = NormalizeDirectoryPath(directoryPath);
+        ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(fullDirectoryPath);
+        if (!Directory.Exists(fullDirectoryPath))
+        {
+            validationError = "The folder does not exist.";
+            return false;
+        }
+
+        try
+        {
+            ApplicationUpdatePathSafety.ValidateDirectoryTree(fullDirectoryPath);
+        }
+        catch (Exception ex)
+        {
+            validationError = $"The folder contains an unsafe filesystem entry: {ex.Message}";
+            return false;
+        }
+
         var manifestPath = Path.Combine(fullDirectoryPath, PackageManifestFileName);
+        ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(manifestPath);
         if (!File.Exists(manifestPath))
         {
-            validationError = "The package manifest is missing.";
+            ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(fullDirectoryPath);
+            var legacyExecutables = Directory.GetFiles(
+                    fullDirectoryPath,
+                    "*.exe",
+                    SearchOption.TopDirectoryOnly)
+                .Where(path =>
+                {
+                    var fileName = Path.GetFileName(path);
+                    return !Path.IsPathRooted(fileName)
+                        && !fileName.Contains(Path.DirectorySeparatorChar)
+                        && !fileName.Contains(Path.AltDirectorySeparatorChar)
+                        && ApplicationUpdatePackageRules.IsApplicationExecutableName(fileName)
+                        && !fileName.Contains("-bugfix", StringComparison.OrdinalIgnoreCase);
+                })
+                .ToArray();
+            if (legacyExecutables.Length == 1)
+            {
+                return true;
+            }
+
+            validationError = "The package manifest is missing and no safe Crystal Relay executable was found.";
             return false;
         }
 
         ApplicationUpdatePackageManifest? manifest;
         try
         {
+            ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(manifestPath);
             manifest = JsonSerializer.Deserialize<ApplicationUpdatePackageManifest>(
                 File.ReadAllText(manifestPath),
                 JsonOptions);
@@ -1104,13 +1649,14 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
 
         if (manifest is null
             || !string.Equals(manifest.ProductName, ProductName, StringComparison.Ordinal)
+            || string.IsNullOrWhiteSpace(manifest.Version)
             || !string.Equals(manifest.Runtime, RuntimeName, StringComparison.OrdinalIgnoreCase)
             || !ApplicationUpdatePackageRules.TryParseManifestChannel(manifest.Channel, out var channel)
             || string.IsNullOrWhiteSpace(manifest.EntryExecutableName)
             || Path.IsPathRooted(manifest.EntryExecutableName)
             || manifest.EntryExecutableName.Contains(Path.DirectorySeparatorChar)
             || manifest.EntryExecutableName.Contains(Path.AltDirectorySeparatorChar)
-            || !ApplicationUpdatePackageRules.IsExpectedEntryExecutableName(
+            || !ApplicationUpdatePackageRules.IsExpectedInstalledPackageEntryExecutableName(
                 channel,
                 manifest.Version,
                 manifest.EntryExecutableName))
@@ -1123,7 +1669,10 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
         if (channel == ApplicationUpdateChannel.BugFix)
         {
             var markerPath = Path.Combine(fullDirectoryPath, "bugfix-build.flag");
-            var markerText = File.Exists(markerPath) ? File.ReadAllText(markerPath) : null;
+            ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(markerPath);
+            var markerText = File.Exists(markerPath)
+                ? ReadTextWithPathSafety(markerPath)
+                : null;
             if (string.IsNullOrWhiteSpace(expectedMarker)
                 || !ApplicationUpdatePackageRules.IsExpectedBuildMarker(channel, manifest.Version, markerText))
             {
@@ -1133,6 +1682,7 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
         }
 
         var entryExecutablePath = Path.Combine(fullDirectoryPath, manifest.EntryExecutableName);
+        ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(entryExecutablePath);
         if (!File.Exists(entryExecutablePath))
         {
             validationError = "The package entry executable is missing.";
@@ -1140,6 +1690,12 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
         }
 
         return true;
+    }
+
+    private static string ReadTextWithPathSafety(string path)
+    {
+        ApplicationUpdatePathSafety.EnsureNoReparsePointInExistingAncestors(path);
+        return File.ReadAllText(path);
     }
 
     private static bool IsPackageInstallFolderName(string? folderName) =>
@@ -1260,6 +1816,7 @@ internal sealed class ApplicationSelfUpdateService : IDisposable
         string EntryExecutablePath);
 
     private sealed record UpdateInstallPlan(
+        ApplicationUpdateChannel Channel,
         string SourceDirectory,
         string TargetDirectory,
         string SourceBackupDirectory,

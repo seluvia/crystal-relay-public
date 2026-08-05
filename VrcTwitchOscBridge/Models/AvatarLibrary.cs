@@ -34,6 +34,18 @@ public sealed class AvatarLibrary : ObservableObject
         set => SetProperty(ref tags, value ?? []);
     }
 
+    private const int MaxRecentAvatars = 10;
+
+    public List<string> RecentAvatarIds { get; set; } = [];
+
+    public void TrackRecentAvatar(string avatarId)
+    {
+        RecentAvatarIds.Remove(avatarId);
+        RecentAvatarIds.Insert(0, avatarId);
+        if (RecentAvatarIds.Count > MaxRecentAvatars)
+            RecentAvatarIds.RemoveRange(MaxRecentAvatars, RecentAvatarIds.Count - MaxRecentAvatars);
+    }
+
     public AvatarLibraryEntry? GetEntry(string avatarId) =>
         Entries.FirstOrDefault(e => string.Equals(e.AvatarId, avatarId, StringComparison.Ordinal));
 

@@ -18,13 +18,76 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Reject tracked local secret files
+        shell: pwsh
+        run: |
+          $trackedSecretFiles = @(git ls-files -- ':(glob)**/.dev.vars')
+          if ($trackedSecretFiles.Count -gt 0) {
+            $trackedSecretFiles | ForEach-Object { Write-Error "Tracked local secret file: $_" }
+            exit 1
+          }
+
+      - name: Validate World Guard CI inputs
+        shell: pwsh
+        run: |
+          $workerDirectory = 'cloudflare/crystal-relay-world-guard'
+          $workerLockFile = Join-Path $workerDirectory 'package-lock.json'
+          $workerPresent = (
+            (Test-Path -LiteralPath $workerDirectory -PathType Container) -or
+            (Test-Path -LiteralPath (Join-Path $workerDirectory 'package.json') -PathType Leaf) -or
+            (Test-Path -LiteralPath (Join-Path $workerDirectory 'src') -PathType Container)
+          )
+          if ($workerPresent -and -not (Test-Path -LiteralPath $workerLockFile -PathType Leaf)) {
+            throw 'World Guard Worker CI inputs are incomplete: package-lock.json is required.'
+          }
+
+      - name: Setup Node
+        if: ${{ hashFiles('cloudflare/crystal-relay-world-guard/package-lock.json') != '' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: cloudflare/crystal-relay-world-guard/package-lock.json
+
+      - name: Install World Guard dependencies
+        if: ${{ hashFiles('cloudflare/crystal-relay-world-guard/package-lock.json') != '' }}
+        working-directory: cloudflare/crystal-relay-world-guard
+        run: npm ci
+
+      - name: Test World Guard Worker
+        if: ${{ hashFiles('cloudflare/crystal-relay-world-guard/package-lock.json') != '' }}
+        working-directory: cloudflare/crystal-relay-world-guard
+        run: npm test
+
+      - name: Audit World Guard dependencies
+        if: ${{ hashFiles('cloudflare/crystal-relay-world-guard/package-lock.json') != '' }}
+        working-directory: cloudflare/crystal-relay-world-guard
+        run: npm audit --audit-level=high
+
+      - name: Validate World Guard bootstrap bundle
+        if: ${{ hashFiles('cloudflare/crystal-relay-world-guard/package-lock.json') != '' }}
+        working-directory: cloudflare/crystal-relay-world-guard
+        run: npx wrangler deploy src/bootstrap.js --dry-run
+
+      - name: Validate World Guard full bundle
+        if: ${{ hashFiles('cloudflare/crystal-relay-world-guard/package-lock.json') != '' }}
+        working-directory: cloudflare/crystal-relay-world-guard
+        run: npx wrangler deploy --dry-run
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
 
       - name: Restore
-        run: dotnet restore .\VrcTwitchOscBridge\VrcTwitchOscBridge.csproj
+        run: dotnet restore .\VrcTwitchOscBridge.Tests\VrcTwitchOscBridge.Tests.csproj
+
+      - name: Test World Guard desktop contract
+        shell: pwsh
+        run: >-
+          dotnet test .\VrcTwitchOscBridge.Tests\VrcTwitchOscBridge.Tests.csproj
+          --no-restore -c Release --nologo
+          --filter "FullyQualifiedName~VrChatCurrentWorldTests|FullyQualifiedName~WorldCommandBlacklistServiceTests|FullyQualifiedName~WorldCommandPrivacyRegressionTests"
 
       - name: Build
         run: dotnet build .\VrcTwitchOscBridge\VrcTwitchOscBridge.csproj --no-restore -c Release

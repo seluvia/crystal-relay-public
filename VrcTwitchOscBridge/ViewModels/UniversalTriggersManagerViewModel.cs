@@ -32,7 +32,7 @@ public enum UniversalTriggerSortMode
     RecentlyEdited,
 }
 
-public class UniversalTriggersManagerViewModel : ObservableObject
+public class UniversalTriggersManagerViewModel : ObservableObject, IDisposable
 {
     private const string FoomaHelpUrl = "https://foomaring.gumroad.com/l/lmrjbl";
 
@@ -46,6 +46,8 @@ public class UniversalTriggersManagerViewModel : ObservableObject
     private bool _isBitsSectionCollapsed;
     private bool _isSubsSectionCollapsed;
     private bool _isFollowsSectionCollapsed;
+    private bool _isLoadingTwitchRewards;
+    private string _twitchRewardsLoadStatus = string.Empty;
     private readonly ObservableCollection<UniversalTriggerCardViewModel> _chatSectionSource = [];
     private readonly ObservableCollection<UniversalTriggerCardViewModel> _rewardSectionSource = [];
     private readonly ObservableCollection<UniversalTriggerCardViewModel> _bitsSectionSource = [];
@@ -54,8 +56,9 @@ public class UniversalTriggersManagerViewModel : ObservableObject
     private readonly Dictionary<UniversalTriggerRule, UniversalTriggerCardViewModel> _cardLookup = new();
     private UniversalTriggerRule? _selectedTrigger;
     private bool _isEditorOpen;
-    private UniversalTriggerRuleSnapshot? _editorSnapshot;
+    private UniversalTriggerEditorSnapshot? _editorSnapshot;
     private bool _editorIsNew;
+    private bool disposed;
 
     public UniversalTriggersManagerViewModel(AppSettings settings, MainWindowViewModel mainWindowViewModel)
     {
@@ -115,6 +118,8 @@ public class UniversalTriggersManagerViewModel : ObservableObject
         RemoveActionCommand = new RelayCommand(parameter => RemoveAction(parameter as UniversalTriggerAction));
         DeleteAllCommand = new AsyncRelayCommand(DeleteAllAsync);
 
+        LoadTwitchRewardsCommand = new RelayCommand(async () => await LoadTwitchRewardsAsync());
+
         PropertyChanged += OnSelfPropertyChanged;
 
         RefreshAllSections();
@@ -135,8 +140,8 @@ public class UniversalTriggersManagerViewModel : ObservableObject
             foreach (var t in Triggers)
             {
                 if (!t.IsEnabled) continue;
-                active++;
                 if (HasWarning(t)) needsFix++;
+                else active++;
             }
             return LocalizationService.Format("Universal Triggers Subtitle Summary", total, active, needsFix);
         }
@@ -217,20 +222,19 @@ public class UniversalTriggersManagerViewModel : ObservableObject
         get => _selectedTrigger;
         set
         {
-            if (!SetProperty(ref _selectedTrigger, value)) return;
-            _editorSnapshot = value is null ? null : SafeCreateSnapshot(value);
-        }
-    }
+            if (ReferenceEquals(_selectedTrigger, value)) return;
+            if (_selectedTrigger is not null)
+            {
+                _selectedTrigger.PropertyChanged -= OnSelectedTriggerPropertyChanged;
+            }
 
-    private static UniversalTriggerRuleSnapshot? SafeCreateSnapshot(UniversalTriggerRule rule)
-    {
-        try
-        {
-            return BridgeRuntimeConfiguration.CreateManualTestSnapshot(rule);
-        }
-        catch (InvalidOperationException)
-        {
-            return null;
+            if (!SetProperty(ref _selectedTrigger, value)) return;
+            if (_selectedTrigger is not null)
+            {
+                _selectedTrigger.PropertyChanged += OnSelectedTriggerPropertyChanged;
+            }
+
+            _editorSnapshot = value is null ? null : UniversalTriggerEditorSnapshot.FromRule(value);
         }
     }
 
@@ -250,7 +254,11 @@ public class UniversalTriggersManagerViewModel : ObservableObject
         {
             if (SelectedTrigger is null) return string.Empty;
             if (!SelectedTrigger.UsesChannelPointReward) return string.Empty;
-            if (!SelectedTrigger.UsesCreateOrManageReward) return string.Empty;
+            if (SelectedTrigger.UsesLinkedExistingReward)
+            {
+                if (string.IsNullOrWhiteSpace(SelectedTrigger.RewardId)) return "Select a Twitch reward to link";
+                return "Listen-only - Crystal Relay will not edit this reward";
+            }
             if (string.IsNullOrWhiteSpace(SelectedTrigger.RewardId)) return "Pending sync - new reward will be created on Save";
             if (MainWindowViewModel.HasUniversalTriggerAvatarParameterGate(SelectedTrigger)
                 && !_mainWindowViewModel.IsUniversalTriggerReadyForCurrentAvatarJson(SelectedTrigger, _mainWindowViewModel.CurrentVrChatAvatarId))
@@ -262,7 +270,7 @@ public class UniversalTriggersManagerViewModel : ObservableObject
     }
 
     public int CountAll => Triggers.Count;
-    public int CountActive => Triggers.Count(t => t.IsEnabled);
+    public int CountActive => Triggers.Count(t => t.IsEnabled && !HasWarning(t));
     public int CountDisabled => Triggers.Count(t => !t.IsEnabled);
     public int CountNeedsFix => Triggers.Count(t => t.IsEnabled && HasWarning(t));
     public int CountFooma => Triggers.Count(t => FoomaInteractionConfigImporter.IsFoomaImport(t));
@@ -350,6 +358,22 @@ public class UniversalTriggersManagerViewModel : ObservableObject
     public RelayCommand RemoveActionCommand { get; }
 
     public AsyncRelayCommand DeleteAllCommand { get; }
+
+    public ObservableCollection<TwitchApiClient.CustomRewardResponse> AvailableTwitchRewards { get; } = [];
+
+    public bool IsLoadingTwitchRewards
+    {
+        get => _isLoadingTwitchRewards;
+        set => SetProperty(ref _isLoadingTwitchRewards, value);
+    }
+
+    public string TwitchRewardsLoadStatus
+    {
+        get => _twitchRewardsLoadStatus;
+        set => SetProperty(ref _twitchRewardsLoadStatus, value);
+    }
+
+    public RelayCommand LoadTwitchRewardsCommand { get; }
 
     public async Task ImportFoomaAsync()
     {
@@ -453,6 +477,22 @@ public class UniversalTriggersManagerViewModel : ObservableObject
         IsEditorOpen = true;
         RefreshAvatarReadiness();
         RaisePropertyChanged(nameof(RewardVisibilityStatusText));
+        _ = LoadTwitchRewardsAsync();
+    }
+
+    private void OnSelectedTriggerPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(UniversalTriggerRule.RewardId) && sender is UniversalTriggerRule rule)
+        {
+            if (!string.IsNullOrWhiteSpace(rule.RewardId))
+            {
+                var match = AvailableTwitchRewards.FirstOrDefault(r => r.Id == rule.RewardId);
+                if (match is not null)
+                {
+                    rule.RewardTitle = match.Title;
+                }
+            }
+        }
     }
 
     private void CloseEditor()
@@ -502,6 +542,30 @@ public class UniversalTriggersManagerViewModel : ObservableObject
         RefreshAllSections();
     }
 
+    public async Task LoadTwitchRewardsAsync()
+    {
+        if (IsLoadingTwitchRewards) return;
+        try
+        {
+            IsLoadingTwitchRewards = true;
+            var rewards = await _mainWindowViewModel.LoadTwitchCustomRewardsAsync();
+            AvailableTwitchRewards.Clear();
+            if (rewards.Count == 0)
+            {
+                TwitchRewardsLoadStatus = "Connect Twitch as broadcaster to load rewards";
+            }
+            else
+            {
+                foreach (var r in rewards) AvailableTwitchRewards.Add(r);
+                TwitchRewardsLoadStatus = $"{rewards.Count} reward(s) loaded";
+            }
+        }
+        finally
+        {
+            IsLoadingTwitchRewards = false;
+        }
+    }
+
     private async Task DeleteSelectedTriggerAsync()
     {
         if (SelectedTrigger is null) return;
@@ -544,8 +608,9 @@ public class UniversalTriggersManagerViewModel : ObservableObject
         RaiseCountsChanged();
     }
 
-    private static void RestoreFromSnapshot(UniversalTriggerRule rule, UniversalTriggerRuleSnapshot snapshot)
+    private static void RestoreFromSnapshot(UniversalTriggerRule rule, UniversalTriggerEditorSnapshot snapshot)
     {
+        rule.Id = snapshot.Id;
         rule.IsEnabled = snapshot.IsEnabled;
         rule.Name = snapshot.Name;
         rule.TriggerType = snapshot.TriggerType;
@@ -554,6 +619,13 @@ public class UniversalTriggersManagerViewModel : ObservableObject
         rule.ChatCommandPermission = snapshot.ChatCommandPermission;
         rule.RewardId = snapshot.RewardId;
         rule.RewardTitle = snapshot.RewardTitle;
+        rule.RewardDescription = snapshot.RewardDescription;
+        rule.RewardCost = snapshot.RewardCost;
+        rule.RewardCooldownSeconds = snapshot.RewardCooldownSeconds;
+        rule.RewardSyncMode = snapshot.RewardSyncMode;
+        rule.ManagedRewardReadyColor = snapshot.ManagedRewardReadyColor;
+        rule.ManagedRewardCooldownColor = snapshot.ManagedRewardCooldownColor;
+        rule.DeleteManagedRewardWhenInactive = snapshot.DeleteManagedRewardWhenInactive;
         rule.MinimumBits = snapshot.MinimumBits;
         rule.MaximumBits = snapshot.MaximumBits;
         rule.SubscriptionTier = snapshot.SubscriptionTier;
@@ -562,18 +634,21 @@ public class UniversalTriggersManagerViewModel : ObservableObject
         rule.GlobalDelaySeconds = snapshot.GlobalDelaySeconds;
         rule.UserDelaySeconds = snapshot.UserDelaySeconds;
         rule.ExecuteRandomAction = snapshot.ExecuteRandomAction;
+        rule.ImportSource = snapshot.ImportSource;
+        rule.ImportIdentity = snapshot.ImportIdentity;
         rule.Actions.Clear();
         foreach (var actionSnapshot in snapshot.Actions)
         {
             rule.Actions.Add(new UniversalTriggerAction
             {
-                Id = Guid.NewGuid(),
+                Id = actionSnapshot.Id,
                 OscAddress = actionSnapshot.OscAddress,
                 ValueKind = actionSnapshot.ValueKind,
                 TargetValue = actionSnapshot.TargetValue,
                 DefaultValue = actionSnapshot.DefaultValue,
                 DurationSeconds = actionSnapshot.DurationSeconds,
                 AddToQueue = actionSnapshot.AddToQueue,
+                ImportGroupKey = actionSnapshot.ImportGroupKey,
             });
         }
     }
@@ -683,7 +758,7 @@ public class UniversalTriggersManagerViewModel : ObservableObject
     private bool MatchesFilterMode(UniversalTriggerRule t) => FilterMode switch
     {
         UniversalTriggerFilterMode.All => true,
-        UniversalTriggerFilterMode.Active => t.IsEnabled,
+        UniversalTriggerFilterMode.Active => t.IsEnabled && !HasWarning(t),
         UniversalTriggerFilterMode.Disabled => !t.IsEnabled,
         UniversalTriggerFilterMode.NeedsFix => t.IsEnabled && HasWarning(t),
         UniversalTriggerFilterMode.FromFooma => FoomaInteractionConfigImporter.IsFoomaImport(t),
@@ -725,6 +800,16 @@ public class UniversalTriggersManagerViewModel : ObservableObject
 
         if (e.Action == NotifyCollectionChangedAction.Reset)
         {
+            foreach (var rule in _cardLookup.Keys)
+            {
+                rule.PropertyChanged -= OnRuleReadinessChanged;
+            }
+
+            foreach (var card in _cardLookup.Values)
+            {
+                card.Dispose();
+            }
+
             _chatSectionSource.Clear();
             _rewardSectionSource.Clear();
             _bitsSectionSource.Clear();
@@ -742,6 +827,8 @@ public class UniversalTriggersManagerViewModel : ObservableObject
 
     private void AddRuleToSectionSources(UniversalTriggerRule rule)
     {
+        rule.PropertyChanged -= OnRuleReadinessChanged;
+        rule.PropertyChanged += OnRuleReadinessChanged;
         var card = GetCard(rule);
         switch (rule.TriggerType)
         {
@@ -766,6 +853,7 @@ public class UniversalTriggersManagerViewModel : ObservableObject
 
     private void RemoveRuleFromSectionSources(UniversalTriggerRule rule)
     {
+        rule.PropertyChanged -= OnRuleReadinessChanged;
         if (!_cardLookup.TryGetValue(rule, out var card)) return;
         switch (rule.TriggerType)
         {
@@ -785,6 +873,18 @@ public class UniversalTriggersManagerViewModel : ObservableObject
             case UniversalTriggerType.Follow:
                 _followsSectionSource.Remove(card);
                 break;
+        }
+
+        _cardLookup.Remove(rule);
+        card.Dispose();
+    }
+
+    private void OnRuleReadinessChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(UniversalTriggerRule.IsConfigured)
+            or nameof(UniversalTriggerRule.IsEnabled))
+        {
+            RaiseCountsChanged();
         }
     }
 
@@ -843,8 +943,9 @@ public class UniversalTriggersManagerViewModel : ObservableObject
     }
 
     private bool HasWarning(UniversalTriggerRule rule) =>
-        MainWindowViewModel.HasUniversalTriggerAvatarParameterGate(rule)
-        && !_mainWindowViewModel.IsUniversalTriggerReadyForCurrentAvatarJson(rule, _mainWindowViewModel.CurrentVrChatAvatarId);
+        !rule.IsConfigured
+        || (MainWindowViewModel.HasUniversalTriggerAvatarParameterGate(rule)
+            && !_mainWindowViewModel.IsUniversalTriggerReadyForCurrentAvatarJson(rule, _mainWindowViewModel.CurrentVrChatAvatarId));
 
     private void AddAction()
     {
@@ -911,6 +1012,117 @@ public class UniversalTriggersManagerViewModel : ObservableObject
             return (LocalizationService.Translate("Universal Triggers Editor Avatar Param Found"), foundBrush);
         }
         return (LocalizationService.Translate("Universal Triggers Editor Avatar Param Missing"), missingBrush);
+    }
+
+    private sealed record UniversalTriggerEditorActionSnapshot(
+        Guid Id,
+        string OscAddress,
+        UniversalTriggerValueKind ValueKind,
+        string TargetValue,
+        string DefaultValue,
+        double DurationSeconds,
+        bool AddToQueue,
+        string ImportGroupKey);
+
+    private sealed record UniversalTriggerEditorSnapshot(
+        Guid Id,
+        bool IsEnabled,
+        string Name,
+        UniversalTriggerType TriggerType,
+        bool ChatCommandEnabled,
+        string CommandText,
+        ChatCommandPermission ChatCommandPermission,
+        string RewardId,
+        string RewardTitle,
+        string RewardDescription,
+        int RewardCost,
+        int RewardCooldownSeconds,
+        TwitchRewardSyncMode RewardSyncMode,
+        string ManagedRewardReadyColor,
+        string ManagedRewardCooldownColor,
+        bool DeleteManagedRewardWhenInactive,
+        int MinimumBits,
+        int MaximumBits,
+        string SubscriptionTier,
+        int MinimumMonths,
+        int MaximumMonths,
+        int GlobalDelaySeconds,
+        int UserDelaySeconds,
+        bool ExecuteRandomAction,
+        string ImportSource,
+        string ImportIdentity,
+        IReadOnlyList<UniversalTriggerEditorActionSnapshot> Actions)
+    {
+        public static UniversalTriggerEditorSnapshot FromRule(UniversalTriggerRule rule) =>
+            new(
+                rule.Id,
+                rule.IsEnabled,
+                rule.Name,
+                rule.TriggerType,
+                rule.ChatCommandEnabled,
+                rule.CommandText,
+                rule.ChatCommandPermission,
+                rule.RewardId,
+                rule.RewardTitle,
+                rule.RewardDescription,
+                rule.RewardCost,
+                rule.RewardCooldownSeconds,
+                rule.RewardSyncMode,
+                rule.ManagedRewardReadyColor,
+                rule.ManagedRewardCooldownColor,
+                rule.DeleteManagedRewardWhenInactive,
+                rule.MinimumBits,
+                rule.MaximumBits,
+                rule.SubscriptionTier,
+                rule.MinimumMonths,
+                rule.MaximumMonths,
+                rule.GlobalDelaySeconds,
+                rule.UserDelaySeconds,
+                rule.ExecuteRandomAction,
+                rule.ImportSource,
+                rule.ImportIdentity,
+                rule.Actions
+                    .Select(action => new UniversalTriggerEditorActionSnapshot(
+                        action.Id,
+                        action.OscAddress,
+                        action.ValueKind,
+                        action.TargetValue,
+                        action.DefaultValue,
+                        action.DurationSeconds,
+                        action.AddToQueue,
+                        action.ImportGroupKey))
+                    .ToArray());
+    }
+
+    public void Dispose()
+    {
+        if (disposed)
+        {
+            return;
+        }
+
+        disposed = true;
+        _settings.UniversalTriggers.CollectionChanged -= OnUniversalTriggersCollectionChanged;
+        PropertyChanged -= OnSelfPropertyChanged;
+        SelectedTrigger = null;
+
+        foreach (var rule in _cardLookup.Keys)
+        {
+            rule.PropertyChanged -= OnRuleReadinessChanged;
+        }
+
+        foreach (var card in _cardLookup.Values)
+        {
+            card.Dispose();
+        }
+
+        _chatSectionSource.Clear();
+        _rewardSectionSource.Clear();
+        _bitsSectionSource.Clear();
+        _subsSectionSource.Clear();
+        _followsSectionSource.Clear();
+        _cardLookup.Clear();
+        GC.SuppressFinalize(this);
     }
 }
 

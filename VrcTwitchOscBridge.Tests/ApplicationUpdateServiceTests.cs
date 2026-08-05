@@ -170,6 +170,26 @@ public sealed class ApplicationUpdateServiceTests
     }
 
     [Fact]
+    public async Task ForcedCheck_DoesNotReofferBaseStableFromInstalledBugFix()
+    {
+        using var service = CreateService(
+            Release("v3.2.0-bugfix1", ApplicationUpdateChannel.BugFix),
+            Release("v3.2.0", ApplicationUpdateChannel.Stable));
+        var build = new ApplicationBuildIdentity(
+            "3.2.0",
+            ApplicationUpdateChannel.BugFix,
+            "bugfix1",
+            "Bug Fix 1",
+            BugFixSequence: 1,
+            IsTestBuild: false);
+
+        var result = await service.CheckForUpdateAlwaysAsync(build, "", "", false);
+
+        Assert.Equal(ApplicationUpdateCheckStatus.NoUpdate, result.Status);
+        Assert.Null(result.Update);
+    }
+
+    [Fact]
     public async Task InstalledBugFix_ReceivesOnlyGreaterCumulativeSequence()
     {
         using var service = CreateService(

@@ -15,9 +15,10 @@ public enum UniversalTriggerCardStatus
     Disabled,
 }
 
-public sealed class UniversalTriggerCardViewModel : ObservableObject
+public sealed class UniversalTriggerCardViewModel : ObservableObject, IDisposable
 {
     private readonly Func<UniversalTriggerRule, bool> _isWarnFn;
+    private bool disposed;
 
     public UniversalTriggerCardViewModel(UniversalTriggerRule rule, Func<UniversalTriggerRule, bool> isWarnFn)
     {
@@ -58,7 +59,7 @@ public sealed class UniversalTriggerCardViewModel : ObservableObject
     public string StatusPill => Status switch
     {
         UniversalTriggerCardStatus.Ready => LocalizationService.Translate("Universal Triggers Status Ready"),
-        UniversalTriggerCardStatus.Warn => LocalizationService.Translate("Universal Triggers Status Avatar Missing"),
+        UniversalTriggerCardStatus.Warn => LocalizationService.Translate("Needs setup"),
         UniversalTriggerCardStatus.Disabled => LocalizationService.Translate("Universal Triggers Status Disabled"),
         _ => string.Empty,
     };
@@ -138,5 +139,17 @@ public sealed class UniversalTriggerCardViewModel : ObservableObject
         RaisePropertyChanged(nameof(EmojiIcon));
         RaisePropertyChanged(nameof(Description));
         RaisePropertyChanged(nameof(IsFromFooma));
+    }
+
+    public void Dispose()
+    {
+        if (disposed)
+        {
+            return;
+        }
+
+        disposed = true;
+        Rule.PropertyChanged -= OnRulePropertyChanged;
+        GC.SuppressFinalize(this);
     }
 }

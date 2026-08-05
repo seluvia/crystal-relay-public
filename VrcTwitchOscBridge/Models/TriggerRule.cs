@@ -117,6 +117,7 @@ public sealed class TriggerRule : ObservableObject, IJsonOnDeserialized
     private string resetValue = "0";
     private string avatarChangeResetId = string.Empty;
     private string resetAvatarName = string.Empty;
+    private string? powerUpId;
     private ObservableCollection<string> avatarRouletAvatarIds = [];
     private ObservableCollection<string> avatarRouletAvatarNames = [];
     private int rangeMinimum;
@@ -1104,7 +1105,17 @@ public sealed class TriggerRule : ObservableObject, IJsonOnDeserialized
         }
     }
 
-    public string? PowerUpId { get; set; }
+    public string? PowerUpId
+    {
+        get => powerUpId;
+        set
+        {
+            if (SetProperty(ref powerUpId, value?.Trim()))
+            {
+                RaisePropertyChanged(nameof(TriggerSummary));
+            }
+        }
+    }
     public string? CashPaymentRuleId { get; set; }
     public bool IsGiftSubscription { get; set; }
 

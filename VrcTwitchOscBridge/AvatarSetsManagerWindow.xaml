@@ -1008,6 +1008,7 @@
                                                         SelectedValuePath="Id"
                                                         DisplayMemberPath="Title"
                                                         IsEditable="False"
+                                                        Style="{StaticResource ComboBoxStyle}"
                                                         Margin="0,0,0,4" />
                                               <TextBlock Text="{Binding DataContext.TwitchRewardsLoadStatus, RelativeSource={RelativeSource AncestorType=Window}}"
                                                          Foreground="{DynamicResource MutedBrush}"
@@ -1866,7 +1867,8 @@
                                              <ComboBox Grid.Column="0"
                                                        ItemsSource="{Binding DataContext.OtherRulesInSet, RelativeSource={RelativeSource AncestorType=Window}}"
                                                        DisplayMemberPath="Name"
-                                                       SelectedItem="{Binding DataContext.SelectedPairingTarget, RelativeSource={RelativeSource AncestorType=Window}, Mode=TwoWay}" />
+                                                       SelectedItem="{Binding DataContext.SelectedPairingTarget, RelativeSource={RelativeSource AncestorType=Window}, Mode=TwoWay}"
+                                                       Style="{StaticResource ComboBoxStyle}" />
                                              <Button Grid.Column="1"
                                                      Content="+ Add"
                                                      Style="{StaticResource AccentButtonStyle}"
@@ -2032,7 +2034,9 @@
                                                    TextWrapping="Wrap"
                                                    Margin="0,0,0,6" />
                                         <ComboBox SelectedValue="{Binding TwitchRewardSyncMode, UpdateSourceTrigger=PropertyChanged}"
-                                                  SelectedValuePath="Tag" Margin="0,0,0,8">
+                                                  SelectedValuePath="Tag"
+                                                  Style="{StaticResource ComboBoxStyle}"
+                                                  Margin="0,0,0,8">
                                             <ComboBoxItem Content="Manage and Create" Tag="{x:Static models:TwitchRewardSyncMode.CreateOrManage}" />
                                             <ComboBoxItem Content="Link to listen only" Tag="{x:Static models:TwitchRewardSyncMode.LinkExisting}" />
                                         </ComboBox>
@@ -2071,6 +2075,7 @@
                                                       SelectedValuePath="Id"
                                                       DisplayMemberPath="Title"
                                                       IsEditable="False"
+                                                      Style="{StaticResource ComboBoxStyle}"
                                                       Margin="0,0,0,4" />
                                             <TextBlock Text="{Binding DataContext.TwitchRewardsLoadStatus, RelativeSource={RelativeSource AncestorType=Window}}"
                                                        Foreground="{DynamicResource MutedBrush}"
@@ -2433,6 +2438,7 @@
                                                     <TextBlock Text="Value" Foreground="{DynamicResource TextBrush}" FontSize="11" Margin="0,0,0,2" />
                                                     <ComboBox ItemsSource="{Binding DataContext.BoolValueOptions, RelativeSource={RelativeSource AncestorType=Window}}"
                                                               SelectedItem="{Binding SetValue}"
+                                                              Style="{StaticResource ComboBoxStyle}"
                                                               Visibility="{Binding UsesBoolParameter, Converter={StaticResource BoolToVisibilityConverter}}" />
                                                     <TextBox x:Name="WardrobeIntValueTextBox"
                                                              Text="{Binding SetValue, UpdateSourceTrigger=PropertyChanged}"
@@ -2606,7 +2612,8 @@
                                       Width="180"
                                       Margin="0,0,12,0"
                                       SelectedItem="{Binding SortMode}"
-                                      ItemsSource="{Binding SortModeOptions}" />
+                                      ItemsSource="{Binding SortModeOptions}"
+                                      Style="{StaticResource ComboBoxStyle}" />
                             <Button DockPanel.Dock="Right"
                                     Style="{StaticResource AccentButtonStyle}"
                                     Padding="12,6"

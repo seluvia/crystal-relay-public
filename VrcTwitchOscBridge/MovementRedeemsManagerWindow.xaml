@@ -743,7 +743,7 @@
                           GridLinesVisibility="None"
                           Background="Transparent"
                           BorderThickness="0"
-                          AlternatingRowBackground="#22181730"
+                           AlternatingRowBackground="{DynamicResource PanelSecondaryBrush}"
                           AlternationCount="2"
                           RowHeaderWidth="0"
                           SelectionMode="Single"
@@ -839,6 +839,15 @@
                                                 BorderThickness="1"
                                                 Visibility="{Binding HasFollowTrigger, Converter={StaticResource BoolToVisibilityConverter}}">
                                             <TextBlock Text="F" FontSize="9" Foreground="{DynamicResource TitleBarSubTextBrush}" />
+                                        </Border>
+                                        <Border Padding="4,1"
+                                                Margin="0,0,2,0"
+                                                CornerRadius="4"
+                                                Background="{DynamicResource AccentDimBrush}"
+                                                BorderBrush="{DynamicResource BorderBrush}"
+                                                BorderThickness="1"
+                                                Visibility="{Binding HasCashPaymentTrigger, Converter={StaticResource BoolToVisibilityConverter}}">
+                                            <TextBlock Text="P" FontSize="9" Foreground="{DynamicResource TitleBarSubTextBrush}" />
                                         </Border>
                                     </StackPanel>
                                 </DataTemplate>
@@ -1305,6 +1314,50 @@
                                                 Visibility="{Binding UsesFollow, Converter={StaticResource BoolToVisibilityConverter}}">
                                             <TextBlock Text="{loc:Translate 'Triggers on follow event.'}"
                                                        Foreground="{DynamicResource TitleBarSubTextBrush}" />
+                                        </Border>
+
+                                        <!-- Cash Payment sub-section -->
+                                        <Border Padding="8"
+                                                CornerRadius="10"
+                                                Background="{DynamicResource PanelSecondaryBrush}"
+                                                BorderBrush="{DynamicResource BorderBrush}"
+                                                BorderThickness="1"
+                                                Margin="0,12,0,0">
+                                            <StackPanel>
+                                                <CheckBox IsChecked="{Binding IsCashPaymentEnabled}"
+                                                          Content="{loc:Translate 'Enable cash payment trigger'}"
+                                                          FontWeight="SemiBold" />
+                                                <StackPanel Margin="0,8,0,0"
+                                                            Visibility="{Binding IsCashPaymentEnabled, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                    <TextBlock Text="{loc:Translate 'Payment Provider'}"
+                                                               FontWeight="SemiBold"
+                                                               Margin="0,0,0,6" />
+                                                    <ComboBox ItemsSource="{Binding CashPaymentProviderOptions}"
+                                                              SelectedValue="{Binding CashPaymentProvider}"
+                                                              DisplayMemberPath="Label"
+                                                              SelectedValuePath="Value"
+                                                              Margin="0,6,0,0" />
+                                                    <UniformGrid Columns="2" Margin="0,12,0,0">
+                                                        <StackPanel Margin="0,0,6,0">
+                                                            <TextBlock Text="{loc:Translate 'Minimum Amount'}"
+                                                                       FontWeight="SemiBold" />
+                                                            <TextBox Text="{Binding CashPaymentMinimumAmount, UpdateSourceTrigger=PropertyChanged}"
+                                                                     Margin="0,6,0,0" />
+                                                        </StackPanel>
+                                                        <StackPanel Margin="6,0,0,0">
+                                                            <TextBlock Text="{loc:Translate 'Currency Code'}"
+                                                                       FontWeight="SemiBold" />
+                                                            <TextBox Text="{Binding CashPaymentCurrencyCode, UpdateSourceTrigger=PropertyChanged}"
+                                                                     Margin="0,6,0,0" />
+                                                        </StackPanel>
+                                                    </UniformGrid>
+                                                    <TextBlock Text="{loc:Translate 'Cooldown (seconds)'}"
+                                                               FontWeight="SemiBold"
+                                                               Margin="0,12,0,0" />
+                                                    <TextBox Text="{Binding CashPaymentCooldown, UpdateSourceTrigger=PropertyChanged}"
+                                                             Margin="0,6,0,0" />
+                                                </StackPanel>
+                                            </StackPanel>
                                         </Border>
                                     </StackPanel>
                                         </Border>

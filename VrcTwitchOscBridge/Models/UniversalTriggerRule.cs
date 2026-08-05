@@ -350,13 +350,20 @@ public sealed class UniversalTriggerRule : ObservableObject
 
     public bool HasActions => Actions.Count > 0;
 
+    public bool HasConfiguredChatCommandFallback => UsesChannelPointReward
+        && ChatCommandEnabled
+        && ChatCommandUtility.IsConfigured(CommandText);
+
     public bool IsConfigured => IsTriggerFilterConfigured && HasCompleteAction;
 
     public bool IsTriggerFilterConfigured => TriggerType switch
     {
         UniversalTriggerType.ChatCommand => ChatCommandUtility.IsConfigured(CommandText),
-        UniversalTriggerType.ChannelPointReward => !string.IsNullOrWhiteSpace(RewardId)
-            || !string.IsNullOrWhiteSpace(RewardTitle),
+        UniversalTriggerType.ChannelPointReward => ManagedRewardPresentation.HasConfiguredRewardIdentity(
+                RewardSyncMode,
+                RewardId,
+                RewardTitle)
+            || HasConfiguredChatCommandFallback,
         UniversalTriggerType.Bits => Math.Max(1, MaximumBits) >= Math.Max(1, MinimumBits),
         UniversalTriggerType.Subscription or UniversalTriggerType.GiftSubscription or UniversalTriggerType.Follow => true,
         _ => false
@@ -455,6 +462,7 @@ public sealed class UniversalTriggerRule : ObservableObject
     {
         RaisePropertyChanged(nameof(IsTriggerFilterConfigured));
         RaisePropertyChanged(nameof(IsConfigured));
+        RaisePropertyChanged(nameof(HasConfiguredChatCommandFallback));
         RaisePropertyChanged(nameof(DisplayTitle));
         RaisePropertyChanged(nameof(TriggerSummary));
         RaisePropertyChanged(nameof(TriggerGroupSortOrder));

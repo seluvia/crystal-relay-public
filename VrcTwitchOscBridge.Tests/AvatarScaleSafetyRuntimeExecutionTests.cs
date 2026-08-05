@@ -119,7 +119,7 @@ public sealed class AvatarScaleSafetyRuntimeExecutionTests
     public void BridgeCoordinatorDirectAvatarHeightSend_ClampsBeforeOscPacketBuild()
     {
         var source = File.ReadAllText(FindSourceFile("VrcTwitchOscBridge", "Services", "BridgeCoordinator.cs"));
-        var sendBody = GetMethodBody(source, "private async Task SendAvatarHeightValueAsync");
+        var sendBody = GetMethodBody(source, "private async Task<bool> SendAvatarHeightValueAsync");
         var clampIndex = sendBody.IndexOf(
             "heightMeters = ClampAvatarScaleHeightForSend(heightMeters, rule);",
             StringComparison.Ordinal);
@@ -140,12 +140,12 @@ public sealed class AvatarScaleSafetyRuntimeExecutionTests
         var operationBody = GetMethodBody(source, "private async Task<bool> SendAvatarHeightForOperationAsync");
         var transitionBody = GetMethodBody(source, "private async Task<bool> SendAvatarHeightAsync");
 
-        Assert.Contains("private async Task<bool> SendAvatarHeightForOperationAsync( ActiveAvatarScaleOperationTicket operation, double targetHeight, double smoothSeconds, CancellationToken cancellationToken, Action? afterFirstSuccessfulSend = null, AvatarScaleRuleSnapshot? rule = null)", normalizedSource, StringComparison.Ordinal);
+        Assert.Contains("private async Task<bool> SendAvatarHeightForOperationAsync( ActiveAvatarScaleOperationTicket operation, double targetHeight, double smoothSeconds, CancellationToken cancellationToken, Action? afterFirstSuccessfulSend = null, AvatarScaleRuleSnapshot? rule = null, Func<bool>? shouldContinue = null)", normalizedSource, StringComparison.Ordinal);
         Assert.Contains("private async Task<bool> SendAvatarHeightAsync( double targetHeight, double smoothSeconds, CancellationToken cancellationToken, Action? afterFirstSuccessfulSend = null, Func<bool>? shouldContinue = null, AvatarScaleRuleSnapshot? rule = null)", normalizedSource, StringComparison.Ordinal);
         Assert.Contains("rule: rule", source, StringComparison.Ordinal);
-        Assert.Contains("SendAvatarHeightAsync( targetHeight, smoothSeconds, cancellationToken, afterFirstSuccessfulSend, () => IsAvatarScaleOperationCurrent(operation), rule)", NormalizeWhitespace(operationBody), StringComparison.Ordinal);
-        Assert.Contains("SendAvatarHeightValueAsync(targetHeight, cancellationToken, rule)", transitionBody, StringComparison.Ordinal);
-        Assert.Contains("SendAvatarHeightValueAsync(value, cancellationToken, rule)", transitionBody, StringComparison.Ordinal);
+        Assert.Contains("SendAvatarHeightAsync( targetHeight, smoothSeconds, cancellationToken, afterFirstSuccessfulSend, IsCurrent, rule)", NormalizeWhitespace(operationBody), StringComparison.Ordinal);
+        Assert.Contains("SendAvatarHeightValueAsync( targetHeight, cancellationToken, rule, shouldContinue, afterFirstSuccessfulSend)", NormalizeWhitespace(transitionBody), StringComparison.Ordinal);
+        Assert.Contains("SendAvatarHeightValueAsync( value, cancellationToken, rule, shouldContinue, afterFirstSuccessfulSend)", NormalizeWhitespace(transitionBody), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -251,10 +251,10 @@ public sealed class AvatarScaleSafetyRuntimeExecutionTests
         var handleBody = NormalizeWhitespace(GetMethodBody(source, "private async Task HandleAvatarScaleAvatarChangedAsync"));
         var snapshotBody = NormalizeWhitespace(GetMethodBody(source, "private AvatarScaleCarryoverSnapshot? TryCreateAvatarScaleCarryoverSnapshot"));
 
-        Assert.Contains("RecordPendingAvatarScaleHeightRestore( newAvatarId, carryover.FallbackRestoreHeightMeters, carryover.ActiveUntil, carryover.SourceRuleName, carryover.SourceRuleId);", handleBody, StringComparison.Ordinal);
-        Assert.Contains("SendAvatarHeightValueAsync( carryover.CarriedHeightMeters, cancellationToken, FindAvatarScaleRuleSnapshot(carryover.SourceRuleId))", handleBody, StringComparison.Ordinal);
+        Assert.Contains("TryCommitPendingAvatarScaleHeightRestores( pendingRestores, sequenceId, runtimeGeneration)", handleBody, StringComparison.Ordinal);
+        Assert.Contains("SendAvatarHeightValueAsync( carryover.CarriedHeightMeters, cancellationToken, FindAvatarScaleRuleSnapshot(carryover.SourceRuleId),", handleBody, StringComparison.Ordinal);
         Assert.Contains("private sealed record PendingAvatarScaleHeightRestoreState( double RestoreHeightMeters, DateTimeOffset SourceActiveUntil, string SourceRuleName, Guid SourceRuleId);", normalizedSource, StringComparison.Ordinal);
-        Assert.Contains("private void RecordPendingAvatarScaleHeightRestore( string avatarId, double restoreHeightMeters, DateTimeOffset activeUntil, string sourceRuleName, Guid sourceRuleId)", normalizedSource, StringComparison.Ordinal);
+        Assert.Contains("private bool RecordPendingAvatarScaleHeightRestore( string avatarId, double restoreHeightMeters, DateTimeOffset activeUntil, string sourceRuleName, Guid sourceRuleId, long expectedAvatarChangeSequenceId, long expectedRuntimeGeneration)", normalizedSource, StringComparison.Ordinal);
         Assert.Contains("new PendingAvatarScaleHeightRestoreState( activeCarryover.RestoreHeightMeters, activeCarryover.ActiveUntil, activeCarryover.SourceRuleName, activeCarryover.SourceRuleId)", snapshotBody, StringComparison.Ordinal);
         Assert.Contains("new PendingAvatarScaleHeightRestoreState( previousRestoreHeight.Value, latestSession.ActiveUntil, latestSession.RuleName, latestSession.RuleId)", snapshotBody, StringComparison.Ordinal);
         Assert.Contains("return new AvatarScaleCarryoverSnapshot( activeSequence.Rule?.Id ?? Guid.Empty, Guid.Empty, activeSequence.SequenceId,", snapshotBody, StringComparison.Ordinal);
@@ -266,7 +266,7 @@ public sealed class AvatarScaleSafetyRuntimeExecutionTests
         var source = File.ReadAllText(FindSourceFile("VrcTwitchOscBridge", "Services", "BridgeCoordinator.cs"));
         var body = NormalizeWhitespace(GetMethodBody(source, "private async Task RestorePendingAvatarScaleHeightForCurrentAvatarAsync"));
 
-        Assert.Contains("SendAvatarHeightForOperationAsync( operation, pendingRestore.RestoreHeightMeters, 0, cancellationToken, rule: FindAvatarScaleRuleSnapshot(pendingRestore.SourceRuleId))", body, StringComparison.Ordinal);
+        Assert.Contains("SendAvatarHeightForOperationAsync( operation, pendingRestore.RestoreHeightMeters, 0, cancellationToken, rule: FindAvatarScaleRuleSnapshot(pendingRestore.SourceRuleId), shouldContinue: () => IsAvatarScaleRuntimeGenerationCurrent(runtimeGeneration))", body, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -286,7 +286,7 @@ public sealed class AvatarScaleSafetyRuntimeExecutionTests
         var source = File.ReadAllText(FindSourceFile("VrcTwitchOscBridge", "Services", "BridgeCoordinator.cs"));
         var body = NormalizeWhitespace(GetMethodBody(source, "private async Task ResumePausedAvatarScaleTimerAfterDevAsync"));
 
-        Assert.Contains("SendAvatarHeightForOperationAsync( operation, snapshot.CarriedHeightMeters, 0, cancellationToken, rule: snapshot.Rule)", body, StringComparison.Ordinal);
+        Assert.Contains("SendAvatarHeightForOperationAsync( operation, snapshot.CarriedHeightMeters, 0, cancellationToken, shouldContinue: () => IsAvatarScaleRuntimeGenerationCurrent(runtimeGeneration), rule: snapshot.Rule)", body, StringComparison.Ordinal);
     }
 
     [Fact]

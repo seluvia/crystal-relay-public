@@ -66,7 +66,7 @@ public sealed class AvatarScalingManagerWindowXamlTests
     }
 
     [Fact]
-    public void Window_BrainstormLayoutStringsAreLocalizedInAllExtraFiles()
+    public void Window_BrainstormLayoutStringsAreLocalizedInAllLocaleFiles()
     {
         var expectedKeys = new[]
         {
@@ -78,10 +78,10 @@ public sealed class AvatarScalingManagerWindowXamlTests
             "Supporter Growth, Cash Payments & Power Ups"
         };
         var localizationFolder = FindSourceDirectory("VrcTwitchOscBridge", "Resources", "Localization");
-        var extraFiles = Directory.GetFiles(localizationFolder, "*.extra.json");
+        var localeFiles = Directory.GetFiles(localizationFolder, "*.json");
 
-        Assert.NotEmpty(extraFiles);
-        foreach (var file in extraFiles)
+        Assert.Equal(14, localeFiles.Length);
+        foreach (var file in localeFiles)
         {
             var content = File.ReadAllText(file);
             foreach (var key in expectedKeys)
@@ -217,6 +217,28 @@ public sealed class AvatarScalingManagerWindowXamlTests
         Assert.Contains("FreeChildRewardSlotsWhenLocked", masterTemplateBlock, StringComparison.Ordinal);
         Assert.DoesNotContain("DeleteMasterRewardWhenInactive", masterTemplateBlock, StringComparison.Ordinal);
         Assert.DoesNotContain("PreventAvatarChangesDuringActiveScaling", masterTemplateBlock, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Window_MasterRewardEditorIncludesReadyAndCooldownColors()
+    {
+        var xaml = File.ReadAllText(FindSourceFile("VrcTwitchOscBridge", "AvatarScalingManagerWindow.xaml"));
+        var templateIndex = xaml.IndexOf(
+            "DataType=\"{x:Type models:AvatarScaleMasterRewardSettings}\"",
+            StringComparison.Ordinal);
+        var templateEnd = templateIndex >= 0
+            ? xaml.IndexOf("</DataTemplate>", templateIndex, StringComparison.Ordinal)
+            : -1;
+        var template = templateIndex >= 0 && templateEnd > templateIndex
+            ? xaml[templateIndex..templateEnd]
+            : string.Empty;
+
+        Assert.Contains("Managed Reward Colors", template, StringComparison.Ordinal);
+        Assert.Contains("ManagedRewardReadyColorBrush", template, StringComparison.Ordinal);
+        Assert.Contains("ManagedRewardCooldownColorBrush", template, StringComparison.Ordinal);
+        Assert.Contains("Tag=\"Ready\"", template, StringComparison.Ordinal);
+        Assert.Contains("Tag=\"Cooldown\"", template, StringComparison.Ordinal);
+        Assert.Contains("OnPickManagedRewardColorClicked", template, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -371,6 +393,9 @@ public sealed class AvatarScalingManagerWindowXamlTests
         Assert.Contains("private void OnAddSupporterGrowthBitRangeClicked", codeBehind, StringComparison.Ordinal);
         Assert.Contains("private void OnRemoveSupporterGrowthBitRangeClicked", codeBehind, StringComparison.Ordinal);
         Assert.Contains("Vm.SelectedAvatarScaleRule", codeBehind, StringComparison.Ordinal);
+        Assert.Contains("Vm.SelectedCard?.MasterReward", codeBehind, StringComparison.Ordinal);
+        Assert.Contains("masterReward.ManagedRewardCooldownColor", codeBehind, StringComparison.Ordinal);
+        Assert.Contains("masterReward.ManagedRewardReadyColor", codeBehind, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -565,7 +590,7 @@ public sealed class AvatarScalingManagerWindowXamlTests
     }
 
     [Fact]
-    public void Window_DedicatedAddButtonStringsAreLocalizedInAllExtraFiles()
+    public void Window_DedicatedAddButtonStringsAreLocalizedInAllLocaleFiles()
     {
         var expectedKeys = new[]
         {
@@ -573,10 +598,10 @@ public sealed class AvatarScalingManagerWindowXamlTests
             "Add Cash Payment"
         };
         var localizationFolder = FindSourceDirectory("VrcTwitchOscBridge", "Resources", "Localization");
-        var extraFiles = Directory.GetFiles(localizationFolder, "*.extra.json");
+        var localeFiles = Directory.GetFiles(localizationFolder, "*.json");
 
-        Assert.NotEmpty(extraFiles);
-        foreach (var file in extraFiles)
+        Assert.Equal(14, localeFiles.Length);
+        foreach (var file in localeFiles)
         {
             var content = File.ReadAllText(file);
             foreach (var key in expectedKeys)

@@ -144,9 +144,16 @@ public sealed class SettingsStore
             .Select(avatar => new VrChatAvatarSummary(
                 avatar.Id ?? string.Empty,
                 avatar.Name ?? (avatar.Id ?? string.Empty),
-                avatar.SourceLabel ?? "Cached",
+                AuthorName: string.Empty,
+                avatar.ThumbnailUrl,
                 avatar.IsCurrentAvatar,
-                avatar.ThumbnailUrl))
+                IsUploaded: false,
+                IsFavorited: false,
+                IsLicensed: false,
+                Platform: string.Empty,
+                StyleTags: Array.Empty<string>(),
+                ContentTags: Array.Empty<string>(),
+                FavoriteGroupName: null))
             .ToArray();
     }
 
@@ -166,7 +173,6 @@ public sealed class SettingsStore
             {
                 Id = avatar.Id,
                 Name = avatar.Name,
-                SourceLabel = avatar.SourceLabel,
                 IsCurrentAvatar = avatar.IsCurrentAvatar,
                 ThumbnailUrl = avatar.ThumbnailUrl
             }).ToList()
@@ -443,6 +449,15 @@ public sealed class SettingsStore
             settings.GlobalMovementRules = new ObservableCollection<TriggerRule>(settings.MovementRedeemSets.SelectMany(set => set.MovementRules));
             settings.GlobalOverrideRules = new ObservableCollection<TriggerRule>((profile.GlobalOverrideRules ?? []).Select(ToRule));
             settings.UniversalTriggers = new ObservableCollection<UniversalTriggerRule>((profile.UniversalTriggers ?? []).Select(ToUniversalTriggerRule));
+            settings.ManagedRewardOwnership = new ObservableCollection<ManagedRewardOwnershipRecord>(
+                (profile.ManagedRewardOwnership ?? [])
+                    .Where(record => !string.IsNullOrWhiteSpace(record.RewardId))
+                    .Select(record => new ManagedRewardOwnershipRecord
+                    {
+                        RewardId = record.RewardId?.Trim() ?? string.Empty,
+                        IsRetired = record.IsRetired,
+                        DeleteWhenInactive = record.DeleteWhenInactive
+                    }));
             settings.UniversalTriggersChatCollapsed = profile.UniversalTriggersChatCollapsed ?? settings.UniversalTriggersChatCollapsed;
             settings.UniversalTriggersRewardCollapsed = profile.UniversalTriggersRewardCollapsed ?? settings.UniversalTriggersRewardCollapsed;
             settings.UniversalTriggersBitsCollapsed = profile.UniversalTriggersBitsCollapsed ?? settings.UniversalTriggersBitsCollapsed;
@@ -623,6 +638,14 @@ public sealed class SettingsStore
             GlobalMovementRules = [.. settings.MovementRedeemSets.SelectMany(set => set.MovementRules).Select(ToPersistedRule)],
             GlobalOverrideRules = [.. settings.GlobalOverrideRules.Select(ToPersistedRule)],
             UniversalTriggers = [.. settings.UniversalTriggers.Select(ToPersistedUniversalTriggerRule)],
+            ManagedRewardOwnership = [.. settings.ManagedRewardOwnership
+                .Where(record => !string.IsNullOrWhiteSpace(record.RewardId))
+                .Select(record => new PersistedManagedRewardOwnershipRecord
+                {
+                    RewardId = record.RewardId.Trim(),
+                    IsRetired = record.IsRetired,
+                    DeleteWhenInactive = record.DeleteWhenInactive
+                })],
             UniversalTriggersChatCollapsed = settings.UniversalTriggersChatCollapsed,
             UniversalTriggersRewardCollapsed = settings.UniversalTriggersRewardCollapsed,
             UniversalTriggersBitsCollapsed = settings.UniversalTriggersBitsCollapsed,
@@ -2892,6 +2915,8 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
 
         public List<PersistedUniversalTriggerRule>? UniversalTriggers { get; set; }
 
+        public List<PersistedManagedRewardOwnershipRecord>? ManagedRewardOwnership { get; set; }
+
         public bool? UniversalTriggersChatCollapsed { get; set; }
 
         public bool? UniversalTriggersRewardCollapsed { get; set; }
@@ -2933,6 +2958,15 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
         public List<string>? CustomBlockedWords { get; set; }
 
         public List<string>? SuppressedBlockedWords { get; set; }
+    }
+
+    private sealed class PersistedManagedRewardOwnershipRecord
+    {
+        public string? RewardId { get; set; }
+
+        public bool IsRetired { get; set; }
+
+        public bool DeleteWhenInactive { get; set; }
     }
 
     private sealed class PersistedRedeemGroup
@@ -3205,8 +3239,6 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
         public string? Id { get; set; }
 
         public string? Name { get; set; }
-
-        public string? SourceLabel { get; set; }
 
         public bool IsCurrentAvatar { get; set; }
 

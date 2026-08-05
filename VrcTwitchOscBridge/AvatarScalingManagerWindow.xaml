@@ -1251,6 +1251,43 @@
                                                             <TextBox Text="{Binding CooldownSeconds, UpdateSourceTrigger=PropertyChanged}" />
                                                         </StackPanel>
                                                     </UniformGrid>
+                                                    <TextBlock Margin="0,10,0,0"
+                                                               Text="{loc:Translate 'Managed Reward Colors'}"
+                                                               FontWeight="SemiBold" />
+                                                    <UniformGrid Columns="2" Margin="0,8,0,0">
+                                                        <StackPanel Margin="0,0,6,0">
+                                                            <TextBlock Text="{loc:Translate 'Ready Color'}"
+                                                                       Foreground="{DynamicResource TitleBarSubTextBrush}"
+                                                                       FontSize="11" />
+                                                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                                                <Border Width="24" Height="24" CornerRadius="12"
+                                                                        Background="{Binding ManagedRewardReadyColorBrush}"
+                                                                        BorderBrush="{DynamicResource InputBorderBrush}"
+                                                                        BorderThickness="1" />
+                                                                <Button Margin="10,0,0,0"
+                                                                        Content="{loc:Translate 'Ready Color'}"
+                                                                        Click="OnPickManagedRewardColorClicked"
+                                                                        Tag="Ready"
+                                                                        Style="{StaticResource SecondaryButtonStyle}" />
+                                                            </StackPanel>
+                                                        </StackPanel>
+                                                        <StackPanel Margin="6,0,0,0">
+                                                            <TextBlock Text="{loc:Translate 'Cooldown Color'}"
+                                                                       Foreground="{DynamicResource TitleBarSubTextBrush}"
+                                                                       FontSize="11" />
+                                                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                                                <Border Width="24" Height="24" CornerRadius="12"
+                                                                        Background="{Binding ManagedRewardCooldownColorBrush}"
+                                                                        BorderBrush="{DynamicResource InputBorderBrush}"
+                                                                        BorderThickness="1" />
+                                                                <Button Margin="10,0,0,0"
+                                                                        Content="{loc:Translate 'Cooldown Color'}"
+                                                                        Click="OnPickManagedRewardColorClicked"
+                                                                        Tag="Cooldown"
+                                                                        Style="{StaticResource SecondaryButtonStyle}" />
+                                                            </StackPanel>
+                                                        </StackPanel>
+                                                    </UniformGrid>
                                                     <CheckBox Margin="0,10,0,0"
                                                               Content="{loc:Translate 'Free child reward slots while locked'}"
                                                               IsChecked="{Binding FreeChildRewardSlotsWhenLocked, UpdateSourceTrigger=PropertyChanged}" />
@@ -1482,53 +1519,7 @@
                                                     </StackPanel>
                                                 </Border>
 
-                                                <Border Margin="0,12,0,0"
-                                                        Padding="12"
-                                                        CornerRadius="14"
-                                                        Background="{DynamicResource NestedPanelBrush}"
-                                                        BorderBrush="{DynamicResource BorderBrush}"
-                                                        BorderThickness="1">
-                                                    <StackPanel>
-                                                        <TextBlock Text="{loc:Translate 'Bits Trigger Range'}" FontWeight="Bold" FontSize="15" />
-                                                        <TextBlock Margin="0,6,0,0"
-                                                                   Text="{loc:Translate 'Use minimum and maximum bits to decide which cheer amounts trigger this scale action.'}"
-                                                                   Foreground="{DynamicResource TitleBarSubTextBrush}" />
-                                                        <UniformGrid Columns="2" Margin="0,10,0,0">
-                                                            <StackPanel Margin="0,0,6,0">
-                                                                <TextBlock Text="{loc:Translate 'Minimum Bits'}" FontWeight="SemiBold" />
-                                                                <TextBox Text="{Binding ScaleAction.MinimumBits, UpdateSourceTrigger=PropertyChanged}" />
-                                                            </StackPanel>
-                                                            <StackPanel Margin="6,0,0,0">
-                                                                <TextBlock Text="{loc:Translate 'Maximum Bits'}" FontWeight="SemiBold" />
-                                                                <TextBox Text="{Binding ScaleAction.MaximumBits, UpdateSourceTrigger=PropertyChanged}" />
-                                                            </StackPanel>
-                                                        </UniformGrid>
-                                                    </StackPanel>
-                                                </Border>
 
-                                                <Border Margin="0,12,0,0"
-                                                        Padding="12"
-                                                        CornerRadius="14"
-                                                        Background="{DynamicResource NestedPanelBrush}"
-                                                        BorderBrush="{DynamicResource BorderBrush}"
-                                                        BorderThickness="1">
-                                                    <StackPanel>
-                                                        <TextBlock Text="{loc:Translate 'Avatar Scope'}" FontWeight="Bold" FontSize="15" />
-                                                        <CheckBox Margin="0,10,0,0"
-                                                                  Content="{loc:Translate 'Restrict to this avatar only'}"
-                                                                  IsChecked="{Binding AvatarScoped, UpdateSourceTrigger=PropertyChanged}" />
-                                                        <StackPanel Margin="0,10,0,0"
-                                                                    Visibility="{Binding HasAvatarScope, Converter={StaticResource BoolToVisibilityConverter}}">
-                                                            <TextBlock Text="{loc:Translate 'Avatar'}" FontWeight="SemiBold" />
-                                                            <TextBlock Text="{Binding AvatarDisplayName}" Foreground="{DynamicResource TitleBarSubTextBrush}" />
-                                                        </StackPanel>
-                                                        <WrapPanel Margin="0,8,0,0">
-                                                            <Button Content="{loc:Translate 'Use Current Avatar'}"
-                                                                    Command="{Binding DataContext.UseCurrentAvatarForPowerUpRuleCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                    Style="{StaticResource SecondaryButtonStyle}" />
-                                                        </WrapPanel>
-                                                    </StackPanel>
-                                                </Border>
 
                                                 <Border Margin="0,12,0,0"
                                                         Padding="12"
@@ -1628,6 +1619,16 @@
                                                     </UniformGrid>
                                                     <UniformGrid Columns="2" Margin="0,10,0,0">
                                                         <StackPanel Margin="0,0,6,0">
+                                                            <StackPanel.Style>
+                                                                <Style TargetType="StackPanel">
+                                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding UsesConfiguredRestoreHeight}" Value="True">
+                                                                            <Setter Property="Visibility" Value="Visible" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </StackPanel.Style>
                                                             <TextBlock Text="{loc:Translate 'Return Height'}" FontWeight="SemiBold" />
                                                             <TextBox Text="{Binding RestoreHeightMeters, UpdateSourceTrigger=LostFocus}" />
                                                         </StackPanel>

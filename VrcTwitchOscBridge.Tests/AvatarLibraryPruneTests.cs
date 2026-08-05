@@ -15,8 +15,16 @@ public sealed class AvatarLibraryPruneTests
 
         var currentAvatars = new[]
         {
-            new VrChatAvatarSummary("avd_11111", "Cutie", "VRChat", false, null),
-            new VrChatAvatarSummary("avd_22222", "Other", "VRChat", false, null)
+            new VrChatAvatarSummary(
+                Id: "avd_11111", Name: "Cutie", AuthorName: "", ThumbnailUrl: null,
+                IsCurrentAvatar: false, IsUploaded: false, IsFavorited: false, IsLicensed: false,
+                Platform: "", StyleTags: Array.Empty<string>(), ContentTags: Array.Empty<string>(),
+                FavoriteGroupName: null),
+            new VrChatAvatarSummary(
+                Id: "avd_22222", Name: "Other", AuthorName: "", ThumbnailUrl: null,
+                IsCurrentAvatar: false, IsUploaded: false, IsFavorited: false, IsLicensed: false,
+                Platform: "", StyleTags: Array.Empty<string>(), ContentTags: Array.Empty<string>(),
+                FavoriteGroupName: null)
         };
 
         library.PruneMissingEntries(currentAvatars);
@@ -34,7 +42,11 @@ public sealed class AvatarLibraryPruneTests
 
         var currentAvatars = new[]
         {
-            new VrChatAvatarSummary("avd_11111", "Cutie", "VRChat", false, null)
+            new VrChatAvatarSummary(
+                Id: "avd_11111", Name: "Cutie", AuthorName: "", ThumbnailUrl: null,
+                IsCurrentAvatar: false, IsUploaded: false, IsFavorited: false, IsLicensed: false,
+                Platform: "", StyleTags: Array.Empty<string>(), ContentTags: Array.Empty<string>(),
+                FavoriteGroupName: null)
         };
 
         library.PruneMissingEntries(currentAvatars);
@@ -48,7 +60,11 @@ public sealed class AvatarLibraryPruneTests
         var library = new AvatarLibrary();
         var currentAvatars = new[]
         {
-            new VrChatAvatarSummary("avd_11111", "Cutie", "VRChat", false, null)
+            new VrChatAvatarSummary(
+                Id: "avd_11111", Name: "Cutie", AuthorName: "", ThumbnailUrl: null,
+                IsCurrentAvatar: false, IsUploaded: false, IsFavorited: false, IsLicensed: false,
+                Platform: "", StyleTags: Array.Empty<string>(), ContentTags: Array.Empty<string>(),
+                FavoriteGroupName: null)
         };
 
         library.PruneMissingEntries(currentAvatars);

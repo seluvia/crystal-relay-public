@@ -11,6 +11,7 @@ opencode.json
 .nuget/
 .wrangler/
 **/.wrangler/
+**/.dev.vars
 
 Backups/
 Backup-Crystal-Relay-Source/

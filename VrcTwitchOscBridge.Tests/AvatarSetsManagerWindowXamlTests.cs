@@ -106,6 +106,20 @@ public sealed class AvatarSetsManagerWindowXamlTests
     }
 
     [Fact]
+    public void EveryComboBox_UsesThemedComboBoxStyle()
+    {
+        var xaml = File.ReadAllText(FindSourceFile("VrcTwitchOscBridge", "AvatarSetsManagerWindow.xaml"));
+        var comboBoxes = System.Text.RegularExpressions.Regex.Matches(
+            xaml,
+            "<ComboBox\\b(?:(?!>).)*>",
+            System.Text.RegularExpressions.RegexOptions.Singleline);
+
+        Assert.NotEmpty(comboBoxes);
+        Assert.All(comboBoxes.Cast<System.Text.RegularExpressions.Match>(), match =>
+            Assert.Contains("Style=\"{StaticResource ComboBoxStyle}\"", match.Value, StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void CompactEditor_HasIntModeSelectorBeforeParameterListFilter()
     {
         var xaml = File.ReadAllText(FindSourceFile("VrcTwitchOscBridge", "AvatarSetsManagerWindow.xaml"));

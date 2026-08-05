@@ -118,26 +118,15 @@ return 0;
 
 static Dictionary<string, string> LoadLanguage(string root, string cultureName)
 {
-    var values = new Dictionary<string, string>(StringComparer.Ordinal);
-    foreach (var suffix in new[] { ".json", ".extra.json" })
+    var path = Path.Combine(root, $"{cultureName}.json");
+    if (!File.Exists(path))
     {
-        var path = Path.Combine(root, $"{cultureName}{suffix}");
-        if (!File.Exists(path))
-        {
-            throw new FileNotFoundException("Missing localization file.", path);
-        }
-
-        var json = File.ReadAllText(path);
-        var nextValues = JsonSerializer.Deserialize<Dictionary<string, string>>(json)
-            ?? throw new InvalidOperationException($"Localization file is empty: {Path.GetFileName(path)}");
-
-        foreach (var pair in nextValues)
-        {
-            values[pair.Key] = pair.Value;
-        }
+        throw new FileNotFoundException("Missing localization file.", path);
     }
 
-    return values;
+    var json = File.ReadAllText(path);
+    return JsonSerializer.Deserialize<Dictionary<string, string>>(json)
+        ?? throw new InvalidOperationException($"Localization file is empty: {Path.GetFileName(path)}");
 }
 
 static IEnumerable<string> CollectSourceLocalizationKeys(string appRoot)

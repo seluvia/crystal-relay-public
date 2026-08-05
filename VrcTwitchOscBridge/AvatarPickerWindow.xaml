@@ -8,10 +8,10 @@
         xmlns:m="clr-namespace:VrcTwitchOscBridge.Models"
         Title="{loc:Translate 'Pick Avatar | Crystal Relay'}"
         Icon="Assets/crystal-relay-icon.ico"
-        Width="900"
-        Height="700"
-        MinWidth="700"
-        MinHeight="500"
+        Width="1000"
+        Height="750"
+        MinWidth="800"
+        MinHeight="550"
         WindowStyle="None"
         WindowStartupLocation="CenterOwner"
         FontFamily="{DynamicResource BodyFontFamily}"
@@ -22,7 +22,7 @@
         <shell:WindowChrome CaptionHeight="0"
                             CornerRadius="0"
                             GlassFrameThickness="0"
-                            ResizeBorderThickness="0"
+                            ResizeBorderThickness="6"
                             UseAeroCaptionButtons="False" />
     </shell:WindowChrome.WindowChrome>
     <Window.Resources>
@@ -54,22 +54,28 @@
         <SolidColorBrush x:Key="CardHoverBrush" Color="#2A1E3A" />
         <SolidColorBrush x:Key="CardSelectedBrush" Color="#3A2A5A" />
         <SolidColorBrush x:Key="ImagePlaceholderBrush" Color="#3D2A5E" />
+        <SolidColorBrush x:Key="SidebarBrush" Color="#180E28" />
+        <SolidColorBrush x:Key="SidebarHoverBrush" Color="#2A1C42" />
+        <SolidColorBrush x:Key="SidebarSelectedBrush" Color="#3A2660" />
+        <SolidColorBrush x:Key="ComboTextBrush" Color="#140C20" />
 
-        <!-- Converters -->
         <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
         <local:EnumBooleanConverter x:Key="EnumBooleanConverter" />
         <local:EnumToVisibilityConverter x:Key="EnumToVisibilityConverter" />
         <local:InverseBooleanConverter x:Key="InverseBooleanConverter" />
+        <local:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter" />
+        <local:CountToVisibilityConverter x:Key="CountToVisibilityConverter" />
+        <local:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
 
         <Style x:Key="ScrollBarThumbStyle" TargetType="Thumb">
-            <Setter Property="MinHeight" Value="32" />
+            <Setter Property="MinHeight" Value="24" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Thumb">
                         <Border x:Name="ThumbChrome"
-                                Margin="2"
+                                Margin="1"
                                 Background="{DynamicResource ScrollThumbBrush}"
-                                CornerRadius="8" />
+                                CornerRadius="5" />
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="ThumbChrome" Property="Background" Value="{DynamicResource RuleCardHoverBrush}" />
@@ -314,38 +320,6 @@
             </Setter>
         </Style>
 
-        <Style x:Key="IconButtonStyle" TargetType="Button">
-            <Setter Property="Width" Value="36" />
-            <Setter Property="Height" Value="36" />
-            <Setter Property="Background" Value="{DynamicResource SecondaryButtonBrush}" />
-            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource SecondaryButtonBorderBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="IconBorder"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="8">
-                            <ContentPresenter HorizontalAlignment="Center"
-                                              VerticalAlignment="Center" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="IconBorder" Property="Background" Value="{DynamicResource CardHoverBrush}" />
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="IconBorder" Property="Background" Value="{DynamicResource CardSelectedBrush}" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
         <Style x:Key="ToggleIconButtonStyle" TargetType="ToggleButton">
             <Setter Property="Width" Value="36" />
             <Setter Property="Height" Value="36" />
@@ -404,7 +378,78 @@
             </Setter>
         </Style>
 
-        <!-- Tag Chip DataTemplate (must be defined before card templates that reference it via StaticResource) -->
+        <Style x:Key="FilterChipStyle" TargetType="ToggleButton">
+            <Setter Property="Background" Value="{DynamicResource SecondaryButtonBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SecondaryButtonBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="10,4" />
+            <Setter Property="Margin" Value="0,0,6,4" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="ChipBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="12"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="ChipBorder" Property="Background" Value="{DynamicResource AccentBrush}" />
+                                <Setter TargetName="ChipBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource ComboTextBrush}" />
+                                <Setter Property="FontWeight" Value="Bold" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ChipBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="PlatformChipStyle" TargetType="RadioButton">
+            <Setter Property="Background" Value="{DynamicResource SecondaryButtonBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SecondaryButtonBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="10,4" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="PlatBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="12"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="PlatBorder" Property="Background" Value="{DynamicResource AccentBrush}" />
+                                <Setter TargetName="PlatBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource ComboTextBrush}" />
+                                <Setter Property="FontWeight" Value="Bold" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="PlatBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <DataTemplate x:Key="TagChipTemplate" DataType="{x:Type m:AvatarTagDisplay}">
             <Border Background="{Binding ColorHex}"
                     CornerRadius="8"
@@ -427,16 +472,39 @@
             </Border>
         </DataTemplate>
 
-        <!-- Avatar Card Template for Grid View -->
+        <DataTemplate x:Key="StyleTagChipTemplate">
+            <Border x:Name="StyleChipBorder"
+                    Background="{DynamicResource SecondaryButtonBrush}"
+                    BorderBrush="{DynamicResource SecondaryButtonBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="10"
+                    Padding="8,3"
+                    Margin="0,0,6,4"
+                    Cursor="Hand">
+                <TextBlock Text="{Binding}"
+                           Foreground="{DynamicResource TextBrush}"
+                           FontSize="11" />
+            </Border>
+            <DataTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter TargetName="StyleChipBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                </Trigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
         <DataTemplate x:Key="AvatarCardTemplate" DataType="{x:Type vm:AvatarPickerItem}">
             <Border x:Name="CardBorder"
-                    Width="140"
+                    Width="170"
                     Margin="6"
                     Background="{DynamicResource CardBackgroundBrush}"
                     BorderBrush="{DynamicResource BorderBrush}"
                     BorderThickness="1"
                     CornerRadius="12"
-                    Padding="10">
+                    Padding="0"
+                    ClipToBounds="True"
+                    Cursor="Hand"
+                    Focusable="True"
+                    MouseLeftButtonDown="OnAvatarCardClicked">
                 <Border.ContextMenu>
                     <ContextMenu>
                         <MenuItem Header="{loc:Translate 'Set Custom Icon...'}" Click="OnSetCustomIconClicked" />
@@ -454,18 +522,15 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <!-- Avatar Image -->
                     <Border Grid.Row="0"
                             Background="{DynamicResource ImagePlaceholderBrush}"
-                            CornerRadius="8"
                             ClipToBounds="True"
-                            Margin="0,0,0,8">
+                            Margin="0,0,0,0">
                         <Image Source="{Binding Image}"
                                Stretch="UniformToFill"
                                RenderOptions.BitmapScalingMode="HighQuality" />
                     </Border>
 
-                    <!-- Multi-Select Checkbox -->
                     <CheckBox Grid.Row="0"
                               HorizontalAlignment="Right"
                               VerticalAlignment="Top"
@@ -473,21 +538,84 @@
                               Visibility="{Binding DataContext.IsMultiSelectMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibilityConverter}}"
                               Click="OnCardCheckBoxClicked" />
 
-                    <!-- Avatar Name -->
-                    <TextBlock Grid.Row="1"
-                               Text="{Binding DisplayName}"
-                               Foreground="{DynamicResource TextBrush}"
-                               FontSize="12"
-                               FontWeight="SemiBold"
-                               TextTrimming="CharacterEllipsis"
-                               TextAlignment="Center"
-                               Margin="0,0,0,6" />
+                    <Border Grid.Row="0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Background="#CC000000"
+                            CornerRadius="0,0,8,0"
+                            Padding="6,2"
+                            Margin="0"
+                            Visibility="{Binding IsCurrentAvatar, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <TextBlock Text="{loc:Translate 'CURRENT'}"
+                                   Foreground="#4ADE80"
+                                   FontSize="9"
+                                   FontWeight="Bold" />
+                    </Border>
 
-                    <!-- Tag Chips -->
+                    <Border Grid.Row="0"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Bottom"
+                            Margin="4"
+                            Visibility="{Binding IsFavorited, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <TextBlock Text="&#x2764;"
+                                   Foreground="#F472B6"
+                                   FontSize="14" />
+                    </Border>
+
+                    <Border Grid.Row="0"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Bottom"
+                            Background="#AA000000"
+                            CornerRadius="6"
+                            Padding="5,2"
+                            Margin="4"
+                            Visibility="{Binding Platform, Converter={StaticResource NullToVisibilityConverter}}">
+                        <TextBlock Text="{Binding Platform}"
+                                   Foreground="White"
+                                   FontSize="9"
+                                   FontWeight="SemiBold" />
+                    </Border>
+
+                    <StackPanel Grid.Row="1" Margin="10,8,10,4">
+                        <TextBlock Text="{Binding DisplayName}"
+                                   Foreground="{DynamicResource TextBrush}"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"
+                                   TextTrimming="CharacterEllipsis"
+                                   TextWrapping="NoWrap" />
+                        <TextBlock Text="{Binding AuthorName, StringFormat='by {0}'}"
+                                   Foreground="{DynamicResource MutedBrush}"
+                                   FontSize="10"
+                                   TextTrimming="CharacterEllipsis"
+                                   Margin="0,2,0,0" />
+                    </StackPanel>
+
                     <ItemsControl Grid.Row="2"
+                                  ItemsSource="{Binding StyleTags}"
+                                  Margin="10,0,10,4">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{DynamicResource StatusChipBrush}"
+                                        CornerRadius="6"
+                                        Padding="5,1"
+                                        Margin="0,0,3,2">
+                                    <TextBlock Text="{Binding}"
+                                               Foreground="{DynamicResource MutedBrush}"
+                                               FontSize="9" />
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <ItemsControl Grid.Row="3"
                                   ItemsSource="{Binding Tags}"
                                   ItemTemplate="{StaticResource TagChipTemplate}"
-                                  Margin="0,0,0,6">
+                                  Margin="10,0,10,6">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <WrapPanel Orientation="Horizontal" />
@@ -495,14 +623,7 @@
                         </ItemsControl.ItemsPanel>
                     </ItemsControl>
 
-                    <!-- Select Button -->
-                    <Button Grid.Row="3"
-                            Content="{loc:Translate 'Select'}"
-                            Style="{StaticResource PrimaryButtonStyle}"
-                            Padding="10,6"
-                            FontSize="11"
-                            Click="OnAvatarSelectClicked"
-                            Tag="{Binding}" />
+                    <!-- Card click selects it; no separate Select button needed -->
                 </Grid>
             </Border>
             <DataTemplate.Triggers>
@@ -516,7 +637,6 @@
             </DataTemplate.Triggers>
         </DataTemplate>
 
-        <!-- Avatar List Item Template -->
         <DataTemplate x:Key="AvatarListItemTemplate" DataType="{x:Type vm:AvatarPickerItem}">
             <Border x:Name="ListItemBorder"
                     Background="{DynamicResource CardBackgroundBrush}"
@@ -524,7 +644,9 @@
                     BorderThickness="1"
                     CornerRadius="8"
                     Padding="10,8"
-                    Margin="0,3">
+                    Margin="0,3"
+                    Cursor="Hand"
+                    MouseLeftButtonDown="OnAvatarCardClicked">
                 <Border.ContextMenu>
                     <ContextMenu>
                         <MenuItem Header="{loc:Translate 'Set Custom Icon...'}" Click="OnSetCustomIconClicked" />
@@ -543,7 +665,6 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
-                    <!-- Avatar Image -->
                     <Border Grid.Column="0"
                             Width="40"
                             Height="40"
@@ -556,37 +677,42 @@
                                RenderOptions.BitmapScalingMode="HighQuality" />
                     </Border>
 
-                    <!-- Multi-Select Checkbox -->
                     <CheckBox Grid.Column="0"
                               HorizontalAlignment="Center"
                               VerticalAlignment="Center"
                               Visibility="{Binding DataContext.IsMultiSelectMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibilityConverter}}"
                               Click="OnCardCheckBoxClicked" />
 
-                    <!-- Name -->
-                    <TextBlock Grid.Column="1"
-                               Text="{Binding DisplayName}"
-                               Foreground="{DynamicResource TextBrush}"
-                               FontSize="13"
-                               FontWeight="SemiBold"
-                               VerticalAlignment="Center"
-                               TextTrimming="CharacterEllipsis"
-                               Margin="0,0,10,0" />
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,10,0">
+                        <TextBlock Text="{Binding DisplayName}"
+                                   Foreground="{DynamicResource TextBrush}"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding AuthorName, StringFormat='by {0}'}"
+                                   Foreground="{DynamicResource MutedBrush}"
+                                   FontSize="10"
+                                   TextTrimming="CharacterEllipsis"
+                                   Margin="0,2,0,0" />
+                    </StackPanel>
 
-                    <!-- Source Label -->
-                    <TextBlock Grid.Column="2"
-                               Text="{Binding SourceLabel}"
-                               Foreground="{DynamicResource MutedBrush}"
-                               FontSize="11"
-                               VerticalAlignment="Center"
-                               Margin="0,0,10,0" />
+                    <Border Grid.Column="2"
+                            Background="{DynamicResource StatusChipBrush}"
+                            CornerRadius="6"
+                            Padding="6,2"
+                            Margin="0,0,8,0"
+                            VerticalAlignment="Center"
+                            Visibility="{Binding Platform, Converter={StaticResource NullToVisibilityConverter}}">
+                        <TextBlock Text="{Binding Platform}"
+                                   Foreground="{DynamicResource MutedBrush}"
+                                   FontSize="10" />
+                    </Border>
 
-                    <!-- Tag Chips -->
                     <ItemsControl Grid.Column="3"
                                   ItemsSource="{Binding Tags}"
                                   ItemTemplate="{StaticResource TagChipTemplate}"
                                   VerticalAlignment="Center"
-                                  Margin="0,0,10,0">
+                                  Margin="0,0,8,0">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <WrapPanel Orientation="Horizontal" />
@@ -594,14 +720,14 @@
                         </ItemsControl.ItemsPanel>
                     </ItemsControl>
 
-                    <!-- Select Button -->
-                    <Button Grid.Column="4"
-                            Content="{loc:Translate 'Select'}"
-                            Style="{StaticResource PrimaryButtonStyle}"
-                            Padding="12,6"
-                            FontSize="11"
-                            Click="OnAvatarSelectClicked"
-                            Tag="{Binding}" />
+                    <TextBlock Grid.Column="4"
+                               Text="{Binding SourceLabel}"
+                               Foreground="{DynamicResource MutedBrush}"
+                               FontSize="10"
+                               VerticalAlignment="Center"
+                               Margin="0,0,8,0" />
+
+                    <!-- Click row to select; no separate Select button needed -->
                 </Grid>
             </Border>
             <DataTemplate.Triggers>
@@ -611,6 +737,95 @@
                 <DataTrigger Binding="{Binding IsSelected}" Value="True">
                     <Setter TargetName="ListItemBorder" Property="Background" Value="{DynamicResource CardSelectedBrush}" />
                     <Setter TargetName="ListItemBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <DataTemplate x:Key="SidebarItemTemplate">
+            <Grid>
+                <!-- Section header (icon empty + count 0 = section header) -->
+                <TextBlock x:Name="SidebarSectionHeader"
+                           Text="{Binding Label}"
+                           Foreground="{DynamicResource AccentBrush}"
+                           FontSize="10"
+                           FontWeight="Bold"
+                           Margin="12,12,0,4"
+                           TextWrapping="NoWrap"
+                           Visibility="Collapsed" />
+
+                <!-- Regular sidebar item -->
+                <Border x:Name="SidebarItemBorder"
+                        Background="Transparent"
+                        CornerRadius="8"
+                        Padding="10,7"
+                        Margin="4,1"
+                        Cursor="Hand"
+                        MouseLeftButtonDown="OnSidebarItemClicked">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="22" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Icon (shown when no ColorHex) -->
+                        <TextBlock x:Name="SidebarIcon"
+                                   Grid.Column="0"
+                                   Text="{Binding Icon}"
+                                   Foreground="{DynamicResource MutedBrush}"
+                                   FontSize="12"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Center" />
+
+                        <!-- Color dot (shown for group items with ColorHex) -->
+                        <Border x:Name="SidebarColorDot"
+                                Grid.Column="0"
+                                Width="8"
+                                Height="8"
+                                CornerRadius="2"
+                                Background="{Binding ColorHex}"
+                                VerticalAlignment="Center"
+                                HorizontalAlignment="Center"
+                                Visibility="Collapsed" />
+
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding Label}"
+                                   Foreground="{DynamicResource TextBrush}"
+                                   FontSize="12"
+                                   VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis" />
+
+                        <TextBlock Grid.Column="2"
+                                   Text="{Binding Count}"
+                                   Foreground="{DynamicResource MutedBrush}"
+                                   FontSize="10"
+                                   VerticalAlignment="Center"
+                                   Margin="6,0,0,0" />
+                    </Grid>
+                </Border>
+            </Grid>
+            <DataTemplate.Triggers>
+                <!-- Section header detection: Icon is empty AND Count is 0 -->
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding Icon}" Value="" />
+                        <Condition Binding="{Binding Count}" Value="0" />
+                    </MultiDataTrigger.Conditions>
+                    <MultiDataTrigger.Setters>
+                        <Setter Property="Visibility" TargetName="SidebarItemBorder" Value="Collapsed" />
+                        <Setter Property="Visibility" TargetName="SidebarSectionHeader" Value="Visible" />
+                    </MultiDataTrigger.Setters>
+                </MultiDataTrigger>
+
+                <!-- Mouse over for regular items -->
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter TargetName="SidebarItemBorder" Property="Background" Value="{DynamicResource SidebarHoverBrush}" />
+                </Trigger>
+
+                <!-- Color dot for group items -->
+                <DataTrigger Binding="{Binding ColorHex, Converter={StaticResource NullToVisibilityConverter}}" Value="Visible">
+                    <Setter Property="Visibility" TargetName="SidebarColorDot" Value="Visible" />
+                    <Setter Property="Visibility" TargetName="SidebarIcon" Value="Collapsed" />
                 </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
@@ -671,6 +886,7 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
     </Window.Resources>
 
     <Border Margin="1"
@@ -683,7 +899,6 @@
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-            <!-- Title Bar -->
             <Border Grid.Row="0"
                     Background="{DynamicResource TitleBarBrush}"
                     BorderBrush="{DynamicResource BorderBrush}"
@@ -718,7 +933,6 @@
                     </DockPanel>
 
                     <Button Grid.Column="1"
-                            x:Name="RefreshIconsButton"
                             Style="{StaticResource TitleBarManageButtonStyle}"
                             Click="OnRefreshIconsClicked"
                             ToolTip="{loc:Translate 'Refresh Icons'}">
@@ -748,184 +962,286 @@
                 </Grid>
             </Border>
 
-            <!-- Main Content -->
-            <Grid Grid.Row="1"
-                  Margin="20">
-                <Border Background="{DynamicResource PanelBrush}"
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="210" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0"
+                        Background="{DynamicResource SidebarBrush}"
                         BorderBrush="{DynamicResource BorderBrush}"
-                        BorderThickness="1"
-                        CornerRadius="22"
-                        Padding="22">
+                        BorderThickness="0,0,1,0">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
-                            <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
 
-                        <!-- Header with count -->
-                        <StackPanel Grid.Row="0">
-                            <TextBlock Text="{loc:Translate 'Choose an Avatar'}"
-                                       Style="{StaticResource HeadingTextStyle}"
-                                       FontSize="24"
+                        <Border Grid.Row="0"
+                                BorderBrush="{DynamicResource BorderBrush}"
+                                BorderThickness="0,0,0,1"
+                                Padding="14,12">
+                            <TextBlock Text="{loc:Translate 'Library'}"
+                                       FontFamily="{DynamicResource HeadingFontFamily}"
+                                       FontSize="14"
                                        FontWeight="Bold"
                                        Foreground="{DynamicResource TextBrush}" />
-                            <TextBlock x:Name="FilteredCountText"
-                                       Margin="0,10,0,0"
-                                       Foreground="{DynamicResource MutedBrush}"
-                                       TextWrapping="Wrap" />
+                        </Border>
+
+                        <ScrollViewer Grid.Row="1"
+                                      VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      Padding="0,8">
+                            <ItemsControl ItemsSource="{Binding SidebarItems}"
+                                          ItemTemplate="{StaticResource SidebarItemTemplate}" />
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+
+                <Grid Grid.Column="1">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0" Margin="20,16,20,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBox x:Name="SearchTextBox"
+                                 Grid.Column="0"
+                                 Style="{StaticResource SearchTextBoxStyle}"
+                                 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                 MaxLength="200" />
+
+                        <StackPanel Grid.Column="1"
+                                    Orientation="Horizontal"
+                                    Margin="12,0,0,0"
+                                    VerticalAlignment="Center">
+                            <ToggleButton Style="{StaticResource ToggleIconButtonStyle}"
+                                          IsChecked="{Binding ViewMode, Converter={StaticResource EnumBooleanConverter}, ConverterParameter=Grid}"
+                                          Click="OnGridViewToggled"
+                                          ToolTip="{loc:Translate 'Grid View'}">
+                                <TextBlock Text="&#x2630;" FontSize="14" />
+                            </ToggleButton>
+                            <ToggleButton Margin="6,0,0,0"
+                                          Style="{StaticResource ToggleIconButtonStyle}"
+                                          IsChecked="{Binding ViewMode, Converter={StaticResource EnumBooleanConverter}, ConverterParameter=List}"
+                                          Click="OnListViewToggled"
+                                          ToolTip="{loc:Translate 'List View'}">
+                                <TextBlock Text="&#x2637;" FontSize="14" />
+                            </ToggleButton>
                         </StackPanel>
+                    </Grid>
 
-                        <!-- Search and View Toggle Bar -->
-                        <Grid Grid.Row="1" Margin="0,16,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Row="1" Margin="20,12,20,0">
+                        <TextBlock Text="{Binding SectionTitle}"
+                                   FontFamily="{DynamicResource HeadingFontFamily}"
+                                   FontSize="20"
+                                   FontWeight="Bold"
+                                   Foreground="{DynamicResource TextBrush}" />
+                        <TextBlock Text="{Binding SectionDescription}"
+                                   Foreground="{DynamicResource MutedBrush}"
+                                   FontSize="12"
+                                   Margin="0,4,0,0" />
+                    </StackPanel>
 
-                            <!-- Search TextBox -->
-                            <TextBox x:Name="SearchTextBox"
-                                     Grid.Column="0"
-                                     Style="{StaticResource SearchTextBoxStyle}"
-                                     Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                                     MaxLength="200" />
-
-                            <!-- View Mode Toggle -->
-                            <StackPanel Grid.Column="1"
-                                        Orientation="Horizontal"
-                                        Margin="12,0,0,0"
-                                        VerticalAlignment="Center">
-                                <ToggleButton x:Name="GridViewToggle"
-                                              Style="{StaticResource ToggleIconButtonStyle}"
-                                              IsChecked="{Binding ViewMode, Converter={StaticResource EnumBooleanConverter}, ConverterParameter=Grid}"
-                                              Click="OnGridViewToggled"
-                                              ToolTip="{loc:Translate 'Grid View'}">
-                                    <TextBlock Text="&#x2630;" FontSize="14" />
-                                </ToggleButton>
-                                <ToggleButton x:Name="ListViewToggle"
-                                              Margin="6,0,0,0"
-                                              Style="{StaticResource ToggleIconButtonStyle}"
-                                              IsChecked="{Binding ViewMode, Converter={StaticResource EnumBooleanConverter}, ConverterParameter=List}"
-                                              Click="OnListViewToggled"
-                                              ToolTip="{loc:Translate 'List View'}">
-                                    <TextBlock Text="&#x2637;" FontSize="14" />
-                                </ToggleButton>
+                    <StackPanel Grid.Row="2" Margin="20,12,20,0">
+                        <ToggleButton x:Name="FilterToggleButton"
+                                      IsChecked="{Binding FiltersExpanded, Mode=TwoWay}"
+                                      HorizontalAlignment="Left"
+                                      Background="{DynamicResource SecondaryButtonBrush}"
+                                      Foreground="{DynamicResource TextBrush}"
+                                      BorderBrush="{DynamicResource SecondaryButtonBorderBrush}"
+                                      BorderThickness="1"
+                                      Padding="10,6"
+                                      Cursor="Hand"
+                                      Margin="0,0,0,8">
+                            <ToggleButton.Template>
+                                <ControlTemplate TargetType="ToggleButton">
+                                    <Border x:Name="FilterToggleBorder"
+                                            Background="{TemplateBinding Background}"
+                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="{TemplateBinding BorderThickness}"
+                                            CornerRadius="8"
+                                            Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="FilterToggleBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                        </Trigger>
+                                        <Trigger Property="IsChecked" Value="True">
+                                            <Setter TargetName="FilterToggleBorder" Property="Background" Value="{DynamicResource AccentBrush}" />
+                                            <Setter TargetName="FilterToggleBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </ToggleButton.Template>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#x25BC;"
+                                           Foreground="{DynamicResource TextBrush}"
+                                           FontSize="10"
+                                           VerticalAlignment="Center"
+                                           Margin="0,0,6,0" />
+                                <TextBlock Text="{Binding ActiveFilterText}"
+                                           Foreground="{DynamicResource TextBrush}"
+                                           FontSize="12"
+                                           VerticalAlignment="Center" />
                             </StackPanel>
-                        </Grid>
+                        </ToggleButton>
 
-                        <!-- Filter Bar -->
-                        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
-                            <TextBlock Text="{loc:Translate 'Group:'}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
-                            <ComboBox Width="150"
-                                      ItemsSource="{Binding GroupFilterOptions}"
-                                      SelectedItem="{Binding SelectedGroupFilterOption, UpdateSourceTrigger=PropertyChanged}"
-                                      DisplayMemberPath="Display"
-                                      Margin="0,0,16,0">
-                                <ComboBox.Style>
-                                    <Style TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
-                                        <Setter Property="Background" Value="{DynamicResource InputBrush}" />
-                                        <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
-                                        <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
-                                    </Style>
-                                </ComboBox.Style>
-                            </ComboBox>
-
-                            <TextBlock Text="{loc:Translate 'Tag:'}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
-                            <ComboBox Width="150"
-                                      ItemsSource="{Binding TagFilterOptions}"
-                                      SelectedItem="{Binding SelectedTagFilterOption, UpdateSourceTrigger=PropertyChanged}"
-                                      DisplayMemberPath="Display">
-                                <ComboBox.Style>
-                                    <Style TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
-                                        <Setter Property="Background" Value="{DynamicResource InputBrush}" />
-                                        <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
-                                        <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
-                                    </Style>
-                                </ComboBox.Style>
-                            </ComboBox>
-                        </StackPanel>
-
-                        <!-- Avatar Display Area -->
-                        <Grid Grid.Row="3" Margin="0,20,0,0">
-                            <!-- Grid View -->
-                            <ScrollViewer x:Name="GridViewScroll"
-                                          VerticalScrollBarVisibility="Auto"
-                                          HorizontalScrollBarVisibility="Disabled"
-                                          Visibility="{Binding ViewMode, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter=Grid}">
-                                <ItemsControl x:Name="GridViewControl"
-                                              ItemsSource="{Binding FilteredAvatars}"
-                                              ItemTemplate="{StaticResource AvatarCardTemplate}">
+                        <StackPanel Visibility="{Binding FiltersExpanded, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <StackPanel Margin="0,0,0,8">
+                                <TextBlock Text="{loc:Translate 'Style:'}"
+                                           Foreground="{DynamicResource MutedBrush}"
+                                           FontSize="11"
+                                           Margin="0,0,0,4" />
+                                <ItemsControl ItemsSource="{Binding AllStyleTags}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
                                             <WrapPanel Orientation="Horizontal" />
                                         </ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <ToggleButton Style="{StaticResource FilterChipStyle}"
+                                                          Content="{Binding}"
+                                                          Click="OnStyleFilterChipClicked" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
                                 </ItemsControl>
-                            </ScrollViewer>
+                            </StackPanel>
 
-                            <!-- List View -->
-                            <ListBox x:Name="ListViewControl"
-                                     ItemsSource="{Binding FilteredAvatars}"
-                                     ItemTemplate="{StaticResource AvatarListItemTemplate}"
-                                     Background="Transparent"
-                                     BorderThickness="0"
-                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                                     ScrollViewer.CanContentScroll="True"
-                                     AllowDrop="True"
-                                     PreviewMouseLeftButtonDown="OnListViewPreviewMouseLeftButtonDown"
-                                     PreviewMouseMove="OnListViewPreviewMouseMove"
-                                     Drop="OnListViewDrop"
-                                     Visibility="{Binding ViewMode, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter=List}">
-                                <ListBox.ItemsPanel>
+                            <StackPanel Margin="0,0,0,8">
+                                <TextBlock Text="{loc:Translate 'Platform:'}"
+                                           Foreground="{DynamicResource MutedBrush}"
+                                           FontSize="11"
+                                           Margin="0,0,0,4" />
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton Style="{StaticResource PlatformChipStyle}"
+                                                 Content="{loc:Translate 'All'}"
+                                                 GroupName="PlatformFilter"
+                                                 IsChecked="True"
+                                                 Click="OnPlatformAllClicked" />
+                                    <RadioButton Style="{StaticResource PlatformChipStyle}"
+                                                 Content="PC"
+                                                 GroupName="PlatformFilter"
+                                                 Click="OnPlatformPcClicked" />
+                                    <RadioButton Style="{StaticResource PlatformChipStyle}"
+                                                 Content="Quest"
+                                                 GroupName="PlatformFilter"
+                                                 Click="OnPlatformQuestClicked" />
+                                    <RadioButton Style="{StaticResource PlatformChipStyle}"
+                                                 Content="Both"
+                                                 GroupName="PlatformFilter"
+                                                 Click="OnPlatformBothClicked" />
+                                </StackPanel>
+                            </StackPanel>
+
+                            <StackPanel Margin="0,0,0,8">
+                                <TextBlock Text="{loc:Translate 'Content:'}"
+                                           Foreground="{DynamicResource MutedBrush}"
+                                           FontSize="11"
+                                           Margin="0,0,0,4" />
+                                <ItemsControl ItemsSource="{Binding AllContentTags}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel Orientation="Horizontal" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <ToggleButton Style="{StaticResource FilterChipStyle}"
+                                                          Content="{Binding}"
+                                                          Click="OnContentFilterChipClicked" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <Grid Grid.Row="3" Margin="20,12,20,0">
+                        <ScrollViewer x:Name="GridViewScroll"
+                                      VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      Visibility="{Binding ViewMode, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter=Grid}">
+                            <ItemsControl x:Name="GridViewControl"
+                                          ItemsSource="{Binding FilteredAvatars}"
+                                          ItemTemplate="{StaticResource AvatarCardTemplate}">
+                                <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
                                         <WrapPanel Orientation="Horizontal" />
                                     </ItemsPanelTemplate>
-                                </ListBox.ItemsPanel>
-                            </ListBox>
-                        </Grid>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                        </ScrollViewer>
 
-                        <!-- Bottom Bar -->
-                        <Grid Grid.Row="4"
-                              Margin="0,22,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-
-                            <!-- Selection Display -->
-                            <StackPanel Grid.Column="0"
-                                        VerticalAlignment="Center">
-                                <TextBlock x:Name="SelectionLabel"
-                                           Foreground="{DynamicResource MutedBrush}"
-                                           FontSize="12" />
-                                <TextBlock x:Name="SelectionName"
-                                           Foreground="{DynamicResource TextBrush}"
-                                           FontSize="16"
-                                           FontWeight="SemiBold"
-                                           TextTrimming="CharacterEllipsis" />
-                            </StackPanel>
-
-                            <!-- Buttons -->
-                            <StackPanel Grid.Column="1"
-                                        Orientation="Horizontal">
-                                <Button Width="110"
-                                        Margin="0,0,10,0"
-                                        Content="{loc:Translate 'Cancel'}"
-                                        Style="{StaticResource SecondaryButtonStyle}"
-                                        IsCancel="True"
-                                        Click="OnCancelButtonClicked" />
-                                <Button Width="126"
-                                        Content="{loc:Translate 'OK'}"
-                                        Style="{StaticResource PrimaryButtonStyle}"
-                                        IsDefault="True"
-                                        IsEnabled="{Binding CanConfirm}"
-                                        Click="OnConfirmButtonClicked" />
-                            </StackPanel>
-                        </Grid>
+                        <ListBox x:Name="ListViewControl"
+                                 ItemsSource="{Binding FilteredAvatars}"
+                                 ItemTemplate="{StaticResource AvatarListItemTemplate}"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 ScrollViewer.CanContentScroll="True"
+                                 AllowDrop="True"
+                                 PreviewMouseLeftButtonDown="OnListViewPreviewMouseLeftButtonDown"
+                                 PreviewMouseMove="OnListViewPreviewMouseMove"
+                                 Drop="OnListViewDrop"
+                                 Visibility="{Binding ViewMode, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter=List}">
+                            <ListBox.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ListBox.ItemsPanel>
+                        </ListBox>
                     </Grid>
-                </Border>
+
+                    <Grid Grid.Row="4" Margin="20,12,20,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock x:Name="FilteredCountText"
+                                       Foreground="{DynamicResource MutedBrush}"
+                                       FontSize="11" />
+                            <TextBlock x:Name="SelectionLabel"
+                                       Foreground="{DynamicResource MutedBrush}"
+                                       FontSize="12"
+                                       Margin="0,2,0,0" />
+                            <TextBlock x:Name="SelectionName"
+                                       Foreground="{DynamicResource TextBrush}"
+                                       FontSize="14"
+                                       FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1"
+                                    Orientation="Horizontal">
+                            <Button Width="110"
+                                    Margin="0,0,10,0"
+                                    Content="{loc:Translate 'Cancel'}"
+                                    Style="{StaticResource SecondaryButtonStyle}"
+                                    IsCancel="True"
+                                    Click="OnCancelButtonClicked" />
+                            <Button Width="126"
+                                    Content="{loc:Translate 'OK'}"
+                                    Style="{StaticResource PrimaryButtonStyle}"
+                                    IsDefault="True"
+                                    IsEnabled="{Binding CanConfirm}"
+                                    Click="OnConfirmButtonClicked" />
+                        </StackPanel>
+                    </Grid>
+                </Grid>
             </Grid>
         </Grid>
     </Border>

@@ -20,5 +20,7 @@
   <ItemGroup>
     <Compile Include="..\VrcTwitchOscBridge\Services\ApplicationUpdatePackageRules.cs"
              Link="ApplicationUpdatePackageRules.cs" />
+    <Compile Include="..\VrcTwitchOscBridge\Services\ApplicationUpdateRollback.cs"
+             Link="ApplicationUpdateRollback.cs" />
   </ItemGroup>
 </Project>

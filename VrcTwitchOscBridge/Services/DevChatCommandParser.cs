@@ -12,6 +12,7 @@ internal enum DevChatCommandKind
 {
     RelativeAvatarScale,
     RandomAvatarScale,
+    SetAvatarScale,
     Movement,
     RandomMovementSequence,
     FireSale
@@ -26,7 +27,8 @@ internal sealed record DevChatCommand(
     double TransitionSeconds,
     string CommandText,
     double MinimumHeightMeters = 0,
-    double MaximumHeightMeters = 0);
+    double MaximumHeightMeters = 0,
+    double SetHeightMeters = 0);
 
 internal static class DevChatCommandParser
 {
@@ -83,6 +85,9 @@ internal static class DevChatCommandParser
 
             case "scalerandom":
                 return TryParseRandomAvatarScale(commandTokens, commandText, out command, out diagnostic);
+
+            case "scaleset":
+                return TryParseSetAvatarScale(commandTokens, commandText, out command, out diagnostic);
 
             case "move":
                 return TryParseMovement(commandTokens, commandText, out command, out diagnostic);
@@ -195,6 +200,45 @@ internal static class DevChatCommandParser
             commandName,
             minimumHeightMeters,
             maximumHeightMeters);
+        return true;
+    }
+
+    private static bool TryParseSetAvatarScale(
+        IReadOnlyList<string> tokens,
+        string commandName,
+        out DevChatCommand command,
+        out string diagnostic)
+    {
+        command = default!;
+        diagnostic = string.Empty;
+
+        if (tokens.Count != 3)
+        {
+            diagnostic = $"{commandName} expects <heightMeters> <transitionSeconds>.";
+            return false;
+        }
+
+        if (!TryParsePositiveDouble(tokens[1], out var heightMeters))
+        {
+            diagnostic = $"{commandName} needs a positive height in meters, like 1.6.";
+            return false;
+        }
+
+        if (!TryParseNonNegativeDouble(tokens[2], out var transitionSeconds))
+        {
+            diagnostic = $"{commandName} needs a non-negative transition duration in seconds.";
+            return false;
+        }
+
+        command = new DevChatCommand(
+            DevChatCommandKind.SetAvatarScale,
+            0,
+            PlayerMovementDirection.Forward,
+            0,
+            0,
+            Math.Clamp(transitionSeconds, 0, 30),
+            commandName,
+            SetHeightMeters: heightMeters);
         return true;
     }
 

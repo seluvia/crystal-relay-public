@@ -35,6 +35,13 @@
         <SolidColorBrush x:Key="TitleBarClosePressedBrush" Color="#8C2648" />
         <SolidColorBrush x:Key="SecondaryButtonBrush" Color="#2C1C48" />
         <SolidColorBrush x:Key="SecondaryButtonBorderBrush" Color="#6942A7" />
+        <SolidColorBrush x:Key="CardBackgroundBrush" Color="#1A142A" />
+        <SolidColorBrush x:Key="CardHoverBrush" Color="#2A1E3A" />
+        <SolidColorBrush x:Key="CardSelectedBrush" Color="#3A2A5A" />
+        <SolidColorBrush x:Key="ImagePlaceholderBrush" Color="#3D2A5E" />
+        <SolidColorBrush x:Key="ScrollTrackBrush" Color="#25183D" />
+        <SolidColorBrush x:Key="ScrollThumbBrush" Color="#7B57D0" />
+        <SolidColorBrush x:Key="RuleCardHoverBrush" Color="#8D56E8" />
 
         <Style x:Key="TitleBarCloseButtonStyle" TargetType="Button">
             <Setter Property="Width" Value="46" />
@@ -85,17 +92,140 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">
-                        <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}" CornerRadius="6">
+                        <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}" CornerRadius="6" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0">
                             <ContentPresenter />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                                <Setter Property="Background" Value="{DynamicResource CardSelectedBrush}" />
                             </Trigger>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+                                <Setter Property="Background" Value="{DynamicResource CardHoverBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ThemedTextBoxStyle" TargetType="TextBox">
+            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="CaretBrush" Value="{DynamicResource TextBrush}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ThemedComboBoxStyle" TargetType="ComboBox">
+            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <Border x:Name="ComboBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <ContentPresenter Grid.Column="0" Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="&#x25BC;" Foreground="{DynamicResource MutedBrush}" FontSize="8" VerticalAlignment="Center" Margin="4,0,0,0" />
+                                </Grid>
+                            </Border>
+                            <Popup x:Name="PART_Popup" Placement="Bottom" IsOpen="{TemplateBinding IsDropDownOpen}" AllowsTransparency="True" Focusable="False">
+                                <Border Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" MaxHeight="300">
+                                    <ScrollViewer>
+                                        <ItemsPresenter />
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ComboBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsDropDownOpen" Value="True">
+                                <Setter TargetName="ComboBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ThemedTabControlStyle" TargetType="TabControl">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabControl">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <TabPanel Grid.Row="0" IsItemsHost="True" Margin="0,0,0,0" Background="Transparent" />
+                            <Border Grid.Row="1" Background="Transparent" BorderThickness="0" CornerRadius="8">
+                                <ContentPresenter x:Name="PART_SelectedContentHost" ContentSource="SelectedContent" />
+                            </Border>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ThemedTabItemStyle" TargetType="TabItem">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Padding" Value="16,8" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="TabBorder" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}" Margin="0,0,4,0" CornerRadius="8,8,0,0">
+                            <ContentPresenter ContentSource="Header" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource AccentBrush}" />
+                                <Setter Property="Foreground" Value="White" />
+                                <Setter Property="FontWeight" Value="Bold" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource CardHoverBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="Separator">
+            <Setter Property="Background" Value="{DynamicResource BorderBrush}" />
+            <Setter Property="Margin" Value="0,12" />
+            <Setter Property="Height" Value="1" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Separator">
+                        <Border Background="{TemplateBinding Background}" Height="1" />
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
@@ -179,9 +309,9 @@
             <!-- Main Content -->
             <Grid Grid.Row="1" Margin="16">
                 <Border Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="16" Padding="16">
-                    <TabControl Background="Transparent" BorderThickness="0">
+                    <TabControl Style="{StaticResource ThemedTabControlStyle}">
                         <!-- Groups Tab -->
-                        <TabItem Header="{loc:Translate 'Groups'}">
+                        <TabItem Header="{loc:Translate 'Groups'}" Style="{StaticResource ThemedTabItemStyle}">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="*" />
@@ -195,8 +325,8 @@
                                                     <ColumnDefinition Width="*" />
                                                     <ColumnDefinition Width="60" />
                                                 </Grid.ColumnDefinitions>
-                                                <TextBox Grid.Column="0" Text="{Binding Name, UpdateSourceTrigger=LostFocus}" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource TextBrush}" Margin="0,0,8,0" />
-                                                <TextBox Grid.Column="1" Text="{Binding SortOrder}" Background="{DynamicResource InputBrush}" BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1" Foreground="{DynamicResource TextBrush}" TextAlignment="Center" Padding="2" />
+                                                <TextBox Grid.Column="0" Text="{Binding Name, UpdateSourceTrigger=LostFocus}" Style="{StaticResource ThemedTextBoxStyle}" Margin="0,0,8,0" />
+                                                <TextBox Grid.Column="1" Text="{Binding SortOrder}" Style="{StaticResource ThemedTextBoxStyle}" TextAlignment="Center" Width="50" />
                                             </Grid>
                                         </DataTemplate>
                                     </ListBox.ItemTemplate>
@@ -209,7 +339,7 @@
                         </TabItem>
 
                         <!-- Tags Tab -->
-                        <TabItem Header="{loc:Translate 'Tags'}">
+                        <TabItem Header="{loc:Translate 'Tags'}" Style="{StaticResource ThemedTabItemStyle}">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="*" />
@@ -224,9 +354,9 @@
                                                     <ColumnDefinition Width="70" />
                                                     <ColumnDefinition Width="30" />
                                                 </Grid.ColumnDefinitions>
-                                                <TextBox Grid.Column="0" Text="{Binding Name, UpdateSourceTrigger=LostFocus}" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource TextBrush}" Margin="0,0,8,0" />
-                                                <TextBox Grid.Column="1" Text="{Binding ColorHex, UpdateSourceTrigger=PropertyChanged}" Background="{DynamicResource InputBrush}" BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1" Foreground="{DynamicResource TextBrush}" TextAlignment="Center" Padding="2" />
-                                                <Border Grid.Column="2" Width="20" Height="20" CornerRadius="4" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+                                                <TextBox Grid.Column="0" Text="{Binding Name, UpdateSourceTrigger=LostFocus}" Style="{StaticResource ThemedTextBoxStyle}" Margin="0,0,8,0" />
+                                                <TextBox Grid.Column="1" Text="{Binding ColorHex, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ThemedTextBoxStyle}" TextAlignment="Center" Width="80" Margin="0,0,8,0" />
+                                                <Border Grid.Column="2" Width="24" Height="24" CornerRadius="6" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
                                                     <Border.Background>
                                                         <SolidColorBrush Color="{Binding ColorHex, TargetNullValue=#A855F7, FallbackValue=#A855F7}" />
                                                     </Border.Background>
@@ -243,7 +373,7 @@
                         </TabItem>
 
                         <!-- Avatars Tab -->
-                        <TabItem Header="{loc:Translate 'Avatars'}">
+                        <TabItem Header="{loc:Translate 'Avatars'}" Style="{StaticResource ThemedTabItemStyle}">
                             <Grid Margin="0,12,0,0">
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />
@@ -254,11 +384,7 @@
                                 <!-- Search -->
                                 <TextBox Grid.Row="0"
                                          Text="{Binding AvatarSearchText, UpdateSourceTrigger=PropertyChanged}"
-                                         Background="{DynamicResource InputBrush}"
-                                         Foreground="{DynamicResource TextBrush}"
-                                         BorderBrush="{DynamicResource InputBorderBrush}"
-                                         BorderThickness="1"
-                                         Padding="10,6"
+                                         Style="{StaticResource ThemedTextBoxStyle}"
                                          Margin="0,0,0,8" />
 
                                 <!-- Main split: avatar list + assignment pane -->
@@ -302,9 +428,7 @@
                                         <ComboBox ItemsSource="{Binding GroupAssignmentOptions}"
                                                   SelectedItem="{Binding SelectedGroupAssignment, UpdateSourceTrigger=PropertyChanged}"
                                                   DisplayMemberPath="Display"
-                                                  Background="{DynamicResource InputBrush}"
-                                                  Foreground="{DynamicResource TextBrush}"
-                                                  BorderBrush="{DynamicResource InputBorderBrush}"
+                                                  Style="{StaticResource ThemedComboBoxStyle}"
                                                   Margin="0,0,0,12" />
 
                                         <TextBlock Text="{loc:Translate 'Tags:'}" Foreground="{DynamicResource MutedBrush}" FontSize="12" Margin="0,0,0,4" />

@@ -80,8 +80,8 @@ public sealed class ApplicationUpdatePackageRulesTests
     [Theory]
     [InlineData(ApplicationUpdateChannel.Stable, "3.2.0", "Crystal Relay.exe")]
     [InlineData(ApplicationUpdateChannel.Beta, "3.2.1-beta1", "Crystal Relay.exe")]
-    [InlineData(ApplicationUpdateChannel.BugFix, "3.2.0-bugfix2", "CrystalRelayTwitchOsc-v3.2.0-bugfix2.exe")]
-    public void GetExpectedEntryExecutableName_PreservesStableAndVersionsBugFix(
+    [InlineData(ApplicationUpdateChannel.BugFix, "3.2.0-bugfix2", "Crystal Relay.exe")]
+    public void GetExpectedEntryExecutableName_UsesStaticNameForEveryReleaseChannel(
         ApplicationUpdateChannel channel,
         string version,
         string expected)
@@ -109,7 +109,7 @@ public sealed class ApplicationUpdatePackageRulesTests
         Assert.True(ApplicationUpdatePackageRules.IsExpectedEntryExecutableName(
             ApplicationUpdateChannel.BugFix,
             "3.2.0-bugfix2",
-            "CrystalRelayTwitchOsc-v3.2.0-bugfix2.exe"));
+            "Crystal Relay.exe"));
         Assert.False(ApplicationUpdatePackageRules.IsExpectedEntryExecutableName(
             ApplicationUpdateChannel.BugFix,
             "3.2.0-bugfix2",
@@ -118,7 +118,7 @@ public sealed class ApplicationUpdatePackageRulesTests
             ApplicationUpdateChannel.Stable,
             "3.2.0",
             "Crystal Relay.exe"));
-        Assert.True(ApplicationUpdatePackageRules.IsExpectedEntryExecutableName(
+        Assert.False(ApplicationUpdatePackageRules.IsExpectedEntryExecutableName(
             ApplicationUpdateChannel.Stable,
             "3.2.0",
             "CrystalRelayTwitchOsc-v3.2.0.exe"));
@@ -142,6 +142,53 @@ public sealed class ApplicationUpdatePackageRulesTests
     }
 
     [Theory]
+    [InlineData(ApplicationUpdateChannel.Stable, "3.2.0", "Crystal Relay.exe")]
+    [InlineData(ApplicationUpdateChannel.Stable, "3.2.0", "CrystalRelayTwitchOsc-v3.2.0.exe")]
+    [InlineData(ApplicationUpdateChannel.Beta, "3.2.1-beta1", "crystalrelaytwitchosc-V3.2.1-BETA1.EXE")]
+    [InlineData(ApplicationUpdateChannel.BugFix, "3.2.0-bugfix1", "CrystalRelayTwitchOsc-v3.2.0-bugfix1.exe")]
+    public void IsExpectedInstalledPackageEntryExecutableName_AcceptsStaticOrExactLegacyName(
+        ApplicationUpdateChannel channel,
+        string version,
+        string fileName)
+    {
+        Assert.True(ApplicationUpdatePackageRules.IsExpectedInstalledPackageEntryExecutableName(
+            channel,
+            version,
+            fileName));
+    }
+
+    [Theory]
+    [InlineData(ApplicationUpdateChannel.Stable, "3.2.0", "CrystalRelayTwitchOsc-v3.1.9.exe")]
+    [InlineData(ApplicationUpdateChannel.Beta, "3.2.1-beta1", "CrystalRelayTwitchOsc-v3.2.1-beta2.exe")]
+    [InlineData(ApplicationUpdateChannel.BugFix, "3.2.0-bugfix1", "CrystalRelayTwitchOsc-v3.2.0-bugfix2.exe")]
+    [InlineData(ApplicationUpdateChannel.Stable, "3.2.0", "CrystalRelayUpdater.exe")]
+    public void IsExpectedInstalledPackageEntryExecutableName_RejectsWrongOrUnrelatedName(
+        ApplicationUpdateChannel channel,
+        string version,
+        string fileName)
+    {
+        Assert.False(ApplicationUpdatePackageRules.IsExpectedInstalledPackageEntryExecutableName(
+            channel,
+            version,
+            fileName));
+    }
+
+    [Theory]
+    [InlineData(ApplicationUpdateChannel.Stable, "3.2.0", "CrystalRelayTwitchOsc-v3.2.0.exe")]
+    [InlineData(ApplicationUpdateChannel.Beta, "3.2.1-beta1", "CrystalRelayTwitchOsc-v3.2.1-beta1.exe")]
+    [InlineData(ApplicationUpdateChannel.BugFix, "3.2.0-bugfix1", "CrystalRelayTwitchOsc-v3.2.0-bugfix1.exe")]
+    public void IsExpectedEntryExecutableName_RejectsVersionedNameForNewManifest(
+        ApplicationUpdateChannel channel,
+        string version,
+        string fileName)
+    {
+        Assert.False(ApplicationUpdatePackageRules.IsExpectedEntryExecutableName(
+            channel,
+            version,
+            fileName));
+    }
+
+    [Theory]
     [InlineData("Crystal Relay")]
     [InlineData("CrystalRelayTwitchOsc-v3.2.0-win-x64")]
     [InlineData("CrystalRelayBugFix-v3.2.0-bugfix1-win-x64")]
@@ -154,8 +201,8 @@ public sealed class ApplicationUpdatePackageRulesTests
     [Fact]
     public void GetInstallTargetDirectory_ReturnsCurrentDirectoryForBugFix()
     {
-        var source = Path.GetFullPath(Path.Combine("C:\\", "Apps", "Crystal Relay"));
-        var package = Path.GetFullPath(Path.Combine("C:\\", "Staging", "CrystalRelayBugFix-v3.2.0-bugfix1-win-x64"));
+        var source = UnderSystemRoot("Apps", "Crystal Relay");
+        var package = UnderSystemRoot("Staging", "CrystalRelayBugFix-v3.2.0-bugfix1-win-x64");
 
         var target = ApplicationUpdatePackageRules.GetInstallTargetDirectory(
             ApplicationUpdateChannel.BugFix,
@@ -168,8 +215,8 @@ public sealed class ApplicationUpdatePackageRulesTests
     [Fact]
     public void GetInstallTargetDirectory_PreservesExistingStableRelocation()
     {
-        var source = Path.GetFullPath(Path.Combine("C:\\", "Apps", "CrystalRelayTwitchOsc-v3.1.9-win-x64"));
-        var package = Path.GetFullPath(Path.Combine("C:\\", "Staging", "CrystalRelayTwitchOsc-v3.2.0-win-x64"));
+        var source = UnderSystemRoot("Apps", "CrystalRelayTwitchOsc-v3.1.9-win-x64");
+        var package = UnderSystemRoot("Staging", "CrystalRelayTwitchOsc-v3.2.0-win-x64");
 
         var target = ApplicationUpdatePackageRules.GetInstallTargetDirectory(
             ApplicationUpdateChannel.Stable,
@@ -177,8 +224,19 @@ public sealed class ApplicationUpdatePackageRulesTests
             package);
 
         Assert.Equal(
-            Path.GetFullPath(Path.Combine("C:\\", "Apps", "CrystalRelayTwitchOsc-v3.2.0-win-x64")),
+            UnderSystemRoot("Apps", "CrystalRelayTwitchOsc-v3.2.0-win-x64"),
             target,
             ignoreCase: true);
+    }
+
+    private static string UnderSystemRoot(params string[] parts)
+    {
+        var path = Path.GetPathRoot(Environment.SystemDirectory) ?? Path.DirectorySeparatorChar.ToString();
+        foreach (var part in parts)
+        {
+            path = Path.Combine(path, part);
+        }
+
+        return Path.GetFullPath(path);
     }
 }

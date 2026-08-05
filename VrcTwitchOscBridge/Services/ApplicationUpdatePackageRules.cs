@@ -92,8 +92,9 @@ public static class ApplicationUpdatePackageRules
         ArgumentException.ThrowIfNullOrWhiteSpace(version);
         return channel switch
         {
-            ApplicationUpdateChannel.Stable or ApplicationUpdateChannel.Beta => StaticExecutableName,
-            ApplicationUpdateChannel.BugFix => $"{VersionedExecutablePrefix}{version}.exe",
+            ApplicationUpdateChannel.Stable
+                or ApplicationUpdateChannel.Beta
+                or ApplicationUpdateChannel.BugFix => StaticExecutableName,
             _ => throw new ArgumentOutOfRangeException(nameof(channel))
         };
     }
@@ -103,14 +104,15 @@ public static class ApplicationUpdatePackageRules
         string version,
         string? fileName)
     {
-        if (channel == ApplicationUpdateChannel.BugFix)
-        {
-            return string.Equals(
-                fileName,
-                GetExpectedEntryExecutableName(channel, version),
-                StringComparison.Ordinal);
-        }
+        return string.Equals(fileName, StaticExecutableName, StringComparison.OrdinalIgnoreCase);
+    }
 
+    public static bool IsExpectedInstalledPackageEntryExecutableName(
+        ApplicationUpdateChannel channel,
+        string version,
+        string? fileName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(version);
         return string.Equals(fileName, StaticExecutableName, StringComparison.OrdinalIgnoreCase)
             || string.Equals(
                 fileName,

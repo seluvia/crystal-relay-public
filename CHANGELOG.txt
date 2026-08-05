@@ -3,38 +3,46 @@ Crystal Relay Changelog
 
 Newest updates appear first. This changelog focuses on the changes users will notice most.
 
-v3.1.9
-- Rebuilt the Avatar Swap manager as a dedicated themed window with per-target-avatar cards, inline rule editing per trigger source (Channel Points, Bits, Subs, Payment), and a global Return Avatar header picker.
-- Added per-rule Return Behavior with three modes: Return to Global Return Avatar, Return to Previous Avatar, and Permanent (No Return) with reward auto-hide to prevent re-triggering.
+v3.2.0 bug fix 2
+- World links now resolve from persistent VRChat world metadata without requiring an active public instance.
+- Protected World Guard now fails closed on invalid state, keeps private reasons private, and uses consistent UTC schedules.
+- World Guard admin entries now use verified names, clickable VRChat links, safer concurrent edits, and hardened sessions.
+- Avatar Scaling Master Reward now supports configurable ready and cooldown colors.
+- Avatar Swap and Avatar Roulette can link existing Twitch rewards, refresh available rewards when opened, and show long Universal Triggers lists with scrolling.
+- Linked rewards now use stable Twitch reward IDs instead of title-only links.
+- Activity Resume and Avatar Scaling recovery now handle restarts, avatar changes, and interrupted actions more reliably.
+- Fixed an updater loop that could repeatedly process the same Bug Fix Push update.
+- Managed Avatar Set reward colors now return to their ready color independently when each cooldown ends.
+- Avatar Set editor dropdowns now follow the selected Crystal Relay visual theme.
+
+v3.2.0 bug fix 1
+- Fixed Movement Redeems missing the reward sync mode "Link Existing" option when the trigger type is set to Channel Points.
+- Fixed Movement Redeems missing the Cash Payment trigger option. Movement rules can now be triggered by StreamElements, Streamlabs, and Ko-fi cash payments with configurable minimum amount and currency settings. Cash payment rules created from the Movement Redeems manager show a "P" badge and a "Cash" prefix in the movement list.
+
+v3.2.0
+- Added XSOverlay VR toast notifications for Twitch follows, raids, and gift subs. Each event type has its own enable toggle, timeout duration, and debounce window to prevent notification spam. Settings are available under App Settings → XSOverlay Notifications. Requires XSOverlay running on the same machine (WebSocket API on port 42070).
+- Redesigned the Avatar Swap manager with a dedicated themed window, per-target-avatar cards, and inline rule editing per trigger source (Channel Points, Bits, Subs, Payment).
+- Added per-rule Return Behavior with three modes: Return to Global Return Avatar, Return to Previous Avatar, and Permanent (No Return) with reward auto-hide.
 - Made Avatar Roulette its own first-class card type with gold-bordered styling and pool thumbnail strip.
 - Added Chat Command, Follow, and Power-up as first-class trigger sources in the Avatar Swap editor.
-- Added shared max-time cap per avatar swap profile, shown in both Bits and Subs editors.
-- Redesigned the Avatar Scaling manager with a cleaner, more organized UI layout for easier rule management.
-- Redesigned the Avatar Scaling action setup with a compact, mode-driven layout and Multiplier direction option.
 - Added 10 Float Action Modes for channel-point rewards: Set, Random, Add, Subtract, Add/Subtract, Multiply, Toggle, Cycle, Glitchy, and Pulse, each with independent Transition In and Transition Out timing.
 - Rebuilt the Universal Triggers manager as a dedicated themed window with search bar, type/status/source filters, slide-out editor, status pills, Test button, and Avatar Readiness section.
-- Restructured release and beta packages: install folder is always "Crystal Relay", executable is always "Crystal Relay.exe", version info via a `<version>.txt` file.
-- Added dedicated Reward Fire Sale manager window with themed popup UI, replacing the embedded Fire Sale panel.
-- Added Cash Payment contribution support for Reward Fire Sale, letting StreamElements, Streamlabs, and Ko-fi payments fund sale progress.
-- Restructured the Redeem Library into a 2x2 navigation grid with Avatar Sets, Avatar Actions, Trigger Systems, and Viewer Support cards, plus live connection status cards below the grid.
-- Added a Connection Status section in Settings with a 2x2 status grid and compact OSC Controls panel.
-- Redesigned the Home panel branding card with version display, beta badge, and new tagline. Support section reworked to card-style entries.
+- Added dedicated Reward Fire Sale manager window with themed popup UI and Cash Payment contribution support.
+- Redesigned the bug report system with category labels, severity levels, diagnostics preview panel, and a read-only preview before submitting.
+- Redesigned the Avatar Scaling manager with a cleaner UI layout and compact mode-driven action editor with Multiplier direction and Glitchy transition speed.
+- Added Movement Redeems manager window with DataGrid table and full trigger/behavior configuration editor.
 - Added Activity Resume so active redeems survive app restarts — avatar changes, movement redeems, and scaling actions pick up where they left off.
-- Fixed VRChat login to handle both 200 OK and 401 responses when 2FA is required. Redesigned the login window with inline 2FA code field below the password.
-- Added Power Up rule selection in Avatar Swap inline editor with runtime matching.
-- Optimized startup speed by deferring heavy initialization out of the main constructor with a themed loading overlay.
-- Added OSC Status restart controls for restarting Crystal Relay or restarting VRChat and Crystal Relay while restoring open windows.
-- Added Twitch Chatbox XSOverlay compatibility mode and remembered chatbox placement.
-- Moved Wardrobe editor into the Avatar Sets manager with per-outfit managed reward ready/cooldown color pickers and copy/paste tools.
-- Improved VRChat + Crystal Relay restart to relaunch VRChat in desktop mode and rejoin the same instance.
-- Improved "Add amount to active time" on Bits and Subs overrides to always add on every matching trigger instead of only the first.
-- Added per-avatar "Add bits time to swap" and "Add sub time to swap" toggles for extending running avatar swaps.
-- Renamed "Avatar Change" to "Avatar Swap" across the Redeem Library.
-- Reduced main window content grid from 5 to 3 columns, removing sidebar and workspace columns.
-- Removed legacy "Avatar Change Setup" tab, Streaming Status panel, and old OSC Status panel from Home.
-- Redesigned the Void Crystal theme background with richer gradient, crystal clusters, and shard dust specks.
-- Avatar Scaling now bypasses VRChat world height limits when custom Min/Max values are set.
-- Various UI polish, accessibility, and stability improvements across the app.
+- Added Live Feedback disliked streamers with dislike/favorite toggles, mutual exclusion, and persistent storage.
+- Added avatar grouping and tags to the Pick Avatar window with bulk assignment, filter dropdowns, and a dedicated Avatar Library manager.
+- Added blocked words for chatbox moderation with custom and fully suppressed word lists, plus expanded harassment/doxxing pattern detection.
+- Added Supporter Growth "require cheer keyword" toggle, paid-time controls, and sub-tier enable toggles.
+- Added Float limit hide for Avatar Sets so managed rewards can hide automatically when a float parameter reaches its min or max.
+- Moved Wardrobe editor into the Avatar Sets manager with per-outfit managed reward color pickers and copy/paste tools.
+- Consolidated each built-in language into one locale file and refreshed the translation catalog across all supported languages.
+- Restructured release and beta packages: install folder is always "Crystal Relay", executable is always "Crystal Relay.exe".
+- Redesigned the Home panel branding card, support section, and Void Crystal theme background.
+- Added Connection Status section in Settings with live 2x2 status grid and OSC Controls panel.
+- Various bug fixes, performance improvements, and UI polish across the app.
 
 v3.1.9 beta 5
 - Reworked the Avatar Scaling manager window with a cleaner, more organized UI layout for easier rule management.

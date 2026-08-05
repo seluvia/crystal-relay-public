@@ -1,11 +1,10 @@
 using System.IO;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using VrcTwitchOscBridge.Models;
 
 namespace VrcTwitchOscBridge.Services;
 
-public sealed class ActivityResumeService : IActivityResumeService
+public sealed class ActivityResumeService : IActivityResumeService, IAsyncDisposable
 {
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
@@ -15,46 +14,68 @@ public sealed class ActivityResumeService : IActivityResumeService
     private static string SnapshotPath => Path.Combine(AppDataPaths.SecureFolder, "activity-resume.json");
 
     private readonly object stateGate = new();
+    private readonly string snapshotPath;
+    private readonly SemaphoreSlim writerGate = new(1, 1);
+    private readonly object writerLifecycleGate = new();
+    private TaskCompletionSource writerUsersDrained = CreateCompletedTaskSource();
+    private Task? disposeTask;
+    private int writerUserCount;
+    private bool writerDisposalStarted;
     private ActivityResumeSnapshot? pendingSnapshot;
+
+    public ActivityResumeService()
+        : this(null)
+    {
+    }
+
+    internal ActivityResumeService(string? snapshotPath)
+    {
+        this.snapshotPath = string.IsNullOrWhiteSpace(snapshotPath)
+            ? SnapshotPath
+            : snapshotPath;
+    }
 
     public async Task LoadPendingAsync()
     {
-        lock (stateGate)
+        await RunWriterAsync(async () =>
         {
-            pendingSnapshot = null;
-        }
-
-        if (!File.Exists(SnapshotPath))
-        {
-            return;
-        }
-
-        try
-        {
-            var json = await File.ReadAllTextAsync(SnapshotPath);
-            var snapshot = JsonSerializer.Deserialize<ActivityResumeSnapshot>(json, SerializerOptions);
-            if (snapshot is not null && snapshot.Version == 1)
+            lock (stateGate)
             {
-                lock (stateGate)
-                {
-                    pendingSnapshot = snapshot;
-                }
+                pendingSnapshot = null;
             }
-            else
+
+            if (!File.Exists(snapshotPath))
             {
-                File.Delete(SnapshotPath);
+                return;
             }
-        }
-        catch (Exception)
-        {
+
             try
             {
-                File.Delete(SnapshotPath);
+                var json = await File.ReadAllTextAsync(snapshotPath);
+                var snapshot = JsonSerializer.Deserialize<ActivityResumeSnapshot>(json, SerializerOptions);
+                if (snapshot is not null && snapshot.Version == 1)
+                {
+                    lock (stateGate)
+                    {
+                        pendingSnapshot = snapshot;
+                    }
+                }
+                else
+                {
+                    File.Delete(snapshotPath);
+                }
             }
-            catch
+            catch (Exception)
             {
+                try
+                {
+                    File.Delete(snapshotPath);
+                }
+                catch
+                {
+                }
             }
-        }
+        });
     }
 
     public bool HasPendingResume
@@ -90,56 +111,222 @@ public sealed class ActivityResumeService : IActivityResumeService
         }
     }
 
-    public Task RecordActivityStartedAsync(ResumeActivity activity, string avatarId)
+    public async Task RemoveExpiredActivitiesAsync()
     {
-        lock (stateGate)
+        await RunWriterAsync(async () =>
         {
-            pendingSnapshot ??= new ActivityResumeSnapshot();
-            pendingSnapshot.CurrentAvatarId = avatarId?.Trim() ?? string.Empty;
-            pendingSnapshot.Activities.RemoveAll(a => a.RuleId == activity.RuleId);
-            pendingSnapshot.Activities.Add(activity);
-        }
-
-        return CommitAsync();
-    }
-
-    public Task RecordActivityEndedAsync(Guid ruleId)
-    {
-        lock (stateGate)
-        {
-            if (pendingSnapshot is null)
+            var removedAny = false;
+            lock (stateGate)
             {
-                return Task.CompletedTask;
+                if (pendingSnapshot is not null)
+                {
+                    removedAny = pendingSnapshot.Activities.RemoveAll(
+                        activity => activity.ExpiresAt is { } expiresAt
+                            && expiresAt <= DateTimeOffset.UtcNow) > 0;
+                }
             }
 
-            pendingSnapshot.Activities.RemoveAll(a => a.RuleId == ruleId);
-        }
-
-        return CommitAsync();
+            if (removedAny)
+            {
+                await CommitLockedAsync();
+            }
+        });
     }
 
-    public Task ClearAllAsync()
+    public async Task RecordActivityStartedAsync(ResumeActivity activity, string avatarId)
     {
-        lock (stateGate)
+        await RunWriterAsync(async () =>
         {
-            pendingSnapshot = null;
-        }
-
-        try
-        {
-            if (File.Exists(SnapshotPath))
+            lock (stateGate)
             {
-                File.Delete(SnapshotPath);
+                pendingSnapshot ??= new ActivityResumeSnapshot();
+                pendingSnapshot.CurrentAvatarId = avatarId?.Trim() ?? string.Empty;
+                pendingSnapshot.Activities.RemoveAll(a => a.RuleId == activity.RuleId);
+                pendingSnapshot.Activities.Add(activity);
             }
-        }
-        catch
-        {
-        }
 
-        return Task.CompletedTask;
+            await CommitLockedAsync();
+        });
+    }
+
+    public async Task RecordActivityEndedAsync(Guid ruleId, ResumeActivity? expectedActivity = null)
+    {
+        await RunWriterAsync(async () =>
+        {
+            lock (stateGate)
+            {
+                if (pendingSnapshot is null)
+                {
+                    return;
+                }
+
+                if (expectedActivity is null)
+                {
+                    pendingSnapshot.Activities.RemoveAll(a => a.RuleId == ruleId);
+                }
+                else
+                {
+                    var activityIndex = pendingSnapshot.Activities.FindIndex(
+                        existing => ReferenceEquals(existing, expectedActivity));
+                    if (activityIndex >= 0)
+                    {
+                        pendingSnapshot.Activities.RemoveAt(activityIndex);
+                    }
+                }
+            }
+
+            await CommitLockedAsync();
+        });
+    }
+
+    public async Task RemoveActivityAsync(ResumeActivity activity)
+    {
+        await RunWriterAsync(async () =>
+        {
+            lock (stateGate)
+            {
+                if (pendingSnapshot is null)
+                {
+                    return;
+                }
+
+                var activityIndex = pendingSnapshot.Activities.FindIndex(
+                    existing => ReferenceEquals(existing, activity));
+                if (activityIndex < 0)
+                {
+                    return;
+                }
+
+                pendingSnapshot.Activities.RemoveAt(activityIndex);
+            }
+
+            await CommitLockedAsync();
+        });
+    }
+
+    public async Task ClearAllAsync()
+    {
+        await RunWriterAsync(() =>
+        {
+            lock (stateGate)
+            {
+                pendingSnapshot = null;
+            }
+
+            TryDeleteSnapshotFile();
+            return Task.CompletedTask;
+        });
     }
 
     public async Task CommitAsync()
+    {
+        await RunWriterAsync(CommitLockedAsync);
+    }
+
+    public async Task DeleteStaleFileIfPresentAsync()
+    {
+        await RunWriterAsync(() =>
+        {
+            lock (stateGate)
+            {
+                // An activity that was admitted before this cleanup owns the file now.
+                if (pendingSnapshot is not null)
+                {
+                    return Task.CompletedTask;
+                }
+            }
+
+            if (File.Exists(snapshotPath))
+            {
+                try
+                {
+                    File.Delete(snapshotPath);
+                    DebugLogService.Write("Deleted stale activity resume file from previous clean shutdown.");
+                }
+                catch
+                {
+                }
+            }
+
+            return Task.CompletedTask;
+        });
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        lock (writerLifecycleGate)
+        {
+            if (disposeTask is null)
+            {
+                writerDisposalStarted = true;
+                disposeTask = DisposeWriterAfterDrainAsync(writerUsersDrained.Task);
+            }
+
+            return new ValueTask(disposeTask);
+        }
+    }
+
+    private async Task DisposeWriterAfterDrainAsync(Task drainTask)
+    {
+        await drainTask.ConfigureAwait(false);
+        writerGate.Dispose();
+    }
+
+    private async Task RunWriterAsync(Func<Task> action)
+    {
+        if (!TryEnterWriterUser())
+        {
+            return;
+        }
+
+        var gateAcquired = false;
+        try
+        {
+            await writerGate.WaitAsync().ConfigureAwait(false);
+            gateAcquired = true;
+            await action().ConfigureAwait(false);
+        }
+        finally
+        {
+            if (gateAcquired)
+            {
+                writerGate.Release();
+            }
+
+            ExitWriterUser();
+        }
+    }
+
+    private bool TryEnterWriterUser()
+    {
+        lock (writerLifecycleGate)
+        {
+            if (writerDisposalStarted)
+            {
+                return false;
+            }
+
+            if (writerUserCount++ == 0)
+            {
+                writerUsersDrained = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            }
+
+            return true;
+        }
+    }
+
+    private void ExitWriterUser()
+    {
+        lock (writerLifecycleGate)
+        {
+            if (--writerUserCount == 0)
+            {
+                writerUsersDrained.TrySetResult();
+            }
+        }
+    }
+
+    private async Task CommitLockedAsync()
     {
         ActivityResumeSnapshot? snapshot;
         lock (stateGate)
@@ -157,37 +344,38 @@ public sealed class ActivityResumeService : IActivityResumeService
         {
             if (snapshot is null || snapshot.Activities.Count == 0)
             {
-                if (File.Exists(SnapshotPath))
-                {
-                    File.Delete(SnapshotPath);
-                }
+                TryDeleteSnapshotFile();
                 return;
             }
 
-            var tempPath = SnapshotPath + ".tmp";
+            var tempPath = snapshotPath + ".tmp";
             var json = JsonSerializer.Serialize(snapshot, SerializerOptions);
             await File.WriteAllTextAsync(tempPath, json);
-            File.Move(tempPath, SnapshotPath, overwrite: true);
+            File.Move(tempPath, snapshotPath, overwrite: true);
         }
         catch
         {
         }
     }
 
-    public Task DeleteStaleFileIfPresentAsync()
+    private void TryDeleteSnapshotFile()
     {
         try
         {
-            if (File.Exists(SnapshotPath))
+            if (File.Exists(snapshotPath))
             {
-                File.Delete(SnapshotPath);
-                DebugLogService.Write("Deleted stale activity resume file from previous clean shutdown.");
+                File.Delete(snapshotPath);
             }
         }
         catch
         {
         }
+    }
 
-        return Task.CompletedTask;
+    private static TaskCompletionSource CreateCompletedTaskSource()
+    {
+        var source = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        source.TrySetResult();
+        return source;
     }
 }

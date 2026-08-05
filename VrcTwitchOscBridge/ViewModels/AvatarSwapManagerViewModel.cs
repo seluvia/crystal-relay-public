@@ -1,6 +1,7 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Linq;
 using System.Windows.Input;
 using VrcTwitchOscBridge.Infrastructure;
@@ -17,19 +18,29 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
     private readonly AvatarImageService _imageService;
     private readonly Func<string?, string?>? _thumbnailUrlResolver;
     private readonly Action? _onSettingsChanged;
+    private readonly Action<IEnumerable<TriggerRule>>? _onChannelPointRulesRemoved;
+    private readonly HashSet<AvatarSwapProfile> _observedSwapProfiles = [];
+    private readonly HashSet<AvatarRouletteProfile> _observedRouletteProfiles = [];
+    private readonly HashSet<TriggerRule> _observedTriggerRules = [];
 
     private bool _isChannelPointSectionCollapsed;
     private bool _isBitsSubsSectionCollapsed;
     private bool _isRouletteSectionCollapsed;
     private string? _filterText;
 
-    public AvatarSwapManagerViewModel(AppSettings settings, ITwitchRewardSource twitchRewardSource, Func<string?, string?>? thumbnailUrlResolver = null, Action? onSettingsChanged = null)
+    public AvatarSwapManagerViewModel(
+        AppSettings settings,
+        ITwitchRewardSource twitchRewardSource,
+        Func<string?, string?>? thumbnailUrlResolver = null,
+        Action? onSettingsChanged = null,
+        Action<IEnumerable<TriggerRule>>? onChannelPointRulesRemoved = null)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _twitchRewardSource = twitchRewardSource ?? throw new ArgumentNullException(nameof(twitchRewardSource));
         _imageService = new AvatarImageService();
         _thumbnailUrlResolver = thumbnailUrlResolver;
         _onSettingsChanged = onSettingsChanged;
+        _onChannelPointRulesRemoved = onChannelPointRulesRemoved;
 
         TwitchRewardOptions = _twitchRewardSource.RewardOptions;
         PowerUpOptions = _twitchRewardSource.PowerUpOptions;
@@ -38,6 +49,15 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
 
         _settings.AvatarSwapProfiles.CollectionChanged += OnProfilesChanged;
         _settings.AvatarRouletteProfiles.CollectionChanged += OnRouletteProfilesChanged;
+        foreach (var profile in _settings.AvatarSwapProfiles)
+        {
+            WireSwapProfile(profile);
+        }
+
+        foreach (var roulette in _settings.AvatarRouletteProfiles)
+        {
+            WireRouletteProfile(roulette);
+        }
 
         AddSwapCommand = new RelayCommand(AddSwap);
         AddRouletteCommand = new RelayCommand(AddRoulette);
@@ -432,6 +452,157 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
         row.DeleteCommand = new RelayCommand(() => DeleteRule(row));
     }
 
+    private void WireSwapProfile(AvatarSwapProfile profile)
+    {
+        if (!_observedSwapProfiles.Add(profile))
+        {
+            return;
+        }
+
+        profile.ChannelPointRules.CollectionChanged += OnSwapProfileRulesChanged;
+        foreach (var rule in profile.ChannelPointRules)
+        {
+            WireTriggerRule(rule);
+        }
+
+        profile.PowerUpRules.CollectionChanged += OnSwapProfilePowerUpRulesChanged;
+        foreach (var rule in profile.PowerUpRules)
+        {
+            WireTriggerRule(rule);
+        }
+    }
+
+    private void UnwireSwapProfile(AvatarSwapProfile profile)
+    {
+        if (!_observedSwapProfiles.Remove(profile))
+        {
+            return;
+        }
+
+        profile.ChannelPointRules.CollectionChanged -= OnSwapProfileRulesChanged;
+        foreach (var rule in profile.ChannelPointRules)
+        {
+            UnwireTriggerRule(rule);
+        }
+
+        profile.PowerUpRules.CollectionChanged -= OnSwapProfilePowerUpRulesChanged;
+        foreach (var rule in profile.PowerUpRules)
+        {
+            UnwireTriggerRule(rule);
+        }
+    }
+
+    private void WireRouletteProfile(AvatarRouletteProfile roulette)
+    {
+        if (!_observedRouletteProfiles.Add(roulette))
+        {
+            return;
+        }
+
+        roulette.Triggers.CollectionChanged += OnRouletteTriggersChanged;
+        foreach (var rule in roulette.Triggers.Where(rule => rule.TriggerType == TwitchTriggerType.ChannelPoints))
+        {
+            WireTriggerRule(rule);
+        }
+    }
+
+    private void UnwireRouletteProfile(AvatarRouletteProfile roulette)
+    {
+        if (!_observedRouletteProfiles.Remove(roulette))
+        {
+            return;
+        }
+
+        roulette.Triggers.CollectionChanged -= OnRouletteTriggersChanged;
+        foreach (var rule in roulette.Triggers)
+        {
+            UnwireTriggerRule(rule);
+        }
+    }
+
+    private void WireTriggerRule(TriggerRule rule)
+    {
+        if (_observedTriggerRules.Add(rule))
+        {
+            rule.PropertyChanged += OnObservedTriggerRuleChanged;
+        }
+    }
+
+    private void UnwireTriggerRule(TriggerRule rule)
+    {
+        if (_observedTriggerRules.Remove(rule))
+        {
+            rule.PropertyChanged -= OnObservedTriggerRuleChanged;
+        }
+    }
+
+    private void OnObservedTriggerRuleChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(TriggerRule.TriggerSummary))
+        {
+            return;
+        }
+
+        NotifySettingsChanged();
+    }
+
+    private void OnSwapProfileRulesChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.NewItems is not null)
+        {
+            foreach (var rule in e.NewItems.OfType<TriggerRule>())
+            {
+                WireTriggerRule(rule);
+            }
+        }
+
+        if (e.OldItems is not null)
+        {
+            foreach (var rule in e.OldItems.OfType<TriggerRule>())
+            {
+                UnwireTriggerRule(rule);
+            }
+        }
+    }
+
+    private void OnSwapProfilePowerUpRulesChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.NewItems is not null)
+        {
+            foreach (var rule in e.NewItems.OfType<TriggerRule>())
+            {
+                WireTriggerRule(rule);
+            }
+        }
+
+        if (e.OldItems is not null)
+        {
+            foreach (var rule in e.OldItems.OfType<TriggerRule>())
+            {
+                UnwireTriggerRule(rule);
+            }
+        }
+    }
+
+    private void OnRouletteTriggersChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.NewItems is not null)
+        {
+            foreach (var rule in e.NewItems.OfType<TriggerRule>().Where(rule => rule.TriggerType == TwitchTriggerType.ChannelPoints))
+            {
+                WireTriggerRule(rule);
+            }
+        }
+
+        if (e.OldItems is not null)
+        {
+            foreach (var rule in e.OldItems.OfType<TriggerRule>())
+            {
+                UnwireTriggerRule(rule);
+            }
+        }
+    }
+
     private void AddSwap()
     {
         var profile = new AvatarSwapProfile { TargetAvatarName = "New Avatar" };
@@ -525,6 +696,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
     private void DeleteSwap()
     {
         if (SelectedSwapCard is null) return;
+        _onChannelPointRulesRemoved?.Invoke(SelectedSwapCard.Profile.ChannelPointRules.ToArray());
         _settings.AvatarSwapProfiles.Remove(SelectedSwapCard.Profile);
         SwapCards.Remove(SelectedSwapCard);
         IsSwapEditorOpen = false;
@@ -537,6 +709,10 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
     private void DeleteRoulette()
     {
         if (SelectedRouletteCard is null) return;
+        _onChannelPointRulesRemoved?.Invoke(
+            SelectedRouletteCard.Roulette.Triggers
+                .Where(rule => rule.TriggerType == TwitchTriggerType.ChannelPoints)
+                .ToArray());
         _settings.AvatarRouletteProfiles.Remove(SelectedRouletteCard.Roulette);
         RouletteCards.Remove(SelectedRouletteCard);
         IsRouletteEditorOpen = false;
@@ -815,10 +991,15 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
         if (row is null) return;
 
         var ruleObj = row.Rule;
+        TriggerRule? removedChannelPointRule = null;
 
         if (SelectedRouletteCard is not null && ruleObj is TriggerRule rTrigger
             && SelectedRouletteCard.Roulette.Triggers.Remove(rTrigger))
         {
+            if (rTrigger.TriggerType == TwitchTriggerType.ChannelPoints)
+            {
+                removedChannelPointRule = rTrigger;
+            }
             RouletteTriggerRows.Remove(row);
             if (row is InlineChannelPointRuleRowViewModel cpRow)
                 RouletteChannelPointRows.Remove(cpRow);
@@ -834,6 +1015,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
             if (row is InlineChannelPointRuleRowViewModel cp
                 && SelectedSwapCard.Profile.ChannelPointRules.Remove((TriggerRule)cp.Rule))
             {
+                removedChannelPointRule = (TriggerRule)cp.Rule;
                 ChannelPointRows.Remove(cp);
             }
             else if (row is InlineBitsRuleRowViewModel bits
@@ -861,6 +1043,11 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
         if (ReferenceEquals(SelectedRule, row))
         {
             SelectedRule = null;
+        }
+
+        if (removedChannelPointRule is not null)
+        {
+            _onChannelPointRulesRemoved?.Invoke([removedChannelPointRule]);
         }
 
         NotifySettingsChanged();
@@ -937,6 +1124,16 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
     {
         if (e.Action == NotifyCollectionChangedAction.Reset)
         {
+            foreach (var profile in _observedSwapProfiles.ToArray())
+            {
+                UnwireSwapProfile(profile);
+            }
+
+            foreach (var profile in _settings.AvatarSwapProfiles)
+            {
+                WireSwapProfile(profile);
+            }
+
             RebuildCards();
             return;
         }
@@ -944,6 +1141,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
         {
             foreach (var item in e.NewItems.OfType<AvatarSwapProfile>())
             {
+                WireSwapProfile(item);
                 SwapCards.Add(new AvatarSwapCardViewModel(item, _imageService));
             }
         }
@@ -951,6 +1149,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
         {
             foreach (var item in e.OldItems.OfType<AvatarSwapProfile>())
             {
+                UnwireSwapProfile(item);
                 var card = SwapCards.FirstOrDefault(c => c.Profile == item);
                 if (card is not null)
                 {
@@ -964,6 +1163,16 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
     {
         if (e.Action == NotifyCollectionChangedAction.Reset)
         {
+            foreach (var roulette in _observedRouletteProfiles.ToArray())
+            {
+                UnwireRouletteProfile(roulette);
+            }
+
+            foreach (var roulette in _settings.AvatarRouletteProfiles)
+            {
+                WireRouletteProfile(roulette);
+            }
+
             RebuildCards();
             return;
         }
@@ -971,6 +1180,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
         {
             foreach (var item in e.NewItems.OfType<AvatarRouletteProfile>())
             {
+                WireRouletteProfile(item);
                 RouletteCards.Add(new AvatarRouletteCardViewModel(item, _imageService));
             }
         }
@@ -978,6 +1188,7 @@ public sealed class AvatarSwapManagerViewModel : ObservableObject
         {
             foreach (var item in e.OldItems.OfType<AvatarRouletteProfile>())
             {
+                UnwireRouletteProfile(item);
                 var card = RouletteCards.FirstOrDefault(c => c.Roulette == item);
                 if (card is not null)
                 {

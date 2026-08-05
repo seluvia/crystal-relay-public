@@ -115,8 +115,21 @@ public sealed class AvatarScalingSourceCardViewModel : ObservableObject, IDispos
 
             if (Kind == AvatarScalingSourceKind.TwitchReward
                 && ScaleRule is { UsesChannelPointReward: true }
-                && string.IsNullOrWhiteSpace(ScaleRule.RewardId)
-                && string.IsNullOrWhiteSpace(ScaleRule.RewardTitle))
+                && !ManagedRewardPresentation.HasConfiguredRewardIdentity(
+                    ScaleRule.RewardSyncMode,
+                    ScaleRule.RewardId,
+                    ScaleRule.RewardTitle)
+                && !(ScaleRule.ChatCommandEnabled && ChatCommandUtility.IsConfigured(ScaleRule.CommandText)))
+            {
+                return AvatarScalingCardStatus.NeedsSetup;
+            }
+
+            if (Kind == AvatarScalingSourceKind.MasterReward
+                && MasterReward is not null
+                && !ManagedRewardPresentation.HasConfiguredRewardIdentity(
+                    MasterReward.RewardSyncMode,
+                    MasterReward.RewardId,
+                    MasterReward.RewardTitle))
             {
                 return AvatarScalingCardStatus.NeedsSetup;
             }

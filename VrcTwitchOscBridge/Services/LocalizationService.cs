@@ -160,33 +160,17 @@ public static class LocalizationService
             return new Dictionary<string, string>(StringComparer.Ordinal);
         }
 
-        var mergedStrings = new Dictionary<string, string>(StringComparer.Ordinal);
-        MergeTranslations(mergedStrings, resourceFileName);
-        MergeTranslations(mergedStrings, $"{Path.GetFileNameWithoutExtension(resourceFileName)}.extra.json");
-        return mergedStrings;
-    }
-
-    private static void MergeTranslations(IDictionary<string, string> target, string resourceFileName)
-    {
         var resourceName = $"{ResourceRoot}.{resourceFileName}";
         using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName);
         if (stream is null)
         {
-            return;
+            return new Dictionary<string, string>(StringComparer.Ordinal);
         }
 
         using var reader = new StreamReader(stream);
         var json = reader.ReadToEnd();
-        var nextStrings = JsonSerializer.Deserialize<Dictionary<string, string>>(json);
-        if (nextStrings is null)
-        {
-            return;
-        }
-
-        foreach (var pair in nextStrings)
-        {
-            target[pair.Key] = pair.Value;
-        }
+        var strings = JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+        return strings ?? new Dictionary<string, string>(StringComparer.Ordinal);
     }
 }
 

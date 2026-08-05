@@ -5,8 +5,8 @@ Thank you for helping make Crystal Relay easier to use in more languages.
 Crystal Relay uses English as the source language and stores app translations as JSON files:
 
 ```text
-VrcTwitchOscBridge/Resources/Localization/en-US.extra.json
-VrcTwitchOscBridge/Resources/Localization/*.extra.json
+VrcTwitchOscBridge/Resources/Localization/en-US.json
+VrcTwitchOscBridge/Resources/Localization/{culture}.json
 ```
 
 Translation help is handled through GitHub issues and pull requests so contributors can help without needing a separate translation service account.
@@ -84,20 +84,20 @@ Do not translate or rewrite:
 
 | File | Language |
 | --- | --- |
-| `en-US.extra.json` | English source |
-| `es-ES.extra.json` | Spanish |
-| `ja-JP.extra.json` | Japanese |
-| `de-DE.extra.json` | German |
-| `fr-FR.extra.json` | French |
-| `pt-BR.extra.json` | Portuguese (Brazil) |
-| `sv-SE.extra.json` | Swedish |
-| `it-IT.extra.json` | Italian |
-| `zh-CN.extra.json` | Simplified Chinese |
-| `zh-TW.extra.json` | Traditional Chinese |
-| `ko-KR.extra.json` | Korean |
-| `ru-RU.extra.json` | Russian |
-| `pl-PL.extra.json` | Polish |
-| `th-TH.extra.json` | Thai |
+| `en-US.json` | English source |
+| `es-ES.json` | Spanish |
+| `ja-JP.json` | Japanese |
+| `de-DE.json` | German |
+| `fr-FR.json` | French |
+| `pt-BR.json` | Portuguese (Brazil) |
+| `sv-SE.json` | Swedish |
+| `it-IT.json` | Italian |
+| `zh-CN.json` | Simplified Chinese |
+| `zh-TW.json` | Traditional Chinese |
+| `ko-KR.json` | Korean |
+| `ru-RU.json` | Russian |
+| `pl-PL.json` | Polish |
+| `th-TH.json` | Thai |
 
 ## Quality Checks
 

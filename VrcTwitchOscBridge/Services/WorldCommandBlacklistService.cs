@@ -4,6 +4,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using VrcTwitchOscBridge.Models;
 
 namespace VrcTwitchOscBridge.Services;
@@ -22,46 +23,74 @@ internal sealed record WorldCommandBlacklistRefreshResult(
     int CreatorEntryCount = 0,
     DateTimeOffset? UpdatedAtUtc = null);
 
-internal sealed record WorldCommandBlacklistDecision(bool IsBlocked, bool IsFailClosed, string Reason = "")
+internal sealed record WorldCommandBlacklistDecision(bool IsBlocked, bool IsFailClosed)
 {
     public static WorldCommandBlacklistDecision Allow { get; } = new(false, false);
 
-    public static WorldCommandBlacklistDecision Block(bool isFailClosed = false, string reason = "") =>
-        new(true, isFailClosed, reason.Trim());
+    public static WorldCommandBlacklistDecision Block(bool isFailClosed = false) =>
+        new(true, isFailClosed);
 }
 
 internal sealed class WorldCommandBlacklistService : IDisposable
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
-        PropertyNameCaseInsensitive = true
+        PropertyNameCaseInsensitive = false,
+        AllowDuplicateProperties = false
     };
 
     private static readonly Uri CheckEndpoint = new(WorldCommandBlacklistSettings.DefaultWorkerCheckEndpoint);
     private static readonly Uri StatusEndpoint = new(WorldCommandBlacklistSettings.DefaultWorkerStatusEndpoint);
     private static readonly TimeSpan DefaultRequestTimeout = TimeSpan.FromSeconds(6);
+    private static readonly Regex WorldIdPattern = new(
+        @"\Awrld_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+    private static readonly Regex AuthorIdPattern = new(
+        @"\Ausr_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+    private static readonly Regex UtcTimestampPattern = new(
+        @"\A[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,7})?(?:Z|\+00:00)\z",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+    private static readonly string[] UtcTimestampFormats =
+    [
+        "yyyy-MM-dd'T'HH:mm:ss'Z'",
+        "yyyy-MM-dd'T'HH:mm:ss.FFFFFFF'Z'",
+        "yyyy-MM-dd'T'HH:mm:sszzz",
+        "yyyy-MM-dd'T'HH:mm:ss.FFFFFFFzzz"
+    ];
 
-    private readonly object stateGate = new();
-    private readonly HttpClient httpClient = new()
+    private readonly HttpClient httpClient;
+    private readonly bool ownsHttpClient;
+
+    public WorldCommandBlacklistService() : this(new HttpClient(), ownsHttpClient: true)
     {
-        Timeout = DefaultRequestTimeout
-    };
-
-    private bool isEnabled;
-
-    public WorldCommandBlacklistService()
-    {
-        httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-        httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("CrystalRelay-DesktopApp");
     }
 
-    public void Configure(WorldCommandBlacklistSettings settings)
+    internal WorldCommandBlacklistService(HttpClient httpClient) : this(httpClient, ownsHttpClient: false)
     {
-        lock (stateGate)
+    }
+
+    private WorldCommandBlacklistService(HttpClient httpClient, bool ownsHttpClient)
+    {
+        this.httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+        this.ownsHttpClient = ownsHttpClient;
+        httpClient.Timeout = DefaultRequestTimeout;
+
+        if (!httpClient.DefaultRequestHeaders.Accept.Any(value =>
+                string.Equals(value.MediaType, "application/json", StringComparison.OrdinalIgnoreCase)))
         {
-            isEnabled = settings.IsEnabled;
+            httpClient.DefaultRequestHeaders.Accept.Add(
+                new MediaTypeWithQualityHeaderValue("application/json"));
+        }
+
+        if (!httpClient.DefaultRequestHeaders.UserAgent.Any(value =>
+                string.Equals(value.Product?.Name, "CrystalRelay-DesktopApp", StringComparison.OrdinalIgnoreCase)))
+        {
+            httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("CrystalRelay-DesktopApp");
         }
     }
+
+    public void Configure(WorldCommandBlacklistSettings settings) => _ = settings;
 
     public void InvalidateCurrentSessionList()
     {
@@ -74,17 +103,12 @@ internal sealed class WorldCommandBlacklistService : IDisposable
         string authorId,
         CancellationToken cancellationToken = default)
     {
-        lock (stateGate)
-        {
-            if (!isEnabled)
-            {
-                return WorldCommandBlacklistDecision.Allow;
-            }
-        }
+        cancellationToken.ThrowIfCancellationRequested();
 
-        if (string.IsNullOrWhiteSpace(worldId))
+        if (!WorldIdPattern.IsMatch(worldId ?? string.Empty)
+            || !AuthorIdPattern.IsMatch(authorId ?? string.Empty))
         {
-            return WorldCommandBlacklistDecision.Allow;
+            return WorldCommandBlacklistDecision.Block(isFailClosed: true);
         }
 
         try
@@ -92,23 +116,33 @@ internal sealed class WorldCommandBlacklistService : IDisposable
             using var response = await httpClient.PostAsJsonAsync(
                 CheckEndpoint,
                 new WorldGuardCheckRequest(
-                    worldId.Trim(),
-                    (authorId ?? string.Empty).Trim(),
-                    DateOnly.FromDateTime(DateTime.Now).ToString("MM/dd/yyyy", CultureInfo.InvariantCulture)),
+                    worldId!.ToLowerInvariant(),
+                    authorId!.ToLowerInvariant()),
                 JsonOptions,
                 cancellationToken);
 
             if (!response.IsSuccessStatusCode)
             {
-                return WorldCommandBlacklistDecision.Block(isFailClosed: true);
+                return ReturnUnlessCallerCancelled(
+                    cancellationToken,
+                    WorldCommandBlacklistDecision.Block(isFailClosed: true));
             }
 
             var payload = await response.Content.ReadFromJsonAsync<WorldGuardCheckResponse>(JsonOptions, cancellationToken);
-            return payload is null
-                ? WorldCommandBlacklistDecision.Block(isFailClosed: true)
-                : payload.Blocked
-                    ? WorldCommandBlacklistDecision.Block(reason: payload.Reason ?? string.Empty)
-                    : WorldCommandBlacklistDecision.Allow;
+            if (payload?.SchemaVersion != 2
+                || payload.Blocked is not bool blocked
+                || payload.AdditionalProperties is { Count: > 0 })
+            {
+                return ReturnUnlessCallerCancelled(
+                    cancellationToken,
+                    WorldCommandBlacklistDecision.Block(isFailClosed: true));
+            }
+
+            return ReturnUnlessCallerCancelled(
+                cancellationToken,
+                blocked
+                    ? WorldCommandBlacklistDecision.Block()
+                    : WorldCommandBlacklistDecision.Allow);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -116,7 +150,9 @@ internal sealed class WorldCommandBlacklistService : IDisposable
         }
         catch
         {
-            return WorldCommandBlacklistDecision.Block(isFailClosed: true);
+            return ReturnUnlessCallerCancelled(
+                cancellationToken,
+                WorldCommandBlacklistDecision.Block(isFailClosed: true));
         }
     }
 
@@ -125,6 +161,7 @@ internal sealed class WorldCommandBlacklistService : IDisposable
         bool force,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         Configure(settings);
 
         try
@@ -133,20 +170,45 @@ internal sealed class WorldCommandBlacklistService : IDisposable
             using var response = await httpClient.SendAsync(request, cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
-                return new WorldCommandBlacklistRefreshResult(WorldCommandBlacklistRefreshStatus.RequestFailed);
+                return ReturnUnlessCallerCancelled(
+                    cancellationToken,
+                    new WorldCommandBlacklistRefreshResult(WorldCommandBlacklistRefreshStatus.RequestFailed));
             }
 
-            var payload = await response.Content.ReadFromJsonAsync<WorldGuardStatusResponse>(JsonOptions, cancellationToken);
-            if (payload is null || !payload.Ok)
+            WorldGuardStatusResponse? payload;
+            try
             {
-                return new WorldCommandBlacklistRefreshResult(WorldCommandBlacklistRefreshStatus.InvalidResponse);
+                payload = await response.Content.ReadFromJsonAsync<WorldGuardStatusResponse>(
+                    JsonOptions,
+                    cancellationToken);
+            }
+            catch (JsonException)
+            {
+                return ReturnUnlessCallerCancelled(
+                    cancellationToken,
+                    new WorldCommandBlacklistRefreshResult(WorldCommandBlacklistRefreshStatus.InvalidResponse));
+            }
+            catch (NotSupportedException)
+            {
+                return ReturnUnlessCallerCancelled(
+                    cancellationToken,
+                    new WorldCommandBlacklistRefreshResult(WorldCommandBlacklistRefreshStatus.InvalidResponse));
             }
 
-            return new WorldCommandBlacklistRefreshResult(
-                WorldCommandBlacklistRefreshStatus.Ready,
-                Math.Max(0, payload.WorldEntryCount),
-                Math.Max(0, payload.CreatorEntryCount),
-                ParseUpdatedAt(payload.UpdatedAt));
+            if (!TryValidateStatus(payload, out var updatedAtUtc))
+            {
+                return ReturnUnlessCallerCancelled(
+                    cancellationToken,
+                    new WorldCommandBlacklistRefreshResult(WorldCommandBlacklistRefreshStatus.InvalidResponse));
+            }
+
+            return ReturnUnlessCallerCancelled(
+                cancellationToken,
+                new WorldCommandBlacklistRefreshResult(
+                    WorldCommandBlacklistRefreshStatus.Ready,
+                    payload!.WorldEntryCount!.Value,
+                    payload.CreatorEntryCount!.Value,
+                    updatedAtUtc));
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -154,49 +216,230 @@ internal sealed class WorldCommandBlacklistService : IDisposable
         }
         catch
         {
-            return new WorldCommandBlacklistRefreshResult(WorldCommandBlacklistRefreshStatus.RequestFailed);
+            return ReturnUnlessCallerCancelled(
+                cancellationToken,
+                new WorldCommandBlacklistRefreshResult(WorldCommandBlacklistRefreshStatus.RequestFailed));
         }
     }
 
-    public void Dispose() => httpClient.Dispose();
-
-    private static DateTimeOffset? ParseUpdatedAt(string? value)
+    public void Dispose()
     {
-        return DateTimeOffset.TryParse(
-            value,
-            CultureInfo.InvariantCulture,
-            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
-            out var updatedAt)
-            ? updatedAt
-            : null;
+        if (ownsHttpClient)
+        {
+            httpClient.Dispose();
+        }
+    }
+
+    private static bool TryValidateStatus(
+        WorldGuardStatusResponse? payload,
+        out DateTimeOffset? updatedAtUtc)
+    {
+        updatedAtUtc = null;
+        if (payload?.Ok != true
+            || payload.AdditionalProperties is { Count: > 0 }
+            || !payload.WorldEntryCountPresent
+            || payload.WorldEntryCount is not int worldEntryCount
+            || worldEntryCount < 0
+            || !payload.CreatorEntryCountPresent
+            || payload.CreatorEntryCount is not int creatorEntryCount
+            || creatorEntryCount < 0)
+        {
+            return false;
+        }
+
+        var hasAnyNewField = payload.SchemaVersionPresent
+            || payload.RevisionPresent
+            || payload.StorageStatePresent
+            || payload.TotalEntriesPresent;
+        if (hasAnyNewField)
+        {
+            if (!payload.SchemaVersionPresent
+                || payload.SchemaVersion != 2
+                || !payload.RevisionPresent
+                || payload.Revision is not int revision
+                || revision < 0
+                || !payload.StorageStatePresent
+                || payload.StorageState is not string storageState
+                || !payload.TotalEntriesPresent
+                || payload.TotalEntries is not int totalEntries
+                || totalEntries < 0
+                || (long)totalEntries < (long)worldEntryCount + creatorEntryCount
+                || !IsValidModeRevision(storageState, revision))
+            {
+                return false;
+            }
+        }
+
+        if (!payload.UpdatedAtPresent)
+        {
+            return true;
+        }
+
+        return TryParseUtcTimestamp(payload.UpdatedAt, out updatedAtUtc);
+    }
+
+    private static bool IsValidModeRevision(string storageState, int revision) =>
+        storageState switch
+        {
+            "bootstrap-legacy" or "legacy-freeze" => revision == 0,
+            "verification-pending" or "active" => revision >= 1,
+            _ => false
+        };
+
+    private static bool TryParseUtcTimestamp(string? value, out DateTimeOffset? updatedAtUtc)
+    {
+        updatedAtUtc = null;
+        if (string.IsNullOrEmpty(value)
+            || !UtcTimestampPattern.IsMatch(value)
+            || !DateTimeOffset.TryParseExact(
+                value,
+                UtcTimestampFormats,
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+                out var updatedAt)
+            || updatedAt.Offset != TimeSpan.Zero)
+        {
+            return false;
+        }
+
+        updatedAtUtc = updatedAt.ToUniversalTime();
+        return true;
+    }
+
+    private static T ReturnUnlessCallerCancelled<T>(CancellationToken cancellationToken, T result)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return result;
     }
 
     private sealed record WorldGuardCheckRequest(
         [property: JsonPropertyName("worldId")] string WorldId,
-        [property: JsonPropertyName("authorId")] string AuthorId,
-        [property: JsonPropertyName("localDate")] string LocalDate);
+        [property: JsonPropertyName("authorId")] string AuthorId);
 
     private sealed class WorldGuardCheckResponse
     {
-        [JsonPropertyName("blocked")]
-        public bool Blocked { get; set; }
+        [JsonPropertyName("schemaVersion")]
+        public int? SchemaVersion { get; set; }
 
-        [JsonPropertyName("reason")]
-        public string? Reason { get; set; }
+        [JsonPropertyName("blocked")]
+        public bool? Blocked { get; set; }
+
+        [JsonExtensionData]
+        public Dictionary<string, JsonElement>? AdditionalProperties { get; set; }
     }
 
     private sealed class WorldGuardStatusResponse
     {
+        private int? worldEntryCount;
+        private int? creatorEntryCount;
+        private string? updatedAt;
+        private int? schemaVersion;
+        private int? revision;
+        private string? storageState;
+        private int? totalEntries;
+
         [JsonPropertyName("ok")]
-        public bool Ok { get; set; }
+        public bool? Ok { get; set; }
 
         [JsonPropertyName("worldEntryCount")]
-        public int WorldEntryCount { get; set; }
+        public int? WorldEntryCount
+        {
+            get => worldEntryCount;
+            set
+            {
+                WorldEntryCountPresent = true;
+                worldEntryCount = value;
+            }
+        }
+
+        [JsonIgnore]
+        public bool WorldEntryCountPresent { get; private set; }
 
         [JsonPropertyName("creatorEntryCount")]
-        public int CreatorEntryCount { get; set; }
+        public int? CreatorEntryCount
+        {
+            get => creatorEntryCount;
+            set
+            {
+                CreatorEntryCountPresent = true;
+                creatorEntryCount = value;
+            }
+        }
+
+        [JsonIgnore]
+        public bool CreatorEntryCountPresent { get; private set; }
 
         [JsonPropertyName("updatedAt")]
-        public string? UpdatedAt { get; set; }
+        public string? UpdatedAt
+        {
+            get => updatedAt;
+            set
+            {
+                UpdatedAtPresent = true;
+                updatedAt = value;
+            }
+        }
+
+        [JsonIgnore]
+        public bool UpdatedAtPresent { get; private set; }
+
+        [JsonPropertyName("schemaVersion")]
+        public int? SchemaVersion
+        {
+            get => schemaVersion;
+            set
+            {
+                SchemaVersionPresent = true;
+                schemaVersion = value;
+            }
+        }
+
+        [JsonIgnore]
+        public bool SchemaVersionPresent { get; private set; }
+
+        [JsonPropertyName("revision")]
+        public int? Revision
+        {
+            get => revision;
+            set
+            {
+                RevisionPresent = true;
+                revision = value;
+            }
+        }
+
+        [JsonIgnore]
+        public bool RevisionPresent { get; private set; }
+
+        [JsonPropertyName("storageState")]
+        public string? StorageState
+        {
+            get => storageState;
+            set
+            {
+                StorageStatePresent = true;
+                storageState = value;
+            }
+        }
+
+        [JsonIgnore]
+        public bool StorageStatePresent { get; private set; }
+
+        [JsonPropertyName("totalEntries")]
+        public int? TotalEntries
+        {
+            get => totalEntries;
+            set
+            {
+                TotalEntriesPresent = true;
+                totalEntries = value;
+            }
+        }
+
+        [JsonIgnore]
+        public bool TotalEntriesPresent { get; private set; }
+
+        [JsonExtensionData]
+        public Dictionary<string, JsonElement>? AdditionalProperties { get; set; }
     }
 }

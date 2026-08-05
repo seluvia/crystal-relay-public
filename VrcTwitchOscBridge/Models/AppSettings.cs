@@ -4,6 +4,15 @@ using VrcTwitchOscBridge.Infrastructure;
 
 namespace VrcTwitchOscBridge.Models;
 
+public sealed record ManagedRewardOwnershipRecord
+{
+    public string RewardId { get; init; } = string.Empty;
+
+    public bool IsRetired { get; init; }
+
+    public bool DeleteWhenInactive { get; init; }
+}
+
 public enum ChatTimestampFormat
 {
     TwelveHour,
@@ -21,6 +30,7 @@ public sealed class AppSettings : ObservableObject
     private ObservableCollection<TriggerRule> globalMovementRules = [];
     private ObservableCollection<TriggerRule> globalOverrideRules = [];
     private ObservableCollection<UniversalTriggerRule> universalTriggers = [];
+    private ObservableCollection<ManagedRewardOwnershipRecord> managedRewardOwnership = [];
     private ObservableCollection<AvatarScaleSet> avatarScaleSets = [];
     private ObservableCollection<AvatarScaleRule> avatarScaleRules = [];
     private AvatarScaleMasterRewardSettings avatarScaleMasterReward = new();
@@ -29,6 +39,7 @@ public sealed class AppSettings : ObservableObject
     private RewardFireSaleSettings rewardFireSale = new();
     private CashPaymentConnectionSettings cashPayments = new();
     private ObservableCollection<CashPaymentRule> cashPaymentRules = [];
+    private XSOverlaySettings xsOverlay = new();
     private ObservableCollection<TriggerRule> rules = [];
     private ObservableCollection<AvatarSwapProfile> avatarSwapProfiles = [];
     private string? masterAvatarSwapReturnId;
@@ -164,6 +175,12 @@ public sealed class AppSettings : ObservableObject
         set => SetProperty(ref universalTriggers, value ?? []);
     }
 
+    public ObservableCollection<ManagedRewardOwnershipRecord> ManagedRewardOwnership
+    {
+        get => managedRewardOwnership;
+        set => SetProperty(ref managedRewardOwnership, value ?? []);
+    }
+
     public bool UniversalTriggersChatCollapsed { get; set; }
 
     public bool UniversalTriggersRewardCollapsed { get; set; }
@@ -232,6 +249,12 @@ public sealed class AppSettings : ObservableObject
     {
         get => cashPaymentRules;
         set => SetProperty(ref cashPaymentRules, value ?? []);
+    }
+
+    public XSOverlaySettings XSOverlay
+    {
+        get => xsOverlay;
+        set => SetProperty(ref xsOverlay, value ?? new XSOverlaySettings());
     }
 
     public ObservableCollection<TriggerRule> Rules

@@ -396,6 +396,11 @@ public sealed class OscRouterService : IAsyncDisposable
             try
             {
                 var result = await listener.ReceiveAsync(cancellationToken);
+                if (!IsLoopbackEndpoint(result.RemoteEndPoint))
+                {
+                    continue;
+                }
+
                 var observedValue = TryReadObservedValue(result.Buffer);
                 if (observedValue is not null)
                 {
@@ -519,14 +524,20 @@ public sealed class OscRouterService : IAsyncDisposable
     {
         try
         {
+            if (!IsLoopbackAddress(profile.address) || !IsValidPort(profile.port))
+            {
+                return null;
+            }
+
             if (!await LooksLikeVrChatAsync(profile, cancellationToken))
             {
                 return null;
             }
 
             var hostInfo = await VRC.OSCQuery.Extensions.GetHostInfo(profile.address, profile.port);
-            var oscAddress = TryParseAddress(hostInfo.oscIP) ?? profile.address;
-            if (hostInfo.oscPort <= 0)
+            if (hostInfo is null
+                || !IsValidPort(hostInfo.oscPort)
+                || !TryParseLoopbackAddress(hostInfo.oscIP, out var oscAddress))
             {
                 return null;
             }
@@ -762,16 +773,39 @@ public sealed class OscRouterService : IAsyncDisposable
         return !currentLooksLikeVrChat;
     }
 
-    private static IPAddress? TryParseAddress(string? address)
+    internal static bool IsLoopbackAddress(IPAddress? address)
     {
-        return IPAddress.TryParse(address, out var parsed) ? parsed : null;
+        // The receiver and OSCQuery library use IPv4, so reject IPv6 endpoints rather than accepting an unusable loopback address.
+        return address?.AddressFamily == AddressFamily.InterNetwork && IPAddress.IsLoopback(address);
+    }
+
+    internal static bool IsLoopbackEndpoint(IPEndPoint? endPoint)
+    {
+        return endPoint is not null && IsLoopbackAddress(endPoint.Address);
+    }
+
+    private static bool TryParseLoopbackAddress(string? address, out IPAddress parsed)
+    {
+        if (IPAddress.TryParse(address, out var candidate) && IsLoopbackAddress(candidate))
+        {
+            parsed = candidate;
+            return true;
+        }
+
+        parsed = IPAddress.None;
+        return false;
+    }
+
+    private static bool IsValidPort(int port)
+    {
+        return port is > 0 and <= 65535;
     }
 
     private static UdpClient CreateListener(int port, string purpose, string resolutionHint)
     {
         try
         {
-            return new UdpClient(port);
+            return new UdpClient(new IPEndPoint(IPAddress.Loopback, port));
         }
         catch (SocketException ex) when (ex.SocketErrorCode == SocketError.AddressAlreadyInUse)
         {

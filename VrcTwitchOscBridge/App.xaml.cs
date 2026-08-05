@@ -24,6 +24,7 @@ public partial class App : Application
 
     private Mutex? singleInstanceMutex;
     private bool ownsSingleInstanceMutex;
+    private ApplicationSelfUpdateCleanupRequest? pendingUpdateCleanupRequest;
 
     public App()
     {
@@ -47,7 +48,7 @@ public partial class App : Application
 
         if (ApplicationSelfUpdateService.TryGetCleanupRequest(e.Args, out var updateCleanupRequest))
         {
-            await ApplicationSelfUpdateService.CleanupCompletedUpdateAsync(updateCleanupRequest);
+            pendingUpdateCleanupRequest = updateCleanupRequest;
         }
 
         if (ApplicationRestartService.TryCreateHelperRequest(e.Args, out var restartHelperRequest))
@@ -90,6 +91,22 @@ public partial class App : Application
 
         MainWindow = new MainWindow(restartRestoreState);
         MainWindow.Show();
+    }
+
+    internal async Task AcknowledgePendingUpdateStartupAsync()
+    {
+        if (pendingUpdateCleanupRequest is not ApplicationSelfUpdateCleanupRequest request)
+        {
+            return;
+        }
+
+        await ApplicationSelfUpdateService.AcknowledgeUpdateStartupAsync(request);
+        if (!await ApplicationSelfUpdateService.CleanupCompletedUpdateAsync(request))
+        {
+            return;
+        }
+
+        pendingUpdateCleanupRequest = null;
     }
 
     /// <summary>

@@ -53,6 +53,7 @@ jobs:
 
           blocked_file_names = {
               join("A", "G", "E", "N", "T", "S", ".", "m", "d").lower(),
+              ".dev.vars",
               "backup-crystal-relay-project.ps1",
               "backup-crystal-relay-appdata.ps1",
               "open-crystal-relay-github-desktop-workflow.ps1",
@@ -85,6 +86,7 @@ jobs:
               ("OAuth token", re.compile(r"\bOAuth\s+[A-Za-z0-9._~+/=-]{20,}\b")),
               ("Twitch OAuth token", re.compile(r"\boauth:[A-Za-z0-9._~+/=-]{20,}\b", re.IGNORECASE)),
               ("credential assignment", re.compile(r"\b(?:access[_-]?token|refresh[_-]?token|client[_-]?secret|api[_-]?key|password|set-cookie|authcookie)\b\s*[:=]\s*['\"][A-Za-z0-9._~+/=-]{12,}['\"]", re.IGNORECASE)),
+              ("World Guard admin secret assignment", re.compile(r"^[ \t]*WORLD_GUARD_ADMIN_SECRET[ \t]*=[ \t]*(?!(?:placeholder(?:[-_ ][A-Za-z0-9.-]+)?|not[-_ ]a[-_ ]secret|change[-_ ]me|example(?:[-_ ][A-Za-z0-9.-]+)?|your[-_ ]secret[-_ ]here|replace[-_ ](?:me|with[-_ ][A-Za-z0-9.-]+))[ \t]*(?:#[^\r\n]*)?\r?$)(?![ \t]*(?:#[^\r\n]*)?\r?$)[^\x22\x27# \t\r\n][^#\r\n]*", re.IGNORECASE | re.MULTILINE)),
           ]
 
           binary_extensions = {

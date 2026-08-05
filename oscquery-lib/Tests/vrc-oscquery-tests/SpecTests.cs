@@ -202,6 +202,42 @@ namespace VRC.OSCQuery.Tests
             
             service.Dispose();
         }
+
+        [Test]
+        public async Task GetOSCTree_DoesNotFollowRedirects()
+        {
+            var redirectPort = Extensions.GetAvailableTcpPort();
+            var targetPort = Extensions.GetAvailableTcpPort();
+            using var redirectListener = new HttpListener();
+            using var targetListener = new HttpListener();
+            redirectListener.Prefixes.Add($"http://{IPAddress.Loopback}:{redirectPort}/");
+            targetListener.Prefixes.Add($"http://{IPAddress.Loopback}:{targetPort}/");
+            redirectListener.Start();
+            targetListener.Start();
+
+            var redirectRequest = redirectListener.GetContextAsync();
+            var targetRequest = targetListener.GetContextAsync();
+            var treeTask = Extensions.GetOSCTree(IPAddress.Loopback, redirectPort);
+
+            var redirectContext = await redirectRequest;
+            redirectContext.Response.StatusCode = (int)HttpStatusCode.Redirect;
+            redirectContext.Response.RedirectLocation = $"http://{IPAddress.Loopback}:{targetPort}/";
+            redirectContext.Response.Close();
+
+            var completed = await Task.WhenAny(treeTask, targetRequest);
+            var targetVisited = completed == targetRequest;
+            if (targetVisited)
+            {
+                var targetContext = await targetRequest;
+                targetContext.Response.StatusCode = (int)HttpStatusCode.NotFound;
+                targetContext.Response.Close();
+            }
+
+            var tree = await treeTask;
+
+            Assert.That(targetVisited, Is.False);
+            Assert.That(tree, Is.Null);
+        }
         
         [Test]
         public async Task OSCQueryServiceFluent_AfterAddingGrandChildNode_HasNodesForEachAncestor()

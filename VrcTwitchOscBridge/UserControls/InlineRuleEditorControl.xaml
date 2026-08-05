@@ -504,13 +504,13 @@
                                          IsChecked="{Binding Rule.RewardSyncMode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter=LinkExisting}"
                                          Foreground="{DynamicResource TextBrush}" Margin="0,2,0,0" />
                         </StackPanel>
-                        <StackPanel Visibility="{Binding Rule.RewardSyncMode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter=CreateOrManage, FallbackValue=Visible}">
+                        <StackPanel Visibility="{Binding Rule.RewardSyncMode, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter=CreateOrManage, FallbackValue=Visible}">
                             <StackPanel>
                                 <TextBlock Text="{loc:Translate 'Reward Cost'}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
                                 <TextBox Text="{Binding Rule.ChannelPointRewardCost, UpdateSourceTrigger=PropertyChanged}" />
                             </StackPanel>
                         </StackPanel>
-                        <StackPanel Visibility="{Binding Rule.RewardSyncMode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter=LinkExisting, FallbackValue=Collapsed}">
+                        <StackPanel Visibility="{Binding Rule.RewardSyncMode, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter=LinkExisting, FallbackValue=Collapsed}">
                             <TextBlock Text="{loc:Translate 'Existing Twitch Reward'}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,8,0,2" />
                             <ComboBox ItemsSource="{Binding DataContext.TwitchRewardOptions, RelativeSource={RelativeSource AncestorType=Window}}"
                                       SelectedValuePath="Id" DisplayMemberPath="Title"
@@ -691,7 +691,7 @@
                                    TextWrapping="Wrap"
                                    Margin="0,4,0,8" />
 
-                        <CheckBox Content="{loc:Translate 'Add sub time to swap'}"
+                        <CheckBox Content="{loc:Translate 'Add sub seconds to swap duration'}"
                                   IsChecked="{Binding Rule.AddBitsToSwapTime, UpdateSourceTrigger=PropertyChanged}"
                                   Margin="0,0,0,4" />
                         <StackPanel Visibility="{Binding Rule.AddBitsToSwapTime, Converter={StaticResource BoolToVisibilityConverter}}">
@@ -722,7 +722,6 @@
                                 </StackPanel>
                             </UniformGrid>
                         </StackPanel>
-                        <CheckBox IsChecked="{Binding Rule.IsGiftSubscription}" Content="Include gift subs" Margin="0,8,0,0" />
                         <CheckBox IsChecked="{Binding Profile.SubsMaxSwapTimeEnabled}" Content="{loc:Translate 'Cap max accumulated duration'}" Margin="0,8,0,0" />
                     </StackPanel>
                 </Border>

@@ -1,4 +1,5 @@
 using System.Text;
+using VrcTwitchOscBridge.Models;
 
 namespace VrcTwitchOscBridge.Services;
 
@@ -38,6 +39,14 @@ public static class ManagedRewardPresentation
     }
 
     public static string NormalizeTitlePresentationKey(string? title) => NormalizeCollapsedTitle(title);
+
+    public static bool HasConfiguredRewardIdentity(
+        TwitchRewardSyncMode rewardSyncMode,
+        string? rewardId,
+        string? rewardTitle) =>
+        rewardSyncMode == TwitchRewardSyncMode.LinkExisting
+            ? !string.IsNullOrWhiteSpace(rewardId)
+            : !string.IsNullOrWhiteSpace(rewardId) || !string.IsNullOrWhiteSpace(rewardTitle);
 
     private static string NormalizeCollapsedTitle(string? title)
     {

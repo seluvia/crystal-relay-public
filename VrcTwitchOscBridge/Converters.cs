@@ -187,7 +187,6 @@ public sealed class InverseBoolToVisibilityConverter : IValueConverter
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         => value is Visibility.Visible;
 }
-
 [ValueConversion(typeof(bool), typeof(string))]
 public sealed class CollapseChevronTextConverter : IValueConverter
 {

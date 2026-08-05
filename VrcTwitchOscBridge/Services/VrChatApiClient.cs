@@ -13,22 +13,71 @@ public sealed class VrChatApiClient : IDisposable
 {
     private static readonly Uri ApiBaseUri = new("https://api.vrchat.cloud/api/1/");
     private static readonly TimeSpan DefaultRequestTimeout = TimeSpan.FromSeconds(18);
-    private static readonly char[] WorldLocationSeparators = [':', '~', '?', '/', ' '];
+    private const int MaxWorldNameLength = 120;
+    private const int MaxWorldLocationSuffixLength = 512;
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true
     };
 
-    private readonly HttpClient httpClient = new()
-    {
-        BaseAddress = ApiBaseUri,
-        Timeout = DefaultRequestTimeout
-    };
+    private readonly HttpClient httpClient;
+    private readonly bool ownsHttpClient;
 
     public VrChatApiClient()
+        : this(new HttpClientHandler())
     {
-        httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("CrystalRelayTwitchOsc/desktop");
-        httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+    }
+
+    // This is the inspectable production path; the service owns both the handler and its client.
+    internal VrChatApiClient(HttpClientHandler ownedHandler)
+        : this(CreateOwnedHttpClient(ownedHandler), ownsHttpClient: true)
+    {
+    }
+
+    // Injected clients remain caller-owned.
+    internal VrChatApiClient(HttpClient httpClient)
+        : this(httpClient, ownsHttpClient: false)
+    {
+    }
+
+    private VrChatApiClient(HttpClient httpClient, bool ownsHttpClient)
+    {
+        this.httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+        this.ownsHttpClient = ownsHttpClient;
+        this.httpClient.BaseAddress = ApiBaseUri;
+        this.httpClient.Timeout = DefaultRequestTimeout;
+
+        foreach (var product in this.httpClient.DefaultRequestHeaders.UserAgent
+                     .Where(product => string.Equals(
+                         product.Product?.Name,
+                         "CrystalRelayTwitchOsc",
+                         StringComparison.OrdinalIgnoreCase))
+                     .ToArray())
+        {
+            this.httpClient.DefaultRequestHeaders.UserAgent.Remove(product);
+        }
+
+        this.httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("CrystalRelayTwitchOsc/desktop");
+
+        foreach (var mediaType in this.httpClient.DefaultRequestHeaders.Accept
+                     .Where(mediaType => string.Equals(
+                         mediaType.MediaType,
+                         "application/json",
+                         StringComparison.OrdinalIgnoreCase))
+                     .ToArray())
+        {
+            this.httpClient.DefaultRequestHeaders.Accept.Remove(mediaType);
+        }
+
+        this.httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+    }
+
+    private static HttpClient CreateOwnedHttpClient(HttpClientHandler handler)
+    {
+        ArgumentNullException.ThrowIfNull(handler);
+        handler.UseCookies = false;
+        handler.AllowAutoRedirect = false;
+        return new HttpClient(handler, disposeHandler: true);
     }
 
     public async Task<VrChatLoginResponse> LoginWithCredentialsAsync(
@@ -73,7 +122,7 @@ public sealed class VrChatApiClient : IDisposable
             throw new InvalidOperationException("VRChat did not return a reusable auth session.");
         }
 
-        return new VrChatLoginResponse(authCookie, ToAccountSettings(payload), []);
+        return new VrChatLoginResponse(authCookie, ToAccountSettings(payload, authCookie), []);
     }
 
     public async Task<VrChatAccountSettings> CompleteTwoFactorAsync(
@@ -150,48 +199,97 @@ public sealed class VrChatApiClient : IDisposable
             .Select(avatar => new VrChatAvatarSummary(
                 avatar.Id,
                 avatar.Name,
-                string.Join(" / ", avatar.Sources.OrderBy(source => source, StringComparer.OrdinalIgnoreCase)),
+                avatar.AuthorName,
+                avatar.ThumbnailUrl,
                 avatar.IsCurrentAvatar,
-                avatar.ThumbnailUrl))
+                avatar.IsUploaded,
+                avatar.IsFavorited,
+                avatar.IsLicensed,
+                avatar.Platform,
+                avatar.StyleTags,
+                avatar.ContentTags,
+                FavoriteGroupName: null))
             .ToArray();
     }
+
+
 
     public async Task<VrChatCurrentWorldLookupResult> GetCurrentWorldAsync(
         string authCookie,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         if (string.IsNullOrWhiteSpace(authCookie))
         {
             return VrChatCurrentWorldLookupResult.Unavailable;
         }
 
-        using var currentUserRequest = CreateRequest(HttpMethod.Get, VrChatApiRoutes.CurrentUser, authCookie);
-        using var currentUserResponse = await SendAsync(currentUserRequest, cancellationToken);
-        var currentUser = await ReadAsJsonAsync<VrChatCurrentUserEnvelope>(currentUserResponse, cancellationToken);
-        var worldId = ResolveCurrentWorldId(currentUser);
-        if (string.IsNullOrWhiteSpace(worldId))
+        try
+        {
+            using var currentUserRequest = CreateRequest(HttpMethod.Get, VrChatApiRoutes.CurrentUser, authCookie);
+            using var currentUserResponse = await SendAsync(currentUserRequest, cancellationToken);
+            var currentUser = await ReadAsJsonAsync<VrChatCurrentUserEnvelope>(currentUserResponse, cancellationToken);
+            var worldId = ResolveCurrentWorldId(currentUser);
+            return string.IsNullOrWhiteSpace(worldId)
+                ? VrChatCurrentWorldLookupResult.Unavailable
+                : await GetWorldByIdAsync(worldId, authCookie, cancellationToken);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return VrChatCurrentWorldLookupResult.Unavailable;
+        }
+        catch (Exception exception) when (IsUnavailableWorldLookupFailure(exception))
+        {
+            return VrChatCurrentWorldLookupResult.Unavailable;
+        }
+    }
+
+    public async Task<VrChatCurrentWorldLookupResult> GetWorldByIdAsync(
+        string worldId,
+        string? authCookie,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (!TryParseExactWorldId(worldId, out var validatedWorldId))
         {
             return VrChatCurrentWorldLookupResult.Unavailable;
         }
 
-        using var worldRequest = CreateRequest(HttpMethod.Get, VrChatApiRoutes.World(worldId), authCookie);
-        using var worldResponse = await SendAsync(worldRequest, cancellationToken);
-        var world = await ReadAsJsonAsync<VrChatWorldRecord>(worldResponse, cancellationToken);
-        if (string.IsNullOrWhiteSpace(world.Id)
-            || !string.Equals(world.Id.Trim(), worldId, StringComparison.Ordinal)
-            || !string.Equals(world.ReleaseStatus?.Trim(), "public", StringComparison.OrdinalIgnoreCase))
+        try
+        {
+            using var worldRequest = CreateRequest(HttpMethod.Get, VrChatApiRoutes.World(validatedWorldId), authCookie);
+            using var worldResponse = await SendAsync(worldRequest, cancellationToken);
+            var world = await ReadAsJsonAsync<VrChatWorldRecord>(worldResponse, cancellationToken);
+            var worldName = world.Name?.Trim() ?? string.Empty;
+
+            if (!TryParseExactWorldId(world.Id, out var responseWorldId)
+                || !string.Equals(responseWorldId, validatedWorldId, StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(world.ReleaseStatus, "public", StringComparison.Ordinal)
+                || worldName.Length == 0
+                || worldName.Length > MaxWorldNameLength
+                || !TryExtractUserId(world.AuthorId, out var authorId)
+                || !string.Equals(world.AuthorId, authorId, StringComparison.Ordinal))
+            {
+                return VrChatCurrentWorldLookupResult.Unavailable;
+            }
+
+            var canonicalWorldId = responseWorldId.ToLowerInvariant();
+            return VrChatCurrentWorldLookupResult.Available(
+                canonicalWorldId,
+                authorId,
+                worldName,
+                $"https://vrchat.com/home/world/{canonicalWorldId}");
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
             return VrChatCurrentWorldLookupResult.Unavailable;
         }
-
-        var worldName = string.IsNullOrWhiteSpace(world.Name)
-            ? worldId
-            : world.Name.Trim();
-        return VrChatCurrentWorldLookupResult.Available(
-            worldId,
-            world.AuthorId?.Trim() ?? string.Empty,
-            worldName,
-            $"https://vrchat.com/home/world/{worldId}");
+        catch (Exception exception) when (IsUnavailableWorldLookupFailure(exception))
+        {
+            return VrChatCurrentWorldLookupResult.Unavailable;
+        }
     }
 
     public async Task<VrChatCurrentLocationLookupResult> GetCurrentLocationAsync(
@@ -244,26 +342,77 @@ public sealed class VrChatApiClient : IDisposable
         return true;
     }
 
-    public void Dispose() => httpClient.Dispose();
+    public async Task<IReadOnlyList<FavoriteGroupRecord>> GetFavoriteGroupsAsync(
+        string authCookie,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Get, $"{VrChatApiRoutes.FavoriteGroups}?type=avatar", authCookie);
+        using var response = await SendAsync(request, cancellationToken);
+        return await ReadAsJsonAsync<List<FavoriteGroupRecord>>(response, cancellationToken) ?? [];
+    }
+
+    public async Task<List<FavoriteEntryRecord>> GetFavoriteEntriesAsync(
+        string authCookie,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Get, $"{VrChatApiRoutes.ListFavorites}?type=avatar", authCookie);
+        using var response = await SendAsync(request, cancellationToken);
+        return await ReadAsJsonAsync<List<FavoriteEntryRecord>>(response, cancellationToken) ?? [];
+    }
+
+    public async Task<string?> AddFavoriteAsync(
+        string authCookie,
+        string avatarId,
+        string groupTag,
+        CancellationToken cancellationToken = default)
+    {
+        var body = new { type = "avatar", favoriteId = avatarId, tags = new[] { groupTag } };
+        using var request = CreateRequest(HttpMethod.Post, VrChatApiRoutes.AddFavorite, authCookie);
+        request.Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+
+        using var response = await SendAsync(request, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            return null;
+        }
+
+        var result = await ReadAsJsonAsync<FavoriteEntryRecord>(response, cancellationToken);
+        return result?.Id;
+    }
+
+    public async Task<bool> RemoveFavoriteAsync(
+        string authCookie,
+        string favoriteId,
+        CancellationToken cancellationToken = default)
+    {
+        using var request = CreateRequest(HttpMethod.Delete, VrChatApiRoutes.RemoveFavorite(favoriteId), authCookie);
+        using var response = await SendAsync(request, cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
+    public void Dispose()
+    {
+        if (ownsHttpClient)
+        {
+            httpClient.Dispose();
+        }
+    }
 
     private static string ResolveCurrentWorldId(VrChatCurrentUserEnvelope payload)
     {
-        string?[] candidates =
-        [
-            payload.Presence?.World,
-            payload.WorldId,
-            payload.Location,
-            payload.TravelingToWorld,
-            payload.TravelingToLocation,
-            payload.Presence?.TravelingToWorld
-        ];
-
-        foreach (var candidate in candidates)
+        if (TryParseWorldLocation(payload.TravelingToWorld, out _)
+            || TryParseWorldLocation(payload.TravelingToLocation, out _)
+            || TryParseWorldLocation(payload.Presence?.TravelingToWorld, out _))
         {
-            if (TryExtractWorldId(candidate, out var worldId))
-            {
-                return worldId;
-            }
+            return string.Empty;
+        }
+
+        if (TryParseWorldLocation(payload.Location, out var worldId)
+            || TryParseWorldLocation(payload.Presence?.Location, out worldId)
+            || TryParseWorldLocation(payload.Presence?.World, out worldId)
+            || TryParseWorldLocation(payload.WorldId, out worldId))
+        {
+            return worldId;
         }
 
         return string.Empty;
@@ -293,22 +442,16 @@ public sealed class VrChatApiClient : IDisposable
 
     internal static bool TryExtractWorldId(string? rawValue, out string worldId)
     {
+        return TryParseWorldLocation(rawValue, out worldId);
+    }
+
+    private static bool TryParseExactWorldId(string? rawValue, out string worldId)
+    {
         worldId = string.Empty;
-        var candidate = rawValue?.Trim() ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(candidate))
-        {
-            return false;
-        }
-
-        var separatorIndex = candidate.IndexOfAny(WorldLocationSeparators);
-        if (separatorIndex >= 0)
-        {
-            candidate = candidate[..separatorIndex];
-        }
-
+        var candidate = rawValue ?? string.Empty;
         if (!candidate.StartsWith("wrld_", StringComparison.OrdinalIgnoreCase)
             || candidate.Length != "wrld_".Length + 36
-            || !Guid.TryParse(candidate["wrld_".Length..], out _))
+            || !Guid.TryParseExact(candidate["wrld_".Length..], "D", out _))
         {
             return false;
         }
@@ -317,27 +460,145 @@ public sealed class VrChatApiClient : IDisposable
         return true;
     }
 
+    private static bool TryParseWorldLocation(string? rawValue, out string worldId)
+    {
+        return TryParseWorldLocation(rawValue, out worldId, out _);
+    }
+
+    private static bool TryParseWorldLocation(
+        string? rawValue,
+        out string worldId,
+        out string instanceLocationSuffix)
+    {
+        worldId = string.Empty;
+        instanceLocationSuffix = string.Empty;
+        if (TryParseExactWorldId(rawValue, out worldId))
+        {
+            return true;
+        }
+
+        var candidate = rawValue ?? string.Empty;
+        var separatorIndex = candidate.IndexOf(':');
+        if (separatorIndex != "wrld_".Length + 36
+            || candidate.IndexOf(':', separatorIndex + 1) >= 0
+            || !TryParseExactWorldId(candidate[..separatorIndex], out worldId))
+        {
+            worldId = string.Empty;
+            return false;
+        }
+
+        instanceLocationSuffix = candidate[(separatorIndex + 1)..];
+        if (!IsValidWorldLocationSuffix(instanceLocationSuffix))
+        {
+            worldId = string.Empty;
+            instanceLocationSuffix = string.Empty;
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool IsValidWorldLocationSuffix(string suffix)
+    {
+        if (suffix.Length == 0 || suffix.Length > MaxWorldLocationSuffixLength)
+        {
+            return false;
+        }
+
+        var segments = suffix.Split('~');
+        if (segments[0].Length == 0
+            || segments[0].Length > 10
+            || segments[0].Any(character => character is < '0' or > '9'))
+        {
+            return false;
+        }
+
+        for (var index = 1; index < segments.Length; index++)
+        {
+            if (!IsValidWorldLocationQualifier(segments[index]))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool IsValidWorldLocationQualifier(string qualifier)
+    {
+        if (qualifier.Length == 0)
+        {
+            return false;
+        }
+
+        var openParenthesisIndex = qualifier.IndexOf('(');
+        if (openParenthesisIndex < 0)
+        {
+            return IsAsciiIdentifier(qualifier);
+        }
+
+        if (openParenthesisIndex == 0
+            || qualifier[^1] != ')'
+            || qualifier.IndexOf('(', openParenthesisIndex + 1) >= 0)
+        {
+            return false;
+        }
+
+        var name = qualifier[..openParenthesisIndex];
+        var value = qualifier[(openParenthesisIndex + 1)..^1];
+        return IsAsciiIdentifier(name)
+            && value.Length > 0
+            && value.All(character =>
+                character is >= '!' and <= '~'
+                && character is not '(' and not ')' and not '~' and not '?' and not '/' and not '#' and not ':');
+    }
+
+    private static bool IsAsciiIdentifier(string candidate)
+    {
+        if (candidate.Length == 0
+            || candidate.Length > 64
+            || candidate[0] is not (>= 'A' and <= 'Z') and not (>= 'a' and <= 'z'))
+        {
+            return false;
+        }
+
+        return candidate.All(character =>
+            character is >= 'A' and <= 'Z'
+            or >= 'a' and <= 'z'
+            or >= '0' and <= '9'
+            or '_');
+    }
+
+    internal static bool TryExtractUserId(string? rawValue, out string userId)
+    {
+        userId = string.Empty;
+        var candidate = rawValue ?? string.Empty;
+        if (!candidate.StartsWith("usr_", StringComparison.OrdinalIgnoreCase)
+            || candidate.Length != "usr_".Length + 36
+            || !Guid.TryParseExact(candidate["usr_".Length..], "D", out _))
+        {
+            return false;
+        }
+
+        userId = candidate;
+        return true;
+    }
+
     internal static string BuildLaunchUri(string location) => $"vrchat://launch?id={location?.Trim() ?? string.Empty}";
 
     internal static bool TryExtractInstanceId(string? rawValue, string worldId, out string instanceId)
     {
         instanceId = string.Empty;
-        var candidate = rawValue?.Trim() ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(candidate)
-            || string.IsNullOrWhiteSpace(worldId)
-            || !candidate.StartsWith(worldId, StringComparison.OrdinalIgnoreCase))
+        if (!TryParseExactWorldId(worldId, out var validatedWorldId)
+            || !TryParseWorldLocation(rawValue, out var parsedWorldId, out var parsedInstanceId)
+            || parsedInstanceId.Length == 0
+            || !string.Equals(parsedWorldId, validatedWorldId, StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }
 
-        var separatorIndex = candidate.IndexOf(':');
-        if (separatorIndex < 0 || separatorIndex == candidate.Length - 1)
-        {
-            return false;
-        }
-
-        instanceId = candidate[(separatorIndex + 1)..].Trim();
-        return !string.IsNullOrWhiteSpace(instanceId);
+        instanceId = parsedInstanceId;
+        return true;
     }
 
     private async Task<IReadOnlyList<VrChatAvatarRecord>> GetPagedAvatarsAsync(
@@ -383,27 +644,91 @@ public sealed class VrChatApiClient : IDisposable
         {
             if (!merged.TryGetValue(avatar.Id, out var current))
             {
+                var platform = ResolvePlatform(avatar.UnityPackages);
+                var (styleTags, contentTags) = ExtractTags(avatar.Tags);
+
                 current = new MutableAvatar
                 {
                     Id = avatar.Id,
                     Name = string.IsNullOrWhiteSpace(avatar.Name) ? avatar.Id : avatar.Name,
+                    AuthorName = avatar.AuthorName?.Trim() ?? string.Empty,
                     ThumbnailUrl = avatar.ThumbnailImageUrl ?? avatar.ImageUrl,
-                    IsCurrentAvatar = string.Equals(avatar.Id, currentAvatarId, StringComparison.Ordinal)
+                    IsCurrentAvatar = string.Equals(avatar.Id, currentAvatarId, StringComparison.Ordinal),
+                    Platform = platform,
+                    StyleTags = styleTags,
+                    ContentTags = contentTags
                 };
                 merged[avatar.Id] = current;
             }
 
             current.Sources.Add(sourceLabel);
             current.IsCurrentAvatar |= string.Equals(avatar.Id, currentAvatarId, StringComparison.Ordinal);
+
+            if (string.Equals(sourceLabel, "Uploaded", StringComparison.OrdinalIgnoreCase))
+                current.IsUploaded = true;
+            else if (string.Equals(sourceLabel, "Favorites", StringComparison.OrdinalIgnoreCase))
+                current.IsFavorited = true;
+            else if (string.Equals(sourceLabel, "Licensed", StringComparison.OrdinalIgnoreCase))
+                current.IsLicensed = true;
         }
     }
 
-    private static HttpRequestMessage CreateRequest(HttpMethod method, string relativePath, string authCookie)
+    private static string ResolvePlatform(IReadOnlyList<UnityPackageRecord>? unityPackages)
+    {
+        if (unityPackages is null || unityPackages.Count == 0)
+            return string.Empty;
+
+        var hasPc = false;
+        var hasQuest = false;
+        foreach (var pkg in unityPackages)
+        {
+            var p = pkg.Platform?.Trim();
+            if (string.Equals(p, "standalonewindows", StringComparison.OrdinalIgnoreCase))
+                hasPc = true;
+            else if (string.Equals(p, "android", StringComparison.OrdinalIgnoreCase))
+                hasQuest = true;
+        }
+
+        if (hasPc && hasQuest) return "Both";
+        if (hasPc) return "PC";
+        if (hasQuest) return "Quest";
+        return string.Empty;
+    }
+
+    private static (IReadOnlyList<string> StyleTags, IReadOnlyList<string> ContentTags) ExtractTags(IReadOnlyList<string>? tags)
+    {
+        if (tags is null || tags.Count == 0)
+            return (Array.Empty<string>(), Array.Empty<string>());
+
+        var style = new List<string>();
+        var content = new List<string>();
+        foreach (var tag in tags)
+        {
+            if (tag.StartsWith("avatar_", StringComparison.Ordinal))
+                style.Add(tag["avatar_".Length..]);
+            else if (tag.StartsWith("content_", StringComparison.Ordinal))
+                content.Add(tag["content_".Length..]);
+        }
+
+        return (style, content);
+    }
+
+    private static HttpRequestMessage CreateRequest(HttpMethod method, string relativePath, string? authCookie)
     {
         var request = new HttpRequestMessage(method, relativePath);
-        request.Headers.TryAddWithoutValidation("Cookie", $"auth={authCookie.Trim()}");
+        if (!string.IsNullOrWhiteSpace(authCookie))
+        {
+            request.Headers.TryAddWithoutValidation("Cookie", $"auth={authCookie.Trim()}");
+        }
+
         return request;
     }
+
+    private static bool IsUnavailableWorldLookupFailure(Exception exception) =>
+        exception is HttpRequestException
+            or JsonException
+            or InvalidOperationException
+            or VrChatApiException;
 
     private static string BuildBasicAuthorization(string username, string password)
     {
@@ -492,7 +817,7 @@ public sealed class VrChatApiClient : IDisposable
         _ => "auth/twofactorauth/totp/verify"
     };
 
-    private static VrChatAccountSettings ToAccountSettings(VrChatCurrentUserEnvelope payload, string authCookie = "")
+    private static VrChatAccountSettings ToAccountSettings(VrChatCurrentUserEnvelope payload, string authCookie)
     {
         return new VrChatAccountSettings
         {
@@ -691,6 +1016,12 @@ public sealed class VrChatApiClient : IDisposable
         public string ReleaseStatus { get; set; } = string.Empty;
     }
 
+    private sealed class UnityPackageRecord
+    {
+        [JsonPropertyName("platform")]
+        public string? Platform { get; set; }
+    }
+
     private sealed class VrChatAvatarRecord
     {
         [JsonPropertyName("id")]
@@ -704,6 +1035,48 @@ public sealed class VrChatApiClient : IDisposable
 
         [JsonPropertyName("thumbnailImageUrl")]
         public string? ThumbnailImageUrl { get; set; }
+
+        [JsonPropertyName("authorName")]
+        public string? AuthorName { get; set; }
+
+        [JsonPropertyName("authorId")]
+        public string? AuthorId { get; set; }
+
+        [JsonPropertyName("tags")]
+        public List<string>? Tags { get; set; }
+
+        [JsonPropertyName("unityPackages")]
+        public List<UnityPackageRecord>? UnityPackages { get; set; }
+    }
+
+    public sealed class FavoriteGroupRecord
+    {
+        [JsonPropertyName("id")]
+        public string? Id { get; set; }
+
+        [JsonPropertyName("displayName")]
+        public string? DisplayName { get; set; }
+
+        [JsonPropertyName("name")]
+        public string? Name { get; set; }
+
+        [JsonPropertyName("type")]
+        public string? Type { get; set; }
+    }
+
+    public sealed class FavoriteEntryRecord
+    {
+        [JsonPropertyName("id")]
+        public string? Id { get; set; }
+
+        [JsonPropertyName("favoriteId")]
+        public string? FavoriteId { get; set; }
+
+        [JsonPropertyName("tags")]
+        public List<string>? Tags { get; set; }
+
+        [JsonPropertyName("type")]
+        public string? Type { get; set; }
     }
 
     private sealed class MutableAvatar
@@ -712,9 +1085,23 @@ public sealed class VrChatApiClient : IDisposable
 
         public string Name { get; init; } = string.Empty;
 
+        public string AuthorName { get; init; } = string.Empty;
+
         public string? ThumbnailUrl { get; init; }
 
         public bool IsCurrentAvatar { get; set; }
+
+        public bool IsUploaded { get; set; }
+
+        public bool IsFavorited { get; set; }
+
+        public bool IsLicensed { get; set; }
+
+        public string Platform { get; init; } = string.Empty;
+
+        public IReadOnlyList<string> StyleTags { get; init; } = Array.Empty<string>();
+
+        public IReadOnlyList<string> ContentTags { get; init; } = Array.Empty<string>();
 
         public HashSet<string> Sources { get; } = new(StringComparer.OrdinalIgnoreCase);
     }
