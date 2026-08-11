@@ -100,6 +100,51 @@ public sealed class ActivityResumeFinalReviewTests
     }
 
     [Fact]
+    public void ResumePendingActivitiesCarriesExpectedAvatarThroughDispatch()
+    {
+        var source = File.ReadAllText(FindSourceFile("VrcTwitchOscBridge", "Services", "BridgeCoordinator.cs"));
+        var singleFlight = NormalizeWhitespace(GetMethodBody(source, "private async Task ResumePendingActivitiesSingleFlightAsync("));
+        var activityDispatch = NormalizeWhitespace(GetMethodBody(source, "private async Task ResumeActivityAsync("));
+        var scaleCore = NormalizeWhitespace(GetMethodBody(source, "private async Task ResumeActivityCoreAsync("));
+
+        Assert.Contains("currentAvatarId", singleFlight, StringComparison.Ordinal);
+        Assert.Contains("expectedAvatarId", activityDispatch, StringComparison.Ordinal);
+        Assert.Contains("IsResumeAvatarCurrent", scaleCore, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ResumePendingActivitiesClaimsAvatarScopedAttemptAfterEligibilityCheck()
+    {
+        var source = File.ReadAllText(FindSourceFile("VrcTwitchOscBridge", "Services", "BridgeCoordinator.cs"));
+        var resumeBody = NormalizeWhitespace(
+            GetMethodBody(source, "private async Task ResumePendingActivitiesSingleFlightAsync("));
+
+        var pendingActivitiesIndex = resumeBody.IndexOf("var pendingActivities", StringComparison.Ordinal);
+        var activityCleanupIndex = resumeBody.IndexOf(
+            "await activityResumeService.RemoveActivityAsync(activity)",
+            pendingActivitiesIndex,
+            StringComparison.Ordinal);
+        var avatarEligibilityIndex = resumeBody.IndexOf(
+            "IsResumeAvatarCurrent(currentAvatarId)",
+            activityCleanupIndex,
+            StringComparison.Ordinal);
+        var attemptClaimIndex = resumeBody.IndexOf(
+            "if (!TryClaimResumeAttempt())",
+            avatarEligibilityIndex,
+            StringComparison.Ordinal);
+
+        Assert.True(pendingActivitiesIndex >= 0);
+        Assert.True(activityCleanupIndex > pendingActivitiesIndex);
+        Assert.True(avatarEligibilityIndex > pendingActivitiesIndex);
+        Assert.True(avatarEligibilityIndex > activityCleanupIndex);
+        Assert.True(attemptClaimIndex > avatarEligibilityIndex);
+        Assert.Contains("TryMarkActivityResumeAttempted(", resumeBody, StringComparison.Ordinal);
+        Assert.Contains("expectedAvatarId", GetMethodDeclaration(
+            source,
+            "private bool TryMarkActivityResumeAttempted("), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ScheduleReset_CarriesActivityIdentityIntoNormalCompletionCleanup()
     {
         var source = File.ReadAllText(FindSourceFile("VrcTwitchOscBridge", "Services", "BridgeCoordinator.cs"));
@@ -223,6 +268,39 @@ public sealed class ActivityResumeFinalReviewTests
     }
 
     [Fact]
+    public void AvatarScaleResume_FencesInnerScaleWriteAndContinuationAgainstAvatarChanges()
+    {
+        var source = File.ReadAllText(FindSourceFile("VrcTwitchOscBridge", "Services", "BridgeCoordinator.cs"));
+        var executeDeclaration = GetMethodDeclaration(
+            source,
+            "private async Task<bool> ExecuteAvatarScaleRuleAsync(");
+        var executeBody = NormalizeWhitespace(
+            GetMethodBody(source, "private async Task<bool> ExecuteAvatarScaleRuleAsync("));
+        var continuationDeclaration = GetMethodDeclaration(
+            source,
+            "private async Task<bool> CommitAvatarScaleContinuationCoreAsync(");
+        var continuationBody = NormalizeWhitespace(
+            GetMethodBody(source, "private async Task<bool> CommitAvatarScaleContinuationCoreAsync("));
+        var operationSendDeclaration = GetMethodDeclaration(
+            source,
+            "private async Task<bool> SendAvatarHeightForOperationAsync(");
+        var operationSendBody = NormalizeWhitespace(
+            GetMethodBody(source, "private async Task<bool> SendAvatarHeightForOperationAsync("));
+        var valueSendBody = NormalizeWhitespace(
+            GetMethodBody(source, "private async Task<bool> SendAvatarHeightValueAsync("));
+
+        Assert.Contains("expectedResumeAvatarId", executeDeclaration, StringComparison.Ordinal);
+        Assert.Contains("expectedResumeAvatarId", executeBody, StringComparison.Ordinal);
+        Assert.Contains("IsResumeAvatarCurrent", executeBody, StringComparison.Ordinal);
+        Assert.Contains("expectedResumeAvatarId", continuationDeclaration, StringComparison.Ordinal);
+        Assert.Contains("IsResumeAvatarCurrent", continuationBody, StringComparison.Ordinal);
+        Assert.Contains("CommitAvatarScaleContinuationWithActivityForResumeAsync", executeBody, StringComparison.Ordinal);
+        Assert.Contains("string? expectedResumeAvatarId", operationSendDeclaration, StringComparison.Ordinal);
+        Assert.Contains("IsResumeAvatarCurrent", operationSendBody, StringComparison.Ordinal);
+        Assert.Contains("shouldContinue?.Invoke()", valueSendBody, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AvatarScaleResume_BudgetsRestoreAndInitialTransitionsInsidePersistedLifetime()
     {
         var source = File.ReadAllText(FindSourceFile("VrcTwitchOscBridge", "Services", "BridgeCoordinator.cs"));
@@ -305,6 +383,19 @@ public sealed class ActivityResumeFinalReviewTests
 
         Assert.Contains("GetResumeActivityRemainingSeconds(activity, 0)", avatarScaleCase, StringComparison.Ordinal);
         Assert.DoesNotContain("GetAvatarScaleEffectDurationSeconds(rule)", avatarScaleCase, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ExtendActiveActivityTimers_PersistsExtendedResumeExpiryThroughWriter()
+    {
+        var source = File.ReadAllText(FindSourceFile("VrcTwitchOscBridge", "Services", "BridgeCoordinator.cs"));
+        var body = NormalizeWhitespace(GetMethodBody(source, "private void ExtendActiveActivityTimers"));
+        var normalizedSource = NormalizeWhitespace(source);
+
+        Assert.Contains("ActivityResumeEntry", body, StringComparison.Ordinal);
+        Assert.Contains("ExpiresAt", body, StringComparison.Ordinal);
+        Assert.Contains("CommitExtendedActivityResumeAsync", body, StringComparison.Ordinal);
+        Assert.Contains("CommitAsync", normalizedSource, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -437,15 +528,22 @@ public sealed class ActivityResumeFinalReviewTests
     public void StopAsync_ReleasesMovementInputsBeforeClearingRuntimeState()
     {
         var source = File.ReadAllText(FindSourceFile("VrcTwitchOscBridge", "Services", "BridgeCoordinator.cs"));
-        var stopBody = NormalizeWhitespace(GetMethodBody(source, "public async Task StopAsync()"));
+        var stopBody = NormalizeWhitespace(GetMethodBody(source, "private async Task StopCoreAsync()"));
+        var resetHelperBody = NormalizeWhitespace(
+            GetMethodBody(source, "private async Task ResetRuntimeEffectsBeforeOscShutdownAsync"));
 
-        var resetIndex = stopBody.IndexOf("ResetPendingRulesAsync()", StringComparison.Ordinal);
+        var resetHelperIndex = stopBody.IndexOf(
+            "ResetRuntimeEffectsBeforeOscShutdownAsync()",
+            StringComparison.Ordinal);
+        var resetIndex = resetHelperBody.IndexOf("ResetPendingRulesAsync()", StringComparison.Ordinal);
         var stopOscIndex = stopBody.IndexOf("StopOscRouterSafelyAsync()", StringComparison.Ordinal);
         var clearIndex = stopBody.IndexOf("ClearRuntimeState()", StringComparison.Ordinal);
 
+        Assert.True(resetHelperIndex >= 0);
         Assert.True(resetIndex >= 0);
-        Assert.True(stopOscIndex > resetIndex);
-        Assert.True(clearIndex > resetIndex);
+        Assert.DoesNotContain("ResetPendingRulesAsync()", stopBody, StringComparison.Ordinal);
+        Assert.True(stopOscIndex > resetHelperIndex);
+        Assert.True(clearIndex > resetHelperIndex);
     }
 
     [Fact]
@@ -453,13 +551,106 @@ public sealed class ActivityResumeFinalReviewTests
     {
         var source = File.ReadAllText(FindSourceFile("VrcTwitchOscBridge", "Services", "BridgeCoordinator.cs"));
         var normalizedSource = NormalizeWhitespace(source);
-        var stopBody = NormalizeWhitespace(GetMethodBody(source, "public async Task StopAsync()"));
+        var stopBody = NormalizeWhitespace(GetMethodBody(source, "private async Task StopCoreAsync()"));
+        var resetHelperBody = NormalizeWhitespace(
+            GetMethodBody(source, "private async Task ResetRuntimeEffectsBeforeOscShutdownAsync"));
 
         Assert.Contains("StartTrackedMovementCleanup", normalizedSource, StringComparison.Ordinal);
-        Assert.Contains("WaitForActiveMovementCleanupTasksAsync", stopBody, StringComparison.Ordinal);
+        Assert.Contains("ResetRuntimeEffectsBeforeOscShutdownAsync()", stopBody, StringComparison.Ordinal);
+        Assert.Contains("WaitForActiveMovementCleanupTasksAsync", resetHelperBody, StringComparison.Ordinal);
         Assert.Contains("RunQuickMovementTestAsync", normalizedSource, StringComparison.Ordinal);
         Assert.Contains("ScheduleReset", normalizedSource, StringComparison.Ordinal);
         Assert.Contains("ScheduleJumpPulseReset", normalizedSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PersistentEffectShutdown_DrainsWorkersBeforePendingMovementCleanup()
+    {
+        var source = File.ReadAllText(FindSourceFile("VrcTwitchOscBridge", "Services", "BridgeCoordinator.cs"));
+        var resetBody = NormalizeWhitespace(
+            GetMethodBody(source, "private async Task ResetRuntimeEffectsBeforeOscShutdownAsync"));
+
+        var persistentDrainIndex = resetBody.IndexOf(
+            "WaitForPersistentEffectTasksAsync",
+            StringComparison.Ordinal);
+        var scaleWriteDrainIndex = resetBody.IndexOf(
+            "WaitForAvatarScaleWriteUsersAsync",
+            StringComparison.Ordinal);
+        var pendingResetIndex = resetBody.IndexOf(
+            "ResetPendingRulesAsync()",
+            StringComparison.Ordinal);
+        var movementCleanupIndex = resetBody.LastIndexOf(
+            "WaitForActiveMovementCleanupTasksAsync()",
+            StringComparison.Ordinal);
+
+        Assert.True(persistentDrainIndex >= 0);
+        Assert.True(scaleWriteDrainIndex > persistentDrainIndex);
+        Assert.True(pendingResetIndex > scaleWriteDrainIndex);
+        Assert.True(movementCleanupIndex > pendingResetIndex);
+    }
+
+    [Fact]
+    public void PersistentEffectShutdown_DoesNotPromoteStateOnlyNotificationsToResetWorkers()
+    {
+        var source = File.ReadAllText(FindSourceFile("VrcTwitchOscBridge", "Services", "BridgeCoordinator.cs"));
+        var resetBody = NormalizeWhitespace(
+            GetMethodBody(source, "private async Task ResetRuntimeEffectsBeforeOscShutdownAsync"));
+
+        Assert.DoesNotContain("ScheduleAvatarScaleEffectStateNotification", resetBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("ScheduleCooldownStateNotification", resetBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("ScheduleLockoutStateNotification", resetBody, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void QueuedAvatarSwitchDrain_UsesWorkerCancellationForTransitionGateWait()
+    {
+        var source = File.ReadAllText(FindSourceFile("VrcTwitchOscBridge", "Services", "BridgeCoordinator.cs"));
+        var normalizedSource = NormalizeWhitespace(source);
+        var methodIndex = normalizedSource.IndexOf(
+            "private void EnsureQueuedAvatarSwitchDrain()",
+            StringComparison.Ordinal);
+        var cancellationWaitIndex = normalizedSource.IndexOf(
+            "TryEnterTimedSupporterOverrideTransitionAsync(cancellationToken)",
+            methodIndex,
+            StringComparison.Ordinal);
+        var uncancellableWaitIndex = normalizedSource.IndexOf(
+            "TryEnterTimedSupporterOverrideTransitionAsync(CancellationToken.None)",
+            methodIndex,
+            StringComparison.Ordinal);
+
+        Assert.True(methodIndex >= 0);
+        Assert.True(cancellationWaitIndex > methodIndex);
+        Assert.True(uncancellableWaitIndex < 0 || uncancellableWaitIndex < cancellationWaitIndex);
+    }
+
+    [Fact]
+    public void PersistentEffectCatchLogs_SanitizeWorkerExceptionMessages()
+    {
+        var source = File.ReadAllText(FindSourceFile("VrcTwitchOscBridge", "Services", "BridgeCoordinator.cs"));
+
+        foreach (var methodSignature in new[]
+        {
+            "private void ScheduleActiveFloatRedeemCompletion(",
+            "private bool ScheduleActiveFloatRedeemCompletionAfterGracePeriod(",
+            "private void ScheduleFloatPulseRestore(",
+            "private async Task RunGlitchyLoopAsync(",
+            "private async Task RunAvatarScaleRestoreSequenceAsync(",
+            "private async Task RunSupporterGrowthScaleSessionAsync(",
+            "private void EnsureQueuedRuleDrain(",
+            "private void EnsureQueuedLaneDrain(",
+            "private void EnsureQueuedAvatarSwitchDrain(",
+            "private void EnsureQueuedAvatarScaleOperationDrain()"
+        })
+        {
+            var body = NormalizeWhitespace(GetMethodBody(source, methodSignature));
+            if (body.Contains("catch (Exception ex)", StringComparison.Ordinal))
+            {
+                Assert.Contains(
+                    "SensitiveTextSanitizer.Sanitize(ex.Message)",
+                    body,
+                    StringComparison.Ordinal);
+            }
+        }
     }
 
     [Fact]

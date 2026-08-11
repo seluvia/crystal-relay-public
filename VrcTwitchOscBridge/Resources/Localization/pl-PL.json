@@ -2122,5 +2122,6 @@
   "{0}: {1}": "{0}: {1}",
   "{0}s cooldown": "{0}s czas odnowienia",
   "— No group —": "— Żadnej grupy —",
-  "✨ Universal Triggers": "✨ Universal Triggers"
+  "✨ Universal Triggers": "✨ Universal Triggers",
+  "Advanced triggers (open full editor)": "Zaawansowane wyzwalacze (otwórz pełny edytor)"
 }

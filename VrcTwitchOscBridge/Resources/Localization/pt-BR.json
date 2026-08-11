@@ -2122,5 +2122,6 @@
   "{0}: {1}": "{0}: {1}",
   "{0}s cooldown": "{0}s de cooldown",
   "— No group —": "— Sem grupo —",
-  "✨ Universal Triggers": "✨ Universal Triggers"
+  "✨ Universal Triggers": "✨ Universal Triggers",
+  "Advanced triggers (open full editor)": "Gatilhos avançados (abrir editor completo)"
 }

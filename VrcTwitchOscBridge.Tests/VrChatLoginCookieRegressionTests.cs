@@ -33,6 +33,21 @@ public sealed class VrChatLoginCookieRegressionTests
     }
 
     [Fact]
+    public async Task Login_UrlEncodesCredentialsBeforeBasicEncoding()
+    {
+        const string username = "synthetic+user@example.com";
+        const string password = "long password+with:reserved/characters?%#&=123456";
+        using var fixture = CreateFixture(
+            Response(HttpStatusCode.OK, CurrentUserJson(), SyntheticAuthCookie));
+
+        await fixture.Service.LoginWithCredentialsAsync(username, password);
+
+        var expectedCredentials = $"{Uri.EscapeDataString(username)}:{Uri.EscapeDataString(password)}";
+        var expectedHeader = $"Basic {Convert.ToBase64String(Encoding.UTF8.GetBytes(expectedCredentials))}";
+        Assert.Equal(expectedHeader, Assert.Single(fixture.Handler.Requests[0].Headers["Authorization"]));
+    }
+
+    [Fact]
     public async Task TwoFactorRequiredOnHttp200_PreservesCookieAndAvailableMethods()
     {
         using var fixture = CreateFixture(

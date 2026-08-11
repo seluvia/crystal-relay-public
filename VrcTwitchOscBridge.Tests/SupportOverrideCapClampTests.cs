@@ -33,6 +33,20 @@ public sealed class SupportOverrideCapClampTests
     }
 
     [Fact]
+    public void ClampWithProfileCapEnabled_AtFullCap_PreventsAdditionalDurationForRepeat()
+    {
+        // A same-rule avatar restart receives this clamped duration; a full cap
+        // must therefore prevent the restart from adding any duration.
+        var result = SupportOverrideCapMath.ClampAddedDuration(
+            capEnabled: true,
+            capSeconds: 1800,
+            requestedDuration: TimeSpan.FromSeconds(34),
+            existingRemainingDuration: TimeSpan.FromSeconds(1800));
+
+        Assert.Equal(TimeSpan.Zero, result);
+    }
+
+    [Fact]
     public void ClampWithProfileCapDisabled_NoClamp()
     {
         var requested = TimeSpan.FromSeconds(1000);

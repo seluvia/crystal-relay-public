@@ -201,8 +201,8 @@ public sealed class ApplicationUpdatePackageRulesTests
     [Fact]
     public void GetInstallTargetDirectory_ReturnsCurrentDirectoryForBugFix()
     {
-        var source = UnderSystemRoot("Apps", "Crystal Relay");
-        var package = UnderSystemRoot("Staging", "CrystalRelayBugFix-v3.2.0-bugfix1-win-x64");
+        var source = Path.GetFullPath(Path.Combine("Apps", "Crystal Relay"));
+        var package = Path.GetFullPath(Path.Combine("Staging", "CrystalRelayBugFix-v3.2.0-bugfix1-win-x64"));
 
         var target = ApplicationUpdatePackageRules.GetInstallTargetDirectory(
             ApplicationUpdateChannel.BugFix,
@@ -215,8 +215,8 @@ public sealed class ApplicationUpdatePackageRulesTests
     [Fact]
     public void GetInstallTargetDirectory_PreservesExistingStableRelocation()
     {
-        var source = UnderSystemRoot("Apps", "CrystalRelayTwitchOsc-v3.1.9-win-x64");
-        var package = UnderSystemRoot("Staging", "CrystalRelayTwitchOsc-v3.2.0-win-x64");
+        var source = Path.GetFullPath(Path.Combine("Apps", "CrystalRelayTwitchOsc-v3.1.9-win-x64"));
+        var package = Path.GetFullPath(Path.Combine("Staging", "CrystalRelayTwitchOsc-v3.2.0-win-x64"));
 
         var target = ApplicationUpdatePackageRules.GetInstallTargetDirectory(
             ApplicationUpdateChannel.Stable,
@@ -224,19 +224,8 @@ public sealed class ApplicationUpdatePackageRulesTests
             package);
 
         Assert.Equal(
-            UnderSystemRoot("Apps", "CrystalRelayTwitchOsc-v3.2.0-win-x64"),
+            Path.GetFullPath(Path.Combine("Apps", "CrystalRelayTwitchOsc-v3.2.0-win-x64")),
             target,
             ignoreCase: true);
-    }
-
-    private static string UnderSystemRoot(params string[] parts)
-    {
-        var path = Path.GetPathRoot(Environment.SystemDirectory) ?? Path.DirectorySeparatorChar.ToString();
-        foreach (var part in parts)
-        {
-            path = Path.Combine(path, part);
-        }
-
-        return Path.GetFullPath(path);
     }
 }

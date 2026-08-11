@@ -25,13 +25,33 @@ public sealed class OscRouterService : IAsyncDisposable
     private const int StartupRetryCount = 4;
 
     private readonly object stateGate = new();
+    private readonly SemaphoreSlim lifecycleGate = new(1, 1);
     private readonly SemaphoreSlim discoveryRefreshGate = new(1, 1);
+    private readonly AsyncLocal<Task?> currentRuntimeTask = new();
+    private readonly AsyncLocal<SessionLease?> currentSessionLease = new();
+    private readonly Func<OSCQueryServiceProfile, CancellationToken, Task<DiscoveredOscTarget?>>? targetFactoryOverride;
+    private readonly Func<OSCQueryService, Task>? startupBeforePublicationHook;
+    private readonly Func<UdpClient, byte[], IPEndPoint, CancellationToken, Task>? sendAsyncOverride;
+    private readonly Func<Task>? stopBeforeLifecycleAdmissionHook;
 
     private CancellationTokenSource? runtimeCancellation;
     private Task[] runtimeTasks = [];
+    private readonly List<SessionLease> activeSessionLeases = [];
+    private TaskCompletionSource<bool> sessionLeaseSignal = CreateSignal();
+    private int lifecycleGateUsers;
+    private TaskCompletionSource<bool>? lifecycleGateDrained;
+    private bool isDisposing;
+    private bool isDisposed;
+    private Task? disposeTask;
+    private bool stopRequested;
+    private TaskCompletionSource<bool>? stopCompletion;
+    private TaskCompletionSource<bool>? stopStateCleared;
+    private OSCQueryService? stoppingService;
+    private CancellationTokenSource? stoppingCancellation;
     private UdpClient? sendClient;
     private UdpClient? receiveListener;
     private OSCQueryService? oscQueryService;
+    private Action<OSCQueryServiceProfile>? oscQueryServiceAddedHandler;
     private Dictionary<string, OscParameterType> advertisedEndpoints = new(StringComparer.Ordinal);
     private DiscoveredOscTarget? activeVrChatTarget;
     private IPEndPoint? cachedVrChatEndPoint;
@@ -41,13 +61,30 @@ public sealed class OscRouterService : IAsyncDisposable
     private DateTimeOffset nextDiscoveryLogAt = DateTimeOffset.MinValue;
     private OscDiscoveryState discoveryState = OscDiscoveryState.Idle;
 
+    public OscRouterService()
+        : this(null, null)
+    {
+    }
+
+    internal OscRouterService(
+        Func<OSCQueryServiceProfile, CancellationToken, Task<DiscoveredOscTarget?>>? targetFactory,
+        Func<OSCQueryService, Task>? startupBeforePublicationHook,
+        Func<UdpClient, byte[], IPEndPoint, CancellationToken, Task>? sendAsyncOverride = null,
+        Func<Task>? stopBeforeLifecycleAdmissionHook = null)
+    {
+        targetFactoryOverride = targetFactory;
+        this.startupBeforePublicationHook = startupBeforePublicationHook;
+        this.sendAsyncOverride = sendAsyncOverride;
+        this.stopBeforeLifecycleAdmissionHook = stopBeforeLifecycleAdmissionHook;
+    }
+
     public event Action<string>? LogWritten;
 
     public event Action<OscObservedValue>? ObservedValueReceived;
 
     public event Action<OscDiscoveryState>? DiscoveryStateChanged;
 
-    public bool IsRunning => runtimeTasks.Any(task => !task.IsCompleted);
+    public bool IsRunning => HasRuntimeState();
 
     public bool HasDiscoveredVrChat
     {
@@ -71,165 +108,376 @@ public sealed class OscRouterService : IAsyncDisposable
         }
     }
 
-    public Task StartAsync(IReadOnlyList<TriggerRuleSnapshot> rules, CancellationToken cancellationToken = default)
+    private bool HasRuntimeState()
     {
-        if (IsRunning)
-        {
-            return Task.CompletedTask;
-        }
+        return runtimeCancellation is not null
+            || runtimeTasks.Length > 0
+            || receiveListener is not null
+            || sendClient is not null
+            || oscQueryService is not null;
+    }
 
-        UdpClient? listener = null;
-        OSCQueryService? service = null;
-        var udpPort = 0;
-        var tcpPort = 0;
-        Exception? startupException = null;
+    public async Task StartAsync(IReadOnlyList<TriggerRuleSnapshot> rules, CancellationToken cancellationToken = default)
+    {
+        await EnterLifecycleGateAsync(cancellationToken, allowDisposing: false).ConfigureAwait(false);
+        string? startupLog = null;
+        string[] startupWarnings = [];
+        OSCQueryService? publishedService = null;
+        CancellationTokenSource? publishedCancellation = null;
+        var publishedSessionToken = CancellationToken.None;
 
-        for (var attempt = 1; attempt <= StartupRetryCount; attempt++)
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            if (HasRuntimeState())
+            {
+                return;
+            }
+
+            UdpClient? listener = null;
+            UdpClient? sender = null;
+            OSCQueryService? service = null;
+            CancellationTokenSource? cancellationSource = null;
+            Task[] startedTasks = [];
+            Dictionary<string, OscParameterType>? stagedAdvertisedEndpoints = null;
+            var udpPort = 0;
+            var tcpPort = 0;
+            var serviceName = string.Empty;
+            List<string>? stagedStartupWarnings = null;
+            Exception? startupException = null;
+
             try
             {
-                udpPort = VRC.OSCQuery.Extensions.GetAvailableUdpPort();
-                tcpPort = VRC.OSCQuery.Extensions.GetAvailableTcpPort();
-                listener = CreateListener(
-                    udpPort,
-                    "Crystal Relay OSCQuery receiver",
-                    "Close the other app using that UDP port and relaunch Crystal Relay.");
+                for (var attempt = 1; attempt <= StartupRetryCount; attempt++)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    try
+                    {
+                        udpPort = VRC.OSCQuery.Extensions.GetAvailableUdpPort();
+                        tcpPort = VRC.OSCQuery.Extensions.GetAvailableTcpPort();
+                        listener = CreateListener(
+                            udpPort,
+                            "Crystal Relay OSCQuery receiver",
+                            "Close the other app using that UDP port and relaunch Crystal Relay.");
 
-                localServiceName = $"Crystal Relay Twitch to OSC ({Environment.ProcessId})";
-                service = new OSCQueryServiceBuilder()
-                    .WithServiceName(localServiceName)
-                    .WithHostIP(IPAddress.Loopback)
-                    .WithOscIP(IPAddress.Loopback)
-                    .WithTcpPort(tcpPort)
-                    .WithUdpPort(udpPort)
-                    .WithDefaults()
-                    .Build();
+                        serviceName = $"Crystal Relay Twitch to OSC ({Environment.ProcessId})";
+                        service = new OSCQueryServiceBuilder()
+                            .WithServiceName(serviceName)
+                            .WithHostIP(IPAddress.Loopback)
+                            .WithOscIP(IPAddress.Loopback)
+                            .WithTcpPort(tcpPort)
+                            .WithUdpPort(udpPort)
+                            .WithDefaults()
+                            .Build();
 
-                service.OnOscQueryServiceAdded += HandleOscQueryServiceAdded;
-                SyncAdvertisedEndpoints(service, rules);
-                startupException = null;
-                break;
-            }
-            catch (Exception ex) when (attempt < StartupRetryCount && LooksLikePortStartupCollision(ex))
-            {
-                listener?.Dispose();
-                service?.Dispose();
+                        var serviceAdvertisedEndpoints = new Dictionary<string, OscParameterType>(StringComparer.Ordinal);
+                        var startupMessages = new List<string>();
+                        var desiredEndpoints = BuildDesiredEndpoints(rules, startupMessages.Add);
+                        SyncAdvertisedEndpointsForState(service, desiredEndpoints, serviceAdvertisedEndpoints);
+                        stagedAdvertisedEndpoints = serviceAdvertisedEndpoints;
+                        stagedStartupWarnings = startupMessages;
+                        if (startupBeforePublicationHook is not null)
+                        {
+                            await startupBeforePublicationHook(service).ConfigureAwait(false);
+                        }
+
+                        startupException = null;
+                        break;
+                    }
+                    catch (Exception ex) when (attempt < StartupRetryCount && LooksLikePortStartupCollision(ex))
+                    {
+                        listener?.Dispose();
+                        service?.Dispose();
+                        listener = null;
+                        service = null;
+                        stagedAdvertisedEndpoints = null;
+                        stagedStartupWarnings = null;
+                        startupException = ex;
+                    }
+                    catch
+                    {
+                        listener?.Dispose();
+                        service?.Dispose();
+                        throw;
+                    }
+                }
+
+                if (listener is null || service is null)
+                {
+                    throw startupException ?? new InvalidOperationException("Crystal Relay could not start its OSCQuery receiver.");
+                }
+
+                cancellationToken.ThrowIfCancellationRequested();
+                var localListener = listener;
+                var localService = service;
+                var cancellation = new CancellationTokenSource();
+                cancellationSource = cancellation;
+                sender = new UdpClient();
+
+                if (stagedAdvertisedEndpoints is null)
+                {
+                    throw new InvalidOperationException("Crystal Relay could not prepare its OSCQuery endpoints.");
+                }
+
+                var sessionToken = cancellation.Token;
+                lock (stateGate)
+                {
+                    var serviceAddedHandler = new Action<OSCQueryServiceProfile>(
+                        profile => HandleOscQueryServiceAdded(localService, profile, cancellation, sessionToken));
+
+                    runtimeCancellation = cancellation;
+                    runtimeTasks = [];
+                    receiveListener = localListener;
+                    sendClient = sender;
+                    oscQueryService = localService;
+                    oscQueryServiceAddedHandler = serviceAddedHandler;
+                    advertisedEndpoints = stagedAdvertisedEndpoints;
+                    activeVrChatTarget = null;
+                    cachedVrChatEndPoint = null;
+                    localUdpPort = udpPort;
+                    localTcpPort = tcpPort;
+                    localServiceName = serviceName;
+                    nextDiscoveryLogAt = DateTimeOffset.MinValue;
+                    discoveryState = OscDiscoveryState.Discovering;
+                    localService.OnOscQueryServiceAdded += serviceAddedHandler;
+
+                    publishedService = localService;
+                    publishedCancellation = cancellation;
+                    publishedSessionToken = sessionToken;
+                }
+
                 listener = null;
                 service = null;
-                startupException = ex;
+                sender = null;
+                cancellationSource = null;
+
+                var receiveTask = CreateTrackedRuntimeTask(
+                    () => RunReceiveLoopAsync(localListener, localService, cancellation, sessionToken),
+                    localService,
+                    cancellation,
+                    cancellation.Token);
+                startedTasks = [receiveTask];
+                var discoveryTask = CreateTrackedRuntimeTask(
+                    () => RunDiscoveryLoopAsync(localService, cancellation, sessionToken),
+                    localService,
+                    cancellation,
+                    cancellation.Token);
+                startedTasks = [receiveTask, discoveryTask];
+                lock (stateGate)
+                {
+                    runtimeTasks = [.. runtimeTasks, .. startedTasks];
+                }
+
+                startupLog = $"OSCQuery service '{serviceName}' is live. Crystal Relay is listening for VRChat values on UDP {udpPort} and serving OSCQuery on TCP {tcpPort}.";
+                startupWarnings = stagedStartupWarnings?.ToArray() ?? [];
             }
             catch
             {
-                listener?.Dispose();
-                service?.Dispose();
+                try
+                {
+                    if (HasRuntimeState())
+                    {
+                        await StopCoreAsync().ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        lock (stateGate)
+                        {
+                            advertisedEndpoints = new Dictionary<string, OscParameterType>(StringComparer.Ordinal);
+                        }
+
+                        cancellationSource?.Cancel();
+                    }
+
+                    try
+                    {
+                        await Task.WhenAll(startedTasks).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                    }
+                    catch (SocketException)
+                    {
+                    }
+                }
+                finally
+                {
+                    cancellationSource?.Dispose();
+                    listener?.Dispose();
+                    sender?.Dispose();
+                    service?.Dispose();
+                }
+
                 throw;
             }
         }
-
-        if (listener is null || service is null)
+        finally
         {
-            throw startupException ?? new InvalidOperationException("Crystal Relay could not start its OSCQuery receiver.");
+            ExitLifecycleGate();
         }
 
-        runtimeCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        runtimeTasks =
-        [
-            Task.Run(() => RunReceiveLoopAsync(listener, runtimeCancellation.Token), runtimeCancellation.Token),
-            Task.Run(() => RunDiscoveryLoopAsync(service, runtimeCancellation.Token), runtimeCancellation.Token)
-        ];
-
-        sendClient = new UdpClient();
-        receiveListener = listener;
-        oscQueryService = service;
-        localUdpPort = udpPort;
-        localTcpPort = tcpPort;
-        lock (stateGate)
+        try
         {
-            activeVrChatTarget = null;
-            cachedVrChatEndPoint = null;
-            nextDiscoveryLogAt = DateTimeOffset.MinValue;
-            discoveryState = OscDiscoveryState.Discovering;
+            if (startupLog is not null
+                && publishedService is not null
+                && publishedCancellation is not null)
+            {
+                PublishSessionLog(publishedService, publishedCancellation, publishedSessionToken, startupLog);
+                foreach (var warning in startupWarnings)
+                {
+                    PublishSessionLog(publishedService, publishedCancellation, publishedSessionToken, warning);
+                }
+                LogDiscoveryWaiting(
+                    publishedService,
+                    publishedCancellation,
+                    publishedSessionToken,
+                    force: true);
+            }
         }
-
-        LogWritten?.Invoke($"OSCQuery service '{localServiceName}' is live. Crystal Relay is listening for VRChat values on UDP {localUdpPort} and serving OSCQuery on TCP {localTcpPort}.");
-        LogDiscoveryWaiting(force: true);
-        return Task.CompletedTask;
+        catch
+        {
+            await StopAsync().ConfigureAwait(false);
+            throw;
+        }
     }
 
     public void UpdateRuleSubscriptions(IReadOnlyList<TriggerRuleSnapshot> rules)
     {
-        OSCQueryService? service;
-
-        lock (stateGate)
-        {
-            service = oscQueryService;
-        }
-
-        if (service is null)
+        var operationLease = TryEnterSessionOperation();
+        if (operationLease is null)
         {
             return;
         }
 
-        SyncAdvertisedEndpoints(service, rules);
+        try
+        {
+            SyncAdvertisedEndpoints(
+                operationLease.Lease.Service,
+                operationLease.Lease.Cancellation,
+                operationLease.Lease.Cancellation.Token,
+                rules);
+        }
+        finally
+        {
+            operationLease.Dispose();
+        }
     }
 
     public async Task ForceRefreshAsync(CancellationToken cancellationToken = default)
     {
-        OSCQueryService service;
+        var operationLease = EnterSessionOperation(cancellationToken);
+        try
+        {
+            await ForceRefreshCoreAsync(cancellationToken, operationLease.Lease).ConfigureAwait(false);
+        }
+        finally
+        {
+            operationLease.Dispose();
+        }
+    }
+
+    private async Task ForceRefreshCoreAsync(CancellationToken cancellationToken, SessionLease operationLease)
+    {
+        var service = operationLease.Service;
+        var sessionCancellation = operationLease.Cancellation;
+        CancellationToken sessionToken;
 
         lock (stateGate)
         {
-            service = oscQueryService
-                ?? throw new InvalidOperationException("OSCQuery is not running yet. Start OSC testing or the background bridge first.");
+            if (!IsCurrentRuntimeSessionLocked(service, sessionCancellation, sessionCancellation.Token))
+            {
+                throw new InvalidOperationException("The OSCQuery session changed while Crystal Relay was preparing a refresh.");
+            }
+
+            sessionToken = sessionCancellation.Token;
             activeVrChatTarget = null;
             cachedVrChatEndPoint = null;
             discoveryState = OscDiscoveryState.Discovering;
             nextDiscoveryLogAt = DateTimeOffset.MinValue;
         }
 
-        LogWritten?.Invoke("Forcing an OSCQuery refresh so Crystal Relay can reconnect to VRChat.");
-        await RefreshDiscoveredServicesAsync(service, cancellationToken, logWhenWaiting: true, forceDiscoveryLog: true);
+        using var operationCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, sessionToken);
+        var operationToken = operationCancellation.Token;
+        operationToken.ThrowIfCancellationRequested();
+        PublishSessionLog(service, sessionCancellation, operationToken, "Forcing an OSCQuery refresh so Crystal Relay can reconnect to VRChat.");
+        await RefreshDiscoveredServicesAsync(
+            service,
+            sessionCancellation,
+            operationToken,
+            logWhenWaiting: true,
+            forceDiscoveryLog: true);
+        ThrowIfSessionIsNotCurrent(service, sessionCancellation, operationToken);
     }
 
     public async Task<IReadOnlyList<VrChatOscParameterSummary>> GetCurrentAvatarParametersAsync(CancellationToken cancellationToken = default)
     {
-        OSCQueryService service;
-        var shouldRefreshDiscovery = false;
+        var operationLease = EnterSessionOperation(cancellationToken);
+        try
+        {
+            return await GetCurrentAvatarParametersCoreAsync(cancellationToken, operationLease.Lease).ConfigureAwait(false);
+        }
+        finally
+        {
+            operationLease.Dispose();
+        }
+    }
 
+    private async Task<IReadOnlyList<VrChatOscParameterSummary>> GetCurrentAvatarParametersCoreAsync(
+        CancellationToken cancellationToken,
+        SessionLease operationLease)
+    {
+        var service = operationLease.Service;
+        var sessionCancellation = operationLease.Cancellation;
+        CancellationToken sessionToken;
+        var shouldRefreshDiscovery = false;
         lock (stateGate)
         {
-            service = oscQueryService
-                ?? throw new InvalidOperationException("OSCQuery is not running yet. Start OSC testing or the background bridge first.");
+            if (!IsCurrentRuntimeSessionLocked(service, sessionCancellation, sessionCancellation.Token))
+            {
+                throw new InvalidOperationException("The OSCQuery session changed while Crystal Relay was preparing an avatar read.");
+            }
+
+            sessionToken = sessionCancellation.Token;
             shouldRefreshDiscovery = activeVrChatTarget is null;
         }
 
+        using var operationCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, sessionToken);
+        var operationToken = operationCancellation.Token;
         if (shouldRefreshDiscovery)
         {
-            await RefreshDiscoveredServicesAsync(service, cancellationToken, logWhenWaiting: true, forceDiscoveryLog: true);
+            await RefreshDiscoveredServicesAsync(
+                service,
+                sessionCancellation,
+                operationToken,
+                logWhenWaiting: true,
+                forceDiscoveryLog: true);
+            ThrowIfSessionIsNotCurrent(service, sessionCancellation, operationToken);
         }
 
-        DiscoveredOscTarget target;
-        lock (stateGate)
-        {
-            target = activeVrChatTarget
-                ?? throw new InvalidOperationException("Crystal Relay could not find VRChat through OSCQuery yet. Open VRChat with OSC enabled, then try refreshing again.");
-        }
+        var target = GetCurrentTarget(
+            service,
+            sessionCancellation,
+            operationToken,
+            "Crystal Relay could not find VRChat through OSCQuery yet. Open VRChat with OSC enabled, then try refreshing again.");
 
         OSCQueryRootNode? tree;
         try
         {
             tree = await VRC.OSCQuery.Extensions.GetOSCTree(target.Address, target.QueryPort);
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (operationToken.IsCancellationRequested)
         {
             throw;
         }
         catch (Exception ex)
         {
-            throw CreateTargetLostException("reading live avatar parameters", ex);
+            ThrowIfSessionIsNotCurrent(service, sessionCancellation, operationToken);
+            throw CreateTargetLostException("reading live avatar parameters", service, sessionCancellation, operationToken, ex);
         }
 
+        ThrowIfSessionIsNotCurrent(service, sessionCancellation, operationToken);
         var parametersRoot = tree?.GetNodeWithPath("/avatar/parameters")
             ?? throw new InvalidOperationException("VRChat did not expose any avatar parameters through OSCQuery yet.");
 
@@ -244,32 +492,69 @@ public sealed class OscRouterService : IAsyncDisposable
     public async Task<OscObservedValue?> GetCurrentAvatarParameterValueAsync(string parameterName, CancellationToken cancellationToken = default)
     {
         var normalizedAddress = VrChatOscClient.NormalizeAvatarParameterAddress(parameterName);
-        return await GetCurrentOscValueAsync(normalizedAddress, cancellationToken);
+        var operationLease = EnterSessionOperation(cancellationToken);
+        try
+        {
+            return await GetCurrentOscValueCoreAsync(normalizedAddress, cancellationToken, operationLease.Lease).ConfigureAwait(false);
+        }
+        finally
+        {
+            operationLease.Dispose();
+        }
     }
 
     public async Task<OscObservedValue?> GetCurrentOscValueAsync(string address, CancellationToken cancellationToken = default)
     {
-        OSCQueryService service;
+        var operationLease = EnterSessionOperation(cancellationToken);
+        try
+        {
+            return await GetCurrentOscValueCoreAsync(address, cancellationToken, operationLease.Lease).ConfigureAwait(false);
+        }
+        finally
+        {
+            operationLease.Dispose();
+        }
+    }
+
+    private async Task<OscObservedValue?> GetCurrentOscValueCoreAsync(
+        string address,
+        CancellationToken cancellationToken,
+        SessionLease operationLease)
+    {
+        var service = operationLease.Service;
+        var sessionCancellation = operationLease.Cancellation;
+        CancellationToken sessionToken;
         var shouldRefreshDiscovery = false;
 
         lock (stateGate)
         {
-            service = oscQueryService
-                ?? throw new InvalidOperationException("OSCQuery is not running yet. Start OSC testing or the background bridge first.");
+            if (!IsCurrentRuntimeSessionLocked(service, sessionCancellation, sessionCancellation.Token))
+            {
+                throw new InvalidOperationException("The OSCQuery session changed while Crystal Relay was preparing an OSC read.");
+            }
+
+            sessionToken = sessionCancellation.Token;
             shouldRefreshDiscovery = activeVrChatTarget is null;
         }
 
+        using var operationCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, sessionToken);
+        var operationToken = operationCancellation.Token;
         if (shouldRefreshDiscovery)
         {
-            await RefreshDiscoveredServicesAsync(service, cancellationToken, logWhenWaiting: true, forceDiscoveryLog: true);
+            await RefreshDiscoveredServicesAsync(
+                service,
+                sessionCancellation,
+                operationToken,
+                logWhenWaiting: true,
+                forceDiscoveryLog: true);
+            ThrowIfSessionIsNotCurrent(service, sessionCancellation, operationToken);
         }
 
-        DiscoveredOscTarget target;
-        lock (stateGate)
-        {
-            target = activeVrChatTarget
-                ?? throw new InvalidOperationException("Crystal Relay could not find VRChat through OSCQuery yet. Open VRChat with OSC enabled, then try again.");
-        }
+        var target = GetCurrentTarget(
+            service,
+            sessionCancellation,
+            operationToken,
+            "Crystal Relay could not find VRChat through OSCQuery yet. Open VRChat with OSC enabled, then try again.");
 
         var normalizedAddress = VrChatOscClient.NormalizeOscAddress(address);
         OSCQueryRootNode? tree;
@@ -277,15 +562,22 @@ public sealed class OscRouterService : IAsyncDisposable
         {
             tree = await VRC.OSCQuery.Extensions.GetOSCTree(target.Address, target.QueryPort);
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (operationToken.IsCancellationRequested)
         {
             throw;
         }
         catch (Exception ex)
         {
-            throw CreateTargetLostException($"reading the live value for {normalizedAddress}", ex);
+            ThrowIfSessionIsNotCurrent(service, sessionCancellation, operationToken);
+            throw CreateTargetLostException(
+                $"reading the live value for {normalizedAddress}",
+                service,
+                sessionCancellation,
+                operationToken,
+                ex);
         }
 
+        ThrowIfSessionIsNotCurrent(service, sessionCancellation, operationToken);
         var node = tree?.GetNodeWithPath(normalizedAddress)
             ?? throw new InvalidOperationException($"VRChat did not expose {normalizedAddress} through OSCQuery yet.");
 
@@ -294,25 +586,117 @@ public sealed class OscRouterService : IAsyncDisposable
 
     public async Task StopAsync()
     {
-        if (runtimeCancellation is null)
+        TaskCompletionSource<bool> completion;
+        Task waitTask;
+        SessionLease[] excludedLeases;
+        var ownsStop = false;
+        lock (stateGate)
         {
+            if (isDisposed)
+            {
+                return;
+            }
+
+            if (stopCompletion is not null)
+            {
+                waitTask = IsCurrentSessionContextLocked()
+                    ? stopStateCleared?.Task ?? stopCompletion.Task
+                    : stopCompletion.Task;
+                completion = stopCompletion;
+                excludedLeases = [];
+            }
+            else
+            {
+                completion = CreateSignal();
+                stopCompletion = completion;
+                stopStateCleared = CreateSignal();
+                stopRequested = true;
+                lifecycleGateUsers++;
+                excludedLeases = GetCurrentSessionLeasesLocked();
+                waitTask = completion.Task;
+                ownsStop = true;
+            }
+        }
+
+        if (!ownsStop)
+        {
+            await waitTask.ConfigureAwait(false);
             return;
         }
 
+        var enteredLifecycleGate = false;
+        var lifecycleAdmissionReserved = ownsStop;
+        try
+        {
+            if (stopBeforeLifecycleAdmissionHook is not null)
+            {
+                await stopBeforeLifecycleAdmissionHook().ConfigureAwait(false);
+            }
+
+            await lifecycleGate.WaitAsync().ConfigureAwait(false);
+            enteredLifecycleGate = true;
+            lifecycleAdmissionReserved = false;
+            await StopCoreAsync(excludedLeases).ConfigureAwait(false);
+            completion.TrySetResult(true);
+        }
+        catch (Exception ex)
+        {
+            completion.TrySetException(ex);
+            throw;
+        }
+        finally
+        {
+            if (enteredLifecycleGate)
+            {
+                ExitLifecycleGate();
+            }
+            else if (lifecycleAdmissionReserved)
+            {
+                ReleaseLifecycleGateAdmission();
+            }
+
+            lock (stateGate)
+            {
+                if (ReferenceEquals(stopCompletion, completion))
+                {
+                    stopCompletion = null;
+                    stopStateCleared = null;
+                    stopRequested = isDisposing;
+                    stoppingService = null;
+                    stoppingCancellation = null;
+                }
+            }
+        }
+    }
+
+    private async Task StopCoreAsync(IReadOnlyCollection<SessionLease>? excludedLeases = null)
+    {
         var cancellation = runtimeCancellation;
         var tasks = runtimeTasks;
         var listener = receiveListener;
         var sender = sendClient;
         var service = oscQueryService;
+        var serviceAddedHandler = oscQueryServiceAddedHandler;
+        excludedLeases ??= new HashSet<SessionLease>();
 
-        runtimeCancellation = null;
-        runtimeTasks = [];
-        receiveListener = null;
-        sendClient = null;
-        oscQueryService = null;
-        advertisedEndpoints = new Dictionary<string, OscParameterType>(StringComparer.Ordinal);
         lock (stateGate)
         {
+            cancellation = runtimeCancellation;
+            tasks = runtimeTasks;
+            listener = receiveListener;
+            sender = sendClient;
+            service = oscQueryService;
+            serviceAddedHandler = oscQueryServiceAddedHandler;
+
+            stoppingService = service;
+            stoppingCancellation = cancellation;
+            runtimeCancellation = null;
+            runtimeTasks = [];
+            receiveListener = null;
+            sendClient = null;
+            oscQueryService = null;
+            oscQueryServiceAddedHandler = null;
+            advertisedEndpoints = new Dictionary<string, OscParameterType>(StringComparer.Ordinal);
             activeVrChatTarget = null;
             cachedVrChatEndPoint = null;
             localUdpPort = 0;
@@ -320,27 +704,58 @@ public sealed class OscRouterService : IAsyncDisposable
             localServiceName = string.Empty;
             discoveryState = OscDiscoveryState.Idle;
             nextDiscoveryLogAt = DateTimeOffset.MinValue;
+            stopStateCleared?.TrySetResult(true);
         }
 
-        cancellation.Cancel();
-        listener?.Dispose();
+        if (currentRuntimeTask.Value is Task taskToSkip
+            && tasks.Any(task => ReferenceEquals(task, taskToSkip)))
+        {
+            tasks = tasks.Where(task => !ReferenceEquals(task, taskToSkip)).ToArray();
+        }
+
+        if (service is not null && serviceAddedHandler is not null)
+        {
+            service.OnOscQueryServiceAdded -= serviceAddedHandler;
+        }
 
         try
         {
-            await Task.WhenAll(tasks);
-        }
-        catch (OperationCanceledException)
-        {
-        }
-        catch (ObjectDisposedException)
-        {
-        }
-        catch (SocketException)
-        {
+            try
+            {
+                cancellation?.Cancel();
+            }
+            catch (Exception ex)
+            {
+                DebugLogService.Write(
+                    $"OSC router cleanup cancellation callback failed: {SensitiveTextSanitizer.Sanitize(ex.Message)}");
+            }
+
+            listener?.Dispose();
+
+            try
+            {
+                await Task.WhenAll(tasks);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+            catch (SocketException)
+            {
+            }
+            catch (Exception ex)
+            {
+                DebugLogService.Write(
+                    $"OSC router cleanup task failed: {SensitiveTextSanitizer.Sanitize(ex.Message)}");
+            }
+
+            await WaitForForeignSessionLeasesAsync(service, cancellation, excludedLeases).ConfigureAwait(false);
         }
         finally
         {
-            cancellation.Dispose();
+            cancellation?.Dispose();
             listener?.Dispose();
             sender?.Dispose();
             service?.Dispose();
@@ -349,53 +764,426 @@ public sealed class OscRouterService : IAsyncDisposable
 
     public async Task SendToVrChatAsync(byte[] packet, CancellationToken cancellationToken = default)
     {
-        IPEndPoint endPoint;
-        UdpClient client;
-
-        lock (stateGate)
-        {
-            var target = activeVrChatTarget
-                ?? throw new InvalidOperationException("Crystal Relay has not discovered VRChat through OSCQuery yet. Start VRChat with OSC enabled and leave it open so Crystal Relay can find it.");
-            client = sendClient ?? throw new InvalidOperationException("OSC sender is not available.");
-
-            if (cachedVrChatEndPoint is null
-                || cachedVrChatEndPoint.Port != target.OscPort
-                || !cachedVrChatEndPoint.Address.Equals(target.Address))
-            {
-                cachedVrChatEndPoint = new IPEndPoint(target.Address, target.OscPort);
-            }
-
-            endPoint = cachedVrChatEndPoint;
-        }
-
-        cancellationToken.ThrowIfCancellationRequested();
+        var operationLease = EnterSessionOperation(cancellationToken);
         try
         {
-            await client.SendAsync(packet, packet.Length, endPoint);
+            var service = operationLease.Lease.Service;
+            var sessionCancellation = operationLease.Lease.Cancellation;
+            var sessionToken = sessionCancellation.Token;
+            IPEndPoint endPoint;
+            UdpClient client;
+            lock (stateGate)
+            {
+                if (!IsCurrentRuntimeSessionLocked(service, sessionCancellation, sessionToken))
+                {
+                    throw new InvalidOperationException("The OSCQuery session changed while Crystal Relay was preparing to send an OSC action.");
+                }
+
+                var target = activeVrChatTarget
+                    ?? throw new InvalidOperationException("Crystal Relay has not discovered VRChat through OSCQuery yet. Start VRChat with OSC enabled and leave it open so Crystal Relay can find it.");
+                client = sendClient ?? throw new InvalidOperationException("OSC sender is not available.");
+
+                if (cachedVrChatEndPoint is null
+                    || cachedVrChatEndPoint.Port != target.OscPort
+                    || !cachedVrChatEndPoint.Address.Equals(target.Address))
+                {
+                    cachedVrChatEndPoint = new IPEndPoint(target.Address, target.OscPort);
+                }
+
+                endPoint = cachedVrChatEndPoint;
+            }
+
+            using var operationCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, sessionToken);
+            var operationToken = operationCancellation.Token;
+            operationToken.ThrowIfCancellationRequested();
+            try
+            {
+                if (sendAsyncOverride is not null)
+                {
+                    await sendAsyncOverride(client, packet, endPoint, operationToken).ConfigureAwait(false);
+                }
+                else
+                {
+                    await client.SendAsync(packet, packet.Length, endPoint).ConfigureAwait(false);
+                }
+
+                ThrowIfSessionIsNotCurrent(service, sessionCancellation, operationToken);
+            }
+            catch (OperationCanceledException) when (operationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                ThrowIfSessionIsNotCurrent(service, sessionCancellation, operationToken);
+                throw CreateTargetLostException(
+                    "sending OSC actions",
+                    service,
+                    sessionCancellation,
+                    operationToken,
+                    ex);
+            }
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        finally
         {
+            operationLease.Dispose();
+        }
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        Task disposalTask;
+        TaskCompletionSource<bool> disposalCompletion;
+        SessionLease[] excludedLeases;
+        var startDisposal = false;
+        lock (stateGate)
+        {
+            if (disposeTask is not null)
+            {
+                return new ValueTask(disposeTask);
+            }
+
+            isDisposing = true;
+            if (stopCompletion is null)
+            {
+                stopCompletion = CreateSignal();
+                stopStateCleared = CreateSignal();
+            }
+
+            stopRequested = true;
+            disposalCompletion = CreateSignal();
+            excludedLeases = GetCurrentSessionLeasesLocked();
+            disposeTask = disposalCompletion.Task;
+            disposalTask = disposalCompletion.Task;
+            startDisposal = true;
+        }
+
+        if (startDisposal)
+        {
+            _ = RunDisposeAsync(disposalCompletion, excludedLeases);
+        }
+
+        return new ValueTask(disposalTask);
+    }
+
+    private static TaskCompletionSource<bool> CreateSignal()
+    {
+        return new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+    }
+
+    private async Task EnterLifecycleGateAsync(CancellationToken cancellationToken, bool allowDisposing)
+    {
+        var acquired = false;
+        lock (stateGate)
+        {
+            if (isDisposed || isDisposing)
+            {
+                throw new ObjectDisposedException(nameof(OscRouterService));
+            }
+
+            if (!allowDisposing && stopRequested)
+            {
+                throw new InvalidOperationException("The OSCQuery router is stopping and cannot start a new session yet.");
+            }
+
+            lifecycleGateUsers++;
+        }
+
+        try
+        {
+            await lifecycleGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            acquired = true;
+            lock (stateGate)
+            {
+                if (isDisposed || isDisposing)
+                {
+                    throw new ObjectDisposedException(nameof(OscRouterService));
+                }
+
+                if (!allowDisposing && stopRequested)
+                {
+                    throw new InvalidOperationException("The OSCQuery router is stopping and cannot start a new session yet.");
+                }
+            }
+        }
+        catch
+        {
+            if (acquired)
+            {
+                lifecycleGate.Release();
+            }
+
+            ReleaseLifecycleGateAdmission();
+
             throw;
+        }
+    }
+
+    private void ExitLifecycleGate()
+    {
+        lifecycleGate.Release();
+        ReleaseLifecycleGateAdmission();
+    }
+
+    private void ReleaseLifecycleGateAdmission()
+    {
+        lock (stateGate)
+        {
+            lifecycleGateUsers--;
+            if (lifecycleGateUsers == 0)
+            {
+                lifecycleGateDrained?.TrySetResult(true);
+                lifecycleGateDrained = null;
+            }
+        }
+    }
+
+    private Task WaitForLifecycleGateUsersToDrainAsync()
+    {
+        lock (stateGate)
+        {
+            if (lifecycleGateUsers == 0)
+            {
+                return Task.CompletedTask;
+            }
+
+            lifecycleGateDrained ??= CreateSignal();
+            return lifecycleGateDrained.Task;
+        }
+    }
+
+    private SessionLeaseScope EnterSessionOperation(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (stateGate)
+        {
+            if (isDisposed || isDisposing)
+            {
+                throw new ObjectDisposedException(nameof(OscRouterService));
+            }
+
+            if (stopRequested
+                || oscQueryService is null
+                || runtimeCancellation is null)
+            {
+                throw new InvalidOperationException("OSCQuery is not running yet. Start OSC testing or the background bridge first.");
+            }
+
+            return EnterSessionLeaseLocked(
+                oscQueryService,
+                runtimeCancellation,
+                SessionLeaseKind.Operation);
+        }
+    }
+
+    private SessionLeaseScope? TryEnterSessionOperation()
+    {
+        lock (stateGate)
+        {
+            if (isDisposed
+                || isDisposing
+                || stopRequested
+                || oscQueryService is null
+                || runtimeCancellation is null)
+            {
+                return null;
+            }
+
+            return EnterSessionLeaseLocked(
+                oscQueryService,
+                runtimeCancellation,
+                SessionLeaseKind.Operation);
+        }
+    }
+
+    private SessionLeaseScope? TryEnterRuntimeTaskLease(
+        OSCQueryService service,
+        CancellationTokenSource sessionCancellation,
+        CancellationToken sessionToken)
+    {
+        lock (stateGate)
+        {
+            if (!IsCurrentRuntimeSessionLocked(service, sessionCancellation, sessionToken))
+            {
+                return null;
+            }
+
+            return EnterSessionLeaseLocked(service, sessionCancellation, SessionLeaseKind.RuntimeTask);
+        }
+    }
+
+    private SessionLeaseScope? TryEnterNotificationLease(
+        OSCQueryService service,
+        CancellationTokenSource sessionCancellation,
+        CancellationToken operationToken)
+    {
+        lock (stateGate)
+        {
+            if (!IsCurrentRuntimeSessionLocked(service, sessionCancellation, operationToken))
+            {
+                return null;
+            }
+
+            return EnterSessionLeaseLocked(service, sessionCancellation, SessionLeaseKind.Notification);
+        }
+    }
+
+    private SessionLeaseScope EnterSessionLeaseLocked(
+        OSCQueryService service,
+        CancellationTokenSource sessionCancellation,
+        SessionLeaseKind kind)
+    {
+        var previous = currentSessionLease.Value;
+        var lease = new SessionLease(service, sessionCancellation, kind, previous);
+        activeSessionLeases.Add(lease);
+
+        currentSessionLease.Value = lease;
+        return new SessionLeaseScope(this, lease, previous);
+    }
+
+    private void ReleaseSessionLease(SessionLease lease)
+    {
+        lock (stateGate)
+        {
+            if (!activeSessionLeases.Remove(lease))
+            {
+                return;
+            }
+
+            var signal = sessionLeaseSignal;
+            sessionLeaseSignal = CreateSignal();
+            signal.TrySetResult(true);
+        }
+    }
+
+    private SessionLease[] GetCurrentSessionLeasesLocked()
+    {
+        var service = oscQueryService;
+        var cancellation = runtimeCancellation;
+        if (service is null || cancellation is null)
+        {
+            return [];
+        }
+
+        var leases = new HashSet<SessionLease>();
+        for (var lease = currentSessionLease.Value; lease is not null; lease = lease.Previous)
+        {
+            if (ReferenceEquals(lease.Service, service)
+                && ReferenceEquals(lease.Cancellation, cancellation))
+            {
+                leases.Add(lease);
+            }
+        }
+
+        return [.. leases];
+    }
+
+    private bool IsCurrentSessionContextLocked()
+    {
+        var service = oscQueryService ?? stoppingService;
+        var cancellation = runtimeCancellation ?? stoppingCancellation;
+        if (service is null || cancellation is null)
+        {
+            return false;
+        }
+
+        for (var lease = currentSessionLease.Value; lease is not null; lease = lease.Previous)
+        {
+            if (ReferenceEquals(lease.Service, service)
+                && ReferenceEquals(lease.Cancellation, cancellation))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private async Task WaitForForeignSessionLeasesAsync(
+        OSCQueryService? service,
+        CancellationTokenSource? sessionCancellation,
+        IReadOnlyCollection<SessionLease> excludedLeases)
+    {
+        if (service is null || sessionCancellation is null)
+        {
+            return;
+        }
+
+        while (true)
+        {
+            Task signal;
+            lock (stateGate)
+            {
+                if (!activeSessionLeases.Any(lease =>
+                        ReferenceEquals(lease.Service, service)
+                        && ReferenceEquals(lease.Cancellation, sessionCancellation)
+                        && !excludedLeases.Contains(lease)))
+                {
+                    return;
+                }
+
+                signal = sessionLeaseSignal.Task;
+            }
+
+            await signal.ConfigureAwait(false);
+        }
+    }
+
+    private async Task RunDisposeAsync(
+        TaskCompletionSource<bool> disposalCompletion,
+        IReadOnlyCollection<SessionLease> excludedLeases)
+    {
+        var gateOwned = false;
+        var gatesDisposed = false;
+        try
+        {
+            await WaitForLifecycleGateUsersToDrainAsync().ConfigureAwait(false);
+            await lifecycleGate.WaitAsync().ConfigureAwait(false);
+            gateOwned = true;
+
+            await StopCoreAsync(excludedLeases).ConfigureAwait(false);
+
+            TaskCompletionSource<bool>? pendingStop;
+            lock (stateGate)
+            {
+                pendingStop = stopCompletion;
+                stopCompletion = null;
+                stopStateCleared = null;
+                stoppingService = null;
+                stoppingCancellation = null;
+                isDisposed = true;
+            }
+
+            pendingStop?.TrySetResult(true);
+            discoveryRefreshGate.Dispose();
+            lifecycleGate.Dispose();
+            gatesDisposed = true;
+            disposalCompletion.TrySetResult(true);
         }
         catch (Exception ex)
         {
-            throw CreateTargetLostException("sending OSC actions", ex);
+            disposalCompletion.TrySetException(ex);
+        }
+        finally
+        {
+            if (gateOwned && !gatesDisposed)
+            {
+                lifecycleGate.Release();
+            }
         }
     }
 
-    public async ValueTask DisposeAsync()
+    private async Task RunReceiveLoopAsync(
+        UdpClient listener,
+        OSCQueryService service,
+        CancellationTokenSource sessionCancellation,
+        CancellationToken sessionToken)
     {
-        await StopAsync();
-        discoveryRefreshGate.Dispose();
-    }
-
-    private async Task RunReceiveLoopAsync(UdpClient listener, CancellationToken cancellationToken)
-    {
-        while (!cancellationToken.IsCancellationRequested)
+        while (!sessionToken.IsCancellationRequested)
         {
             try
             {
-                var result = await listener.ReceiveAsync(cancellationToken);
+                var result = await listener.ReceiveAsync(sessionToken);
                 if (!IsLoopbackEndpoint(result.RemoteEndPoint))
                 {
                     continue;
@@ -407,67 +1195,112 @@ public sealed class OscRouterService : IAsyncDisposable
                     ObservedValueReceived?.Invoke(observedValue);
                 }
             }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            catch (OperationCanceledException) when (sessionToken.IsCancellationRequested)
             {
                 return;
             }
-            catch (ObjectDisposedException) when (cancellationToken.IsCancellationRequested)
+            catch (ObjectDisposedException) when (sessionToken.IsCancellationRequested)
             {
                 return;
             }
             catch (SocketException ex)
             {
-                if (cancellationToken.IsCancellationRequested)
+                if (sessionToken.IsCancellationRequested)
                 {
                     return;
                 }
 
-                LogWritten?.Invoke($"OSC receive error: {ex.Message}");
-                await Task.Delay(500, cancellationToken);
+                PublishSessionLog(service, sessionCancellation, sessionToken, $"OSC receive error: {ex.Message}");
+                await Task.Delay(500, sessionToken);
             }
         }
     }
 
-    private async Task RunDiscoveryLoopAsync(OSCQueryService service, CancellationToken cancellationToken)
+    private async Task RunDiscoveryLoopAsync(
+        OSCQueryService service,
+        CancellationTokenSource sessionCancellation,
+        CancellationToken sessionToken)
     {
-        await RefreshDiscoveredServicesAsync(service, cancellationToken, logWhenWaiting: true, forceDiscoveryLog: true);
+        await RefreshDiscoveredServicesAsync(
+            service,
+            sessionCancellation,
+            sessionToken,
+            logWhenWaiting: true,
+            forceDiscoveryLog: true);
+        if (!IsCurrentRuntimeSession(service, sessionCancellation, sessionToken))
+        {
+            return;
+        }
 
         using var timer = new PeriodicTimer(ServiceRefreshInterval);
 
-        while (await timer.WaitForNextTickAsync(cancellationToken))
+        while (await timer.WaitForNextTickAsync(sessionToken))
         {
             if (HasDiscoveredVrChat)
             {
                 continue;
             }
 
-            await RefreshDiscoveredServicesAsync(service, cancellationToken, logWhenWaiting: false, forceDiscoveryLog: false);
+            await RefreshDiscoveredServicesAsync(
+                service,
+                sessionCancellation,
+                sessionToken,
+                logWhenWaiting: false,
+                forceDiscoveryLog: false);
+            if (!IsCurrentRuntimeSession(service, sessionCancellation, sessionToken))
+            {
+                return;
+            }
         }
     }
 
     private async Task RefreshDiscoveredServicesAsync(
         OSCQueryService service,
-        CancellationToken cancellationToken,
+        CancellationTokenSource sessionCancellation,
+        CancellationToken operationToken,
         bool logWhenWaiting,
         bool forceDiscoveryLog)
     {
-        await discoveryRefreshGate.WaitAsync(cancellationToken);
+        if (!IsCurrentRuntimeSession(service, sessionCancellation, operationToken))
+        {
+            return;
+        }
+
+        await discoveryRefreshGate.WaitAsync(operationToken);
 
         try
         {
+            if (!IsCurrentRuntimeSession(service, sessionCancellation, operationToken))
+            {
+                return;
+            }
+
             try
             {
                 service.RefreshServices();
             }
-            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+            catch (Exception ex) when (!operationToken.IsCancellationRequested
+                                       && IsCurrentRuntimeSession(service, sessionCancellation, operationToken))
             {
-                LogWritten?.Invoke($"OSCQuery discovery refresh failed: {ex.Message}");
+                PublishSessionLog(
+                    service,
+                    sessionCancellation,
+                    operationToken,
+                    $"OSCQuery discovery refresh failed: {ex.Message}");
                 return;
             }
 
             foreach (var profile in service.GetOSCQueryServices())
             {
-                await TryRegisterVrChatTargetAsync(profile, cancellationToken);
+                await TryRegisterVrChatTargetAsync(
+                    service,
+                    profile,
+                    sessionCancellation,
+                    operationToken);
+                if (!IsCurrentRuntimeSession(service, sessionCancellation, operationToken))
+                {
+                    return;
+                }
             }
         }
         finally
@@ -477,36 +1310,128 @@ public sealed class OscRouterService : IAsyncDisposable
 
         if (logWhenWaiting)
         {
-            LogDiscoveryWaiting(force: forceDiscoveryLog);
+            LogDiscoveryWaiting(
+                service,
+                sessionCancellation,
+                operationToken,
+                force: forceDiscoveryLog);
         }
     }
 
-    private void HandleOscQueryServiceAdded(OSCQueryServiceProfile profile)
+    private void HandleOscQueryServiceAdded(
+        OSCQueryService service,
+        OSCQueryServiceProfile profile,
+        CancellationTokenSource sessionCancellation,
+        CancellationToken sessionToken)
     {
-        var cancellationToken = runtimeCancellation?.Token ?? CancellationToken.None;
-        _ = Task.Run(() => TryRegisterVrChatTargetAsync(profile, cancellationToken), CancellationToken.None);
+        Task callbackTask;
+        lock (stateGate)
+        {
+            if (!IsCurrentRuntimeSessionLocked(service, sessionCancellation, sessionToken))
+            {
+                return;
+            }
+
+            callbackTask = CreateTrackedRuntimeTask(
+                () => TryRegisterVrChatTargetAsync(
+                    service,
+                    profile,
+                    sessionCancellation,
+                    sessionToken),
+                service,
+                sessionCancellation,
+                sessionToken);
+            runtimeTasks = [.. runtimeTasks, callbackTask];
+        }
     }
 
-    private async Task TryRegisterVrChatTargetAsync(OSCQueryServiceProfile profile, CancellationToken cancellationToken)
+    private Task CreateTrackedRuntimeTask(
+        Func<Task> operation,
+        OSCQueryService service,
+        CancellationTokenSource sessionCancellation,
+        CancellationToken cancellationToken)
     {
-        if (cancellationToken.IsCancellationRequested)
-        {
-            return;
-        }
+        var taskReady = new TaskCompletionSource<Task>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var task = Task.Run(
+            async () =>
+            {
+                SessionLeaseScope? runtimeLease = null;
+                var inheritedSessionLease = currentSessionLease.Value;
+                try
+                {
+                    var trackedTask = await taskReady.Task.ConfigureAwait(false);
+                    currentRuntimeTask.Value = trackedTask;
+                    currentSessionLease.Value = null;
+                    runtimeLease = TryEnterRuntimeTaskLease(service, sessionCancellation, cancellationToken);
+                    if (runtimeLease is not null)
+                    {
+                        await operation().ConfigureAwait(false);
+                    }
+                }
+                finally
+                {
+                    runtimeLease?.Dispose();
+                    currentSessionLease.Value = inheritedSessionLease;
+                    currentRuntimeTask.Value = null;
+                }
+            },
+            cancellationToken);
+        taskReady.SetResult(task);
+        return task;
+    }
 
-        if (string.Equals(profile.name, localServiceName, StringComparison.Ordinal))
-        {
-            return;
-        }
-
-        var match = await CreateVrChatTargetAsync(profile, cancellationToken);
-        if (match is null)
+    private async Task TryRegisterVrChatTargetAsync(
+        OSCQueryService service,
+        OSCQueryServiceProfile profile,
+        CancellationTokenSource sessionCancellation,
+        CancellationToken operationToken)
+    {
+        if (!IsCurrentRuntimeSession(service, sessionCancellation, operationToken))
         {
             return;
         }
 
         lock (stateGate)
         {
+            if (!IsCurrentRuntimeSessionLocked(service, sessionCancellation, operationToken)
+                || string.Equals(profile.name, localServiceName, StringComparison.Ordinal))
+            {
+                return;
+            }
+        }
+
+        DiscoveredOscTarget? match;
+        if (targetFactoryOverride is not null)
+        {
+            match = await targetFactoryOverride(profile, operationToken);
+        }
+        else
+        {
+            match = await CreateVrChatTargetAsync(
+                profile,
+                operationToken,
+                service,
+                sessionCancellation);
+        }
+
+        if (!IsCurrentRuntimeSession(service, sessionCancellation, operationToken))
+        {
+            return;
+        }
+
+        if (match is null)
+        {
+            return;
+        }
+
+        var receivePort = 0;
+        lock (stateGate)
+        {
+            if (!IsCurrentRuntimeSessionLocked(service, sessionCancellation, operationToken))
+            {
+                return;
+            }
+
             if (activeVrChatTarget is not null && !ShouldReplaceTarget(activeVrChatTarget, match))
             {
                 return;
@@ -514,13 +1439,56 @@ public sealed class OscRouterService : IAsyncDisposable
 
             activeVrChatTarget = match;
             discoveryState = OscDiscoveryState.Discovered;
+            receivePort = localUdpPort;
         }
 
-        DiscoveryStateChanged?.Invoke(OscDiscoveryState.Discovered);
-        LogWritten?.Invoke($"Discovered VRChat through OSCQuery: {match.Name}. Crystal Relay will send actions to {match.Address}:{match.OscPort} and receive values on 127.0.0.1:{localUdpPort}.");
+        PublishSessionStateChanged(
+            service,
+            sessionCancellation,
+            operationToken,
+            OscDiscoveryState.Discovered);
+        PublishSessionLog(
+            service,
+            sessionCancellation,
+            operationToken,
+            $"Discovered VRChat through OSCQuery: {match.Name}. Crystal Relay will send actions to {match.Address}:{match.OscPort} and receive values on 127.0.0.1:{receivePort}.");
     }
 
-    private async Task<DiscoveredOscTarget?> CreateVrChatTargetAsync(OSCQueryServiceProfile profile, CancellationToken cancellationToken)
+    private bool IsCurrentRuntimeSession(
+        OSCQueryService service,
+        CancellationTokenSource? sessionCancellation,
+        CancellationToken cancellationToken)
+    {
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return false;
+        }
+
+        lock (stateGate)
+        {
+            return IsCurrentRuntimeSessionLocked(service, sessionCancellation, cancellationToken);
+        }
+    }
+
+    private bool IsCurrentRuntimeSessionLocked(
+        OSCQueryService service,
+        CancellationTokenSource? sessionCancellation,
+        CancellationToken cancellationToken)
+    {
+        return !cancellationToken.IsCancellationRequested
+            && !stopRequested
+            && !isDisposing
+            && !isDisposed
+            && sessionCancellation is not null
+            && ReferenceEquals(runtimeCancellation, sessionCancellation)
+            && ReferenceEquals(oscQueryService, service);
+    }
+
+    private async Task<DiscoveredOscTarget?> CreateVrChatTargetAsync(
+        OSCQueryServiceProfile profile,
+        CancellationToken cancellationToken,
+        OSCQueryService service,
+        CancellationTokenSource sessionCancellation)
     {
         try
         {
@@ -529,12 +1497,17 @@ public sealed class OscRouterService : IAsyncDisposable
                 return null;
             }
 
-            if (!await LooksLikeVrChatAsync(profile, cancellationToken))
+            if (!await LooksLikeVrChatAsync(
+                       profile,
+                       cancellationToken,
+                       service,
+                       sessionCancellation))
             {
                 return null;
             }
 
             var hostInfo = await VRC.OSCQuery.Extensions.GetHostInfo(profile.address, profile.port);
+            ThrowIfSessionIsNotCurrent(service, sessionCancellation, cancellationToken);
             if (hostInfo is null
                 || !IsValidPort(hostInfo.oscPort)
                 || !TryParseLoopbackAddress(hostInfo.oscIP, out var oscAddress))
@@ -548,14 +1521,22 @@ public sealed class OscRouterService : IAsyncDisposable
         {
             if (profile.name.Contains("vrchat", StringComparison.OrdinalIgnoreCase))
             {
-                LogWritten?.Invoke($"Crystal Relay found VRChat's OSCQuery service '{profile.name}', but it is not ready to use yet: {ex.Message}");
+                PublishSessionLog(
+                    service,
+                    sessionCancellation,
+                    cancellationToken,
+                    $"Crystal Relay found VRChat's OSCQuery service '{profile.name}', but it is not ready to use yet: {ex.Message}");
             }
 
             return null;
         }
     }
 
-    private async Task<bool> LooksLikeVrChatAsync(OSCQueryServiceProfile profile, CancellationToken cancellationToken)
+    private async Task<bool> LooksLikeVrChatAsync(
+        OSCQueryServiceProfile profile,
+        CancellationToken cancellationToken,
+        OSCQueryService service,
+        CancellationTokenSource sessionCancellation)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -565,6 +1546,7 @@ public sealed class OscRouterService : IAsyncDisposable
         }
 
         var tree = await VRC.OSCQuery.Extensions.GetOSCTree(profile.address, profile.port);
+        ThrowIfSessionIsNotCurrent(service, sessionCancellation, cancellationToken);
         if (tree is null)
         {
             return false;
@@ -576,39 +1558,61 @@ public sealed class OscRouterService : IAsyncDisposable
             || tree.GetNodeWithPath("/input") is not null;
     }
 
-    private void SyncAdvertisedEndpoints(OSCQueryService service, IReadOnlyList<TriggerRuleSnapshot> rules)
+    private void SyncAdvertisedEndpoints(
+        OSCQueryService service,
+        CancellationTokenSource sessionCancellation,
+        CancellationToken sessionToken,
+        IReadOnlyList<TriggerRuleSnapshot> rules)
     {
-        var desiredEndpoints = BuildDesiredEndpoints(rules);
-
+        var desiredEndpoints = BuildDesiredEndpoints(
+            rules,
+            message => PublishSessionLog(service, sessionCancellation, sessionToken, message));
         lock (stateGate)
         {
-            foreach (var obsoletePath in advertisedEndpoints.Keys.Except(desiredEndpoints.Keys, StringComparer.Ordinal).ToArray())
+            if (!ReferenceEquals(runtimeCancellation, sessionCancellation)
+                || !ReferenceEquals(oscQueryService, service))
             {
-                service.RemoveEndpoint(obsoletePath);
-                advertisedEndpoints.Remove(obsoletePath);
+                return;
             }
 
-            foreach (var endpoint in desiredEndpoints)
-            {
-                if (advertisedEndpoints.TryGetValue(endpoint.Key, out var existingType))
-                {
-                    if (existingType == endpoint.Value)
-                    {
-                        continue;
-                    }
-
-                    service.RemoveEndpoint(endpoint.Key);
-                    advertisedEndpoints.Remove(endpoint.Key);
-                }
-
-                AddAdvertisedEndpoint(service, endpoint.Key, endpoint.Value);
-                advertisedEndpoints[endpoint.Key] = endpoint.Value;
-            }
+            SyncAdvertisedEndpointsForState(service, desiredEndpoints, advertisedEndpoints);
         }
     }
 
-    private Dictionary<string, OscParameterType> BuildDesiredEndpoints(IReadOnlyList<TriggerRuleSnapshot> rules)
+    private void SyncAdvertisedEndpointsForState(
+        OSCQueryService service,
+        Dictionary<string, OscParameterType> desiredEndpoints,
+        Dictionary<string, OscParameterType> endpointState)
     {
+        foreach (var obsoletePath in endpointState.Keys.Except(desiredEndpoints.Keys, StringComparer.Ordinal).ToArray())
+        {
+            service.RemoveEndpoint(obsoletePath);
+            endpointState.Remove(obsoletePath);
+        }
+
+        foreach (var endpoint in desiredEndpoints)
+        {
+            if (endpointState.TryGetValue(endpoint.Key, out var existingType))
+            {
+                if (existingType == endpoint.Value)
+                {
+                    continue;
+                }
+
+                service.RemoveEndpoint(endpoint.Key);
+                endpointState.Remove(endpoint.Key);
+            }
+
+            AddAdvertisedEndpoint(service, endpoint.Key, endpoint.Value);
+            endpointState[endpoint.Key] = endpoint.Value;
+        }
+    }
+
+    private Dictionary<string, OscParameterType> BuildDesiredEndpoints(
+        IReadOnlyList<TriggerRuleSnapshot> rules,
+        Action<string>? log = null)
+    {
+        log ??= message => LogWritten?.Invoke(message);
         var endpoints = new Dictionary<string, OscParameterType>(StringComparer.Ordinal)
         {
             ["/avatar/change"] = OscParameterType.String,
@@ -627,7 +1631,7 @@ public sealed class OscRouterService : IAsyncDisposable
             }
             catch (InvalidOperationException ex)
             {
-                LogWritten?.Invoke($"Skipped OSCQuery endpoint for '{rule.Name}' because the avatar parameter path is incomplete: {ex.Message}");
+                log($"Skipped OSCQuery endpoint for '{rule.Name}' because the avatar parameter path is incomplete: {ex.Message}");
             }
         }
 
@@ -642,7 +1646,7 @@ public sealed class OscRouterService : IAsyncDisposable
                     var address = VrChatOscClient.NormalizeAvatarParameterAddress(action.ParameterName);
                     if (VrChatLocalAvatarDataService.IsHeightOrScaleParameter(address))
                     {
-                        LogWritten?.Invoke($"Skipped Set Trigger OSCQuery endpoint for '{rule.Name}' because {address} is height or avatar scale related.");
+                        log($"Skipped Set Trigger OSCQuery endpoint for '{rule.Name}' because {address} is height or avatar scale related.");
                         continue;
                     }
 
@@ -650,7 +1654,7 @@ public sealed class OscRouterService : IAsyncDisposable
                     {
                         if (existingType != action.ParameterType)
                         {
-                            LogWritten?.Invoke($"Skipped Set Trigger OSCQuery endpoint for '{rule.Name}' because {address} is already tracked as {existingType}, not {action.ParameterType}.");
+                            log($"Skipped Set Trigger OSCQuery endpoint for '{rule.Name}' because {address} is already tracked as {existingType}, not {action.ParameterType}.");
                         }
 
                         continue;
@@ -660,7 +1664,7 @@ public sealed class OscRouterService : IAsyncDisposable
                 }
                 catch (InvalidOperationException ex)
                 {
-                    LogWritten?.Invoke($"Skipped Set Trigger OSCQuery endpoint for '{rule.Name}' because the avatar parameter path is incomplete: {ex.Message}");
+                    log($"Skipped Set Trigger OSCQuery endpoint for '{rule.Name}' because the avatar parameter path is incomplete: {ex.Message}");
                 }
             }
         }
@@ -692,46 +1696,67 @@ public sealed class OscRouterService : IAsyncDisposable
         }
     }
 
-    private void LogDiscoveryWaiting(bool force)
+    private void LogDiscoveryWaiting(
+        OSCQueryService service,
+        CancellationTokenSource sessionCancellation,
+        CancellationToken operationToken,
+        bool force)
     {
-        bool hasTarget;
+        string? message = null;
 
         lock (stateGate)
         {
-            hasTarget = activeVrChatTarget is not null;
+            if (!IsCurrentRuntimeSessionLocked(service, sessionCancellation, operationToken)
+                || activeVrChatTarget is not null)
+            {
+                return;
+            }
+
+            var now = DateTimeOffset.UtcNow;
+            if (!force && now < nextDiscoveryLogAt)
+            {
+                return;
+            }
+
+            nextDiscoveryLogAt = now.Add(DiscoveryLogThrottle);
+            message = "Searching for VRChat through OSCQuery. Leave VRChat open with OSC enabled so Crystal Relay can discover it automatically.";
         }
 
-        if (hasTarget)
+        if (message is not null)
         {
-            return;
+            PublishSessionLog(service, sessionCancellation, operationToken, message);
         }
-
-        var now = DateTimeOffset.UtcNow;
-        if (!force && now < nextDiscoveryLogAt)
-        {
-            return;
-        }
-
-        nextDiscoveryLogAt = now.Add(DiscoveryLogThrottle);
-        LogWritten?.Invoke("Searching for VRChat through OSCQuery. Leave VRChat open with OSC enabled so Crystal Relay can discover it automatically.");
     }
 
-    private InvalidOperationException CreateTargetLostException(string operation, Exception ex)
+    private InvalidOperationException CreateTargetLostException(
+        string operation,
+        OSCQueryService service,
+        CancellationTokenSource sessionCancellation,
+        CancellationToken operationToken,
+        Exception ex)
     {
-        MarkTargetLost($"Crystal Relay lost the OSCQuery connection to VRChat while {operation}. It will wait for VRChat to come back automatically.");
+        MarkTargetLost(
+            service,
+            sessionCancellation,
+            operationToken,
+            $"Crystal Relay lost the OSCQuery connection to VRChat while {operation}. It will wait for VRChat to come back automatically.");
         return new InvalidOperationException(
             $"Crystal Relay lost the OSCQuery connection to VRChat while {operation}. Wait a moment for VRChat to finish loading.",
             ex);
     }
 
-    private void MarkTargetLost(string reason)
+    private void MarkTargetLost(
+        OSCQueryService service,
+        CancellationTokenSource sessionCancellation,
+        CancellationToken operationToken,
+        string reason)
     {
-        var shouldLog = false;
-        var shouldNotify = false;
+        var shouldPublish = false;
 
         lock (stateGate)
         {
-            if (activeVrChatTarget is null && discoveryState == OscDiscoveryState.Lost)
+            if (!IsCurrentRuntimeSessionLocked(service, sessionCancellation, operationToken)
+                || (activeVrChatTarget is null && discoveryState == OscDiscoveryState.Lost))
             {
                 return;
             }
@@ -740,18 +1765,89 @@ public sealed class OscRouterService : IAsyncDisposable
             cachedVrChatEndPoint = null;
             discoveryState = OscDiscoveryState.Lost;
             nextDiscoveryLogAt = DateTimeOffset.MinValue;
-            shouldLog = true;
-            shouldNotify = true;
+            shouldPublish = true;
         }
 
-        if (shouldNotify)
+        if (shouldPublish)
         {
-            DiscoveryStateChanged?.Invoke(OscDiscoveryState.Lost);
+            PublishSessionStateChanged(
+                service,
+                sessionCancellation,
+                operationToken,
+                OscDiscoveryState.Lost);
+            PublishSessionLog(service, sessionCancellation, operationToken, reason);
+        }
+    }
+
+    private void PublishSessionStateChanged(
+        OSCQueryService service,
+        CancellationTokenSource sessionCancellation,
+        CancellationToken operationToken,
+        OscDiscoveryState state)
+    {
+        var notificationLease = TryEnterNotificationLease(service, sessionCancellation, operationToken);
+        if (notificationLease is null)
+        {
+            return;
         }
 
-        if (shouldLog)
+        using (notificationLease)
         {
-            LogWritten?.Invoke(reason);
+            DiscoveryStateChanged?.Invoke(state);
+        }
+    }
+
+    private void PublishSessionLog(
+        OSCQueryService service,
+        CancellationTokenSource sessionCancellation,
+        CancellationToken operationToken,
+        string message)
+    {
+        var notificationLease = TryEnterNotificationLease(service, sessionCancellation, operationToken);
+        if (notificationLease is null)
+        {
+            return;
+        }
+
+        using (notificationLease)
+        {
+            LogWritten?.Invoke(message);
+        }
+    }
+
+    private DiscoveredOscTarget GetCurrentTarget(
+        OSCQueryService service,
+        CancellationTokenSource sessionCancellation,
+        CancellationToken operationToken,
+        string missingTargetMessage)
+    {
+        lock (stateGate)
+        {
+            if (!IsCurrentRuntimeSessionLocked(service, sessionCancellation, operationToken))
+            {
+                ThrowIfSessionIsNotCurrent(service, sessionCancellation, operationToken);
+            }
+
+            return activeVrChatTarget ?? throw new InvalidOperationException(missingTargetMessage);
+        }
+    }
+
+    private void ThrowIfSessionIsNotCurrent(
+        OSCQueryService service,
+        CancellationTokenSource sessionCancellation,
+        CancellationToken operationToken)
+    {
+        if (operationToken.IsCancellationRequested)
+        {
+            throw new OperationCanceledException(operationToken);
+        }
+
+        lock (stateGate)
+        {
+            if (!IsCurrentRuntimeSessionLocked(service, sessionCancellation, operationToken))
+            {
+                throw new InvalidOperationException("The OSCQuery session was stopped or replaced while Crystal Relay was reading VRChat data.");
+            }
         }
     }
 
@@ -1049,5 +2145,48 @@ public sealed class OscRouterService : IAsyncDisposable
         }
     }
 
-    private sealed record DiscoveredOscTarget(string Name, IPAddress Address, int OscPort, int QueryPort);
+    private enum SessionLeaseKind
+    {
+        Operation,
+        Notification,
+        RuntimeTask
+    }
+
+    private sealed class SessionLease(
+        OSCQueryService service,
+        CancellationTokenSource cancellation,
+        SessionLeaseKind kind,
+        SessionLease? previous)
+    {
+        public OSCQueryService Service { get; } = service;
+
+        public CancellationTokenSource Cancellation { get; } = cancellation;
+
+        public SessionLeaseKind Kind { get; } = kind;
+
+        public SessionLease? Previous { get; } = previous;
+    }
+
+    private sealed class SessionLeaseScope(
+        OscRouterService owner,
+        SessionLease lease,
+        SessionLease? previous) : IDisposable
+    {
+        private int disposed;
+
+        public SessionLease Lease => lease;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref disposed, 1) != 0)
+            {
+                return;
+            }
+
+            owner.currentSessionLease.Value = previous;
+            owner.ReleaseSessionLease(lease);
+        }
+    }
+
+    internal sealed record DiscoveredOscTarget(string Name, IPAddress Address, int OscPort, int QueryPort);
 }

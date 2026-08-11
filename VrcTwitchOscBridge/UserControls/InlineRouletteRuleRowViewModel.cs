@@ -7,7 +7,7 @@ using VrcTwitchOscBridge.Models;
 
 namespace VrcTwitchOscBridge.UserControls;
 
-public sealed class InlineRouletteRuleRowViewModel : ObservableObject, IRuleRowViewModel
+public sealed class InlineRouletteRuleRowViewModel : ObservableObject, IRuleRowViewModel, IDisposable
 {
     private readonly TriggerRule _rule;
     private string _summary = string.Empty;
@@ -72,6 +72,8 @@ public sealed class InlineRouletteRuleRowViewModel : ObservableObject, IRuleRowV
 
         Summary = sb.ToString();
     }
+
+    public void Dispose() => _rule.PropertyChanged -= OnRulePropertyChanged;
 
     private void OnRulePropertyChanged(object? sender, PropertyChangedEventArgs e) => RefreshSummary();
 }

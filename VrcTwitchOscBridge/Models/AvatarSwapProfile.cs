@@ -51,25 +51,28 @@ public partial class AvatarSwapProfile : ObservableObject
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     public ObservableCollection<TriggerRule> ChannelPointRules { get; } = new();
+    public ObservableCollection<TriggerRule> AdvancedRules { get; } = new();
     public ObservableCollection<TriggerRule> BitsRules { get; } = new();
     public ObservableCollection<TriggerRule> SubsRules { get; } = new();
     public ObservableCollection<CashPaymentRule> PaymentRules { get; } = new();
     public ObservableCollection<TriggerRule> PowerUpRules { get; } = new();
 
     public bool HasRules =>
-        ChannelPointRules.Count + BitsRules.Count + SubsRules.Count + PaymentRules.Count + PowerUpRules.Count > 0;
+        ChannelPointRules.Count + AdvancedRules.Count + BitsRules.Count + SubsRules.Count + PaymentRules.Count + PowerUpRules.Count > 0;
     public bool UsesChannelPointRules => ChannelPointRules.Count > 0;
+    public bool UsesAdvancedRules => AdvancedRules.Count > 0;
     public bool UsesBitsRules => BitsRules.Count > 0;
     public bool UsesSubsRules => SubsRules.Count > 0;
     public bool UsesPaymentRules => PaymentRules.Count > 0;
     public bool UsesPowerUpRules => PowerUpRules.Count > 0;
 
     public string AvatarSubtitle =>
-        $"{ChannelPointRules.Count} cp · {BitsRules.Count} bits · {SubsRules.Count} subs · {PaymentRules.Count} pay · {PowerUpRules.Count} pow";
+        $"{ChannelPointRules.Count} cp · {AdvancedRules.Count} advanced · {BitsRules.Count} bits · {SubsRules.Count} subs · {PaymentRules.Count} pay · {PowerUpRules.Count} pow";
 
     public AvatarSwapProfile()
     {
         ChannelPointRules.CollectionChanged += (_, _) => Bump();
+        AdvancedRules.CollectionChanged += (_, _) => Bump();
         BitsRules.CollectionChanged += (_, _) => Bump();
         SubsRules.CollectionChanged += (_, _) => Bump();
         PaymentRules.CollectionChanged += (_, _) => Bump();
@@ -81,6 +84,7 @@ public partial class AvatarSwapProfile : ObservableObject
         UpdatedAt = DateTime.UtcNow;
         RaisePropertyChanged(nameof(HasRules));
         RaisePropertyChanged(nameof(UsesChannelPointRules));
+        RaisePropertyChanged(nameof(UsesAdvancedRules));
         RaisePropertyChanged(nameof(UsesBitsRules));
         RaisePropertyChanged(nameof(UsesSubsRules));
         RaisePropertyChanged(nameof(UsesPaymentRules));

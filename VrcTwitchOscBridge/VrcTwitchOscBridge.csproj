@@ -267,6 +267,7 @@
     <Compile Include="Services\OscRouterService.cs" />
     <Compile Include="Services\RuntimeConfig.cs" />
     <Compile Include="Services\RuntimeConfigStore.cs" />
+    <Compile Include="Services\ReschedulableActivityDeadline.cs" />
     <Compile Include="Services\SavedLoginStateRecoveryService.cs" />
     <Compile Include="Services\ShutdownRecoveryStateStore.cs" />
     <Compile Include="Services\SettingsStore.cs" />

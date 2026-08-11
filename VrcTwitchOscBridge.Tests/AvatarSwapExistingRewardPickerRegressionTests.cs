@@ -17,6 +17,8 @@ namespace VrcTwitchOscBridge.Tests;
 
 public sealed class AvatarSwapExistingRewardPickerRegressionTests
 {
+    private const string TestAccessToken = "test-" + "access-token";
+
     [Fact]
     public void InlineEditor_UsesVisibilityConverterAndKeepsExistingRewardBindings()
     {
@@ -67,7 +69,11 @@ public sealed class AvatarSwapExistingRewardPickerRegressionTests
         }
 
         var rewardPanel = rewardPanels[0];
-        var rewardBorder = Assert.Single(rewardPanel.Elements(), element => IsElement(element, "Border"));
+        var rewardBorder = Assert.Single(rewardPanel.Elements(), element =>
+            IsElement(element, "Border")
+            && element.Descendants().Any(child =>
+                IsElement(child, "TextBlock")
+                && AttributeValue(child, "Text") == "{loc:Translate 'Twitch Reward'}"));
         var rewardContent = Assert.Single(rewardBorder.Elements(), element => IsElement(element, "StackPanel"));
 
         const string createChecked = "{Binding Rule.RewardSyncMode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter=CreateOrManage}";
@@ -317,7 +323,7 @@ public sealed class AvatarSwapExistingRewardPickerRegressionTests
         originalHttpClient.Dispose();
 
         await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => client.GetCustomRewardsAsync(
-            "test-access-token",
+            TestAccessToken,
             RuntimeConfig.DefaultTwitchClientId,
             "test-broadcaster-id")));
 
@@ -574,8 +580,7 @@ public sealed class AvatarSwapExistingRewardPickerRegressionTests
         originalApiClient.Dispose();
         SetPrivateField(vm, "runtimeConfigLoaded", true);
 
-        var testAccessToken = "test-access-token";
-        vm.Settings.Broadcaster.AccessToken = testAccessToken;
+        vm.Settings.Broadcaster.AccessToken = TestAccessToken;
         vm.Settings.Broadcaster.UserId = "test-broadcaster-id";
         vm.Settings.Broadcaster.Login = "test-broadcaster";
         vm.Settings.Broadcaster.DisplayName = "Test Broadcaster";

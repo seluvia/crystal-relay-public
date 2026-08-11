@@ -68,7 +68,7 @@ public static class AvatarSwapMigrationService
             foreach (var rule in rulesToMove)
             {
                 var swapProfile = FindOrCreateSwapProfile(settings, rule.AvatarChangeTargetId, rule.AvatarTargetName);
-                MigrateInto(swapProfile.ChannelPointRules, rule, TriggerRuleSource.AvatarSet);
+                MigrateInto(GetTargetCollectionForTrigger(swapProfile, rule), rule, TriggerRuleSource.AvatarSet);
                 profile.ChannelPointRules.Remove(rule);
             }
         }
@@ -120,7 +120,7 @@ public static class AvatarSwapMigrationService
             {
                 var firstPoolId = rule.AvatarRouletAvatarIds.First();
                 var swapProfile = FindOrCreateSwapProfile(settings, firstPoolId, firstPoolId);
-                MigrateInto(swapProfile.ChannelPointRules, rule, TriggerRuleSource.AvatarSet);
+                MigrateInto(GetTargetCollectionForTrigger(swapProfile, rule), rule, TriggerRuleSource.AvatarSet);
                 profile.ChannelPointRules.Remove(rule);
             }
         }
@@ -133,7 +133,7 @@ public static class AvatarSwapMigrationService
         {
             var firstPoolId = rule.AvatarRouletAvatarIds.First();
             var swapProfile = FindOrCreateSwapProfile(settings, firstPoolId, firstPoolId);
-            MigrateInto(swapProfile.ChannelPointRules, rule, TriggerRuleSource.GlobalOverride);
+            MigrateInto(GetTargetCollectionForTrigger(swapProfile, rule), rule, TriggerRuleSource.GlobalOverride);
             settings.GlobalOverrideRules.Remove(rule);
         }
 
@@ -182,19 +182,13 @@ public static class AvatarSwapMigrationService
                 foreach (var t in persistedProfile.BitsSubsRules ?? new List<SettingsStore.PersistedTriggerRule>())
                 {
                     var rule = PersistedToRule(t);
-                    if (rule.TriggerType == TwitchTriggerType.Bits)
+                    if (rule.TriggerType is TwitchTriggerType.Subscriptions or TwitchTriggerType.GiftSubscription
+                        && rule.IsGiftSubscription)
                     {
-                        live.BitsRules.Add(rule);
+                        rule.TriggerType = TwitchTriggerType.GiftSubscription;
                     }
-                    else if (rule.TriggerType == TwitchTriggerType.Subscriptions)
-                    {
-                        if (rule.IsGiftSubscription) rule.TriggerType = TwitchTriggerType.GiftSubscription;
-                        live.SubsRules.Add(rule);
-                    }
-                    else
-                    {
-                        live.ChannelPointRules.Add(rule);
-                    }
+
+                    AddIfMissingById(GetTargetCollectionForTrigger(live, rule), rule);
                 }
 
                 foreach (var t in persistedProfile.RouletteRules ?? new List<SettingsStore.PersistedTriggerRule>())
@@ -268,8 +262,16 @@ public static class AvatarSwapMigrationService
         TriggerRule rule,
         TriggerRuleSource source)
     {
-        if (target.Contains(rule)) return;
+        if (target.Any(existing => existing.Id == rule.Id)) return;
         rule.Source = source;
+        target.Add(rule);
+    }
+
+    private static void AddIfMissingById(
+        ObservableCollection<TriggerRule> target,
+        TriggerRule rule)
+    {
+        if (target.Any(existing => existing.Id == rule.Id)) return;
         target.Add(rule);
     }
 
@@ -297,7 +299,8 @@ public static class AvatarSwapMigrationService
         {
             TwitchTriggerType.Bits => profile.BitsRules,
             TwitchTriggerType.Subscriptions or TwitchTriggerType.GiftSubscription => profile.SubsRules,
-            _ => profile.ChannelPointRules,
+            TwitchTriggerType.ChannelPoints => profile.ChannelPointRules,
+            _ => profile.AdvancedRules,
         };
     }
 

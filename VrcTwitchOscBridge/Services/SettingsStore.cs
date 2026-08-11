@@ -1079,6 +1079,9 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             SubscriptionTier1SecondsPerSub = rule.SubscriptionTier1SecondsPerSub,
             SubscriptionTier2SecondsPerSub = rule.SubscriptionTier2SecondsPerSub,
             SubscriptionTier3SecondsPerSub = rule.SubscriptionTier3SecondsPerSub,
+            SubsTriggerCount = rule.SubsTriggerCount,
+            SubsAccumulationEnabled = rule.SubsAccumulationEnabled,
+            SubsCarryOverEnabled = rule.SubsCarryOverEnabled,
             SubscriptionTier1Enabled = rule.SubscriptionTier1Enabled,
             SubscriptionTier2Enabled = rule.SubscriptionTier2Enabled,
             SubscriptionTier3Enabled = rule.SubscriptionTier3Enabled,
@@ -1218,6 +1221,7 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             CreatedAt = profile.CreatedAt,
             UpdatedAt = profile.UpdatedAt,
             ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
+            AdvancedRules = [.. profile.AdvancedRules.Select(ToPersistedRule)],
             BitsRules = [.. profile.BitsRules.Select(ToPersistedRule)],
             SubsRules = [.. profile.SubsRules.Select(ToPersistedRule)],
             PaymentRules = [.. profile.PaymentRules.Select(ToPersistedCashPaymentRule)],
@@ -1246,7 +1250,21 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
         };
         foreach (var rule in (profile.ChannelPointRules ?? []).Select(ToRule))
         {
-            result.ChannelPointRules.Add(rule);
+            if (rule.TriggerType == TwitchTriggerType.ChannelPoints)
+            {
+                result.ChannelPointRules.Add(rule);
+            }
+            else
+            {
+                result.AdvancedRules.Add(rule);
+            }
+        }
+        foreach (var rule in (profile.AdvancedRules ?? []).Select(ToRule))
+        {
+            if (!result.AdvancedRules.Any(existing => existing.Id == rule.Id))
+            {
+                result.AdvancedRules.Add(rule);
+            }
         }
         foreach (var rule in (profile.BitsRules ?? []).Select(ToRule))
         {
@@ -1400,6 +1418,14 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             SubscriptionTier3SecondsPerSub = rule.SubscriptionTier3SecondsPerSub <= 0
                 ? migratedSubscriptionSecondsPerAmountUnit
                 : rule.SubscriptionTier3SecondsPerSub,
+            SubsTriggerCount = rule.SubsTriggerCount is { } explicitSubscriptionTriggerCount
+                ? Math.Max(1, explicitSubscriptionTriggerCount)
+                : rule.TriggerType is (TwitchTriggerType.Subscriptions or TwitchTriggerType.GiftSubscription)
+                    && rule.MinimumAmount > 1
+                    ? rule.MinimumAmount
+                    : 1,
+            SubsAccumulationEnabled = rule.SubsAccumulationEnabled,
+            SubsCarryOverEnabled = rule.SubsCarryOverEnabled,
             SubscriptionTier1Enabled = rule.SubscriptionTier1Enabled,
             SubscriptionTier2Enabled = rule.SubscriptionTier2Enabled,
             SubscriptionTier3Enabled = rule.SubscriptionTier3Enabled,
@@ -3336,6 +3362,8 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
 
         public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
 
+        public List<PersistedTriggerRule>? AdvancedRules { get; set; }
+
         public List<PersistedTriggerRule>? BitsRules { get; set; }
 
         public List<PersistedTriggerRule>? SubsRules { get; set; }
@@ -3471,6 +3499,12 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
         public int SubscriptionTier2SecondsPerSub { get; set; }
 
         public int SubscriptionTier3SecondsPerSub { get; set; }
+
+        public int? SubsTriggerCount { get; set; }
+
+        public bool SubsAccumulationEnabled { get; set; }
+
+        public bool SubsCarryOverEnabled { get; set; }
 
         public bool SubscriptionTier1Enabled { get; set; } = true;
 

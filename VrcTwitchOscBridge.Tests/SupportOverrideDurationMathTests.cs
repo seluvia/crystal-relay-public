@@ -78,7 +78,7 @@ public sealed class SupportOverrideDurationMathTests
     public void ComputePerEventAddSeconds_GiftSubs_ReturnsBasePlusScaledTimesCount()
     {
         var rule = TestTriggerRuleSnapshotBuilder.Build(
-            triggerType: TwitchTriggerType.Subscriptions,
+            triggerType: TwitchTriggerType.GiftSubscription,
             amountScaledDurationEnabled: true,
             durationSeconds: 60,
             subscriptionTier1SecondsPerSub: 30);

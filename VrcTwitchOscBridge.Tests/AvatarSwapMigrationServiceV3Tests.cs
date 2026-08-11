@@ -32,6 +32,35 @@ public sealed class AvatarSwapMigrationServiceV3Tests
     }
 
     [Fact]
+    public void MigrateV3_FoldsLegacyProfileChatCommandIntoAdvancedRules()
+    {
+        var settings = new AppSettings();
+        var profile = new AvatarTriggerProfile { AvatarId = "avtr_a", AvatarName = "A" };
+        var rule = new TriggerRule
+        {
+            TriggerType = TwitchTriggerType.ChatCommand,
+            ActionType = OscActionType.AvatarChange,
+            AvatarChangeTargetId = "avtr_b",
+            AvatarTargetName = "B",
+            ChatCommandEnabled = true,
+            ChatCommandText = "!swap"
+        };
+        profile.ChannelPointRules.Add(rule);
+        settings.AvatarProfiles.Add(profile);
+
+        AvatarSwapMigrationService.Migrate(settings);
+
+        var swapProfile = Assert.Single(settings.AvatarSwapProfiles);
+        Assert.Empty(profile.ChannelPointRules);
+        Assert.Empty(swapProfile.ChannelPointRules);
+        var migrated = Assert.Single(swapProfile.AdvancedRules);
+        Assert.Same(rule, migrated);
+        Assert.Equal(rule.Id, migrated.Id);
+        Assert.Equal(TwitchTriggerType.ChatCommand, migrated.TriggerType);
+        Assert.Equal(TriggerRuleSource.AvatarSet, migrated.Source);
+    }
+
+    [Fact]
     public void MigrateV3_FoldsAndRemovesFromGlobalOverrideRules()
     {
         var settings = new AppSettings();
@@ -49,6 +78,34 @@ public sealed class AvatarSwapMigrationServiceV3Tests
         Assert.Empty(settings.GlobalOverrideRules);
         Assert.Single(settings.AvatarSwapProfiles[0].BitsRules);
         Assert.Equal(TriggerRuleSource.GlobalOverride, rule.Source);
+    }
+
+    [Theory]
+    [InlineData(TwitchTriggerType.ChatCommand)]
+    [InlineData(TwitchTriggerType.Follow)]
+    public void MigrateV3_FoldsLegacyGlobalNonChannelPointRulesIntoAdvancedRules(
+        TwitchTriggerType triggerType)
+    {
+        var settings = new AppSettings();
+        var rule = new TriggerRule
+        {
+            TriggerType = triggerType,
+            ActionType = OscActionType.AvatarChange,
+            AvatarChangeTargetId = "avtr_a",
+            AvatarTargetName = "A"
+        };
+        settings.GlobalOverrideRules.Add(rule);
+
+        AvatarSwapMigrationService.Migrate(settings);
+
+        var swapProfile = Assert.Single(settings.AvatarSwapProfiles);
+        Assert.Empty(settings.GlobalOverrideRules);
+        Assert.Empty(swapProfile.ChannelPointRules);
+        var migrated = Assert.Single(swapProfile.AdvancedRules);
+        Assert.Same(rule, migrated);
+        Assert.Equal(rule.Id, migrated.Id);
+        Assert.Equal(triggerType, migrated.TriggerType);
+        Assert.Equal(TriggerRuleSource.GlobalOverride, migrated.Source);
     }
 
     [Fact]

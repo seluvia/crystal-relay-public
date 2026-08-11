@@ -52,10 +52,11 @@ public sealed class AvatarSwapCardViewModel : ObservableObject, IDisposable
         get
         {
             var cp = Profile.ChannelPointRules?.Count ?? 0;
+            var advanced = Profile.AdvancedRules?.Count ?? 0;
             var bits = Profile.BitsRules?.Count ?? 0;
             var subs = Profile.SubsRules?.Count ?? 0;
             var pay = Profile.PaymentRules?.Count ?? 0;
-            return (cp + bits + subs + pay).ToString();
+            return (cp + advanced + bits + subs + pay).ToString();
         }
     }
 
@@ -67,13 +68,15 @@ public sealed class AvatarSwapCardViewModel : ObservableObject, IDisposable
 
     public bool UsesChannelPointRules => Profile.UsesChannelPointRules;
 
+    public bool UsesAdvancedRules => Profile.UsesAdvancedRules;
+
     public bool UsesBitsRules => Profile.UsesBitsRules;
 
     public bool UsesSubsRules => Profile.UsesSubsRules;
 
     public bool UsesPaymentRules => Profile.UsesPaymentRules;
 
-    public bool HasAnyRules => UsesChannelPointRules || UsesBitsRules || UsesSubsRules || UsesPaymentRules;
+    public bool HasAnyRules => UsesChannelPointRules || UsesAdvancedRules || UsesBitsRules || UsesSubsRules || UsesPaymentRules;
 
     public System.Windows.Media.Brush StatusStripeBrush => Profile.IsEnabled
         ? System.Windows.Media.Brushes.MediumSeaGreen
@@ -166,6 +169,7 @@ public sealed class AvatarSwapCardViewModel : ObservableObject, IDisposable
             // forward those to refresh the card's count badge and subtitle live.
             case nameof(AvatarSwapProfile.HasRules):
             case nameof(AvatarSwapProfile.UsesChannelPointRules):
+            case nameof(AvatarSwapProfile.UsesAdvancedRules):
             case nameof(AvatarSwapProfile.UsesBitsRules):
             case nameof(AvatarSwapProfile.UsesSubsRules):
             case nameof(AvatarSwapProfile.UsesPaymentRules):
@@ -175,6 +179,7 @@ public sealed class AvatarSwapCardViewModel : ObservableObject, IDisposable
                 RaisePropertyChanged(nameof(HasRules));
                 RaisePropertyChanged(nameof(HasAnyRules));
                 RaisePropertyChanged(nameof(UsesChannelPointRules));
+                RaisePropertyChanged(nameof(UsesAdvancedRules));
                 RaisePropertyChanged(nameof(UsesBitsRules));
                 RaisePropertyChanged(nameof(UsesSubsRules));
                 RaisePropertyChanged(nameof(UsesPaymentRules));

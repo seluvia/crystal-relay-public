@@ -2122,5 +2122,6 @@
   "{0}: {1}": "{0}: {1}",
   "{0}s cooldown": "{0}s Abklingzeit",
   "— No group —": "— Keine Gruppe —",
-  "✨ Universal Triggers": "✨ Universal Triggers"
+  "✨ Universal Triggers": "✨ Universal Triggers",
+  "Advanced triggers (open full editor)": "Erweiterte Trigger (vollständigen Editor öffnen)"
 }

@@ -463,6 +463,9 @@
                 <Border Background="{DynamicResource NestedPanelBrush}" CornerRadius="4" Padding="10" Margin="0,0,0,8">
                     <StackPanel>
                         <TextBlock Text="{loc:Translate 'Chat Command'}" Foreground="{DynamicResource TextBrush}" FontWeight="SemiBold" Margin="0,0,0,8" />
+                        <CheckBox Content="{loc:Translate 'Enable chat command'}"
+                                  IsChecked="{Binding Rule.ChatCommandEnabled, UpdateSourceTrigger=PropertyChanged}"
+                                  Margin="0,0,0,8" />
                         <UniformGrid Columns="2">
                             <StackPanel Margin="0,0,8,0">
                                 <TextBlock Text="{loc:Translate 'Exact Command'}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,0,0,2" />
@@ -521,6 +524,31 @@
                             </StackPanel>
                         </StackPanel>
                         <CheckBox IsChecked="{Binding Rule.DeleteManagedRewardWhenInactive}" Content="{loc:Translate 'Free Twitch reward slots when inactive'}" Margin="0,8,0,0" />
+                    </StackPanel>
+                </Border>
+                <Border Background="{DynamicResource NestedPanelBrush}" CornerRadius="4" Padding="10" Margin="0,8,0,0">
+                    <StackPanel>
+                        <TextBlock Text="{loc:Translate 'Chat Command Fallback'}"
+                                   Foreground="{DynamicResource TextBrush}"
+                                   FontWeight="SemiBold"
+                                   Margin="0,0,0,8" />
+                        <CheckBox Content="{loc:Translate 'Enable chat command fallback'}"
+                                  IsChecked="{Binding Rule.ChatCommandEnabled, UpdateSourceTrigger=PropertyChanged}" />
+                        <UniformGrid Columns="2" Margin="0,8,0,0">
+                            <StackPanel Margin="0,0,8,0">
+                                <TextBlock Text="{loc:Translate 'Exact Command'}"
+                                           Foreground="{DynamicResource MutedBrush}"
+                                           FontSize="11" />
+                                <TextBox Text="{Binding Rule.ChatCommandText, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+                            <StackPanel Margin="8,0,0,0">
+                                <TextBlock Text="{loc:Translate 'Who Can Use It'}"
+                                           Foreground="{DynamicResource MutedBrush}"
+                                           FontSize="11" />
+                                <ComboBox ItemsSource="{Binding DataContext.ChatCommandPermissionOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                          SelectedItem="{Binding Rule.ChatCommandPermission, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+                        </UniformGrid>
                     </StackPanel>
                 </Border>
             </StackPanel>

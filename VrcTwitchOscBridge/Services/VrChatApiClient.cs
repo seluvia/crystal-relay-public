@@ -737,7 +737,8 @@ public sealed class VrChatApiClient : IDisposable
             throw new InvalidOperationException("Enter both the VRChat username and password before continuing.");
         }
 
-        var raw = $"{username.Trim()}:{password}";
+        // VRChat expects each credential URL-encoded before the Basic payload is Base64-encoded.
+        var raw = $"{Uri.EscapeDataString(username.Trim())}:{Uri.EscapeDataString(password)}";
         return Convert.ToBase64String(Encoding.UTF8.GetBytes(raw));
     }
 

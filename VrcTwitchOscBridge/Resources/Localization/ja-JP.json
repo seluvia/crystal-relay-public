@@ -2122,5 +2122,6 @@
   "You are offline.": "あなたはオフラインです。",
   "Your crystal bridge from Twitch to VRChat": "TwitchからVRChatへのクリスタルブリッジ",
   "Your favorited avatars": "あなたのお気に入りのアバターたち",
-  "Your password is used only for this login step and is not saved by Crystal Relay.": "パスワードはこのログインステップでのみ使用され、Crystal Relayによって保存されることはありません。"
+  "Your password is used only for this login step and is not saved by Crystal Relay.": "パスワードはこのログインステップでのみ使用され、Crystal Relayによって保存されることはありません。",
+  "Advanced triggers (open full editor)": "高度なトリガー（完全なエディターを開く）"
 }

@@ -141,11 +141,32 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private readonly IActivityResumeService activityResumeService;
     private WardrobeExecutorService? wardrobeExecutor;
     private readonly object stateGate = new();
+    private readonly SemaphoreSlim runtimeLifecycleGate = new(1, 1);
+    private readonly SemaphoreSlim avatarScopedResetSendGate = new(1, 1);
+    private readonly object avatarScopedResetSendLifecycleGate = new();
+    private TaskCompletionSource avatarScopedResetSendUsersDrained = CreateCompletedTaskSource();
+    private int avatarScopedResetSendUserCount;
+    private bool avatarScopedResetSendDisposalStarted;
+    private readonly SemaphoreSlim timedSupporterOverrideTransitionGate = new(1, 1);
+    private readonly object timedSupporterOverrideTransitionLifecycleGate = new();
+    private TaskCompletionSource timedSupporterOverrideTransitionUsersDrained = CreateCompletedTaskSource();
+    private int timedSupporterOverrideTransitionUserCount;
+    private bool timedSupporterOverrideTransitionStopping;
+    private bool timedSupporterOverrideTransitionDisposalStarted;
     private readonly SemaphoreSlim avatarScaleWriteGate = new(1, 1);
     private readonly object avatarScaleWriteLifecycleGate = new();
     private TaskCompletionSource avatarScaleWriteUsersDrained = CreateCompletedTaskSource();
     private int avatarScaleWriteUserCount;
     private bool avatarScaleWriteGateDisposalStarted;
+    private readonly object persistentEffectTaskGate = new();
+    private readonly HashSet<Task> persistentEffectTasks = [];
+    private readonly Dictionary<Task, CancellationTokenSource> persistentEffectWorkerCancellations = [];
+    private readonly AsyncLocal<AvatarScopedEffectOwnership?> scheduledPulseOwnership = new();
+    private bool persistentEffectAdmissionClosed;
+    private Func<byte[], CancellationToken, Task>? testSendToVrChatAsync;
+    private Func<Task>? testStopOscRouterAsync;
+    private Func<CancellationToken, Task>? testForceReleaseDesktopInputAsync;
+    private TaskCompletionSource? testAvatarScopedResetReplacementGateWait;
     // Runtime state for cooldowns, queued redeems, movement lanes, active timed resets,
     // and the temporary disable-pairing system used by avatar-set redeems.
     private readonly Dictionary<Guid, DateTimeOffset> cooldowns = [];
@@ -161,6 +182,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private readonly Dictionary<Guid, PendingResetState> pendingResets = [];
     private readonly Dictionary<Guid, ActiveFloatRedeemSessionState> activeFloatRedeemSessions = [];
     private readonly Dictionary<Guid, ActiveFloatGlitchyRedeemSessionState> activeGlitchyRedeemSessions = [];
+    private readonly Dictionary<Guid, ActiveFloatPulseRestoreState> activeFloatPulseRestores = [];
     private readonly Dictionary<string, DateTimeOffset> recentMessageIds = [];
     private readonly Dictionary<string, OscObservedValue> avatarParameterValues = [];
     private readonly Dictionary<string, OscObservedValue> avatarScaleValues = new(StringComparer.Ordinal);
@@ -198,6 +220,10 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private readonly Dictionary<Guid, HashSet<string>> avatarScaleFollowTriggeredUsers = [];
     private readonly Dictionary<Guid, DateTimeOffset> activeAvatarScaleEffects = [];
     private readonly Dictionary<Guid, CancellationTokenSource> avatarScaleEffectStateNotifications = [];
+    private static readonly Func<TimeSpan, CancellationToken, Task> ProductionAvatarScaleEffectNotificationDelay =
+        static (delay, cancellationToken) => Task.Delay(delay, cancellationToken);
+    private Func<TimeSpan, CancellationToken, Task> avatarScaleEffectNotificationDelayFactory =
+        ProductionAvatarScaleEffectNotificationDelay;
     private readonly Dictionary<Guid, ActiveAvatarScaleHeightSessionState> activeAvatarScaleHeightSessions = [];
     private readonly Dictionary<Guid, int> subsAccumulator = new();
     private readonly Dictionary<string, PendingAvatarScaleHeightRestoreState> pendingAvatarScaleHeightRestores = new(StringComparer.Ordinal);
@@ -258,6 +284,7 @@ public sealed class BridgeCoordinator : IAsyncDisposable
     private long avatarScaleRuntimeGeneration;
     private long runtimeSessionGeneration;
     private bool isStopping;
+    private bool runtimeDisposalStarted;
     private Task avatarScaleActivityResumeCleanupTask = Task.CompletedTask;
     private readonly object pendingActivityResumeGate = new();
     private Task? pendingActivityResumeTask;
@@ -283,6 +310,10 @@ internal BridgeCoordinator(
         oscRouterService.ObservedValueReceived += observedValue => ObserveOscValue(observedValue);
         oscRouterService.DiscoveryStateChanged += OnOscDiscoveryStateChanged;
         desktopInputLockService.EmergencyUnlockTriggered += HandleEmergencyDesktopInputUnlock;
+        testSendToVrChatAsync = null;
+        testStopOscRouterAsync = null;
+        testForceReleaseDesktopInputAsync = null;
+        testAvatarScopedResetReplacementGateWait = null;
     }
 
     private WardrobeExecutorService GetWardrobeExecutor()
@@ -535,10 +566,29 @@ internal BridgeCoordinator(
 
     public void UpdateCurrentVrChatAvatar(string avatarId)
     {
+        if (IsRuntimeDisposalStarted())
+        {
+            return;
+        }
+
         SetCurrentVrChatAvatar(avatarId, notify: false);
     }
 
     public async Task StartAsync(BridgeRuntimeConfiguration configuration)
+    {
+        await runtimeLifecycleGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            EnsureRuntimeAdmissionOpen();
+            await StartCoreAsync(configuration).ConfigureAwait(false);
+        }
+        finally
+        {
+            runtimeLifecycleGate.Release();
+        }
+    }
+
+    private async Task StartCoreAsync(BridgeRuntimeConfiguration configuration)
     {
         if (IsRunning)
         {
@@ -546,10 +596,12 @@ internal BridgeCoordinator(
         }
 
         ValidateConfiguration(configuration);
+        ReopenTimedSupporterOverrideTransitionAdmission();
         lock (stateGate)
         {
             isStopping = false;
         }
+        OpenPersistentEffectAdmission();
         var upgradingOscOnlySession = oscSessionMode == OscSessionMode.OscOnly && oscRouterService.IsRunning;
 
         SetActiveConfiguration(configuration);
@@ -586,10 +638,28 @@ internal BridgeCoordinator(
 
     public async Task StartOscOnlyAsync(BridgeRuntimeConfiguration configuration, CancellationToken cancellationToken = default)
     {
+        await runtimeLifecycleGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            EnsureRuntimeAdmissionOpen();
+            await StartOscOnlyCoreAsync(configuration, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            runtimeLifecycleGate.Release();
+        }
+    }
+
+    private async Task StartOscOnlyCoreAsync(
+        BridgeRuntimeConfiguration configuration,
+        CancellationToken cancellationToken)
+    {
+        ReopenTimedSupporterOverrideTransitionAdmission();
         lock (stateGate)
         {
             isStopping = false;
         }
+        OpenPersistentEffectAdmission();
         var wasAlreadyRunning = oscRouterService.IsRunning;
         SetActiveConfiguration(configuration);
         RefreshSupporterOverrideBlockedRuleIds(configuration.Rules);
@@ -597,7 +667,7 @@ internal BridgeCoordinator(
         SetSharedReturnAvatar(configuration.SharedReturnAvatarId, configuration.SharedReturnAvatarName, notify: false);
         await oscRouterService.StartAsync(GetOscSubscriptionRules(configuration), cancellationToken);
         oscRouterService.UpdateRuleSubscriptions(GetOscSubscriptionRules(configuration));
-        runtimeCancellation ??= CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        runtimeCancellation ??= new CancellationTokenSource();
         oscSessionMode = OscSessionMode.OscOnly;
 
         if (!wasAlreadyRunning)
@@ -1447,7 +1517,8 @@ internal BridgeCoordinator(
         double maximumSmoothTransitionSeconds,
         Action? afterFirstSuccessfulSend,
         CancellationToken cancellationToken,
-        AvatarScaleRuleSnapshot? rule = null)
+        AvatarScaleRuleSnapshot? rule = null,
+        string? expectedResumeAvatarId = null)
     {
         var endAt = DateTimeOffset.UtcNow.Add(duration);
         Action? firstSendCallback = afterFirstSuccessfulSend;
@@ -1476,7 +1547,8 @@ internal BridgeCoordinator(
                         endAt,
                         RunAfterFirstSuccessfulSend,
                         cancellationToken,
-                        rule))
+                        rule,
+                        expectedResumeAvatarId))
                 {
                     return;
                 }
@@ -1499,7 +1571,8 @@ internal BridgeCoordinator(
                     transitionSeconds,
                     cancellationToken,
                     RunAfterFirstSuccessfulSend,
-                    rule))
+                    rule,
+                    expectedResumeAvatarId: expectedResumeAvatarId))
             {
                 return;
             }
@@ -1518,7 +1591,8 @@ internal BridgeCoordinator(
         DateTimeOffset endAt,
         Action afterFirstSuccessfulSend,
         CancellationToken cancellationToken,
-        AvatarScaleRuleSnapshot? rule = null)
+        AvatarScaleRuleSnapshot? rule = null,
+        string? expectedResumeAvatarId = null)
     {
         var range = maximumHeightMeters - minimumHeightMeters;
         var baseHeight = PickDevRandomAvatarScaleHeight(minimumHeightMeters, maximumHeightMeters);
@@ -1540,7 +1614,8 @@ internal BridgeCoordinator(
                     0,
                     cancellationToken,
                     afterFirstSuccessfulSend,
-                    rule))
+                    rule,
+                    expectedResumeAvatarId: expectedResumeAvatarId))
             {
                 return false;
             }
@@ -1728,6 +1803,7 @@ internal BridgeCoordinator(
         CancellationTokenSource? pausedCancellation = null;
         PausedAvatarScaleTimerSnapshot? snapshot = null;
         TimeSpan effectNotificationDelay = TimeSpan.Zero;
+        DateTimeOffset? effectNotificationExpectedActiveUntil = null;
         var shouldNotifyManagedRewards = false;
 
         lock (stateGate)
@@ -1760,6 +1836,7 @@ internal BridgeCoordinator(
                 var extendedUntil = now.Add(devDuration).Add(remaining);
                 activeAvatarScaleEffects[ruleId] = extendedUntil;
                 effectNotificationDelay = extendedUntil - now;
+                effectNotificationExpectedActiveUntil = extendedUntil;
                 shouldNotifyManagedRewards = true;
             }
 
@@ -1810,7 +1887,10 @@ internal BridgeCoordinator(
 
         if (snapshot.EffectWasActive)
         {
-            ScheduleAvatarScaleEffectStateNotification(snapshot.RuleId, effectNotificationDelay);
+            ScheduleAvatarScaleEffectStateNotification(
+                snapshot.RuleId,
+                effectNotificationDelay,
+                effectNotificationExpectedActiveUntil);
         }
 
         if (shouldNotifyManagedRewards)
@@ -2040,6 +2120,12 @@ internal BridgeCoordinator(
 
         lock (stateGate)
         {
+            if (isStopping)
+            {
+                newCancellation.Dispose();
+                return false;
+            }
+
             if (expectedRuntimeGeneration is long expectedGeneration
                 && avatarScaleRuntimeGeneration != expectedGeneration)
             {
@@ -2065,7 +2151,10 @@ internal BridgeCoordinator(
                 snapshot.RestoreSmoothTransitionSeconds,
                 snapshot.RestoreToPaidGrowthIfActive,
                 snapshot.IsTest,
-                snapshot.Rule);
+                snapshot.Rule)
+            {
+                ActivityDeadline = new(activeUntil)
+            };
             avatarScaleRestoreSequenceCancellation = newCancellation;
             activeAvatarScaleRestoreSequence = sequence;
 
@@ -2078,7 +2167,10 @@ internal BridgeCoordinator(
                     snapshot.AvatarId,
                     snapshot.RestoreHeightMeters,
                     snapshot.CarriedHeightMeters,
-                    activeUntil);
+                    activeUntil)
+                {
+                    ActivityDeadline = new(activeUntil)
+                };
                 SetActiveAvatarScaleCarryoverLocked(
                     snapshot.RuleId,
                     sessionId,
@@ -2096,13 +2188,15 @@ internal BridgeCoordinator(
             }
         }
 
-        _ = Task.Run(() => RunAvatarScaleRestoreSequenceAsync(sequence, newCancellation), CancellationToken.None);
+        TryStartPersistentEffectWorker(
+            () => RunAvatarScaleRestoreSequenceAsync(sequence, newCancellation),
+            newCancellation);
         if (snapshot.RuleId != Guid.Empty)
         {
-            ScheduleAvatarScaleHeightSessionEnd(snapshot.RuleId, sessionId, remaining, CancellationToken.None);
+            _ = ScheduleAvatarScaleHeightSessionEnd(snapshot.RuleId, sessionId, remaining, CancellationToken.None);
             if (snapshot.EffectWasActive)
             {
-                ScheduleAvatarScaleEffectStateNotification(snapshot.RuleId, remaining);
+                ScheduleAvatarScaleEffectStateNotification(snapshot.RuleId, remaining, activeUntil);
             }
         }
 
@@ -2183,7 +2277,18 @@ internal BridgeCoordinator(
             actionLanes.Remove(movementLaneKey);
         }
 
-        pendingReset?.Cancellation.Cancel();
+        if (pendingReset is not null)
+        {
+            // Pause removes the record before its worker observes cancellation, so the pause path owns CTS disposal.
+            try
+            {
+                pendingReset.Cancellation.Cancel();
+            }
+            finally
+            {
+                pendingReset.Cancellation.Dispose();
+            }
+        }
         if (snapshot is not null)
         {
             ApplyRuleLockoutUntil(
@@ -2615,6 +2720,15 @@ internal BridgeCoordinator(
 
         if (bridgeEvent is null)
         {
+            if (universalEvent is { TriggerType: UniversalTriggerType.Follow })
+            {
+                await ExecuteAvatarSwapFollowRulesAsync(
+                    configuration,
+                    ruleIndex,
+                    universalEvent,
+                    cancellationToken);
+            }
+
             return;
         }
 
@@ -2685,6 +2799,50 @@ internal BridgeCoordinator(
         }
     }
 
+    private async Task ExecuteAvatarSwapFollowRulesAsync(
+        BridgeRuntimeConfiguration configuration,
+        RuntimeRuleIndex ruleIndex,
+        UniversalIncomingEvent incomingEvent,
+        CancellationToken cancellationToken)
+    {
+        var bridgeEvent = new BridgeIncomingEvent(
+            TwitchTriggerType.Follow,
+            incomingEvent.UserDisplayName,
+            incomingEvent.Amount,
+            null,
+            null,
+            "Follow",
+            false,
+            string.Empty,
+            incomingEvent.UserId,
+            incomingEvent.UserLogin,
+            incomingEvent.BadgeSetIds,
+            incomingEvent.UserIsModerator,
+            incomingEvent.UserIsBroadcaster);
+        var matchingRules = SelectMatchingRules(
+            configuration,
+            ruleIndex,
+            bridgeEvent,
+            GetCurrentVrChatAvatarId(),
+            IsAvatarChangeTransitionActive(),
+            GetTemporarilyDisabledRuleIds());
+        if (matchingRules.Length == 0)
+        {
+            return;
+        }
+
+        if (AreRedeemsPaused())
+        {
+            LogRedeemsPaused();
+            return;
+        }
+
+        foreach (var rule in matchingRules)
+        {
+            await ExecuteRuleAsync(rule, bridgeEvent, cancellationToken);
+        }
+    }
+
     public AvatarScaleRuntimeStatus GetAvatarScaleRuntimeStatus()
     {
         lock (stateGate)
@@ -2718,112 +2876,405 @@ internal BridgeCoordinator(
 
     public async Task StopAsync()
     {
-        var hadRuntimeCancellation = runtimeCancellation is not null;
+        await runtimeLifecycleGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            await StopCoreAsync().ConfigureAwait(false);
+        }
+        finally
+        {
+            runtimeLifecycleGate.Release();
+        }
+    }
+
+    private async Task StopCoreAsync()
+    {
+        MarkTimedSupporterOverrideTransitionStopping();
         lock (stateGate)
         {
             isStopping = true;
             runtimeSessionGeneration++;
         }
 
-        if (runtimeTask is null)
-        {
-            runtimeCancellation?.Cancel();
-            runtimeCancellation?.Dispose();
-            runtimeCancellation = null;
-            await WaitForActivityResumeGateUsersAsync();
-            await WaitForActiveMovementCleanupTasksAsync();
-            if (hadRuntimeCancellation)
-            {
-                await ResetPendingRulesAsync();
-            }
-            await WaitForActiveMovementCleanupTasksAsync();
-            await StopOscRouterSafelyAsync();
-            ClearActiveConfiguration();
-            broadcaster = null;
-            bot = null;
-            currentVrChatAvatarId = string.Empty;
-            CancelPendingStreamOfflineConfirmation();
-            isBroadcasterLive = false;
-            hasResolvedBroadcasterLiveState = false;
-            nextTriggerInfoAnnouncementAt = DateTimeOffset.MinValue;
-            oscSessionMode = OscSessionMode.Stopped;
-            ClearRuntimeState();
-            StreamStateChanged?.Invoke(false, false);
-            StatusChanged?.Invoke("Background bridge stopped.");
-            return;
-        }
-
-        if (runtimeCancellation is null)
-        {
-            await WaitForActivityResumeGateUsersAsync();
-            await WaitForActiveMovementCleanupTasksAsync();
-            await ResetPendingRulesAsync();
-            await StopOscRouterSafelyAsync();
-            ClearActiveConfiguration();
-            broadcaster = null;
-            bot = null;
-            currentVrChatAvatarId = string.Empty;
-            CancelPendingStreamOfflineConfirmation();
-            isBroadcasterLive = false;
-            hasResolvedBroadcasterLiveState = false;
-            nextTriggerInfoAnnouncementAt = DateTimeOffset.MinValue;
-            oscSessionMode = OscSessionMode.Stopped;
-            ClearRuntimeState();
-            StreamStateChanged?.Invoke(false, false);
-            StatusChanged?.Invoke("Background bridge stopped.");
-            return;
-        }
-
-        runtimeCancellation.Cancel();
+        var runtimeTaskToAwait = runtimeTask;
+        var runtimeCancellationToDispose = runtimeCancellation;
+        var shouldNotifyStreamStopped = runtimeTaskToAwait is null || runtimeCancellationToDispose is null;
+        runtimeCancellationToDispose?.Cancel();
 
         try
         {
-            await runtimeTask;
+            if (runtimeTaskToAwait is not null)
+            {
+                await runtimeTaskToAwait;
+            }
         }
         catch (OperationCanceledException)
         {
         }
         finally
         {
-            runtimeCancellation.Dispose();
+            runtimeCancellationToDispose?.Dispose();
             runtimeCancellation = null;
             runtimeTask = null;
-            await WaitForActivityResumeGateUsersAsync();
-            await WaitForActiveMovementCleanupTasksAsync();
-            await ResetPendingRulesAsync();
-            await WaitForActiveMovementCleanupTasksAsync();
+            await ResetRuntimeEffectsBeforeOscShutdownAsync();
             await StopOscRouterSafelyAsync();
             ClearActiveConfiguration();
             broadcaster = null;
             bot = null;
-            currentVrChatAvatarId = string.Empty;
+            ClearCurrentVrChatAvatarForShutdown();
             CancelPendingStreamOfflineConfirmation();
             isBroadcasterLive = false;
             hasResolvedBroadcasterLiveState = false;
             nextTriggerInfoAnnouncementAt = DateTimeOffset.MinValue;
             oscSessionMode = OscSessionMode.Stopped;
             ClearRuntimeState();
+            if (shouldNotifyStreamStopped)
+            {
+                StreamStateChanged?.Invoke(false, false);
+            }
+
             StatusChanged?.Invoke("Background bridge stopped.");
+        }
+    }
+
+    private async Task ResetRuntimeEffectsBeforeOscShutdownAsync()
+    {
+        ClosePersistentEffectAdmission();
+        PersistentEffectResetPlans resetPlans;
+        lock (stateGate)
+        {
+            resetPlans = CapturePersistentEffectResetPlansLocked();
+        }
+
+        CancelPersistentEffectWorkers();
+        CancelPersistentEffectResetPlans(resetPlans);
+        await WaitForPersistentEffectTasksAsync();
+        await WaitForAvatarScaleWriteUsersAsync();
+        await SendPersistentEffectResetPlansAsync(resetPlans);
+
+        await WaitForActivityResumeGateUsersAsync();
+        await WaitForActiveMovementCleanupTasksAsync();
+        await ResetPendingRulesAsync();
+        await WaitForActiveMovementCleanupTasksAsync();
+        await WaitForTimedSupporterOverrideTransitionUsersAsync();
+    }
+
+    private PersistentEffectResetPlans CapturePersistentEffectResetPlansLocked()
+    {
+        var floatPlans = activeFloatRedeemSessions.Values
+            .Select(session => new PersistentFloatResetPlan(session))
+            .ToArray();
+        var glitchyFloatPlans = activeGlitchyRedeemSessions.Values
+            .Select(session => new PersistentGlitchyFloatResetPlan(session))
+            .ToArray();
+        var pulsePlans = activeFloatPulseRestores.Values
+            .Select(pulse => new PersistentFloatPulseResetPlan(pulse))
+            .ToArray();
+        var scaleRestorePlan = activeAvatarScaleRestoreSequence is { } activeSequence
+            && activeSequence.Rule?.RestoreMode != AvatarScaleRestoreMode.None
+            ? new PersistentAvatarScaleRestorePlan(
+                activeSequence.RestoreHeightMeters,
+                activeSequence.RestoreSmoothTransitionSeconds,
+                activeSequence.SourceRuleName,
+                activeSequence.Rule,
+                avatarScaleRestoreSequenceCancellation)
+            : null;
+        var supporterGrowthPlans = avatarScaleSupporterGrowthStates
+            .Select(pair => new PersistentSupporterGrowthResetPlan(
+                pair.Key,
+                pair.Value.NormalHeightMeters,
+                activeConfiguration?.AvatarScaleRules.FirstOrDefault(rule => rule.Id == pair.Key)?.Name
+                    ?? "Supporter Growth",
+                activeConfiguration?.AvatarScaleRules.FirstOrDefault(rule => rule.Id == pair.Key),
+                pair.Value.SessionCancellation))
+            .ToArray();
+
+        return new PersistentEffectResetPlans(
+            floatPlans,
+            glitchyFloatPlans,
+            pulsePlans,
+            scaleRestorePlan,
+            supporterGrowthPlans);
+    }
+
+    private void CancelPersistentEffectResetPlans(PersistentEffectResetPlans resetPlans)
+    {
+        foreach (var plan in resetPlans.FloatPlans)
+        {
+            CancelPersistentEffectSource(plan.Session.CompletionCancellation);
+        }
+
+        foreach (var plan in resetPlans.GlitchyFloatPlans)
+        {
+            CancelPersistentEffectSource(plan.Session.CompletionCancellation);
+        }
+
+        foreach (var plan in resetPlans.PulsePlans)
+        {
+            CancelPersistentEffectSource(plan.Pulse.Cancellation);
+        }
+
+        if (resetPlans.ScaleRestorePlan?.Cancellation is { } scaleCancellation)
+        {
+            CancelPersistentEffectSource(scaleCancellation);
+        }
+
+        foreach (var plan in resetPlans.SupporterGrowthPlans)
+        {
+            if (plan.Cancellation is { } supporterCancellation)
+            {
+                CancelPersistentEffectSource(supporterCancellation);
+            }
+        }
+    }
+
+    private void CancelPersistentEffectSource(CancellationTokenSource cancellation)
+    {
+        try
+        {
+            cancellation.Cancel(throwOnFirstException: false);
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+        catch (Exception exception)
+        {
+            WriteLog($"Persistent effect reset cancellation failed during shutdown: {SensitiveTextSanitizer.Sanitize(exception.Message)}");
+        }
+    }
+
+    private async Task SendPersistentEffectResetPlansAsync(PersistentEffectResetPlans resetPlans)
+    {
+        foreach (var plan in resetPlans.FloatPlans)
+        {
+            var session = plan.Session;
+            try
+            {
+                await session.SendGate.WaitAsync(CancellationToken.None).ConfigureAwait(false);
+                try
+                {
+                    var sendOutcome = AvatarScopedFloatSendOutcome.Sent;
+                    if (string.IsNullOrWhiteSpace(session.SourceAvatarId))
+                    {
+                        await SendFloatAvatarParameterValueAsync(
+                            session.Address,
+                            session.CurrentValue,
+                            session.ResetValue,
+                            session.Rule.FloatTransitionOutSeconds,
+                            CancellationToken.None).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        sendOutcome = await TrySendAvatarScopedFloatValueAsync(
+                            session.Address,
+                            session.CurrentValue,
+                            session.ResetValue,
+                            session.Rule.FloatTransitionOutSeconds,
+                            session.SourceAvatarId,
+                            session.CompletionCancellation,
+                            session.MovementLaneLeaseId,
+                            (expectedCancellation, expectedLeaseId) =>
+                                activeFloatRedeemSessions.TryGetValue(session.Rule.Id, out var currentSession)
+                                && ReferenceEquals(currentSession, session)
+                                && ReferenceEquals(currentSession.CompletionCancellation, expectedCancellation)
+                                && currentSession.MovementLaneLeaseId == expectedLeaseId,
+                            CancellationToken.None,
+                            allowCancelledExpectedCancellation: true).ConfigureAwait(false);
+                    }
+
+                    if (sendOutcome != AvatarScopedFloatSendOutcome.Sent)
+                    {
+                        continue;
+                    }
+
+                    session.CurrentValue = session.ResetValue;
+                    RememberAvatarParameterValue(
+                        session.Rule,
+                        FloatValueModeConverter.ToOscText(session.ResetValue));
+                }
+                finally
+                {
+                    session.SendGate.Release();
+                }
+            }
+            catch (Exception exception)
+            {
+                WriteLog($"Failed to reset '{session.Rule.Name}' during shutdown: {SensitiveTextSanitizer.Sanitize(exception.Message)}");
+            }
+        }
+
+        foreach (var plan in resetPlans.GlitchyFloatPlans)
+        {
+            var session = plan.Session;
+            try
+            {
+                var sendOutcome = AvatarScopedFloatSendOutcome.Sent;
+                if (string.IsNullOrWhiteSpace(session.SourceAvatarId))
+                {
+                    await SendFloatAvatarParameterValueAsync(
+                        session.Address,
+                        session.CurrentValue,
+                        session.ResetValue,
+                        session.Rule.FloatTransitionOutSeconds,
+                        CancellationToken.None).ConfigureAwait(false);
+                }
+                else
+                {
+                    sendOutcome = await TrySendAvatarScopedFloatValueAsync(
+                        session.Address,
+                        session.CurrentValue,
+                        session.ResetValue,
+                        session.Rule.FloatTransitionOutSeconds,
+                        session.SourceAvatarId,
+                        session.CompletionCancellation,
+                        session.LeaseId,
+                        (expectedCancellation, expectedLeaseId) =>
+                            activeGlitchyRedeemSessions.TryGetValue(session.Rule.Id, out var currentSession)
+                            && ReferenceEquals(currentSession, session)
+                            && ReferenceEquals(currentSession.CompletionCancellation, expectedCancellation)
+                            && currentSession.LeaseId == expectedLeaseId,
+                        CancellationToken.None,
+                        allowCancelledExpectedCancellation: true).ConfigureAwait(false);
+                }
+
+                if (sendOutcome != AvatarScopedFloatSendOutcome.Sent)
+                {
+                    continue;
+                }
+
+                session.CurrentValue = session.ResetValue;
+                RememberAvatarParameterValue(
+                    session.Rule,
+                    FloatValueModeConverter.ToOscText(session.ResetValue));
+            }
+            catch (Exception exception)
+            {
+                WriteLog($"Failed to reset glitchy float '{session.Rule.Name}' during shutdown: {SensitiveTextSanitizer.Sanitize(exception.Message)}");
+            }
+        }
+
+        foreach (var plan in resetPlans.PulsePlans)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(plan.Pulse.SourceAvatarId))
+                {
+                    await SendSingleFloatAvatarParameterValueAsync(
+                        plan.Pulse.Address,
+                        plan.Pulse.ResetValue,
+                        CancellationToken.None).ConfigureAwait(false);
+                }
+                else
+                {
+                    await TrySendAvatarScopedFloatValueAsync(
+                        plan.Pulse.Address,
+                        plan.Pulse.ResetValue,
+                        plan.Pulse.ResetValue,
+                        0,
+                        plan.Pulse.SourceAvatarId,
+                        plan.Pulse.Cancellation,
+                        plan.Pulse.LeaseId,
+                        (expectedCancellation, expectedLeaseId) =>
+                            activeFloatPulseRestores.TryGetValue(plan.Pulse.RuleId, out var currentPulse)
+                            && ReferenceEquals(currentPulse, plan.Pulse)
+                            && ReferenceEquals(currentPulse.Cancellation, expectedCancellation)
+                            && currentPulse.LeaseId == expectedLeaseId,
+                        CancellationToken.None,
+                        allowCancelledExpectedCancellation: true).ConfigureAwait(false);
+                }
+            }
+            catch (Exception exception)
+            {
+                WriteLog($"Failed to reset float pulse '{plan.Pulse.RuleName}' during shutdown: {SensitiveTextSanitizer.Sanitize(exception.Message)}");
+            }
+        }
+
+        if (resetPlans.ScaleRestorePlan is { } scaleRestorePlan)
+        {
+            try
+            {
+                await SendAvatarHeightValueDuringShutdownAsync(
+                    scaleRestorePlan.RestoreHeightMeters,
+                    scaleRestorePlan.Rule).ConfigureAwait(false);
+            }
+            catch (Exception exception)
+            {
+                WriteLog($"Failed to restore avatar scale from '{scaleRestorePlan.SourceRuleName}' during shutdown: {SensitiveTextSanitizer.Sanitize(exception.Message)}");
+            }
+        }
+
+        foreach (var plan in resetPlans.SupporterGrowthPlans)
+        {
+            try
+            {
+                await SendAvatarHeightValueDuringShutdownAsync(
+                    plan.NormalHeightMeters,
+                    plan.Rule).ConfigureAwait(false);
+            }
+            catch (Exception exception)
+            {
+                WriteLog($"Failed to reset Supporter Growth '{plan.RuleName}' during shutdown: {SensitiveTextSanitizer.Sanitize(exception.Message)}");
+            }
+        }
+    }
+
+    private async Task SendAvatarHeightValueDuringShutdownAsync(
+        double heightMeters,
+        AvatarScaleRuleSnapshot? rule)
+    {
+        await avatarScaleWriteGate.WaitAsync(CancellationToken.None).ConfigureAwait(false);
+        try
+        {
+            var clampedHeight = ClampAvatarScaleHeightForSend(heightMeters, rule);
+            var floatValue = (float)clampedHeight;
+            var packet = vrChatOscClient.BuildPacketForAddress(
+                "/avatar/eyeheight",
+                OscParameterType.Float,
+                floatValue.ToString("G9", CultureInfo.InvariantCulture));
+            await SendToVrChatAsync(packet, CancellationToken.None).ConfigureAwait(false);
+            ObserveOscValue(
+                new OscObservedValue("/avatar/eyeheight", OscParameterType.Float, floatValue),
+                updateActiveAvatarScaleCarryover: true);
+        }
+        finally
+        {
+            avatarScaleWriteGate.Release();
         }
     }
 
     public async ValueTask DisposeAsync()
     {
-        MarkAvatarScaleWriteGateDisposalStarted();
-        await StopAsync();
-        await WaitForActivityResumeGateUsersAsync();
-        await WaitForPendingActivityResumeTasksAsync();
-        await WaitForAvatarScaleWriteUsersAsync();
-        desktopInputLockService.EmergencyUnlockTriggered -= HandleEmergencyDesktopInputUnlock;
-        await desktopInputLockService.DisposeAsync();
-        twitchApiClient.Dispose();
-        vrChatApiClient.Dispose();
-        thirdPartyChatEmoteRefreshGate.Dispose();
-        worldCommandLookupGate.Dispose();
-        activityResumeGate.Dispose();
-        avatarScaleWriteGate.Dispose();
-        await cashPaymentProviderService.DisposeAsync();
-        await oscRouterService.DisposeAsync();
+        MarkRuntimeDisposalStarted();
+        await runtimeLifecycleGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            MarkAvatarScaleWriteGateDisposalStarted();
+            MarkTimedSupporterOverrideTransitionDisposalStarted();
+            await StopCoreAsync().ConfigureAwait(false);
+            await WaitForActivityResumeGateUsersAsync();
+            await WaitForPendingActivityResumeTasksAsync();
+            await WaitForAvatarScaleWriteUsersAsync();
+            await WaitForTimedSupporterOverrideTransitionUsersAsync();
+            await WaitForActiveMovementCleanupTasksAsync();
+            MarkAvatarScopedResetSendDisposalStarted();
+            await WaitForAvatarScopedResetSendUsersAsync();
+            desktopInputLockService.EmergencyUnlockTriggered -= HandleEmergencyDesktopInputUnlock;
+            await desktopInputLockService.DisposeAsync();
+            twitchApiClient.Dispose();
+            vrChatApiClient.Dispose();
+            avatarScopedResetSendGate.Dispose();
+            timedSupporterOverrideTransitionGate.Dispose();
+            thirdPartyChatEmoteRefreshGate.Dispose();
+            worldCommandLookupGate.Dispose();
+            activityResumeGate.Dispose();
+            avatarScaleWriteGate.Dispose();
+            await cashPaymentProviderService.DisposeAsync();
+            await oscRouterService.DisposeAsync();
+        }
+        finally
+        {
+            runtimeLifecycleGate.Release();
+        }
     }
 
     private async Task WaitForPendingActivityResumeTasksAsync()
@@ -2847,7 +3298,7 @@ internal BridgeCoordinator(
             }
             catch (Exception ex)
             {
-                WriteLog($"Pending activity resume cleanup failed during shutdown: {ex.Message}");
+                WriteLog($"Pending activity resume cleanup failed during shutdown: {SensitiveTextSanitizer.Sanitize(ex.Message)}");
             }
 
             lock (pendingActivityResumeGate)
@@ -2879,7 +3330,7 @@ internal BridgeCoordinator(
         }
         catch (Exception ex)
         {
-            WriteLog($"{description} cleanup failed: {ex.Message}");
+            WriteLog($"{description} cleanup failed: {SensitiveTextSanitizer.Sanitize(ex.Message)}");
         }
         finally
         {
@@ -2908,6 +3359,153 @@ internal BridgeCoordinator(
 
             await Task.WhenAll(tasks).ConfigureAwait(false);
         }
+    }
+
+    private bool TryStartPersistentEffectWorker(
+        Func<Task> worker,
+        CancellationTokenSource? cancellation = null)
+    {
+        ArgumentNullException.ThrowIfNull(worker);
+
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        lock (persistentEffectTaskGate)
+        {
+            if (persistentEffectAdmissionClosed || Volatile.Read(ref isStopping))
+            {
+                return false;
+            }
+
+            persistentEffectTasks.Add(completion.Task);
+            if (cancellation is not null)
+            {
+                persistentEffectWorkerCancellations[completion.Task] = cancellation;
+            }
+
+            _ = Task.Run(
+                () => RunTrackedPersistentEffectWorkerAsync(completion, worker),
+                CancellationToken.None);
+            return true;
+        }
+    }
+
+    private async Task RunTrackedPersistentEffectWorkerAsync(
+        TaskCompletionSource completion,
+        Func<Task> worker)
+    {
+        try
+        {
+            await worker().ConfigureAwait(false);
+            completion.TrySetResult();
+        }
+        catch (OperationCanceledException exception)
+        {
+            completion.TrySetCanceled(
+                exception.CancellationToken.CanBeCanceled
+                    ? exception.CancellationToken
+                    : new CancellationToken(canceled: true));
+        }
+        catch (Exception exception)
+        {
+            completion.TrySetException(exception);
+            ObservePersistentEffectWorkerFault(completion.Task);
+        }
+        finally
+        {
+            lock (persistentEffectTaskGate)
+            {
+                persistentEffectTasks.Remove(completion.Task);
+                persistentEffectWorkerCancellations.Remove(completion.Task);
+            }
+        }
+    }
+
+    private void ClosePersistentEffectAdmission()
+    {
+        lock (persistentEffectTaskGate)
+        {
+            persistentEffectAdmissionClosed = true;
+        }
+    }
+
+    private void OpenPersistentEffectAdmission()
+    {
+        lock (persistentEffectTaskGate)
+        {
+            persistentEffectAdmissionClosed = false;
+        }
+    }
+
+    private async Task WaitForPersistentEffectTasksAsync()
+    {
+        while (true)
+        {
+            Task[] tasks;
+            lock (persistentEffectTaskGate)
+            {
+                tasks = persistentEffectTasks.ToArray();
+            }
+
+            if (tasks.Length == 0)
+            {
+                return;
+            }
+
+            try
+            {
+                await Task.WhenAll(tasks).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception)
+            {
+                // RunTrackedPersistentEffectWorkerAsync observes and logs worker faults before removal.
+            }
+        }
+    }
+
+    private void ObservePersistentEffectWorkerFault(Task completionTask)
+    {
+        if (completionTask.Exception is not { } aggregateException)
+        {
+            return;
+        }
+
+        foreach (var exception in aggregateException.Flatten().InnerExceptions)
+        {
+            WriteLog($"Persistent effect worker failed during shutdown: {SensitiveTextSanitizer.Sanitize(exception.Message)}");
+        }
+    }
+
+    private void CancelPersistentEffectWorkers()
+    {
+        CancellationTokenSource[] cancellations;
+        lock (persistentEffectTaskGate)
+        {
+            cancellations = persistentEffectWorkerCancellations.Values.Distinct().ToArray();
+        }
+
+        foreach (var cancellation in cancellations)
+        {
+            try
+            {
+                cancellation.Cancel(throwOnFirstException: false);
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+            catch (Exception exception)
+            {
+                WriteLog($"Persistent effect cancellation failed during shutdown: {SensitiveTextSanitizer.Sanitize(exception.Message)}");
+            }
+        }
+    }
+
+    private static CancellationTokenSource CreatePersistentEffectCancellation(CancellationToken runtimeToken)
+    {
+        return runtimeToken.CanBeCanceled
+            ? CancellationTokenSource.CreateLinkedTokenSource(runtimeToken)
+            : new CancellationTokenSource();
     }
 
     private void EnterActivityResumeGateUser()
@@ -2946,6 +3544,163 @@ internal BridgeCoordinator(
         var source = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         source.SetResult();
         return source;
+    }
+
+    private async Task<bool> TryEnterTimedSupporterOverrideTransitionAsync(CancellationToken cancellationToken)
+    {
+        lock (timedSupporterOverrideTransitionLifecycleGate)
+        {
+            if (timedSupporterOverrideTransitionStopping
+                || timedSupporterOverrideTransitionDisposalStarted)
+            {
+                return false;
+            }
+
+            if (timedSupporterOverrideTransitionUserCount++ == 0)
+            {
+                timedSupporterOverrideTransitionUsersDrained = new TaskCompletionSource(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+            }
+        }
+
+        var acquired = false;
+        var userCountReleasedAfterAcquire = false;
+        try
+        {
+            await timedSupporterOverrideTransitionGate.WaitAsync(cancellationToken);
+            acquired = true;
+
+            if (!IsTimedSupporterOverrideTransitionAdmissionOpen())
+            {
+                LeaveTimedSupporterOverrideTransitionUser(releaseGate: true);
+                acquired = false;
+                userCountReleasedAfterAcquire = true;
+                return false;
+            }
+
+            return true;
+        }
+        finally
+        {
+            if (!acquired && !userCountReleasedAfterAcquire)
+            {
+                LeaveTimedSupporterOverrideTransitionUser(releaseGate: false);
+            }
+        }
+    }
+
+    private void LeaveTimedSupporterOverrideTransitionUser(bool releaseGate)
+    {
+        if (releaseGate)
+        {
+            timedSupporterOverrideTransitionGate.Release();
+        }
+
+        lock (timedSupporterOverrideTransitionLifecycleGate)
+        {
+            if (timedSupporterOverrideTransitionUserCount <= 0)
+            {
+                throw new InvalidOperationException("Timed supporter override transition user count underflowed.");
+            }
+
+            if (--timedSupporterOverrideTransitionUserCount == 0)
+            {
+                timedSupporterOverrideTransitionUsersDrained.TrySetResult();
+            }
+        }
+    }
+
+    private void MarkTimedSupporterOverrideTransitionStopping()
+    {
+        lock (timedSupporterOverrideTransitionLifecycleGate)
+        {
+            timedSupporterOverrideTransitionStopping = true;
+        }
+    }
+
+    private void ReopenTimedSupporterOverrideTransitionAdmission()
+    {
+        lock (timedSupporterOverrideTransitionLifecycleGate)
+        {
+            if (!timedSupporterOverrideTransitionDisposalStarted)
+            {
+                timedSupporterOverrideTransitionStopping = false;
+            }
+        }
+    }
+
+    private bool IsTimedSupporterOverrideTransitionAdmissionOpen()
+    {
+        lock (timedSupporterOverrideTransitionLifecycleGate)
+        {
+            return !timedSupporterOverrideTransitionStopping
+                && !timedSupporterOverrideTransitionDisposalStarted;
+        }
+    }
+
+    private void MarkTimedSupporterOverrideTransitionDisposalStarted()
+    {
+        lock (timedSupporterOverrideTransitionLifecycleGate)
+        {
+            timedSupporterOverrideTransitionDisposalStarted = true;
+        }
+    }
+
+    private Task WaitForTimedSupporterOverrideTransitionUsersAsync()
+    {
+        lock (timedSupporterOverrideTransitionLifecycleGate)
+        {
+            return timedSupporterOverrideTransitionUsersDrained.Task;
+        }
+    }
+
+    private void EnterAvatarScopedResetSendUser()
+    {
+        lock (avatarScopedResetSendLifecycleGate)
+        {
+            if (avatarScopedResetSendDisposalStarted)
+            {
+                throw new ObjectDisposedException(nameof(BridgeCoordinator));
+            }
+
+            if (avatarScopedResetSendUserCount++ == 0)
+            {
+                avatarScopedResetSendUsersDrained = new TaskCompletionSource(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+            }
+        }
+    }
+
+    private void ExitAvatarScopedResetSendUser()
+    {
+        lock (avatarScopedResetSendLifecycleGate)
+        {
+            if (avatarScopedResetSendUserCount <= 0)
+            {
+                throw new InvalidOperationException("Avatar-scoped reset send user count underflowed.");
+            }
+
+            if (--avatarScopedResetSendUserCount == 0)
+            {
+                avatarScopedResetSendUsersDrained.TrySetResult();
+            }
+        }
+    }
+
+    private void MarkAvatarScopedResetSendDisposalStarted()
+    {
+        lock (avatarScopedResetSendLifecycleGate)
+        {
+            avatarScopedResetSendDisposalStarted = true;
+        }
+    }
+
+    private Task WaitForAvatarScopedResetSendUsersAsync()
+    {
+        lock (avatarScopedResetSendLifecycleGate)
+        {
+            return avatarScopedResetSendUsersDrained.Task;
+        }
     }
 
     private void EnterAvatarScaleWriteGateUser()
@@ -3019,7 +3774,7 @@ internal BridgeCoordinator(
         }
         catch (Exception ex)
         {
-            WriteLog($"Background bridge stopped because of an error: {ex.Message}");
+            WriteLog($"Background bridge stopped because of an error: {SensitiveTextSanitizer.Sanitize(ex.Message)}");
             StatusChanged?.Invoke("Bridge error. Reconnect Twitch or check config.");
         }
         finally
@@ -3033,7 +3788,7 @@ internal BridgeCoordinator(
             }
             catch (Exception ex)
             {
-                WriteLog($"Validation loop ended with an error: {ex.Message}");
+                WriteLog($"Validation loop ended with an error: {SensitiveTextSanitizer.Sanitize(ex.Message)}");
             }
 
             try
@@ -3045,7 +3800,7 @@ internal BridgeCoordinator(
             }
             catch (Exception ex)
             {
-                WriteLog($"Trigger info announcement loop ended with an error: {ex.Message}");
+                WriteLog($"Trigger info announcement loop ended with an error: {SensitiveTextSanitizer.Sanitize(ex.Message)}");
             }
 
             try
@@ -3102,7 +3857,7 @@ internal BridgeCoordinator(
             }
             catch (Exception ex)
             {
-                WriteLog($"Twitch validation failed: {ex.Message}");
+                WriteLog($"Twitch validation failed: {SensitiveTextSanitizer.Sanitize(ex.Message)}");
                 if (isBroadcasterLive)
                 {
                     isBroadcasterLive = false;
@@ -3200,7 +3955,7 @@ internal BridgeCoordinator(
             }
             catch (Exception ex)
             {
-                WriteLog($"Trigger info announcement failed: {ex.Message}");
+                WriteLog($"Trigger info announcement failed: {SensitiveTextSanitizer.Sanitize(ex.Message)}");
                 var configuration = activeConfiguration;
                 var delay = TimeSpan.FromMinutes(Math.Max(1, configuration?.TriggerInfoAnnouncementIntervalMinutes ?? 10));
                 nextTriggerInfoAnnouncementAt = DateTimeOffset.UtcNow.Add(delay);
@@ -3521,7 +4276,7 @@ internal BridgeCoordinator(
                         reconnectUrl = null;
                     }
 
-                    WriteLog($"EventSub connection issue: {ex.Message}");
+                    WriteLog($"EventSub connection issue: {SensitiveTextSanitizer.Sanitize(ex.Message)}");
                     StatusChanged?.Invoke("Twitch connection issue. Retrying...");
                     await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
                 }
@@ -3623,11 +4378,11 @@ internal BridgeCoordinator(
             }
             catch (Exception ex) when (string.Equals(subscriptionType, "channel.chat.message", StringComparison.Ordinal))
             {
-                WriteLog($"Twitch Chatbox listener could not start yet: {ex.Message}");
+                WriteLog($"Twitch Chatbox listener could not start yet: {SensitiveTextSanitizer.Sanitize(ex.Message)}");
             }
             catch (Exception ex) when (IsChatboxModerationSubscription(subscriptionType))
             {
-                WriteLog($"Twitch Chatbox moderation listener '{subscriptionType}' could not start yet: {ex.Message}");
+                WriteLog($"Twitch Chatbox moderation listener '{subscriptionType}' could not start yet: {SensitiveTextSanitizer.Sanitize(ex.Message)}");
             }
         }
     }
@@ -3764,6 +4519,15 @@ internal BridgeCoordinator(
 
         if (bridgeEvent is null)
         {
+            if (universalEvent is { TriggerType: UniversalTriggerType.Follow })
+            {
+                await ExecuteAvatarSwapFollowRulesAsync(
+                    configuration,
+                    ruleIndex,
+                    universalEvent,
+                    cancellationToken);
+            }
+
             return;
         }
 
@@ -4360,7 +5124,8 @@ internal BridgeCoordinator(
     }
 
     private static bool IsSupporterOverrideRule(TriggerRuleSnapshot rule) =>
-        rule.IsGlobalOverride && rule.TriggerType is TwitchTriggerType.Bits or TwitchTriggerType.Subscriptions;
+        rule.IsGlobalOverride
+        && rule.TriggerType is (TwitchTriggerType.Bits or TwitchTriggerType.Subscriptions or TwitchTriggerType.GiftSubscription);
 
     private static bool IsPaidAvatarChangeBypassRule(TriggerRuleSnapshot rule) =>
         IsSupporterOverrideRule(rule) || rule.TriggerType == TwitchTriggerType.PowerUp;
@@ -4561,7 +5326,7 @@ internal BridgeCoordinator(
         foreach (var action in actions)
         {
             var packet = BuildUniversalOscPacket(action, action.TargetValue);
-            await oscRouterService.SendToVrChatAsync(packet, cancellationToken);
+            await SendToVrChatAsync(packet, cancellationToken);
 
             if (action.DurationSeconds > 0)
             {
@@ -4581,7 +5346,7 @@ internal BridgeCoordinator(
     {
         await Task.Delay(TimeSpan.FromSeconds(Math.Max(0.001, action.DurationSeconds)), cancellationToken);
         var resetPacket = BuildUniversalOscPacket(action, action.DefaultValue);
-        await oscRouterService.SendToVrChatAsync(resetPacket, cancellationToken);
+        await SendToVrChatAsync(resetPacket, cancellationToken);
     }
 
     private byte[] BuildUniversalOscPacket(UniversalTriggerActionSnapshot action, string rawValue)
@@ -5076,7 +5841,7 @@ internal BridgeCoordinator(
                     catch (Exception ex)
                     {
                         queuedOperation.Completion?.TrySetException(ex);
-                        WriteLog($"Queued avatar scale '{ruleToExecute.Name}' failed: {ex.Message}");
+                        WriteLog($"Queued avatar scale '{ruleToExecute.Name}' failed: {SensitiveTextSanitizer.Sanitize(ex.Message)}");
                     }
                 }
             }
@@ -5164,7 +5929,8 @@ internal BridgeCoordinator(
         bool isResuming = false,
         long? expectedRuntimeGeneration = null,
         ResumeActivity? activityResumeEntry = null,
-        double? resumeTargetHeight = null)
+        double? resumeTargetHeight = null,
+        string? expectedResumeAvatarId = null)
     {
         if (!isTest && !isResuming && rule.ExtendCurrentActivity && rule.ExtendSeconds > 0)
         {
@@ -5243,15 +6009,20 @@ internal BridgeCoordinator(
         var runtimeGeneration = expectedRuntimeGeneration ?? GetAvatarScaleRuntimeGeneration();
         var heightSessionId = Guid.Empty;
         var heightSessionEndScheduled = false;
+        bool IsExpectedResumeAvatarCurrent() =>
+            expectedResumeAvatarId is null || IsResumeAvatarCurrent(expectedResumeAvatarId);
+
         try
         {
-            if (!IsAvatarScaleRuntimeGenerationCurrent(runtimeGeneration))
+            if (!IsAvatarScaleRuntimeGenerationCurrent(runtimeGeneration)
+                || !IsExpectedResumeAvatarCurrent())
             {
                 return false;
             }
 
             var scalingAllowed = await TryGetAvatarScalingAllowedAsync(cancellationToken);
-            if (!IsAvatarScaleRuntimeGenerationCurrent(runtimeGeneration))
+            if (!IsAvatarScaleRuntimeGenerationCurrent(runtimeGeneration)
+                || !IsExpectedResumeAvatarCurrent())
             {
                 return false;
             }
@@ -5265,6 +6036,12 @@ internal BridgeCoordinator(
             var previousHeight = await TryGetCurrentAvatarHeightAsync(
                 cancellationToken,
                 expectedRuntimeGeneration);
+            if (!IsAvatarScaleRuntimeGenerationCurrent(runtimeGeneration)
+                || !IsExpectedResumeAvatarCurrent())
+            {
+                return false;
+            }
+
             if (rule.ScaleMode == AvatarScaleMode.GlitchyRandomHeight)
             {
                 return await ExecuteGlitchyAvatarScaleRuleAsync(
@@ -5276,7 +6053,8 @@ internal BridgeCoordinator(
                     cooldownSeconds,
                     cancellationToken,
                     runtimeGeneration,
-                    activityResumeEntry);
+                    activityResumeEntry,
+                    expectedResumeAvatarId);
             }
 
             if (IsRelativeScaleAtLimit(rule, previousHeight, out var limitMessage))
@@ -5290,10 +6068,12 @@ internal BridgeCoordinator(
 
             var rewardStateStarted = false;
             var firstScaleSendStarted = false;
+            DateTimeOffset? effectActiveUntil = null;
             void StartRewardStateAfterFirstScaleSend()
             {
                 if (!IsAvatarScaleOperationCurrent(operation)
-                    || !IsAvatarScaleRuntimeGenerationCurrent(runtimeGeneration))
+                    || !IsAvatarScaleRuntimeGenerationCurrent(runtimeGeneration)
+                    || !IsExpectedResumeAvatarCurrent())
                 {
                     return;
                 }
@@ -5326,7 +6106,7 @@ internal BridgeCoordinator(
                 if (heightSessionId != Guid.Empty)
                 {
                     heightSessionEndScheduled = true;
-                    ScheduleAvatarScaleHeightSessionEnd(
+                    _ = ScheduleAvatarScaleHeightSessionEnd(
                         rule.Id,
                         heightSessionId,
                         TimeSpan.FromSeconds(Math.Max(0.5, activeWindowSeconds)),
@@ -5339,7 +6119,8 @@ internal BridgeCoordinator(
                     {
                         if (effectDurationSeconds > 0)
                         {
-                            activeAvatarScaleEffects[rule.Id] = DateTimeOffset.UtcNow.AddSeconds(effectDurationSeconds);
+                            effectActiveUntil = DateTimeOffset.UtcNow.AddSeconds(effectDurationSeconds);
+                            activeAvatarScaleEffects[rule.Id] = effectActiveUntil.Value;
                         }
                         else
                         {
@@ -5379,7 +6160,10 @@ internal BridgeCoordinator(
 
                     if (effectDurationSeconds > 0)
                     {
-                        ScheduleAvatarScaleEffectStateNotification(rule.Id, TimeSpan.FromSeconds(effectDurationSeconds));
+                        ScheduleAvatarScaleEffectStateNotification(
+                            rule.Id,
+                            TimeSpan.FromSeconds(effectDurationSeconds),
+                            effectActiveUntil);
                         ManagedRewardAvailabilityChanged?.Invoke();
                     }
                 }
@@ -5392,31 +6176,61 @@ internal BridgeCoordinator(
                     cancellationToken,
                     StartRewardStateAfterFirstScaleSend,
                     rule: rule,
-                    shouldContinue: () => IsAvatarScaleRuntimeGenerationCurrent(runtimeGeneration)))
+                    shouldContinue: () => IsAvatarScaleRuntimeGenerationCurrent(runtimeGeneration),
+                    expectedResumeAvatarId: expectedResumeAvatarId))
             {
                 return firstScaleSendStarted;
             }
 
-            var continuationCompleted = activityResumeEntry is null
-                ? await CommitAvatarScaleContinuationAsync(
-                    operation,
-                    runtimeGeneration,
-                    rule,
-                    isTest,
-                    isResuming,
-                    targetHeight,
-                    previousHeight ?? targetHeight,
-                    cancellationToken)
-                : await CommitAvatarScaleContinuationWithActivityAsync(
-                    operation,
-                    runtimeGeneration,
-                    rule,
-                    isTest,
-                    isResuming,
-                    targetHeight,
-                    previousHeight ?? targetHeight,
-                    cancellationToken,
-                    activityResumeEntry: activityResumeEntry);
+            bool continuationCompleted;
+            if (activityResumeEntry is null)
+            {
+                continuationCompleted = expectedResumeAvatarId is null
+                    ? await CommitAvatarScaleContinuationAsync(
+                        operation,
+                        runtimeGeneration,
+                        rule,
+                        isTest,
+                        isResuming,
+                        targetHeight,
+                        previousHeight ?? targetHeight,
+                        cancellationToken)
+                    : await CommitAvatarScaleContinuationForResumeAsync(
+                        operation,
+                        runtimeGeneration,
+                        rule,
+                        isTest,
+                        isResuming,
+                        targetHeight,
+                        previousHeight ?? targetHeight,
+                        cancellationToken,
+                        expectedResumeAvatarId);
+            }
+            else
+            {
+                continuationCompleted = expectedResumeAvatarId is null
+                    ? await CommitAvatarScaleContinuationWithActivityAsync(
+                        operation,
+                        runtimeGeneration,
+                        rule,
+                        isTest,
+                        isResuming,
+                        targetHeight,
+                        previousHeight ?? targetHeight,
+                        cancellationToken,
+                        activityResumeEntry: activityResumeEntry)
+                    : await CommitAvatarScaleContinuationWithActivityForResumeAsync(
+                        operation,
+                        runtimeGeneration,
+                        rule,
+                        isTest,
+                        isResuming,
+                        targetHeight,
+                        previousHeight ?? targetHeight,
+                        cancellationToken,
+                        activityResumeEntry: activityResumeEntry,
+                        expectedResumeAvatarId);
+            }
             if (!continuationCompleted)
             {
                 return firstScaleSendStarted;
@@ -5456,7 +6270,30 @@ internal BridgeCoordinator(
             targetHeight,
             previousHeight,
             cancellationToken,
-            activityResumeEntry: null);
+            activityResumeEntry: null,
+            expectedResumeAvatarId: null);
+
+    private Task<bool> CommitAvatarScaleContinuationForResumeAsync(
+        ActiveAvatarScaleOperationTicket operation,
+        long expectedRuntimeGeneration,
+        AvatarScaleRuleSnapshot rule,
+        bool isTest,
+        bool isResuming,
+        double targetHeight,
+        double previousHeight,
+        CancellationToken cancellationToken,
+        string expectedResumeAvatarId) =>
+        CommitAvatarScaleContinuationCoreAsync(
+            operation,
+            expectedRuntimeGeneration,
+            rule,
+            isTest,
+            isResuming,
+            targetHeight,
+            previousHeight,
+            cancellationToken,
+            activityResumeEntry: null,
+            expectedResumeAvatarId: expectedResumeAvatarId);
 
     private Task<bool> CommitAvatarScaleContinuationWithActivityAsync(
         ActiveAvatarScaleOperationTicket operation,
@@ -5477,7 +6314,31 @@ internal BridgeCoordinator(
             targetHeight,
             previousHeight,
             cancellationToken,
-            activityResumeEntry);
+            activityResumeEntry,
+            expectedResumeAvatarId: null);
+
+    private Task<bool> CommitAvatarScaleContinuationWithActivityForResumeAsync(
+        ActiveAvatarScaleOperationTicket operation,
+        long expectedRuntimeGeneration,
+        AvatarScaleRuleSnapshot rule,
+        bool isTest,
+        bool isResuming,
+        double targetHeight,
+        double previousHeight,
+        CancellationToken cancellationToken,
+        ResumeActivity activityResumeEntry,
+        string expectedResumeAvatarId) =>
+        CommitAvatarScaleContinuationCoreAsync(
+            operation,
+            expectedRuntimeGeneration,
+            rule,
+            isTest,
+            isResuming,
+            targetHeight,
+            previousHeight,
+            cancellationToken,
+            activityResumeEntry,
+            expectedResumeAvatarId);
 
     private async Task<bool> CommitAvatarScaleContinuationCoreAsync(
         ActiveAvatarScaleOperationTicket operation,
@@ -5488,7 +6349,8 @@ internal BridgeCoordinator(
         double targetHeight,
         double previousHeight,
         CancellationToken cancellationToken,
-        ResumeActivity? activityResumeEntry = null)
+        ResumeActivity? activityResumeEntry = null,
+        string? expectedResumeAvatarId = null)
     {
         EnterAvatarScaleWriteGateUser();
         var gateAcquired = false;
@@ -5496,8 +6358,12 @@ internal BridgeCoordinator(
         {
             await avatarScaleWriteGate.WaitAsync(cancellationToken);
             gateAcquired = true;
+            bool IsExpectedResumeAvatarCurrent() =>
+                expectedResumeAvatarId is null || IsResumeAvatarCurrent(expectedResumeAvatarId);
+
             if (!IsAvatarScaleOperationCurrent(operation)
-                || !IsAvatarScaleRuntimeGenerationCurrent(expectedRuntimeGeneration))
+                || !IsAvatarScaleRuntimeGenerationCurrent(expectedRuntimeGeneration)
+                || !IsExpectedResumeAvatarCurrent())
             {
                 return false;
             }
@@ -5533,6 +6399,14 @@ internal BridgeCoordinator(
                         recordedActivityResumeEntry,
                         GetCurrentVrChatAvatarId());
                 }
+
+                if (!IsAvatarScaleOperationCurrent(operation)
+                    || !IsAvatarScaleRuntimeGenerationCurrent(expectedRuntimeGeneration)
+                    || !IsExpectedResumeAvatarCurrent())
+                {
+                    return false;
+                }
+
                 ScheduleAvatarScaleRestoreSequence(
                     rule,
                     isTest,
@@ -5569,7 +6443,8 @@ internal BridgeCoordinator(
         int cooldownSeconds,
         CancellationToken cancellationToken,
         long? expectedRuntimeGeneration = null,
-        ResumeActivity? activityResumeEntry = null)
+        ResumeActivity? activityResumeEntry = null,
+        string? expectedResumeAvatarId = null)
     {
         if (rule.ActiveTimeSeconds <= 0)
         {
@@ -5598,6 +6473,7 @@ internal BridgeCoordinator(
         var rewardStateStarted = false;
         var restoreScheduled = false;
         var firstScaleSendStarted = false;
+        DateTimeOffset? effectActiveUntil = null;
         var recordedActivityResumeEntry = activityResumeEntry;
         if (!isTest && !isResuming && recordedActivityResumeEntry is null)
         {
@@ -5627,7 +6503,9 @@ internal BridgeCoordinator(
         {
             if (!IsAvatarScaleOperationCurrent(operation)
                 || (expectedRuntimeGeneration is long generation
-                    && !IsAvatarScaleRuntimeGenerationCurrent(generation)))
+                    && !IsAvatarScaleRuntimeGenerationCurrent(generation))
+                || (expectedResumeAvatarId is not null
+                    && !IsResumeAvatarCurrent(expectedResumeAvatarId)))
             {
                 return;
             }
@@ -5667,7 +6545,7 @@ internal BridgeCoordinator(
             if (heightSessionId != Guid.Empty)
             {
                 heightSessionEndScheduled = true;
-                ScheduleAvatarScaleHeightSessionEnd(
+                _ = ScheduleAvatarScaleHeightSessionEnd(
                     rule.Id,
                     heightSessionId,
                     TimeSpan.FromSeconds(Math.Max(0.5, effectDurationSeconds)),
@@ -5678,7 +6556,8 @@ internal BridgeCoordinator(
             {
                 if (effectDurationSeconds > 0)
                 {
-                    activeAvatarScaleEffects[rule.Id] = DateTimeOffset.UtcNow.AddSeconds(effectDurationSeconds);
+                    effectActiveUntil = DateTimeOffset.UtcNow.AddSeconds(effectDurationSeconds);
+                    activeAvatarScaleEffects[rule.Id] = effectActiveUntil.Value;
                 }
                 else
                 {
@@ -5708,7 +6587,10 @@ internal BridgeCoordinator(
 
             if (effectDurationSeconds > 0)
             {
-                ScheduleAvatarScaleEffectStateNotification(rule.Id, TimeSpan.FromSeconds(effectDurationSeconds));
+                ScheduleAvatarScaleEffectStateNotification(
+                    rule.Id,
+                    TimeSpan.FromSeconds(effectDurationSeconds),
+                    effectActiveUntil);
                 ManagedRewardAvailabilityChanged?.Invoke();
             }
         }
@@ -5723,7 +6605,8 @@ internal BridgeCoordinator(
                 Math.Clamp(rule.SmoothTransitionSeconds, 0, 30),
                 StartRewardStateAfterFirstScaleSend,
                 cancellationToken,
-                rule);
+                rule,
+                expectedResumeAvatarId);
 
             if (!firstScaleSendStarted)
             {
@@ -5760,7 +6643,8 @@ internal BridgeCoordinator(
         CancellationToken cancellationToken,
         Action? afterFirstSuccessfulSend = null,
         AvatarScaleRuleSnapshot? rule = null,
-        Func<bool>? shouldContinue = null)
+        Func<bool>? shouldContinue = null,
+        string? expectedResumeAvatarId = null)
     {
         if (!IsAvatarScaleOperationCurrent(operation))
         {
@@ -5774,7 +6658,9 @@ internal BridgeCoordinator(
             bool IsCurrent()
             {
                 return IsAvatarScaleOperationCurrent(operation)
-                    && (shouldContinue?.Invoke() ?? true);
+                    && (shouldContinue?.Invoke() ?? true)
+                    && (expectedResumeAvatarId is null
+                        || IsResumeAvatarCurrent(expectedResumeAvatarId));
             }
 
             var completed = await SendAvatarHeightAsync(
@@ -6335,6 +7221,12 @@ internal BridgeCoordinator(
 
         lock (stateGate)
         {
+            if (isStopping)
+            {
+                newCancellation.Dispose();
+                return false;
+            }
+
             if (expectedRuntimeGeneration is long expectedGeneration
                 && avatarScaleRuntimeGeneration != expectedGeneration)
             {
@@ -6395,7 +7287,8 @@ internal BridgeCoordinator(
                 PreviousHeightMeters: resolvedPreviousHeight)
             {
                 RuntimeGeneration = avatarScaleRuntimeGeneration,
-                ActivityResumeEntry = activityResumeEntry
+                ActivityResumeEntry = activityResumeEntry,
+                ActivityDeadline = new(now.AddSeconds(effectiveActiveTime))
             };
             previousCancellation = avatarScaleRestoreSequenceCancellation;
             previousActivityResumeEntry = activeAvatarScaleRestoreSequence?.ActivityResumeEntry;
@@ -6418,7 +7311,9 @@ internal BridgeCoordinator(
                 previousActivityResumeEntry,
                 sourceRuleName);
         }
-        _ = Task.Run(() => RunAvatarScaleRestoreSequenceAsync(sequence, newCancellation), CancellationToken.None);
+        TryStartPersistentEffectWorker(
+            () => RunAvatarScaleRestoreSequenceAsync(sequence, newCancellation),
+            newCancellation);
 
         var activeSeconds = effectiveActiveTime;
         WriteLog(isTest
@@ -6429,18 +7324,72 @@ internal BridgeCoordinator(
 
     private void ExtendActiveActivityTimers(TimeSpan extension, string sourceLabel)
     {
-        var now = DateTimeOffset.UtcNow;
         var anyExtended = false;
+        var resumeActivityNeedsCommit = false;
+
+        void ExtendResumeActivityExpiryLocked(ResumeActivity? activity)
+        {
+            if (activity?.ExpiresAt is not { } expiresAt)
+            {
+                return;
+            }
+
+            activity.ExpiresAt = expiresAt.Add(extension);
+            resumeActivityNeedsCommit = true;
+        }
 
         lock (stateGate)
         {
+            var now = DateTimeOffset.UtcNow;
             if (activeAvatarScaleRestoreSequence is { } scaleSequence
                 && scaleSequence.ActiveUntil > now)
             {
                 var newActiveUntil = scaleSequence.ActiveUntil.Add(extension);
-                activeAvatarScaleRestoreSequence = scaleSequence with { ActiveUntil = newActiveUntil };
+                var updatedSequence = scaleSequence with { ActiveUntil = newActiveUntil };
+                activeAvatarScaleRestoreSequence = updatedSequence;
+                updatedSequence.ActivityDeadline.Extend(extension);
+                ExtendResumeActivityExpiryLocked(updatedSequence.ActivityResumeEntry);
+                if (updatedSequence.Rule is { Id: var scaleRuleId } && scaleRuleId != Guid.Empty)
+                {
+                    UpdateActiveAvatarScaleCarryoverRestoreSequenceLocked(scaleRuleId, updatedSequence);
+                }
                 anyExtended = true;
                 WriteLog($"Extended avatar scale '{scaleSequence.SourceRuleName}' by {extension.TotalSeconds:0.#} seconds from {sourceLabel}.");
+            }
+
+            var carryoverWasExtended = activeAvatarScaleCarryover?.RestoreSequenceId == activeAvatarScaleRestoreSequence?.SequenceId;
+            foreach (var kvp in activeAvatarScaleHeightSessions.ToArray())
+            {
+                var session = kvp.Value;
+                if (session.ActiveUntil <= now)
+                {
+                    continue;
+                }
+
+                session.ActivityDeadline ??= new(session.ActiveUntil);
+                var newActiveUntil = session.ActiveUntil.Add(extension);
+                session.ActivityDeadline.Extend(extension);
+                activeAvatarScaleHeightSessions[kvp.Key] = session with { ActiveUntil = newActiveUntil };
+                if (activeAvatarScaleCarryover is { } carryover
+                    && carryover.SourceSessionId == session.SessionId
+                    && carryover.ActiveUntil > now)
+                {
+                    activeAvatarScaleCarryover = carryover with { ActiveUntil = newActiveUntil };
+                    carryoverWasExtended = true;
+                }
+
+                anyExtended = true;
+            }
+
+            if (!carryoverWasExtended
+                && activeAvatarScaleCarryover is { } activeCarryover
+                && activeCarryover.ActiveUntil > now)
+            {
+                activeAvatarScaleCarryover = activeCarryover with
+                {
+                    ActiveUntil = activeCarryover.ActiveUntil.Add(extension)
+                };
+                anyExtended = true;
             }
 
             foreach (var kvp in activeFloatRedeemSessions.ToArray())
@@ -6448,6 +7397,7 @@ internal BridgeCoordinator(
                 if (kvp.Value.ActiveUntil > now)
                 {
                     kvp.Value.ActiveUntil = kvp.Value.ActiveUntil.Add(extension);
+                    kvp.Value.ActivityDeadline.Extend(extension);
                     anyExtended = true;
                 }
             }
@@ -6456,7 +7406,32 @@ internal BridgeCoordinator(
                 && supporterOverride.ActiveUntil > now)
             {
                 supporterOverride.ActiveUntil = supporterOverride.ActiveUntil.Add(extension);
+                supporterOverride.ActivityDeadline.Extend(extension);
                 anyExtended = true;
+            }
+
+            foreach (var supporterState in avatarScaleSupporterGrowthStates.Values)
+            {
+                if (supporterState.PaidActiveUntil > now)
+                {
+                    supporterState.PaidActiveUntil = supporterState.PaidActiveUntil.Add(extension);
+                    supporterState.ActivityDeadline.Extend(extension);
+                    anyExtended = true;
+                }
+            }
+
+            foreach (var kvp in activeAvatarScaleEffects.ToArray())
+            {
+                if (kvp.Value > now)
+                {
+                    var extendedUntil = kvp.Value.Add(extension);
+                    activeAvatarScaleEffects[kvp.Key] = extendedUntil;
+                    ScheduleAvatarScaleEffectStateNotificationLocked(
+                        kvp.Key,
+                        extendedUntil,
+                        extendedUntil - now);
+                    anyExtended = true;
+                }
             }
 
             foreach (var kvp in pendingResets.ToArray())
@@ -6465,6 +7440,8 @@ internal BridgeCoordinator(
                 {
                     var updated = kvp.Value with { DueAt = kvp.Value.DueAt.Add(extension) };
                     pendingResets[kvp.Key] = updated;
+                    updated.ActivityDeadline.Extend(extension);
+                    ExtendResumeActivityExpiryLocked(updated.ActivityResumeEntry);
                     anyExtended = true;
                 }
             }
@@ -6473,10 +7450,17 @@ internal BridgeCoordinator(
             {
                 if (kvp.Value.BusyUntil > now)
                 {
-                    actionLanes[kvp.Key] = kvp.Value with { BusyUntil = kvp.Value.BusyUntil.Add(extension) };
+                    var updated = kvp.Value with { BusyUntil = kvp.Value.BusyUntil.Add(extension) };
+                    actionLanes[kvp.Key] = updated;
+                    updated.ActivityDeadline.Extend(extension);
                     anyExtended = true;
                 }
             }
+        }
+
+        if (resumeActivityNeedsCommit)
+        {
+            _ = CommitExtendedActivityResumeAsync(sourceLabel);
         }
 
         if (!anyExtended)
@@ -6524,11 +7508,7 @@ internal BridgeCoordinator(
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                var delay = sequence.ActiveUntil - DateTimeOffset.UtcNow;
-                if (delay > TimeSpan.Zero)
-                {
-                    await Task.Delay(delay, cancellationToken);
-                }
+                await sequence.ActivityDeadline.WaitAsync(cancellationToken);
 
                 if (!IsAvatarScaleRestoreSequenceCurrent(sequence.SequenceId, sequence.RuntimeGeneration))
                 {
@@ -6539,12 +7519,21 @@ internal BridgeCoordinator(
                 var shouldDefer = false;
                 lock (stateGate)
                 {
-                    if (activeAvatarScaleRestoreSequence?.SequenceId != sequence.SequenceId)
+                    if (activeAvatarScaleRestoreSequence is not { } activeSequence
+                        || activeSequence.SequenceId != sequence.SequenceId
+                        || !ReferenceEquals(avatarScaleRestoreSequenceCancellation, sequenceCancellation)
+                        || activeSequence.RuntimeGeneration != sequence.RuntimeGeneration)
                     {
                         return;
                     }
 
-                    currentSequence = activeAvatarScaleRestoreSequence;
+                    if (activeSequence.ActiveUntil > DateTimeOffset.UtcNow
+                        || activeSequence.ActivityDeadline.Deadline > DateTimeOffset.UtcNow)
+                    {
+                        continue;
+                    }
+
+                    currentSequence = activeSequence;
                     shouldDefer = activeAvatarScaleOperation is not null
                         || queuedAvatarScaleOperations.Count > 0;
                 }
@@ -6605,9 +7594,23 @@ internal BridgeCoordinator(
 
                 try
                 {
-                    if (!IsAvatarScaleRestoreSequenceCurrent(sequence.SequenceId, sequence.RuntimeGeneration))
+                    lock (stateGate)
                     {
-                        return;
+                        if (activeAvatarScaleRestoreSequence is not { } latestSequence
+                            || latestSequence.SequenceId != sequence.SequenceId
+                            || !ReferenceEquals(avatarScaleRestoreSequenceCancellation, sequenceCancellation)
+                            || latestSequence.RuntimeGeneration != sequence.RuntimeGeneration)
+                        {
+                            return;
+                        }
+
+                        if (latestSequence.ActiveUntil > DateTimeOffset.UtcNow
+                            || latestSequence.ActivityDeadline.Deadline > DateTimeOffset.UtcNow)
+                        {
+                            continue;
+                        }
+
+                        sequence = latestSequence;
                     }
 
                     var expectedPendingRestore = GetPendingAvatarScaleHeightRestore(sequence.AvatarId);
@@ -6698,19 +7701,22 @@ internal BridgeCoordinator(
         }
         catch (Exception ex)
         {
-            WriteLog($"Avatar scale restore from '{sequence.SourceRuleName}' failed: {ex.Message}");
+            WriteLog($"Avatar scale restore from '{sequence.SourceRuleName}' failed: {SensitiveTextSanitizer.Sanitize(ex.Message)}");
         }
         finally
         {
-            lock (stateGate)
+            if (!IsRuntimeStopping())
             {
-                if (ReferenceEquals(avatarScaleRestoreSequenceCancellation, sequenceCancellation))
+                lock (stateGate)
                 {
-                    avatarScaleRestoreSequenceCancellation = null;
+                    if (ReferenceEquals(avatarScaleRestoreSequenceCancellation, sequenceCancellation))
+                    {
+                        avatarScaleRestoreSequenceCancellation = null;
+                    }
                 }
-            }
 
-            sequenceCancellation.Dispose();
+                sequenceCancellation.Dispose();
+            }
         }
     }
 
@@ -6758,7 +7764,19 @@ internal BridgeCoordinator(
         }
         catch (Exception ex)
         {
-            WriteLog($"Could not clear Avatar Scaling resume activity for '{sourceRuleName}': {ex.Message}");
+            WriteLog($"Could not clear Avatar Scaling resume activity for '{sourceRuleName}': {SensitiveTextSanitizer.Sanitize(ex.Message)}");
+        }
+    }
+
+    private async Task CommitExtendedActivityResumeAsync(string sourceLabel)
+    {
+        try
+        {
+            await activityResumeService.CommitAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            WriteLog($"Could not persist the extended activity resume deadline from '{sourceLabel}': {ex.Message}");
         }
     }
 
@@ -6902,7 +7920,7 @@ internal BridgeCoordinator(
             previousSessionCancellation?.Cancel();
 
             operationHandedOff = true;
-            _ = Task.Run(
+            TryStartPersistentEffectWorker(
                 () => RunSupporterGrowthScaleSessionAsync(
                     operation,
                     rule,
@@ -6911,11 +7929,10 @@ internal BridgeCoordinator(
                     targetHeight,
                     normalHeight,
                     rule.SupporterGrowthTransitionSeconds,
-                    paidActiveUntil,
                     rule.SupporterGrowthAllowRewardScaleOverlay,
                     sessionCancellation,
                     runtimeGeneration),
-                CancellationToken.None);
+                sessionCancellation);
 
             WriteLog(keywordRequiredButMissing
                 ? $"{incomingEvent.UserDisplayName} added {DescribeDuration(addedPaidSeconds)} to supporter growth '{rule.Name}' without changing height (no grow/shrink keyword). Paid time remaining: {DescribeDuration(remainingPaidSeconds)}."
@@ -6938,7 +7955,6 @@ internal BridgeCoordinator(
         double targetHeight,
         double normalHeight,
         double smoothTransitionSeconds,
-        DateTimeOffset paidActiveUntil,
         bool allowRewardScaleOverlay,
         CancellationTokenSource sessionCancellation,
         long runtimeGeneration)
@@ -6946,10 +7962,23 @@ internal BridgeCoordinator(
         var heightSessionId = Guid.Empty;
         var transitionOperationEnded = false;
         ActiveAvatarScaleOperationTicket? restoreOperation = null;
+        ActiveAvatarScaleSupporterGrowthState supporterState = null!;
+
         try
         {
+            lock (stateGate)
+            {
+                if (!avatarScaleSupporterGrowthStates.TryGetValue(ruleId, out var currentSupporterState)
+                    || !ReferenceEquals(currentSupporterState.SessionCancellation, sessionCancellation)
+                    || avatarScaleRuntimeGeneration != runtimeGeneration)
+                {
+                    return;
+                }
+
+                supporterState = currentSupporterState;
+            }
+
             var cancellationToken = sessionCancellation.Token;
-            var activeWindowSeconds = Math.Max(1, (paidActiveUntil - DateTimeOffset.UtcNow).TotalSeconds + smoothTransitionSeconds);
             await WaitForAvatarLoadedForScalingAsync(cancellationToken);
             if (!await SendAvatarHeightForOperationAsync(
                     operation,
@@ -6958,12 +7987,27 @@ internal BridgeCoordinator(
                     cancellationToken,
                     () =>
                     {
-                        heightSessionId = StartAvatarScaleHeightSession(
-                            ruleId,
-                            ruleName,
-                            normalHeight,
-                            targetHeight,
-                            activeWindowSeconds);
+                        lock (stateGate)
+                        {
+                            if (!avatarScaleSupporterGrowthStates.TryGetValue(ruleId, out var currentState)
+                                || !ReferenceEquals(currentState, supporterState)
+                                || !ReferenceEquals(currentState.SessionCancellation, sessionCancellation)
+                                || avatarScaleRuntimeGeneration != runtimeGeneration)
+                            {
+                                return;
+                            }
+
+                            var activeWindowSeconds = Math.Max(
+                                1,
+                                (currentState.PaidActiveUntil - DateTimeOffset.UtcNow).TotalSeconds
+                                    + smoothTransitionSeconds);
+                            heightSessionId = StartAvatarScaleHeightSession(
+                                ruleId,
+                                ruleName,
+                                normalHeight,
+                                targetHeight,
+                                activeWindowSeconds);
+                        }
                     },
                     rule: rule,
                     shouldContinue: () => IsAvatarScaleRuntimeGenerationCurrent(runtimeGeneration)))
@@ -6977,79 +8021,113 @@ internal BridgeCoordinator(
                 transitionOperationEnded = true;
             }
 
-            var remainingDelay = paidActiveUntil - DateTimeOffset.UtcNow;
-            if (remainingDelay > TimeSpan.Zero)
+            while (!cancellationToken.IsCancellationRequested)
             {
-                await Task.Delay(remainingDelay, cancellationToken);
-            }
+                await supporterState.ActivityDeadline.WaitAsync(cancellationToken);
 
-            var supporterGrowthSessionIsCurrent = false;
-            lock (stateGate)
-            {
-                supporterGrowthSessionIsCurrent = avatarScaleSupporterGrowthStates.TryGetValue(ruleId, out var state)
-                    && ReferenceEquals(state.SessionCancellation, sessionCancellation)
-                    && avatarScaleRuntimeGeneration == runtimeGeneration;
-            }
+                var supporterGrowthSessionIsCurrent = false;
+                lock (stateGate)
+                {
+                    supporterGrowthSessionIsCurrent = avatarScaleSupporterGrowthStates.TryGetValue(ruleId, out var state)
+                        && ReferenceEquals(state, supporterState)
+                        && ReferenceEquals(state.SessionCancellation, sessionCancellation)
+                        && avatarScaleRuntimeGeneration == runtimeGeneration;
+                    if (supporterGrowthSessionIsCurrent
+                        && (state!.PaidActiveUntil > DateTimeOffset.UtcNow
+                            || state.ActivityDeadline.Deadline > DateTimeOffset.UtcNow))
+                    {
+                        continue;
+                    }
+                }
 
-            if (!supporterGrowthSessionIsCurrent)
-            {
-                return;
-            }
-
-            if (transitionOperationEnded)
-            {
-                restoreOperation = await WaitForAvatarScaleOperationSlotAsync(
-                    ruleId,
-                    ruleName,
-                    AvatarScaleOperationPriority.SupporterGrowth,
-                    isTest: false,
-                    cancellationToken,
-                    expectedRuntimeGeneration: runtimeGeneration);
-                if (restoreOperation is null)
+                if (!supporterGrowthSessionIsCurrent)
                 {
                     return;
                 }
-            }
-            else if (!IsAvatarScaleOperationCurrent(operation))
-            {
-                WriteLog($"Supporter growth '{ruleName}' skipped its paid timer reset because a newer scale effect is active.");
-                return;
-            }
 
-            lock (stateGate)
-            {
-                if (avatarScaleSupporterGrowthStates.TryGetValue(ruleId, out var state)
-                    && ReferenceEquals(state.SessionCancellation, sessionCancellation)
-                    && avatarScaleRuntimeGeneration == runtimeGeneration
-                    && activeAvatarScaleOperation?.OperationId == (restoreOperation ?? operation).OperationId)
+                if (transitionOperationEnded)
                 {
-                    state.AddedHeightMeters = 0;
+                    restoreOperation = await WaitForAvatarScaleOperationSlotAsync(
+                        ruleId,
+                        ruleName,
+                        AvatarScaleOperationPriority.SupporterGrowth,
+                        isTest: false,
+                        cancellationToken,
+                        expectedRuntimeGeneration: runtimeGeneration);
+                    if (restoreOperation is null)
+                    {
+                        return;
+                    }
                 }
-            }
+                else if (!IsAvatarScaleOperationCurrent(operation))
+                {
+                    WriteLog($"Supporter growth '{ruleName}' skipped its paid timer reset because a newer scale effect is active.");
+                    return;
+                }
 
-            var currentAvatarId = GetCurrentVrChatAvatarId();
-            var expectedPendingRestore = GetPendingAvatarScaleHeightRestore(currentAvatarId);
-            var restoreHeight = expectedPendingRestore?.RestoreHeightMeters ?? normalHeight;
-            var resetOperation = restoreOperation ?? operation;
-            if (await SendAvatarHeightForOperationAsync(
-                    resetOperation,
-                    restoreHeight,
-                    smoothTransitionSeconds,
-                    cancellationToken,
-                    rule: rule,
-                    shouldContinue: () => IsAvatarScaleRuntimeGenerationCurrent(runtimeGeneration))
-                && expectedPendingRestore is not null)
-            {
-                TryRemovePendingAvatarScaleHeightRestore(
-                    currentAvatarId,
-                    expectedPendingRestore,
-                    expectedRestoreSequenceId: null,
-                    expectedOperationId: resetOperation.OperationId,
-                    expectedRuntimeGeneration: runtimeGeneration,
-                    expectedAvatarChangeSequenceId: null,
-                    expectedSupporterGrowthRuleId: ruleId,
-                    expectedSupporterGrowthSessionCancellation: sessionCancellation);
-                WriteLog($"Supporter growth '{ruleName}' returned to normal height after paid active time ended.");
+                var completionClaimed = false;
+                lock (stateGate)
+                {
+                    if (!avatarScaleSupporterGrowthStates.TryGetValue(ruleId, out var state)
+                        || !ReferenceEquals(state, supporterState)
+                        || !ReferenceEquals(state.SessionCancellation, sessionCancellation)
+                        || avatarScaleRuntimeGeneration != runtimeGeneration)
+                    {
+                        return;
+                    }
+
+                    completionClaimed = state.PaidActiveUntil <= DateTimeOffset.UtcNow
+                        && state.ActivityDeadline.Deadline <= DateTimeOffset.UtcNow;
+                }
+
+                if (!completionClaimed)
+                {
+                    if (restoreOperation is not null)
+                    {
+                        EndAvatarScaleOperation(restoreOperation);
+                        restoreOperation = null;
+                    }
+
+                    continue;
+                }
+
+                lock (stateGate)
+                {
+                    if (avatarScaleSupporterGrowthStates.TryGetValue(ruleId, out var state)
+                        && ReferenceEquals(state.SessionCancellation, sessionCancellation)
+                        && avatarScaleRuntimeGeneration == runtimeGeneration
+                        && activeAvatarScaleOperation?.OperationId == (restoreOperation ?? operation).OperationId)
+                    {
+                        state.AddedHeightMeters = 0;
+                    }
+                }
+
+                var currentAvatarId = GetCurrentVrChatAvatarId();
+                var expectedPendingRestore = GetPendingAvatarScaleHeightRestore(currentAvatarId);
+                var restoreHeight = expectedPendingRestore?.RestoreHeightMeters ?? normalHeight;
+                var resetOperation = restoreOperation ?? operation;
+                if (await SendAvatarHeightForOperationAsync(
+                        resetOperation,
+                        restoreHeight,
+                        smoothTransitionSeconds,
+                        cancellationToken,
+                        rule: rule,
+                        shouldContinue: () => IsAvatarScaleRuntimeGenerationCurrent(runtimeGeneration))
+                    && expectedPendingRestore is not null)
+                {
+                    TryRemovePendingAvatarScaleHeightRestore(
+                        currentAvatarId,
+                        expectedPendingRestore,
+                        expectedRestoreSequenceId: null,
+                        expectedOperationId: resetOperation.OperationId,
+                        expectedRuntimeGeneration: runtimeGeneration,
+                        expectedAvatarChangeSequenceId: null,
+                        expectedSupporterGrowthRuleId: ruleId,
+                        expectedSupporterGrowthSessionCancellation: sessionCancellation);
+                    WriteLog($"Supporter growth '{ruleName}' returned to normal height after paid active time ended.");
+                }
+
+                return;
             }
         }
         catch (OperationCanceledException)
@@ -7057,31 +8135,40 @@ internal BridgeCoordinator(
         }
         catch (Exception ex)
         {
-            WriteLog($"Supporter growth '{ruleName}' failed: {ex.Message}");
+            WriteLog($"Supporter growth '{ruleName}' failed: {SensitiveTextSanitizer.Sanitize(ex.Message)}");
         }
         finally
         {
+            var shouldCleanUp = false;
             lock (stateGate)
             {
-                if (avatarScaleSupporterGrowthStates.TryGetValue(ruleId, out var state)
-                    && ReferenceEquals(state.SessionCancellation, sessionCancellation))
+                if (!isStopping)
                 {
-                    avatarScaleSupporterGrowthStates.Remove(ruleId);
+                    if (avatarScaleSupporterGrowthStates.TryGetValue(ruleId, out var state)
+                        && ReferenceEquals(state.SessionCancellation, sessionCancellation))
+                    {
+                        avatarScaleSupporterGrowthStates.Remove(ruleId);
+                    }
+
+                    shouldCleanUp = true;
                 }
             }
 
-            EndAvatarScaleHeightSession(ruleId, heightSessionId);
-            if (restoreOperation is not null)
+            if (shouldCleanUp)
             {
-                EndAvatarScaleOperation(restoreOperation);
-            }
+                EndAvatarScaleHeightSession(ruleId, heightSessionId);
+                if (restoreOperation is not null)
+                {
+                    EndAvatarScaleOperation(restoreOperation);
+                }
 
-            if (!transitionOperationEnded)
-            {
-                EndAvatarScaleOperation(operation);
-            }
+                if (!transitionOperationEnded)
+                {
+                    EndAvatarScaleOperation(operation);
+                }
 
-            sessionCancellation.Dispose();
+                sessionCancellation.Dispose();
+            }
         }
     }
 
@@ -7343,7 +8430,13 @@ internal BridgeCoordinator(
                 "/avatar/eyeheight",
                 OscParameterType.Float,
                 floatValue.ToString("G9", CultureInfo.InvariantCulture));
-            await oscRouterService.SendToVrChatAsync(packet, cancellationToken);
+
+            if (shouldContinue?.Invoke() == false)
+            {
+                return false;
+            }
+
+            await SendToVrChatAsync(packet, cancellationToken);
             ObserveOscValue(
                 new OscObservedValue("/avatar/eyeheight", OscParameterType.Float, floatValue),
                 updateActiveAvatarScaleCarryover: true);
@@ -7376,6 +8469,11 @@ internal BridgeCoordinator(
     {
         lock (stateGate)
         {
+            if (isStopping)
+            {
+                return null;
+            }
+
             if (activeAvatarScaleOperation?.OperationId != operation.OperationId)
             {
                 return null;
@@ -7406,6 +8504,7 @@ internal BridgeCoordinator(
                 rule);
             var paidActiveUntil = now.AddSeconds(remainingPaidSeconds);
             state.PaidActiveUntil = paidActiveUntil;
+            state.ActivityDeadline = new(paidActiveUntil);
             state.CurrentTargetHeightMeters = targetHeight;
             state.NormalHeightMeters = normalHeight;
             state.AllowRewardScaleOverlay = rule.SupporterGrowthAllowRewardScaleOverlay;
@@ -7991,15 +9090,26 @@ internal BridgeCoordinator(
             return triggerTypeComparison;
         }
 
-        return Math.Max(1, left.MinimumAmount).CompareTo(Math.Max(1, right.MinimumAmount));
+        return GetSupporterOverrideThreshold(left).CompareTo(GetSupporterOverrideThreshold(right));
     }
+
+    private static int GetSupporterOverrideThreshold(TriggerRuleSnapshot rule) =>
+        rule.TriggerType is TwitchTriggerType.Subscriptions or TwitchTriggerType.GiftSubscription
+            ? Math.Max(1, rule.SubsTriggerCount)
+            : Math.Max(1, rule.MinimumAmount);
 
     private static int GetSupporterOverrideTriggerTypeRank(TwitchTriggerType triggerType) => triggerType switch
     {
-        TwitchTriggerType.Subscriptions => 2,
+        TwitchTriggerType.Subscriptions or TwitchTriggerType.GiftSubscription => 2,
         TwitchTriggerType.Bits => 1,
         _ => 0
     };
+
+    private static bool ShouldRestartActiveSupporterOverride(
+        TriggerRuleSnapshot activeRule,
+        TriggerRuleSnapshot incomingRule) =>
+        activeRule.Id == incomingRule.Id
+        && IsAvatarChangeOverrideRule(incomingRule);
 
     private static TimeSpan GetSupporterOverrideDuration(
         TriggerRuleSnapshot rule,
@@ -8075,7 +9185,7 @@ internal BridgeCoordinator(
         BridgeIncomingEvent bridgeEvent)
     {
         var amount = Math.Max(1, bridgeEvent.Amount);
-        if (rule.TriggerType == TwitchTriggerType.Subscriptions)
+        if (rule.TriggerType is TwitchTriggerType.Subscriptions or TwitchTriggerType.GiftSubscription)
         {
             return amount * GetSupporterOverrideSubscriptionSecondsPerSub(rule, bridgeEvent.SubscriptionTier);
         }
@@ -8932,7 +10042,11 @@ internal BridgeCoordinator(
             var floatLaneKeys = GetActionLaneKeys(executionRule);
             var floatLaneLeaseId = floatLaneKeys.Count == 0 ? Guid.Empty : Guid.NewGuid();
             var floatEffectiveActiveSeconds = Math.Max(1d, executionRule.DurationSeconds);
-            await ExecuteFloatAvatarParameterWithTransitionAsync(executionRule, cancellationToken);
+            var floatSendOutcome = await ExecuteFloatAvatarParameterWithTransitionAsync(executionRule, cancellationToken);
+            if (floatSendOutcome != AvatarScopedFloatSendOutcome.Sent)
+            {
+                return;
+            }
 
             if (!isTest)
             {
@@ -9002,11 +10116,18 @@ internal BridgeCoordinator(
             return;
         }
 
+        var sourceAvatarId = GetAvatarScopedResetSourceAvatarId(executionRule);
         var action = resumeAction ?? await ResolveActionAsync(
             executionRule,
             cancellationToken,
             preferLocalInstantToggleState: executionRule.ParameterType == OscParameterType.Bool && executionRule.DurationSeconds <= 0,
-            capturedReturnAvatar);
+            capturedReturnAvatar,
+            sourceAvatarId);
+        if (!string.IsNullOrWhiteSpace(sourceAvatarId)
+            && string.IsNullOrWhiteSpace(action.SourceAvatarId))
+        {
+            action = action with { SourceAvatarId = sourceAvatarId };
+        }
         var laneKeys = GetActionLaneKeys(executionRule, action);
         var laneLeaseId = laneKeys.Count == 0 ? Guid.Empty : Guid.NewGuid();
         var effectiveTimedActionSeconds = Math.Max(
@@ -9022,10 +10143,33 @@ internal BridgeCoordinator(
             }
         }
 
-        await SendPacketsToVrChatAsync(
-            action.Packets,
-            cancellationToken,
-            executionRule.ActionType == OscActionType.SetTrigger ? SetTriggerPacketSpacing : null);
+        var initialSendOutcome = AvatarScopedFloatSendOutcome.Sent;
+        if (!string.IsNullOrWhiteSpace(action.SourceAvatarId))
+        {
+            initialSendOutcome = await TrySendAvatarScopedActionPacketsAsync(
+                action.Packets,
+                action.SourceAvatarId,
+                cancellationToken,
+                executionRule.ActionType == OscActionType.SetTrigger ? SetTriggerPacketSpacing : null,
+                action.AvatarScopedEffectOwnership);
+        }
+        else
+        {
+            await SendPacketsToVrChatAsync(
+                action.Packets,
+                cancellationToken,
+                executionRule.ActionType == OscActionType.SetTrigger ? SetTriggerPacketSpacing : null);
+        }
+
+        if (initialSendOutcome != AvatarScopedFloatSendOutcome.Sent)
+        {
+            if (action.AvatarScopedEffectOwnership is { } effectOwnership)
+            {
+                CancelRejectedAvatarScopedEffect(effectOwnership);
+            }
+
+            return;
+        }
         if (executionRule.ActionType == OscActionType.SetTrigger)
         {
             WriteLog($"Sent Set Trigger '{rule.Name}' outfit values ({action.Packets.Count} param{(action.Packets.Count == 1 ? string.Empty : "s")}).");
@@ -9503,6 +10647,7 @@ internal BridgeCoordinator(
         var address = VrChatOscClient.NormalizeAvatarParameterAddress(rule.ParameterName);
         var clampedTargetValue = ClampAvatarEyeHeightValueIfNeeded(address, targetValue);
         var clampedResetValue = ClampAvatarEyeHeightValueIfNeeded(address, resetValue);
+        var sourceAvatarId = GetAvatarScopedResetSourceAvatarId(rule);
         laneKeys ??= GetActionLaneKeys(rule);
         laneLeaseId = laneKeys.Count == 0 ? Guid.Empty : Guid.NewGuid();
         var inSeconds = Math.Clamp(rule.FloatTransitionInSeconds, 0, 30);
@@ -9510,6 +10655,9 @@ internal BridgeCoordinator(
         var activeSeconds = Math.Max(1, rule.DurationSeconds);
         var totalActiveSeconds = inSeconds + activeSeconds + outSeconds;
         var activeUntil = DateTimeOffset.UtcNow.AddSeconds(totalActiveSeconds);
+        var cooldownUntil = cooldownSeconds > 0
+            ? DateTimeOffset.UtcNow.AddSeconds(cooldownSeconds)
+            : (DateTimeOffset?)null;
         var completionCancellation = runtimeCancellation is null
             ? new CancellationTokenSource()
             : CancellationTokenSource.CreateLinkedTokenSource(runtimeCancellation.Token);
@@ -9527,6 +10675,7 @@ internal BridgeCoordinator(
             address,
             clampedTargetValue,
             clampedResetValue,
+            sourceAvatarId,
             activeUntil,
             completionCancellation,
             laneKeys,
@@ -9536,11 +10685,19 @@ internal BridgeCoordinator(
         {
             FloatMaxReached = floatMaxReached,
             FloatMinReached = floatMinReached,
+            ActivityDeadline = new(activeUntil - TimeSpan.FromSeconds(outSeconds)),
+            CooldownUntil = cooldownUntil,
         };
 
         ActiveFloatRedeemSessionState? previousSession = null;
         lock (stateGate)
         {
+            if (isStopping)
+            {
+                completionCancellation.Dispose();
+                return;
+            }
+
             if (activeFloatRedeemSessions.TryGetValue(rule.Id, out previousSession))
             {
                 activeFloatRedeemSessions.Remove(rule.Id);
@@ -9558,9 +10715,9 @@ internal BridgeCoordinator(
 
             if (!isTest)
             {
-                if (cooldownSeconds > 0)
+                if (cooldownUntil is { } expectedCooldownUntil)
                 {
-                    cooldowns[rule.Id] = DateTimeOffset.UtcNow.AddSeconds(cooldownSeconds);
+                    cooldowns[rule.Id] = expectedCooldownUntil;
                 }
                 else
                 {
@@ -9581,9 +10738,11 @@ internal BridgeCoordinator(
 
         if (!isTest)
         {
-            if (cooldownSeconds > 0)
+            if (cooldownUntil is { } expectedCooldownUntil)
             {
-                ScheduleCooldownStateNotification(rule.Id, TimeSpan.FromSeconds(cooldownSeconds));
+                session.CooldownNotification = ScheduleCooldownStateNotification(
+                    rule.Id,
+                    expectedCooldownUntil - DateTimeOffset.UtcNow);
             }
             else
             {
@@ -9597,25 +10756,62 @@ internal BridgeCoordinator(
         try
         {
             var startValue = await TryGetCurrentAvatarFloatValueAsync(address, clampedTargetValue, cancellationToken);
+            var startSendOutcome = AvatarScopedFloatSendOutcome.Sent;
             await session.SendGate.WaitAsync(cancellationToken);
             try
             {
-                await SendFloatAvatarParameterValueAsync(
-                    address,
-                    startValue,
-                    clampedTargetValue,
-                    inSeconds,
-                    cancellationToken);
-                session.CurrentValue = clampedTargetValue;
+                if (string.IsNullOrWhiteSpace(session.SourceAvatarId))
+                {
+                    await SendFloatAvatarParameterValueAsync(
+                        address,
+                        startValue,
+                        clampedTargetValue,
+                        inSeconds,
+                        cancellationToken);
+                }
+                else
+                {
+                    startSendOutcome = await TrySendAvatarScopedFloatValueAsync(
+                        address,
+                        startValue,
+                        clampedTargetValue,
+                        inSeconds,
+                        session.SourceAvatarId,
+                        session.CompletionCancellation,
+                        session.MovementLaneLeaseId,
+                        (expectedCancellation, expectedLeaseId) =>
+                            activeFloatRedeemSessions.TryGetValue(session.Rule.Id, out var currentSession)
+                            && ReferenceEquals(currentSession, session)
+                            && ReferenceEquals(currentSession.CompletionCancellation, expectedCancellation)
+                            && currentSession.MovementLaneLeaseId == expectedLeaseId,
+                        cancellationToken);
+                }
+
+                if (startSendOutcome == AvatarScopedFloatSendOutcome.Sent)
+                {
+                    session.CurrentValue = clampedTargetValue;
+                }
             }
             finally
             {
                 session.SendGate.Release();
             }
+
+            if (startSendOutcome != AvatarScopedFloatSendOutcome.Sent)
+            {
+                ReleaseRejectedActiveFloatRedeemSession(
+                    session,
+                    completionCancellation,
+                    notifyManagedRewardState: !isTest);
+                return;
+            }
         }
         catch
         {
-            FinishActiveFloatRedeemSession(session, completionCancellation, notifyManagedRewardState: !isTest);
+            ReleaseRejectedActiveFloatRedeemSession(
+                session,
+                completionCancellation,
+                notifyManagedRewardState: !isTest);
             throw;
         }
 
@@ -9649,41 +10845,110 @@ internal BridgeCoordinator(
         double activeSeconds,
         double outSeconds)
     {
-        _ = Task.Run(async () =>
+        TryStartPersistentEffectWorker(async () =>
         {
             var shouldNotifyManagedRewardState = !session.IsTest;
+            var handoffToReplacementWorker = false;
+            var preserveStateForShutdown = false;
             try
             {
-                await Task.Delay(TimeSpan.FromSeconds(Math.Max(1, activeSeconds)), completionCancellation.Token);
-
-                // If the avatar recently changed, defer the reset until the grace period ends.
-                // This prevents reset packets from being lost during world transitions.
-                if (IsInAvatarChangeGracePeriod())
+                while (!completionCancellation.IsCancellationRequested)
                 {
-                    var graceRemaining = AvatarChangeGracePeriod - (DateTimeOffset.UtcNow - lastAvatarChangeAt);
-                    WriteLog($"Float redeem '{session.Rule.Name}' completion is deferred because the avatar recently changed. The reset will be retried after the grace period. ({DescribeDuration(graceRemaining.TotalSeconds)} remaining)");
-                    ScheduleActiveFloatRedeemCompletionAfterGracePeriod(session, completionCancellation, inSeconds, activeSeconds, outSeconds);
-                    return;
-                }
+                    await session.ActivityDeadline.WaitAsync(completionCancellation.Token);
 
-                await session.SendGate.WaitAsync(completionCancellation.Token);
-                try
-                {
-                    await SendFloatAvatarParameterValueAsync(
-                        session.Address,
-                        session.CurrentValue,
-                        session.ResetValue,
-                        outSeconds,
-                        completionCancellation.Token);
-                    session.CurrentValue = session.ResetValue;
-                }
-                finally
-                {
-                    session.SendGate.Release();
-                }
+                    lock (stateGate)
+                    {
+                        if (!activeFloatRedeemSessions.TryGetValue(session.Rule.Id, out var currentSession)
+                            || !ReferenceEquals(currentSession, session)
+                            || !ReferenceEquals(currentSession.CompletionCancellation, completionCancellation))
+                        {
+                            return;
+                        }
 
-                RememberAvatarParameterValue(session.Rule, FloatValueModeConverter.ToOscText(session.ResetValue));
-                WriteLog($"Reset '{session.Rule.Name}' after {DescribeDuration(inSeconds + activeSeconds + outSeconds)}.");
+                        if (currentSession.ActivityDeadline.Deadline > DateTimeOffset.UtcNow)
+                        {
+                            continue;
+                        }
+                    }
+
+                    // If the avatar recently changed, defer the reset until the grace period ends.
+                    // This prevents reset packets from being lost during world transitions.
+                    if (IsInAvatarChangeGracePeriod())
+                    {
+                        var graceRemaining = AvatarChangeGracePeriod - (DateTimeOffset.UtcNow - lastAvatarChangeAt);
+                        WriteLog($"Float redeem '{session.Rule.Name}' completion is deferred because the avatar recently changed. The reset will be retried after the grace period. ({DescribeDuration(graceRemaining.TotalSeconds)} remaining)");
+                        handoffToReplacementWorker = ScheduleActiveFloatRedeemCompletionAfterGracePeriod(
+                            session,
+                            completionCancellation,
+                            inSeconds,
+                            activeSeconds,
+                            outSeconds);
+                        return;
+                    }
+
+                    await session.SendGate.WaitAsync(completionCancellation.Token);
+                    try
+                    {
+                        lock (stateGate)
+                        {
+                            if (!activeFloatRedeemSessions.TryGetValue(session.Rule.Id, out var currentSession)
+                                || !ReferenceEquals(currentSession, session)
+                                || !ReferenceEquals(currentSession.CompletionCancellation, completionCancellation))
+                            {
+                                return;
+                            }
+
+                            if (currentSession.ActivityDeadline.Deadline > DateTimeOffset.UtcNow)
+                            {
+                                continue;
+                            }
+                        }
+
+                        var sendOutcome = AvatarScopedFloatSendOutcome.Sent;
+                        if (string.IsNullOrWhiteSpace(session.SourceAvatarId))
+                        {
+                            await SendFloatAvatarParameterValueAsync(
+                                session.Address,
+                                session.CurrentValue,
+                                session.ResetValue,
+                                outSeconds,
+                                completionCancellation.Token);
+                        }
+                        else
+                        {
+                            sendOutcome = await TrySendAvatarScopedFloatValueAsync(
+                                session.Address,
+                                session.CurrentValue,
+                                session.ResetValue,
+                                outSeconds,
+                                session.SourceAvatarId,
+                                completionCancellation,
+                                session.MovementLaneLeaseId,
+                                (expectedCancellation, expectedLeaseId) =>
+                                    activeFloatRedeemSessions.TryGetValue(session.Rule.Id, out var currentSession)
+                                    && ReferenceEquals(currentSession, session)
+                                    && ReferenceEquals(currentSession.CompletionCancellation, expectedCancellation)
+                                    && currentSession.MovementLaneLeaseId == expectedLeaseId,
+                                completionCancellation.Token);
+                        }
+
+                        if (sendOutcome != AvatarScopedFloatSendOutcome.Sent)
+                        {
+                            preserveStateForShutdown = sendOutcome == AvatarScopedFloatSendOutcome.Deferred;
+                            return;
+                        }
+
+                        session.CurrentValue = session.ResetValue;
+                    }
+                    finally
+                    {
+                        session.SendGate.Release();
+                    }
+
+                    RememberAvatarParameterValue(session.Rule, FloatValueModeConverter.ToOscText(session.ResetValue));
+                    WriteLog($"Reset '{session.Rule.Name}' after {DescribeDuration(inSeconds + activeSeconds + outSeconds)}.");
+                    break;
+                }
             }
             catch (OperationCanceledException)
             {
@@ -9691,58 +10956,120 @@ internal BridgeCoordinator(
             }
             catch (Exception ex)
             {
-                WriteLog($"Failed to reset '{session.Rule.Name}': {ex.Message}");
+                WriteLog($"Failed to reset '{session.Rule.Name}': {SensitiveTextSanitizer.Sanitize(ex.Message)}");
             }
             finally
             {
-                FinishActiveFloatRedeemSession(session, completionCancellation, shouldNotifyManagedRewardState);
+                if (!handoffToReplacementWorker)
+                {
+                    if (!preserveStateForShutdown)
+                    {
+                        FinishActiveFloatRedeemSession(session, completionCancellation, shouldNotifyManagedRewardState);
+                    }
+                }
             }
-        }, CancellationToken.None);
+        }, completionCancellation);
     }
 
-    private void ScheduleActiveFloatRedeemCompletionAfterGracePeriod(
+    private bool ScheduleActiveFloatRedeemCompletionAfterGracePeriod(
         ActiveFloatRedeemSessionState session,
         CancellationTokenSource completionCancellation,
         double inSeconds,
         double activeSeconds,
         double outSeconds)
     {
-        _ = Task.Run(async () =>
+        return TryStartPersistentEffectWorker(async () =>
         {
             var shouldNotifyManagedRewardState = !session.IsTest;
+            var preserveStateForShutdown = false;
             try
             {
-                var graceRemaining = AvatarChangeGracePeriod - (DateTimeOffset.UtcNow - lastAvatarChangeAt);
-                if (graceRemaining > TimeSpan.Zero)
+                while (!completionCancellation.IsCancellationRequested)
                 {
-                    await Task.Delay(graceRemaining, completionCancellation.Token);
-                }
-
-                // If we're still in the grace period (avatar changed again), re-defer
-                if (IsInAvatarChangeGracePeriod())
-                {
-                    ScheduleActiveFloatRedeemCompletionAfterGracePeriod(session, completionCancellation, inSeconds, activeSeconds, outSeconds);
-                    return;
-                }
-
-                await session.SendGate.WaitAsync(completionCancellation.Token);
-                try
-                {
-                    await SendFloatAvatarParameterValueAsync(
-                        session.Address,
-                        session.CurrentValue,
-                        session.ResetValue,
-                        outSeconds,
+                    await WaitForActivityDeadlineAndAvatarChangeGraceAsync(
+                        session.ActivityDeadline,
+                        () => AvatarChangeGracePeriod - (DateTimeOffset.UtcNow - lastAvatarChangeAt),
+                        IsInAvatarChangeGracePeriod,
                         completionCancellation.Token);
-                    session.CurrentValue = session.ResetValue;
-                }
-                finally
-                {
-                    session.SendGate.Release();
-                }
 
-                RememberAvatarParameterValue(session.Rule, FloatValueModeConverter.ToOscText(session.ResetValue));
-                WriteLog($"Reset '{session.Rule.Name}' after {DescribeDuration(inSeconds + activeSeconds + outSeconds)} (deferred completion after avatar change grace period).");
+                    lock (stateGate)
+                    {
+                        if (!activeFloatRedeemSessions.TryGetValue(session.Rule.Id, out var currentSession)
+                            || !ReferenceEquals(currentSession, session)
+                            || !ReferenceEquals(currentSession.CompletionCancellation, completionCancellation))
+                        {
+                            return;
+                        }
+
+                        if (currentSession.ActivityDeadline.Deadline > DateTimeOffset.UtcNow)
+                        {
+                            continue;
+                        }
+                    }
+
+                    await session.SendGate.WaitAsync(completionCancellation.Token);
+                    try
+                    {
+                        lock (stateGate)
+                        {
+                            if (!activeFloatRedeemSessions.TryGetValue(session.Rule.Id, out var currentSession)
+                                || !ReferenceEquals(currentSession, session)
+                                || !ReferenceEquals(currentSession.CompletionCancellation, completionCancellation))
+                            {
+                                return;
+                            }
+
+                            if (currentSession.ActivityDeadline.Deadline > DateTimeOffset.UtcNow)
+                            {
+                                continue;
+                            }
+                        }
+
+                        var sendOutcome = AvatarScopedFloatSendOutcome.Sent;
+                        if (string.IsNullOrWhiteSpace(session.SourceAvatarId))
+                        {
+                            await SendFloatAvatarParameterValueAsync(
+                                session.Address,
+                                session.CurrentValue,
+                                session.ResetValue,
+                                outSeconds,
+                                completionCancellation.Token);
+                        }
+                        else
+                        {
+                            sendOutcome = await TrySendAvatarScopedFloatValueAsync(
+                                session.Address,
+                                session.CurrentValue,
+                                session.ResetValue,
+                                outSeconds,
+                                session.SourceAvatarId,
+                                completionCancellation,
+                                session.MovementLaneLeaseId,
+                                (expectedCancellation, expectedLeaseId) =>
+                                    activeFloatRedeemSessions.TryGetValue(session.Rule.Id, out var currentSession)
+                                    && ReferenceEquals(currentSession, session)
+                                    && ReferenceEquals(currentSession.CompletionCancellation, expectedCancellation)
+                                    && currentSession.MovementLaneLeaseId == expectedLeaseId,
+                                completionCancellation.Token);
+                        }
+
+                        if (sendOutcome != AvatarScopedFloatSendOutcome.Sent)
+                        {
+                            preserveStateForShutdown = sendOutcome == AvatarScopedFloatSendOutcome.Deferred;
+                            return;
+                        }
+
+                        session.CurrentValue = session.ResetValue;
+                    }
+                    finally
+                    {
+                        session.SendGate.Release();
+                    }
+
+                    RememberAvatarParameterValue(session.Rule, FloatValueModeConverter.ToOscText(session.ResetValue));
+                    WriteLog($"Reset '{session.Rule.Name}' after {DescribeDuration(inSeconds + activeSeconds + outSeconds)} (deferred completion after avatar change grace period).");
+                    break;
+                }
             }
             catch (OperationCanceledException)
             {
@@ -9750,13 +11077,16 @@ internal BridgeCoordinator(
             }
             catch (Exception ex)
             {
-                WriteLog($"Failed to reset '{session.Rule.Name}' during grace period deferral: {ex.Message}");
+                WriteLog($"Failed to reset '{session.Rule.Name}' during grace period deferral: {SensitiveTextSanitizer.Sanitize(ex.Message)}");
             }
             finally
             {
-                FinishActiveFloatRedeemSession(session, completionCancellation, shouldNotifyManagedRewardState);
+                if (!preserveStateForShutdown)
+                {
+                    FinishActiveFloatRedeemSession(session, completionCancellation, shouldNotifyManagedRewardState);
+                }
             }
-        }, CancellationToken.None);
+        }, completionCancellation);
     }
 
     private async Task ApplyActiveFloatBoostRewardAsync(
@@ -9812,6 +11142,7 @@ internal BridgeCoordinator(
             clampedBoostedValue = ClampAvatarEyeHeightValueIfNeeded(session.Address, boostedValue);
             boostMaximumReached = IsAtOrAboveActiveFloatBoostMaximum(clampedBoostedValue, upperBound);
             session.ActiveUntil = newActiveUntil;
+            session.ActivityDeadline = new(newActiveUntil - TimeSpan.FromSeconds(outSeconds));
             session.CompletionCancellation = newCompletionCancellation;
             session.BoostMaximumReached = boostMaximumReached;
             var (updatedFloatMax, updatedFloatMin) = FloatLimitDetection.ComputeLimitState(
@@ -9848,12 +11179,39 @@ internal BridgeCoordinator(
         await session.SendGate.WaitAsync(cancellationToken);
         try
         {
-            await SendFloatAvatarParameterValueAsync(
-                session.Address,
-                session.CurrentValue,
-                clampedBoostedValue,
-                inSeconds,
-                cancellationToken);
+            var sendOutcome = AvatarScopedFloatSendOutcome.Sent;
+            if (string.IsNullOrWhiteSpace(session.SourceAvatarId))
+            {
+                await SendFloatAvatarParameterValueAsync(
+                    session.Address,
+                    session.CurrentValue,
+                    clampedBoostedValue,
+                    inSeconds,
+                    cancellationToken);
+            }
+            else
+            {
+                sendOutcome = await TrySendAvatarScopedFloatValueAsync(
+                    session.Address,
+                    session.CurrentValue,
+                    clampedBoostedValue,
+                    inSeconds,
+                    session.SourceAvatarId,
+                    newCompletionCancellation,
+                    session.MovementLaneLeaseId,
+                    (expectedCancellation, expectedLeaseId) =>
+                        activeFloatRedeemSessions.TryGetValue(session.Rule.Id, out var currentSession)
+                        && ReferenceEquals(currentSession, session)
+                        && ReferenceEquals(currentSession.CompletionCancellation, expectedCancellation)
+                        && currentSession.MovementLaneLeaseId == expectedLeaseId,
+                    cancellationToken);
+            }
+
+            if (sendOutcome != AvatarScopedFloatSendOutcome.Sent)
+            {
+                return;
+            }
+
             session.CurrentValue = clampedBoostedValue;
         }
         finally
@@ -9866,15 +11224,23 @@ internal BridgeCoordinator(
         WriteLog($"{bridgeEvent.UserDisplayName} boosted '{rule.Name}' to {FloatValueModeConverter.ToOscText(clampedBoostedValue)} and refreshed its active timer.");
     }
 
-    private void FinishActiveFloatRedeemSession(
+    private void ReleaseRejectedActiveFloatRedeemSession(
         ActiveFloatRedeemSessionState session,
         CancellationTokenSource completionCancellation,
         bool notifyManagedRewardState)
     {
         var releasedSession = false;
         var hadFloatLimitReached = false;
+        var cooldownWasRemoved = false;
+        CancellationTokenSource? cooldownNotification = null;
+
         lock (stateGate)
         {
+            if (isStopping)
+            {
+                return;
+            }
+
             if (activeFloatRedeemSessions.TryGetValue(session.Rule.Id, out var currentSession)
                 && ReferenceEquals(currentSession, session)
                 && ReferenceEquals(session.CompletionCancellation, completionCancellation))
@@ -9882,6 +11248,122 @@ internal BridgeCoordinator(
                 activeFloatRedeemSessions.Remove(session.Rule.Id);
                 releasedSession = true;
                 hadFloatLimitReached = session.FloatMaxReached || session.FloatMinReached;
+
+                if (session.CooldownUntil is { } expectedCooldownUntil
+                    && cooldowns.TryGetValue(session.Rule.Id, out var currentCooldownUntil)
+                    && currentCooldownUntil == expectedCooldownUntil
+                    && (session.CooldownNotification is null
+                        || (cooldownStateNotifications.TryGetValue(session.Rule.Id, out var currentNotification)
+                            && ReferenceEquals(currentNotification, session.CooldownNotification))))
+                {
+                    cooldowns.Remove(session.Rule.Id);
+                    cooldownWasRemoved = true;
+                    if (session.CooldownNotification is not null
+                        && cooldownStateNotifications.Remove(session.Rule.Id, out var removedNotification)
+                        && ReferenceEquals(removedNotification, session.CooldownNotification))
+                    {
+                        cooldownNotification = removedNotification;
+                    }
+                }
+            }
+        }
+
+        if (!releasedSession)
+        {
+            try
+            {
+                completionCancellation.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+
+            try
+            {
+                completionCancellation.Dispose();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+
+            return;
+        }
+
+        try
+        {
+            completionCancellation.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+
+        completionCancellation.Dispose();
+        session.SendGate.Dispose();
+        if (cooldownNotification is not null)
+        {
+            try
+            {
+                cooldownNotification.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+
+            try
+            {
+                cooldownNotification.Dispose();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+        }
+
+        var releasedLaneKeys = ReleaseMovementLanes(session.MovementLaneLeaseId, session.MovementLaneKeys);
+        ReleaseActiveRuleLockoutState(session.Rule.Id, logRelease: false, expectedExpiresAt: session.ActiveUntil);
+        if (notifyManagedRewardState)
+        {
+            ManagedRewardAvailabilityChanged?.Invoke();
+        }
+
+        if (cooldownWasRemoved)
+        {
+            NotifyRewardCooldownColorChanged(session.Rule.Id);
+        }
+
+        if (hadFloatLimitReached)
+        {
+            FloatLimitStatusChanged?.Invoke();
+        }
+
+        foreach (var releasedLaneKey in releasedLaneKeys)
+        {
+            EnsureQueuedLaneDrain(releasedLaneKey);
+        }
+    }
+
+    private void FinishActiveFloatRedeemSession(
+        ActiveFloatRedeemSessionState session,
+        CancellationTokenSource completionCancellation,
+        bool notifyManagedRewardState)
+    {
+        var releasedSession = false;
+        var hadFloatLimitReached = false;
+        var disposeSendGate = false;
+        lock (stateGate)
+        {
+            if (isStopping)
+            {
+                return;
+            }
+
+            if (activeFloatRedeemSessions.TryGetValue(session.Rule.Id, out var currentSession)
+                && ReferenceEquals(currentSession, session)
+                && ReferenceEquals(session.CompletionCancellation, completionCancellation))
+            {
+                activeFloatRedeemSessions.Remove(session.Rule.Id);
+                releasedSession = true;
+                hadFloatLimitReached = session.FloatMaxReached || session.FloatMinReached;
+                disposeSendGate = true;
             }
         }
 
@@ -9891,7 +11373,10 @@ internal BridgeCoordinator(
         }
 
         completionCancellation.Dispose();
-        session.SendGate.Dispose();
+        if (disposeSendGate)
+        {
+            session.SendGate.Dispose();
+        }
         var releasedLaneKeys = ReleaseMovementLanes(session.MovementLaneLeaseId, session.MovementLaneKeys);
         ReleaseActiveRuleLockoutState(session.Rule.Id, logRelease: true);
         if (notifyManagedRewardState)
@@ -9987,12 +11472,13 @@ internal BridgeCoordinator(
         }
     }
 
-    private async Task ExecuteFloatAvatarParameterWithTransitionAsync(
+    private async Task<AvatarScopedFloatSendOutcome> ExecuteFloatAvatarParameterWithTransitionAsync(
         TriggerRuleSnapshot rule,
         CancellationToken cancellationToken)
     {
         var address = VrChatOscClient.NormalizeAvatarParameterAddress(rule.ParameterName);
         var sourceRule = rule.Rule;
+        var sourceAvatarId = GetAvatarScopedResetSourceAvatarId(rule);
 
         // Resolve the target value: Set mode uses ParameterValue, all other
         // action modes compute the next value from the current OSC reading.
@@ -10001,7 +11487,7 @@ internal BridgeCoordinator(
         {
             if (!FloatValueModeConverter.TryParseNormalized(rule.FloatValueMode, rule.ParameterValue, out targetValue))
             {
-                return;
+                return AvatarScopedFloatSendOutcome.Skipped;
             }
         }
         else
@@ -10015,11 +11501,34 @@ internal BridgeCoordinator(
 
         if (inSeconds <= 0 || Math.Abs(currentValue - targetValue) < 0.000001d)
         {
-            await SendSingleFloatAvatarParameterValueAsync(address, targetValue, cancellationToken);
-            return;
+            if (string.IsNullOrWhiteSpace(sourceAvatarId))
+            {
+                await SendSingleFloatAvatarParameterValueAsync(address, targetValue, cancellationToken);
+                return AvatarScopedFloatSendOutcome.Sent;
+            }
+
+            return await TrySendAvatarScopedFloatValueAsync(
+                address,
+                targetValue,
+                targetValue,
+                0,
+                sourceAvatarId,
+                cancellationToken);
         }
 
-        await SendFloatAvatarParameterValueAsync(address, currentValue, targetValue, inSeconds, cancellationToken);
+        if (string.IsNullOrWhiteSpace(sourceAvatarId))
+        {
+            await SendFloatAvatarParameterValueAsync(address, currentValue, targetValue, inSeconds, cancellationToken);
+            return AvatarScopedFloatSendOutcome.Sent;
+        }
+
+        return await TrySendAvatarScopedFloatValueAsync(
+            address,
+            currentValue,
+            targetValue,
+            inSeconds,
+            sourceAvatarId,
+            cancellationToken);
     }
 
     private async Task SendSingleFloatAvatarParameterValueAsync(
@@ -10028,18 +11537,290 @@ internal BridgeCoordinator(
         CancellationToken cancellationToken)
     {
         var clampedValue = ClampAvatarFloatValueForAddress(address, value);
-        await oscRouterService.SendToVrChatAsync(
+        await SendToVrChatAsync(
             BuildAvatarParameterPacketWithAvatarScaleSafety(address, OscParameterType.Float, FloatValueModeConverter.ToOscText(clampedValue)),
             cancellationToken);
         ObserveOscValue(new OscObservedValue(address, OscParameterType.Float, (float)clampedValue));
+    }
+
+    private Task<AvatarScopedFloatSendOutcome> TrySendAvatarScopedFloatValueAsync(
+        string address,
+        double startValue,
+        double targetValue,
+        double transitionSeconds,
+        string sourceAvatarId,
+        CancellationToken sendCancellationToken) =>
+        TrySendAvatarScopedFloatValueAsync(
+            address,
+            startValue,
+            targetValue,
+            transitionSeconds,
+            sourceAvatarId,
+            expectedCancellation: null,
+            expectedLeaseId: Guid.Empty,
+            isCurrentState: null,
+            sendCancellationToken);
+
+    private async Task<AvatarScopedFloatSendOutcome> TrySendAvatarScopedFloatValueAsync(
+        string address,
+        double startValue,
+        double targetValue,
+        double transitionSeconds,
+        string sourceAvatarId,
+        CancellationTokenSource? expectedCancellation,
+        Guid expectedLeaseId,
+        Func<CancellationTokenSource, Guid, bool>? isCurrentState,
+        CancellationToken sendCancellationToken,
+        bool allowCancelledExpectedCancellation = false)
+    {
+        var duration = TimeSpan.FromSeconds(Math.Max(0.001, transitionSeconds));
+        var steps = transitionSeconds <= 0
+            ? 1
+            : Math.Clamp(
+                (int)Math.Ceiling(duration.TotalSeconds * AvatarScaleSmoothUpdatesPerSecond),
+                1,
+                AvatarScaleSmoothMaxSteps);
+        var stopwatch = Stopwatch.StartNew();
+
+        for (var step = 1; step <= steps; step++)
+        {
+            if (transitionSeconds > 0)
+            {
+                var scheduledElapsed = TimeSpan.FromSeconds(duration.TotalSeconds * step / steps);
+                var waitTime = scheduledElapsed - stopwatch.Elapsed;
+                if (waitTime > TimeSpan.Zero)
+                {
+                    await Task.Delay(waitTime, sendCancellationToken).ConfigureAwait(false);
+                }
+            }
+
+            var linearProgress = step == steps
+                ? 1
+                : Math.Clamp(stopwatch.Elapsed.TotalSeconds / duration.TotalSeconds, 0, 1);
+            var easedProgress = transitionSeconds <= 0 ? 1 : SmoothStep(linearProgress);
+            var value = startValue + ((targetValue - startValue) * easedProgress);
+            var userEntered = false;
+            var gateAcquired = false;
+            try
+            {
+                EnterAvatarScopedResetSendUser();
+                userEntered = true;
+                await avatarScopedResetSendGate.WaitAsync(sendCancellationToken).ConfigureAwait(false);
+                gateAcquired = true;
+
+                lock (stateGate)
+                {
+                    if (sendCancellationToken.IsCancellationRequested
+                        || (expectedCancellation is not null
+                            && ((isCurrentState is not null
+                                 && !isCurrentState(expectedCancellation, expectedLeaseId))
+                                || (!allowCancelledExpectedCancellation
+                                    && expectedCancellation.IsCancellationRequested))))
+                    {
+                        return AvatarScopedFloatSendOutcome.Skipped;
+                    }
+
+                    if (!string.Equals(currentVrChatAvatarId, sourceAvatarId, StringComparison.Ordinal))
+                    {
+                        return AvatarScopedFloatSendOutcome.Deferred;
+                    }
+                }
+
+                var clampedValue = ClampAvatarFloatValueForAddress(address, value);
+                var packet = BuildAvatarParameterPacketWithAvatarScaleSafety(
+                    address,
+                    OscParameterType.Float,
+                    FloatValueModeConverter.ToOscText(clampedValue));
+                await SendToVrChatAsync(packet, sendCancellationToken).ConfigureAwait(false);
+                ObserveOscValue(new OscObservedValue(address, OscParameterType.Float, (float)clampedValue));
+            }
+            finally
+            {
+                if (gateAcquired)
+                {
+                    avatarScopedResetSendGate.Release();
+                }
+
+                if (userEntered)
+                {
+                    ExitAvatarScopedResetSendUser();
+                }
+            }
+        }
+
+        return AvatarScopedFloatSendOutcome.Sent;
+    }
+
+    private async Task<AvatarScopedFloatSendOutcome> TrySendAvatarScopedFloatPacketAsync(
+        byte[] packet,
+        string sourceAvatarId,
+        CancellationToken sendCancellationToken)
+    {
+        var userEntered = false;
+        var gateAcquired = false;
+        try
+        {
+            EnterAvatarScopedResetSendUser();
+            userEntered = true;
+            await avatarScopedResetSendGate.WaitAsync(sendCancellationToken).ConfigureAwait(false);
+            gateAcquired = true;
+
+            lock (stateGate)
+            {
+                if (sendCancellationToken.IsCancellationRequested)
+                {
+                    return AvatarScopedFloatSendOutcome.Skipped;
+                }
+
+                if (!string.Equals(currentVrChatAvatarId, sourceAvatarId, StringComparison.Ordinal))
+                {
+                    return AvatarScopedFloatSendOutcome.Deferred;
+                }
+            }
+
+            await SendToVrChatAsync(packet, sendCancellationToken).ConfigureAwait(false);
+            return AvatarScopedFloatSendOutcome.Sent;
+        }
+        finally
+        {
+            if (gateAcquired)
+            {
+                avatarScopedResetSendGate.Release();
+            }
+
+            if (userEntered)
+            {
+                ExitAvatarScopedResetSendUser();
+            }
+        }
+    }
+
+    private async Task<AvatarScopedFloatSendOutcome> TrySendAvatarScopedActionPacketsAsync(
+        IReadOnlyList<byte[]> packets,
+        string sourceAvatarId,
+        CancellationToken sendCancellationToken,
+        TimeSpan? packetSpacing,
+        AvatarScopedEffectOwnership? expectedEffect)
+    {
+        var userEntered = false;
+        var gateAcquired = false;
+        try
+        {
+            EnterAvatarScopedResetSendUser();
+            userEntered = true;
+            await avatarScopedResetSendGate.WaitAsync(sendCancellationToken).ConfigureAwait(false);
+            gateAcquired = true;
+
+            lock (stateGate)
+            {
+                if (sendCancellationToken.IsCancellationRequested
+                    || (expectedEffect is not null && !IsAvatarScopedEffectCurrentLocked(expectedEffect)))
+                {
+                    return AvatarScopedFloatSendOutcome.Skipped;
+                }
+
+                if (!string.Equals(currentVrChatAvatarId, sourceAvatarId, StringComparison.Ordinal))
+                {
+                    return AvatarScopedFloatSendOutcome.Deferred;
+                }
+            }
+
+            await SendPacketsToVrChatAsync(packets, sendCancellationToken, packetSpacing).ConfigureAwait(false);
+            return AvatarScopedFloatSendOutcome.Sent;
+        }
+        finally
+        {
+            if (gateAcquired)
+            {
+                avatarScopedResetSendGate.Release();
+            }
+
+            if (userEntered)
+            {
+                ExitAvatarScopedResetSendUser();
+            }
+        }
+    }
+
+    private bool IsAvatarScopedEffectCurrentLocked(AvatarScopedEffectOwnership ownership) =>
+        ownership.Kind switch
+        {
+            AvatarScopedEffectKind.Pulse => activeFloatPulseRestores.TryGetValue(ownership.RuleId, out var pulse)
+                && ReferenceEquals(pulse, ownership.State)
+                && ReferenceEquals(pulse.Cancellation, ownership.Cancellation)
+                && pulse.LeaseId == ownership.LeaseId,
+            AvatarScopedEffectKind.Glitchy => activeGlitchyRedeemSessions.TryGetValue(ownership.RuleId, out var glitchy)
+                && ReferenceEquals(glitchy, ownership.State)
+                && ReferenceEquals(glitchy.CompletionCancellation, ownership.Cancellation)
+                && glitchy.LeaseId == ownership.LeaseId,
+            _ => false
+        };
+
+    private void CancelRejectedAvatarScopedEffect(AvatarScopedEffectOwnership ownership)
+    {
+        lock (stateGate)
+        {
+            if (isStopping)
+            {
+                return;
+            }
+
+            switch (ownership.Kind)
+            {
+                case AvatarScopedEffectKind.Pulse:
+                    if (activeFloatPulseRestores.TryGetValue(ownership.RuleId, out var pulse)
+                        && ReferenceEquals(pulse, ownership.State)
+                        && ReferenceEquals(pulse.Cancellation, ownership.Cancellation)
+                        && pulse.LeaseId == ownership.LeaseId)
+                    {
+                        activeFloatPulseRestores.Remove(ownership.RuleId);
+                    }
+
+                    break;
+                case AvatarScopedEffectKind.Glitchy:
+                    if (activeGlitchyRedeemSessions.TryGetValue(ownership.RuleId, out var glitchy)
+                        && ReferenceEquals(glitchy, ownership.State)
+                        && ReferenceEquals(glitchy.CompletionCancellation, ownership.Cancellation)
+                        && glitchy.LeaseId == ownership.LeaseId)
+                    {
+                        activeGlitchyRedeemSessions.Remove(ownership.RuleId);
+                    }
+
+                    break;
+            }
+        }
+
+        try
+        {
+            ownership.Cancellation.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+
+        try
+        {
+            ownership.Cancellation.Dispose();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
     }
 
     private async Task<ResolvedRuleAction> ResolveActionAsync(
         TriggerRuleSnapshot rule,
         CancellationToken cancellationToken,
         bool preferLocalInstantToggleState,
-        SharedReturnAvatarSnapshot capturedReturnAvatar)
+        SharedReturnAvatarSnapshot capturedReturnAvatar,
+        string? capturedSourceAvatarId = null)
     {
+        var sourceAvatarId = capturedSourceAvatarId ?? GetAvatarScopedResetSourceAvatarId(rule);
+        if (rule.ActionType == OscActionType.SetTrigger)
+        {
+            sourceAvatarId = ResolveSetTriggerSourceAvatarId(rule);
+        }
+
+        ResolvedRuleAction action;
         if (rule.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet)
         {
             if (rule.ActionType == OscActionType.AvatarRoulet)
@@ -10047,25 +11828,35 @@ internal BridgeCoordinator(
                 var roulette = activeConfiguration?.FindRouletteProfileForRule(rule.Rule);
                 if (roulette != null)
                 {
-                    return ResolveRouletteProfileAction(roulette, rule);
+                    action = ResolveRouletteProfileAction(roulette, rule);
+                    return string.IsNullOrWhiteSpace(sourceAvatarId)
+                        ? action
+                        : action with { SourceAvatarId = sourceAvatarId };
                 }
             }
             var parentProfile = activeConfiguration?.FindAvatarSwapProfileForRule(rule.Rule);
             if (parentProfile != null)
             {
-                return ResolveAvatarSwapAction(parentProfile, rule, capturedReturnAvatar);
+                action = ResolveAvatarSwapAction(parentProfile, rule, capturedReturnAvatar);
+                return string.IsNullOrWhiteSpace(sourceAvatarId)
+                    ? action
+                    : action with { SourceAvatarId = sourceAvatarId };
             }
         }
 
-        return rule.ActionType switch
+        action = rule.ActionType switch
             {
-            OscActionType.AvatarParameter => await ResolveAvatarParameterActionAsync(rule, cancellationToken, preferLocalInstantToggleState),
-            OscActionType.SetTrigger => await ResolveSetTriggerActionAsync(rule, cancellationToken),
+            OscActionType.AvatarParameter => await ResolveAvatarParameterActionAsync(rule, cancellationToken, preferLocalInstantToggleState, sourceAvatarId),
+            OscActionType.SetTrigger => await ResolveSetTriggerActionAsync(rule, cancellationToken, sourceAvatarId),
             OscActionType.AvatarChange => ResolveAvatarChangeAction(rule, capturedReturnAvatar),
             OscActionType.AvatarRoulet => ResolveAvatarRouletAction(rule, capturedReturnAvatar),
             OscActionType.PlayerMovement => ResolvePlayerMovementAction(rule),
             _ => throw new InvalidOperationException($"Unsupported OSC action type: {rule.ActionType}")
         };
+
+        return string.IsNullOrWhiteSpace(sourceAvatarId)
+            ? action
+            : action with { SourceAvatarId = sourceAvatarId };
     }
 
     private ResolvedRuleAction ResolveAvatarChangeAction(
@@ -10124,7 +11915,6 @@ internal BridgeCoordinator(
         AvatarRouletteProfileSnapshot roulette,
         TriggerRuleSnapshot rule)
     {
-        _ = rule;
         if (roulette.Pool is null || roulette.Pool.Count == 0)
         {
             throw new InvalidOperationException(
@@ -10144,7 +11934,8 @@ internal BridgeCoordinator(
         var returnAvatarName = !string.IsNullOrWhiteSpace(roulette.ReturnAvatarName)
             ? roulette.ReturnAvatarName
             : (activeConfiguration?.MasterAvatarSwapReturnName ?? picked.AvatarName);
-        var hasReturn = !string.IsNullOrWhiteSpace(returnAvatarId)
+        var hasReturn = rule.DurationSeconds > 0
+            && !string.IsNullOrWhiteSpace(returnAvatarId)
             && !string.Equals(returnAvatarId, picked.AvatarId, StringComparison.Ordinal);
 
         return new ResolvedRuleAction(
@@ -10378,6 +12169,27 @@ internal BridgeCoordinator(
         CancellationToken cancellationToken,
         bool queuedReplay)
     {
+        if (!await TryEnterTimedSupporterOverrideTransitionAsync(cancellationToken))
+        {
+            return;
+        }
+
+        try
+        {
+            await HandleTimedSupporterOverrideTriggerCoreAsync(rule, bridgeEvent, cancellationToken, queuedReplay);
+        }
+        finally
+        {
+            LeaveTimedSupporterOverrideTransitionUser(releaseGate: true);
+        }
+    }
+
+    private async Task HandleTimedSupporterOverrideTriggerCoreAsync(
+        TriggerRuleSnapshot rule,
+        BridgeIncomingEvent bridgeEvent,
+        CancellationToken cancellationToken,
+        bool queuedReplay)
+    {
         // Timed supporter overrides behave like one shared priority queue. A new paid event
         // can extend the active override, preempt it, merge into a queued entry, or start
         // a brand-new suppression sequence when nothing else is running.
@@ -10390,7 +12202,7 @@ internal BridgeCoordinator(
             return;
         }
 
-        if (rule.TriggerType == TwitchTriggerType.Subscriptions
+        if (rule.TriggerType is (TwitchTriggerType.Subscriptions or TwitchTriggerType.GiftSubscription)
             && !IsSubscriptionTierEnabled(rule, bridgeEvent.SubscriptionTier))
         {
             return;
@@ -10452,6 +12264,18 @@ internal BridgeCoordinator(
         {
             if (activeState.Rule.Id == rule.Id)
             {
+                if (ShouldRestartActiveSupporterOverride(activeState.Rule, rule))
+                {
+                    await RestartActiveAvatarSupporterOverrideAsync(
+                        activeState,
+                        rule,
+                        bridgeEvent,
+                        triggerDuration,
+                        cancellationToken,
+                        queuedReplay);
+                    return;
+                }
+
                 await ExtendActiveSupporterOverrideAsync(activeState, rule, bridgeEvent, triggerDuration, supporterFloatAddAmount, cancellationToken);
                 return;
             }
@@ -10496,7 +12320,6 @@ internal BridgeCoordinator(
         double supporterFloatAddAmount,
         CancellationToken cancellationToken)
     {
-        CancellationTokenSource? previousCancellation = null;
         DateTimeOffset activeUntil;
         string displayValue;
         double? boostedValue = null;
@@ -10526,17 +12349,11 @@ internal BridgeCoordinator(
                 displayValue = activeState.Action.DisplayValue;
             }
 
-            previousCancellation = activeState.CompletionCancellation;
             activeState.Event = bridgeEvent;
             activeState.ActiveUntil = activeState.ActiveUntil.Add(extension);
-            activeState.CompletionCancellation = runtimeCancellation is null
-                ? new CancellationTokenSource()
-                : CancellationTokenSource.CreateLinkedTokenSource(runtimeCancellation.Token);
+            activeState.ActivityDeadline.Extend(extension);
             activeUntil = activeState.ActiveUntil;
         }
-
-        previousCancellation?.Cancel();
-        previousCancellation?.Dispose();
 
         if (boostedValue is { } nextValue)
         {
@@ -10546,9 +12363,62 @@ internal BridgeCoordinator(
         }
 
         ApplyRuleLockoutUntil(activeState.Rule, activeUntil);
-        ScheduleTimedSupporterOverrideCompletion(activeState, activeState.CompletionCancellation);
         WriteLog($"Extended paid override '{activeState.Rule.Name}' by {DescribeDuration(extension.TotalSeconds)}. {DescribeDuration((activeUntil - DateTimeOffset.UtcNow).TotalSeconds)} left.");
         await TrySendBotMessageAsync(rule, bridgeEvent, displayValue, cancellationToken, extension.TotalSeconds);
+    }
+
+    private async Task RestartActiveAvatarSupporterOverrideAsync(
+        ActiveSupporterOverrideState activeState,
+        TriggerRuleSnapshot rule,
+        BridgeIncomingEvent bridgeEvent,
+        TimeSpan duration,
+        CancellationToken cancellationToken,
+        bool queuedReplay)
+    {
+        CancellationTokenSource? previousCancellation = null;
+        lock (stateGate)
+        {
+            if (!ReferenceEquals(activeSupporterOverride, activeState))
+            {
+                return;
+            }
+
+            previousCancellation = activeState.CompletionCancellation;
+            activeSupporterOverride = null;
+        }
+
+        previousCancellation?.Cancel();
+        previousCancellation?.Dispose();
+
+        try
+        {
+            await ResetRuleEffectAsync(
+                activeState.Rule,
+                activeState.Action.ResetPacket,
+                activeState.Action.AvatarResetId,
+                activeState.Action.AvatarResetName,
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            WriteLog($"Could not reset paid avatar override '{activeState.Rule.Name}' before retriggering it: {ex.Message}");
+        }
+
+        ReleaseActiveRuleLockoutState(activeState.Rule.Id, logRelease: false);
+        ReleaseActiveAvatarSwitchLockoutState(activeState.Rule.Id, logRelease: false);
+        WriteLog($"Restarting paid avatar override '{rule.Name}' because it was triggered again while active.");
+
+        await StartTimedSupporterOverrideAsync(
+            rule,
+            bridgeEvent,
+            duration,
+            activeState.QueueOrder,
+            cancellationToken,
+            queuedReplay,
+            resumedFromQueue: false,
+            sequenceWasInactive: false,
+            supporterFloatAddAmount: 0,
+            supporterFloatAddResumeValue: null);
     }
 
     private void ExtendQueuedSupporterOverride(
@@ -10750,7 +12620,7 @@ internal BridgeCoordinator(
             await CancelBlockedChannelPointEffectsForSupporterOverrideAsync(cancellationToken);
         }
 
-        await oscRouterService.SendToVrChatAsync(action.Packet, cancellationToken);
+        await SendToVrChatAsync(action.Packet, cancellationToken);
         RememberAvatarParameterValue(rule, action.DisplayValue);
 
         if (rule.ActionType == OscActionType.AvatarChange && !string.IsNullOrWhiteSpace(action.AvatarTargetId))
@@ -10814,40 +12684,36 @@ internal BridgeCoordinator(
         ActiveSupporterOverrideState activeState,
         CancellationTokenSource completionCancellation)
     {
-        _ = Task.Run(async () =>
+        var completionToken = completionCancellation.Token;
+        TryStartPersistentEffectWorker(async () =>
         {
             try
             {
-                var delay = activeState.ActiveUntil - DateTimeOffset.UtcNow;
-                if (delay > TimeSpan.Zero)
-                {
-                    await Task.Delay(delay, completionCancellation.Token);
-                }
+                await activeState.ActivityDeadline.WaitAsync(completionToken);
 
-                await CompleteTimedSupporterOverrideAsync(activeState, completionCancellation, completionCancellation.Token);
+                await CompleteTimedSupporterOverrideAsync(activeState, completionCancellation, completionToken);
             }
             catch (OperationCanceledException)
             {
             }
-        }, CancellationToken.None);
+        }, completionCancellation);
     }
 
     private void ScheduleTimedSupporterOverrideCompletionAfterGracePeriod(
         ActiveSupporterOverrideState activeState,
         CancellationTokenSource completionCancellation)
     {
-        _ = Task.Run(async () =>
+        var completionToken = completionCancellation.Token;
+        TryStartPersistentEffectWorker(async () =>
         {
             try
             {
-                // Wait for the grace period to end
-                var graceRemaining = AvatarChangeGracePeriod - (DateTimeOffset.UtcNow - lastAvatarChangeAt);
-                if (graceRemaining > TimeSpan.Zero)
-                {
-                    await Task.Delay(graceRemaining, completionCancellation.Token);
-                }
+                await WaitForActivityDeadlineAndAvatarChangeGraceAsync(
+                    activeState.ActivityDeadline,
+                    () => AvatarChangeGracePeriod - (DateTimeOffset.UtcNow - lastAvatarChangeAt),
+                    IsInAvatarChangeGracePeriod,
+                    completionToken);
 
-                // Check if we should still proceed (state might have changed)
                 lock (stateGate)
                 {
                     if (!ReferenceEquals(activeSupporterOverride, activeState)
@@ -10858,12 +12724,12 @@ internal BridgeCoordinator(
                 }
 
                 // Now complete the timed override
-                await CompleteTimedSupporterOverrideAsync(activeState, completionCancellation, completionCancellation.Token);
+                await CompleteTimedSupporterOverrideAsync(activeState, completionCancellation, completionToken);
             }
             catch (OperationCanceledException)
             {
             }
-        }, CancellationToken.None);
+        }, completionCancellation);
     }
 
     private async Task CompleteTimedSupporterOverrideAsync(
@@ -10871,27 +12737,78 @@ internal BridgeCoordinator(
         CancellationTokenSource completionCancellation,
         CancellationToken cancellationToken)
     {
-        // Completion is also the queue handoff point: finish the current reset, start its
-        // cooldown, then resume the highest-priority queued paid override if one is waiting.
-        lock (stateGate)
+        if (!await TryEnterTimedSupporterOverrideTransitionAsync(cancellationToken))
         {
-            if (!ReferenceEquals(activeSupporterOverride, activeState)
-                || !ReferenceEquals(activeState.CompletionCancellation, completionCancellation))
-            {
-                return;
-            }
-        }
-
-        // If the avatar recently changed, defer the reset until the grace period ends.
-        // This prevents reset packets from being lost during world transitions.
-        if (IsInAvatarChangeGracePeriod())
-        {
-            var graceRemaining = AvatarChangeGracePeriod - (DateTimeOffset.UtcNow - lastAvatarChangeAt);
-            WriteLog($"Paid override '{activeState.Rule.Name}' completion is deferred because the avatar recently changed. The reset will be retried after the grace period. ({DescribeDuration(graceRemaining.TotalSeconds)} remaining)");
-            ScheduleTimedSupporterOverrideCompletionAfterGracePeriod(activeState, completionCancellation);
             return;
         }
 
+        try
+        {
+            await CompleteTimedSupporterOverrideCoreAsync(activeState, completionCancellation, cancellationToken);
+        }
+        finally
+        {
+            LeaveTimedSupporterOverrideTransitionUser(releaseGate: true);
+        }
+    }
+
+    private async Task CompleteTimedSupporterOverrideCoreAsync(
+        ActiveSupporterOverrideState activeState,
+        CancellationTokenSource completionCancellation,
+        CancellationToken cancellationToken)
+    {
+        // Completion is also the queue handoff point: finish the current reset, start its
+        // cooldown, then resume the highest-priority queued paid override if one is waiting.
+        while (true)
+        {
+            var waitForDeadline = false;
+            lock (stateGate)
+            {
+                if (!ReferenceEquals(activeSupporterOverride, activeState)
+                    || !ReferenceEquals(activeState.CompletionCancellation, completionCancellation))
+                {
+                    return;
+                }
+
+                waitForDeadline = activeState.ActiveUntil > DateTimeOffset.UtcNow
+                    || activeState.ActivityDeadline.Deadline > DateTimeOffset.UtcNow;
+            }
+
+            if (waitForDeadline)
+            {
+                await activeState.ActivityDeadline.WaitAsync(cancellationToken);
+                continue;
+            }
+
+            // If the avatar recently changed, defer the reset until the grace period ends.
+            // This prevents reset packets from being lost during world transitions.
+            if (IsInAvatarChangeGracePeriod())
+            {
+                var graceRemaining = AvatarChangeGracePeriod - (DateTimeOffset.UtcNow - lastAvatarChangeAt);
+                WriteLog($"Paid override '{activeState.Rule.Name}' completion is deferred because the avatar recently changed. The reset will be retried after the grace period. ({DescribeDuration(graceRemaining.TotalSeconds)} remaining)");
+                ScheduleTimedSupporterOverrideCompletionAfterGracePeriod(activeState, completionCancellation);
+                return;
+            }
+
+            lock (stateGate)
+            {
+                if (!ReferenceEquals(activeSupporterOverride, activeState)
+                    || !ReferenceEquals(activeState.CompletionCancellation, completionCancellation))
+                {
+                    return;
+                }
+
+                if (activeState.ActiveUntil > DateTimeOffset.UtcNow
+                    || activeState.ActivityDeadline.Deadline > DateTimeOffset.UtcNow)
+                {
+                    continue;
+                }
+            }
+
+            break;
+        }
+
+        var resetWasCanceled = false;
         try
         {
             await ResetRuleEffectAsync(
@@ -10901,9 +12818,19 @@ internal BridgeCoordinator(
                 activeState.Action.AvatarResetName,
                 cancellationToken);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            resetWasCanceled = true;
+        }
         catch (Exception ex)
         {
             WriteLog($"Could not finish paid override '{activeState.Rule.Name}' cleanly: {ex.Message}");
+        }
+
+        if (resetWasCanceled
+            || (cancellationToken.IsCancellationRequested && IsRuntimeStopping()))
+        {
+            return;
         }
 
         ReleaseActiveRuleLockoutState(activeState.Rule.Id, logRelease: false);
@@ -11639,6 +13566,11 @@ internal BridgeCoordinator(
             StringComparer.Ordinal);
     }
 
+    private Task SendToVrChatAsync(byte[] packet, CancellationToken cancellationToken = default) =>
+        testSendToVrChatAsync is { } sendOverride
+            ? sendOverride(packet, cancellationToken)
+            : oscRouterService.SendToVrChatAsync(packet, cancellationToken);
+
     private async Task SendPacketsToVrChatAsync(
         IEnumerable<byte[]> packets,
         CancellationToken cancellationToken,
@@ -11652,7 +13584,7 @@ internal BridgeCoordinator(
                 await Task.Delay(delay, cancellationToken);
             }
 
-            await oscRouterService.SendToVrChatAsync(packet, cancellationToken);
+            await SendToVrChatAsync(packet, cancellationToken);
             sentAny = true;
         }
     }
@@ -11865,13 +13797,14 @@ internal BridgeCoordinator(
     private async Task<ResolvedRuleAction> ResolveAvatarParameterActionAsync(
         TriggerRuleSnapshot rule,
         CancellationToken cancellationToken,
-        bool preferLocalInstantToggleState)
+        bool preferLocalInstantToggleState,
+        string sourceAvatarId)
     {
         var address = VrChatOscClient.NormalizeAvatarParameterAddress(rule.ParameterName);
 
         if (rule.ParameterType == OscParameterType.Float)
         {
-            return await ResolveFloatActionAsync(rule, cancellationToken).ConfigureAwait(false);
+            return await ResolveFloatActionAsync(rule, cancellationToken, sourceAvatarId).ConfigureAwait(false);
         }
 
         switch (rule.ParameterType)
@@ -11964,7 +13897,8 @@ internal BridgeCoordinator(
 
     private async Task<ResolvedRuleAction> ResolveFloatActionAsync(
         TriggerRuleSnapshot rule,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string sourceAvatarId)
     {
         var address = VrChatOscClient.NormalizeAvatarParameterAddress(rule.ParameterName);
         var sourceRule = rule.Rule;
@@ -11987,11 +13921,22 @@ internal BridgeCoordinator(
             var pulsePacket = BuildAvatarParameterPacketWithAvatarScaleSafety(
                 address, OscParameterType.Float,
                 FloatValueModeConverter.ToOscText(clampedNextValue));
-            ScheduleFloatPulseRestore(sourceRule, address, pulsePacket, pulseReset);
+            scheduledPulseOwnership.Value = null;
+            ScheduleFloatPulseRestore(
+                sourceRule,
+                address,
+                pulsePacket,
+                pulseReset,
+                sourceAvatarId);
+            var effectOwnership = scheduledPulseOwnership.Value;
+            scheduledPulseOwnership.Value = null;
             return new ResolvedRuleAction(
                 packets: new[] { pulsePacket },
                 resetPackets: Array.Empty<byte[]>(),
-                displayValue: FloatValueModeConverter.ToOscText(clampedNextValue));
+                displayValue: FloatValueModeConverter.ToOscText(clampedNextValue))
+            {
+                AvatarScopedEffectOwnership = effectOwnership
+            };
         }
 
         var effectiveReset = configuredReset ?? (sourceRule.DurationSeconds > 0 ? ClampAvatarFloatValueForAddress(address, currentValue) : (double?)null);
@@ -12009,7 +13954,12 @@ internal BridgeCoordinator(
 
         if (sourceRule.FloatActionMode == FloatActionMode.Glitchy && sourceRule.DurationSeconds > 0)
         {
-            return ResolveGlitchyFloatSession(rule, address, clampedNextValue, clampedResetValue ?? ClampAvatarEyeHeightValueIfNeeded(address, ClampAvatarFloatValueForAddress(address, currentValue)));
+            return ResolveGlitchyFloatSession(
+                rule,
+                address,
+                clampedNextValue,
+                clampedResetValue ?? ClampAvatarEyeHeightValueIfNeeded(address, ClampAvatarFloatValueForAddress(address, currentValue)),
+                sourceAvatarId);
         }
 
         return new ResolvedRuleAction(
@@ -12025,14 +13975,53 @@ internal BridgeCoordinator(
     }
 
     private void ScheduleFloatPulseRestore(
-        TriggerRule sourceRule, string address, byte[] initialPacket, double resetValue)
+        TriggerRule sourceRule,
+        string address,
+        byte[] initialPacket,
+        double resetValue,
+        string sourceAvatarId)
     {
         var seconds = Math.Max(0.0, sourceRule.FloatPulseSeconds);
-        _ = Task.Run(async () =>
+        var cancellation = CreatePersistentEffectCancellation(runtimeCancellation?.Token ?? CancellationToken.None);
+        var pulse = new ActiveFloatPulseRestoreState(
+            sourceRule.Id,
+            sourceRule.Name,
+            address,
+            resetValue,
+            sourceAvatarId,
+            cancellation,
+            Guid.NewGuid());
+        ActiveFloatPulseRestoreState? previousPulse = null;
+        lock (stateGate)
         {
+            if (isStopping)
+            {
+                cancellation.Dispose();
+                return;
+            }
+
+            if (activeFloatPulseRestores.TryGetValue(sourceRule.Id, out previousPulse))
+            {
+                activeFloatPulseRestores.Remove(sourceRule.Id);
+            }
+
+            activeFloatPulseRestores[sourceRule.Id] = pulse;
+        }
+
+        previousPulse?.Cancellation.Cancel();
+        var effectOwnership = new AvatarScopedEffectOwnership(
+            AvatarScopedEffectKind.Pulse,
+            sourceRule.Id,
+            pulse.LeaseId,
+            pulse.Cancellation,
+            pulse);
+        scheduledPulseOwnership.Value = effectOwnership;
+        TryStartPersistentEffectWorker(async () =>
+        {
+            var preserveStateForShutdown = false;
             try
             {
-                await Task.Delay(TimeSpan.FromSeconds(seconds)).ConfigureAwait(false);
+                await Task.Delay(TimeSpan.FromSeconds(seconds), cancellation.Token).ConfigureAwait(false);
                 var resetText = ClampAvatarEyeHeightRawValueIfNeeded(
                     address,
                     OscParameterType.Float,
@@ -12040,22 +14029,73 @@ internal BridgeCoordinator(
                 var resetPacket = BuildAvatarParameterPacketWithAvatarScaleSafety(
                     address, OscParameterType.Float,
                     resetText);
-                await oscRouterService.SendToVrChatAsync(resetPacket).ConfigureAwait(false);
-                if (float.TryParse(resetText, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out var observedResetValue))
+                var sendOutcome = AvatarScopedFloatSendOutcome.Sent;
+                if (string.IsNullOrWhiteSpace(pulse.SourceAvatarId))
                 {
-                    ObserveOscValue(new OscObservedValue(address, OscParameterType.Float, observedResetValue));
+                    await SendToVrChatAsync(resetPacket, cancellation.Token).ConfigureAwait(false);
+                    if (float.TryParse(resetText, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out var observedResetValue))
+                    {
+                        ObserveOscValue(new OscObservedValue(address, OscParameterType.Float, observedResetValue));
+                    }
+                }
+                else
+                {
+                    sendOutcome = await TrySendAvatarScopedFloatValueAsync(
+                        address,
+                        resetValue,
+                        resetValue,
+                        0,
+                        pulse.SourceAvatarId,
+                        cancellation,
+                        pulse.LeaseId,
+                        (expectedCancellation, expectedLeaseId) =>
+                            activeFloatPulseRestores.TryGetValue(pulse.RuleId, out var currentPulse)
+                            && ReferenceEquals(currentPulse, pulse)
+                            && ReferenceEquals(currentPulse.Cancellation, expectedCancellation)
+                            && currentPulse.LeaseId == expectedLeaseId,
+                        cancellation.Token).ConfigureAwait(false);
+                }
+
+                if (sendOutcome != AvatarScopedFloatSendOutcome.Sent)
+                {
+                    preserveStateForShutdown = sendOutcome == AvatarScopedFloatSendOutcome.Deferred;
+                    return;
                 }
             }
             catch (TaskCanceledException) { }
             catch (Exception ex)
             {
-                WriteLog($"Pulse restore for '{sourceRule.Name}' failed: {ex.Message}");
+                WriteLog($"Pulse restore for '{sourceRule.Name}' failed: {SensitiveTextSanitizer.Sanitize(ex.Message)}");
             }
-        });
+            finally
+            {
+                lock (stateGate)
+                {
+                    if (!preserveStateForShutdown
+                        && activeFloatPulseRestores.TryGetValue(sourceRule.Id, out var currentPulse)
+                        && currentPulse.LeaseId == pulse.LeaseId)
+                    {
+                        if (!IsRuntimeStopping())
+                        {
+                            activeFloatPulseRestores.Remove(sourceRule.Id);
+                        }
+                    }
+                }
+
+                if (!IsRuntimeStopping() && !preserveStateForShutdown)
+                {
+                    cancellation.Dispose();
+                }
+            }
+        }, cancellation);
     }
 
     private ResolvedRuleAction ResolveGlitchyFloatSession(
-        TriggerRuleSnapshot rule, string address, double nextValue, double resetValue)
+        TriggerRuleSnapshot rule,
+        string address,
+        double nextValue,
+        double resetValue,
+        string sourceAvatarId)
     {
         var leaseId = Guid.NewGuid();
         var clampedNextValue = ClampAvatarEyeHeightValueIfNeeded(address, nextValue);
@@ -12070,11 +14110,18 @@ internal BridgeCoordinator(
             ActiveUntil = DateTimeOffset.UtcNow.AddSeconds(rule.Rule.DurationSeconds),
             ResetValue = clampedResetValue,
             CurrentValue = clampedNextValue,
+            SourceAvatarId = sourceAvatarId,
             LeaseId = leaseId,
         };
 
         lock (stateGate)
         {
+            if (isStopping)
+            {
+                session.CompletionCancellation.Dispose();
+                throw new OperationCanceledException();
+            }
+
             if (activeGlitchyRedeemSessions.TryGetValue(rule.Rule.Id, out var prior))
             {
                 prior.CompletionCancellation.Cancel();
@@ -12084,17 +14131,29 @@ internal BridgeCoordinator(
             activeGlitchyRedeemSessions[rule.Rule.Id] = session;
         }
 
-        _ = Task.Run(() => RunGlitchyLoopAsync(session));
+        var effectOwnership = new AvatarScopedEffectOwnership(
+            AvatarScopedEffectKind.Glitchy,
+            rule.Rule.Id,
+            leaseId,
+            session.CompletionCancellation,
+            session);
+        TryStartPersistentEffectWorker(
+            () => RunGlitchyLoopAsync(session),
+            session.CompletionCancellation);
         return new ResolvedRuleAction(
             packets: new[] { BuildAvatarParameterPacketWithAvatarScaleSafety(
                 address, OscParameterType.Float,
                 FloatValueModeConverter.ToOscText(clampedNextValue)) },
             resetPackets: Array.Empty<byte[]>(),
-            displayValue: FloatValueModeConverter.ToOscText(clampedNextValue));
+            displayValue: FloatValueModeConverter.ToOscText(clampedNextValue))
+        {
+            AvatarScopedEffectOwnership = effectOwnership
+        };
     }
 
     private async Task RunGlitchyLoopAsync(ActiveFloatGlitchyRedeemSessionState session)
     {
+        var preserveStateForShutdown = false;
         try
         {
             while (!session.CompletionCancellation.IsCancellationRequested
@@ -12107,17 +14166,45 @@ internal BridgeCoordinator(
                 var clampedValue = ClampAvatarEyeHeightValueIfNeeded(session.Address, value);
                 var inSeconds = Math.Clamp(session.Rule.FloatTransitionInSeconds, 0, 30);
                 var currentValue = await TryGetCurrentAvatarFloatValueAsync(session.Address, clampedValue, session.CompletionCancellation.Token);
-                if (inSeconds <= 0 || Math.Abs(currentValue - clampedValue) < 0.000001d)
+                var sendOutcome = AvatarScopedFloatSendOutcome.Sent;
+                if (string.IsNullOrWhiteSpace(session.SourceAvatarId))
                 {
-                    await SendSingleFloatAvatarParameterValueAsync(
-                        session.Address, clampedValue, session.CompletionCancellation.Token)
-                        .ConfigureAwait(false);
+                    if (inSeconds <= 0 || Math.Abs(currentValue - clampedValue) < 0.000001d)
+                    {
+                        await SendSingleFloatAvatarParameterValueAsync(
+                            session.Address, clampedValue, session.CompletionCancellation.Token)
+                            .ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        await SendFloatAvatarParameterValueAsync(
+                            session.Address, currentValue, clampedValue, inSeconds, session.CompletionCancellation.Token)
+                            .ConfigureAwait(false);
+                    }
                 }
                 else
                 {
-                    await SendFloatAvatarParameterValueAsync(
-                        session.Address, currentValue, clampedValue, inSeconds, session.CompletionCancellation.Token)
+                    sendOutcome = await TrySendAvatarScopedFloatValueAsync(
+                        session.Address,
+                        currentValue,
+                        clampedValue,
+                        inSeconds <= 0 || Math.Abs(currentValue - clampedValue) < 0.000001d ? 0 : inSeconds,
+                        session.SourceAvatarId,
+                        session.CompletionCancellation,
+                        session.LeaseId,
+                        (expectedCancellation, expectedLeaseId) =>
+                            activeGlitchyRedeemSessions.TryGetValue(session.Rule.Id, out var current)
+                            && ReferenceEquals(current, session)
+                            && ReferenceEquals(current.CompletionCancellation, expectedCancellation)
+                            && current.LeaseId == expectedLeaseId,
+                        session.CompletionCancellation.Token)
                         .ConfigureAwait(false);
+                }
+
+                if (sendOutcome != AvatarScopedFloatSendOutcome.Sent)
+                {
+                    preserveStateForShutdown = sendOutcome == AvatarScopedFloatSendOutcome.Deferred;
+                    break;
                 }
                 session.CurrentValue = clampedValue;
             }
@@ -12127,42 +14214,81 @@ internal BridgeCoordinator(
                 var currentValue = await TryGetCurrentAvatarFloatValueAsync(
                     session.Address, session.ResetValue, session.CompletionCancellation.Token)
                     .ConfigureAwait(false);
-                if (outSeconds <= 0 || Math.Abs(currentValue - session.ResetValue) < 0.000001d)
+                var sendOutcome = AvatarScopedFloatSendOutcome.Sent;
+                if (string.IsNullOrWhiteSpace(session.SourceAvatarId))
                 {
-                    await SendSingleFloatAvatarParameterValueAsync(
-                        session.Address, session.ResetValue, session.CompletionCancellation.Token)
-                        .ConfigureAwait(false);
+                    if (outSeconds <= 0 || Math.Abs(currentValue - session.ResetValue) < 0.000001d)
+                    {
+                        await SendSingleFloatAvatarParameterValueAsync(
+                            session.Address, session.ResetValue, session.CompletionCancellation.Token)
+                            .ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        await SendFloatAvatarParameterValueAsync(
+                            session.Address, currentValue, session.ResetValue, outSeconds, session.CompletionCancellation.Token)
+                            .ConfigureAwait(false);
+                    }
                 }
                 else
                 {
-                    await SendFloatAvatarParameterValueAsync(
-                        session.Address, currentValue, session.ResetValue, outSeconds, session.CompletionCancellation.Token)
+                    sendOutcome = await TrySendAvatarScopedFloatValueAsync(
+                        session.Address,
+                        currentValue,
+                        session.ResetValue,
+                        outSeconds <= 0 || Math.Abs(currentValue - session.ResetValue) < 0.000001d ? 0 : outSeconds,
+                        session.SourceAvatarId,
+                        session.CompletionCancellation,
+                        session.LeaseId,
+                        (expectedCancellation, expectedLeaseId) =>
+                            activeGlitchyRedeemSessions.TryGetValue(session.Rule.Id, out var current)
+                            && ReferenceEquals(current, session)
+                            && ReferenceEquals(current.CompletionCancellation, expectedCancellation)
+                            && current.LeaseId == expectedLeaseId,
+                        session.CompletionCancellation.Token)
                         .ConfigureAwait(false);
+                }
+
+                if (sendOutcome != AvatarScopedFloatSendOutcome.Sent)
+                {
+                    preserveStateForShutdown = sendOutcome == AvatarScopedFloatSendOutcome.Deferred;
+                    return;
                 }
             }
         }
         catch (TaskCanceledException) { /* expected on stop */ }
         catch (Exception ex)
         {
-            WriteLog($"Glitchy loop for '{session.Rule.Name}' failed: {ex.Message}");
+            WriteLog($"Glitchy loop for '{session.Rule.Name}' failed: {SensitiveTextSanitizer.Sanitize(ex.Message)}");
         }
         finally
         {
+            var shouldCleanUp = false;
             lock (stateGate)
             {
-                if (activeGlitchyRedeemSessions.TryGetValue(session.Rule.Id, out var current)
-                    && current.LeaseId == session.LeaseId)
+                if (!isStopping && !preserveStateForShutdown)
                 {
-                    activeGlitchyRedeemSessions.Remove(session.Rule.Id);
+                    if (activeGlitchyRedeemSessions.TryGetValue(session.Rule.Id, out var current)
+                        && current.LeaseId == session.LeaseId)
+                    {
+                        activeGlitchyRedeemSessions.Remove(session.Rule.Id);
+                    }
+
+                    shouldCleanUp = true;
                 }
             }
-            session.CompletionCancellation.Dispose();
+
+            if (shouldCleanUp)
+            {
+                session.CompletionCancellation.Dispose();
+            }
         }
     }
 
     private async Task<ResolvedRuleAction> ResolveSetTriggerActionAsync(
         TriggerRuleSnapshot rule,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string sourceAvatarId)
     {
         if (IsBitsOutfitSetTriggerRule(rule))
         {
@@ -12214,7 +14340,6 @@ internal BridgeCoordinator(
             preparedActions.Add(new SetTriggerPreparedAction(address, childAction.ParameterType, targetText, targetObservedValue));
         }
 
-        var sourceAvatarId = ResolveSetTriggerSourceAvatarId(rule);
         var restoreMode = NormalizeSetTriggerRestoreMode(rule.SetTriggerRestoreMode);
         var preTriggerSnapshot = await TryReadSetTriggerRestoreSnapshotAsync(
             rule.Name,
@@ -12719,6 +14844,226 @@ internal BridgeCoordinator(
         return bot;
     }
 
+    private bool TryGetCurrentPendingReset(
+        Guid ruleId,
+        CancellationTokenSource cancellation,
+        out PendingResetState pendingReset)
+    {
+        lock (stateGate)
+        {
+            if (pendingResets.TryGetValue(ruleId, out var currentPendingReset)
+                && ReferenceEquals(currentPendingReset.Cancellation, cancellation))
+            {
+                pendingReset = currentPendingReset;
+                return true;
+            }
+        }
+
+        pendingReset = null!;
+        return false;
+    }
+
+    private async Task<AvatarScopedPendingResetSendResult> TrySendAvatarScopedPendingResetAsync(
+        PendingResetState pendingReset,
+        bool recordWasClaimed,
+        CancellationTokenSource? expectedCancellation,
+        CancellationToken sendCancellationToken,
+        bool enforceCurrentAvatarMatch,
+        bool requeueIfAvatarMismatch,
+        bool skipIfCancellationRequested,
+        TimeSpan? packetSpacing = null)
+    {
+        var userEntered = false;
+        var gateAcquired = false;
+        try
+        {
+            EnterAvatarScopedResetSendUser();
+            userEntered = true;
+            await avatarScopedResetSendGate.WaitAsync(CancellationToken.None).ConfigureAwait(false);
+            gateAcquired = true;
+
+            lock (stateGate)
+            {
+                if (recordWasClaimed)
+                {
+                    if (pendingResets.TryGetValue(pendingReset.RuleId, out var publishedReset))
+                    {
+                        var publishedResetSharesCancellation = expectedCancellation is not null
+                            && ReferenceEquals(publishedReset.Cancellation, expectedCancellation);
+                        return new AvatarScopedPendingResetSendResult(
+                            AvatarScopedPendingResetSendOutcome.Stale,
+                            false,
+                            !publishedResetSharesCancellation);
+                    }
+                }
+                else if (expectedCancellation is null
+                         || !pendingResets.TryGetValue(pendingReset.RuleId, out var currentPendingReset)
+                         || !ReferenceEquals(currentPendingReset, pendingReset)
+                         || !ReferenceEquals(currentPendingReset.Cancellation, expectedCancellation))
+                {
+                    return new AvatarScopedPendingResetSendResult(
+                        AvatarScopedPendingResetSendOutcome.Stale,
+                        false,
+                        true);
+                }
+
+                if (skipIfCancellationRequested && expectedCancellation?.IsCancellationRequested == true)
+                {
+                    return new AvatarScopedPendingResetSendResult(
+                        AvatarScopedPendingResetSendOutcome.Skipped,
+                        false,
+                        true);
+                }
+
+                var currentAvatarMatches = !enforceCurrentAvatarMatch
+                    || string.Equals(
+                        currentVrChatAvatarId,
+                        pendingReset.SourceAvatarId,
+                        StringComparison.Ordinal);
+                if (!currentAvatarMatches)
+                {
+                    if (!requeueIfAvatarMismatch)
+                    {
+                        return new AvatarScopedPendingResetSendResult(
+                            AvatarScopedPendingResetSendOutcome.Skipped,
+                            false,
+                            true);
+                    }
+
+                    if (recordWasClaimed)
+                    {
+                        if (pendingResets.ContainsKey(pendingReset.RuleId))
+                        {
+                            return new AvatarScopedPendingResetSendResult(
+                                AvatarScopedPendingResetSendOutcome.Stale,
+                                false,
+                                expectedCancellation is null
+                                    || !ReferenceEquals(
+                                        pendingResets[pendingReset.RuleId].Cancellation,
+                                        expectedCancellation));
+                        }
+
+                        pendingResets[pendingReset.RuleId] = pendingReset with
+                        {
+                            IsWaitingForSourceAvatarReturn = true
+                        };
+                        return new AvatarScopedPendingResetSendResult(
+                            AvatarScopedPendingResetSendOutcome.DeferredForAvatarReturn,
+                            true,
+                            false);
+                    }
+
+                    pendingResets[pendingReset.RuleId] = pendingReset with
+                    {
+                        IsWaitingForSourceAvatarReturn = true
+                    };
+                    return new AvatarScopedPendingResetSendResult(
+                        AvatarScopedPendingResetSendOutcome.DeferredForAvatarReturn,
+                        false,
+                        false);
+                }
+            }
+
+            await SendPacketsToVrChatAsync(
+                pendingReset.Packets,
+                sendCancellationToken,
+                packetSpacing).ConfigureAwait(false);
+            return new AvatarScopedPendingResetSendResult(
+                AvatarScopedPendingResetSendOutcome.Sent,
+                false,
+                true);
+        }
+        finally
+        {
+            if (gateAcquired)
+            {
+                avatarScopedResetSendGate.Release();
+            }
+
+            if (userEntered)
+            {
+                ExitAvatarScopedResetSendUser();
+            }
+        }
+    }
+
+    private bool TryPublishAvatarScopedPendingResetReplacement(
+        PendingResetState? expectedPreviousReset,
+        PendingResetState replacement)
+    {
+        var userEntered = false;
+        var gateAcquired = false;
+        try
+        {
+            EnterAvatarScopedResetSendUser();
+            userEntered = true;
+            testAvatarScopedResetReplacementGateWait?.TrySetResult();
+            avatarScopedResetSendGate.Wait();
+            gateAcquired = true;
+
+            PendingResetState? displacedReset = null;
+            lock (stateGate)
+            {
+                if (pendingResets.TryGetValue(replacement.RuleId, out var currentPendingReset))
+                {
+                    if (expectedPreviousReset is null
+                        || !ReferenceEquals(currentPendingReset, expectedPreviousReset))
+                    {
+                        return false;
+                    }
+
+                    pendingResets.Remove(replacement.RuleId);
+                    displacedReset = currentPendingReset;
+                }
+            }
+
+            if (displacedReset is not null)
+            {
+                displacedReset.Cancellation.Cancel();
+                ReleasePendingResetMovementLanes(displacedReset);
+                displacedReset.Cancellation.Dispose();
+            }
+
+            lock (stateGate)
+            {
+                if (pendingResets.ContainsKey(replacement.RuleId))
+                {
+                    return false;
+                }
+
+                pendingResets[replacement.RuleId] = replacement;
+                return true;
+            }
+        }
+        finally
+        {
+            if (gateAcquired)
+            {
+                avatarScopedResetSendGate.Release();
+            }
+
+            if (userEntered)
+            {
+                ExitAvatarScopedResetSendUser();
+            }
+        }
+    }
+
+    private void ReleasePendingResetMovementLanes(PendingResetState pendingReset)
+    {
+        var releasedLaneKeys = ReleaseMovementLanes(
+            pendingReset.MovementLaneLeaseId,
+            pendingReset.MovementLaneKeys);
+        foreach (var releasedLaneKey in releasedLaneKeys)
+        {
+            EnsureQueuedLaneDrain(releasedLaneKey);
+            if (string.Equals(releasedLaneKey, AvatarSwitchLaneKey, StringComparison.Ordinal))
+            {
+                EnsureQueuedAvatarSwitchDrain();
+            }
+        }
+    }
+
     private void ScheduleReset(
         TriggerRuleSnapshot rule,
         ResolvedRuleAction action,
@@ -12735,19 +15080,27 @@ internal BridgeCoordinator(
             return;
         }
 
+        var sourceAvatarId = string.IsNullOrWhiteSpace(action.SourceAvatarId)
+            ? GetAvatarScopedResetSourceAvatarId(rule)
+            : action.SourceAvatarId;
         PendingResetState? previousReset = null;
         lock (stateGate)
         {
             if (pendingResets.TryGetValue(rule.Id, out previousReset))
             {
-                pendingResets.Remove(rule.Id);
+                if (string.IsNullOrWhiteSpace(sourceAvatarId))
+                {
+                    pendingResets.Remove(rule.Id);
+                }
             }
         }
 
-        previousReset?.Cancellation.Cancel();
+        if (string.IsNullOrWhiteSpace(sourceAvatarId))
+        {
+            previousReset?.Cancellation.Cancel();
+        }
 
         var cancellation = CancellationTokenSource.CreateLinkedTokenSource(runtimeCancellation.Token);
-        var sourceAvatarId = GetAvatarScopedResetSourceAvatarId(rule);
         var minimumResetSeconds = isResuming ? 0.001 : 1;
         var dueAt = DateTimeOffset.UtcNow.AddSeconds(Math.Max(minimumResetSeconds, delaySeconds));
         var pendingReset = new PendingResetState(
@@ -12766,12 +15119,40 @@ internal BridgeCoordinator(
             laneKeys ?? [],
             laneLeaseId)
         {
-            ActivityResumeEntry = activityResumeEntry
+            ActivityResumeEntry = activityResumeEntry,
+            ActivityDeadline = new(dueAt)
         };
 
-        lock (stateGate)
+        if (string.IsNullOrWhiteSpace(sourceAvatarId))
         {
-            pendingResets[rule.Id] = pendingReset;
+            lock (stateGate)
+            {
+                pendingResets[rule.Id] = pendingReset;
+            }
+
+            if (previousReset is not null)
+            {
+                var releasedLaneKeys = ReleaseMovementLanes(
+                    previousReset.MovementLaneLeaseId,
+                    previousReset.MovementLaneKeys);
+                foreach (var releasedLaneKey in releasedLaneKeys)
+                {
+                    EnsureQueuedLaneDrain(releasedLaneKey);
+                    if (string.Equals(releasedLaneKey, AvatarSwitchLaneKey, StringComparison.Ordinal))
+                    {
+                        EnsureQueuedAvatarSwitchDrain();
+                    }
+                }
+
+                previousReset.Cancellation.Dispose();
+            }
+        }
+        else if (!TryPublishAvatarScopedPendingResetReplacement(previousReset, pendingReset))
+        {
+            cancellation.Cancel();
+            ReleasePendingResetMovementLanes(pendingReset);
+            cancellation.Dispose();
+            return;
         }
 
         if (rule.ActionType == OscActionType.SetTrigger && action.HasResetPackets)
@@ -12788,6 +15169,7 @@ internal BridgeCoordinator(
             async () =>
         {
             var keepPendingReset = false;
+            var pendingResetRecordWasReplaced = false;
             try
             {
                 if (action.SetTriggerRestorePlan is not null)
@@ -12801,33 +15183,66 @@ internal BridgeCoordinator(
                         action.ResetPackets,
                         action.ResetObservedValues,
                         cancellation.Token);
-                    var previousPendingReset = pendingReset;
-                    pendingReset = pendingReset with
-                    {
-                        Packets = restoreResolution.Packets,
-                        ResetObservedValues = restoreResolution.ObservedValues
-                    };
 
                     lock (stateGate)
                     {
-                        if (pendingResets.TryGetValue(rule.Id, out var currentPendingReset)
-                            && ReferenceEquals(currentPendingReset, previousPendingReset))
+                        if (!pendingResets.TryGetValue(rule.Id, out var currentPendingReset)
+                            || !ReferenceEquals(currentPendingReset.Cancellation, cancellation))
                         {
-                            pendingResets[rule.Id] = pendingReset;
+                            return;
+                        }
+
+                        pendingReset = currentPendingReset with
+                        {
+                            Packets = restoreResolution.Packets,
+                            ResetObservedValues = restoreResolution.ObservedValues
+                        };
+                        pendingResets[rule.Id] = pendingReset;
+                    }
+
+                }
+
+                async Task<bool> WaitAndClaimPendingResetDeadlineAsync(bool waitForDeadline = true)
+                {
+                    while (!cancellation.IsCancellationRequested)
+                    {
+                        if (waitForDeadline)
+                        {
+                            await pendingReset.ActivityDeadline.WaitAsync(pendingReset.Cancellation.Token);
+                        }
+
+                        waitForDeadline = true;
+                        lock (stateGate)
+                        {
+                            if (!pendingResets.TryGetValue(rule.Id, out var currentPendingReset)
+                                || !ReferenceEquals(currentPendingReset.Cancellation, cancellation))
+                            {
+                                return false;
+                            }
+
+                            pendingReset = currentPendingReset;
+                            if (currentPendingReset.DueAt > DateTimeOffset.UtcNow
+                                || currentPendingReset.ActivityDeadline.Deadline > DateTimeOffset.UtcNow)
+                            {
+                                continue;
+                            }
+
+                            return true;
                         }
                     }
 
-                    var remainingDelay = TimeSpan.FromSeconds(Math.Max(1, delaySeconds)) - SetTriggerDiffObservationDelay;
-                    if (remainingDelay > TimeSpan.Zero)
-                    {
-                        await Task.Delay(remainingDelay, cancellation.Token);
-                    }
+                    return false;
                 }
-                else
+
+                await pendingReset.ActivityDeadline.WaitAsync(pendingReset.Cancellation.Token);
+                if (!TryGetCurrentPendingReset(rule.Id, cancellation, out pendingReset))
                 {
-                    await Task.Delay(
-                        TimeSpan.FromSeconds(Math.Max(minimumResetSeconds, delaySeconds)),
-                        cancellation.Token);
+                    return;
+                }
+
+                if (!await WaitAndClaimPendingResetDeadlineAsync(waitForDeadline: false))
+                {
+                    return;
                 }
 
                 if (TryGetReadyQueuedAvatarSwitchNameForDirectTransition(pendingReset, out var queuedAvatarSwitchName))
@@ -12890,12 +15305,47 @@ internal BridgeCoordinator(
                     }
                 }
 
+                if (!await WaitAndClaimPendingResetDeadlineAsync())
+                {
+                    return;
+                }
+
                 if (pendingReset.HasPackets)
                 {
-                    await SendPacketsToVrChatAsync(
-                        pendingReset.Packets,
-                        cancellation.Token,
-                        rule.ActionType == OscActionType.SetTrigger ? SetTriggerPacketSpacing : null);
+                    if (!string.IsNullOrWhiteSpace(pendingReset.SourceAvatarId))
+                    {
+                        var sendResult = await TrySendAvatarScopedPendingResetAsync(
+                            pendingReset,
+                            recordWasClaimed: false,
+                            expectedCancellation: cancellation,
+                            sendCancellationToken: cancellation.Token,
+                            enforceCurrentAvatarMatch: !isTest,
+                            requeueIfAvatarMismatch: !isTest,
+                            skipIfCancellationRequested: true,
+                            packetSpacing: rule.ActionType == OscActionType.SetTrigger
+                                ? SetTriggerPacketSpacing
+                                : null);
+                        if (sendResult.Outcome == AvatarScopedPendingResetSendOutcome.DeferredForAvatarReturn)
+                        {
+                            keepPendingReset = true;
+                            return;
+                        }
+
+                        if (sendResult.Outcome != AvatarScopedPendingResetSendOutcome.Sent)
+                        {
+                            pendingResetRecordWasReplaced = sendResult.Outcome
+                                == AvatarScopedPendingResetSendOutcome.Stale;
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        await SendPacketsToVrChatAsync(
+                            pendingReset.Packets,
+                            cancellation.Token,
+                            rule.ActionType == OscActionType.SetTrigger ? SetTriggerPacketSpacing : null);
+                    }
+
                     if (rule.ActionType == OscActionType.SetTrigger)
                     {
                         WriteLog($"Restored Set Trigger '{rule.Name}' with {pendingReset.Packets.Count} param{(pendingReset.Packets.Count == 1 ? string.Empty : "s")}.");
@@ -12924,24 +15374,38 @@ internal BridgeCoordinator(
             }
             catch (Exception ex)
             {
-                WriteLog($"Failed to reset '{rule.Name}': {ex.Message}");
+                WriteLog($"Failed to reset '{rule.Name}': {SensitiveTextSanitizer.Sanitize(ex.Message)}");
             }
             finally
             {
-                var releasedPendingReset = false;
+                PendingResetState? releasedPendingReset = null;
+                var shouldDisposeCancellation = true;
                 if (!keepPendingReset)
                 {
                     lock (stateGate)
                     {
-                        if (pendingResets.TryGetValue(rule.Id, out var currentPendingReset)
-                            && ReferenceEquals(currentPendingReset, pendingReset))
+                        if (!pendingResetRecordWasReplaced
+                            && pendingResets.TryGetValue(rule.Id, out var currentPendingReset)
+                            && ReferenceEquals(currentPendingReset.Cancellation, cancellation))
                         {
                             pendingResets.Remove(rule.Id);
-                            releasedPendingReset = true;
+                            releasedPendingReset = currentPendingReset;
+                            pendingReset = currentPendingReset;
+                        }
+                        else if (pendingResetRecordWasReplaced
+                                 && pendingResets.TryGetValue(rule.Id, out currentPendingReset)
+                                 && ReferenceEquals(currentPendingReset.Cancellation, cancellation))
+                        {
+                            shouldDisposeCancellation = false;
+                        }
+                        else if (!pendingResets.TryGetValue(rule.Id, out currentPendingReset)
+                                 || !ReferenceEquals(currentPendingReset.Cancellation, cancellation))
+                        {
+                            shouldDisposeCancellation = false;
                         }
                     }
 
-                    if (releasedPendingReset)
+                    if (releasedPendingReset is not null)
                     {
                         if (!IsRuntimeStopping() && pendingReset.ActivityResumeEntry is not null)
                         {
@@ -12957,7 +15421,9 @@ internal BridgeCoordinator(
                             }
                         }
 
-                        var releasedLaneKeys = ReleaseMovementLanes(pendingReset.MovementLaneLeaseId, pendingReset.MovementLaneKeys);
+                        var releasedLaneKeys = ReleaseMovementLanes(
+                            pendingReset.MovementLaneLeaseId,
+                            pendingReset.MovementLaneKeys);
                         if (notifyManagedRewardState)
                         {
                             ManagedRewardAvailabilityChanged?.Invoke();
@@ -12973,7 +15439,10 @@ internal BridgeCoordinator(
                         }
                     }
 
-                    cancellation.Dispose();
+                    if (shouldDisposeCancellation)
+                    {
+                        cancellation.Dispose();
+                    }
                 }
             }
         });
@@ -13133,7 +15602,7 @@ internal BridgeCoordinator(
                 await Task.Delay(JumpPulsePressDuration, cancellation.Token);
                 if (IsMovementLaneLeaseActive(laneKey, laneLeaseId))
                 {
-                    await oscRouterService.SendToVrChatAsync(action.ResetPacket, cancellation.Token);
+                    await SendToVrChatAsync(action.ResetPacket, cancellation.Token);
                 }
 
                 while (shouldRepeat && IsMovementLaneLeaseActive(laneKey, laneLeaseId))
@@ -13158,14 +15627,14 @@ internal BridgeCoordinator(
                         break;
                     }
 
-                    await oscRouterService.SendToVrChatAsync(action.Packet, cancellation.Token);
+                    await SendToVrChatAsync(action.Packet, cancellation.Token);
                     await Task.Delay(JumpPulsePressDuration, cancellation.Token);
                     if (!IsMovementLaneLeaseActive(laneKey, laneLeaseId))
                     {
                         break;
                     }
 
-                    await oscRouterService.SendToVrChatAsync(action.ResetPacket, cancellation.Token);
+                    await SendToVrChatAsync(action.ResetPacket, cancellation.Token);
                 }
 
                 var finalDelay = endAt - DateTimeOffset.UtcNow;
@@ -13187,7 +15656,7 @@ internal BridgeCoordinator(
                 {
                     try
                     {
-                        await oscRouterService.SendToVrChatAsync(action.ResetPacket, CancellationToken.None);
+                        await SendToVrChatAsync(action.ResetPacket, CancellationToken.None);
                     }
                     catch (Exception ex)
                     {
@@ -13320,18 +15789,30 @@ internal BridgeCoordinator(
 
         foreach (var staleReset in staleResets)
         {
-            staleReset.Cancellation.Cancel();
+            PendingResetState? removedStaleReset = null;
             lock (stateGate)
             {
-                pendingResets.Remove(staleReset.RuleId);
+                if (pendingResets.TryGetValue(staleReset.RuleId, out var currentPendingReset)
+                    && ReferenceEquals(currentPendingReset.Cancellation, staleReset.Cancellation))
+                {
+                    pendingResets.Remove(staleReset.RuleId);
+                    removedStaleReset = currentPendingReset;
+                }
             }
-            WriteLog($"Cancelled stale pending reset for '{staleReset.RuleName}' because the source avatar will not return after the world change.");
-            var releasedLaneKeys = ReleaseMovementLanes(staleReset.MovementLaneLeaseId, staleReset.MovementLaneKeys);
+
+            if (removedStaleReset is null)
+            {
+                continue;
+            }
+
+            removedStaleReset.Cancellation.Cancel();
+            WriteLog($"Cancelled stale pending reset for '{removedStaleReset.RuleName}' because the source avatar will not return after the world change.");
+            var releasedLaneKeys = ReleaseMovementLanes(removedStaleReset.MovementLaneLeaseId, removedStaleReset.MovementLaneKeys);
             foreach (var releasedLaneKey in releasedLaneKeys)
             {
                 EnsureQueuedLaneDrain(releasedLaneKey);
             }
-            staleReset.Cancellation.Dispose();
+            removedStaleReset.Cancellation.Dispose();
         }
     }
 
@@ -13367,58 +15848,150 @@ internal BridgeCoordinator(
         {
             foreach (var pendingReset in resetsToResume)
             {
-                var removedPendingReset = false;
-                lock (stateGate)
-                {
-                    if (pendingResets.TryGetValue(pendingReset.RuleId, out var currentPendingReset)
-                        && ReferenceEquals(currentPendingReset, pendingReset))
-                    {
-                        pendingResets.Remove(pendingReset.RuleId);
-                        removedPendingReset = true;
-                    }
-                }
-
-                if (!removedPendingReset)
-                {
-                    continue;
-                }
-
+                var cancellation = pendingReset.Cancellation;
+                PendingResetState? claimedPendingReset = null;
+                var shouldDisposeClaimedCancellation = true;
                 try
                 {
-                    if (pendingReset.HasPackets)
+                    while (!cancellation.IsCancellationRequested)
                     {
-                        await SendPacketsToVrChatAsync(pendingReset.Packets, CancellationToken.None);
+                        PendingResetState? currentPendingReset = null;
+                        var currentRecordIsValid = false;
+                        var waitForDeadline = false;
+                        lock (stateGate)
+                        {
+                            if (pendingResets.TryGetValue(pendingReset.RuleId, out var current)
+                                && ReferenceEquals(current.Cancellation, cancellation)
+                                && current.IsWaitingForSourceAvatarReturn
+                                && string.Equals(
+                                    current.SourceAvatarId,
+                                    normalizedAvatarId,
+                                    StringComparison.Ordinal)
+                                && string.Equals(
+                                    currentVrChatAvatarId,
+                                    normalizedAvatarId,
+                                    StringComparison.Ordinal))
+                            {
+                                currentPendingReset = current;
+                                currentRecordIsValid = true;
+
+                                var now = DateTimeOffset.UtcNow;
+                                waitForDeadline = current.DueAt > now
+                                    || current.ActivityDeadline.Deadline > now;
+                                if (!waitForDeadline)
+                                {
+                                    pendingResets.Remove(pendingReset.RuleId);
+                                    claimedPendingReset = current;
+                                }
+                            }
+                        }
+
+                        if (!currentRecordIsValid)
+                        {
+                            break;
+                        }
+
+                        if (waitForDeadline)
+                        {
+                            await currentPendingReset!.ActivityDeadline.WaitAsync(cancellation.Token);
+                            continue;
+                        }
+
+                        break;
                     }
 
-                    if (pendingReset.HasPackets)
+                    if (claimedPendingReset is null)
                     {
-                        RememberAvatarParameterValues(pendingReset.Rule, pendingReset.ResetObservedValues, pendingReset.Rule.ResetValue);
+                        continue;
                     }
 
-                    if (pendingReset.HasPackets)
+                    if (claimedPendingReset.HasPackets)
                     {
-                        WriteLog($"Cleaned up '{pendingReset.RuleName}' after you returned to that avatar.");
+                        var sendResult = await TrySendAvatarScopedPendingResetAsync(
+                            claimedPendingReset,
+                            recordWasClaimed: true,
+                            expectedCancellation: cancellation,
+                            sendCancellationToken: CancellationToken.None,
+                            enforceCurrentAvatarMatch: true,
+                            requeueIfAvatarMismatch: true,
+                            skipIfCancellationRequested: true);
+                        shouldDisposeClaimedCancellation = sendResult.ShouldDisposeClaimedCancellation;
+                        if (sendResult.Outcome == AvatarScopedPendingResetSendOutcome.DeferredForAvatarReturn
+                            && sendResult.ClaimedRecordWasRequeued)
+                        {
+                            claimedPendingReset = null;
+                            continue;
+                        }
+
+                        if (sendResult.Outcome != AvatarScopedPendingResetSendOutcome.Sent)
+                        {
+                            continue;
+                        }
+
+                        RememberAvatarParameterValues(
+                            claimedPendingReset.Rule,
+                            claimedPendingReset.ResetObservedValues,
+                            claimedPendingReset.Rule.ResetValue);
+                        WriteLog($"Cleaned up '{claimedPendingReset.RuleName}' after you returned to that avatar.");
                     }
+
+                    if (!IsRuntimeStopping() && claimedPendingReset.ActivityResumeEntry is { } activityResumeEntry)
+                    {
+                        try
+                        {
+                            await activityResumeService.RecordActivityEndedAsync(
+                                claimedPendingReset.RuleId,
+                                activityResumeEntry);
+                        }
+                        catch (Exception ex)
+                        {
+                            WriteLog($"Could not clear resumed activity for '{claimedPendingReset.RuleName}': {SensitiveTextSanitizer.Sanitize(ex.Message)}");
+                        }
+                    }
+                }
+                catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+                {
                 }
                 catch (Exception ex)
                 {
-                    WriteLog($"Could not clean up '{pendingReset.RuleName}' after returning to that avatar: {ex.Message}");
+                    WriteLog($"Could not clean up '{claimedPendingReset?.RuleName ?? pendingReset.RuleName}' after returning to that avatar: {SensitiveTextSanitizer.Sanitize(ex.Message)}");
                 }
                 finally
                 {
-                    var releasedLaneKeys = ReleaseMovementLanes(pendingReset.MovementLaneLeaseId, pendingReset.MovementLaneKeys);
-                    foreach (var releasedLaneKey in releasedLaneKeys)
+                    if (claimedPendingReset is not null)
                     {
-                        EnsureQueuedLaneDrain(releasedLaneKey);
-                    }
+                        var releasedLaneKeys = ReleaseMovementLanes(
+                            claimedPendingReset.MovementLaneLeaseId,
+                            claimedPendingReset.MovementLaneKeys);
+                        foreach (var releasedLaneKey in releasedLaneKeys)
+                        {
+                            EnsureQueuedLaneDrain(releasedLaneKey);
+                        }
 
-                    pendingReset.Cancellation.Dispose();
+                        if (shouldDisposeClaimedCancellation)
+                        {
+                            claimedPendingReset.Cancellation.Dispose();
+                        }
+                    }
                 }
             }
         });
     }
 
     private async Task ResetPendingRulesAsync()
+    {
+        await timedSupporterOverrideTransitionGate.WaitAsync(CancellationToken.None);
+        try
+        {
+            await ResetPendingRulesCoreAsync();
+        }
+        finally
+        {
+            timedSupporterOverrideTransitionGate.Release();
+        }
+    }
+
+    private async Task ResetPendingRulesCoreAsync()
     {
         List<PendingResetState> pending;
         ActiveMovementSoftLockState[] activeLocks;
@@ -13427,7 +16000,7 @@ internal BridgeCoordinator(
         var lockoutsWereActive = false;
         CancellationTokenSource[] lockoutNotifications;
         CancellationTokenSource[] avatarSwitchLockoutNotifications;
-        CancellationTokenSource? avatarScaleRestoreCancellation;
+        CancellationTokenSource? avatarScaleRestoreCancellation = null;
 
         lock (stateGate)
         {
@@ -13441,9 +16014,12 @@ internal BridgeCoordinator(
             queuedTriggers.Clear();
             drainingQueuedRules.Clear();
             ClearQueuedAvatarScaleOperationsLocked(includeTests: true);
-            avatarScaleRestoreCancellation = avatarScaleRestoreSequenceCancellation;
-            avatarScaleRestoreSequenceCancellation = null;
-            activeAvatarScaleRestoreSequence = null;
+            if (!isStopping)
+            {
+                avatarScaleRestoreCancellation = avatarScaleRestoreSequenceCancellation;
+                avatarScaleRestoreSequenceCancellation = null;
+                activeAvatarScaleRestoreSequence = null;
+            }
             actionLanes.Clear();
             queuedLaneActions.Clear();
             drainingQueuedLanes.Clear();
@@ -13528,12 +16104,28 @@ internal BridgeCoordinator(
 
         foreach (var reset in pending)
         {
+            var shouldDisposeResetCancellation = true;
             try
             {
                 reset.Cancellation.Cancel();
                 if (reset.HasPackets)
                 {
-                    await SendPacketsToVrChatAsync(reset.Packets, CancellationToken.None);
+                    if (!string.IsNullOrWhiteSpace(reset.SourceAvatarId))
+                    {
+                        var sendResult = await TrySendAvatarScopedPendingResetAsync(
+                            reset,
+                            recordWasClaimed: true,
+                            expectedCancellation: reset.Cancellation,
+                            sendCancellationToken: CancellationToken.None,
+                            enforceCurrentAvatarMatch: true,
+                            requeueIfAvatarMismatch: false,
+                            skipIfCancellationRequested: false);
+                        shouldDisposeResetCancellation = sendResult.ShouldDisposeClaimedCancellation;
+                    }
+                    else
+                    {
+                        await SendPacketsToVrChatAsync(reset.Packets, CancellationToken.None);
+                    }
                 }
             }
             catch
@@ -13541,7 +16133,10 @@ internal BridgeCoordinator(
             }
             finally
             {
-                reset.Cancellation.Dispose();
+                if (shouldDisposeResetCancellation)
+                {
+                    reset.Cancellation.Dispose();
+                }
             }
         }
 
@@ -13587,7 +16182,14 @@ internal BridgeCoordinator(
 
         try
         {
-            await desktopInputLockService.ForceReleaseAsync(CancellationToken.None);
+            if (testForceReleaseDesktopInputAsync is { } forceReleaseOverride)
+            {
+                await forceReleaseOverride(CancellationToken.None);
+            }
+            else
+            {
+                await desktopInputLockService.ForceReleaseAsync(CancellationToken.None);
+            }
         }
         catch
         {
@@ -13607,7 +16209,7 @@ internal BridgeCoordinator(
         }
     }
 
-    private void ScheduleCooldownStateNotification(Guid ruleId, TimeSpan delay)
+    private CancellationTokenSource ScheduleCooldownStateNotification(Guid ruleId, TimeSpan delay)
     {
         CancellationTokenSource cancellation;
 
@@ -13663,6 +16265,8 @@ internal BridgeCoordinator(
                 cancellation.Dispose();
             }
         }, CancellationToken.None);
+
+        return cancellation;
     }
 
     private void CancelCooldownStateNotification(Guid ruleId)
@@ -13680,27 +16284,45 @@ internal BridgeCoordinator(
         }
     }
 
-    private void ScheduleAvatarScaleEffectStateNotification(Guid ruleId, TimeSpan delay)
+    private void ScheduleAvatarScaleEffectStateNotification(
+        Guid ruleId,
+        TimeSpan delay,
+        DateTimeOffset? expectedActiveUntil)
     {
-        CancellationTokenSource cancellation;
-
         lock (stateGate)
         {
-            if (avatarScaleEffectStateNotifications.TryGetValue(ruleId, out var existingNotification))
+            if (!activeAvatarScaleEffects.TryGetValue(ruleId, out var activeUntil)
+                || (expectedActiveUntil is { } expected
+                    && activeUntil != expected))
             {
-                existingNotification.Cancel();
-                existingNotification.Dispose();
+                return;
             }
 
-            cancellation = new CancellationTokenSource();
-            avatarScaleEffectStateNotifications[ruleId] = cancellation;
+            ScheduleAvatarScaleEffectStateNotificationLocked(ruleId, activeUntil, delay);
         }
+    }
+
+    private void ScheduleAvatarScaleEffectStateNotificationLocked(
+        Guid ruleId,
+        DateTimeOffset expectedActiveUntil,
+        TimeSpan delay)
+    {
+        if (avatarScaleEffectStateNotifications.TryGetValue(ruleId, out var existingNotification))
+        {
+            existingNotification.Cancel();
+            existingNotification.Dispose();
+        }
+
+        var cancellation = new CancellationTokenSource();
+        avatarScaleEffectStateNotifications[ruleId] = cancellation;
+        var delayFactory = avatarScaleEffectNotificationDelayFactory
+            ?? ProductionAvatarScaleEffectNotificationDelay;
 
         _ = Task.Run(async () =>
         {
             try
             {
-                await Task.Delay(delay, cancellation.Token);
+                await delayFactory(delay, cancellation.Token);
 
                 var shouldNotify = false;
                 lock (stateGate)
@@ -13711,13 +16333,25 @@ internal BridgeCoordinator(
                         return;
                     }
 
-                    avatarScaleEffectStateNotifications.Remove(ruleId);
-                    if (activeAvatarScaleEffects.TryGetValue(ruleId, out var activeUntil)
-                        && activeUntil <= DateTimeOffset.UtcNow)
+                    if (!activeAvatarScaleEffects.TryGetValue(ruleId, out var activeUntil))
                     {
-                        activeAvatarScaleEffects.Remove(ruleId);
-                        shouldNotify = true;
+                        avatarScaleEffectStateNotifications.Remove(ruleId);
+                        return;
                     }
+
+                    var now = DateTimeOffset.UtcNow;
+                    if (activeUntil != expectedActiveUntil || activeUntil > now)
+                    {
+                        ScheduleAvatarScaleEffectStateNotificationLocked(
+                            ruleId,
+                            activeUntil,
+                            activeUntil > now ? activeUntil - now : TimeSpan.Zero);
+                        return;
+                    }
+
+                    avatarScaleEffectStateNotifications.Remove(ruleId);
+                    activeAvatarScaleEffects.Remove(ruleId);
+                    shouldNotify = true;
                 }
 
                 if (shouldNotify)
@@ -14377,7 +17011,10 @@ internal BridgeCoordinator(
             + (includeInitialTransition ? transitionSeconds : 0);
     }
 
-    private void ReleaseActiveRuleLockoutState(Guid sourceRuleId, bool logRelease)
+    private void ReleaseActiveRuleLockoutState(
+        Guid sourceRuleId,
+        bool logRelease,
+        DateTimeOffset? expectedExpiresAt = null)
     {
         var changed = false;
         ActiveRuleLockoutState? releasedLockoutState = null;
@@ -14390,6 +17027,13 @@ internal BridgeCoordinator(
             var hadLockout = activeRuleLockouts.TryGetValue(sourceRuleId, out releasedLockoutState);
             var hadUnlock = activeRuleUnlocks.TryGetValue(sourceRuleId, out releasedUnlockState);
             if (!hadLockout && !hadUnlock)
+            {
+                return;
+            }
+
+            if (expectedExpiresAt is { } expected
+                && releasedLockoutState?.ExpiresAt != expected
+                && releasedUnlockState?.ExpiresAt != expected)
             {
                 return;
             }
@@ -14984,11 +17628,18 @@ internal BridgeCoordinator(
     {
         try
         {
-            await oscRouterService.StopAsync();
+            if (testStopOscRouterAsync is { } stopOverride)
+            {
+                await stopOverride();
+            }
+            else
+            {
+                await oscRouterService.StopAsync();
+            }
         }
         catch (Exception ex)
         {
-            WriteLog($"OSCQuery shutdown warning: {ex.Message}");
+            WriteLog($"OSCQuery shutdown warning: {SensitiveTextSanitizer.Sanitize(ex.Message)}");
         }
     }
 
@@ -15062,14 +17713,45 @@ internal BridgeCoordinator(
                     .ToArray(),
                 bridgeEvent,
                 currentAvatarId),
-            TwitchTriggerType.Subscriptions => SelectSubscriptionMatchingRules(
-                ruleIndex.GetGlobalOverrideRulesByTriggerType(bridgeEvent.TriggerType)
+            TwitchTriggerType.Subscriptions or TwitchTriggerType.GiftSubscription => SelectSubscriptionMatchingRules(
+                ruleIndex.GetGlobalOverrideRulesByTriggerType(TwitchTriggerType.Subscriptions)
+                    .Concat(ruleIndex.GetGlobalOverrideRulesByTriggerType(TwitchTriggerType.GiftSubscription))
                     .Where(rule => rule.IsEnabled && !temporarilyDisabledRuleIds.Contains(rule.Id))
                     .ToArray(),
                 bridgeEvent.Amount,
                 currentAvatarId),
+            TwitchTriggerType.Follow => SelectMatchingAvatarSwapFollowRules(
+                configuration,
+                currentAvatarId,
+                avatarChangeTransitionActive,
+                temporarilyDisabledRuleIds),
             _ => []
         };
+    }
+
+    private TriggerRuleSnapshot[] SelectMatchingAvatarSwapFollowRules(
+        BridgeRuntimeConfiguration configuration,
+        string currentAvatarId,
+        bool avatarChangeTransitionActive,
+        IReadOnlyCollection<Guid> temporarilyDisabledRuleIds)
+    {
+        var normalizedCurrentAvatarId = currentAvatarId?.Trim() ?? string.Empty;
+        return configuration.AvatarSwapProfiles
+            .SelectMany(profile => profile.AdvancedRules)
+            .Where(rule => rule.TriggerType == TwitchTriggerType.Follow)
+            .Where(rule => rule.IsEnabled && !temporarilyDisabledRuleIds.Contains(rule.Id))
+            .Where(rule => AvatarRuleActivationPolicy.IsRuleActiveForCurrentAvatar(
+                rule.IsGlobalOverride,
+                rule.BelongsToMasterAvatarProfile,
+                rule.ActionType,
+                rule.AvatarChangeTargetId,
+                rule.RequiredAvatarId,
+                normalizedCurrentAvatarId,
+                avatarChangeTransitionActive,
+                configuration.AvatarChangeCooldownOnlyModeEnabled,
+                permanentAvatarChange: rule.Rule.PermanentAvatarChange,
+                permanentChangeCompleted: permanentChangeCompletedRules.Contains(rule.Id)))
+            .ToArray();
     }
 
     private async Task<bool> TryHandleActiveFloatBoostRewardAsync(
@@ -16082,6 +18764,14 @@ internal BridgeCoordinator(
         }
     }
 
+    private bool IsResumeAvatarCurrent(string expectedAvatarId)
+    {
+        lock (stateGate)
+        {
+            return string.Equals(currentVrChatAvatarId, expectedAvatarId, StringComparison.Ordinal);
+        }
+    }
+
     private bool IsRuntimeStopping()
     {
         lock (stateGate)
@@ -16090,11 +18780,69 @@ internal BridgeCoordinator(
         }
     }
 
+    private void EnsureRuntimeAdmissionOpen()
+    {
+        lock (stateGate)
+        {
+            if (runtimeDisposalStarted)
+            {
+                throw new ObjectDisposedException(nameof(BridgeCoordinator));
+            }
+        }
+    }
+
+    private void MarkRuntimeDisposalStarted()
+    {
+        lock (stateGate)
+        {
+            runtimeDisposalStarted = true;
+        }
+    }
+
+    private bool IsRuntimeDisposalStarted()
+    {
+        lock (stateGate)
+        {
+            return runtimeDisposalStarted;
+        }
+    }
+
     private bool IsInAvatarChangeGracePeriod()
     {
         lock (stateGate)
         {
             return (DateTimeOffset.UtcNow - lastAvatarChangeAt) < AvatarChangeGracePeriod;
+        }
+    }
+
+    private static async Task WaitForActivityDeadlineAndAvatarChangeGraceAsync(
+        ReschedulableActivityDeadline activityDeadline,
+        Func<TimeSpan> getGraceRemaining,
+        Func<bool> isInAvatarChangeGracePeriod,
+        CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            await activityDeadline.WaitAsync(cancellationToken);
+
+            var graceRemaining = getGraceRemaining();
+            if (graceRemaining > TimeSpan.Zero)
+            {
+                await Task.Delay(graceRemaining, cancellationToken);
+            }
+
+            if (isInAvatarChangeGracePeriod())
+            {
+                continue;
+            }
+
+            if (activityDeadline.Deadline > DateTimeOffset.UtcNow)
+            {
+                await activityDeadline.WaitAsync(cancellationToken);
+                continue;
+            }
+
+            return;
         }
     }
 
@@ -16151,6 +18899,7 @@ internal BridgeCoordinator(
 
     private async Task ResumePendingActivitiesSingleFlightAsync(long expectedSessionGeneration)
     {
+        var currentAvatarId = GetCurrentVrChatAvatarId();
         await Task.Yield();
 
         if (!IsRuntimeSessionCurrent(expectedSessionGeneration)
@@ -16165,7 +18914,6 @@ internal BridgeCoordinator(
             return;
         }
 
-        var currentAvatarId = GetCurrentVrChatAvatarId();
         if (string.IsNullOrWhiteSpace(currentAvatarId))
         {
             WriteLog("Activity resume skipped: current avatar ID is empty.");
@@ -16220,31 +18968,89 @@ internal BridgeCoordinator(
             return;
         }
 
-        if (!TryMarkActivityResumeAttempted(expectedSessionGeneration))
-        {
-            return;
-        }
         if (pendingActivities.Count == 0)
         {
+            TryMarkActivityResumeAttempted(expectedSessionGeneration);
             return;
         }
 
-        WriteLog("Resuming saved activities...");
+        var hasAvatarScopedActivity = false;
+        foreach (var pendingActivity in pendingActivities)
+        {
+            if (pendingActivity.Type != ResumeActivityType.AvatarScale)
+            {
+                continue;
+            }
+
+            hasAvatarScopedActivity = true;
+            if (!IsRuntimeSessionCurrent(expectedSessionGeneration)
+                || !IsResumeAvatarCurrent(currentAvatarId))
+            {
+                return;
+            }
+        }
+
+        var attemptClaimed = false;
+        bool TryClaimResumeAttempt()
+        {
+            if (attemptClaimed)
+            {
+                return true;
+            }
+
+            if (!TryMarkActivityResumeAttempted(
+                    expectedSessionGeneration,
+                    hasAvatarScopedActivity ? currentAvatarId : null))
+            {
+                return false;
+            }
+
+            attemptClaimed = true;
+            WriteLog("Resuming saved activities...");
+            return true;
+        }
+
         foreach (var activity in pendingActivities)
         {
             try
             {
+                if (activity.Type == ResumeActivityType.AvatarScale
+                    && (!IsRuntimeSessionCurrent(expectedSessionGeneration)
+                        || !IsResumeAvatarCurrent(currentAvatarId)))
+                {
+                    return;
+                }
+
                 if (activity.ExpiresAt is { } expiresAt
                     && expiresAt <= DateTimeOffset.UtcNow)
                 {
                     await activityResumeService.RemoveActivityAsync(activity);
+
+                    if (!IsRuntimeSessionCurrent(expectedSessionGeneration)
+                        || (activity.Type == ResumeActivityType.AvatarScale
+                            && !IsResumeAvatarCurrent(currentAvatarId)))
+                    {
+                        return;
+                    }
+
+                    if (!TryClaimResumeAttempt())
+                    {
+                        return;
+                    }
+
                     continue;
+                }
+
+                if (!TryClaimResumeAttempt())
+                {
+                    return;
                 }
 
                 await ResumeActivityAsync(
                     activity,
                     avatarScaleRuntimeGeneration,
-                    expectedSessionGeneration);
+                    expectedSessionGeneration,
+                    currentAvatarId);
             }
             catch (Exception ex)
             {
@@ -16287,7 +19093,8 @@ internal BridgeCoordinator(
     private async Task ResumeActivityAsync(
         ResumeActivity activity,
         long expectedRuntimeGeneration,
-        long expectedSessionGeneration)
+        long expectedSessionGeneration,
+        string expectedAvatarId)
     {
         EnterActivityResumeGateUser();
         var gateAcquired = false;
@@ -16295,7 +19102,9 @@ internal BridgeCoordinator(
         {
             await activityResumeGate.WaitAsync(CancellationToken.None).ConfigureAwait(false);
             gateAcquired = true;
-            if (!IsRuntimeSessionCurrent(expectedSessionGeneration))
+            if (!IsRuntimeSessionCurrent(expectedSessionGeneration)
+                || (activity.Type == ResumeActivityType.AvatarScale
+                    && !IsResumeAvatarCurrent(expectedAvatarId)))
             {
                 return;
             }
@@ -16303,7 +19112,8 @@ internal BridgeCoordinator(
             await ResumeActivityCoreAsync(
                 activity,
                 expectedRuntimeGeneration,
-                expectedSessionGeneration).ConfigureAwait(false);
+                expectedSessionGeneration,
+                expectedAvatarId).ConfigureAwait(false);
         }
         finally
         {
@@ -16319,7 +19129,8 @@ internal BridgeCoordinator(
     private async Task ResumeActivityCoreAsync(
         ResumeActivity activity,
         long expectedRuntimeGeneration,
-        long expectedSessionGeneration)
+        long expectedSessionGeneration,
+        string expectedAvatarId)
     {
         if (!IsRuntimeSessionCurrent(expectedSessionGeneration)
             || activeConfiguration is null)
@@ -16334,7 +19145,8 @@ internal BridgeCoordinator(
             case ResumeActivityType.AvatarScale:
                 {
                     if (!IsRuntimeSessionCurrent(expectedSessionGeneration)
-                        || !IsAvatarScaleRuntimeGenerationCurrent(expectedRuntimeGeneration))
+                        || !IsAvatarScaleRuntimeGenerationCurrent(expectedRuntimeGeneration)
+                        || !IsResumeAvatarCurrent(expectedAvatarId))
                     {
                         return;
                     }
@@ -16350,7 +19162,8 @@ internal BridgeCoordinator(
                         cancellationToken,
                         expectedRuntimeGeneration);
                     if (!IsRuntimeSessionCurrent(expectedSessionGeneration)
-                        || !IsAvatarScaleRuntimeGenerationCurrent(expectedRuntimeGeneration))
+                        || !IsAvatarScaleRuntimeGenerationCurrent(expectedRuntimeGeneration)
+                        || !IsResumeAvatarCurrent(expectedAvatarId))
                     {
                         return;
                     }
@@ -16369,7 +19182,8 @@ internal BridgeCoordinator(
                     if (heightMatches)
                     {
                         if (!IsRuntimeSessionCurrent(expectedSessionGeneration)
-                            || !IsAvatarScaleRuntimeGenerationCurrent(expectedRuntimeGeneration))
+                            || !IsAvatarScaleRuntimeGenerationCurrent(expectedRuntimeGeneration)
+                            || !IsResumeAvatarCurrent(expectedAvatarId))
                         {
                             return;
                         }
@@ -16386,7 +19200,7 @@ internal BridgeCoordinator(
                             expectedRuntimeGeneration);
                         if (heightSessionId != Guid.Empty)
                         {
-                            ScheduleAvatarScaleHeightSessionEnd(
+                            _ = ScheduleAvatarScaleHeightSessionEnd(
                                 rule.Id,
                                 heightSessionId,
                                 TimeSpan.FromSeconds(Math.Max(0.5, activeWindowSeconds)),
@@ -16404,7 +19218,8 @@ internal BridgeCoordinator(
                         }
 
                         if (!IsRuntimeSessionCurrent(expectedSessionGeneration)
-                            || !IsAvatarScaleRuntimeGenerationCurrent(expectedRuntimeGeneration))
+                            || !IsAvatarScaleRuntimeGenerationCurrent(expectedRuntimeGeneration)
+                            || !IsResumeAvatarCurrent(expectedAvatarId))
                         {
                             return;
                         }
@@ -16413,7 +19228,14 @@ internal BridgeCoordinator(
                     else
                     {
                         var incomingEvent = UniversalIncomingEvent.Test;
-                    await ExecuteAvatarScaleRuleAsync(
+                        if (!IsRuntimeSessionCurrent(expectedSessionGeneration)
+                            || !IsAvatarScaleRuntimeGenerationCurrent(expectedRuntimeGeneration)
+                            || !IsResumeAvatarCurrent(expectedAvatarId))
+                        {
+                            return;
+                        }
+
+                        await ExecuteAvatarScaleRuleAsync(
                             rule,
                             incomingEvent,
                             isTest: false,
@@ -16421,7 +19243,15 @@ internal BridgeCoordinator(
                             isResuming: true,
                             expectedRuntimeGeneration: expectedRuntimeGeneration,
                             activityResumeEntry: activity,
-                            resumeTargetHeight: savedHeight);
+                            resumeTargetHeight: savedHeight,
+                            expectedResumeAvatarId: expectedAvatarId);
+
+                        if (!IsRuntimeSessionCurrent(expectedSessionGeneration)
+                            || !IsAvatarScaleRuntimeGenerationCurrent(expectedRuntimeGeneration)
+                            || !IsResumeAvatarCurrent(expectedAvatarId))
+                        {
+                            return;
+                        }
                     }
 
                     break;
@@ -16582,6 +19412,52 @@ internal BridgeCoordinator(
         return Math.Max(0, remainingSeconds - restoreTransitionSeconds - initialTransitionSeconds);
     }
 
+    private void ClearCurrentVrChatAvatarForShutdown()
+    {
+        var avatarScopedResetSendUserEntered = false;
+        var avatarScopedResetSendGateAcquired = false;
+        try
+        {
+            try
+            {
+                EnterAvatarScopedResetSendUser();
+                avatarScopedResetSendUserEntered = true;
+            }
+            catch (ObjectDisposedException)
+            {
+                ClearCurrentVrChatAvatarState();
+                return;
+            }
+
+            avatarScopedResetSendGate.Wait();
+            avatarScopedResetSendGateAcquired = true;
+            ClearCurrentVrChatAvatarState();
+        }
+        finally
+        {
+            if (avatarScopedResetSendGateAcquired)
+            {
+                avatarScopedResetSendGate.Release();
+            }
+
+            if (avatarScopedResetSendUserEntered)
+            {
+                ExitAvatarScopedResetSendUser();
+            }
+        }
+    }
+
+    private void ClearCurrentVrChatAvatarState()
+    {
+        lock (stateGate)
+        {
+            currentVrChatAvatarId = string.Empty;
+            avatarParameterValues.Clear();
+            avatarScaleValues.Clear();
+            localInstantToggleStates.Clear();
+        }
+    }
+
     private void SetCurrentVrChatAvatar(
         string avatarId,
         bool notify,
@@ -16591,48 +19467,93 @@ internal BridgeCoordinator(
         var previousAvatarId = string.Empty;
         double? previousAvatarHeight = null;
         var changed = false;
+        var avatarScopedResetSendUserEntered = false;
+        var avatarScopedResetSendGateAcquired = false;
 
-        lock (stateGate)
+        try
         {
-            if (string.Equals(currentVrChatAvatarId, normalizedAvatarId, StringComparison.Ordinal))
+            if (IsRuntimeDisposalStarted())
             {
                 return;
             }
 
-            previousAvatarId = currentVrChatAvatarId;
-            if (TryGetObservedFloatLocked("/avatar/eyeheight", out var observedHeight))
+            try
             {
-                previousAvatarHeight = observedHeight;
+                EnterAvatarScopedResetSendUser();
+            }
+            catch (ObjectDisposedException) when (IsRuntimeDisposalStarted())
+            {
+                return;
             }
 
-            currentVrChatAvatarId = normalizedAvatarId;
-            avatarParameterValues.Clear();
-            avatarScaleValues.Clear();
-            localInstantToggleStates.Clear();
-            changed = true;
-        }
+            avatarScopedResetSendUserEntered = true;
+            try
+            {
+                avatarScopedResetSendGate.Wait();
+                avatarScopedResetSendGateAcquired = true;
 
-        if (changed && !string.IsNullOrWhiteSpace(normalizedAvatarId))
-        {
-            lastAvatarChangeAt = DateTimeOffset.UtcNow;
-            _pendingAvatarChangeId = normalizedAvatarId;
-            _avatarLoadTimeoutCts?.Cancel();
-            _avatarLoadTimeoutCts?.Dispose();
-            _avatarLoadTimeoutCts = new CancellationTokenSource();
-            _avatarLoadTimeoutCts.CancelAfter(AvatarScaleAvatarLoadSignalTimeout);
-            _avatarLoadedForScalingTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            ResumePendingAvatarScopedResetsForCurrentAvatar(normalizedAvatarId);
-            _ = TryResumePendingActivitiesAsync();
-            QueueAvatarScaleAvatarChangeHandling(
-                previousAvatarId,
-                normalizedAvatarId,
-                previousAvatarHeight,
-                scaleCarryoverMode);
-        }
+                lock (stateGate)
+                {
+                    if (runtimeDisposalStarted)
+                    {
+                        return;
+                    }
 
-        if (notify && changed && !string.IsNullOrWhiteSpace(normalizedAvatarId))
+                    if (string.Equals(currentVrChatAvatarId, normalizedAvatarId, StringComparison.Ordinal))
+                    {
+                        return;
+                    }
+
+                    previousAvatarId = currentVrChatAvatarId;
+                    if (TryGetObservedFloatLocked("/avatar/eyeheight", out var observedHeight))
+                    {
+                        previousAvatarHeight = observedHeight;
+                    }
+
+                    currentVrChatAvatarId = normalizedAvatarId;
+                    avatarParameterValues.Clear();
+                    avatarScaleValues.Clear();
+                    localInstantToggleStates.Clear();
+                    changed = true;
+                }
+            }
+            finally
+            {
+                if (avatarScopedResetSendGateAcquired)
+                {
+                    avatarScopedResetSendGate.Release();
+                }
+            }
+
+            if (changed && !string.IsNullOrWhiteSpace(normalizedAvatarId))
+            {
+                lastAvatarChangeAt = DateTimeOffset.UtcNow;
+                _pendingAvatarChangeId = normalizedAvatarId;
+                _avatarLoadTimeoutCts?.Cancel();
+                _avatarLoadTimeoutCts?.Dispose();
+                _avatarLoadTimeoutCts = new CancellationTokenSource();
+                _avatarLoadTimeoutCts.CancelAfter(AvatarScaleAvatarLoadSignalTimeout);
+                _avatarLoadedForScalingTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                ResumePendingAvatarScopedResetsForCurrentAvatar(normalizedAvatarId);
+                _ = TryResumePendingActivitiesAsync();
+                QueueAvatarScaleAvatarChangeHandling(
+                    previousAvatarId,
+                    normalizedAvatarId,
+                    previousAvatarHeight,
+                    scaleCarryoverMode);
+            }
+
+            if (notify && changed && !string.IsNullOrWhiteSpace(normalizedAvatarId))
+            {
+                VrChatAvatarChanged?.Invoke(normalizedAvatarId);
+            }
+        }
+        finally
         {
-            VrChatAvatarChanged?.Invoke(normalizedAvatarId);
+            if (avatarScopedResetSendUserEntered)
+            {
+                ExitAvatarScopedResetSendUser();
+            }
         }
     }
 
@@ -17047,7 +19968,10 @@ internal BridgeCoordinator(
                 avatarId,
                 restoreHeightMeters,
                 carriedHeightMeters,
-                activeUntil);
+                activeUntil)
+            {
+                ActivityDeadline = new(activeUntil)
+            };
             SetActiveAvatarScaleCarryoverLocked(
                 ruleId,
                 sessionId,
@@ -17064,17 +19988,24 @@ internal BridgeCoordinator(
         return sessionId;
     }
 
-    private void EndAvatarScaleHeightSession(Guid ruleId, Guid sessionId)
+    private bool EndAvatarScaleHeightSession(
+        Guid ruleId,
+        Guid sessionId,
+        ReschedulableActivityDeadline? expectedActivityDeadline = null)
     {
         if (sessionId == Guid.Empty)
         {
-            return;
+            return false;
         }
 
         lock (stateGate)
         {
             if (activeAvatarScaleHeightSessions.TryGetValue(ruleId, out var session)
-                && session.SessionId == sessionId)
+                && session.SessionId == sessionId
+                && (expectedActivityDeadline is null
+                    || (ReferenceEquals(session.ActivityDeadline, expectedActivityDeadline)
+                        && session.ActiveUntil <= DateTimeOffset.UtcNow
+                        && session.ActivityDeadline.Deadline <= DateTimeOffset.UtcNow)))
             {
                 activeAvatarScaleHeightSessions.Remove(ruleId);
                 if (activeAvatarScaleCarryover?.SourceSessionId == sessionId
@@ -17082,11 +20013,15 @@ internal BridgeCoordinator(
                 {
                     activeAvatarScaleCarryover = null;
                 }
+
+                return true;
             }
         }
+
+        return false;
     }
 
-    private void ScheduleAvatarScaleHeightSessionEnd(
+    private Task ScheduleAvatarScaleHeightSessionEnd(
         Guid ruleId,
         Guid sessionId,
         TimeSpan delay,
@@ -17094,16 +20029,52 @@ internal BridgeCoordinator(
     {
         if (sessionId == Guid.Empty)
         {
-            return;
+            return Task.CompletedTask;
         }
 
+        ActiveAvatarScaleHeightSessionState session;
+        lock (stateGate)
+        {
+            if (!activeAvatarScaleHeightSessions.TryGetValue(ruleId, out session!)
+                || session.SessionId != sessionId)
+            {
+                return Task.CompletedTask;
+            }
+        }
+
+        var expectedActivityDeadline = session.ActivityDeadline;
         var token = runtimeCancellation?.Token ?? cancellationToken;
-        _ = Task.Run(async () =>
+        return Task.Run(async () =>
         {
             try
             {
-                await Task.Delay(delay <= TimeSpan.Zero ? TimeSpan.FromMilliseconds(500) : delay, token);
-                EndAvatarScaleHeightSession(ruleId, sessionId);
+                while (!token.IsCancellationRequested)
+                {
+                    await expectedActivityDeadline.WaitAsync(token);
+
+                    if (EndAvatarScaleHeightSession(ruleId, sessionId, expectedActivityDeadline))
+                    {
+                        return;
+                    }
+
+                    lock (stateGate)
+                    {
+                        if (!activeAvatarScaleHeightSessions.TryGetValue(ruleId, out var currentSession)
+                            || currentSession.SessionId != sessionId
+                            || !ReferenceEquals(currentSession.ActivityDeadline, expectedActivityDeadline))
+                        {
+                            return;
+                        }
+
+                        if (currentSession.ActiveUntil > DateTimeOffset.UtcNow
+                            || currentSession.ActivityDeadline.Deadline > DateTimeOffset.UtcNow)
+                        {
+                            continue;
+                        }
+
+                        return;
+                    }
+                }
             }
             catch (OperationCanceledException) when (token.IsCancellationRequested)
             {
@@ -17258,11 +20229,16 @@ internal BridgeCoordinator(
         }
     }
 
-    private bool TryMarkActivityResumeAttempted(long expectedSessionGeneration)
+    private bool TryMarkActivityResumeAttempted(
+        long expectedSessionGeneration,
+        string? expectedAvatarId = null)
     {
         lock (stateGate)
         {
-            if (runtimeSessionGeneration != expectedSessionGeneration || hasAttemptedResume)
+            if (runtimeSessionGeneration != expectedSessionGeneration
+                || hasAttemptedResume
+                || (expectedAvatarId is not null
+                    && !string.Equals(currentVrChatAvatarId, expectedAvatarId, StringComparison.Ordinal)))
             {
                 return false;
             }
@@ -19403,10 +22379,10 @@ internal BridgeCoordinator(
         return rules
             .Where(rule => rule.IsEnabled
                 && IsSupporterRuleScopedToCurrentAvatar(rule, currentAvatarId)
-                && rule.TriggerType is TwitchTriggerType.Bits or TwitchTriggerType.Subscriptions
+                && rule.TriggerType is (TwitchTriggerType.Bits or TwitchTriggerType.Subscriptions or TwitchTriggerType.GiftSubscription)
                 && !IsBitsOutfitSetTriggerRule(rule))
             .OrderBy(rule => GetSupporterOverrideListTriggerTypeSortRank(rule.TriggerType))
-            .ThenBy(rule => Math.Max(1, rule.MinimumAmount))
+            .ThenBy(GetSupporterOverrideThreshold)
             .ThenBy(rule => rule.Name, StringComparer.CurrentCultureIgnoreCase)
             .Select(rule => TF("{0} ({1})", rule.Name, DescribeSupporterOverrideOption(rule)))
             .Where(option => !string.IsNullOrWhiteSpace(option))
@@ -19545,7 +22521,7 @@ internal BridgeCoordinator(
         return rules
             .Where(rule => rule.IsEnabled && IsSupporterOverrideRule(rule))
             .OrderBy(rule => GetSupporterOverrideListTriggerTypeSortRank(rule.TriggerType))
-            .ThenBy(rule => Math.Max(1, rule.MinimumAmount))
+            .ThenBy(GetSupporterOverrideThreshold)
             .ThenBy(rule => rule.Name, StringComparer.CurrentCultureIgnoreCase)
             .Select(DescribeSupporterOverrideOption)
             .Where(description => !string.IsNullOrWhiteSpace(description))
@@ -19555,13 +22531,13 @@ internal BridgeCoordinator(
     private static int GetSupporterOverrideListTriggerTypeSortRank(TwitchTriggerType triggerType) => triggerType switch
     {
         TwitchTriggerType.Bits => 1,
-        TwitchTriggerType.Subscriptions => 2,
+        TwitchTriggerType.Subscriptions or TwitchTriggerType.GiftSubscription => 2,
         _ => 3
     };
 
     private static string DescribeSupporterOverrideOption(TriggerRuleSnapshot rule)
     {
-        var threshold = Math.Max(1, rule.MinimumAmount);
+        var threshold = GetSupporterOverrideThreshold(rule);
         if (IsBitsForceMovementRule(rule))
         {
             var keyword = !rule.BitsKeywordEnabled || string.IsNullOrWhiteSpace(rule.SupporterKeywordText)
@@ -19593,7 +22569,7 @@ internal BridgeCoordinator(
                 : TF("Bits {0}+: {1}", threshold, DescribeDuration(rule.DurationSeconds));
         }
 
-        if (rule.TriggerType == TwitchTriggerType.Subscriptions)
+        if (rule.TriggerType is TwitchTriggerType.Subscriptions or TwitchTriggerType.GiftSubscription)
         {
             return rule.AmountScaledDurationEnabled
                 ? rule.DurationSeconds > 0
@@ -19789,7 +22765,7 @@ internal BridgeCoordinator(
 
             try
             {
-                await oscRouterService.SendToVrChatAsync(
+                await SendToVrChatAsync(
                     vrChatOscClient.BuildChatboxInputPacket(relayMessage, sendImmediately: true, playNotification: false),
                     cancellationToken);
             }
@@ -20406,6 +23382,7 @@ internal BridgeCoordinator(
         CancellationTokenSource[] activeFloatRedeemCancellations;
         SemaphoreSlim[] activeFloatRedeemGates;
         CancellationTokenSource[] activeGlitchyRedeemCancellations;
+        CancellationTokenSource[] activeFloatPulseCancellations;
         CancellationTokenSource? masterUnlockNotification;
         CancellationTokenSource? masterCooldownNotification;
         CancellationTokenSource[] movementLockCancellations;
@@ -20434,6 +23411,8 @@ internal BridgeCoordinator(
             activeFloatRedeemSessions.Clear();
             activeGlitchyRedeemCancellations = [.. activeGlitchyRedeemSessions.Values.Select(session => session.CompletionCancellation)];
             activeGlitchyRedeemSessions.Clear();
+            activeFloatPulseCancellations = [.. activeFloatPulseRestores.Values.Select(pulse => pulse.Cancellation)];
+            activeFloatPulseRestores.Clear();
             recentMessageIds.Clear();
             nextRecentMessagePruneAt = DateTimeOffset.MinValue;
             avatarParameterValues.Clear();
@@ -20533,6 +23512,12 @@ internal BridgeCoordinator(
             activeGlitchyRedeemCancellation.Dispose();
         }
 
+        foreach (var activeFloatPulseCancellation in activeFloatPulseCancellations)
+        {
+            activeFloatPulseCancellation.Cancel();
+            activeFloatPulseCancellation.Dispose();
+        }
+
         foreach (var desktopLockCancellation in desktopLockCancellations)
         {
             desktopLockCancellation.Cancel();
@@ -20542,6 +23527,7 @@ internal BridgeCoordinator(
         supporterOverrideCancellation?.Cancel();
         supporterOverrideCancellation?.Dispose();
         avatarScaleRestoreCancellation?.Cancel();
+        avatarScaleRestoreCancellation?.Dispose();
         foreach (var universalQueueGate in universalQueueGates)
         {
             universalQueueGate.Dispose();
@@ -20652,7 +23638,8 @@ internal BridgeCoordinator(
 
     private void EnsureQueuedRuleDrain(Guid ruleId)
     {
-        var cancellationToken = runtimeCancellation?.Token ?? CancellationToken.None;
+        var workerCancellation = CreatePersistentEffectCancellation(runtimeCancellation?.Token ?? CancellationToken.None);
+        var cancellationToken = workerCancellation.Token;
         var shouldStart = false;
 
         lock (stateGate)
@@ -20665,10 +23652,11 @@ internal BridgeCoordinator(
 
         if (!shouldStart)
         {
+            workerCancellation.Dispose();
             return;
         }
 
-        _ = Task.Run(async () =>
+        var accepted = TryStartPersistentEffectWorker(async () =>
         {
             try
             {
@@ -20755,7 +23743,7 @@ internal BridgeCoordinator(
                     }
                     catch (Exception ex)
                     {
-                        WriteLog($"Queued trigger for '{ruleSnapshot.Name}' failed: {ex.Message}");
+                        WriteLog($"Queued trigger for '{ruleSnapshot.Name}' failed: {SensitiveTextSanitizer.Sanitize(ex.Message)}");
                     }
                 }
             }
@@ -20775,13 +23763,21 @@ internal BridgeCoordinator(
                 {
                     EnsureQueuedRuleDrain(ruleId);
                 }
+
+                workerCancellation.Dispose();
             }
-        }, CancellationToken.None);
+        }, workerCancellation);
+
+        if (!accepted)
+        {
+            workerCancellation.Dispose();
+        }
     }
 
     private void EnsureQueuedLaneDrain(string laneKey)
     {
-        var cancellationToken = runtimeCancellation?.Token ?? CancellationToken.None;
+        var workerCancellation = CreatePersistentEffectCancellation(runtimeCancellation?.Token ?? CancellationToken.None);
+        var cancellationToken = workerCancellation.Token;
         var shouldStart = false;
 
         lock (stateGate)
@@ -20794,10 +23790,11 @@ internal BridgeCoordinator(
 
         if (!shouldStart)
         {
+            workerCancellation.Dispose();
             return;
         }
 
-        _ = Task.Run(async () =>
+        var accepted = TryStartPersistentEffectWorker(async () =>
         {
             try
             {
@@ -20805,6 +23802,7 @@ internal BridgeCoordinator(
                 {
                     QueuedLaneAction? queuedAction = null;
                     TimeSpan delay = TimeSpan.Zero;
+                    ActiveMovementLaneState? activeLane = null;
                     var dropQueuedItems = false;
                     var dropCount = 0;
 
@@ -20818,9 +23816,9 @@ internal BridgeCoordinator(
                             dropCount = queuedLaneQueue.Count;
                             queuedLaneActions.Remove(laneKey);
                         }
-                        else if (actionLanes.TryGetValue(laneKey, out var activeLane) && activeLane.BusyUntil > DateTimeOffset.UtcNow)
+                        else if (actionLanes.TryGetValue(laneKey, out var currentLane) && currentLane.BusyUntil > DateTimeOffset.UtcNow)
                         {
-                            delay = activeLane.BusyUntil - DateTimeOffset.UtcNow;
+                            activeLane = currentLane;
                         }
                         else if (queuedLaneActions.TryGetValue(laneKey, out var queue) && queue.Count > 0)
                         {
@@ -20872,6 +23870,12 @@ internal BridgeCoordinator(
                         break;
                     }
 
+                    if (activeLane is not null)
+                    {
+                        await activeLane.ActivityDeadline.WaitAsync(cancellationToken);
+                        continue;
+                    }
+
                     if (delay > TimeSpan.Zero)
                     {
                         await Task.Delay(delay, cancellationToken);
@@ -20916,7 +23920,7 @@ internal BridgeCoordinator(
                     }
                     catch (Exception ex)
                     {
-                        WriteLog($"Queued action for '{ruleToExecute.Name}' failed: {ex.Message}");
+                        WriteLog($"Queued action for '{ruleToExecute.Name}' failed: {SensitiveTextSanitizer.Sanitize(ex.Message)}");
                     }
                 }
             }
@@ -20936,13 +23940,21 @@ internal BridgeCoordinator(
                 {
                     EnsureQueuedLaneDrain(laneKey);
                 }
+
+                workerCancellation.Dispose();
             }
-        }, CancellationToken.None);
+        }, workerCancellation);
+
+        if (!accepted)
+        {
+            workerCancellation.Dispose();
+        }
     }
 
     private void EnsureQueuedAvatarSwitchDrain()
     {
-        var cancellationToken = runtimeCancellation?.Token ?? CancellationToken.None;
+        var workerCancellation = CreatePersistentEffectCancellation(runtimeCancellation?.Token ?? CancellationToken.None);
+        var cancellationToken = workerCancellation.Token;
         var shouldStart = false;
 
         lock (stateGate)
@@ -20956,10 +23968,11 @@ internal BridgeCoordinator(
 
         if (!shouldStart)
         {
+            workerCancellation.Dispose();
             return;
         }
 
-        _ = Task.Run(async () =>
+        var accepted = TryStartPersistentEffectWorker(async () =>
         {
             try
             {
@@ -20967,16 +23980,24 @@ internal BridgeCoordinator(
                 {
                     QueuedAvatarSwitchState? queuedSwitch = null;
                     TimeSpan delay = TimeSpan.Zero;
+                    TimeSpan queuedSwitchDelay = TimeSpan.Zero;
                     string? logMessage = null;
                     var dropQueuedItems = false;
                     var dropCount = 0;
 
-                    lock (stateGate)
+                    if (!await TryEnterTimedSupporterOverrideTransitionAsync(cancellationToken))
                     {
-                        if (queuedAvatarSwitches.Count == 0)
+                        break;
+                    }
+
+                    try
+                    {
+                        lock (stateGate)
                         {
-                            break;
-                        }
+                            if (queuedAvatarSwitches.Count == 0)
+                            {
+                                break;
+                            }
 
                         var now = DateTimeOffset.UtcNow;
                         var nextSwitch = queuedAvatarSwitches.Peek();
@@ -21053,6 +24074,27 @@ internal BridgeCoordinator(
                         }
                     }
 
+                    if (queuedSwitch is not null)
+                    {
+                        try
+                        {
+                            queuedSwitchDelay = await ExecuteQueuedAvatarSwitchAsync(queuedSwitch, cancellationToken);
+                        }
+                        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                        {
+                            throw;
+                        }
+                        catch (Exception ex)
+                        {
+                            WriteLog($"Queued avatar switch '{queuedSwitch.Rule.Name}' failed: {SensitiveTextSanitizer.Sanitize(ex.Message)}");
+                        }
+                    }
+                    }
+                    finally
+                    {
+                        LeaveTimedSupporterOverrideTransitionUser(releaseGate: true);
+                    }
+
                     if (!string.IsNullOrWhiteSpace(logMessage))
                     {
                         WriteLog(logMessage);
@@ -21070,22 +24112,9 @@ internal BridgeCoordinator(
                         continue;
                     }
 
-                    if (queuedSwitch is null)
+                    if (queuedSwitch is not null && queuedSwitchDelay > TimeSpan.Zero)
                     {
-                        continue;
-                    }
-
-                    try
-                    {
-                        await ExecuteQueuedAvatarSwitchAsync(queuedSwitch, cancellationToken);
-                    }
-                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                    {
-                        throw;
-                    }
-                    catch (Exception ex)
-                    {
-                        WriteLog($"Queued avatar switch '{queuedSwitch.Rule.Name}' failed: {ex.Message}");
+                        await Task.Delay(queuedSwitchDelay, cancellationToken);
                     }
                 }
             }
@@ -21101,30 +24130,36 @@ internal BridgeCoordinator(
                     restart = queuedAvatarSwitches.Count > 0;
                 }
 
-                if (restart)
+                if (restart && IsTimedSupporterOverrideTransitionAdmissionOpen())
                 {
                     EnsureQueuedAvatarSwitchDrain();
                 }
+
+                workerCancellation.Dispose();
             }
-        }, CancellationToken.None);
+        }, workerCancellation);
+
+        if (!accepted)
+        {
+            workerCancellation.Dispose();
+        }
     }
 
-    private async Task ExecuteQueuedAvatarSwitchAsync(QueuedAvatarSwitchState queuedSwitch, CancellationToken cancellationToken)
+    private async Task<TimeSpan> ExecuteQueuedAvatarSwitchAsync(QueuedAvatarSwitchState queuedSwitch, CancellationToken cancellationToken)
     {
         if (queuedSwitch.Kind == QueuedAvatarSwitchKind.PausedActiveSwitch)
         {
-            await ResumePausedAvatarSwitchAsync(queuedSwitch, cancellationToken);
-            return;
+            return await ResumePausedAvatarSwitchAsync(queuedSwitch, cancellationToken);
         }
 
-        await ExecuteQueuedAvatarSwitchTriggerAsync(queuedSwitch, cancellationToken);
+        return await ExecuteQueuedAvatarSwitchTriggerAsync(queuedSwitch, cancellationToken);
     }
 
-    private async Task ResumePausedAvatarSwitchAsync(QueuedAvatarSwitchState queuedSwitch, CancellationToken cancellationToken)
+    private async Task<TimeSpan> ResumePausedAvatarSwitchAsync(QueuedAvatarSwitchState queuedSwitch, CancellationToken cancellationToken)
     {
         if (queuedSwitch.Action is null)
         {
-            return;
+            return TimeSpan.Zero;
         }
 
         var rule = queuedSwitch.Rule;
@@ -21158,16 +24193,16 @@ internal BridgeCoordinator(
         ScheduleReset(rule, action, remainingSeconds, laneKeys, laneLeaseId, notifyManagedRewardState: false);
         WriteLog($"Resumed paused avatar switch '{rule.Name}' for {DescribeDuration(remainingSeconds)}.");
         ManagedRewardAvailabilityChanged?.Invoke();
-        await Task.Delay(TimeSpan.FromSeconds(remainingSeconds), cancellationToken);
+        return TimeSpan.FromSeconds(remainingSeconds);
     }
 
-    private async Task ExecuteQueuedAvatarSwitchTriggerAsync(QueuedAvatarSwitchState queuedSwitch, CancellationToken cancellationToken)
+    private async Task<TimeSpan> ExecuteQueuedAvatarSwitchTriggerAsync(QueuedAvatarSwitchState queuedSwitch, CancellationToken cancellationToken)
     {
         var rule = queuedSwitch.Rule;
         if (ShouldBlockAvatarChangeDuringActiveScaling(rule, isTest: false))
         {
             WriteLog($"Dropped queued avatar switch '{rule.Name}' because Avatar Scaling is active.");
-            return;
+            return TimeSpan.Zero;
         }
 
         await ExecuteRuleActionAsync(
@@ -21178,7 +24213,7 @@ internal BridgeCoordinator(
             queuedReplay: true,
             allowLaneQueue: false,
             isResuming: false);
-        await Task.Delay(TimeSpan.FromSeconds(Math.Max(1, rule.DurationSeconds)), cancellationToken);
+        return TimeSpan.FromSeconds(Math.Max(1, rule.DurationSeconds));
     }
 
     private static string DescribeDuration(double seconds)
@@ -21308,6 +24343,39 @@ internal BridgeCoordinator(
         };
     }
 
+    private enum AvatarScopedPendingResetSendOutcome
+    {
+        Sent,
+        DeferredForAvatarReturn,
+        Skipped,
+        Stale
+    }
+
+    private enum AvatarScopedFloatSendOutcome
+    {
+        Sent,
+        Deferred,
+        Skipped
+    }
+
+    private enum AvatarScopedEffectKind
+    {
+        Pulse,
+        Glitchy
+    }
+
+    private sealed record AvatarScopedEffectOwnership(
+        AvatarScopedEffectKind Kind,
+        Guid RuleId,
+        Guid LeaseId,
+        CancellationTokenSource Cancellation,
+        object State);
+
+    private readonly record struct AvatarScopedPendingResetSendResult(
+        AvatarScopedPendingResetSendOutcome Outcome,
+        bool ClaimedRecordWasRequeued,
+        bool ShouldDisposeClaimedCancellation);
+
     private sealed record PendingResetState(
         Guid RuleId,
         string RuleName,
@@ -21327,6 +24395,8 @@ internal BridgeCoordinator(
         public byte[]? Packet => Packets.FirstOrDefault();
 
         public bool HasPackets => Packets.Count > 0;
+
+        public ReschedulableActivityDeadline ActivityDeadline { get; set; } = null!;
 
         public ResumeActivity? ActivityResumeEntry { get; init; }
     }
@@ -21367,11 +24437,48 @@ internal BridgeCoordinator(
         public DateTimeOffset ActiveUntil { get; init; }
         public double ResetValue { get; init; }
         public double CurrentValue { get; set; }
+        public string SourceAvatarId { get; init; } = string.Empty;
         public CancellationTokenSource CompletionCancellation { get; init; } = new();
         public List<string> LaneKeys { get; init; } = new();
         public Guid LeaseId { get; init; }
         public bool IsTest { get; init; }
     }
+
+    private sealed record ActiveFloatPulseRestoreState(
+        Guid RuleId,
+        string RuleName,
+        string Address,
+        double ResetValue,
+        string SourceAvatarId,
+        CancellationTokenSource Cancellation,
+        Guid LeaseId);
+
+    private sealed record PersistentFloatResetPlan(ActiveFloatRedeemSessionState Session);
+
+    private sealed record PersistentGlitchyFloatResetPlan(ActiveFloatGlitchyRedeemSessionState Session);
+
+    private sealed record PersistentFloatPulseResetPlan(ActiveFloatPulseRestoreState Pulse);
+
+    private sealed record PersistentAvatarScaleRestorePlan(
+        double RestoreHeightMeters,
+        double RestoreSmoothTransitionSeconds,
+        string SourceRuleName,
+        AvatarScaleRuleSnapshot? Rule,
+        CancellationTokenSource? Cancellation);
+
+    private sealed record PersistentSupporterGrowthResetPlan(
+        Guid RuleId,
+        double NormalHeightMeters,
+        string RuleName,
+        AvatarScaleRuleSnapshot? Rule,
+        CancellationTokenSource? Cancellation);
+
+    private sealed record PersistentEffectResetPlans(
+        IReadOnlyList<PersistentFloatResetPlan> FloatPlans,
+        IReadOnlyList<PersistentGlitchyFloatResetPlan> GlitchyFloatPlans,
+        IReadOnlyList<PersistentFloatPulseResetPlan> PulsePlans,
+        PersistentAvatarScaleRestorePlan? ScaleRestorePlan,
+        IReadOnlyList<PersistentSupporterGrowthResetPlan> SupporterGrowthPlans);
 
     private sealed class ActiveFloatRedeemSessionState
     {
@@ -21380,6 +24487,7 @@ internal BridgeCoordinator(
             string address,
             double currentValue,
             double resetValue,
+            string sourceAvatarId,
             DateTimeOffset activeUntil,
             CancellationTokenSource completionCancellation,
             IReadOnlyList<string> movementLaneKeys,
@@ -21391,7 +24499,9 @@ internal BridgeCoordinator(
             Address = address;
             CurrentValue = currentValue;
             ResetValue = resetValue;
+            SourceAvatarId = sourceAvatarId;
             ActiveUntil = activeUntil;
+            ActivityDeadline = new(activeUntil);
             CompletionCancellation = completionCancellation;
             MovementLaneKeys = movementLaneKeys;
             MovementLaneLeaseId = movementLaneLeaseId;
@@ -21407,7 +24517,11 @@ internal BridgeCoordinator(
 
         public double ResetValue { get; }
 
+        public string SourceAvatarId { get; }
+
         public DateTimeOffset ActiveUntil { get; set; }
+
+        public ReschedulableActivityDeadline ActivityDeadline { get; set; }
 
         public CancellationTokenSource CompletionCancellation { get; set; }
 
@@ -21422,6 +24536,10 @@ internal BridgeCoordinator(
         public bool FloatMaxReached { get; set; }
 
         public bool FloatMinReached { get; set; }
+
+        public DateTimeOffset? CooldownUntil { get; init; }
+
+        public CancellationTokenSource? CooldownNotification { get; set; }
 
         public SemaphoreSlim SendGate { get; } = new(1, 1);
     }
@@ -21499,6 +24617,10 @@ internal BridgeCoordinator(
 
         public SetTriggerRestorePlan? SetTriggerRestorePlan { get; }
 
+        public AvatarScopedEffectOwnership? AvatarScopedEffectOwnership { get; init; }
+
+        public string SourceAvatarId { get; init; } = string.Empty;
+
         public byte[] Packet => Packets[0];
 
         public byte[]? ResetPacket => ResetPackets.FirstOrDefault();
@@ -21531,7 +24653,10 @@ internal BridgeCoordinator(
         Guid OwnerId,
         DateTimeOffset BusyUntil,
         Guid RuleId,
-        bool IsSoftLock);
+        bool IsSoftLock)
+    {
+        public ReschedulableActivityDeadline ActivityDeadline { get; set; } = new(BusyUntil);
+    }
 
     private sealed class ActiveMovementSoftLockState
     {
@@ -21619,6 +24744,7 @@ internal BridgeCoordinator(
             Event = @event;
             Action = action;
             ActiveUntil = activeUntil;
+            ActivityDeadline = new(activeUntil);
             QueueOrder = queueOrder;
             CompletionCancellation = completionCancellation;
             SupporterFloatAddCurrentValue = supporterFloatAddCurrentValue;
@@ -21631,6 +24757,8 @@ internal BridgeCoordinator(
         public ResolvedRuleAction Action { get; }
 
         public DateTimeOffset ActiveUntil { get; set; }
+
+        public ReschedulableActivityDeadline ActivityDeadline { get; set; }
 
         public long QueueOrder { get; }
 
@@ -21852,7 +24980,10 @@ internal BridgeCoordinator(
         string OriginalAvatarId,
         double? RestoreHeightMeters,
         double CarriedHeightMeters,
-        DateTimeOffset ActiveUntil);
+        DateTimeOffset ActiveUntil)
+    {
+        public ReschedulableActivityDeadline ActivityDeadline { get; set; } = null!;
+    }
 
     private sealed record PendingAvatarScaleHeightRestoreState(
         double RestoreHeightMeters,
@@ -21888,6 +25019,7 @@ internal BridgeCoordinator(
     {
         public long RuntimeGeneration { get; init; }
         public ResumeActivity? ActivityResumeEntry { get; init; }
+        public ReschedulableActivityDeadline ActivityDeadline { get; set; } = null!;
     }
 
     private sealed record ActiveAvatarScaleCarryoverState(
@@ -21956,6 +25088,8 @@ internal BridgeCoordinator(
         public double NormalHeightMeters { get; set; }
 
         public DateTimeOffset PaidActiveUntil { get; set; }
+
+        public ReschedulableActivityDeadline ActivityDeadline { get; set; } = null!;
 
         public bool AllowRewardScaleOverlay { get; set; } = true;
 

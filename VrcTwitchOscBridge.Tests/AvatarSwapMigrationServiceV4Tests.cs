@@ -222,6 +222,142 @@ public sealed class AvatarSwapMigrationServiceV4Tests
         Assert.Equal("avtr_b", migrated.TriggerAction!.AvatarChangeTargetId);
     }
 
+    [Fact]
+    public void MigrateV4_FoldsLegacyNonChannelPointBitsSubsRuleIntoAdvancedRules()
+    {
+        var settings = new AppSettings
+        {
+            AvatarChangeToAvatarSwapMigrationVersion = 3
+        };
+        var profile = new AvatarSwapProfile { TargetAvatarId = "avtr_a" };
+        settings.AvatarSwapProfiles.Add(profile);
+        var rule = new TriggerRule
+        {
+            TriggerType = TwitchTriggerType.ChatCommand,
+            ActionType = OscActionType.AvatarChange,
+            AvatarChangeTargetId = "avtr_a",
+            ChatCommandEnabled = true,
+            ChatCommandText = "!legacy-swap"
+        };
+#pragma warning disable CS0618
+        var persistedProfile = new SettingsStore.PersistedAvatarSwapProfile
+        {
+            BitsSubsRules = [SettingsStore.ToPersistedRule(rule)]
+        };
+#pragma warning restore CS0618
+
+        AvatarSwapMigrationService.Migrate(settings, [persistedProfile]);
+
+        Assert.Empty(profile.ChannelPointRules);
+        var migrated = Assert.Single(profile.AdvancedRules);
+        Assert.Equal(rule.Id, migrated.Id);
+        Assert.Equal(TwitchTriggerType.ChatCommand, migrated.TriggerType);
+        Assert.Equal("!legacy-swap", migrated.ChatCommandText);
+    }
+
+    [Fact]
+    public void MigrateV4_PreservesLegacyChannelPointInChannelPointRules()
+    {
+        var settings = new AppSettings
+        {
+            AvatarChangeToAvatarSwapMigrationVersion = 3
+        };
+        var profile = new AvatarSwapProfile { TargetAvatarId = "avtr_a" };
+        settings.AvatarSwapProfiles.Add(profile);
+        var rule = new TriggerRule
+        {
+            TriggerType = TwitchTriggerType.ChannelPoints,
+            ActionType = OscActionType.AvatarChange,
+            ChannelPointRewardId = "reward_1",
+            AvatarChangeTargetId = "avtr_a"
+        };
+#pragma warning disable CS0618
+        var persistedProfile = new SettingsStore.PersistedAvatarSwapProfile
+        {
+            BitsSubsRules = [SettingsStore.ToPersistedRule(rule)]
+        };
+#pragma warning restore CS0618
+
+        AvatarSwapMigrationService.Migrate(settings, [persistedProfile]);
+
+        Assert.Empty(profile.AdvancedRules);
+        var migrated = Assert.Single(profile.ChannelPointRules);
+        Assert.Equal(rule.Id, migrated.Id);
+        Assert.Equal(TwitchTriggerType.ChannelPoints, migrated.TriggerType);
+        Assert.Equal("reward_1", migrated.ChannelPointRewardId);
+    }
+
+    [Fact]
+    public void MigrateV4_PreservesLegacyGiftSubscriptionInSubsRules()
+    {
+        var settings = new AppSettings
+        {
+            AvatarChangeToAvatarSwapMigrationVersion = 3
+        };
+        var profile = new AvatarSwapProfile { TargetAvatarId = "avtr_a" };
+        settings.AvatarSwapProfiles.Add(profile);
+        var rule = new TriggerRule
+        {
+            TriggerType = TwitchTriggerType.GiftSubscription,
+            ActionType = OscActionType.AvatarChange,
+            AvatarChangeTargetId = "avtr_a"
+        };
+#pragma warning disable CS0618
+        var persistedProfile = new SettingsStore.PersistedAvatarSwapProfile
+        {
+            BitsSubsRules = [SettingsStore.ToPersistedRule(rule)]
+        };
+#pragma warning restore CS0618
+
+        AvatarSwapMigrationService.Migrate(settings, [persistedProfile]);
+
+        Assert.Empty(profile.ChannelPointRules);
+        Assert.Empty(profile.AdvancedRules);
+        var migrated = Assert.Single(profile.SubsRules);
+        Assert.Equal(rule.Id, migrated.Id);
+        Assert.Equal(TwitchTriggerType.GiftSubscription, migrated.TriggerType);
+    }
+
+    [Fact]
+    public void MigrateV4_DoesNotDuplicateUnknownRuleAlreadyInAdvancedRules()
+    {
+        var settings = new AppSettings
+        {
+            AvatarChangeToAvatarSwapMigrationVersion = 3
+        };
+        var profile = new AvatarSwapProfile { TargetAvatarId = "avtr_a" };
+        var ruleId = Guid.NewGuid();
+        var existingRule = new TriggerRule
+        {
+            Id = ruleId,
+            TriggerType = TwitchTriggerType.ChatCommand,
+            Source = TriggerRuleSource.AvatarSet,
+            ActionType = OscActionType.AvatarChange,
+            AvatarChangeTargetId = "avtr_a"
+        };
+        profile.AdvancedRules.Add(existingRule);
+        settings.AvatarSwapProfiles.Add(profile);
+        var persistedRule = new TriggerRule
+        {
+            Id = ruleId,
+            TriggerType = TwitchTriggerType.ChatCommand,
+            ActionType = OscActionType.AvatarChange,
+            AvatarChangeTargetId = "avtr_a"
+        };
+#pragma warning disable CS0618
+        var persistedProfile = new SettingsStore.PersistedAvatarSwapProfile
+        {
+            BitsSubsRules = [SettingsStore.ToPersistedRule(persistedRule)]
+        };
+#pragma warning restore CS0618
+
+        AvatarSwapMigrationService.Migrate(settings, [persistedProfile]);
+
+        var migrated = Assert.Single(profile.AdvancedRules);
+        Assert.Same(existingRule, migrated);
+        Assert.Equal(TriggerRuleSource.AvatarSet, migrated.Source);
+    }
+
     [Fact(Skip = "SettingsStore has parameterless constructor only; v3 JSON round-trip requires AppData path override. Covered by manual smoke test.")]
     public void MigrateV4_ConvertsRouletteToAvatarRouletteProfile()
     {

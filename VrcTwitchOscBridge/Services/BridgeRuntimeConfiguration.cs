@@ -422,6 +422,7 @@ public sealed record AvatarSwapProfileSnapshot(
     bool SubsMaxSwapTimeEnabled,
     int MaxSwapTimeSeconds,
     IReadOnlyList<TriggerRuleSnapshot> ChannelPointRules,
+    IReadOnlyList<TriggerRuleSnapshot> AdvancedRules,
     IReadOnlyList<TriggerRuleSnapshot> BitsRules,
     IReadOnlyList<TriggerRuleSnapshot> SubsRules,
     IReadOnlyList<TriggerRuleSnapshot> PaymentRules,
@@ -609,6 +610,16 @@ public sealed record BridgeRuntimeConfiguration(
                 }
             }
 
+            var advancedSnapshots = new List<TriggerRuleSnapshot>();
+            foreach (var rule in swapProfile.AdvancedRules)
+            {
+                if (TryToSnapshot(rule, isGlobalOverride: false, swapMasterProxy, linkedRewardCooldownSecondsById, out var snapshot))
+                {
+                    advancedSnapshots.Add(snapshot);
+                    rules.Add(snapshot);
+                }
+            }
+
             var bitsSnapshots = new List<TriggerRuleSnapshot>();
             foreach (var rule in swapProfile.BitsRules)
             {
@@ -666,6 +677,7 @@ public sealed record BridgeRuntimeConfiguration(
                 swapProfile.SubsMaxSwapTimeEnabled,
                 swapProfile.MaxSwapTimeSeconds,
                 channelPointSnapshots.ToArray(),
+                advancedSnapshots.ToArray(),
                 bitsSnapshots.ToArray(),
                 subsSnapshots.ToArray(),
                 paymentSnapshots.ToArray(),
@@ -786,6 +798,8 @@ public sealed record BridgeRuntimeConfiguration(
             if (profile.PaymentRules.Any(r => ReferenceEquals(r.Rule, rule)))
                 return profile;
             if (profile.PowerUpRules.Any(r => ReferenceEquals(r.Rule, rule)))
+                return profile;
+            if (profile.AdvancedRules.Any(r => ReferenceEquals(r.Rule, rule)))
                 return profile;
         }
         return null;
@@ -1083,7 +1097,7 @@ public sealed record BridgeRuntimeConfiguration(
         }
 
         var avatarScopedSupporterRule = isGlobalOverride
-            && rule.TriggerType is TwitchTriggerType.Bits or TwitchTriggerType.Subscriptions
+            && rule.TriggerType is TwitchTriggerType.Bits or TwitchTriggerType.Subscriptions or TwitchTriggerType.GiftSubscription
             && rule.ActionType is not (OscActionType.AvatarChange or OscActionType.AvatarRoulet);
         var requiredAvatarId = avatarScopedSupporterRule
             ? supporterAvatarId
@@ -1590,7 +1604,7 @@ public sealed record BridgeRuntimeConfiguration(
         }
 
         if (isGlobalOverride
-            && rule.TriggerType is TwitchTriggerType.Bits or TwitchTriggerType.Subscriptions
+            && rule.TriggerType is TwitchTriggerType.Bits or TwitchTriggerType.Subscriptions or TwitchTriggerType.GiftSubscription
             && rule.ActionType is not (OscActionType.AvatarChange or OscActionType.AvatarRoulet)
             && !isForceMovementSupporterRule
             && string.IsNullOrWhiteSpace(rule.SupporterAvatarId)

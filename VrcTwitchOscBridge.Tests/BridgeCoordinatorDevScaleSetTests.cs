@@ -24,7 +24,7 @@ public sealed class BridgeCoordinatorDevScaleSetTests
     {
         var source = File.ReadAllText(FindSourceFile("VrcTwitchOscBridge", "Services", "BridgeCoordinator.cs"));
         var resumeBody = GetMethodBody(source, "private async Task ResumeActivityAsync(");
-        var stopBody = GetMethodBody(source, "public async Task StopAsync()");
+        var stopBody = GetMethodBody(source, "private async Task StopCoreAsync()");
 
         Assert.Contains("EnterActivityResumeGateUser()", resumeBody, StringComparison.Ordinal);
         Assert.Contains("await activityResumeGate.WaitAsync", resumeBody, StringComparison.Ordinal);
@@ -510,7 +510,7 @@ public sealed class BridgeCoordinatorDevScaleSetTests
             resumeBody,
             StringComparison.Ordinal);
         Assert.Contains(
-            "await ResumeActivityAsync(\n                    activity,\n                    avatarScaleRuntimeGeneration,\n                    expectedSessionGeneration);",
+            "await ResumeActivityAsync(\n                    activity,\n                    avatarScaleRuntimeGeneration,\n                    expectedSessionGeneration,\n                    currentAvatarId);",
             resumeBody,
             StringComparison.Ordinal);
         Assert.Contains("expectedRuntimeGeneration", activityBody, StringComparison.Ordinal);
@@ -919,9 +919,9 @@ public sealed class BridgeCoordinatorDevScaleSetTests
         Assert.Contains("WaitForAvatarScaleWriteUsersAsync", disposeBody, StringComparison.Ordinal);
         Assert.True(
             disposeBody.IndexOf("MarkAvatarScaleWriteGateDisposalStarted", StringComparison.Ordinal)
-                < disposeBody.IndexOf("await StopAsync()", StringComparison.Ordinal));
+                < disposeBody.IndexOf("await StopCoreAsync()", StringComparison.Ordinal));
         Assert.True(
-            disposeBody.IndexOf("await StopAsync()", StringComparison.Ordinal)
+            disposeBody.IndexOf("await StopCoreAsync()", StringComparison.Ordinal)
                 < disposeBody.IndexOf("WaitForAvatarScaleWriteUsersAsync", StringComparison.Ordinal));
 
         InvokePrivate(coordinator, "EnterAvatarScaleWriteGateUser");

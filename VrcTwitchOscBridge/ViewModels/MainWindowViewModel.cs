@@ -5319,9 +5319,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
                 Coordinator?.ClearAllPermanentChangeCompleted();
                 QueueSave(0);
                 QueueBridgeRefresh();
-                QueueManagedRewardSync(0, ManagedRewardSyncReason.SettingsEdit);
             },
-            onChannelPointRulesRemoved: rules => RetireManagedRewards(rules));
+            onChannelPointRulesRemoved: rules => RetireManagedRewards(rules),
+            onManagedRewardSyncRequested: () => QueueManagedRewardSync(0, ManagedRewardSyncReason.SettingsEdit));
         _ = RefreshTwitchRewardsAsync();
         _avatarSwapManagerWindow = new AvatarSwapManagerWindow(managerVm)
         {
@@ -12191,7 +12191,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
         foreach (var swapProfile in Settings.AvatarSwapProfiles)
         {
-            foreach (var rule in swapProfile.ChannelPointRules)
+            foreach (var rule in swapProfile.ChannelPointRules.Where(IsAvatarSwapChannelPointRule))
             {
                 yield return new ManagedRewardOwnershipEntry(
                     rule.Id,
@@ -12371,7 +12371,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             && string.Equals(normalizedAvatarChangeTargetId, normalizedCurrentAvatarId, StringComparison.Ordinal);
         var anyCooldownOnlyAvatarChangeOnCooldown = isCooldownOnlyDirectAvatarChange
             && swapProfile.ChannelPointRules.Any(candidate =>
-                candidate.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet
+                IsAvatarSwapChannelPointRule(candidate)
+                && candidate.ActionType is OscActionType.AvatarChange or OscActionType.AvatarRoulet
                 && cooldownRuleIds.Contains(candidate.Id));
         var cooldownOnlyAvatarChangeVisible = isCooldownOnlyDirectAvatarChange
             && !string.IsNullOrWhiteSpace(normalizedCurrentAvatarId)
@@ -13604,7 +13605,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             var avatarSwapTargets = new List<ManagedRewardSyncTarget>();
             foreach (var swapProfile in Settings.AvatarSwapProfiles)
             {
-                foreach (var rule in swapProfile.ChannelPointRules)
+                foreach (var rule in swapProfile.ChannelPointRules.Where(IsAvatarSwapChannelPointRule))
                 {
                     avatarSwapTargets.Add(CreateManagedRewardTargetForAvatarSwapRule(
                         swapProfile,
@@ -14674,6 +14675,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     private static bool IsManagedAvatarScaleChannelPointRule(AvatarScaleRule rule) =>
         rule.TriggerType == AvatarScaleTriggerType.ChannelPointReward;
+
+    private static bool IsAvatarSwapChannelPointRule(TriggerRule rule) =>
+        rule.TriggerType == TwitchTriggerType.ChannelPoints;
 
     private static bool IsManagedAvatarScaleMasterReward(AvatarScaleMasterRewardSettings masterReward) =>
         masterReward.IsEnabled || !string.IsNullOrWhiteSpace(masterReward.RewardId);
@@ -18982,6 +18986,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
     {
         return Settings.AvatarProfiles.SelectMany(profile => profile.ChannelPointRules)
             .Concat(Settings.AvatarSwapProfiles.SelectMany(p => p.ChannelPointRules))
+            .Concat(Settings.AvatarSwapProfiles.SelectMany(p => p.AdvancedRules))
             .Concat(Settings.AvatarSwapProfiles.SelectMany(p => p.BitsRules))
             .Concat(Settings.AvatarSwapProfiles.SelectMany(p => p.SubsRules))
             .Concat(Settings.AvatarSwapProfiles.SelectMany(p => p.PowerUpRules))
@@ -20306,6 +20311,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
 
     private void HandleVrChatAvatarChangedByBridge(string avatarId, bool queueManagedRewardSync = true)
     {
+        if (isShuttingDown)
+        {
+            return;
+        }
+
         var normalizedAvatarId = avatarId?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(normalizedAvatarId))
         {
@@ -20480,7 +20490,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
                      .Concat(Settings.Rules)
                      .Concat(Settings.GlobalOverrideRules)
                      .Concat(Settings.GlobalMovementRules)
-                     .Concat(Settings.AvatarSwapProfiles.SelectMany(profile => profile.ChannelPointRules))
+                     .Concat(Settings.AvatarSwapProfiles.SelectMany(profile =>
+                         profile.ChannelPointRules.Where(IsAvatarSwapChannelPointRule)))
                      .Concat(Settings.AvatarRouletteProfiles.SelectMany(profile => profile.Triggers)))
         {
             if (rule.Id == ruleId)
@@ -20632,7 +20643,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         }
         foreach (var swapProfile in Settings.AvatarSwapProfiles)
         {
-            foreach (var rule in swapProfile.ChannelPointRules)
+            foreach (var rule in swapProfile.ChannelPointRules.Where(IsAvatarSwapChannelPointRule))
             {
                 if (rule.Id == ruleId && !string.IsNullOrWhiteSpace(rule.ChannelPointRewardId))
                 {
@@ -20720,7 +20731,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         }
         foreach (var swapProfile in Settings.AvatarSwapProfiles)
         {
-            foreach (var rule in swapProfile.ChannelPointRules)
+            foreach (var rule in swapProfile.ChannelPointRules.Where(IsAvatarSwapChannelPointRule))
             {
                 if (rule.Id == ruleId)
                 {

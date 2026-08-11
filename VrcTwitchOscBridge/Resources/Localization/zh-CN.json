@@ -2122,5 +2122,6 @@
   "{0}: {1}": "{0}：{1}",
   "{0}s cooldown": "{0}s冷却",
   "— No group —": "— 无团体 —",
-  "✨ Universal Triggers": "✨ Universal Triggers"
+  "✨ Universal Triggers": "✨ Universal Triggers",
+  "Advanced triggers (open full editor)": "高级触发器（打开完整编辑器）"
 }

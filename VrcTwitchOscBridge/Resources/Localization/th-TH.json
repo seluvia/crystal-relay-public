@@ -2122,5 +2122,6 @@
   "{0}: {1}": "{0}: {1}",
   "{0}s cooldown": "{0}s cooldown",
   "— No group —": "— No group —",
-  "✨ Universal Triggers": "✨ Universal Triggers"
+  "✨ Universal Triggers": "✨ Universal Triggers",
+  "Advanced triggers (open full editor)": "ทริกเกอร์ขั้นสูง (เปิดตัวแก้ไขแบบเต็ม)"
 }

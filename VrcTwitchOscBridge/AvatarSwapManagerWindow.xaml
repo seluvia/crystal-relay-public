@@ -540,7 +540,14 @@
                                                 </ItemsControl>
                                                 <Button Content="+ Add Payment Trigger" Command="{Binding DataContext.AddPaymentRuleCommand, RelativeSource={RelativeSource AncestorType=Window}}" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Left" Margin="0,4,0,8" />
 
-                                                <TextBlock Text="Advanced triggers (open full editor)" Foreground="{DynamicResource MutedBrush}" FontSize="10" Margin="0,8,0,4" />
+                                                <TextBlock Text="{loc:Translate 'Advanced triggers (open full editor)'}" Foreground="{DynamicResource MutedBrush}" FontSize="10" Margin="0,8,0,4" />
+                                                <ItemsControl ItemsSource="{Binding DataContext.AdvancedRows, RelativeSource={RelativeSource AncestorType=Window}}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <uc:InlineRouletteRuleRowControl />
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
                                                 <WrapPanel Orientation="Horizontal">
                                                     <Button Content="💬 Chat Command" Command="{Binding DataContext.AddAdvancedTriggerCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="ChatCommand" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,4,4" />
                                                     <Button Content="👥 Follow" Command="{Binding DataContext.AddAdvancedTriggerCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="Follow" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,4,4" />
@@ -637,7 +644,7 @@
                                                 </ItemsControl>
                                                 <Button Content="+ Add Sub Trigger" Command="{Binding DataContext.AddAdvancedTriggerCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="Subscriptions" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Left" Margin="0,4,0,8" />
 
-                                                <TextBlock Text="Advanced triggers (open full editor)" Foreground="{DynamicResource MutedBrush}" FontSize="10" Margin="0,4,0,4" />
+                                                <TextBlock Text="{loc:Translate 'Advanced triggers (open full editor)'}" Foreground="{DynamicResource MutedBrush}" FontSize="10" Margin="0,4,0,4" />
                                                 <ItemsControl ItemsSource="{Binding DataContext.RouletteAdvancedRows, RelativeSource={RelativeSource AncestorType=Window}}">
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>

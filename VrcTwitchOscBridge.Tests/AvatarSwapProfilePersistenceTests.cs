@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Text.Json;
 using VrcTwitchOscBridge.Models;
 using VrcTwitchOscBridge.Services;
 using Xunit;
@@ -114,5 +115,123 @@ public sealed class AvatarSwapProfilePersistenceTests
         Assert.Equal(paymentRule.Id, loaded.PaymentRules[0].Id);
         Assert.Equal(paymentRule.Name, loaded.PaymentRules[0].Name);
         Assert.Equal(paymentRule.TriggerAction.Id, loaded.PaymentRules[0].TriggerAction.Id);
+    }
+
+    [Fact]
+    public void PersistedAvatarSwapProfile_RoundTripsAdvancedChatCommandRule()
+    {
+        var profile = new AvatarSwapProfile { TargetAvatarId = "avtr_target" };
+        var rule = new TriggerRule
+        {
+            Name = "Chat swap",
+            TriggerType = TwitchTriggerType.ChatCommand,
+            ActionType = OscActionType.AvatarChange,
+            AvatarChangeTargetId = "avtr_target",
+            ChatCommandEnabled = true,
+            ChatCommandText = "swap",
+            ChatCommandPermission = ChatCommandPermission.Broadcaster
+        };
+        profile.AdvancedRules.Add(rule);
+
+        var persisted = SettingsStore.ToPersistedAvatarSwapProfile(profile);
+        var loaded = SettingsStore.ToAvatarSwapProfile(persisted);
+
+        var loadedRule = Assert.Single(loaded.AdvancedRules);
+        Assert.Equal(rule.Id, loadedRule.Id);
+        Assert.Equal(TwitchTriggerType.ChatCommand, loadedRule.TriggerType);
+        Assert.Equal("!swap", loadedRule.ChatCommandText);
+        Assert.True(loadedRule.ChatCommandEnabled);
+        Assert.Equal(ChatCommandPermission.Broadcaster, loadedRule.ChatCommandPermission);
+        Assert.Empty(loaded.ChannelPointRules);
+    }
+
+    [Fact]
+    public void ToAvatarSwapProfile_MovesLegacyNonChannelPointRulesOutOfChannelPointRules()
+    {
+        var legacyCommand = new TriggerRule
+        {
+            TriggerType = TwitchTriggerType.ChatCommand,
+            ActionType = OscActionType.AvatarChange,
+            AvatarChangeTargetId = "avtr_target",
+            ChatCommandEnabled = true,
+            ChatCommandText = "!legacy-swap"
+        };
+        var legacyReward = new TriggerRule
+        {
+            TriggerType = TwitchTriggerType.ChannelPoints,
+            ActionType = OscActionType.AvatarChange,
+            AvatarChangeTargetId = "avtr_target",
+            ChannelPointRewardTitle = "Swap Reward"
+        };
+        var persisted = new SettingsStore.PersistedAvatarSwapProfile
+        {
+            TargetAvatarId = "avtr_target",
+            ChannelPointRules = [
+                SettingsStore.ToPersistedRule(legacyCommand),
+                SettingsStore.ToPersistedRule(legacyReward)
+            ]
+        };
+
+        var loaded = SettingsStore.ToAvatarSwapProfile(persisted);
+
+        Assert.Single(loaded.ChannelPointRules);
+        Assert.Equal(TwitchTriggerType.ChannelPoints, loaded.ChannelPointRules[0].TriggerType);
+        var migrated = Assert.Single(loaded.AdvancedRules);
+        Assert.Equal(legacyCommand.Id, migrated.Id);
+        Assert.Equal(TwitchTriggerType.ChatCommand, migrated.TriggerType);
+    }
+
+    [Theory]
+    [InlineData(TwitchTriggerType.Subscriptions)]
+    [InlineData(TwitchTriggerType.GiftSubscription)]
+    public void PersistedAvatarSwapProfile_RoundTripsSubscriptionTriggerSettings(TwitchTriggerType triggerType)
+    {
+        var profile = new AvatarSwapProfile();
+        profile.SubsRules.Add(new TriggerRule
+        {
+            TriggerType = triggerType,
+            ActionType = OscActionType.AvatarChange,
+            SubsTriggerCount = 7,
+            SubsAccumulationEnabled = true,
+            SubsCarryOverEnabled = true
+        });
+
+        var persisted = SettingsStore.ToPersistedAvatarSwapProfile(profile);
+        var loaded = SettingsStore.ToAvatarSwapProfile(persisted);
+        var loadedRule = Assert.Single(loaded.SubsRules);
+
+        Assert.Equal(7, loadedRule.SubsTriggerCount);
+        Assert.True(loadedRule.SubsAccumulationEnabled);
+        Assert.True(loadedRule.SubsCarryOverEnabled);
+    }
+
+    [Theory]
+    [InlineData(TwitchTriggerType.Subscriptions)]
+    [InlineData(TwitchTriggerType.GiftSubscription)]
+    public void PersistedSubscriptionRule_AbsentTriggerCountMigratesLegacyMinimumAmount(
+        TwitchTriggerType triggerType)
+    {
+        var persisted = JsonSerializer.Deserialize<SettingsStore.PersistedTriggerRule>(
+            $"{{\"TriggerType\":{(int)triggerType},\"MinimumAmount\":7}}");
+        Assert.NotNull(persisted);
+
+        var loaded = SettingsStore.ToRule(persisted!);
+
+        Assert.Equal(7, loaded.SubsTriggerCount);
+    }
+
+    [Theory]
+    [InlineData(TwitchTriggerType.Subscriptions)]
+    [InlineData(TwitchTriggerType.GiftSubscription)]
+    public void PersistedSubscriptionRule_ExplicitTriggerCountOneWinsOverStaleMinimumAmount(
+        TwitchTriggerType triggerType)
+    {
+        var persisted = JsonSerializer.Deserialize<SettingsStore.PersistedTriggerRule>(
+            $"{{\"TriggerType\":{(int)triggerType},\"MinimumAmount\":7,\"SubsTriggerCount\":1}}");
+        Assert.NotNull(persisted);
+
+        var loaded = SettingsStore.ToRule(persisted!);
+
+        Assert.Equal(1, loaded.SubsTriggerCount);
     }
 }

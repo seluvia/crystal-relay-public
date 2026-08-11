@@ -68,7 +68,8 @@ public sealed class OscRouterTrustBoundaryTests
                 "VRChat",
                 IPAddress.Parse("192.168.1.20"),
                 -1,
-                OSCQueryServiceProfile.ServiceType.OSCQuery));
+                OSCQueryServiceProfile.ServiceType.OSCQuery),
+            logs);
 
         Assert.False(router.HasDiscoveredVrChat);
         Assert.Empty(logs);
@@ -147,11 +148,17 @@ public sealed class OscRouterTrustBoundaryTests
 
     private static async Task TryRegisterAsync(
         OscRouterService router,
-        OSCQueryServiceProfile profile)
+        OSCQueryServiceProfile profile,
+        List<string>? logs = null)
     {
+        await router.StartAsync([]);
+        logs?.Clear();
+
         var method = GetInstanceMethod("TryRegisterVrChatTargetAsync");
+        var service = Assert.IsType<OSCQueryService>(GetField(router, "oscQueryService"));
+        var sessionCancellation = Assert.IsType<CancellationTokenSource>(GetField(router, "runtimeCancellation"));
         var task = Assert.IsAssignableFrom<Task>(
-            method.Invoke(router, new object?[] { profile, CancellationToken.None }));
+            method.Invoke(router, new object?[] { service, profile, sessionCancellation, sessionCancellation.Token }));
         await task;
     }
 
@@ -187,6 +194,13 @@ public sealed class OscRouterTrustBoundaryTests
             name,
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
             ?? throw new Xunit.Sdk.XunitException($"Expected {name} to exist on {nameof(OscRouterService)}.");
+    }
+
+    private static object? GetField(OscRouterService router, string name)
+    {
+        return typeof(OscRouterService)
+            .GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)
+            ?.GetValue(router);
     }
 
     private sealed class LoopbackOscQueryHost : IDisposable

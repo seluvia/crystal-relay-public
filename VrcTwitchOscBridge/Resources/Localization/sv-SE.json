@@ -2122,5 +2122,6 @@
   "{0}: {1}": "{0}: {1}",
   "{0}s cooldown": "{0}s nedkylning",
   "— No group —": "— Ingen grupp —",
-  "✨ Universal Triggers": "✨ Universal Triggers"
+  "✨ Universal Triggers": "✨ Universal Triggers",
+  "Advanced triggers (open full editor)": "Avancerade triggers (öppna hela redigeraren)"
 }

@@ -28,7 +28,7 @@ public static class SupportOverrideDurationMath
         string subscriptionTier)
     {
         var safeAmount = Math.Max(1, amount);
-        if (rule.TriggerType == TwitchTriggerType.Subscriptions)
+        if (rule.TriggerType is TwitchTriggerType.Subscriptions or TwitchTriggerType.GiftSubscription)
         {
             var secondsPerSub = ResolveSubscriptionSecondsPerSub(rule, subscriptionTier);
             return safeAmount * secondsPerSub;

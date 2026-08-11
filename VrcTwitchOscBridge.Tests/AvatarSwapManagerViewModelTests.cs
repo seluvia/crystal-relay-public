@@ -237,15 +237,134 @@ public sealed class AvatarSwapManagerViewModelTests
         profile.ChannelPointRules.Add(rule);
         settings.AvatarSwapProfiles.Add(profile);
         var settingsChangedCount = 0;
+        var managedRewardSyncCount = 0;
 
         _ = new AvatarSwapManagerViewModel(
             settings,
             new StubTwitchRewardSource(),
-            onSettingsChanged: () => settingsChangedCount++);
+            onSettingsChanged: () => settingsChangedCount++,
+            onManagedRewardSyncRequested: () => managedRewardSyncCount++);
 
         rule.ChannelPointRewardCost = 250;
 
         Assert.Equal(1, settingsChangedCount);
+        Assert.Equal(1, managedRewardSyncCount);
+    }
+
+    [Fact]
+    public void StandaloneAdvancedCommandEdit_RefreshesSettingsWithoutManagedRewardSync()
+    {
+        var settings = new AppSettings();
+        var profile = new AvatarSwapProfile { TargetAvatarId = "avtr_target" };
+        var rule = new TriggerRule
+        {
+            TriggerType = TwitchTriggerType.ChatCommand,
+            ActionType = OscActionType.AvatarChange,
+            AvatarChangeTargetId = "avtr_target",
+            ChatCommandEnabled = true,
+            ChatCommandText = "!swap"
+        };
+        profile.AdvancedRules.Add(rule);
+        settings.AvatarSwapProfiles.Add(profile);
+        var settingsChangedCount = 0;
+        var managedRewardSyncCount = 0;
+        var vm = new AvatarSwapManagerViewModel(
+            settings,
+            new StubTwitchRewardSource(),
+            onSettingsChanged: () => settingsChangedCount++,
+            onManagedRewardSyncRequested: () => managedRewardSyncCount++);
+
+        vm.OpenSwapEditorCommand.Execute(vm.SwapCards.Single());
+        rule.ChatCommandText = "!new-swap";
+        vm.SaveSwapEditorCommand.Execute(null);
+
+        Assert.True(settingsChangedCount > 0);
+        Assert.Equal(0, managedRewardSyncCount);
+    }
+
+    [Fact]
+    public void SaveSwapEditor_ChannelPointProfileChangeRequestsManagedRewardSync()
+    {
+        var settings = new AppSettings();
+        var profile = new AvatarSwapProfile { TargetAvatarId = "avtr_target" };
+        profile.ChannelPointRules.Add(new TriggerRule
+        {
+            TriggerType = TwitchTriggerType.ChannelPoints,
+            ActionType = OscActionType.AvatarChange,
+            AvatarChangeTargetId = "avtr_target",
+            ChannelPointRewardTitle = "Swap"
+        });
+        settings.AvatarSwapProfiles.Add(profile);
+        var managedRewardSyncCount = 0;
+        var vm = new AvatarSwapManagerViewModel(
+            settings,
+            new StubTwitchRewardSource(),
+            onManagedRewardSyncRequested: () => managedRewardSyncCount++);
+
+        vm.OpenSwapEditorCommand.Execute(vm.SwapCards.Single());
+        profile.IsEnabled = false;
+        vm.SaveSwapEditorCommand.Execute(null);
+
+        Assert.Equal(1, managedRewardSyncCount);
+    }
+
+    [Fact]
+    public void SaveRouletteEditor_ChannelPointProfileChangeRequestsManagedRewardSync()
+    {
+        var settings = new AppSettings();
+        var roulette = new AvatarRouletteProfile { Name = "Roulette" };
+        roulette.Triggers.Add(new TriggerRule
+        {
+            TriggerType = TwitchTriggerType.ChannelPoints,
+            ActionType = OscActionType.AvatarRoulet,
+            AvatarRouletAvatarIds = { "avtr_target" },
+            ChannelPointRewardTitle = "Roulette"
+        });
+        settings.AvatarRouletteProfiles.Add(roulette);
+        var managedRewardSyncCount = 0;
+        var vm = new AvatarSwapManagerViewModel(
+            settings,
+            new StubTwitchRewardSource(),
+            onManagedRewardSyncRequested: () => managedRewardSyncCount++);
+
+        vm.OpenRouletteEditorCommand.Execute(vm.RouletteCards.Single());
+        roulette.IsEnabled = false;
+        vm.SaveRouletteEditorCommand.Execute(null);
+
+        Assert.Equal(1, managedRewardSyncCount);
+    }
+
+    [Fact]
+    public async Task NormalizeChatCommandFallbackRules_DisablesDuplicateAdvancedAvatarSwapCommand()
+    {
+        await using var vm = new MainWindowViewModel();
+        var profile = new AvatarSwapProfile { TargetAvatarId = "avtr_target" };
+        var channelPointRule = new TriggerRule
+        {
+            TriggerType = TwitchTriggerType.ChannelPoints,
+            ChatCommandEnabled = true,
+            ChatCommandText = "!swap"
+        };
+        var advancedRule = new TriggerRule
+        {
+            TriggerType = TwitchTriggerType.ChatCommand,
+            ActionType = OscActionType.AvatarChange,
+            AvatarChangeTargetId = "avtr_target",
+            ChatCommandEnabled = true,
+            ChatCommandText = "swap"
+        };
+        profile.ChannelPointRules.Add(channelPointRule);
+        profile.AdvancedRules.Add(advancedRule);
+        vm.Settings.AvatarSwapProfiles.Add(profile);
+
+        var normalizeMethod = typeof(MainWindowViewModel).GetMethod(
+            "NormalizeChatCommandFallbackRules",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        Assert.NotNull(normalizeMethod);
+
+        Assert.True(Assert.IsType<bool>(normalizeMethod!.Invoke(vm, null)));
+        Assert.False(advancedRule.ChatCommandEnabled);
+        Assert.Equal(string.Empty, advancedRule.ChatCommandText);
     }
 
     [Fact]
@@ -608,6 +727,227 @@ public sealed class AvatarSwapManagerViewModelTests
         Assert.Same(rule, row.Rule);
         Assert.Same(row, vm.SelectedRule);
         Assert.Same(row, vm.RightPaneContent);
+    }
+
+    [Fact]
+    public void AddAdvancedTriggerCommand_ForSwapCreatesStandaloneChatCommand()
+    {
+        var settings = new AppSettings();
+        var profile = new AvatarSwapProfile
+        {
+            TargetAvatarId = "avtr_target",
+            TargetAvatarName = "Target"
+        };
+        settings.AvatarSwapProfiles.Add(profile);
+        var vm = new AvatarSwapManagerViewModel(settings, new StubTwitchRewardSource());
+        vm.OpenSwapEditorCommand.Execute(vm.SwapCards.Single());
+
+        vm.AddAdvancedTriggerCommand.Execute("ChatCommand");
+
+        var rule = Assert.Single(profile.AdvancedRules);
+        Assert.Empty(profile.ChannelPointRules);
+        Assert.Equal(TwitchTriggerType.ChatCommand, rule.TriggerType);
+        Assert.Equal(OscActionType.AvatarChange, rule.ActionType);
+        Assert.Equal("!swap", rule.ChatCommandText);
+        Assert.True(rule.ChatCommandEnabled);
+        var row = Assert.IsType<InlineRouletteRuleRowViewModel>(Assert.Single(vm.AdvancedRows));
+        Assert.Same(rule, row.Rule);
+        Assert.Same(row, vm.SelectedRule);
+    }
+
+    [Fact]
+    public void DeleteRule_RemovesStandaloneAdvancedTriggerWithoutRewardRetirement()
+    {
+        var settings = new AppSettings();
+        var profile = new AvatarSwapProfile { TargetAvatarId = "avtr_target" };
+        var rule = new TriggerRule
+        {
+            TriggerType = TwitchTriggerType.ChatCommand,
+            ActionType = OscActionType.AvatarChange,
+            AvatarChangeTargetId = "avtr_target",
+            ChatCommandEnabled = true,
+            ChatCommandText = "!swap"
+        };
+        profile.AdvancedRules.Add(rule);
+        settings.AvatarSwapProfiles.Add(profile);
+        var retired = new List<TriggerRule>();
+        var vm = new AvatarSwapManagerViewModel(
+            settings,
+            new StubTwitchRewardSource(),
+            onChannelPointRulesRemoved: rules => retired.AddRange(rules));
+        vm.OpenSwapEditorCommand.Execute(vm.SwapCards.Single());
+
+        var row = Assert.Single(vm.AdvancedRows);
+        vm.DeleteRuleCommand.Execute(row);
+
+        Assert.Empty(profile.AdvancedRules);
+        Assert.Empty(retired);
+    }
+
+    [Fact]
+    public void ExternalAdvancedRuleChanges_RefreshSelectedRowsWithoutDuplicates()
+    {
+        var settings = new AppSettings();
+        var profile = new AvatarSwapProfile { TargetAvatarId = "avtr_target" };
+        settings.AvatarSwapProfiles.Add(profile);
+        var vm = new AvatarSwapManagerViewModel(settings, new StubTwitchRewardSource());
+        vm.OpenSwapEditorCommand.Execute(vm.SwapCards.Single());
+
+        var firstRule = new TriggerRule
+        {
+            TriggerType = TwitchTriggerType.ChatCommand,
+            ActionType = OscActionType.AvatarChange,
+            ChatCommandEnabled = true,
+            ChatCommandText = "!first"
+        };
+        var secondRule = new TriggerRule
+        {
+            TriggerType = TwitchTriggerType.Follow,
+            ActionType = OscActionType.AvatarChange
+        };
+
+        profile.AdvancedRules.Add(firstRule);
+        var selectedRowBeforeRefresh = Assert.Single(vm.AdvancedRows, row => ReferenceEquals(row.Rule, firstRule));
+        selectedRowBeforeRefresh.EditCommand.Execute(null);
+
+        profile.AdvancedRules.Add(secondRule);
+
+        Assert.Equal(2, vm.AdvancedRows.Count);
+        Assert.Same(firstRule, vm.AdvancedRows[0].Rule);
+        Assert.Same(secondRule, vm.AdvancedRows[1].Rule);
+
+        var selectedReplacement = Assert.IsType<InlineRouletteRuleRowViewModel>(vm.SelectedRule);
+        Assert.Same(firstRule, selectedReplacement.Rule);
+        Assert.Same(selectedReplacement, vm.RightPaneContent);
+
+        profile.AdvancedRules.Remove(firstRule);
+
+        var row = Assert.Single(vm.AdvancedRows);
+        Assert.Same(secondRule, row.Rule);
+
+        profile.AdvancedRules.Clear();
+
+        Assert.Empty(vm.AdvancedRows);
+    }
+
+    [Fact]
+    public void ClearingUnselectedAdvancedRules_UnsubscribesRemovedRules()
+    {
+        var settings = new AppSettings();
+        var selectedProfile = new AvatarSwapProfile { TargetAvatarId = "avtr_selected" };
+        var unselectedProfile = new AvatarSwapProfile { TargetAvatarId = "avtr_unselected" };
+        settings.AvatarSwapProfiles.Add(selectedProfile);
+        settings.AvatarSwapProfiles.Add(unselectedProfile);
+        var settingsChangedCount = 0;
+        var vm = new AvatarSwapManagerViewModel(
+            settings,
+            new StubTwitchRewardSource(),
+            onSettingsChanged: () => settingsChangedCount++);
+        vm.OpenSwapEditorCommand.Execute(vm.SwapCards.Single(card => card.Profile == selectedProfile));
+
+        var removedRule = new TriggerRule
+        {
+            TriggerType = TwitchTriggerType.ChatCommand,
+            ActionType = OscActionType.AvatarChange,
+            ChatCommandEnabled = true,
+            ChatCommandText = "!removed"
+        };
+        unselectedProfile.AdvancedRules.Add(removedRule);
+        unselectedProfile.AdvancedRules.Clear();
+
+        settingsChangedCount = 0;
+        removedRule.ChatCommandText = "!stale";
+
+        Assert.Equal(0, settingsChangedCount);
+    }
+
+    [Fact]
+    public void RemovingSelectedAdvancedRule_ClearsEditorAndRestoresSwapRuleList()
+    {
+        var settings = new AppSettings();
+        var profile = new AvatarSwapProfile { TargetAvatarId = "avtr_target", TargetAvatarName = "Target" };
+        var rule = new TriggerRule
+        {
+            Name = "Selected Advanced Rule",
+            TriggerType = TwitchTriggerType.ChatCommand,
+            ActionType = OscActionType.AvatarChange,
+            ChatCommandEnabled = true,
+            ChatCommandText = "!swap"
+        };
+        profile.AdvancedRules.Add(rule);
+        settings.AvatarSwapProfiles.Add(profile);
+
+        var vm = new AvatarSwapManagerViewModel(settings, new StubTwitchRewardSource());
+        vm.OpenSwapEditorCommand.Execute(vm.SwapCards.Single());
+        var selectedRow = Assert.Single(vm.AdvancedRows);
+        selectedRow.EditCommand.Execute(null);
+
+        profile.AdvancedRules.Remove(rule);
+
+        Assert.Null(vm.SelectedRule);
+        var pane = Assert.IsType<RuleListPaneViewModel>(vm.RightPaneContent);
+        Assert.Equal(RuleListPaneKind.Swap, pane.Kind);
+    }
+
+    [Fact]
+    public void ClearingSelectedAdvancedRules_ClearsEditorAndRestoresSwapRuleList()
+    {
+        var settings = new AppSettings();
+        var profile = new AvatarSwapProfile { TargetAvatarId = "avtr_target", TargetAvatarName = "Target" };
+        var rule = new TriggerRule
+        {
+            Name = "Selected Advanced Rule",
+            TriggerType = TwitchTriggerType.ChatCommand,
+            ActionType = OscActionType.AvatarChange,
+            ChatCommandEnabled = true,
+            ChatCommandText = "!swap"
+        };
+        profile.AdvancedRules.Add(rule);
+        settings.AvatarSwapProfiles.Add(profile);
+
+        var vm = new AvatarSwapManagerViewModel(settings, new StubTwitchRewardSource());
+        vm.OpenSwapEditorCommand.Execute(vm.SwapCards.Single());
+        var selectedRow = Assert.Single(vm.AdvancedRows);
+        selectedRow.EditCommand.Execute(null);
+
+        profile.AdvancedRules.Clear();
+
+        Assert.Null(vm.SelectedRule);
+        var pane = Assert.IsType<RuleListPaneViewModel>(vm.RightPaneContent);
+        Assert.Equal(RuleListPaneKind.Swap, pane.Kind);
+    }
+
+    [Fact]
+    public void RebuildingAdvancedRows_DetachesStaleRowsAndKeepsCurrentRowsSynchronized()
+    {
+        var settings = new AppSettings();
+        var profile = new AvatarSwapProfile { TargetAvatarId = "avtr_target" };
+        var firstRule = new TriggerRule
+        {
+            Name = "First Rule",
+            TriggerType = TwitchTriggerType.ChatCommand,
+            ActionType = OscActionType.AvatarChange
+        };
+        profile.AdvancedRules.Add(firstRule);
+        settings.AvatarSwapProfiles.Add(profile);
+
+        var vm = new AvatarSwapManagerViewModel(settings, new StubTwitchRewardSource());
+        vm.OpenSwapEditorCommand.Execute(vm.SwapCards.Single());
+        var staleRow = Assert.Single(vm.AdvancedRows);
+        var initialSummary = staleRow.Summary;
+
+        profile.AdvancedRules.Add(new TriggerRule
+        {
+            Name = "Second Rule",
+            TriggerType = TwitchTriggerType.Follow,
+            ActionType = OscActionType.AvatarChange
+        });
+
+        var currentRow = Assert.Single(vm.AdvancedRows, row => ReferenceEquals(row.Rule, firstRule));
+        firstRule.Name = "Updated First Rule";
+
+        Assert.Equal(initialSummary, staleRow.Summary);
+        Assert.Contains("Updated First Rule", currentRow.Summary);
     }
 
     [Fact]
@@ -2935,6 +3275,87 @@ public sealed class AvatarSwapManagerViewModelTests
         Assert.Equal("linked-roulette-reward", linkedRule.ChannelPointRewardId);
         Assert.Equal("Linked Roulette Reward", linkedRule.ChannelPointRewardTitle);
         Assert.Equal(100, linkedRule.ChannelPointRewardCost);
+    }
+
+    [Fact]
+    public async Task AvatarSwapManagedRewardOwnership_ExcludesAdvancedCommandRulesButKeepsChannelPointRules()
+    {
+        await using var vm = new MainWindowViewModel();
+        var advancedRule = new TriggerRule
+        {
+            TriggerType = TwitchTriggerType.ChatCommand,
+            ActionType = OscActionType.AvatarChange,
+            AvatarChangeTargetId = "avtr_target",
+            ChatCommandEnabled = true,
+            ChatCommandText = "!swap",
+            ChannelPointRewardId = "advanced-command-must-not-own-reward"
+        };
+        var channelPointRule = new TriggerRule
+        {
+            TriggerType = TwitchTriggerType.ChannelPoints,
+            ActionType = OscActionType.AvatarChange,
+            AvatarChangeTargetId = "avtr_target",
+            ChannelPointRewardId = "channel-point-swap-reward"
+        };
+        var profile = new AvatarSwapProfile { TargetAvatarId = "avtr_target" };
+        profile.ChannelPointRules.Add(advancedRule);
+        vm.Settings.AvatarSwapProfiles.Add(profile);
+
+        var ownershipEntries = AsObjects(InvokeManagedRewardOwnershipEntries(vm));
+        Assert.DoesNotContain(
+            ownershipEntries,
+            entry => GetPropertyValue<Guid>(entry, "Id") == advancedRule.Id);
+
+        profile.ChannelPointRules.Add(channelPointRule);
+
+        ownershipEntries = AsObjects(InvokeManagedRewardOwnershipEntries(vm));
+        Assert.Contains(
+            ownershipEntries,
+            entry => GetPropertyValue<Guid>(entry, "Id") == channelPointRule.Id);
+    }
+
+    [Fact]
+    public async Task AvatarSwapCooldownColorEligibility_ExcludesMisfiledCommandRulesButKeepsChannelPointRules()
+    {
+        await using var vm = new MainWindowViewModel();
+        var misfiledCommandRule = new TriggerRule
+        {
+            TriggerType = TwitchTriggerType.ChatCommand,
+            ActionType = OscActionType.AvatarChange,
+            RewardSyncMode = TwitchRewardSyncMode.CreateOrManage,
+            AvatarChangeTargetId = "avtr_target",
+            ChannelPointRewardId = "misfiled-command-reward",
+            ManagedRewardReadyColor = "#102030",
+            ManagedRewardCooldownColor = "#405060"
+        };
+        var channelPointRule = new TriggerRule
+        {
+            TriggerType = TwitchTriggerType.ChannelPoints,
+            ActionType = OscActionType.AvatarChange,
+            RewardSyncMode = TwitchRewardSyncMode.CreateOrManage,
+            AvatarChangeTargetId = "avtr_target",
+            ChannelPointRewardId = "channel-point-swap-reward",
+            ManagedRewardReadyColor = "#203040",
+            ManagedRewardCooldownColor = "#506070"
+        };
+        var profile = new AvatarSwapProfile { TargetAvatarId = "avtr_target" };
+        profile.ChannelPointRules.Add(misfiledCommandRule);
+        profile.ChannelPointRules.Add(channelPointRule);
+        vm.Settings.AvatarSwapProfiles.Add(profile);
+
+        var ownershipMethod = GetInstanceMethod(typeof(MainWindowViewModel), "IsCreateOrManageRewardOwner");
+        var rewardIdMethod = GetInstanceMethod(typeof(MainWindowViewModel), "ResolveManagedRewardIdForRule");
+        var colorMethod = GetInstanceMethod(typeof(MainWindowViewModel), "ResolveConfiguredRewardColor");
+
+        Assert.False(Assert.IsType<bool>(ownershipMethod.Invoke(vm, new object[] { misfiledCommandRule.Id })));
+        Assert.Null(rewardIdMethod.Invoke(vm, new object[] { misfiledCommandRule.Id }));
+        Assert.Null(colorMethod.Invoke(vm, new object[] { misfiledCommandRule.Id, false }));
+        Assert.Null(colorMethod.Invoke(vm, new object[] { misfiledCommandRule.Id, true }));
+
+        Assert.True(Assert.IsType<bool>(ownershipMethod.Invoke(vm, new object[] { channelPointRule.Id })));
+        Assert.Equal(channelPointRule.ChannelPointRewardId, rewardIdMethod.Invoke(vm, new object[] { channelPointRule.Id }));
+        Assert.Equal(channelPointRule.ManagedRewardReadyColor, colorMethod.Invoke(vm, new object[] { channelPointRule.Id, false }));
+        Assert.Equal(channelPointRule.ManagedRewardCooldownColor, colorMethod.Invoke(vm, new object[] { channelPointRule.Id, true }));
     }
 
     [Fact]
