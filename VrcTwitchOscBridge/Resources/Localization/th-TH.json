@@ -2123,5 +2123,8 @@
   "{0}s cooldown": "{0}s cooldown",
   "— No group —": "— No group —",
   "✨ Universal Triggers": "✨ Universal Triggers",
-  "Advanced triggers (open full editor)": "ทริกเกอร์ขั้นสูง (เปิดตัวแก้ไขแบบเต็ม)"
+  "Advanced triggers (open full editor)": "ทริกเกอร์ขั้นสูง (เปิดตัวแก้ไขแบบเต็ม)",
+  "Advanced range is on. Crystal Relay accepts 0.01m to 10000m technically; extreme values can be uncomfortable or world-blocked.": "เปิดใช้ช่วงขั้นสูงแล้ว Crystal Relay รองรับค่าทางเทคนิคตั้งแต่ 0.01 ม. ถึง 10000 ม. แต่ค่าที่สุดขั้วอาจไม่สบายหรือถูกโลกบล็อกไว้",
+  "Safe range is 0.1m to 100m.": "ช่วงที่ปลอดภัยคือ 0.1 ม. ถึง 100 ม.",
+  "VRChat world min/max will be bypassed for this redeem.": "จะข้ามขีดจำกัดความสูงต่ำสุด/สูงสุดของโลก VRChat สำหรับ redeem นี้"
 }

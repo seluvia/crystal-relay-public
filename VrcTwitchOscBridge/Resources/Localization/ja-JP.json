@@ -2123,5 +2123,8 @@
   "Your crystal bridge from Twitch to VRChat": "TwitchからVRChatへのクリスタルブリッジ",
   "Your favorited avatars": "あなたのお気に入りのアバターたち",
   "Your password is used only for this login step and is not saved by Crystal Relay.": "パスワードはこのログインステップでのみ使用され、Crystal Relayによって保存されることはありません。",
-  "Advanced triggers (open full editor)": "高度なトリガー（完全なエディターを開く）"
+  "Advanced triggers (open full editor)": "高度なトリガー（完全なエディターを開く）",
+  "Advanced range is on. Crystal Relay accepts 0.01m to 10000m technically; extreme values can be uncomfortable or world-blocked.": "高度な範囲がオンです。Crystal Relay は技術上 0.01m から 10000m まで受け付けますが、極端な値は不快に感じたり、ワールドにブロックされたりする場合があります。",
+  "Safe range is 0.1m to 100m.": "安全な範囲は 0.1m から 100m です。",
+  "VRChat world min/max will be bypassed for this redeem.": "この redeem では VRChat ワールドの高さの min/max 制限をバイパスします。"
 }

@@ -2123,5 +2123,8 @@
   "{0}s cooldown": "{0}s cooldown",
   "— No group —": "— No group —",
   "✨ Universal Triggers": "✨ Universal Triggers",
-  "Advanced triggers (open full editor)": "Advanced triggers (open full editor)"
+  "Advanced triggers (open full editor)": "Advanced triggers (open full editor)",
+  "Advanced range is on. Crystal Relay accepts 0.01m to 10000m technically; extreme values can be uncomfortable or world-blocked.": "Advanced range is on. Crystal Relay accepts 0.01m to 10000m technically; extreme values can be uncomfortable or world-blocked.",
+  "Safe range is 0.1m to 100m.": "Safe range is 0.1m to 100m.",
+  "VRChat world min/max will be bypassed for this redeem.": "VRChat world min/max will be bypassed for this redeem."
 }

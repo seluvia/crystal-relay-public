@@ -75,7 +75,10 @@ public sealed class AvatarScalingManagerWindowXamlTests
             "1 reward",
             "{0} rewards",
             "Pay System Rewards",
-            "Supporter Growth, Cash Payments & Power Ups"
+            "Supporter Growth, Cash Payments & Power Ups",
+            "Advanced range is on. Crystal Relay accepts 0.01m to 10000m technically; extreme values can be uncomfortable or world-blocked.",
+            "Safe range is 0.1m to 100m.",
+            "VRChat world min/max will be bypassed for this redeem."
         };
         var localizationFolder = FindSourceDirectory("VrcTwitchOscBridge", "Resources", "Localization");
         var localeFiles = Directory.GetFiles(localizationFolder, "*.json");
@@ -372,6 +375,25 @@ public sealed class AvatarScalingManagerWindowXamlTests
         Assert.Contains("Height Change", xaml[editorIndex..], StringComparison.Ordinal);
         Assert.Contains("Timer &amp; Return", xaml[editorIndex..], StringComparison.Ordinal);
         Assert.Contains("Safety &amp; Pairing", xaml[editorIndex..], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Window_HeightEditorExposesAdvancedScaleRange()
+    {
+        var xaml = File.ReadAllText(FindSourceFile("VrcTwitchOscBridge", "AvatarScalingManagerWindow.xaml"));
+        var heightSectionIndex = xaml.IndexOf("Text=\"{loc:Translate 'Height Change'}\"", StringComparison.Ordinal);
+        var timerSectionIndex = xaml.IndexOf("Text=\"{loc:Translate 'Timer &amp; Return'}\"", heightSectionIndex, StringComparison.Ordinal);
+        var heightSection = heightSectionIndex >= 0 && timerSectionIndex > heightSectionIndex
+            ? xaml[heightSectionIndex..timerSectionIndex]
+            : string.Empty;
+
+        Assert.True(heightSectionIndex >= 0, "Height Change editor section should exist.");
+        Assert.True(timerSectionIndex > heightSectionIndex, "Height Change editor section should end before Timer & Return.");
+        Assert.Contains("Unlock advanced VRChat scale range (0.01m - 10000m)", heightSection, StringComparison.Ordinal);
+        Assert.Contains("IsChecked=\"{Binding AdvancedRangeEnabled, UpdateSourceTrigger=PropertyChanged}\"", heightSection, StringComparison.Ordinal);
+        Assert.Contains("Bypass VRChat world min/max", heightSection, StringComparison.Ordinal);
+        Assert.Contains("IsChecked=\"{Binding BypassVrChatScaleLimits, UpdateSourceTrigger=PropertyChanged}\"", heightSection, StringComparison.Ordinal);
+        Assert.Contains("ScaleRangeHelpText", heightSection, StringComparison.Ordinal);
     }
 
     [Fact]

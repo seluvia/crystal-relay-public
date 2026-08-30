@@ -6,6 +6,7 @@ public sealed class AvatarScaleSafetySettings : ObservableObject
 {
     private double currentMinimumHeightMeters = AvatarScaleRule.SafeMinimumHeightMeters;
     private double currentMaximumHeightMeters = AvatarScaleRule.SafeMaximumHeightMeters;
+    private bool isMaximumHeightUserConfigured;
 
     public double CurrentMinimumHeightMeters
     {
@@ -34,6 +35,7 @@ public sealed class AvatarScaleSafetySettings : ObservableObject
         {
             var nextValue = NormalizeHeight(value, AvatarScaleRule.SafeMaximumHeightMeters);
             nextValue = Math.Clamp(nextValue, CurrentMinimumHeightMeters, AvatarScaleRule.AdvancedMaximumHeightMeters);
+            isMaximumHeightUserConfigured = true;
             if (SetProperty(ref currentMaximumHeightMeters, nextValue))
             {
                 RaisePropertyChanged(nameof(CurrentMaxHeightAllowedText));
@@ -41,6 +43,8 @@ public sealed class AvatarScaleSafetySettings : ObservableObject
             }
         }
     }
+
+    public bool IsMaximumHeightUserConfigured => isMaximumHeightUserConfigured;
 
     public string CurrentMaxHeightAllowedText => $"{CurrentMaximumHeightMeters:0.###}m";
 
@@ -87,7 +91,13 @@ public sealed class AvatarScaleSafetySettings : ObservableObject
 
         settings.CurrentMinimumHeightMeters = smallestAdvancedValue;
         settings.CurrentMaximumHeightMeters = largestAdvancedValue;
+        settings.SetMaximumHeightUserConfigured(largestAdvancedValue > AvatarScaleRule.SafeMaximumHeightMeters);
         return settings;
+    }
+
+    internal void SetMaximumHeightUserConfigured(bool value)
+    {
+        isMaximumHeightUserConfigured = value;
     }
 
     private static IEnumerable<double> GetConfiguredHeightValues(AvatarScaleRule rule)

@@ -36,6 +36,63 @@ public sealed class AvatarScaleSafetyRuntimeExecutionTests
     }
 
     [Fact]
+    public void BridgeCoordinatorAdvancedHeightWithBypass_PreservesTenThousandMeters()
+    {
+        var rule = new AvatarScaleRule
+        {
+            Name = "Maximum Advanced Height",
+            AdvancedRangeEnabled = true,
+            BypassVrChatScaleLimits = true,
+            TargetHeightMeters = AvatarScaleRule.AdvancedMaximumHeightMeters
+        };
+        var snapshot = BridgeRuntimeConfiguration.CreateManualTestSnapshot(
+            rule,
+            new AvatarScaleSafetySettings());
+        var coordinator = RuntimeHelpers.GetUninitializedObject(typeof(BridgeCoordinator));
+        var stateGate = new object();
+        var stateGateField = typeof(BridgeCoordinator).GetField(
+            "stateGate",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        var avatarParameterValuesField = typeof(BridgeCoordinator).GetField(
+            "avatarParameterValues",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        var avatarScaleValuesField = typeof(BridgeCoordinator).GetField(
+            "avatarScaleValues",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        var method = typeof(BridgeCoordinator).GetMethod(
+            "ApplyAvatarScaleHeightLimits",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+
+        Assert.NotNull(stateGateField);
+        Assert.NotNull(avatarParameterValuesField);
+        Assert.NotNull(avatarScaleValuesField);
+        Assert.NotNull(method);
+
+        stateGateField.SetValue(coordinator, stateGate);
+        avatarParameterValuesField.SetValue(coordinator, new Dictionary<string, OscObservedValue>());
+        avatarScaleValuesField.SetValue(
+            coordinator,
+            new Dictionary<string, OscObservedValue>(StringComparer.Ordinal)
+            {
+                ["/avatar/eyeheightmax"] = new OscObservedValue(
+                    "/avatar/eyeheightmax",
+                    OscParameterType.Float,
+                    2f)
+            });
+
+        var result = Assert.IsType<double>(method.Invoke(coordinator, [snapshot, 10_000d, "regression test"]));
+        var finalSendClampMethod = typeof(BridgeCoordinator).GetMethod(
+            "ClampAvatarScaleHeightForSend",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+
+        Assert.NotNull(finalSendClampMethod);
+        var finalSendValue = Assert.IsType<double>(finalSendClampMethod.Invoke(coordinator, [10_000d, snapshot]));
+
+        Assert.Equal(AvatarScaleRule.AdvancedMaximumHeightMeters, result, precision: 3);
+        Assert.Equal(AvatarScaleRule.AdvancedMaximumHeightMeters, finalSendValue, precision: 3);
+    }
+
+    [Fact]
     public void BridgeCoordinatorActiveSafetyClampHelper_UsesActiveConfigurationRange()
     {
         var settings = new AppSettings();

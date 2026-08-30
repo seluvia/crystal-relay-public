@@ -294,7 +294,8 @@ public sealed record AvatarScaleMasterRewardSnapshot(
 
 public sealed record AvatarScaleSafetySnapshot(
     double CurrentMinimumHeightAllowedMeters,
-    double CurrentMaximumHeightAllowedMeters);
+    double CurrentMaximumHeightAllowedMeters,
+    bool IsMaximumHeightUserConfigured);
 
 public sealed record AvatarScaleRuleSnapshot(
     Guid Id,
@@ -1535,7 +1536,8 @@ public sealed record BridgeRuntimeConfiguration(
     {
         return new AvatarScaleSafetySnapshot(
             settings.CurrentMinimumHeightMeters,
-            settings.CurrentMaximumHeightMeters);
+            settings.CurrentMaximumHeightMeters,
+            settings.IsMaximumHeightUserConfigured);
     }
 
     private static CashPaymentConnectionSnapshot ToCashPaymentConnectionSnapshot(
@@ -1685,8 +1687,9 @@ public sealed record BridgeRuntimeConfiguration(
         var modeMaximum = advancedRangeEnabled
             ? AvatarScaleRule.AdvancedMaximumHeightMeters
             : AvatarScaleRule.SafeMaximumHeightMeters;
+        var safetyMaximum = GetEffectiveSafetyMaximum(advancedRangeEnabled, safety);
         var minimum = Math.Max(modeMinimum, safety.CurrentMinimumHeightAllowedMeters);
-        var maximum = Math.Min(modeMaximum, safety.CurrentMaximumHeightAllowedMeters);
+        var maximum = Math.Min(modeMaximum, safetyMaximum);
         if (maximum >= minimum)
         {
             return (minimum, maximum);
@@ -1695,6 +1698,18 @@ public sealed record BridgeRuntimeConfiguration(
         return safety.CurrentMinimumHeightAllowedMeters > modeMaximum
             ? (modeMaximum, modeMaximum)
             : (modeMinimum, modeMinimum);
+    }
+
+    private static double GetEffectiveSafetyMaximum(
+        bool advancedRangeEnabled,
+        AvatarScaleSafetySnapshot safety)
+    {
+        // A legacy profile without an explicit maximum can use the advanced range.
+        return advancedRangeEnabled
+            && !safety.IsMaximumHeightUserConfigured
+            && safety.CurrentMaximumHeightAllowedMeters == AvatarScaleRule.SafeMaximumHeightMeters
+            ? AvatarScaleRule.AdvancedMaximumHeightMeters
+            : safety.CurrentMaximumHeightAllowedMeters;
     }
 
     private static double ClampRelativeScaleHeight(
@@ -1710,7 +1725,9 @@ public sealed record BridgeRuntimeConfiguration(
         var baseLimit = advancedRangeEnabled ? AvatarScaleRule.AdvancedMaximumHeightMeters : AvatarScaleRule.SafeMaximumHeightMeters;
         var limit = Math.Min(
             baseLimit,
-            Math.Max(Math.Abs(safety.CurrentMinimumHeightAllowedMeters), Math.Abs(safety.CurrentMaximumHeightAllowedMeters)));
+            Math.Max(
+                Math.Abs(safety.CurrentMinimumHeightAllowedMeters),
+                Math.Abs(GetEffectiveSafetyMaximum(advancedRangeEnabled, safety))));
         return Math.Clamp(value, -limit, limit);
     }
 

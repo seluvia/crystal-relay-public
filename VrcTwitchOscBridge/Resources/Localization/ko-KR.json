@@ -2123,5 +2123,8 @@
   "{0}s cooldown": "{0}s 쿨다운",
   "— No group —": "— 그룹 없음 —",
   "✨ Universal Triggers": "✨ Universal Triggers",
-  "Advanced triggers (open full editor)": "고급 트리거(전체 편집기 열기)"
+  "Advanced triggers (open full editor)": "고급 트리거(전체 편집기 열기)",
+  "Advanced range is on. Crystal Relay accepts 0.01m to 10000m technically; extreme values can be uncomfortable or world-blocked.": "고급 범위가 켜져 있습니다. Crystal Relay는 기술적으로 0.01m부터 10000m까지 허용하지만, 극단적인 값은 불편하거나 월드에서 차단될 수 있습니다.",
+  "Safe range is 0.1m to 100m.": "안전 범위는 0.1m~100m입니다.",
+  "VRChat world min/max will be bypassed for this redeem.": "이 redeem에서는 VRChat 월드의 높이 min/max 제한을 우회합니다."
 }

@@ -2123,5 +2123,8 @@
   "{0}s cooldown": "{0}s冷却",
   "— No group —": "— 无团体 —",
   "✨ Universal Triggers": "✨ Universal Triggers",
-  "Advanced triggers (open full editor)": "高级触发器（打开完整编辑器）"
+  "Advanced triggers (open full editor)": "高级触发器（打开完整编辑器）",
+  "Advanced range is on. Crystal Relay accepts 0.01m to 10000m technically; extreme values can be uncomfortable or world-blocked.": "高级范围已开启。Crystal Relay 在技术上接受 0.01m 到 10000m；极端数值可能令人不适，或会被世界限制。",
+  "Safe range is 0.1m to 100m.": "安全范围为 0.1m 到 100m。",
+  "VRChat world min/max will be bypassed for this redeem.": "此 redeem 将绕过 VRChat 世界的高度最小/最大限制。"
 }

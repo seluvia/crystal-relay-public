@@ -2013,7 +2013,8 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
         return new PersistedAvatarScaleSafetySettings
         {
             CurrentMinimumHeightMeters = settings.CurrentMinimumHeightMeters,
-            CurrentMaximumHeightMeters = settings.CurrentMaximumHeightMeters
+            CurrentMaximumHeightMeters = settings.CurrentMaximumHeightMeters,
+            IsMaximumHeightUserConfigured = settings.IsMaximumHeightUserConfigured
         };
     }
 
@@ -2026,11 +2027,16 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             return AvatarScaleSafetySettings.FromExistingRules(migrationRules);
         }
 
-        return new AvatarScaleSafetySettings
+        var settings = new AvatarScaleSafetySettings
         {
             CurrentMinimumHeightMeters = persisted.CurrentMinimumHeightMeters,
             CurrentMaximumHeightMeters = persisted.CurrentMaximumHeightMeters
         };
+
+        settings.SetMaximumHeightUserConfigured(
+            persisted.IsMaximumHeightUserConfigured
+            ?? persisted.CurrentMaximumHeightMeters != AvatarScaleRule.SafeMaximumHeightMeters);
+        return settings;
     }
 
     internal static PersistedAvatarScaleRule ToPersistedAvatarScaleRule(AvatarScaleRule rule)
@@ -3842,6 +3848,8 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
         public double CurrentMinimumHeightMeters { get; set; }
 
         public double CurrentMaximumHeightMeters { get; set; }
+
+        public bool? IsMaximumHeightUserConfigured { get; set; }
     }
 
     internal sealed class PersistedAvatarScaleRule

@@ -32,6 +32,67 @@ public sealed class BridgeRuntimeConfigurationAvatarScaleSafetyTests
     }
 
     [Fact]
+    public void FromSettings_PreservesAdvancedScaleRuleMaximumAtTenThousandMeters()
+    {
+        var settings = new AppSettings();
+        var set = new AvatarScaleSet();
+        set.ScaleRules.Add(new AvatarScaleRule
+        {
+            Name = "Maximum Advanced Height",
+            TriggerType = AvatarScaleTriggerType.ChatCommand,
+            CommandText = "!maximum",
+            AdvancedRangeEnabled = true,
+            ScaleMode = AvatarScaleMode.RelativeHeight,
+            TargetHeightMeters = AvatarScaleRule.AdvancedMaximumHeightMeters,
+            MinimumHeightMeters = AvatarScaleRule.AdvancedMaximumHeightMeters,
+            MaximumHeightMeters = AvatarScaleRule.AdvancedMaximumHeightMeters,
+            RestoreHeightMeters = AvatarScaleRule.AdvancedMaximumHeightMeters,
+            RelativeHeightMeters = AvatarScaleRule.AdvancedMaximumHeightMeters,
+            RelativeMinimumHeightMeters = AvatarScaleRule.AdvancedMaximumHeightMeters,
+            RelativeMaximumHeightMeters = AvatarScaleRule.AdvancedMaximumHeightMeters
+        });
+        settings.AvatarScaleSets.Add(set);
+
+        var configuration = BridgeRuntimeConfiguration.FromSettings(settings, RuntimeConfig.CreateDefault());
+        var snapshot = Assert.Single(configuration.AvatarScaleRules);
+
+        Assert.Equal(AvatarScaleRule.AdvancedMaximumHeightMeters, snapshot.TargetHeightMeters, precision: 3);
+        Assert.Equal(AvatarScaleRule.AdvancedMaximumHeightMeters, snapshot.MinimumHeightMeters, precision: 3);
+        Assert.Equal(AvatarScaleRule.AdvancedMaximumHeightMeters, snapshot.MaximumHeightMeters, precision: 3);
+        Assert.Equal(AvatarScaleRule.AdvancedMaximumHeightMeters, snapshot.RestoreHeightMeters, precision: 3);
+        Assert.Equal(AvatarScaleRule.AdvancedMaximumHeightMeters, snapshot.RelativeHeightMeters, precision: 3);
+        Assert.Equal(AvatarScaleRule.AdvancedMaximumHeightMeters, snapshot.RelativeMinimumHeightMeters, precision: 3);
+        Assert.Equal(AvatarScaleRule.AdvancedMaximumHeightMeters, snapshot.RelativeMaximumHeightMeters, precision: 3);
+        Assert.Equal(AvatarScaleRule.AdvancedMaximumHeightMeters, snapshot.CurrentMaximumHeightAllowedMeters, precision: 3);
+    }
+
+    [Fact]
+    public void FromSettings_RespectsExplicitOneHundredMeterSafetyMaximumForAdvancedRule()
+    {
+        var settings = new AppSettings();
+        settings.AvatarScaleSafety.CurrentMaximumHeightMeters = AvatarScaleRule.SafeMaximumHeightMeters;
+        var set = new AvatarScaleSet();
+        set.ScaleRules.Add(new AvatarScaleRule
+        {
+            Name = "Explicit Safe Maximum",
+            TriggerType = AvatarScaleTriggerType.ChatCommand,
+            CommandText = "!safe",
+            AdvancedRangeEnabled = true,
+            TargetHeightMeters = AvatarScaleRule.AdvancedMaximumHeightMeters,
+            MinimumHeightMeters = AvatarScaleRule.AdvancedMaximumHeightMeters,
+            MaximumHeightMeters = AvatarScaleRule.AdvancedMaximumHeightMeters,
+            RestoreHeightMeters = AvatarScaleRule.AdvancedMaximumHeightMeters
+        });
+        settings.AvatarScaleSets.Add(set);
+
+        var configuration = BridgeRuntimeConfiguration.FromSettings(settings, RuntimeConfig.CreateDefault());
+        var snapshot = Assert.Single(configuration.AvatarScaleRules);
+
+        Assert.Equal(AvatarScaleRule.SafeMaximumHeightMeters, snapshot.TargetHeightMeters, precision: 3);
+        Assert.Equal(AvatarScaleRule.SafeMaximumHeightMeters, snapshot.CurrentMaximumHeightAllowedMeters, precision: 3);
+    }
+
+    [Fact]
     public void FromSettings_ClampsCashPaymentScaleActionToCurrentMaxHeightAllowed()
     {
         var settings = new AppSettings();

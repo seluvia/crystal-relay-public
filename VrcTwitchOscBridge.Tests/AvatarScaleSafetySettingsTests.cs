@@ -16,6 +16,7 @@ public sealed class AvatarScaleSafetySettingsTests
 
         Assert.Equal(AvatarScaleRule.SafeMinimumHeightMeters, settings.CurrentMinimumHeightMeters);
         Assert.Equal(AvatarScaleRule.SafeMaximumHeightMeters, settings.CurrentMaximumHeightMeters);
+        Assert.False(settings.IsMaximumHeightUserConfigured);
         Assert.Equal("100m", settings.CurrentMaxHeightAllowedText);
     }
 
@@ -61,6 +62,7 @@ public sealed class AvatarScaleSafetySettingsTests
         settings.CurrentMaximumHeightMeters = 20000;
 
         Assert.Equal(AvatarScaleRule.AdvancedMaximumHeightMeters, settings.CurrentMaximumHeightMeters);
+        Assert.True(settings.IsMaximumHeightUserConfigured);
     }
 
     [Fact]
@@ -188,6 +190,7 @@ public sealed class AvatarScaleSafetySettingsTests
         Assert.Contains("AvatarScaleSafety", json, StringComparison.Ordinal);
         Assert.Contains("CurrentMinimumHeightMeters", json, StringComparison.Ordinal);
         Assert.Contains("CurrentMaximumHeightMeters", json, StringComparison.Ordinal);
+        Assert.Contains("IsMaximumHeightUserConfigured", json, StringComparison.Ordinal);
 
         var rehydratedProfile = JsonSerializer.Deserialize(json, profileType);
         Assert.NotNull(rehydratedProfile);
@@ -200,5 +203,46 @@ public sealed class AvatarScaleSafetySettingsTests
 
         Assert.Equal(0.25, roundTripped.CurrentMinimumHeightMeters, precision: 3);
         Assert.Equal(240, roundTripped.CurrentMaximumHeightMeters, precision: 3);
+        Assert.True(roundTripped.IsMaximumHeightUserConfigured);
+    }
+
+    [Fact]
+    public void SettingsStore_LegacyDefaultSafetyMaximumAllowsAdvancedRange()
+    {
+        var storeType = typeof(SettingsStore);
+        var persistedSafetyType = storeType.GetNestedType("PersistedAvatarScaleSafetySettings", BindingFlags.NonPublic);
+        var toSettingsMethod = storeType.GetMethod("ToAvatarScaleSafety", BindingFlags.NonPublic | BindingFlags.Static);
+
+        Assert.NotNull(persistedSafetyType);
+        Assert.NotNull(toSettingsMethod);
+
+        var persistedSafety = Activator.CreateInstance(persistedSafetyType, nonPublic: true);
+        Assert.NotNull(persistedSafety);
+        persistedSafetyType.GetProperty("CurrentMinimumHeightMeters")!.SetValue(
+            persistedSafety,
+            AvatarScaleRule.SafeMinimumHeightMeters);
+        persistedSafetyType.GetProperty("CurrentMaximumHeightMeters")!.SetValue(
+            persistedSafety,
+            AvatarScaleRule.SafeMaximumHeightMeters);
+
+        var safetySettings = Assert.IsType<AvatarScaleSafetySettings>(toSettingsMethod.Invoke(
+            null,
+            [persistedSafety, Array.Empty<AvatarScaleRule>()]));
+        var appSettings = new AppSettings { AvatarScaleSafety = safetySettings };
+        var scaleSet = new AvatarScaleSet();
+        scaleSet.ScaleRules.Add(new AvatarScaleRule
+        {
+            TriggerType = AvatarScaleTriggerType.ChatCommand,
+            CommandText = "!legacy",
+            AdvancedRangeEnabled = true,
+            TargetHeightMeters = AvatarScaleRule.AdvancedMaximumHeightMeters
+        });
+        appSettings.AvatarScaleSets.Add(scaleSet);
+
+        var configuration = BridgeRuntimeConfiguration.FromSettings(appSettings, RuntimeConfig.CreateDefault());
+        var snapshot = Assert.Single(configuration.AvatarScaleRules);
+
+        Assert.False(safetySettings.IsMaximumHeightUserConfigured);
+        Assert.Equal(AvatarScaleRule.AdvancedMaximumHeightMeters, snapshot.CurrentMaximumHeightAllowedMeters, precision: 3);
     }
 }
