@@ -1596,9 +1596,6 @@
                                                     <CheckBox Margin="0,10,0,0"
                                                               Content="{loc:Translate 'Unlock advanced VRChat scale range (0.01m - 10000m)'}"
                                                               IsChecked="{Binding AdvancedRangeEnabled, UpdateSourceTrigger=PropertyChanged}" />
-                                                    <CheckBox Margin="0,8,0,0"
-                                                              Content="{loc:Translate 'Bypass VRChat world min/max'}"
-                                                              IsChecked="{Binding BypassVrChatScaleLimits, UpdateSourceTrigger=PropertyChanged}" />
                                                     <TextBlock Margin="0,6,0,0"
                                                                Text="{Binding ScaleRangeHelpText}"
                                                                Foreground="{DynamicResource TitleBarSubTextBrush}"

@@ -408,7 +408,6 @@
   "Built-In Commands": "組み込みコマンド",
   "Built-In Commands | Crystal Relay": "組み込みコマンド |Crystal Relay",
   "Built-in Twitch app ready.": "Twitchアプリが内蔵されています。",
-  "Bypass VRChat world min/max": "VRChatワールドmin/maxをバイパスする",
   "Cancel": "キャンセル",
   "Cap max accumulated duration": "キャップ最大累積期間",
   "Cap: {0}s max": "上限:最大{0}s",
@@ -2099,7 +2098,6 @@
   "When enabled, normal Avatar Change rewards are blocked during active scaling. Bits + Subs override avatar changes can still run.": "When enabled, normal Avatar Change rewards are blocked during active scaling. Bits + Subs override avatar changes can still run.",
   "When enabled, stable builds may offer beta updates from GitHub Releases. Beta builds always keep checking beta updates.": "有効化すれば、安定ビルドはGitHub Releasesからのベータアップデートを提供することがあります。ベータビルドは常にベータアップデートをチェックします。",
   "When enabled, the connected bot posts one generated message when a Bits/Subs override runs. It shows the trigger amount, time added, and a compact list of configured paid override timers.": "有効化すると、Bits/Subsオーバーライドが実行されると、接続されたボットが生成されたメッセージを1つ投稿します。トリガーの量、追加時間、そして設定済みの有料オーバーライドタイマーのコンパクトリストが表示されます。",
-  "When enabled, this scale redeem ignores VRChat world min/max values. Worlds may still block extreme scaling, and very large or tiny values can be uncomfortable.": "有効化すると、このスケールリディームはVRChatのワールドmin/max値を無視します。ワールドは依然として極端なスケーリングを妨げることがあり、非常に大きいまたは小さな値は不快に感じることがあります。",
   "When enabled, viewers can use !world to ask where the streamer is in VRChat. Crystal Relay only posts the public world name and world page link. It never posts the instance ID, invite/private suffix, nonce, region, or full VRChat location.": "When enabled, viewers can use !world to ask where the streamer is in VRChat. Crystal Relay only posts the public world name and world page link. It never posts the instance ID, invite/private suffix, nonce, region, or full VRChat location.",
   "When locked, child scale rewards are hidden or deleted until viewers redeem the master reward.": "ロックされると、子供スケールの報酬は非表示または削除され、視聴者がマスター報酬を交換するまで続きます。",
   "When trigger info announcements run, Crystal Relay can post the current numbered outfit list through the configured chat sender.": "When trigger info announcements run, Crystal Relay can post the current numbered outfit list through the configured chat sender.",
@@ -2125,6 +2123,5 @@
   "Your password is used only for this login step and is not saved by Crystal Relay.": "パスワードはこのログインステップでのみ使用され、Crystal Relayによって保存されることはありません。",
   "Advanced triggers (open full editor)": "高度なトリガー（完全なエディターを開く）",
   "Advanced range is on. Crystal Relay accepts 0.01m to 10000m technically; extreme values can be uncomfortable or world-blocked.": "高度な範囲がオンです。Crystal Relay は技術上 0.01m から 10000m まで受け付けますが、極端な値は不快に感じたり、ワールドにブロックされたりする場合があります。",
-  "Safe range is 0.1m to 100m.": "安全な範囲は 0.1m から 100m です。",
-  "VRChat world min/max will be bypassed for this redeem.": "この redeem では VRChat ワールドの高さの min/max 制限をバイパスします。"
+  "Safe range is 0.1m to 100m.": "安全な範囲は 0.1m から 100m です。"
 }

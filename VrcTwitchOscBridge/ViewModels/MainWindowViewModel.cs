@@ -14723,10 +14723,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
             }
 
             var effectiveMinimum = rule.RelativeMinimumHeightMeters;
-            if (!rule.BypassVrChatScaleLimits && status.MinimumHeightMeters is > 0)
-            {
-                effectiveMinimum = Math.Max(effectiveMinimum, status.MinimumHeightMeters.Value);
-            }
 
             var tolerance = previousIsAtLimit == true
                 ? AvatarScaleLimitHeightReleaseToleranceMeters
@@ -14745,10 +14741,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAsyncDisposable, IT
         }
 
         var effectiveMaximum = rule.RelativeMaximumHeightMeters;
-        if (!rule.BypassVrChatScaleLimits && status.MaximumHeightMeters is > 0)
-        {
-            effectiveMaximum = Math.Min(effectiveMaximum, status.MaximumHeightMeters.Value);
-        }
 
         var maximumTolerance = previousIsAtLimit == true
             ? AvatarScaleLimitHeightReleaseToleranceMeters

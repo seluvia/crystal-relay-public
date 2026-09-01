@@ -77,8 +77,7 @@ public sealed class AvatarScalingManagerWindowXamlTests
             "Pay System Rewards",
             "Supporter Growth, Cash Payments & Power Ups",
             "Advanced range is on. Crystal Relay accepts 0.01m to 10000m technically; extreme values can be uncomfortable or world-blocked.",
-            "Safe range is 0.1m to 100m.",
-            "VRChat world min/max will be bypassed for this redeem."
+            "Safe range is 0.1m to 100m."
         };
         var localizationFolder = FindSourceDirectory("VrcTwitchOscBridge", "Resources", "Localization");
         var localeFiles = Directory.GetFiles(localizationFolder, "*.json");
@@ -391,8 +390,8 @@ public sealed class AvatarScalingManagerWindowXamlTests
         Assert.True(timerSectionIndex > heightSectionIndex, "Height Change editor section should end before Timer & Return.");
         Assert.Contains("Unlock advanced VRChat scale range (0.01m - 10000m)", heightSection, StringComparison.Ordinal);
         Assert.Contains("IsChecked=\"{Binding AdvancedRangeEnabled, UpdateSourceTrigger=PropertyChanged}\"", heightSection, StringComparison.Ordinal);
-        Assert.Contains("Bypass VRChat world min/max", heightSection, StringComparison.Ordinal);
-        Assert.Contains("IsChecked=\"{Binding BypassVrChatScaleLimits, UpdateSourceTrigger=PropertyChanged}\"", heightSection, StringComparison.Ordinal);
+        Assert.DoesNotContain("Bypass VRChat world min/max", heightSection, StringComparison.Ordinal);
+        Assert.DoesNotContain("BypassVrChatScaleLimits", heightSection, StringComparison.Ordinal);
         Assert.Contains("ScaleRangeHelpText", heightSection, StringComparison.Ordinal);
     }
 

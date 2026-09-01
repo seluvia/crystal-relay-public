@@ -8644,19 +8644,6 @@ internal BridgeCoordinator(
         };
     }
 
-    private static bool IsAutoBypassingVrChatLimits(AvatarScaleRuleSnapshot rule)
-    {
-        if (rule.BypassVrChatScaleLimits)
-        {
-            return true;
-        }
-
-        return rule.ScaleMode is AvatarScaleMode.RelativeHeight or AvatarScaleMode.Multiplier
-            && rule.RelativeMinimumHeightMeters > 0
-            && rule.RelativeMaximumHeightMeters > 0
-            && rule.RelativeMinimumHeightMeters < rule.RelativeMaximumHeightMeters;
-    }
-
     private static bool IsRelativeScaleAtLimit(
         AvatarScaleRuleSnapshot rule,
         double? currentHeight,
@@ -8739,7 +8726,7 @@ internal BridgeCoordinator(
     private double ClampAvatarScaleHeightForSend(double value, AvatarScaleRuleSnapshot? rule)
     {
         return rule is null
-            ? Math.Clamp(value, AvatarScaleRule.AdvancedMinimumHeightMeters, AvatarScaleRule.AdvancedMaximumHeightMeters)
+            ? ClampDevAvatarScaleHeight(value)
             : ClampAvatarScaleHeight(rule, value);
     }
 
@@ -8779,11 +8766,6 @@ internal BridgeCoordinator(
         string targetDescription)
     {
         var clampedValue = ClampAvatarScaleHeight(rule, value);
-        if (!IsAutoBypassingVrChatLimits(rule))
-        {
-            return ClampToVrChatScaleLimits(clampedValue);
-        }
-
         var vrChatLimitedValue = GetVrChatScaleLimitedHeight(clampedValue);
         if (Math.Abs(vrChatLimitedValue - clampedValue) > 0.0001)
         {
@@ -8792,11 +8774,6 @@ internal BridgeCoordinator(
         }
 
         return clampedValue;
-    }
-
-    private double ClampToVrChatScaleLimits(double value)
-    {
-        return GetVrChatScaleLimitedHeight(value);
     }
 
     private double GetVrChatScaleLimitedHeight(double value)

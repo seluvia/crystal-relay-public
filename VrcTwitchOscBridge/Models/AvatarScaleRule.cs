@@ -338,7 +338,6 @@ public sealed class AvatarScaleRule : ObservableObject
     private double presetTransitionSeconds;
     private double supporterGrowthTransitionSeconds;
     private bool advancedRangeEnabled;
-    private bool bypassVrChatScaleLimits;
     private int supporterGrowthInactivityTimerSeconds = 60;
     private bool supporterGrowthAllowRewardScaleOverlay = true;
     private bool supporterGrowthRequireCheerKeyword;
@@ -830,19 +829,6 @@ public sealed class AvatarScaleRule : ObservableObject
         }
     }
 
-    public bool BypassVrChatScaleLimits
-    {
-        get => bypassVrChatScaleLimits;
-        set
-        {
-            if (SetProperty(ref bypassVrChatScaleLimits, value))
-            {
-                RaisePropertyChanged(nameof(ScaleRangeHelpText));
-            }
-        }
-    }
-
-
     public int SupporterGrowthInactivityTimerSeconds
     {
         get => supporterGrowthInactivityTimerSeconds;
@@ -1123,9 +1109,7 @@ public sealed class AvatarScaleRule : ObservableObject
                 ? LocalizationService.Translate("Advanced range is on. Crystal Relay accepts 0.01m to 10000m technically; extreme values can be uncomfortable or world-blocked.")
                 : LocalizationService.Translate("Safe range is 0.1m to 100m.");
 
-            return BypassVrChatScaleLimits
-                ? $"{rangeText} {LocalizationService.Translate("VRChat world min/max will be bypassed for this redeem.")}"
-                : rangeText;
+            return rangeText;
         }
     }
 

@@ -348,7 +348,6 @@
   "Built-In Commands | Crystal Relay": "Comandi Integrati | Crystal Relay",
   "Built-in Twitch app ready.": "App Twitch integrata pronta.",
   "Built-in bot commands": "Comandi bot integrati",
-  "Bypass VRChat world min/max": "Evita il mondo VRChat min/max",
   "CRYSTAL RELAY DEV": "CRYSTAL RELAY DEV",
   "CURRENT": "CORRENTE",
   "Cancel": "Annulla",
@@ -2008,7 +2007,6 @@
   "When enabled, normal Avatar Change rewards are blocked during active scaling. Bits + Subs override avatar changes can still run.": "Quando attivato, le ricompense Cambio Avatar normali vengono bloccate durante lo scaling attivo. Gli override Bits + Sub per cambio avatar possono comunque funzionare.",
   "When enabled, stable builds may offer beta updates from GitHub Releases. Beta builds always keep checking beta updates.": "Quando abilitate, le build stabili possono offrire aggiornamenti beta dalle versioni GitHub. Le build beta continuano sempre a controllare gli aggiornamenti beta.",
   "When enabled, the connected bot posts one generated message when a Bits/Subs override runs. It shows the trigger amount, time added, and a compact list of configured paid override timers.": "Quando attivato, il bot connesso pubblica un messaggio generato quando viene eseguito un override Bits/Subs. Mostra l'importo del trigger, il tempo aggiunto e un elenco compatto di timer di override a pagamento configurati.",
-  "When enabled, this scale redeem ignores VRChat world min/max values. Worlds may still block extreme scaling, and very large or tiny values can be uncomfortable.": "Quando abilitato, questa riscatto di scala ignora i valori min/max del mondo VRChat. I mondi possono comunque bloccare la scala estrema, e valori molto grandi o minuscoli possono essere scomodi.",
   "When enabled, viewers can use !world to ask where the streamer is in VRChat. Crystal Relay only posts the public world name and world page link. It never posts the instance ID, invite/private suffix, nonce, region, or full VRChat location.": "Quando attivato, gli spettatori possono usare !world per chiedere dove si trova lo streamer in VRChat. Crystal Relay pubblica solo il nome pubblico del mondo e il link alla pagina del mondo. Non mostra mai l'ID dell'istanza, il suffisso invite/private, il nonce, la regione o la posizione completa di VRChat.",
   "When locked, child scale rewards are hidden or deleted until viewers redeem the master reward.": "Quando bloccato, le ricompense in scala per bambini vengono nascoste o cancellate finché gli spettatori non riscattano la ricompensa master.",
   "When trigger info announcements run, Crystal Relay can post the current numbered outfit list through the configured chat sender.": "Quando vengono pubblicati gli annunci delle informazioni di trigger, Crystal Relay può pubblicare la lista degli outfit numerati correnti tramite il mittente della chat configurato.",
@@ -2125,6 +2123,5 @@
   "Timeout:": "Timeout:",
   "Advanced triggers (open full editor)": "Trigger avanzati (apri l'editor completo)",
   "Advanced range is on. Crystal Relay accepts 0.01m to 10000m technically; extreme values can be uncomfortable or world-blocked.": "L'intervallo avanzato è attivo. Crystal Relay accetta tecnicamente da 0,01 m a 10.000 m; valori estremi possono essere scomodi o bloccati dal mondo.",
-  "Safe range is 0.1m to 100m.": "L'intervallo sicuro va da 0,1 m a 100 m.",
-  "VRChat world min/max will be bypassed for this redeem.": "I limiti min/max dell'altezza del mondo VRChat verranno ignorati per questo redeem."
+  "Safe range is 0.1m to 100m.": "L'intervallo sicuro va da 0,1 m a 100 m."
 }

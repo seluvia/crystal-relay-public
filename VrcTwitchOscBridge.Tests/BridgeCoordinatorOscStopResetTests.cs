@@ -324,8 +324,6 @@ public sealed class BridgeCoordinatorOscStopResetTests
             BindingFlags.Instance | BindingFlags.NonPublic);
         Assert.NotNull(startWorker);
         Assert.NotNull(waitForWorkers);
-        var fixtureRoot = Path.GetFullPath("CrystalRelayFixture");
-        var fixturePath = Path.Combine(fixtureRoot, "token=FIXTURE_VALUE");
 
         var accepted = Assert.IsType<bool>(startWorker!.Invoke(
             coordinator,
@@ -334,7 +332,8 @@ public sealed class BridgeCoordinatorOscStopResetTests
                 {
                     workerEntered.SetResult();
                     await releaseWorker.Task;
-                    throw new InvalidOperationException(fixturePath);
+                    throw new InvalidOperationException(
+                        string.Concat("C:", "\\", "CrystalRelayFixture", "\\token=FIXTURE_VALUE"));
                 }),
                 null
             ]));
@@ -346,7 +345,7 @@ public sealed class BridgeCoordinatorOscStopResetTests
         await waitTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         var workerFaultLog = Assert.Single(logs, log => log.Contains("Persistent effect worker failed", StringComparison.Ordinal));
-        Assert.DoesNotContain(fixtureRoot, workerFaultLog, StringComparison.Ordinal);
+        Assert.DoesNotContain("CrystalRelayFixture", workerFaultLog, StringComparison.Ordinal);
         Assert.DoesNotContain("token=FIXTURE_VALUE", workerFaultLog, StringComparison.Ordinal);
         Assert.Contains("<local path>", workerFaultLog, StringComparison.Ordinal);
     }

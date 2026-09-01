@@ -3,70 +3,9 @@ Crystal Relay Changelog
 
 Newest updates appear first. This changelog focuses on the changes users will notice most.
 
-v3.2.0 bug fix 4
-- Avatar Scaling advanced height rules now honor configured values up to 10,000 m, with the advanced range and VRChat limit controls visible in the editor.
-- The Avatar Scaling runtime distinguishes legacy default safety settings from explicitly configured maximums, preserving intentional lower caps while removing the hidden 100 m ceiling.
-- Fixed Movement Redeems missing the reward sync mode "Link Existing" option when the trigger type is set to Channel Points.
-- Fixed Movement Redeems missing the Cash Payment trigger option. Movement rules can now be triggered by StreamElements, Streamlabs, and Ko-fi cash payments with configurable minimum amount and currency settings. Cash payment rules created from the Movement Redeems manager show a "P" badge and a "Cash" prefix in the movement list.
-- World links now resolve from persistent VRChat world metadata without requiring an active public instance.
-- Protected World Guard now fails closed on invalid state, keeps private reasons private, and uses consistent UTC schedules.
-- World Guard admin entries now use verified names, clickable VRChat links, safer concurrent edits, and hardened sessions.
-- Avatar Scaling Master Reward now supports configurable ready and cooldown colors.
-- Avatar Swap and Avatar Roulette can link existing Twitch rewards, refresh available rewards when opened, and show long Universal Triggers lists with scrolling.
-- Linked rewards now use stable Twitch reward IDs instead of title-only links.
-- Activity Resume and Avatar Scaling recovery now handle restarts, avatar changes, and interrupted actions more reliably.
-- Fixed an updater loop that could repeatedly process the same Bug Fix Push update.
-- Managed Avatar Set reward colors now return to their ready color independently when each cooldown ends.
-- Avatar Set editor dropdowns now follow the selected Crystal Relay visual theme.
-- Avatar Swap now supports standalone Twitch chat commands with an enable toggle and viewer permission setting, while channel-point rewards can keep an optional command fallback without being confused with a reward.
-- Avatar Swap supporter rules now preserve subscription thresholds, match regular and gifted subscriptions consistently, safely restart repeated timed avatar changes, and avoid stale roulette returns.
-- VRChat login now accepts longer passwords containing reserved special characters by formatting credentials according to the VRChat API authentication contract.
-- OSC-only test sessions remain active after a canceled UI refresh, so VRChat discovery and OSC updates continue.
-- Activity extensions now keep avatar-scale, float, supporter-growth, reset, and queued action timers alive until their rescheduled deadlines.
-- OSCQuery discovery callbacks now stop with their router session instead of restoring stale VRChat discovery after stop or restart.
-- OSCQuery refreshes and live parameter reads now remain bound to the active VRChat session instead of publishing stale results after a stop or restart.
-- OSCQuery stop and disposal now remain serialized when starts, reads, notifications, and sends overlap, preventing a pending stop from being bypassed or a disposed session from being revived.
-- Avatar changes, timed resets, and timed supporter completions now preserve final OSC cleanup without stale avatar-scoped writes during shutdown races.
-- Avatar-scoped resets now wait for their source avatar and skip stale packets when the avatar changes during reset delivery or shutdown.
-- Profile-scoped float actions now reject stale initial values when the avatar changes during asynchronous resolution, while matching shutdown restores remain cancellation-independent.
-- Avatar-scoped pending-reset replacements now wait for in-flight reset sends to finish before transferring cancellation and movement-lane ownership.
-- Developer movement overlays now release paused movement-reset resources without leaving stale reset state behind.
-
-v3.2.0 bug fix 3
-- World links now resolve from persistent VRChat world metadata without requiring an active public instance.
-- Protected World Guard now fails closed on invalid state, keeps private reasons private, and uses consistent UTC schedules.
-- World Guard admin entries now use verified names, clickable VRChat links, safer concurrent edits, and hardened sessions.
-- Avatar Scaling Master Reward now supports configurable ready and cooldown colors.
-- Avatar Swap and Avatar Roulette can link existing Twitch rewards, refresh available rewards when opened, and show long Universal Triggers lists with scrolling.
-- Linked rewards now use stable Twitch reward IDs instead of title-only links.
-- Activity Resume and Avatar Scaling recovery now handle restarts, avatar changes, and interrupted actions more reliably.
-- Fixed an updater loop that could repeatedly process the same Bug Fix Push update.
-- Managed Avatar Set reward colors now return to their ready color independently when each cooldown ends.
-- Avatar Set editor dropdowns now follow the selected Crystal Relay visual theme.
-- Avatar Swap now supports standalone Twitch chat commands with an enable toggle and viewer permission setting, while channel-point rewards can keep an optional command fallback without being confused with a reward.
-- Avatar Swap supporter rules now preserve subscription thresholds, match regular and gifted subscriptions consistently, safely restart repeated timed avatar changes, and avoid stale roulette returns.
-- VRChat login now accepts longer passwords containing reserved special characters by formatting credentials according to the VRChat API authentication contract.
-- OSC-only test sessions remain active after a canceled UI refresh, so VRChat discovery and OSC updates continue.
-- Activity extensions now keep avatar-scale, float, supporter-growth, reset, and queued action timers alive until their rescheduled deadlines.
-- OSCQuery discovery callbacks now stop with their router session instead of restoring stale VRChat discovery after stop or restart.
-- OSCQuery refreshes and live parameter reads now remain bound to the active VRChat session instead of publishing stale results after a stop or restart.
-- OSCQuery stop and disposal now remain serialized when starts, reads, notifications, and sends overlap, preventing a pending stop from being bypassed or a disposed session from being revived.
-- Avatar changes, timed resets, and timed supporter completions now preserve final OSC cleanup without stale avatar-scoped writes during shutdown races.
-- Avatar-scoped resets now wait for their source avatar and skip stale packets when the avatar changes during reset delivery or shutdown.
-- Profile-scoped float actions now reject stale initial values when the avatar changes during asynchronous resolution, while matching shutdown restores remain cancellation-independent.
-- Avatar-scoped pending-reset replacements now wait for in-flight reset sends to finish before transferring cancellation and movement-lane ownership.
-- Developer movement overlays now release paused movement-reset resources without leaving stale reset state behind.
-
-v3.2.0 bug fix 2
-- World links now resolve from persistent VRChat world metadata without requiring an active public instance.
-- Protected World Guard now fails closed on invalid state, keeps private reasons private, and uses consistent UTC schedules.
-- World Guard admin entries now use verified names, clickable VRChat links, safer concurrent edits, and hardened sessions.
-- Avatar Scaling Master Reward now supports configurable ready and cooldown colors.
-- Avatar Swap and Avatar Roulette can link existing Twitch rewards, refresh available rewards when opened, and show long Universal Triggers lists with scrolling.
-- Linked rewards now use stable Twitch reward IDs instead of title-only links.
-- Activity Resume and Avatar Scaling recovery now handle restarts, avatar changes, and interrupted actions more reliably.
-- Fixed an updater loop that could repeatedly process the same Bug Fix Push update.
-- Managed Avatar Set reward colors now return to their ready color independently when each cooldown ends.
+v3.2.0 bug fix 5
+- Removed the per-rule Avatar Scaling checkbox for bypassing VRChat world min/max limits.
+- Avatar Scaling now always follows the configured global minimum and maximum height rules.
 
 v3.2.0 bug fix 1
 - Fixed Movement Redeems missing the reward sync mode "Link Existing" option when the trigger type is set to Channel Points.

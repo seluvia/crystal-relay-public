@@ -2093,7 +2093,6 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
             RestoreMode = rule.RestoreMode,
             RestoreHeightMeters = rule.RestoreHeightMeters,
             AdvancedRangeEnabled = rule.AdvancedRangeEnabled,
-            BypassVrChatScaleLimits = rule.BypassVrChatScaleLimits,
             SupporterGrowthInactivityTimerSeconds = rule.SupporterGrowthInactivityTimerSeconds,
             SupporterGrowthAllowRewardScaleOverlay = rule.SupporterGrowthAllowRewardScaleOverlay,
             SupporterGrowthRequireCheerKeyword = rule.SupporterGrowthRequireCheerKeyword,
@@ -2157,7 +2156,6 @@ ChannelPointRules = [.. profile.ChannelPointRules.Select(ToPersistedRule)],
                 .Where(ruleId => ruleId != Guid.Empty)
                 .Distinct()),
             AdvancedRangeEnabled = rule.AdvancedRangeEnabled,
-            BypassVrChatScaleLimits = rule.BypassVrChatScaleLimits,
             ScaleMode = Enum.IsDefined(rule.ScaleMode) ? rule.ScaleMode : AvatarScaleMode.SetHeight,
             TargetHeightMeters = rule.TargetHeightMeters <= 0 ? 1.6 : rule.TargetHeightMeters,
             MinimumHeightMeters = rule.MinimumHeightMeters <= 0 ? 0.5 : rule.MinimumHeightMeters,
@@ -3947,8 +3945,6 @@ public List<PersistedTriggerRule>? ChannelPointRules { get; set; }
         public double SupporterGrowthTransitionSeconds { get; set; }
 
         public bool AdvancedRangeEnabled { get; set; }
-
-        public bool BypassVrChatScaleLimits { get; set; }
 
         public int SupporterGrowthInactivityTimerSeconds { get; set; }
 

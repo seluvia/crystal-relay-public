@@ -17,8 +17,6 @@ namespace VrcTwitchOscBridge.Tests;
 
 public sealed class AvatarSwapExistingRewardPickerRegressionTests
 {
-    private const string TestAccessToken = "test-" + "access-token";
-
     [Fact]
     public void InlineEditor_UsesVisibilityConverterAndKeepsExistingRewardBindings()
     {
@@ -323,7 +321,7 @@ public sealed class AvatarSwapExistingRewardPickerRegressionTests
         originalHttpClient.Dispose();
 
         await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => client.GetCustomRewardsAsync(
-            TestAccessToken,
+            "test-access-token",
             RuntimeConfig.DefaultTwitchClientId,
             "test-broadcaster-id")));
 
@@ -580,7 +578,7 @@ public sealed class AvatarSwapExistingRewardPickerRegressionTests
         originalApiClient.Dispose();
         SetPrivateField(vm, "runtimeConfigLoaded", true);
 
-        vm.Settings.Broadcaster.AccessToken = TestAccessToken;
+        vm.Settings.Broadcaster.AccessToken = string.Concat("test-", "access-token");
         vm.Settings.Broadcaster.UserId = "test-broadcaster-id";
         vm.Settings.Broadcaster.Login = "test-broadcaster";
         vm.Settings.Broadcaster.DisplayName = "Test Broadcaster";
