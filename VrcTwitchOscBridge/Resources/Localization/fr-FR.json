@@ -348,6 +348,7 @@
   "Built-In Commands | Crystal Relay": "Commandes intégrées | Crystal Relay",
   "Built-in Twitch app ready.": "Application Twitch intégrée prête.",
   "Built-in bot commands": "Commandes bot intégrées",
+  "Bypass VRChat world min/max": "Contournez le monde VRChat min/max",
   "CRYSTAL RELAY DEV": "DÉVELOPPEUR DE RELAIS CRISTAL",
   "CURRENT": "ACTUEL",
   "Cancel": "Annuler",
@@ -2010,6 +2011,7 @@
   "When enabled, normal Avatar Change rewards are blocked during active scaling. Bits + Subs override avatar changes can still run.": "Lorsqu’elles sont activées, les récompenses normales de Avatar Change sont bloquées lors de l’échelle active. Bits + Subs suppriment les changements d’avatar peuvent toujours fonctionner.",
   "When enabled, stable builds may offer beta updates from GitHub Releases. Beta builds always keep checking beta updates.": "Lorsqu’elles sont activées, les versions stables peuvent proposer des mises à jour bêta depuis les versions GitHub. Les versions bêta vérifient toujours les mises à jour bêta.",
   "When enabled, the connected bot posts one generated message when a Bits/Subs override runs. It shows the trigger amount, time added, and a compact list of configured paid override timers.": "Une fois activé, le bot connecté publie un message généré lorsqu’une Bits/Subs dérogation s’exécute. Il affiche le montant du déclenchement, le temps ajouté, et une liste compacte de minuteurs de dérogation payants configurés.",
+  "When enabled, this scale redeem ignores VRChat world min/max values. Worlds may still block extreme scaling, and very large or tiny values can be uncomfortable.": "Une fois activée, cette échelle de récupération ignore les valeurs de min/max du monde VRChat. Les mondes peuvent encore bloquer un scaling extrême, et des valeurs très grandes ou minuscules peuvent être inconfortables.",
   "When enabled, viewers can use !world to ask where the streamer is in VRChat. Crystal Relay only posts the public world name and world page link. It never posts the instance ID, invite/private suffix, nonce, region, or full VRChat location.": "Une fois activé, les spectateurs peuvent utiliser !world pour demander où se trouve le streamer dans VRChat. Crystal Relay ne publie que le nom public du monde et le lien vers la page du monde. Il ne publie jamais l’ID de l’instance, invite/private suffixe, nonce, région ou emplacement complet VRChat.",
   "When locked, child scale rewards are hidden or deleted until viewers redeem the master reward.": "Lorsqu’elles sont verrouillées, les récompenses de l’échelle enfant sont cachées ou supprimées jusqu’à ce que les spectateurs échangent la récompense principale.",
   "When trigger info announcements run, Crystal Relay can post the current numbered outfit list through the configured chat sender.": "Lorsque les annonces des informations de déclenchement sont lancées, Crystal Relay peut publier la liste des tenues numérotées actuelles via l’expéditeur du chat configuré.",
@@ -2123,5 +2125,6 @@
   "✨ Universal Triggers": "✨ Universal Triggers",
   "Advanced triggers (open full editor)": "Déclencheurs avancés (ouvrir l’éditeur complet)",
   "Advanced range is on. Crystal Relay accepts 0.01m to 10000m technically; extreme values can be uncomfortable or world-blocked.": "La plage avancée est activée. Crystal Relay accepte techniquement de 0,01 m à 10 000 m ; les valeurs extrêmes peuvent être inconfortables ou bloquées par le monde.",
-  "Safe range is 0.1m to 100m.": "La plage sûre va de 0,1 m à 100 m."
+  "Safe range is 0.1m to 100m.": "La plage sûre va de 0,1 m à 100 m.",
+  "VRChat world min/max will be bypassed for this redeem.": "Les limites min/max de hauteur du monde VRChat seront contournées pour ce redeem."
 }

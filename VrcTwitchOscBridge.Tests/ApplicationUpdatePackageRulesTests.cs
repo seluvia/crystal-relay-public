@@ -201,8 +201,10 @@ public sealed class ApplicationUpdatePackageRulesTests
     [Fact]
     public void GetInstallTargetDirectory_ReturnsCurrentDirectoryForBugFix()
     {
-        var source = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "Apps", "Crystal Relay"));
-        var package = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "Staging", "CrystalRelayBugFix-v3.2.0-bugfix1-win-x64"));
+        var driveRoot = Path.GetPathRoot(Environment.CurrentDirectory)
+            ?? throw new InvalidOperationException("The test environment has no filesystem root.");
+        var source = Path.GetFullPath(Path.Combine(driveRoot, "Apps", "Crystal Relay"));
+        var package = Path.GetFullPath(Path.Combine(driveRoot, "Staging", "CrystalRelayBugFix-v3.2.0-bugfix1-win-x64"));
 
         var target = ApplicationUpdatePackageRules.GetInstallTargetDirectory(
             ApplicationUpdateChannel.BugFix,
@@ -215,8 +217,10 @@ public sealed class ApplicationUpdatePackageRulesTests
     [Fact]
     public void GetInstallTargetDirectory_PreservesExistingStableRelocation()
     {
-        var source = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "Apps", "CrystalRelayTwitchOsc-v3.1.9-win-x64"));
-        var package = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "Staging", "CrystalRelayTwitchOsc-v3.2.0-win-x64"));
+        var driveRoot = Path.GetPathRoot(Environment.CurrentDirectory)
+            ?? throw new InvalidOperationException("The test environment has no filesystem root.");
+        var source = Path.GetFullPath(Path.Combine(driveRoot, "Apps", "CrystalRelayTwitchOsc-v3.1.9-win-x64"));
+        var package = Path.GetFullPath(Path.Combine(driveRoot, "Staging", "CrystalRelayTwitchOsc-v3.2.0-win-x64"));
 
         var target = ApplicationUpdatePackageRules.GetInstallTargetDirectory(
             ApplicationUpdateChannel.Stable,
@@ -224,7 +228,7 @@ public sealed class ApplicationUpdatePackageRulesTests
             package);
 
         Assert.Equal(
-            Path.GetFullPath(Path.Combine(Path.GetTempPath(), "Apps", "CrystalRelayTwitchOsc-v3.2.0-win-x64")),
+            Path.GetFullPath(Path.Combine(driveRoot, "Apps", "CrystalRelayTwitchOsc-v3.2.0-win-x64")),
             target,
             ignoreCase: true);
     }

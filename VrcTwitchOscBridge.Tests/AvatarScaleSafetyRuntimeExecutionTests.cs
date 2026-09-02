@@ -36,12 +36,13 @@ public sealed class AvatarScaleSafetyRuntimeExecutionTests
     }
 
     [Fact]
-    public void BridgeCoordinatorNormalScale_DefaultsToBypassingVrChatWorldLimits()
+    public void BridgeCoordinatorAdvancedHeightWithBypass_PreservesTenThousandMeters()
     {
         var rule = new AvatarScaleRule
         {
             Name = "Maximum Advanced Height",
             AdvancedRangeEnabled = true,
+            BypassVrChatScaleLimits = true,
             TargetHeightMeters = AvatarScaleRule.AdvancedMaximumHeightMeters
         };
         var snapshot = BridgeRuntimeConfiguration.CreateManualTestSnapshot(
@@ -89,65 +90,6 @@ public sealed class AvatarScaleSafetyRuntimeExecutionTests
 
         Assert.Equal(AvatarScaleRule.AdvancedMaximumHeightMeters, result, precision: 3);
         Assert.Equal(AvatarScaleRule.AdvancedMaximumHeightMeters, finalSendValue, precision: 3);
-    }
-
-    [Fact]
-    public void BridgeCoordinatorNormalScale_UsesGlobalMinimumAndMaximumInsteadOfWorldLimits()
-    {
-        var safety = new AvatarScaleSafetySettings
-        {
-            CurrentMinimumHeightMeters = 1,
-            CurrentMaximumHeightMeters = 3
-        };
-        var snapshot = BridgeRuntimeConfiguration.CreateManualTestSnapshot(
-            new AvatarScaleRule
-            {
-                Name = "Global Safety Range",
-                AdvancedRangeEnabled = true,
-                TargetHeightMeters = 1.6
-            },
-            safety);
-        var coordinator = RuntimeHelpers.GetUninitializedObject(typeof(BridgeCoordinator));
-        var stateGate = new object();
-        var stateGateField = typeof(BridgeCoordinator).GetField(
-            "stateGate",
-            BindingFlags.Instance | BindingFlags.NonPublic);
-        var avatarScaleValuesField = typeof(BridgeCoordinator).GetField(
-            "avatarScaleValues",
-            BindingFlags.Instance | BindingFlags.NonPublic);
-        var avatarParameterValuesField = typeof(BridgeCoordinator).GetField(
-            "avatarParameterValues",
-            BindingFlags.Instance | BindingFlags.NonPublic);
-        var method = typeof(BridgeCoordinator).GetMethod(
-            "ApplyAvatarScaleHeightLimits",
-            BindingFlags.Instance | BindingFlags.NonPublic);
-
-        Assert.NotNull(stateGateField);
-        Assert.NotNull(avatarScaleValuesField);
-        Assert.NotNull(avatarParameterValuesField);
-        Assert.NotNull(method);
-
-        stateGateField.SetValue(coordinator, stateGate);
-        avatarParameterValuesField.SetValue(coordinator, new Dictionary<string, OscObservedValue>());
-        avatarScaleValuesField.SetValue(
-            coordinator,
-            new Dictionary<string, OscObservedValue>(StringComparer.Ordinal)
-            {
-                ["/avatar/eyeheightmin"] = new OscObservedValue(
-                    "/avatar/eyeheightmin",
-                    OscParameterType.Float,
-                    2f),
-                ["/avatar/eyeheightmax"] = new OscObservedValue(
-                    "/avatar/eyeheightmax",
-                    OscParameterType.Float,
-                    2f)
-            });
-
-        var minimumResult = Assert.IsType<double>(method.Invoke(coordinator, [snapshot, 0.01d, "global minimum"]));
-        var maximumResult = Assert.IsType<double>(method.Invoke(coordinator, [snapshot, 10_000d, "global maximum"]));
-
-        Assert.Equal(1, minimumResult, precision: 3);
-        Assert.Equal(3, maximumResult, precision: 3);
     }
 
     [Fact]

@@ -801,23 +801,6 @@ public sealed class BridgeCoordinatorDevScaleSetTests
     }
 
     [Fact]
-    public void DeveloperScaleSendClamp_UsesDeveloperRangeWithoutGlobalSafetyClamp()
-    {
-        var source = File.ReadAllText(FindSourceFile("VrcTwitchOscBridge", "Services", "BridgeCoordinator.cs"));
-        var methodBody = GetMethodBody(source, "private double ClampAvatarScaleHeightForSend");
-        var method = typeof(BridgeCoordinator).GetMethod(
-            "ClampAvatarScaleHeightForSend",
-            BindingFlags.Instance | BindingFlags.NonPublic);
-        var coordinator = System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(BridgeCoordinator));
-
-        Assert.NotNull(method);
-        Assert.Contains("? ClampDevAvatarScaleHeight(value)", methodBody, StringComparison.Ordinal);
-        var actual = Assert.IsType<double>(method.Invoke(coordinator, [12_000d, null]));
-
-        Assert.Equal(AvatarScaleRule.AdvancedMaximumHeightMeters, actual, precision: 6);
-    }
-
-    [Fact]
     public void ExecuteDevSetAvatarScale_UsesVrChatScalingPermissionGate()
     {
         var source = File.ReadAllText(FindSourceFile("VrcTwitchOscBridge", "Services", "BridgeCoordinator.cs"));

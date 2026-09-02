@@ -673,26 +673,61 @@ public sealed class VrChatApiClient : IDisposable
         }
     }
 
-    private static string ResolvePlatform(IReadOnlyList<UnityPackageRecord>? unityPackages)
+    private static string ResolvePlatform(JsonElement? unityPackages)
     {
-        if (unityPackages is null || unityPackages.Count == 0)
+        if (!unityPackages.HasValue)
             return string.Empty;
 
         var hasPc = false;
         var hasQuest = false;
-        foreach (var pkg in unityPackages)
+
+        if (unityPackages.Value.ValueKind == JsonValueKind.Array)
         {
-            var p = pkg.Platform?.Trim();
-            if (string.Equals(p, "standalonewindows", StringComparison.OrdinalIgnoreCase))
-                hasPc = true;
-            else if (string.Equals(p, "android", StringComparison.OrdinalIgnoreCase))
-                hasQuest = true;
+            foreach (var package in unityPackages.Value.EnumerateArray())
+            {
+                AccumulatePlatform(package, ref hasPc, ref hasQuest);
+            }
+        }
+        else
+        {
+            // Some legacy avatar records return a scalar or object here instead of an array.
+            AccumulatePlatform(unityPackages.Value, ref hasPc, ref hasQuest);
         }
 
         if (hasPc && hasQuest) return "Both";
         if (hasPc) return "PC";
         if (hasQuest) return "Quest";
         return string.Empty;
+    }
+
+    private static void AccumulatePlatform(JsonElement package, ref bool hasPc, ref bool hasQuest)
+    {
+        var platform = package.ValueKind == JsonValueKind.String
+            ? package.GetString()
+            : GetObjectPlatform(package);
+        var normalizedPlatform = platform?.Trim();
+
+        if (string.Equals(normalizedPlatform, "standalonewindows", StringComparison.OrdinalIgnoreCase))
+            hasPc = true;
+        else if (string.Equals(normalizedPlatform, "android", StringComparison.OrdinalIgnoreCase))
+            hasQuest = true;
+    }
+
+    private static string? GetObjectPlatform(JsonElement package)
+    {
+        if (package.ValueKind != JsonValueKind.Object)
+            return null;
+
+        foreach (var property in package.EnumerateObject())
+        {
+            if (string.Equals(property.Name, "platform", StringComparison.OrdinalIgnoreCase)
+                && property.Value.ValueKind == JsonValueKind.String)
+            {
+                return property.Value.GetString();
+            }
+        }
+
+        return null;
     }
 
     private static (IReadOnlyList<string> StyleTags, IReadOnlyList<string> ContentTags) ExtractTags(IReadOnlyList<string>? tags)
@@ -1017,12 +1052,6 @@ public sealed class VrChatApiClient : IDisposable
         public string ReleaseStatus { get; set; } = string.Empty;
     }
 
-    private sealed class UnityPackageRecord
-    {
-        [JsonPropertyName("platform")]
-        public string? Platform { get; set; }
-    }
-
     private sealed class VrChatAvatarRecord
     {
         [JsonPropertyName("id")]
@@ -1047,7 +1076,7 @@ public sealed class VrChatApiClient : IDisposable
         public List<string>? Tags { get; set; }
 
         [JsonPropertyName("unityPackages")]
-        public List<UnityPackageRecord>? UnityPackages { get; set; }
+        public JsonElement? UnityPackages { get; set; }
     }
 
     public sealed class FavoriteGroupRecord

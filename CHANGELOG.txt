@@ -3,6 +3,12 @@ Crystal Relay Changelog
 
 Newest updates appear first. This changelog focuses on the changes users will notice most.
 
+v3.2.0 bug fix 6
+- Fixed VRChat avatar loading after sign-in when avatar data contains legacy or unexpected `unityPackages` metadata. Crystal Relay now ignores unusable optional platform metadata instead of failing the entire avatar list, while normal PC/Quest selection continues to work.
+- Avatar Scaling now always follows the configured global minimum and maximum height rules, with advanced height settings supporting values up to 10,000 m.
+- Fixed Movement Redeems reward-sync and Cash Payment trigger options, and improved World links, Protected World Guard, World Guard administration, Avatar Scaling Master Reward colors, Avatar Swap reward linking, Activity Resume recovery, updater processing, and managed Avatar Set cooldown colors.
+- Avatar Swap now supports standalone Twitch chat commands and more reliable supporter-rule timing, while VRChat login, OSC-only test sessions, OSCQuery lifecycle handling, activity timers, and avatar-scoped cleanup remain hardened across reconnects, stops, restarts, and avatar changes.
+
 v3.2.0 bug fix 5
 - Removed the per-rule Avatar Scaling checkbox for bypassing VRChat world min/max limits.
 - Avatar Scaling now always follows the configured global minimum and maximum height rules.
