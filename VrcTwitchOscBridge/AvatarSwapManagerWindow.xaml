@@ -332,8 +332,8 @@
                 <!-- Left cards + right editor -->
                 <Grid Grid.Row="1">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="220" />
+                        <ColumnDefinition Width="*" MinWidth="0" />
                     </Grid.ColumnDefinitions>
 
                     <!-- Left grid -->
@@ -453,7 +453,10 @@
                     </StackPanel>
 
                     <!-- Right editor: ContentControl that swaps between rule list and per-rule full editor -->
-                    <ContentControl Grid.Column="1" Content="{Binding RightPaneContent}">
+                    <ContentControl Grid.Column="1"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Stretch"
+                                    Content="{Binding RightPaneContent}">
                         <ContentControl.Resources>
                             <!-- List view: one DataTemplate, content differs by Kind -->
                             <DataTemplate DataType="{x:Type uc:RuleListPaneViewModel}">
@@ -461,7 +464,9 @@
                                     <!-- Swap list -->
                                     <Border Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="10"
                                             Visibility="{Binding Kind, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter=Swap}">
-                                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                        <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                                                      VerticalScrollBarVisibility="Auto"
+                                                      HorizontalContentAlignment="Stretch">
                                             <StackPanel>
                                                 <DockPanel Margin="0,0,0,8">
                                                     <Border Width="40" Height="40" Background="{DynamicResource NestedPanelBrush}" CornerRadius="5" Margin="0,0,8,0" ClipToBounds="True">
@@ -483,7 +488,8 @@
                                                 <Border Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2,0,0,0" CornerRadius="0,3,3,0" Padding="6,3" Margin="0,0,0,4">
                                                     <TextBlock Text="🏆 Channel Points" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextBrush}" />
                                                 </Border>
-                                                <ItemsControl ItemsSource="{Binding DataContext.ChannelPointRows, RelativeSource={RelativeSource AncestorType=Window}}">
+                                                <ItemsControl ItemsSource="{Binding DataContext.ChannelPointRows, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                              HorizontalContentAlignment="Stretch">
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
                                                             <uc:InlineChannelPointRuleRowControl />
@@ -495,7 +501,8 @@
                                                 <Border Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2,0,0,0" CornerRadius="0,3,3,0" Padding="6,3" Margin="0,0,0,4">
                                                     <TextBlock Text="💎 Bits" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextBrush}" />
                                                 </Border>
-                                                <ItemsControl ItemsSource="{Binding DataContext.BitsRows, RelativeSource={RelativeSource AncestorType=Window}}">
+                                                <ItemsControl ItemsSource="{Binding DataContext.BitsRows, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                              HorizontalContentAlignment="Stretch">
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
                                                             <uc:InlineBitsRuleRowControl />
@@ -507,7 +514,8 @@
                                                 <Border Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2,0,0,0" CornerRadius="0,3,3,0" Padding="6,3" Margin="0,0,0,4">
                                                     <TextBlock Text="⚡ Power Up" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextBrush}" />
                                                 </Border>
-                                                <ItemsControl ItemsSource="{Binding DataContext.PowerUpRows, RelativeSource={RelativeSource AncestorType=Window}}">
+                                                <ItemsControl ItemsSource="{Binding DataContext.PowerUpRows, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                              HorizontalContentAlignment="Stretch">
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
                                                             <uc:InlinePowerUpRuleRowControl />
@@ -519,7 +527,8 @@
                                                 <Border Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2,0,0,0" CornerRadius="0,3,3,0" Padding="6,3" Margin="0,0,0,4">
                                                     <TextBlock Text="⭐ Subs" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextBrush}" />
                                                 </Border>
-                                                <ItemsControl ItemsSource="{Binding DataContext.SubsRows, RelativeSource={RelativeSource AncestorType=Window}}">
+                                                <ItemsControl ItemsSource="{Binding DataContext.SubsRows, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                              HorizontalContentAlignment="Stretch">
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
                                                             <uc:InlineSubsRuleRowControl />
@@ -531,7 +540,8 @@
                                                 <Border Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2,0,0,0" CornerRadius="0,3,3,0" Padding="6,3" Margin="0,0,0,4">
                                                     <TextBlock Text="💵 Payment" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextBrush}" />
                                                 </Border>
-                                                <ItemsControl ItemsSource="{Binding DataContext.PaymentRows, RelativeSource={RelativeSource AncestorType=Window}}">
+                                                <ItemsControl ItemsSource="{Binding DataContext.PaymentRows, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                              HorizontalContentAlignment="Stretch">
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
                                                             <uc:InlinePaymentRuleRowControl />
@@ -541,7 +551,8 @@
                                                 <Button Content="+ Add Payment Trigger" Command="{Binding DataContext.AddPaymentRuleCommand, RelativeSource={RelativeSource AncestorType=Window}}" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Left" Margin="0,4,0,8" />
 
                                                 <TextBlock Text="{loc:Translate 'Advanced triggers (open full editor)'}" Foreground="{DynamicResource MutedBrush}" FontSize="10" Margin="0,8,0,4" />
-                                                <ItemsControl ItemsSource="{Binding DataContext.AdvancedRows, RelativeSource={RelativeSource AncestorType=Window}}">
+                                                <ItemsControl ItemsSource="{Binding DataContext.AdvancedRows, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                              HorizontalContentAlignment="Stretch">
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
                                                             <uc:InlineRouletteRuleRowControl />
@@ -564,7 +575,9 @@
                                     <!-- Roulette list -->
                                     <Border Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="10"
                                             Visibility="{Binding Kind, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter=Roulette}">
-                                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                        <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                                                      VerticalScrollBarVisibility="Auto"
+                                                      HorizontalContentAlignment="Stretch">
                                             <StackPanel>
                                                 <TextBlock Text="Roulette Name" Foreground="{DynamicResource MutedBrush}" FontSize="10" Margin="0,0,0,2" />
                                                 <TextBox Text="{Binding DataContext.SelectedRouletteCard.Roulette.Name, RelativeSource={RelativeSource AncestorType=Window}, UpdateSourceTrigger=PropertyChanged}"
@@ -573,7 +586,8 @@
                                                 <Border Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2,0,0,0" CornerRadius="0,3,3,0" Padding="6,3" Margin="0,0,0,4">
                                                     <TextBlock Text="🎲 Pool" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextBrush}" />
                                                 </Border>
-                                                <ItemsControl ItemsSource="{Binding DataContext.RoulettePoolRows, RelativeSource={RelativeSource AncestorType=Window}}">
+                                                <ItemsControl ItemsSource="{Binding DataContext.RoulettePoolRows, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                              HorizontalContentAlignment="Stretch">
                                                     <ItemsControl.ItemsPanel>
                                                         <ItemsPanelTemplate>
                                                             <WrapPanel />
@@ -611,7 +625,8 @@
                                                 <Border Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2,0,0,0" CornerRadius="0,3,3,0" Padding="6,3" Margin="0,0,0,4">
                                                     <TextBlock Text="🏆 Channel Points" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextBrush}" />
                                                 </Border>
-                                                <ItemsControl ItemsSource="{Binding DataContext.RouletteChannelPointRows, RelativeSource={RelativeSource AncestorType=Window}}">
+                                                <ItemsControl ItemsSource="{Binding DataContext.RouletteChannelPointRows, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                              HorizontalContentAlignment="Stretch">
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
                                                             <uc:InlineChannelPointRuleRowControl />
@@ -623,7 +638,8 @@
                                                 <Border Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2,0,0,0" CornerRadius="0,3,3,0" Padding="6,3" Margin="0,0,0,4">
                                                     <TextBlock Text="💎 Bits" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextBrush}" />
                                                 </Border>
-                                                <ItemsControl ItemsSource="{Binding DataContext.RouletteBitsRows, RelativeSource={RelativeSource AncestorType=Window}}">
+                                                <ItemsControl ItemsSource="{Binding DataContext.RouletteBitsRows, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                              HorizontalContentAlignment="Stretch">
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
                                                             <uc:InlineBitsRuleRowControl />
@@ -635,7 +651,8 @@
                                                 <Border Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2,0,0,0" CornerRadius="0,3,3,0" Padding="6,3" Margin="0,0,0,4">
                                                     <TextBlock Text="⭐ Subs" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextBrush}" />
                                                 </Border>
-                                                <ItemsControl ItemsSource="{Binding DataContext.RouletteSubsRows, RelativeSource={RelativeSource AncestorType=Window}}">
+                                                <ItemsControl ItemsSource="{Binding DataContext.RouletteSubsRows, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                              HorizontalContentAlignment="Stretch">
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
                                                             <uc:InlineSubsRuleRowControl />
@@ -645,7 +662,8 @@
                                                 <Button Content="+ Add Sub Trigger" Command="{Binding DataContext.AddAdvancedTriggerCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="Subscriptions" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Left" Margin="0,4,0,8" />
 
                                                 <TextBlock Text="{loc:Translate 'Advanced triggers (open full editor)'}" Foreground="{DynamicResource MutedBrush}" FontSize="10" Margin="0,4,0,4" />
-                                                <ItemsControl ItemsSource="{Binding DataContext.RouletteAdvancedRows, RelativeSource={RelativeSource AncestorType=Window}}">
+                                                <ItemsControl ItemsSource="{Binding DataContext.RouletteAdvancedRows, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                              HorizontalContentAlignment="Stretch">
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
                                                             <uc:InlineRouletteRuleRowControl />

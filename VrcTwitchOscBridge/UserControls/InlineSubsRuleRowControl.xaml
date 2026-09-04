@@ -27,17 +27,21 @@
             </Setter>
         </Style>
     </UserControl.Resources>
-    <Border Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1" Padding="8,6" CornerRadius="4" Margin="0,0,0,4">
-        <DockPanel>
-            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+    <Border Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1" Padding="8,6" CornerRadius="4" Margin="0,0,0,4" HorizontalAlignment="Stretch">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="{Binding Summary}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                       Foreground="{DynamicResource TextBrush}" ToolTip="{Binding Summary}" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                 <Button Content="⚙" Style="{StaticResource RowIconButtonStyle}" Margin="0,0,2,0"
                         Foreground="{DynamicResource TextBrush}"
                         Command="{Binding EditCommand}" ToolTip="{loc:Translate 'Edit'}" />
                 <Button Content="🗑" Style="{StaticResource RowIconButtonStyle}"
                         Command="{Binding DeleteCommand}" ToolTip="{loc:Translate 'Delete'}" />
             </StackPanel>
-            <TextBlock Text="{Binding Summary}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
-                       Foreground="{DynamicResource TextBrush}" ToolTip="{Binding Summary}" />
-        </DockPanel>
+        </Grid>
     </Border>
 </UserControl>

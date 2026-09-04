@@ -3,6 +3,10 @@ Crystal Relay Changelog
 
 Newest updates appear first. This changelog focuses on the changes users will notice most.
 
+v3.2.0 bug fix 7
+- Fixed Avatar Swap editor popups growing beyond the available width when roulette pools contain many avatars; pool items now wrap within the editor.
+- Fixed long Avatar Swap reward summaries hiding Edit/Delete controls. Summaries now use an ellipsis with the full text available on hover while the actions stay visible.
+
 v3.2.0 bug fix 6
 - Fixed VRChat avatar loading after sign-in when avatar data contains legacy or unexpected `unityPackages` metadata. Crystal Relay now ignores unusable optional platform metadata instead of failing the entire avatar list, while normal PC/Quest selection continues to work.
 - Avatar Scaling now always follows the configured global minimum and maximum height rules, with advanced height settings supporting values up to 10,000 m.
