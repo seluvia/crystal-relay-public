@@ -337,7 +337,12 @@
                     </Grid.ColumnDefinitions>
 
                     <!-- Left grid -->
-                    <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                    <ScrollViewer Grid.Column="0"
+                                  Margin="0,0,10,0"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  HorizontalContentAlignment="Stretch">
+                        <StackPanel>
                         <Border Background="{DynamicResource NestedPanelBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="0,0,0,2" CornerRadius="4" Padding="8,4" Margin="0,0,0,8">
                             <TextBlock Text="Avatar Swaps" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
                         </Border>
@@ -450,7 +455,8 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                         <Button Content="+ Add Roulette" Command="{Binding AddRouletteCommand}" Style="{StaticResource SecondaryButtonStyle}" HorizontalAlignment="Left" Padding="10,5" Margin="0,6,0,0" />
-                    </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
 
                     <!-- Right editor: ContentControl that swaps between rule list and per-rule full editor -->
                     <ContentControl Grid.Column="1"

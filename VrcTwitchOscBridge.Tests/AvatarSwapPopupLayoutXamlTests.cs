@@ -46,12 +46,30 @@ public sealed class AvatarSwapPopupLayoutXamlTests
     }
 
     [Fact]
+    public void AvatarSwapManager_LeftCardPaneScrollsIndependently()
+    {
+        var document = LoadSourceFile("VrcTwitchOscBridge", "AvatarSwapManagerWindow.xaml");
+        var cardPane = document.Descendants().SingleOrDefault(element =>
+            IsElement(element, "ScrollViewer")
+            && AttributeValue(element, "Grid.Column") == "0"
+            && AttributeValue(element, "VerticalScrollBarVisibility") == "Auto");
+
+        Assert.NotNull(cardPane);
+        Assert.Equal("Disabled", AttributeValue(cardPane!, "HorizontalScrollBarVisibility"));
+        Assert.Equal("Stretch", AttributeValue(cardPane, "HorizontalContentAlignment"));
+        Assert.NotNull(cardPane.Descendants().SingleOrDefault(element =>
+            IsElement(element, "ItemsControl")
+            && AttributeValue(element, "ItemsSource") == "{Binding SwapCards}"));
+    }
+
+    [Fact]
     public void AvatarSwapManager_RewardListsAndRoulettePoolCannotCreateHorizontalOverflow()
     {
         var document = LoadSourceFile("VrcTwitchOscBridge", "AvatarSwapManagerWindow.xaml");
         var listScrollViewers = document.Descendants()
             .Where(element =>
                 IsElement(element, "ScrollViewer")
+                && AttributeValue(element, "Grid.Column") is null
                 && AttributeValue(element, "VerticalScrollBarVisibility") == "Auto")
             .ToArray();
 

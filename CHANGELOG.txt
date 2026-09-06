@@ -3,6 +3,10 @@ Crystal Relay Changelog
 
 Newest updates appear first. This changelog focuses on the changes users will notice most.
 
+v3.2.0 bug fix 8
+- Fixed Avatar Swap cards below the available window height becoming unreachable. The left Avatar Swaps card list now scrolls independently while the Return Avatar bar and right-side editor stay visible.
+- Added layout regression coverage for the independent card-pane scrollbar while preserving wrapped cards and preventing horizontal overflow.
+
 v3.2.0 bug fix 7
 - Fixed Avatar Swap editor popups growing beyond the available width when roulette pools contain many avatars; pool items now wrap within the editor.
 - Fixed long Avatar Swap reward summaries hiding Edit/Delete controls. Summaries now use an ellipsis with the full text available on hover while the actions stay visible.
